@@ -281,7 +281,7 @@ jobs:
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         continue-on-error: true
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
@@ -448,7 +448,7 @@ jobs:
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         continue-on-error: true
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
@@ -561,7 +561,7 @@ jobs:
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         continue-on-error: true
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
