@@ -261,7 +261,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.27.0
 
@@ -433,7 +433,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.27.0
 
@@ -546,7 +546,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.27.0
 
