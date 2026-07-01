@@ -403,7 +403,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Download Electron updater manifest artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: electron-*
           path: ${{ runner.temp }}/electron-dist
