@@ -1,0 +1,19 @@
+{
+  "name": "Excel 文件处理",
+  "installedAt": 1782877037862,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082401071824896",
+  "examples_zh": [
+    "创建一个季度财务报表 Excel",
+    "读取这个 Excel 文件并分析数据",
+    "帮我添加一个数据透视表"
+  ],
+  "examples_en": [
+    "Create a quarterly financial report in Excel",
+    "Read and analyze this Excel file",
+    "Add a pivot table to this spreadsheet"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/minimax-xlsx.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/minimax-xlsx.svg"
+}

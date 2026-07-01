@@ -1,0 +1,18 @@
+{
+  "name": "语音转文字API",
+  "installedAt": 1782877249192,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082526543831040",
+  "examples_zh": [
+    "用Whisper API把这段音频转成文字",
+    "转录这段英文演讲内容",
+    "把客服录音批量转文字"
+  ],
+  "examples_en": [
+    "Transcribe this audio file using Whisper API",
+    "Convert this English speech to text",
+    "Batch transcribe customer service recordings"
+  ],
+  "iconSource": "letter:auto"
+}

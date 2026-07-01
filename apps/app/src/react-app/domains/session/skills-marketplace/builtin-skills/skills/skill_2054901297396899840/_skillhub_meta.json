@@ -1,0 +1,19 @@
+{
+  "name": "企查查（工商信息）",
+  "installedAt": 1782877105979,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2054901297396899840",
+  "examples_zh": [
+    "帮我查下腾讯科技有限公司的股东结构和实际控制人",
+    "查一下华为技术有限公司的注册资本和成立时间",
+    "帮我做一下字节跳动的全面背调，包括基本信息、高管和财务"
+  ],
+  "examples_en": [
+    "Look up the shareholder structure and actual controller of Tencent Technology Co., Ltd.",
+    "Check the registered capital and founding date of Huawei Technologies Co., Ltd.",
+    "Do a full background check on ByteDance including basic info, executives and financials"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_3827c1c6-cc3.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_3827c1c6-cc3.svg"
+}

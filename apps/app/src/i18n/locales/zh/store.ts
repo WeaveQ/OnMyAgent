@@ -1,0 +1,40 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "store.add_skill": "添加技能",
+  "store.all_experts": "全部专家",
+  "store.experts_marketplace": "专家市场",
+  "store.my_skills": "我的技能",
+  "store.no_connectors_hint":
+    "在设置中配置连接器后即可在此处使用。",
+  "store.no_connectors_installed": "暂未安装任何连接器",
+  "store.no_skills_installed": "暂未安装任何技能",
+  "store.place_skill_prefix": "把 SKILL.md 放到",
+  "store.place_skill_suffix": "下，就会出现在这里。",
+  "store.search_skills": "搜索技能",
+  "store.local_skills_desc": "从本地扫描所有可用的技能",
+  "store.scope_builtin_desc": "随 OnMyAgent 安装包提供，只读可用",
+  "store.scope_local_desc":
+    "从 .opencode/skills、~/.config/opencode/skills、~/.claude/skills、~/.agents/skills 等目录扫描到",
+  "store.scope_onmyagent_desc":
+    "通过 OnMyAgent 安装或创建，存放在 ~/.onmyagent/skills",
+  "store.skills_marketplace": "技能市场",
+  "store.upload": "上传",
+  "skills_marketplace.category_all": "全部",
+  "skills_marketplace.category_opc": "OPC-一人公司",
+  "skills_marketplace.category_life": "生活服务",
+  "skills_marketplace.category_developer": "开发工具",
+  "skills_marketplace.category_deploy": "网站部署",
+  "skills_marketplace.category_education": "教育学习",
+  "skills_marketplace.category_finance": "投资理财",
+  "skills_marketplace.category_content": "内容创作",
+  "skills_marketplace.category_news": "信息资讯",
+  "skills_marketplace.category_productivity": "效率工具",
+  "skills_marketplace.category_office": "办公协同",
+  "skills_marketplace.category_business": "商业运营",
+  "skills_marketplace.category_data": "数据分析",
+  "skills_marketplace.category_knowledge": "知识与学习",
+  "skills_marketplace.install": "安装技能",
+  "skills_marketplace.install_skill": "安装 {name}",
+  "skills_marketplace.installed": "已安装",
+} as const;

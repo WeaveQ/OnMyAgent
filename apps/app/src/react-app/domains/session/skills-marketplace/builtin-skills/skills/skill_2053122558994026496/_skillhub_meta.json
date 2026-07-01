@@ -1,0 +1,19 @@
+{
+  "name": "腾讯电子签",
+  "installedAt": 1782885595966,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053122558994026496",
+  "examples_zh": [
+    "帮我看看这份租房合同有没有对我不利的条款，我最担心押金和提前退租",
+    "帮我草拟一份二手相机买卖协议：A牌相机8000元，当面一手交钱一手交货，验机满意后签字，不退不换",
+    "劳动合同期限1年，最多可以约定多长试用期？请给我相关法条原文"
+  ],
+  "examples_en": [
+    "Review this rental contract for unfavorable terms—I'm worried about deposit and early termination",
+    "Draft a used camera sale agreement: 8000 yuan, in-person handover, no returns after signing",
+    "What's the maximum probation period for a 1-year labor contract? Show me the legal text"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-esign-contract.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-esign-contract.svg"
+}

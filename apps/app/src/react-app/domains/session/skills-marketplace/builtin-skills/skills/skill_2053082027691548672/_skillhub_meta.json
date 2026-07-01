@@ -1,0 +1,19 @@
+{
+  "name": "github",
+  "installedAt": 1782877143045,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082027691548672",
+  "examples_zh": [
+    "列出我GitHub仓库里所有开放的Issue",
+    "查看最新PR的审查意见",
+    "检查CI流水线是否通过"
+  ],
+  "examples_en": [
+    "List all open issues in my GitHub repo",
+    "Check the review comments on the latest PR",
+    "Verify if the CI pipeline passed"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/github.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/github.svg"
+}

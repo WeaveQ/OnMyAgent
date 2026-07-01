@@ -1,0 +1,19 @@
+{
+  "name": "Web Access（浏览器自动化）",
+  "installedAt": 1782877043290,
+  "source": "marketplace",
+  "version": "2.5.3",
+  "skillId": "skill_2053083109158420480",
+  "examples_zh": [
+    "搜索并对比三个竞品产品的功能特点",
+    "帮我查看小红书上关于这个话题的热门内容",
+    "登录后台导出本月报表数据"
+  ],
+  "examples_en": [
+    "Search and compare features of three competing products",
+    "Browse Xiaohongshu for trending content on this topic",
+    "Log into the admin dashboard and export this month's report"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/web-access.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/web-access.svg"
+}

@@ -1,0 +1,101 @@
+.turbo/
+node_modules/
+apps/desktop/dist-electron/
+packages/*/node_modules/
+apps/*/node_modules/
+ee/apps/*/node_modules/
+ee/packages/*/node_modules/
+.next/
+out/
+dist/
+packages/*/dist/
+apps/*/dist/
+ee/apps/*/dist/
+ee/packages/*/dist/
+ee/apps/inference/models-site/models/api.json
+tmp/
+.build/
+graphify-out/
+.codex/graphify-venv/
+.codex/graphify-code-input/
+
+# Local git worktrees
+_worktrees/
+
+# Desktop local runtime artifacts (do not commit)
+apps/desktop/resources/sidecars/
+apps/desktop/resources/runtimes/
+apps/desktop/resources/runtime-downloads/*
+!apps/desktop/resources/runtime-downloads/README.md
+apps/desktop/resources/helpers/
+apps/desktop/server/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Bun build artifacts
+*.bun-build
+apps/server/cli
+
+# pnpm store (created by Docker volume mounts)
+.pnpm-store/
+
+# Docker dev workspace (ephemeral mount point)
+packaging/docker/workspace/
+
+# OS
+.DS_Store
+
+# OpenCode mirror
+vendor/opencode/
+
+# OpenCode project config kept in git:
+# - .opencode/opencode.json
+# - .opencode/agents/**
+# - .opencode/commands/**
+# - .opencode/plugins/**
+# - .opencode/skills/**
+# OpenCode local deps/runtime/test artifacts:
+.opencode/node_modules/
+.opencode/bun.lock
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/ui-smoke-bin/
+.opencode/ui-smoke-data/
+.opencode/ui-smoke-workspace/
+.opencode/ui-smoke-userdata/
+.opencode/personal-agent-memory-probe.mjs
+.opencode/personal-agent-ui-smoke.mjs
+.opencode/personal-agent-memory-probe*/
+.opencode/personal-agent-ui-smoke/
+
+# OnMyAgent workspace-local artifacts
+.opencode/onmyagent/
+.opencode/agents/onmyagent.md
+.opencode/agent-management.json
+.opencode/onmyagent.json
+.opencode/personal-assistant/
+.opencode/personal-local-agent-runs/
+.opencode/personal-local-agent-sessions/
+.vercel
+.env*.local
+.claude/*
+.onmyagent/*
+.gitnexus
+
+# Local-only docs (not uploaded)
+doc/
+reports/*
+.learnings/
+opencode.jsonc
+
+# Agent loop runtime artifacts (local only, not uploaded)
+.loop/*
+.memsearch/*
+
+# Native/build caches
+**/.build/
+**/__pycache__/
+*.pyc

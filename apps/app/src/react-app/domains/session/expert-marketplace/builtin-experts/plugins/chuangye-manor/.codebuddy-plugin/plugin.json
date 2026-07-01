@@ -1,0 +1,73 @@
+{
+  "name": "chuangye-manor",
+  "version": "1.0.0",
+  "description": "Startup Manor Coach - A lighthouse mentor for OPC entrepreneurs based on Lin Zhenggang's 50-year enterprise management methodology",
+  "author": {
+    "name": "QClaw",
+    "email": "contact@6fenyi.com"
+  },
+  "agents": [
+    "./agents/chuangye-manor.md"
+  ],
+  "skills": [
+    "./skills/manor-host",
+    "./skills/manor-judge",
+    "./skills/knowledge-sequence",
+    "./skills/knowledge-gtm",
+    "./skills/knowledge-business",
+    "./skills/knowledge-org",
+    "./skills/knowledge-growth"
+  ],
+  "expertType": "agent",
+  "agentName": "chuangye-manor",
+  "displayName": {
+    "en": "Lin Zhenggang",
+    "zh": "林正刚"
+  },
+  "profession": {
+    "en": "Entrepreneurship Coach",
+    "zh": "创业教练"
+  },
+  "displayDescription": {
+    "en": "A 24/7 lighthouse mentor for OPC entrepreneurs. Based on Lin Zhenggang's 50-year enterprise management framework, helps founders make the right choices, follow the right sequence, and take the right actions.",
+    "zh": "创业庄园的24小时灯塔，基于林正刚老师50年企业管理经验框架，帮助OPC创业者把选择做对、顺序做对、行为做对。擅长GTM策略、客户定位、销售阶段管理。"
+  },
+  "avatar": "avatars/expert.jpg",
+  "categoryId": "12-IndustryConsultant",
+  "defaultInitPrompt": {
+    "zh": "我有一个产品想法，但不知道从哪里开始找客户",
+    "en": "I have a product idea but don't know where to start with finding customers"
+  },
+  "tags": [
+    {
+      "en": "Entrepreneurship Coaching",
+      "zh": "创业教练"
+    },
+    {
+      "en": "GTM Strategy",
+      "zh": "GTM策略"
+    },
+    {
+      "en": "OPC Startup",
+      "zh": "OPC一人公司"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "en": "I have a product idea but don't know where to start with finding customers",
+      "zh": "我有一个产品想法，但不知道从哪里开始找客户"
+    },
+    {
+      "en": "I'm very busy every day but feel like nothing is progressing",
+      "zh": "我每天很忙，但感觉什么都没有推进"
+    },
+    {
+      "en": "How do I define my target customer group?",
+      "zh": "我该怎么定义我的目标客户？"
+    }
+  ],
+  "categoryIds": [
+    "01-OPC",
+    "12-IndustryConsultant"
+  ]
+}

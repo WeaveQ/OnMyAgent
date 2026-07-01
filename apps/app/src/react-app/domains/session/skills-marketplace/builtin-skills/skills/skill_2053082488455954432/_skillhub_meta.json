@@ -1,0 +1,18 @@
+{
+  "name": "AI网文创作",
+  "installedAt": 1782877130355,
+  "source": "marketplace",
+  "version": "1.2.1",
+  "skillId": "skill_2053082488455954432",
+  "examples_zh": [
+    "帮我为一部都市修仙网文设计新书设定、大纲和前三十章节奏表，避免战力体系前后冲突",
+    "检查我这条双主角复仇线的伏笔清单，标出人物动机、时间线和回收章节的矛盾点",
+    "根据读者评论总结爽点、弃书点和CP偏好，并调整下一卷剧情节奏"
+  ],
+  "examples_en": [
+    "Plan a new urban cultivation web novel with worldbuilding, arc outline, and pacing for the first 30 chapters while avoiding power-system conflicts",
+    "Audit my dual-protagonist revenge subplot for foreshadowing, character motivation, timeline, and payoff conflicts",
+    "Analyze reader comments to identify satisfaction points, drop-off reasons, and romance preferences, then adjust the next volume outline"
+  ],
+  "iconSource": "letter:auto"
+}

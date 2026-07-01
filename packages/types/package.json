@@ -1,0 +1,54 @@
+{
+  "name": "@onmyagent/types",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./den/desktop-app-restrictions": {
+      "types": "./src/den/desktop-app-restrictions.ts",
+      "development": "./src/den/desktop-app-restrictions.ts",
+      "default": "./src/den/desktop-app-restrictions.ts"
+    },
+    "./den/desktop-policies": {
+      "types": "./src/den/desktop-policies.ts",
+      "development": "./src/den/desktop-policies.ts",
+      "default": "./src/den/desktop-policies.ts"
+    },
+    "./den/inference": {
+      "types": "./src/den/inference.ts",
+      "development": "./src/den/inference.ts",
+      "default": "./src/den/inference.ts"
+    },
+    "./session-archive": {
+      "types": "./src/session-archive.ts",
+      "development": "./src/session-archive.ts",
+      "default": "./src/session-archive.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "development": "./src/server.ts",
+      "default": "./src/server.ts"
+    }
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.6.3"
+  },
+  "license": "Apache-2.0"
+}

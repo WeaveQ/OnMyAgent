@@ -1,0 +1,19 @@
+{
+  "name": "腾讯游戏防沉迷家长管控助手",
+  "installedAt": 1782877079509,
+  "source": "marketplace",
+  "version": "1.0.9",
+  "skillId": "skill_2071538269614088192",
+  "examples_zh": [
+    "孩子玩游戏时间太长，我该怎么设置限制？",
+    "怎么查孩子最近在玩哪些游戏？",
+    "孩子用我的账号玩游戏，有什么办法管住？"
+  ],
+  "examples_en": [
+    "My child plays games for too long. How can I set limits?",
+    "How can I check which games my child has played recently?",
+    "My child uses my account to play games. How can I manage it?"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2071538269614088192/e9cbdcca9df67789.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2071538269614088192/e9cbdcca9df67789.png"
+}

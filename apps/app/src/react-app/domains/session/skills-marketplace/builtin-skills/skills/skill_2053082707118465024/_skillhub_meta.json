@@ -1,0 +1,19 @@
+{
+  "name": "MCP开发指南",
+  "installedAt": 1782885627959,
+  "source": "marketplace",
+  "version": "1.0.5",
+  "skillId": "skill_2053082707118465024",
+  "examples_zh": [
+    "帮我用Python的FastMCP创建一个MCP服务器",
+    "如何用Node.js实现一个MCP工具",
+    "帮我设计一个调用高德地图API的MCP工具"
+  ],
+  "examples_en": [
+    "Help me create an MCP server with Python FastMCP",
+    "How to implement an MCP tool in Node.js?",
+    "Design an MCP tool that calls a map API"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/mcp-builder.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/mcp-builder.svg"
+}

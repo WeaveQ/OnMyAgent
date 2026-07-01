@@ -1,0 +1,17 @@
+[
+  {
+    "id": "T1",
+    "prompt": "设置页看起来还是不统一，全局扫一下主题色并给我报告。",
+    "expected": "Reads project state, runs theme token scans, classifies hits into fix/review/keep, proposes minimal fixes, and includes concrete validation commands."
+  },
+  {
+    "id": "T2",
+    "prompt": "每个设置页面截图检查，不要漏，看看标题和中英文有没有问题。",
+    "expected": "Builds a settings page inventory, checks i18n/copy consistency, captures screenshots when tooling is available, and returns a page-by-page report with evidence."
+  },
+  {
+    "id": "T3",
+    "prompt": "这个弹窗的选中态颜色不对，修完怎么验证？",
+    "expected": "Locates the relevant component, patches design-system token usage, runs focused scans and typecheck, and describes screenshot verification."
+  }
+]

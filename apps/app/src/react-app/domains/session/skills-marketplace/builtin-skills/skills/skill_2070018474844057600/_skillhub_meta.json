@@ -1,0 +1,19 @@
+{
+  "name": "QQ浏览器自动化",
+  "installedAt": 1782877066883,
+  "source": "marketplace",
+  "version": "0.9.0",
+  "skillId": "skill_2070018474844057600",
+  "examples_zh": [
+    "打开搜狗搜索今天北京天气，把搜索结果第一条的天气信息告诉我",
+    "在这个登录页面填写用户名和密码，提交前先让我确认",
+    "访问这个商品页，截图并告诉我价格和评分"
+  ],
+  "examples_en": [
+    "Open Sogou and search for Beijing weather today, tell me the weather info from the first result",
+    "Fill in the username and password on this login page, let me confirm before submitting",
+    "Visit this product page, take a screenshot and tell me the price and rating"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2070018474844057600/c6a0177265f46a89.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2070018474844057600/c6a0177265f46a89.png"
+}

@@ -1,0 +1,92 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "welcome.title": `Welcome to ${APP_NAME}`,
+  "welcome.subtitle": "Your computer, but it works for you.",
+  "welcome.get_started": "Get started",
+  "welcome.create_workspace": "Create workspace",
+  "welcome.login_title": `Sign in to ${APP_NAME}`,
+  "welcome.login_description":
+    "Use your account before creating the first workspace.",
+  "welcome.login_username": "Username",
+  "welcome.login_email": "Email",
+  "welcome.login_password": "Password",
+  "welcome.login_required": "Enter your username and password.",
+  "welcome.login_invalid": "Username or password is incorrect.",
+  "welcome.login_failed": "Failed to sign in with the local account.",
+  "welcome.login_submit": "Sign in",
+  "welcome.login_submitting": "Signing in...",
+  "welcome.capability_spreadsheets": "Edit spreadsheets",
+  "welcome.capability_spreadsheets_desc":
+    "Create, clean, and transform CSV and Excel files.",
+  "welcome.capability_browser": "Control your browser",
+  "welcome.capability_browser_desc":
+    "Automate the built-in browser for repetitive web tasks.",
+  "welcome.capability_files": "Organize files",
+  "welcome.capability_files_desc": "Read, write, and manage files and folders.",
+  "welcome.capability_automate": "Automate tasks",
+  "welcome.capability_automate_desc":
+    "Build reusable workflows with skills and commands.",
+  "welcome.capability_content": "Generate content",
+  "welcome.capability_content_desc": "Draft documents, emails, and reports.",
+  "welcome.capability_apis": "Connect to APIs",
+  "welcome.capability_apis_desc":
+    "Plug into external services and tools via MCP.",
+  "welcome.capability_team_hubs": "Team skill hubs",
+  "welcome.capability_team_hubs_desc":
+    "Save approved skills for your organization.",
+  "welcome.capability_team_provision": "Provision your team",
+  "welcome.capability_team_provision_desc":
+    "Manage workspaces, models, and permissions.",
+  "welcome.folder_title": "Pick a folder",
+  "welcome.folder_explanation": `This folder becomes your workspace. ${APP_NAME} will be able to:`,
+  "welcome.folder_read": "Read files you put in there",
+  "welcome.folder_write": "Create and edit files for you",
+  "welcome.folder_anything":
+    "Work with spreadsheets, docs, images \u2014 anything in the folder",
+  "welcome.folder_drop_hint": `Drop files in anytime and ${APP_NAME} can pick them up.`,
+  "welcome.folder_no_folder_selected_yet": "No folder selected yet.",
+  "welcome.folder_select_folder": "Select folder",
+  "welcome.steps_heading": "Get started",
+  "welcome.step1_title": "Select a folder",
+  "welcome.step1_desc":
+    "Pick any folder on your machine to create a workspace.",
+  "welcome.step2_title": "Chat",
+  "welcome.step2_desc": `Describe what you need. ${APP_NAME} handles the rest.`,
+  "welcome.step3_title": "Interact",
+  "welcome.step3_desc": "Review results, approve actions, and iterate.",
+  "welcome.showcase_heading_line1": "Your computer,",
+  "welcome.showcase_heading_line2": "but it works for you.",
+  "welcome.about_you": "About you",
+  "welcome.assistant_name": "Name your personal assistant",
+  "welcome.choose_workspace_body":
+    "Choose the workspace OnMyAgent should use. Files created by OnMyAgent will be saved in this folder.",
+  "welcome.choose_workspace_title": "Choose a workspace",
+  "welcome.common_tools": "Tools you use",
+  "welcome.create_workspace_failed": "Failed to create the workspace.",
+  "welcome.frequent_tasks": "Things you often do",
+  "welcome.get_acquainted": "Let's get acquainted",
+  "welcome.hello_prefix": "Hi, I'm",
+  "welcome.industry": "Industry",
+  "welcome.intro":
+    "Your AI workspace. Complete three quick steps to start working smarter.",
+  "welcome.local_workspace_body":
+    "Create a working directory on this device and choose the folder where you want to collaborate with AI.",
+  "welcome.local_workspace_label": "Local workspace:",
+  "welcome.local_workspace_title": "Local workspace",
+  "welcome.no_folder_selected": "No folder selected",
+  "welcome.remote_workspace_body":
+    "Connect to a self-hosted OnMyAgent workspace with a URL and access token.",
+  "welcome.remote_workspace_title": "Connect a remote workspace",
+  "welcome.role": "Role",
+  "welcome.select_workspace_failed": "Failed to select a workspace.",
+  "welcome.shared_workspace_body":
+    "Browse cloud workspaces shared by your organization and connect in one step.",
+  "welcome.shared_workspace_title": "Shared workspace",
+  "welcome.skip": "Skip",
+  "welcome.skip_all": "Skip all",
+  "welcome.start_setup": "Start setup",
+  "welcome.work_habits": "Work habits",
+  "welcome.your_name": "Your name",
+  "welcome.your_name_placeholder": "Enter your name",
+} as const;

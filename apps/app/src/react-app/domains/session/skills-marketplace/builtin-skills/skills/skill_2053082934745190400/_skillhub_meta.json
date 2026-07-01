@@ -1,0 +1,19 @@
+{
+  "name": "tencent-weather",
+  "installedAt": 1782877122519,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082934745190400",
+  "examples_zh": [
+    "深圳最近天气怎么样?",
+    "明天会下雨吗?",
+    "查询本地天气预报"
+  ],
+  "examples_en": [
+    "What's the weather like in Shenzhen?",
+    "Will it rain tomorrow?",
+    "Check the local weather forecast"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-weather.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-weather.svg"
+}

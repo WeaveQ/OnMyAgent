@@ -1,0 +1,19 @@
+{
+  "name": "全网比价（买手）",
+  "installedAt": 1782885598900,
+  "source": "marketplace",
+  "version": "1.0.4",
+  "skillId": "skill_2054902471860740096",
+  "examples_zh": [
+    "帮我搜索 iPhone 16 Pro 256G 在淘宝、京东、拼多多的价格和可用优惠券",
+    "比较戴森 V12 吸尘器在天猫、京东和抖音电商的到手价，并给出购买链接",
+    "按关键词\"人体工学椅\"查找多平台高性价比商品，列出券后价和店铺信息"
+  ],
+  "examples_en": [
+    "Search for iPhone 16 Pro 256GB prices and available coupons across Taobao, JD, and Pinduoduo",
+    "Compare the final prices for the Dyson V12 vacuum on Tmall, JD, and Douyin e-commerce and provide purchase links",
+    "Find value-for-money ergonomic chairs across major Chinese e-commerce platforms, including coupon prices and shop details"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_1e882309-c20.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_1e882309-c20.svg"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Web Deploy GitHub Pages",
+  "installedAt": 1782885618028,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2054901635562160128",
+  "examples_zh": [
+    "把这个静态网页部署到 GitHub Pages",
+    "帮我做一个作品集页面并发布到 GitHub Pages",
+    "给这个落地页创建 GitHub Pages 自动部署"
+  ],
+  "examples_en": [
+    "Deploy this static webpage to GitHub Pages",
+    "Create a portfolio page and publish it on GitHub Pages",
+    "Set up GitHub Pages deployment for this landing page"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_13467c11-3a0.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_13467c11-3a0.svg"
+}

@@ -1,0 +1,57 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "composer.agent_label": "Agent",
+  "composer.any_file_type_supported": "Any file type is supported.",
+  "composer.attach_files": "Attach files",
+  "composer.attachments_unavailable": "Attachments are unavailable.",
+  "composer.behavior_label": "Behavior",
+  "composer.configure": "Configure",
+  "composer.default_agent": "Default agent",
+  "composer.file_exceeds_limit": "{name} exceeds the 8MB limit.",
+  "composer.file_kind": "File",
+  "composer.image_kind": "Image",
+  "composer.inserted_links_unsupported":
+    "Inserted links for unsupported files.",
+  "composer.loading_commands": "Loading commands...",
+  "composer.mcps_label": "MCPs",
+  "composer.no_commands": "No commands found.",
+  "composer.placeholder": "What can I help with today? @ reference conversation files, / use skills and commands",
+  "composer.remote_worker_paste_warning":
+    "This is a remote worker. Sandboxes are remote too. To share files with it, upload them to the Shared folder in the sidebar.",
+  "composer.run_task": "Run task",
+  "composer.skill_source": "Skill",
+  "composer.stop": "Stop",
+  "composer.tools_label": "Commands, skills, and MCPs",
+  "composer.upload_to_shared_folder": "Upload to shared folder",
+  "composer.uploaded_multiple_files":
+    "Uploaded {count} files to the shared folder and inserted links.",
+  "composer.uploaded_single_file":
+    "Uploaded {name} to the shared folder and inserted a link.",
+  "composer.access_default": "Default permissions",
+  "composer.access_default_desc": "Ask for approval only when needed",
+  "composer.access_full": "Full access",
+  "composer.access_full_desc":
+    "Automatically approve permission requests for this task",
+  "composer.access_high_risk": "High risk",
+  "composer.collaboration_choose_mode": "Choose collaboration modes",
+  "composer.collaboration_mode": "Collaboration",
+  "composer.collaboration_mode_info": "{mode} details",
+  "composer.collaboration_tools_builtin": "Tools - Built-in",
+  "composer.collaboration_craft": "Craft",
+  "composer.collaboration_craft_desc": "Recommended. Can operate on files and run commands.",
+  "composer.collaboration_craft_tools": "File and system operations, task management, web search",
+  "composer.collaboration_ask": "Ask",
+  "composer.collaboration_ask_desc": "Read files only",
+  "composer.collaboration_ask_tools": "File reading",
+  "composer.collaboration_plan": "Plan",
+  "composer.collaboration_plan_desc": "Best for multi-step planning",
+  "composer.collaboration_plan_tools": "File reading",
+  "composer.collaboration_planning": "Plan mode",
+  "composer.collaboration_planning_desc":
+    "Break down steps, risks, and verification first",
+  "composer.collaboration_pursue_goal": "Pursue goal",
+  "composer.collaboration_pursue_goal_desc":
+    "Keep working toward the goal and check progress",
+  "composer.send_message": "Send message",
+} as const;

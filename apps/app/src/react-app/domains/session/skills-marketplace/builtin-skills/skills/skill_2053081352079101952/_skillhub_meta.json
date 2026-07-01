@@ -1,0 +1,19 @@
+{
+  "name": "Apple提醒事项",
+  "installedAt": 1782877240478,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053081352079101952",
+  "examples_zh": [
+    "添加一个明天早上9点的提醒：吃药",
+    "查看今天所有未完成的提醒",
+    "把这个任务标记为已完成"
+  ],
+  "examples_en": [
+    "Add a reminder for tomorrow at 9am to take medicine",
+    "Show all incomplete reminders for today",
+    "Mark this task as completed"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/apple-reminders.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/apple-reminders.png"
+}

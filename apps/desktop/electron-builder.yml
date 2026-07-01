@@ -1,0 +1,98 @@
+# IMPORTANT: appId intentionally matches the previous Tauri shell so both
+# builds share the same macOS bundle identifier, keychain entries, Launchpad
+# slot, and TCC permissions. In-place migration from Tauri to Electron
+# depended on this; the migration is now complete and this identifier is
+# retained for continuity.
+appId: com.differentai.onmyagent
+productName: OnMyAgent
+protocols:
+  - name: OnMyAgent
+    schemes:
+      - onmyagent
+directories:
+  output: dist-electron
+files:
+  - electron/**/*
+  - server/**/*
+  - package.json
+extraResources:
+  - from: ../app/dist
+    to: app-dist
+  - from: resources/bundled-skills
+    to: bundled-skills
+  - from: resources/runtimes
+    to: runtimes
+asar: true
+npmRebuild: false
+afterPack: scripts/electron-after-pack.cjs
+afterSign: scripts/electron-after-sign.cjs
+# electron-updater feed. Matches the existing release workflow's GitHub target.
+publish:
+  - provider: github
+    owner: WeaveQ
+    repo: onmyagent
+    releaseType: release
+mac:
+  icon: resources/icons/icon.icns
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  notarize: false
+  extendInfo:
+    NSMicrophoneUsageDescription: OnMyAgent uses the microphone when you start Voice Mode so you can speak commands to your agent.
+  extraResources:
+    - from: resources/sidecars
+      to: sidecars
+      filter:
+        - opencode
+        - opencode-aarch64-apple-darwin
+        - opencode-x86_64-apple-darwin
+        - onmyagent-orchestrator
+        - onmyagent-orchestrator-aarch64-apple-darwin
+        - onmyagent-orchestrator-x86_64-apple-darwin
+        - versions.json
+        - versions.json-aarch64-apple-darwin
+        - versions.json-x86_64-apple-darwin
+    - from: resources/helpers
+      to: helpers
+      filter:
+        - "OnMyAgent Computer Use.app/**"
+  target:
+    - dmg
+    - zip
+linux:
+  icon: resources/icons/icon.png
+  extraResources:
+    - from: resources/sidecars
+      to: sidecars
+      filter:
+        - opencode
+        - opencode-aarch64-unknown-linux-gnu
+        - opencode-x86_64-unknown-linux-gnu
+        - onmyagent-orchestrator
+        - onmyagent-orchestrator-aarch64-unknown-linux-gnu
+        - onmyagent-orchestrator-x86_64-unknown-linux-gnu
+        - versions.json
+        - versions.json-aarch64-unknown-linux-gnu
+        - versions.json-x86_64-unknown-linux-gnu
+  target:
+    - AppImage
+    - tar.gz
+win:
+  icon: resources/icons/icon.ico
+  extraResources:
+    - from: resources/sidecars
+      to: sidecars
+      filter:
+        - opencode.exe
+        - opencode-aarch64-pc-windows-msvc.exe
+        - opencode-x86_64-pc-windows-msvc.exe
+        - onmyagent-orchestrator.exe
+        - onmyagent-orchestrator-aarch64-pc-windows-msvc.exe
+        - onmyagent-orchestrator-x86_64-pc-windows-msvc.exe
+        - versions.json
+        - versions.json-aarch64-pc-windows-msvc.exe
+        - versions.json-x86_64-pc-windows-msvc.exe
+  target:
+    - nsis
+artifactName: onmyagent-${os}-${arch}-${version}.${ext}

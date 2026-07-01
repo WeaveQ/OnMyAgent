@@ -1,0 +1,19 @@
+{
+  "name": "小白理财教练",
+  "installedAt": 1782885570256,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2060352746075840512",
+  "examples_zh": [
+    "我月光族，想开始理财但不知道从哪下手",
+    "每月存 2000 块，20 年后大概能有多少钱？",
+    "朋友推荐我买原始股，年化承诺 30%，靠谱吗？"
+  ],
+  "examples_en": [
+    "I live paycheck to paycheck and want to start managing my money — where do I begin?",
+    "If I save 2000 a month for 20 years, how much will I have?",
+    "A friend recommended pre-IPO shares promising 30% annual return — is that legit?"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2060352746075840512/f59a776e173a9bb6.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2060352746075840512/f59a776e173a9bb6.png"
+}

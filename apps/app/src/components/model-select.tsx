@@ -1,0 +1,222 @@
+"use client";
+
+import * as React from "react";
+import { ChevronDown, Settings2 } from "lucide-react";
+
+import type { ModelOption, ModelRef } from "@/app/types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Command,
+  CommandCollection,
+  CommandEmpty,
+  CommandGroup,
+  CommandGroupLabel,
+  CommandHeader,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { t } from "@/i18n";
+import { MenuRowButton } from "@/components/ui/action-row";
+
+function getProviderDisplayName(providerId: string) {
+  return providerId
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function groupByProvider(modelOptions: ModelOption[]) {
+  const groups = new Map<string, ModelOption[]>();
+
+  for (const option of modelOptions) {
+    const providerLabel = option.description ?? getProviderDisplayName(option.providerID);
+    const existing = groups.get(providerLabel);
+
+    if (existing) {
+      existing.push(option);
+      continue;
+    }
+
+    groups.set(providerLabel, [option]);
+  }
+
+  return [...groups.entries()].map(([providerLabel, options]) => ({
+    value: providerLabel,
+    items: options,
+  }));
+}
+
+function isSameModel(a: ModelRef, b: ModelRef) {
+  return a.providerID === b.providerID && a.modelID === b.modelID;
+}
+
+export interface ModelSelectViewProps {
+  open: boolean;
+  value: ModelRef;
+  onOpenChange: (open: boolean) => void;
+  onChange: (model: ModelRef) => void;
+  disabled?: boolean;
+  options: ModelOption[];
+  renderProviderIcon?: (option: ModelOption) => React.ReactNode;
+  onOpenModelPicker?: () => void;
+}
+
+export function ModelSelectView({
+  open,
+  value,
+  onOpenChange,
+  onChange,
+  disabled = false,
+  options,
+  renderProviderIcon,
+  onOpenModelPicker,
+}: ModelSelectViewProps) {
+  const [search, setSearch] = React.useState("");
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  const focusSearchInput = React.useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const input = searchInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.select();
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    focusSearchInput();
+  }, [focusSearchInput, open]);
+
+  const selectedOption = options.find((option) =>
+    isSameModel(value, {
+      providerID: option.providerID,
+      modelID: option.modelID,
+    }),
+  );
+
+  const groups = React.useMemo(() => groupByProvider(options), [options]);
+
+  const handleSelect = (option: ModelOption) => {
+    onChange({ providerID: option.providerID, modelID: option.modelID });
+    setSearch("");
+    onOpenChange(false);
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+
+        if (!nextOpen) {
+          setSearch("");
+        }
+      }}
+    >
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              type="button"
+              disabled={disabled}
+              aria-label={t("settings.model_change")}
+              aria-keyshortcuts="Meta+Alt+/"
+              className="flex h-9 max-w-44 shrink min-w-0 items-center gap-1 rounded-md px-2 text-sm font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+            />
+          }
+        >
+          <span className="min-w-0 truncate">
+            {selectedOption?.title ?? value.modelID ?? t("session.default_model")}
+          </span>
+          <ChevronDown className="size-3.5 shrink-0" />
+        </TooltipTrigger>
+        <TooltipContent>
+          {t("settings.model_change")}
+        </TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden p-px **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
+        align="start"
+        initialFocus={false}
+      >
+        <Command items={groups} value={search} onValueChange={setSearch}>
+          <CommandHeader>
+            <CommandInput
+              ref={searchInputRef}
+              placeholder={t("settings.search_models")}
+            />
+          </CommandHeader>
+          <CommandEmpty>{t("settings.no_models_found")}</CommandEmpty>
+          <CommandList>
+            {(group) => (
+              <CommandGroup
+                key={group.value}
+                items={group.items}
+              >
+                <CommandGroupLabel>{group.value}</CommandGroupLabel>
+                <CommandCollection>
+                  {(option: ModelOption) => (
+                    <CommandItem
+                      className="gap-2"
+                      key={`${option.providerID}:${option.modelID}`}
+                      value={`${option.providerID}:${option.modelID}`}
+                      onClick={() => handleSelect(option)}
+                      data-checked={isSameModel(value, option)}
+                    >
+                      {renderProviderIcon?.(option)}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-foreground">
+                          {option.title}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {option.description ??
+                            getProviderDisplayName(option.providerID)}
+                        </span>
+                      </span>
+                    </CommandItem>
+                  )}
+                </CommandCollection>
+              </CommandGroup>
+            )}
+          </CommandList>
+          {/* Link to full model picker */}
+          <div className="border-t border-border px-2 py-1.5">
+            <MenuRowButton
+              type="button"
+              align="center"
+              density="compact"
+              className="text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                onOpenChange(false);
+                setSearch("");
+                onOpenModelPicker?.();
+              }}
+            >
+              <Settings2 className="size-3.5" />
+              {t("settings.model_all_models")}
+            </MenuRowButton>
+          </div>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}

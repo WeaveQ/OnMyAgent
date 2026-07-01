@@ -1,0 +1,19 @@
+{
+  "name": "金山文档|WPS云文档",
+  "installedAt": 1782877061170,
+  "source": "marketplace",
+  "version": "2.5.7",
+  "skillId": "skill_2053082745828995072",
+  "examples_zh": [
+    "把这段接龙内容整理成表格",
+    "把这个网页存到我的金山文档里",
+    "帮我把这些零散笔记整理归档到一个文档"
+  ],
+  "examples_en": [
+    "Convert this chain message into a table",
+    "Save this webpage to my Kdocs",
+    "Organize these scattered notes into a document"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/kdocs.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/kdocs.svg"
+}

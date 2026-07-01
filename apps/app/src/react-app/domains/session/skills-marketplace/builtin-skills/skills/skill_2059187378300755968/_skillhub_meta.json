@@ -1,0 +1,19 @@
+{
+  "name": "AI师傅课程制作",
+  "installedAt": 1782877125078,
+  "source": "marketplace",
+  "version": "1.0.4",
+  "skillId": "skill_2059187378300755968",
+  "examples_zh": [
+    "帮我把这份课程大纲转成AI师傅互动课",
+    "优化这节课的Teaching Prompt",
+    "部署课程到AI师傅平台"
+  ],
+  "examples_en": [
+    "Convert this course outline into an AI-Shifu interactive course",
+    "Optimize the Teaching Prompt for this lesson",
+    "Deploy the course to the AI-Shifu platform"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2059187378300755968/0d0dd2562d2ee229.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2059187378300755968/0d0dd2562d2ee229.png"
+}

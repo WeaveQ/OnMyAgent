@@ -1,0 +1,19 @@
+{
+  "name": "12306",
+  "installedAt": 1782885584272,
+  "source": "marketplace",
+  "version": "1.0.3",
+  "skillId": "skill_2053079107781726208",
+  "examples_zh": [
+    "查询明天上海虹桥到南京南的高铁时刻和二等座余票。",
+    "帮我查广州南到长沙南今天下午 3 点后的列车和余票情况。",
+    "查询北京西站和北京南站的站点信息，并确认去郑州东的车次从哪个站发车。"
+  ],
+  "examples_en": [
+    "Check tomorrow's high-speed train schedules and second-class seat availability from Shanghai Hongqiao to Nanjing South.",
+    "Find trains from Guangzhou South to Changsha South after 3 PM today and show remaining tickets.",
+    "Look up station information for Beijing West and Beijing South, then identify which station has trains to Zhengzhou East."
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/12306.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/12306.svg"
+}

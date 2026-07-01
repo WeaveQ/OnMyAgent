@@ -1,0 +1,18 @@
+{
+  "name": "网页自动化",
+  "installedAt": 1782877064334,
+  "source": "marketplace",
+  "version": "1.0.2",
+  "skillId": "skill_2053078982015520768",
+  "examples_zh": [
+    "启动 agent-browser 会话，获取仪表盘页面快照和元素 refs，点击\"新建项目\"并返回结构化 JSON。",
+    "在同一个浏览器会话中打开后台列表页，按快照中的 refs 依次设置搜索词、状态筛选和分页。",
+    "抓取结算页的紧凑快照，定位优惠码输入框 ref，输入测试码后输出订单总价变化。"
+  ],
+  "examples_en": [
+    "Start an agent-browser session, capture the dashboard snapshot with element refs, click \"New Project,\" and return structured JSON.",
+    "In the same browser session, open the admin list page and use snapshot refs to set the search term, status filter, and pagination.",
+    "Capture a compact checkout-page snapshot, locate the coupon input ref, enter a test code, and output the order total change."
+  ],
+  "iconSource": "letter:auto"
+}

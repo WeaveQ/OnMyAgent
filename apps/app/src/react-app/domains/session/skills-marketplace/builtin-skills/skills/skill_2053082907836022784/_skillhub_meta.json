@@ -1,0 +1,19 @@
+{
+  "name": "腾讯新闻",
+  "installedAt": 1782877050011,
+  "source": "marketplace",
+  "version": "1.1.0",
+  "skillId": "skill_2053082907836022784",
+  "examples_zh": [
+    "使用 tencent-news 获取今天的热点新闻",
+    "用 tencent-news skill 给我看今天的早报",
+    "使用 tencent-news skill 查看今天的晚报"
+  ],
+  "examples_en": [
+    "Use tencent-news to show me trending stories today",
+    "Use tencent-news skill to show today's morning briefing",
+    "Use tencent-news skill to show today's evening briefing"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-news.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-news.svg"
+}

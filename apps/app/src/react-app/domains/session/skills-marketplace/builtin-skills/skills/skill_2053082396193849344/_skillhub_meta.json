@@ -1,0 +1,19 @@
+{
+  "name": "Word 文档生成",
+  "installedAt": 1782877044992,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082396193849344",
+  "examples_zh": [
+    "生成一份项目方案 Word 文档",
+    "帮我把这段内容写成 Word 报告",
+    "创建一个带表格的合同模板"
+  ],
+  "examples_en": [
+    "Generate a project proposal as a Word document",
+    "Write this content as a Word report",
+    "Create a contract template with tables"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/minimax-docx.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/minimax-docx.svg"
+}

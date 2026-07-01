@@ -1,0 +1,19 @@
+{
+  "name": "flyai",
+  "installedAt": 1782877252426,
+  "source": "marketplace",
+  "version": "1.0.10",
+  "skillId": "skill_2053082253590822912",
+  "examples_zh": [
+    "用飞猪帮我查 8 月 1 日北京到三亚的机票和亚龙湾附近酒店，适合两大一小。",
+    "搜索上海周末可去的热门景点门票和演唱会票，并给出飞猪预订入口。",
+    "帮我找国庆期间杭州到厦门的机票、酒店和当地一日游套餐。"
+  ],
+  "examples_en": [
+    "Use Fliggy to search August 1 flights from Beijing to Sanya and hotels near Yalong Bay for two adults and one child.",
+    "Find weekend attraction tickets and concert tickets in Shanghai with Fliggy booking options.",
+    "Search Fliggy for National Day flights, hotels, and local day tours from Hangzhou to Xiamen."
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/flyai.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/flyai.png"
+}

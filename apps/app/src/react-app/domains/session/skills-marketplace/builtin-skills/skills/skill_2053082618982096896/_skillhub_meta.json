@@ -1,0 +1,19 @@
+{
+  "name": "腾讯文档 PDFKit",
+  "installedAt": 1782877062026,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2053082618982096896",
+  "examples_zh": [
+    "帮我把这份 PDF 转成 Word",
+    "提取这个 PDF 里的所有表格数据",
+    "把这两个 PDF 合并成一个，加上页码和水印"
+  ],
+  "examples_en": [
+    "Convert this PDF to Word",
+    "Extract all tables from this PDF",
+    "Merge these two PDFs and add page numbers and watermarks"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/pdfkit-py.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/pdfkit-py.png"
+}

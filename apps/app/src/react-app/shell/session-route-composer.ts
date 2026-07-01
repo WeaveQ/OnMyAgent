@@ -1,0 +1,257 @@
+import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
+import type { ComposerAttachment, ComposerDraft, ModelRef } from "../../app/types";
+import type { Language } from "../../i18n";
+
+export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
+
+export function routeForSettingsSection(section: SettingsSection) {
+  if (section === "skills") return "/settings/skills";
+  if (section === "mcps") return "/settings/extensions/mcp";
+  if (section === "plugins") return "/settings/extensions/plugins";
+  return "/settings/general";
+}
+
+export function updateDefaultModelPrefs<T extends {
+  defaultModel?: ModelRef | null;
+  modelVariant?: string | null;
+}>(previous: T, model: ModelRef): T {
+  return {
+    ...previous,
+    defaultModel: model,
+    modelVariant:
+      previous.defaultModel?.providerID === model.providerID &&
+      previous.defaultModel.modelID === model.modelID
+        ? previous.modelVariant
+        : null,
+  };
+}
+
+export function joinSystemParts(parts: Array<string | null | undefined>) {
+  return parts.filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
+}
+
+export function buildLanguageSystemPrompt(locale: Language) {
+  if (locale === "zh") {
+    return [
+      "语言偏好：当前界面语言是简体中文。",
+      "除非用户明确要求其他语言，面向用户的回答、思考过程摘要、计划、状态说明和总结都尽量使用简体中文。",
+      "代码、命令、文件名、API 名称、专有名词和引用原文可以保留原语言。",
+    ].join("\n");
+  }
+  if (locale === "zh-TW") {
+    return [
+      "語言偏好：目前介面語言是繁體中文。",
+      "除非使用者明確要求其他語言，面向使用者的回答、思考過程摘要、計劃、狀態說明和總結都盡量使用繁體中文。",
+      "程式碼、命令、檔案名稱、API 名稱、專有名詞和引用原文可以保留原語言。",
+    ].join("\n");
+  }
+  return [
+    "Language preference: the current interface language is English.",
+    "Unless the user explicitly asks for another language, write user-facing answers, reasoning/progress summaries, plans, status notes, and final summaries in English.",
+    "Code, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
+  ].join("\n");
+}
+
+export function resolveDraftSendPlan(input: {
+  selectedSessionId: string | null;
+  forceNewSession: boolean;
+  pageMode: "assistant" | "expert";
+  assistantDraftWorkspaceRoot: string;
+  sessionWorkspaceRoot: string;
+}) {
+  const needsNewSession = !input.selectedSessionId || input.forceNewSession;
+  const explicitDraftWorkspace = needsNewSession
+    ? input.assistantDraftWorkspaceRoot.trim()
+    : "";
+  const explicitAssistantWorkspace =
+    input.pageMode === "assistant"
+      ? explicitDraftWorkspace
+      : "";
+  return {
+    needsNewSession,
+    initialSessionId: needsNewSession ? null : input.selectedSessionId,
+    explicitAssistantWorkspace,
+    taskWorkspaceRoot: explicitDraftWorkspace || input.sessionWorkspaceRoot,
+  };
+}
+
+export function resolveDraftText(draft: Pick<ComposerDraft, "resolvedText" | "text">) {
+  return (draft.resolvedText ?? draft.text).trim();
+}
+
+export function draftHasSendableContent(draft: Pick<ComposerDraft, "attachments" | "resolvedText" | "text">) {
+  return resolveDraftText(draft).length > 0 || draft.attachments.length > 0;
+}
+
+export function applySessionAccessMode(
+  current: Record<string, ComposerDraft["accessMode"] | "default">,
+  sessionId: string,
+  accessMode: ComposerDraft["accessMode"] | undefined,
+) {
+  const nextAccessMode = accessMode ?? "default";
+  return current[sessionId] === nextAccessMode
+    ? current
+    : { ...current, [sessionId]: nextAccessMode };
+}
+
+export async function fileToDataUrl(file: File) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () =>
+      reject(new Error(`Failed to read attachment: ${file.name}`));
+    reader.onload = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsDataURL(file);
+  });
+}
+
+export function isModelNativeAttachment(attachment: ComposerAttachment) {
+  return attachment.kind === "image" && attachment.mimeType.startsWith("image/");
+}
+
+export function sanitizeUploadFilename(name: string) {
+  const normalized = name.trim().replace(/[/\\]+/g, "-");
+  return normalized || "attachment";
+}
+
+export function inboxRelativePath(path: string) {
+  return `.opencode/onmyagent/inbox/${path}`.replace(/\/+/g, "/");
+}
+
+export function inboxAbsolutePath(workspaceRoot: string, path: string) {
+  const root = workspaceRoot.trim();
+  if (!root) return inboxRelativePath(path);
+  return `${root}/${inboxRelativePath(path)}`.replace(/\/+/g, "/");
+}
+
+export function buildCollaborationModeSystemPrompt(
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!mode) return null;
+  const kind =
+    mode.kind === "craft" || mode.kind === "ask" || mode.kind === "plan"
+      ? mode.kind
+      : mode.planning
+        ? "plan"
+        : null;
+  const instructions: string[] = [];
+  if (kind === "craft") {
+    instructions.push(
+      "Craft 协作模式：默认端到端推进用户目标；可以按需读取和修改文件、运行本地命令、管理任务、联网搜索并产出可交付结果。执行高风险或破坏性操作前先请求确认。",
+    );
+  }
+  if (kind === "ask") {
+    instructions.push(
+      "Ask 协作模式：以问答和解释为主；默认只读取必要文件与上下文，不主动修改文件、不运行会产生副作用的命令、不创建任务。若需要写入、执行命令或改变外部状态，先向用户说明并请求确认。",
+    );
+  }
+  if (kind === "plan") {
+    instructions.push(
+      "Plan 协作模式：先制定清晰的多步骤计划，说明目标、范围、风险、验证方式和下一步；默认只读取必要文件与上下文。除非用户明确要求执行计划，否则不要直接修改文件或运行有副作用的命令。",
+    );
+  }
+  if (kind === "craft" || mode.pursueGoal) {
+    instructions.push(
+      "追求目标：持续围绕用户目标推进，主动跟踪完成状态；遇到阻塞时说明阻塞并寻找可行替代路径。",
+    );
+  }
+  if (instructions.length === 0) return null;
+  return `协作模式系统提示词：\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`;
+}
+
+export async function draftToParts(
+  draft: ComposerDraft,
+  workspaceRoot: string,
+  options?: {
+    uploadAttachment?: (
+      attachment: ComposerAttachment,
+      uploadPath: string,
+    ) => Promise<{ path: string }>;
+  },
+) {
+  const parts: Array<TextPartInput | FilePartInput | AgentPartInput> = [];
+  const root = workspaceRoot.trim();
+
+  const toAbsolutePath = (path: string) => {
+    const trimmed = path.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("/")) return trimmed;
+    if (/^[a-zA-Z]:\\/.test(trimmed)) return trimmed;
+    if (!root) return "";
+    return `${root}/${trimmed}`.replace(/\/\/+/g, "/");
+  };
+
+  const filenameFromPath = (path: string) => {
+    const normalized = path.replace(/\\/g, "/");
+    const segments = normalized.split("/").filter(Boolean);
+    return segments[segments.length - 1] ?? "file";
+  };
+
+  for (const part of draft.parts) {
+    if (part.type === "text") {
+      parts.push({ type: "text", text: part.text });
+      continue;
+    }
+    if (part.type === "paste") {
+      parts.push({ type: "text", text: part.text });
+      continue;
+    }
+    if (part.type === "agent") {
+      parts.push({ type: "agent", name: part.name });
+      continue;
+    }
+    if (part.type === "file") {
+      const absolute = toAbsolutePath(part.path);
+      if (!absolute) continue;
+      parts.push({
+        type: "file",
+        mime: "text/plain",
+        url: `file://${absolute}`,
+        filename: filenameFromPath(part.path),
+      });
+    }
+  }
+
+  const uploadedFiles: Array<{
+    name: string;
+    mimeType: string;
+    relativePath: string;
+    absolutePath: string;
+  }> = [];
+
+  for (const [index, attachment] of draft.attachments.entries()) {
+    if (isModelNativeAttachment(attachment) || !options?.uploadAttachment) {
+      parts.push({
+        type: "file",
+        url: await fileToDataUrl(attachment.file),
+        filename: attachment.name,
+        mime: attachment.mimeType,
+      });
+      continue;
+    }
+
+    const uploadPath = `session-uploads/${Date.now()}-${index}-${sanitizeUploadFilename(attachment.name)}`;
+    const uploaded = await options.uploadAttachment(attachment, uploadPath);
+    uploadedFiles.push({
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      relativePath: inboxRelativePath(uploaded.path),
+      absolutePath: inboxAbsolutePath(root, uploaded.path),
+    });
+  }
+
+  if (uploadedFiles.length > 0) {
+    parts.push({
+      type: "text",
+      text: [
+        "用户上传了以下文件。不要把这些文件当作模型原生文件输入；如果任务需要处理文件，请使用本地工具或已配置的对应 skill，并直接读取这些本地路径：",
+        ...uploadedFiles.map(
+          (file) =>
+            `- ${file.name} (${file.mimeType || "application/octet-stream"}): ${file.absolutePath}（工作区相对路径：${file.relativePath}）`,
+        ),
+      ].join("\n"),
+    });
+  }
+
+  return parts;
+}

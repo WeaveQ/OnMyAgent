@@ -1,0 +1,30 @@
+{
+  "name": "onmyagent-ui-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for OnMyAgent UI control — exposes snapshot, actions, and execute as MCP tools",
+  "author": "OnMyAgent Contributors",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "onmyagent-ui-mcp": "index.mjs"
+  },
+  "files": [
+    "index.mjs"
+  ],
+  "scripts": {
+    "check": "node --check index.mjs",
+    "test": "node --check index.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WeaveQ/onmyagent.git",
+    "directory": "packages/onmyagent-ui-mcp"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  }
+}

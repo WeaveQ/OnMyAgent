@@ -1,0 +1,19 @@
+{
+  "name": "中国电商搜索",
+  "installedAt": 1782877163970,
+  "source": "marketplace",
+  "version": "2.0.0",
+  "skillId": "skill_2054901281445961728",
+  "examples_zh": [
+    "在淘宝、京东、拼多多和 1688 同时搜索\"露营折叠车\"，整理价格区间、销量线索和店铺来源",
+    "用这个拼多多商品链接查商品详情，并帮我找 1688 上可能的同款供应商",
+    "比较小红书、抖音、天猫上\"防晒冰袖\"的商品标题、主图卖点和最低到手价"
+  ],
+  "examples_en": [
+    "Search Taobao, JD, Pinduoduo, and 1688 for \"camping folding wagon\" and summarize price ranges, sales signals, and seller sources",
+    "Use this Pinduoduo product URL to fetch item details and find possible same-product suppliers on 1688",
+    "Compare \"UV protection arm sleeves\" listings across Xiaohongshu, Douyin, and Tmall by title claims, main-image selling points, and lowest visible price"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2054901281445961728/b21ab304f5ee4af6.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2054901281445961728/b21ab304f5ee4af6.png"
+}

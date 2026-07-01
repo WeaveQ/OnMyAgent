@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4.95 3.45 22.1 27.6" width="32" height="32">
+  <!-- 帽子顶部帽体 - 更圆润的弧形 -->
+  <path d="M7.5 8.5 Q8 5 16 4 Q24 5 24.5 8.5 L23 11 L9 11 Z" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- 帽子底部帽檐 - 更宽更平 -->
+  <path d="M7.5 9 L24.5 9 Q25 9 25 10 L25 11.5 Q25 12 24.5 12 L7.5 12 Q7 12 7 11.5 L7 10 Q7 9 7.5 9 Z" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- 头部（圆脸） -->
+  <ellipse cx="16" cy="18" rx="10.5" ry="9" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="1.1"/>
+  <!-- 身体/躯干 - 缩窄以露出手 -->
+  <path d="M9 24 Q9 30.5 12 30.5 L20 30.5 Q23 30.5 23 24 L23 22 Q22 20 20 20.5 L12 20.5 Q10 20 9 22 Z" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- 左手 - 捧着指南针的姿态 -->
+  <path d="M9 22 Q6 22.5 5.5 25 Q5 27.5 7.5 28 Q10 28.5 11 27 Q12 25.5 11 23.5 Q10.5 22 9 22 Z" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- 右手 - 捧着指南针的姿态 -->
+  <path d="M23 22 Q26 22.5 26.5 25 Q27 27.5 24.5 28 Q22 28.5 21 27 Q20 25.5 21 23.5 Q21.5 22 23 22 Z" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- 左眼 - 棕色圆眼 -->
+  <circle cx="12.5" cy="15.5" r="1.5" fill="#8B5A3C"/>
+  <!-- 左眼高光 -->
+  <circle cx="12" cy="15" r="0.5" fill="#FFFFFF" opacity="0.7"/>
+  <!-- 右眼 - 棕色圆眼 -->
+  <circle cx="19.5" cy="15.5" r="1.5" fill="#8B5A3C"/>
+  <!-- 右眼高光 -->
+  <circle cx="19" cy="15" r="0.5" fill="#FFFFFF" opacity="0.7"/>
+  <!-- 大师眼镜（圆形框） -->
+  <circle cx="12.5" cy="15.5" r="3.2" fill="none" stroke="#9B6B4A" stroke-width="1" opacity="0.85"/>
+  <circle cx="19.5" cy="15.5" r="3.2" fill="none" stroke="#9B6B4A" stroke-width="1" opacity="0.85"/>
+  <!-- 鼻梁 -->
+  <line x1="15.7" y1="15.5" x2="16.3" y2="15.5" stroke="#9B6B4A" stroke-width="1" opacity="0.85"/>
+  <!-- 左镜腿 -->
+  <line x1="9.3" y1="15.5" x2="7.5" y2="14.8" stroke="#9B6B4A" stroke-width="0.9" stroke-linecap="round" opacity="0.85"/>
+  <!-- 右镜腿 -->
+  <line x1="22.7" y1="15.5" x2="24.5" y2="14.8" stroke="#9B6B4A" stroke-width="0.9" stroke-linecap="round" opacity="0.85"/>
+  <!-- 大师范胡子（左右两撇，八字造型，淡雅） -->
+  <path d="M15.2 16.8 Q13.5 17.8 11.5 18.8" fill="none" stroke="#8B5A3C" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M16.8 16.8 Q18.5 17.8 20.5 18.8" fill="none" stroke="#8B5A3C" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- 指南针外圈 -->
+  <circle cx="16" cy="25.5" r="5" fill="#FDF6EC" stroke="#9B6B4A" stroke-width="1.1"/>
+  <!-- 指南针内圈 -->
+  <circle cx="16" cy="25.5" r="3.6" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="0.7"/>
+  <!-- 指南针刻度 - 上(N) -->
+  <line x1="16" y1="22" x2="16" y2="23.2" stroke="#9B6B4A" stroke-width="0.6" stroke-linecap="round"/>
+  <!-- 指南针刻度 - 下(S) -->
+  <line x1="16" y1="27.8" x2="16" y2="29" stroke="#9B6B4A" stroke-width="0.6" stroke-linecap="round"/>
+  <!-- 指南针刻度 - 左(W) -->
+  <line x1="12.5" y1="25.5" x2="13.7" y2="25.5" stroke="#9B6B4A" stroke-width="0.6" stroke-linecap="round"/>
+  <!-- 指南针刻度 - 右(E) -->
+  <line x1="18.3" y1="25.5" x2="19.5" y2="25.5" stroke="#9B6B4A" stroke-width="0.6" stroke-linecap="round"/>
+  <!-- 指南针指针 - 北(深色) -->
+  <path d="M16 23.2 L17 25 L16 27.8 L15 25 Z" fill="#9B6B4A"/>
+  <!-- 指南针指针 - 北尖标记 -->
+  <path d="M16 23.2 L17 25 L16 24 Z" fill="#C0392B"/>
+  <!-- 指南针中心圆 -->
+  <circle cx="16" cy="25.5" r="0.9" fill="#FFFFFF" stroke="#9B6B4A" stroke-width="0.6"/>
+</svg>

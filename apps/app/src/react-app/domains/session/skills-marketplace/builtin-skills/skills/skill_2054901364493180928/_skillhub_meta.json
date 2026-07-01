@@ -1,0 +1,19 @@
+{
+  "name": "电商爆款文案生成器",
+  "installedAt": 1782885593402,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2054901364493180928",
+  "examples_zh": [
+    "为抖音小店的便携榨汁杯生成 3 个 30 字以内标题、5 条卖点和一段限时秒杀文案",
+    "根据这款儿童护脊书包的参数，写淘宝详情页首屏海报文案、痛点场景和信任背书",
+    "分析这两个竞品的京东标题，给我的无线洗地机改写更突出吸力和续航的标题"
+  ],
+  "examples_en": [
+    "Create three product titles under 30 Chinese characters, five selling points, and a flash-sale promo for a portable blender on Douyin Shop",
+    "Use the specs of this ergonomic kids schoolbag to write Taobao detail-page hero copy, pain-point scenarios, and trust proof",
+    "Analyze these two JD competitor titles and rewrite my cordless floor washer title to emphasize suction power and battery life"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_dd81f071-c50.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_dd81f071-c50.svg"
+}

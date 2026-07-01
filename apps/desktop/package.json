@@ -1,0 +1,45 @@
+{
+  "name": "@onmyagent/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OnMyAgent desktop shell",
+  "author": {
+    "name": "OnMyAgent Contributors"
+  },
+  "main": "electron/main.mjs",
+  "type": "module",
+  "scripts": {
+    "dev": "node ./scripts/electron-dev.mjs",
+    "dev:windows": "node ./scripts/dev-windows.mjs",
+    "dev:windows:x64": "node ./scripts/dev-windows.mjs x64",
+    "build": "node ./scripts/electron-build.mjs",
+    "build:electron": "node ./scripts/electron-build.mjs",
+    "package:electron": "pnpm run build:electron && pnpm exec electron-builder --config electron-builder.yml",
+    "package:electron:dir": "pnpm run build:electron && pnpm exec electron-builder --config electron-builder.yml --dir",
+    "electron": "pnpm exec electron ./electron/main.mjs",
+    "check:electron": "node ./scripts/check-electron-bridge.mjs",
+    "test:runtime": "pnpm check:electron",
+    "test:release-smoke": "pnpm build && node ./scripts/check-electron-bridge.mjs && pnpm exec electron-builder --config electron-builder.yml --dir --publish never",
+    "typecheck": "pnpm typecheck:electron",
+    "typecheck:electron": "pnpm --dir ../server exec tsc -p ../desktop/tsconfig.electron.json --noEmit",
+    "prepare:sidecar": "node ./scripts/prepare-sidecar.mjs"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.17.8",
+    "better-sqlite3": "^11.10.0",
+    "dijkstrajs": "^1.0.1",
+    "electron-updater": "^6.3.9",
+    "jsonc-parser": "^3.2.1",
+    "minimatch": "^10.0.1",
+    "node-pty": "^1.1.0",
+    "yaml": "^2.6.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "electron": "^39.8.10",
+    "electron-builder": "^25.1.8",
+    "electron-devtools-installer": "^4.0.0"
+  },
+  "packageManager": "pnpm@10.27.0",
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnMyAgent - Free desktop entry to local AI work</title>
+<meta name="description" content="OnMyAgent is your free desktop entry to local AI work. One workspace to manage Codex, Claude Code, OpenCode, Hermes, OpenClaw, MCP, Skills, Memory, sessions, tasks, and artifacts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+body{font-family:'Geist',system-ui,sans-serif;background:var(--bg);color:var(--t1);line-height:1.6;overflow-x:hidden;transition:background .35s ease,color .35s ease}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+:root{--font-sans:'Geist',system-ui,sans-serif;--font-heading:'IBM Plex Sans','Geist',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--max-w:1240px;--spy:clamp(112px,12vw,180px);--r:18px;--rs:12px;--accent:#2f7bff;--accent-hover:#5b96ff;--accent-rgb:47,123,255;--signal:#03ffde;--warn:#fbbf24;--info:#60a5fa;--err:#ef4444}
+[data-theme="dark"]{--bg:#080d18;--bg-soft:#0b1220;--bg-card:#101827;--bg-elev:#172033;--border:#334155;--border-s:#263247;--t1:#f8fafc;--t2:#94a3b8;--t3:#64748b;--accent-d:rgba(47,123,255,.12);--accent-g:rgba(47,123,255,.22);--signal-d:rgba(3,255,222,.10);--signal-g:rgba(3,255,222,.22);--nav-bg:rgba(8,13,24,.74);--hero-wash:radial-gradient(circle at 50% 0%,rgba(47,123,255,.30),transparent 46%),radial-gradient(circle at 85% 12%,rgba(3,255,222,.12),transparent 28%);--panel-shadow:0 34px 90px rgba(0,0,0,.42)}
+[data-theme="light"]{--bg:#f8fafc;--bg-soft:#eef4ff;--bg-card:#ffffff;--bg-elev:#f1f5f9;--border:#cbd5e1;--border-s:#e2e8f0;--t1:#0f172a;--t2:#475569;--t3:#64748b;--accent-d:rgba(0,93,255,.10);--accent-g:rgba(0,93,255,.16);--signal-d:rgba(3,187,170,.10);--signal-g:rgba(3,187,170,.18);--nav-bg:rgba(248,250,252,.76);--hero-wash:radial-gradient(circle at 50% 0%,rgba(0,93,255,.16),transparent 44%),radial-gradient(circle at 85% 12%,rgba(3,255,222,.13),transparent 28%);--panel-shadow:0 34px 90px rgba(15,23,42,.13)}
+
+[data-lang="en"] .zh{display:none}
+[data-lang="zh"] .en{display:none}
+
+.container{max-width:var(--max-w);margin:0 auto;padding:0 clamp(20px,4vw,40px)}
+.accent{color:var(--accent)}
+.mono{font-family:var(--mono)}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:-2;background:var(--hero-wash),var(--bg)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.055;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E")}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.rd1{transition-delay:.1s}.rd2{transition-delay:.2s}.rd3{transition-delay:.3s}.rd4{transition-delay:.4s}
+
+/* ══════ S0 NAV ══════ */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(9,9,11,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-s)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--mono);font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+.nav-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-g)}
+.nav-links{display:flex;align-items:center;gap:24px}
+.nav-links a{font-size:13px;color:var(--t2);transition:color .2s}
+.nav-links a:hover{color:var(--t1)}
+.lang-toggle{font-family:var(--mono);font-size:12px;background:var(--bg-elev);border:1px solid var(--border);color:var(--t2);padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .2s}
+.lang-toggle:hover{color:var(--t1);border-color:var(--t3)}
+.btn-star{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:500;background:var(--bg-elev);border:1px solid var(--border);color:var(--t1);padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .2s}
+.btn-star:hover{border-color:var(--accent);background:var(--accent-d)}
+.btn-star svg{width:14px;height:14px}
+
+/* ══════ S1 HERO ══════ */
+.hero{min-height:100dvh;display:flex;align-items:center;padding-top:96px;padding-bottom:48px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,var(--accent-g) 0%,transparent 70%);pointer-events:none;opacity:.3}
+.hero-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:center}
+.hero-content{position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--accent);background:var(--accent-d);border:1px solid rgba(47,123,255,.24);padding:6px 14px;border-radius:20px;margin-bottom:24px;animation:fadeUp .6s ease both}
+.hero-badge .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease infinite}
+.hero h1{font-size:clamp(34px,4.6vw,56px);font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-bottom:20px;animation:fadeUp .6s ease .1s both}
+.hero h1 .accent-line{color:var(--accent);display:block}
+.hero-sub{font-size:clamp(15px,1.6vw,18px);color:var(--t2);max-width:540px;margin-bottom:18px;animation:fadeUp .6s ease .2s both}
+.hero-strategic{font-family:var(--mono);font-size:13px;color:var(--t1);background:rgba(47,123,255,.08);border-left:2px solid var(--accent);padding:12px 16px;margin-bottom:32px;border-radius:0 6px 6px 0;animation:fadeUp .6s ease .25s both;max-width:540px}
+.hero-strategic .strat-line{display:block;line-height:1.6}
+.hero-strategic .strat-line + .strat-line{margin-top:4px;color:var(--t2)}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;animation:fadeUp .6s ease .3s both}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:600;background:var(--accent);color:#0b1220;padding:12px 26px;border-radius:8px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 0 20px var(--accent-g)}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:500;background:var(--bg-elev);color:var(--t1);padding:12px 26px;border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:all .2s}
+.btn-secondary:hover{border-color:var(--t3);transform:translateY(-1px)}
+.btn-tertiary{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:500;background:transparent;color:var(--t2);padding:12px 16px;cursor:pointer;transition:color .2s}
+.btn-tertiary:hover{color:var(--t1)}
+.hero-tagline{margin-top:24px;font-family:var(--mono);font-size:12px;color:var(--t3);animation:fadeUp .6s ease .4s both}
+
+.hero-visual{position:relative;z-index:1;animation:fadeUp .8s ease .4s both}
+
+/* ══════ Cockpit Mockup ══════ */
+.cockpit{border-radius:var(--r);overflow:hidden;border:1px solid var(--border);box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 50px var(--accent-g);background:#0f172a;position:relative}
+.cockpit::before{content:'CONTROL PLANE';position:absolute;top:14px;right:16px;font-family:var(--mono);font-size:9px;color:var(--accent);background:var(--accent-d);padding:2px 8px;border-radius:4px;border:1px solid rgba(47,123,255,.24);z-index:3;letter-spacing:.1em}
+.cockpit-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#172033;border-bottom:1px solid var(--border-s)}
+.cockpit-dot{width:10px;height:10px;border-radius:50%}
+.cockpit-bar .d-r{background:#ef4444}.cockpit-bar .d-y{background:#fbbf24}.cockpit-bar .d-g{background:var(--signal)}
+.cockpit-title{font-family:var(--mono);font-size:11px;color:var(--t2);margin-left:8px}
+.cockpit-body{display:grid;grid-template-columns:170px 1fr 170px;min-height:380px}
+.cp-col{padding:14px 12px;border-right:1px solid var(--border-s)}
+.cp-col:last-child{border-right:none}
+.cp-col-title{font-family:var(--mono);font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.cp-col-title .badge-mini{font-family:var(--mono);font-size:9px;color:var(--accent);background:var(--accent-d);padding:1px 6px;border-radius:3px;border:1px solid rgba(47,123,255,.24)}
+.agent-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#111827;border:1px solid var(--border-s);border-radius:6px;margin-bottom:6px;font-size:12px}
+.agent-row .status{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.agent-row .status.ok{background:var(--signal);box-shadow:0 0 6px var(--signal-g)}
+.agent-row .status.warn{background:#fbbf24}
+.agent-row .status.idle{background:#71717a}
+.agent-row .agent-name{color:var(--t1);font-weight:500;flex:1}
+.agent-row .agent-meta{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.queue-item{padding:10px;background:#111827;border:1px solid var(--border-s);border-radius:6px;margin-bottom:8px;font-size:12px}
+.queue-item.running{border-color:rgba(96,165,250,.3);background:rgba(96,165,250,.04)}
+.queue-item.done{border-color:rgba(34,197,94,.2)}
+.queue-item .qi-head{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.queue-item .qi-tag{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px}
+.queue-item .qi-tag.run{color:var(--info);background:rgba(96,165,250,.1)}
+.queue-item .qi-tag.ok{color:var(--signal);background:rgba(34,197,94,.1)}
+.queue-item .qi-tag.wait{color:var(--t3);background:#172033}
+.queue-item .qi-title{color:var(--t1);font-weight:500;font-size:13px}
+.queue-item .qi-meta{font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:4px}
+.queue-progress{height:2px;background:#334155;border-radius:1px;margin-top:8px;overflow:hidden;position:relative}
+.queue-progress .bar{height:100%;background:var(--info);border-radius:1px;width:62%;position:relative}
+.queue-progress .bar::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:shimmer 2s infinite}
+.artifact-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#111827;border:1px solid var(--border-s);border-radius:6px;margin-bottom:6px;font-size:11px}
+.artifact-row .a-icon{font-size:12px}
+.artifact-row .a-name{color:var(--t1);font-family:var(--mono);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.artifact-row .a-tag{font-family:var(--mono);font-size:8px;color:var(--t3);background:#172033;padding:1px 5px;border-radius:3px}
+.cockpit-foot{display:flex;align-items:center;gap:14px;padding:8px 14px;background:#172033;border-top:1px solid var(--border-s);font-family:var(--mono);font-size:10px;color:var(--t3)}
+.cockpit-foot .live{color:var(--accent)}
+.cockpit-foot .sep{color:var(--border)}
+
+/* ══════ S2 PROBLEMS ══════ */
+.problems{padding:var(--spy) 0}
+.section-label{font-family:var(--mono);font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
+.section-title{font-size:clamp(28px,4vw,44px);font-weight:700;letter-spacing:-.02em;line-height:1.15;margin-bottom:16px}
+.section-desc{font-size:16px;color:var(--t2);max-width:640px;margin-bottom:48px}
+.section-quote{font-family:var(--mono);font-size:14px;color:var(--t1);background:rgba(239,68,68,.04);border-left:2px solid var(--err);padding:14px 18px;border-radius:0 6px 6px 0;margin-bottom:48px;max-width:640px}
+.problem-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.problem-card{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--r);padding:32px 24px;position:relative;overflow:hidden;transition:border-color .3s,transform .3s}
+.problem-card:hover{border-color:var(--border);transform:translateY(-2px)}
+.problem-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--err),transparent);opacity:.6}
+.problem-icon{font-family:var(--mono);font-size:11px;color:var(--err);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;margin-bottom:16px}
+.problem-card h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.problem-card p{font-size:14px;color:var(--t2);line-height:1.7}
+
+/* ══════ S3 SOLUTION (Agent Worker) ══════ */
+.solution{padding:var(--spy) 0;background:linear-gradient(180deg,var(--bg) 0%,rgba(47,123,255,.035) 50%,var(--bg) 100%)}
+.solution-quote{font-family:var(--mono);font-size:14px;color:var(--t1);background:rgba(47,123,255,.08);border-left:2px solid var(--accent);padding:14px 18px;border-radius:0 6px 6px 0;margin-bottom:48px;max-width:640px}
+.worker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.worker-card{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--r);padding:32px 24px;position:relative;overflow:hidden;transition:all .3s}
+.worker-card:hover{border-color:rgba(47,123,255,.32);transform:translateY(-2px)}
+.worker-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.6}
+.worker-key{font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accent-d);border:1px solid rgba(47,123,255,.24);display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;margin-bottom:16px}
+.worker-card h3{font-size:18px;font-weight:600;margin-bottom:6px}
+.worker-card .worker-en{font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:10px;display:block}
+.worker-card p{font-size:14px;color:var(--t2);line-height:1.7}
+
+.transform-arrow{display:flex;align-items:center;justify-content:center;gap:16px;font-family:var(--mono);font-size:14px;color:var(--t2);margin:48px 0 24px}
+.transform-arrow .from{color:var(--t3)}
+.transform-arrow .to{color:var(--accent);font-weight:600}
+.transform-arrow .arrow{color:var(--accent);font-size:16px}
+
+/* ══════ S4 CONTROL PLANE ══════ */
+.controlplane{padding:var(--spy) 0}
+.cp-stack{max-width:820px;margin:0 auto}
+.cp-layer{border:1px solid var(--border-s);border-radius:var(--rs);padding:20px 24px;margin-bottom:8px;background:var(--bg-card);transition:all .3s;position:relative}
+.cp-layer:hover{border-color:rgba(47,123,255,.32);background:rgba(47,123,255,.045);transform:translateX(4px)}
+.cp-layer-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.cp-layer-num{font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accent-d);border:1px solid rgba(47,123,255,.24);width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0}
+.cp-layer-name{font-size:15px;font-weight:600;color:var(--t1)}
+.cp-layer-tag{font-family:var(--mono);font-size:10px;color:var(--t3);margin-left:auto}
+.cp-items{display:flex;flex-wrap:wrap;gap:8px;padding-left:40px}
+.cp-item{font-family:var(--mono);font-size:12px;color:var(--t2);background:var(--bg-elev);border:1px solid var(--border-s);padding:4px 10px;border-radius:4px}
+.cp-conn{width:1px;height:8px;background:var(--border);margin:0 auto}
+
+/* ══════ S5 PRODUCT MODULES (Bento) ══════ */
+.modules{padding:var(--spy) 0}
+.bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:140px;gap:16px}
+.bento-card{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--r);padding:20px;transition:all .3s;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.bento-card:hover{border-color:rgba(47,123,255,.32);transform:translateY(-2px)}
+.bento-card.span2{grid-column:span 2}
+.bento-card.span2-row{grid-row:span 2}
+.bento-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--accent-d);border:1px solid rgba(47,123,255,.24);border-radius:8px;font-size:16px;margin-bottom:12px}
+.bento-card h4{font-size:15px;font-weight:600;margin-bottom:4px}
+.bento-card .b-en{font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:8px;display:block}
+.bento-card p{font-size:13px;color:var(--t2);line-height:1.6}
+
+/* ══════ S6 WORKFLOW ══════ */
+.workflow{padding:var(--spy) 0;background:linear-gradient(180deg,var(--bg) 0%,rgba(47,123,255,.035) 50%,var(--bg) 100%)}
+.wf-steps5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:48px}
+.wf-step5{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--r);padding:24px 20px;position:relative;transition:all .3s}
+.wf-step5:hover{border-color:rgba(47,123,255,.32);transform:translateY(-2px)}
+.wf-step5::after{content:'→';position:absolute;right:-16px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:18px;color:var(--accent);z-index:2}
+.wf-step5:last-child::after{display:none}
+.wf-step5-num{font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accent-d);border:1px solid rgba(47,123,255,.24);width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;margin-bottom:12px}
+.wf-step5 h4{font-size:14px;font-weight:600;margin-bottom:4px}
+.wf-step5 .wf-en{font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:8px;display:block}
+.wf-step5 p{font-size:12px;color:var(--t2);line-height:1.6}
+
+/* ══════ S7 INTEGRATIONS ══════ */
+.integrations{padding:var(--spy) 0}
+.int-quote{font-family:var(--mono);font-size:15px;color:var(--t1);max-width:680px;margin-bottom:48px;line-height:1.7}
+.int-quote .int-line{display:block}
+.int-quote .int-line.muted{color:var(--t2);margin-top:6px}
+.int-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:32px}
+.int-chip{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--rs);padding:16px 18px;transition:all .3s;display:flex;align-items:center;gap:10px}
+.int-chip:hover{border-color:rgba(47,123,255,.32);transform:translateY(-2px)}
+.int-chip-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg-elev);border-radius:6px;font-size:14px;flex-shrink:0}
+.int-chip-name{font-family:var(--mono);font-size:13px;color:var(--t1);font-weight:500}
+.int-chip .int-chip-tag{font-family:var(--mono);font-size:9px;color:var(--t3);margin-left:auto}
+.int-chip.coming{opacity:.55}
+.int-chip.coming .int-chip-tag{color:var(--warn)}
+
+/* ══════ S8 TRUST ══════ */
+.trust{padding:var(--spy) 0;background:linear-gradient(180deg,var(--bg) 0%,rgba(47,123,255,.045) 50%,var(--bg) 100%)}
+.trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.trust-card{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--r);padding:32px 24px;transition:all .3s}
+.trust-card:hover{border-color:rgba(47,123,255,.32);transform:translateY(-2px)}
+.trust-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:var(--accent-d);border:1px solid rgba(47,123,255,.24);border-radius:10px;font-size:18px;margin-bottom:16px}
+.trust-card h3{font-size:17px;font-weight:600;margin-bottom:6px}
+.trust-card .trust-en{font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:10px;display:block}
+.trust-card p{font-size:13.5px;color:var(--t2);line-height:1.7}
+
+/* ══════ S9 FAQ + CTA ══════ */
+.faq-section{padding:var(--spy) 0}
+.faq-list{max-width:760px;margin:0 auto 64px}
+.faq-item{border-bottom:1px solid var(--border-s);padding:20px 0;cursor:pointer}
+.faq-q{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:500;gap:24px}
+.faq-q .arrow{font-family:var(--mono);font-size:14px;color:var(--t3);transition:transform .3s;flex-shrink:0}
+.faq-item.open .faq-q .arrow{transform:rotate(45deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;font-size:14px;color:var(--t2);line-height:1.7}
+.faq-item.open .faq-a{max-height:240px;padding-top:12px}
+.final-cta{text-align:center;padding:64px 0;border-top:1px solid var(--border-s)}
+.final-cta h2{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
+.final-cta p{font-size:16px;color:var(--t2);margin-bottom:32px;max-width:640px;margin-left:auto;margin-right:auto}
+.final-cta-buttons{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.btn-ghost{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:500;background:transparent;color:var(--t1);padding:12px 26px;border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:all .2s}
+.btn-ghost:hover{border-color:var(--t3)}
+.footer{padding:32px 0;border-top:1px solid var(--border-s);text-align:center;font-family:var(--mono);font-size:12px;color:var(--t3)}
+.footer a{color:var(--accent)}
+
+@media(max-width:768px){
+  .hero{padding-top:80px}
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .problem-grid,.worker-grid,.trust-grid{grid-template-columns:1fr}
+  .cockpit-body{grid-template-columns:1fr}
+  .cp-col{border-right:none;border-bottom:1px solid var(--border-s)}
+  .nav-links a:not(.lang-toggle):not(.btn-star){display:none}
+  .bento{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+  .bento-card.span2,.bento-card.span2-row{grid-column:auto;grid-row:auto}
+  .wf-steps5{grid-template-columns:1fr;gap:12px}
+  .wf-step5::after{display:none}
+  .cp-items{padding-left:0}
+}
+@media(min-width:769px) and (max-width:1024px){
+  .problem-grid,.worker-grid,.trust-grid{grid-template-columns:1fr 1fr}
+  .bento{grid-template-columns:repeat(3,1fr)}
+  .wf-steps5{grid-template-columns:repeat(2,1fr) 1fr}
+  .wf-steps5 .wf-step5::after{display:none}
+}
+
+
+
+body{font-family:var(--font-sans)}
+h1,h2,h3,h4,.section-title,.hero h1,.final-cta h2{font-family:var(--font-heading)}
+
+/* Premium dual-theme pass */
+.nav{top:18px;background:transparent;border-bottom:0;pointer-events:none}
+.nav-inner{height:58px;background:var(--nav-bg);backdrop-filter:blur(22px) saturate(140%);border:1px solid var(--border-s);border-radius:999px;box-shadow:var(--panel-shadow);padding:0 10px 0 22px;pointer-events:auto}
+.nav-logo .dot{background:var(--signal);box-shadow:0 0 10px var(--signal-g)}
+.lang-toggle,.theme-toggle{font-family:var(--mono);font-size:12px;background:var(--bg-elev);border:1px solid var(--border-s);color:var(--t2);padding:6px 11px;border-radius:999px;cursor:pointer;transition:all .2s}
+.lang-toggle:hover,.theme-toggle:hover{color:var(--t1);border-color:var(--accent);background:var(--accent-d)}
+.btn-star{background:var(--accent);border-color:var(--accent);color:#fff;border-radius:999px;padding:8px 16px;font-weight:700}
+.btn-star:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.hero{padding-top:132px;padding-bottom:88px;text-align:center}
+.hero::before{inset:12% 8% auto;height:58%;background:linear-gradient(90deg,transparent,rgba(var(--accent-rgb),.12),transparent);filter:blur(42px)}
+.hero-grid{grid-template-columns:1fr;gap:44px;text-align:center}
+.hero-content{max-width:1040px;margin:0 auto}
+.hero h1{font-size:clamp(48px,7.2vw,96px);font-weight:800;letter-spacing:-.065em;line-height:.94;margin-bottom:24px;text-wrap:balance}
+.hero h1 .accent-line{display:inline;color:var(--accent)}
+.hero-sub{font-size:clamp(17px,1.8vw,22px);max-width:760px;margin:0 auto 22px;text-wrap:balance}
+.hero-strategic{max-width:690px;margin:0 auto 32px;text-align:left;background:color-mix(in oklab,var(--bg-card) 76%,transparent);border:1px solid var(--border-s);border-radius:var(--rs);box-shadow:0 18px 48px rgba(var(--accent-rgb),.08)}
+.hero-cta{justify-content:center}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 16px 44px rgba(var(--accent-rgb),.26);border-radius:999px}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary,.btn-ghost{background:var(--bg-card);border-color:var(--border-s);border-radius:999px;color:var(--t1)}
+.btn-tertiary{color:var(--t2)}
+.hero-visual{max-width:1080px;margin:0 auto;width:100%}
+.cockpit{border-radius:24px;background:var(--bg-card);box-shadow:var(--panel-shadow),0 0 54px var(--accent-g);transform:perspective(1100px) rotateX(4deg);transform-origin:top center}
+.cockpit::before{color:var(--accent);background:var(--accent-d);border-color:rgba(var(--accent-rgb),.24)}
+.cockpit-bar{background:var(--bg-elev)}
+.agent-row,.queue-item,.log-line,.artifact,.cp-item,.int-chip,.faq-item,.problem-card,.worker-card,.trust-card,.bento-card,.wf-step5,.cp-layer{background:var(--bg-card);border-color:var(--border-s)}
+.agent-row:hover,.queue-item:hover,.artifact:hover,.int-chip:hover,.problem-card:hover,.worker-card:hover,.trust-card:hover,.bento-card:hover,.wf-step5:hover,.cp-layer:hover{transform:translateY(-4px);border-color:rgba(var(--accent-rgb),.36);box-shadow:0 20px 46px rgba(var(--accent-rgb),.10)}
+.status.ok{background:var(--signal);box-shadow:0 0 8px var(--signal-g)}
+.badge-mini,.cp-col-title .badge-mini{color:var(--accent);background:var(--accent-d);border-color:rgba(var(--accent-rgb),.24)}
+.problems,.solution,.controlplane,.modules,.workflow,.integrations,.trust,.faq-section{padding:var(--spy) 0}
+.section-title{font-size:clamp(36px,5.5vw,72px);letter-spacing:-.055em;line-height:.98;max-width:980px;text-wrap:balance}
+.section-desc{font-size:18px;max-width:720px}
+.section-quote,.solution-quote,.int-quote{font-size:15px;background:var(--bg-card);border:1px solid var(--border-s);border-left:3px solid var(--accent);border-radius:var(--rs);padding:18px 20px;box-shadow:0 16px 44px rgba(var(--accent-rgb),.07)}
+.bento{grid-auto-flow:dense;grid-template-columns:repeat(4,1fr);grid-auto-rows:150px;gap:0;border:1px solid var(--border-s);border-radius:24px;overflow:hidden;background:var(--border-s)}
+.bento-card{border-radius:0;border:0;margin:0;box-shadow:none}
+.bento-card:nth-child(1),.bento-card:nth-child(4),.bento-card:nth-child(7){background:linear-gradient(135deg,var(--bg-card),var(--bg-elev))}
+.bento-icon,.trust-icon,.int-chip-icon{font-family:var(--mono);font-size:11px;font-weight:800;color:var(--accent);background:var(--accent-d);border:1px solid rgba(var(--accent-rgb),.18)}
+.wf-steps5{gap:0;border:1px solid var(--border-s);border-radius:24px;overflow:hidden;background:var(--border-s)}
+.wf-step5{border-radius:0;border:0}
+.wf-step5::after{display:none}
+.final-cta{padding:96px 0;border-top:1px solid var(--border-s)}
+.final-cta h2{font-size:clamp(42px,6vw,84px);line-height:.95;letter-spacing:-.06em;max-width:920px;margin:0 auto 18px;text-wrap:balance}
+.footer{padding:44px 0}
+[data-theme="light"] .cockpit-dot.d-r{background:#ef4444}[data-theme="light"] .cockpit-dot.d-y{background:#f59e0b}[data-theme="light"] .cockpit-dot.d-g{background:var(--signal)}
+@media(max-width:768px){.nav{top:10px}.nav-inner{border-radius:22px;height:auto;min-height:58px;padding:10px 14px}.hero{padding-top:118px}.hero h1{font-size:clamp(44px,14vw,64px)}.hero-strategic{text-align:left}.bento{grid-template-columns:1fr;grid-auto-rows:auto}.cockpit{transform:none}.section-title{font-size:clamp(34px,11vw,52px)}}
+
+
+
+/* Density and language fixes */
+[data-lang="en"] .zh,[data-lang="zh"] .en{display:none!important}
+.hero-strategic .zh,.int-quote .zh{display:none!important}
+[data-lang="zh"] .hero-strategic .zh,[data-lang="zh"] .int-quote .zh{display:block!important}
+.bento{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(206px,auto);gap:18px;border:0;border-radius:0;overflow:visible;background:transparent}
+.bento-card,.bento-card:nth-child(1),.bento-card:nth-child(4),.bento-card:nth-child(7){border:1px solid var(--border-s);border-radius:22px;background:color-mix(in oklab,var(--bg-card) 92%,transparent);padding:28px;box-shadow:none}
+.bento-card.span2,.bento-card.span2-row{grid-column:auto;grid-row:auto}
+.bento-card p{font-size:14px;line-height:1.75;max-width:34ch}
+.bento-card .b-en{font-size:11px;line-height:1.45}
+.workflow .section-title,.integrations .section-title{max-width:1120px}
+.wf-steps5{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;border:0;border-radius:0;overflow:visible;background:transparent}
+.wf-step5{border:1px solid var(--border-s);border-radius:20px;padding:26px;min-height:210px;background:color-mix(in oklab,var(--bg-card) 92%,transparent)}
+.wf-step5 p{font-size:14px;line-height:1.8}
+.integrations .section-title{margin-bottom:24px}
+.int-quote{max-width:760px;background:transparent;border:0;border-left:3px solid var(--accent);border-radius:0;box-shadow:none;padding:4px 0 4px 22px;margin-bottom:54px}
+.int-quote .int-line{font-size:16px;line-height:1.9}
+.int-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.int-chip{min-height:82px;padding:20px 22px;border-radius:18px;background:color-mix(in oklab,var(--bg-card) 88%,transparent)}
+.int-chip-icon{width:32px;height:32px;flex:0 0 32px}
+.faq-section{background:transparent!important}
+.faq-list{max-width:900px;background:transparent;border:1px solid var(--border-s);border-radius:22px;overflow:hidden}
+.faq-item{background:transparent!important;border-bottom:1px solid var(--border-s);padding:24px 28px}
+.faq-item:last-child{border-bottom:0}
+.faq-q{font-size:17px}
+.faq-a{font-size:15px;line-height:1.8}
+@media(max-width:1024px){.bento{grid-template-columns:repeat(2,minmax(0,1fr))}.wf-steps5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){.bento,.wf-steps5{grid-template-columns:1fr}.bento-card,.wf-step5{min-height:auto}.faq-list{border-radius:18px}.faq-item{padding:20px}}
+
+
+
+/* Title rhythm fix */
+.hero h1{line-height:1.08!important;letter-spacing:-.052em!important}
+.section-title,.final-cta h2{line-height:1.12!important;letter-spacing:-.045em!important}
+.section-title span,.hero h1 span,.final-cta h2 span{display:inline-block}
+
+
+
+/* No-wrap key narrative lines */
+.problem .section-desc,.problems .section-desc,.solution .section-desc,.int-quote{max-width:none!important;width:100%}
+.problems .section-desc span,.solution .section-desc span,.int-quote .int-line{white-space:nowrap}
+@media(max-width:1024px){.problems .section-desc span,.solution .section-desc span,.int-quote .int-line{white-space:normal}}
+
+
+
+/* Final visual polish */
+:root{--section-gap:clamp(120px,13vw,190px)}
+[data-theme="light"]{--hero-wash:radial-gradient(circle at 50% -10%,rgba(0,93,255,.13),transparent 38%),radial-gradient(circle at 92% 8%,rgba(3,255,222,.10),transparent 26%);--bg:#fbfdff;--bg-soft:#f3f7ff;--bg-card:#ffffff;--bg-elev:#f6f9ff;--border:#d7e0ee;--border-s:#e5ebf5;--t2:#536178;--t3:#758198;--panel-shadow:0 28px 76px rgba(15,23,42,.10)}
+body::after{opacity:.035}
+.container{max-width:1280px}
+.nav-inner{max-width:1180px;margin:0 auto}
+.nav-links{gap:18px}
+.hero{padding-top:142px;padding-bottom:108px}
+.hero-content{max-width:1080px}
+.hero h1{font-size:clamp(54px,7vw,92px);line-height:1.12!important;letter-spacing:-.045em!important;margin-bottom:26px}
+.hero-sub{max-width:900px;font-size:clamp(18px,1.65vw,22px);line-height:1.72;margin-bottom:34px;color:var(--t2)}
+.hero-cta{gap:14px;margin-bottom:8px}
+.hero-visual{margin-top:10px}
+.cockpit{max-width:1040px;margin:0 auto;border-radius:28px;transform:perspective(1200px) rotateX(2.6deg);border-color:color-mix(in oklab,var(--border) 78%,transparent)}
+.cockpit-body{min-height:410px}
+.problems,.solution,.controlplane,.modules,.workflow,.integrations,.trust,.faq-section{padding:var(--section-gap) 0}
+.section-title{font-size:clamp(42px,5.1vw,68px);line-height:1.14!important;letter-spacing:-.04em!important;margin-bottom:22px;max-width:1120px}
+.section-desc{font-size:18px;line-height:1.9;color:var(--t2);margin-bottom:56px}
+.problem-grid,.worker-grid,.trust-grid{gap:22px}
+.problem-card,.worker-card,.trust-card{border-radius:24px;padding:34px 30px;background:color-mix(in oklab,var(--bg-card) 94%,transparent)}
+.section-quote,.solution-quote{max-width:760px;line-height:1.9;margin-bottom:56px}
+.cp-stack{max-width:920px}
+.cp-layer{border-radius:20px;padding:24px 28px;margin-bottom:12px}
+.cp-layer-head{margin-bottom:14px}.cp-items{gap:10px}.cp-item{border-radius:999px;padding:6px 12px}
+.modules .section-title,.workflow .section-title,.integrations .section-title,.trust .section-title{max-width:1180px}
+.bento{gap:20px;grid-auto-rows:minmax(230px,auto)}
+.bento-card,.bento-card:nth-child(1),.bento-card:nth-child(4),.bento-card:nth-child(7){border-radius:24px;padding:32px;background:color-mix(in oklab,var(--bg-card) 96%,transparent)}
+.bento-card p{font-size:14px;line-height:1.9}.bento-card h4{font-size:17px;margin-bottom:8px}.bento-icon{margin-bottom:18px}
+.wf-steps5{gap:18px}.wf-step5{min-height:232px;padding:30px;border-radius:24px}.wf-step5-num{margin-bottom:20px}.wf-step5 h4{font-size:17px;margin-bottom:10px}.wf-step5 p{line-height:1.9}
+.int-quote{max-width:900px;margin-bottom:58px}.int-grid{gap:18px;grid-template-columns:repeat(auto-fit,minmax(205px,1fr))}.int-chip{min-height:92px;border-radius:20px;padding:22px 24px}.int-chip-name{font-size:14px}.int-chip .int-chip-tag{font-size:10px}
+.trust{background:transparent}.trust-card{min-height:250px}.trust-icon{margin-bottom:22px}.trust-card p{font-size:14px;line-height:1.9}
+.faq-section{padding-top:calc(var(--section-gap) * .85)}.faq-list{max-width:980px;border-radius:26px}.faq-item{padding:26px 32px}.faq-q{font-size:18px}.faq-a{line-height:1.9}
+.final-cta{padding:112px 0 86px}.final-cta h2{line-height:1.12!important;letter-spacing:-.04em!important}.final-cta p{max-width:860px;line-height:1.8}
+@media(max-width:1024px){.hero h1{font-size:clamp(48px,9vw,76px)}.section-title{font-size:clamp(38px,8vw,58px)}.bento{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(210px,auto)}}
+@media(max-width:768px){.hero{padding-top:128px}.hero h1{font-size:clamp(42px,13vw,58px)}.hero-sub{font-size:17px;line-height:1.7}.section-title{font-size:clamp(34px,10vw,48px)}.problem-card,.worker-card,.trust-card,.bento-card,.wf-step5{padding:26px}.cockpit-body{min-height:auto}.int-grid{grid-template-columns:1fr}.faq-item{padding:22px}}
+
+</style>
+</head>
+<body>
+
+<!-- S0 NAV -->
+<nav class="nav">
+  <div class="container nav-inner">
+    <div class="nav-logo"><span class="dot"></span>OnMyAgent</div>
+    <div class="nav-links">
+      <a href="#solution" class="en">Product</a><a href="#solution" class="zh">产品</a>
+      <a href="#integrations" class="en">Integrations</a><a href="#integrations" class="zh">集成</a>
+      <a href="#" class="en">Docs</a><a href="#" class="zh">文档</a>
+      <a href="#" class="en">GitHub</a><a href="#" class="zh">GitHub</a>
+      <a href="#faq" class="en">FAQ</a><a href="#faq" class="zh">常见问题</a>
+      <button class="lang-toggle" onclick="toggleLang()" id="langBtn">中文</button>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">Light</button>
+      <a href="#" class="btn-star"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>Star</a>
+    </div>
+  </div>
+</nav>
+
+<!-- S1 HERO -->
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-content">
+      <h1>
+        <span class="en">Your free desktop entry<br><span class="accent-line">to local AI work</span></span>
+        <span class="zh">你的免费桌面级<br><span class="accent-line">本地 AI 工作入口</span></span>
+      </h1>
+      <p class="hero-sub">
+        <span class="en">One workspace to manage Codex, Claude Code, OpenCode, Hermes, OpenClaw, MCP, Skills, Memory, sessions, tasks, and artifacts.</span>
+        <span class="zh">用一个工作台管理 Codex、Claude Code、OpenCode、Hermes、OpenClaw、MCP、Skills、Memory、会话、任务和产物。</span>
+      </p>
+      <div class="hero-cta">
+        <a href="#" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
+          <span class="en">Star on GitHub</span><span class="zh">GitHub Star</span>
+        </a>
+        <a href="#" class="btn-secondary"><span class="en">Try locally</span><span class="zh">本地试用</span></a>
+        <a href="#" class="btn-tertiary"><span class="en">Read docs</span><span class="zh">查看文档</span></a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="cockpit">
+        <div class="cockpit-bar">
+          <span class="cockpit-dot d-r"></span>
+          <span class="cockpit-dot d-y"></span>
+          <span class="cockpit-dot d-g"></span>
+          <span class="cockpit-title">OnMyAgent / Local AI Work</span>
+        </div>
+        <div class="cockpit-body">
+          <div class="cp-col">
+            <div class="cp-col-title">Agents <span class="badge-mini">5</span></div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Codex</span><span class="agent-meta">cli</span></div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Claude Code</span><span class="agent-meta">cli</span></div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">OpenCode</span><span class="agent-meta">core</span></div>
+            <div class="agent-row"><span class="status warn"></span><span class="agent-name">Hermes</span><span class="agent-meta">setup</span></div>
+            <div class="agent-row"><span class="status idle"></span><span class="agent-name">OpenClaw</span><span class="agent-meta">desktop</span></div>
+            <div style="margin-top:14px"><div class="cp-col-title">MCP</div>
+              <div class="agent-row"><span class="status ok"></span><span class="agent-name">filesystem</span></div>
+              <div class="agent-row"><span class="status ok"></span><span class="agent-name">browser</span></div>
+              <div class="agent-row"><span class="status ok"></span><span class="agent-name">search</span></div>
+            </div>
+          </div>
+          <div class="cp-col">
+            <div class="cp-col-title">Work Queue <span class="badge-mini">3</span></div>
+            <div class="queue-item done">
+              <div class="qi-head"><span class="qi-tag ok">DONE</span><span class="qi-title">Refactor auth flow</span></div>
+              <div class="qi-meta">Codex · 12 files · 2 min ago</div>
+            </div>
+            <div class="queue-item running">
+              <div class="qi-head"><span class="qi-tag run">RUNNING</span><span class="qi-title">Generate test suite</span></div>
+              <div class="qi-meta">Claude Code · session #142 · 38s</div>
+              <div class="queue-progress"><div class="bar"></div></div>
+            </div>
+            <div class="queue-item">
+              <div class="qi-head"><span class="qi-tag wait">QUEUED</span><span class="qi-title">Update docs</span></div>
+              <div class="qi-meta">OpenCode · waiting</div>
+            </div>
+            <div style="margin-top:10px"><div class="cp-col-title">Sessions</div>
+              <div class="queue-item" style="padding:6px 10px">
+                <div class="qi-meta" style="margin-top:0">3 active · 12 archived</div>
+              </div>
+            </div>
+          </div>
+          <div class="cp-col">
+            <div class="cp-col-title">Artifacts</div>
+            <div class="artifact-row"><span class="a-icon">📝</span><span class="a-name">auth.ts.diff</span><span class="a-tag">DIFF</span></div>
+            <div class="artifact-row"><span class="a-icon">📄</span><span class="a-name">report.md</span><span class="a-tag">MD</span></div>
+            <div class="artifact-row"><span class="a-icon">🖼</span><span class="a-name">flow.png</span><span class="a-tag">IMG</span></div>
+            <div class="artifact-row"><span class="a-icon">▦</span><span class="a-name">test-results.json</span><span class="a-tag">JSON</span></div>
+            <div class="artifact-row"><span class="a-icon">▣</span><span class="a-name">build-log.txt</span><span class="a-tag">LOG</span></div>
+            <div style="margin-top:14px"><div class="cp-col-title">Memory</div>
+              <div class="artifact-row"><span class="a-icon">◐</span><span class="a-name">project · root</span><span class="a-tag">CTX</span></div>
+              <div class="artifact-row"><span class="a-icon">◐</span><span class="a-name">user · prefs</span><span class="a-tag">CTX</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="cockpit-foot">
+          <span class="live">● Live</span>
+          <span class="sep">·</span>
+          <span>3 agents running</span>
+          <span class="sep">·</span>
+          <span>Local-first</span>
+          <span class="sep">·</span>
+          <span style="margin-left:auto">BYOK</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S2 PROBLEM -->
+<section class="problems" id="problems">
+  <div class="container">
+    <h2 class="section-title reveal">
+      <span class="en">The more agents you use, the more you need a workspace.</span>
+      <span class="zh">你的 Agent 越多，越需要一个工作台</span>
+    </h2>
+    <p class="section-desc reveal">
+      <span class="en">You can run excellent agents today. The hard part is keeping tools, context, logs, and deliverables in one place.</span>
+      <span class="zh">你已经可以运行很强的 Agent。真正困难的是把工具、上下文、日志和交付物放回一个地方。</span>
+    </p>
+    <div class="section-quote reveal">
+      <span class="en">Agents are not the problem. Sprawl is.</span>
+      <span class="zh">问题不是没有 Agent，而是 Agent 太分散。</span>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-card reveal rd1">
+        <div class="problem-icon"><span class="en">SCATTERED</span><span class="zh">分散</span></div>
+        <h3><span class="en">Tools live everywhere</span><span class="zh">工具到处分散</span></h3>
+        <p><span class="en">Codex, Claude Code, OpenCode, and custom CLIs each keep their own setup, sessions, and outputs.</span><span class="zh">Codex、Claude Code、OpenCode 和自定义 CLI 各有各的配置、会话和输出。</span></p>
+      </div>
+      <div class="problem-card reveal rd2">
+        <div class="problem-icon"><span class="en">FRAGMENTED</span><span class="zh">割裂</span></div>
+        <h3><span class="en">Context is fragmented</span><span class="zh">上下文割裂</span></h3>
+        <p><span class="en">MCP servers, Skills, Memory, model keys, and project context sit in different tools and folders.</span><span class="zh">MCP、Skills、Memory、模型 Key 和项目上下文分散在不同工具和目录里。</span></p>
+      </div>
+      <div class="problem-card reveal rd3">
+        <div class="problem-icon"><span class="en">INVISIBLE</span><span class="zh">不可见</span></div>
+        <h3><span class="en">Work is hard to verify</span><span class="zh">工作难以追踪</span></h3>
+        <p><span class="en">What changed, which agent did it, where the artifacts are, and whether the work can resume are all hard to answer.</span><span class="zh">谁改了什么、产物在哪里、能不能恢复，今天都很难回答。</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S3 SOLUTION (Agent Worker) -->
+<section class="solution" id="solution">
+  <div class="container">
+    <h2 class="section-title reveal">
+      <span class="en">Turn prompts into <span class="accent">trackable local work.</span></span>
+      <span class="zh">把一句话需求变成<span class="accent">可追踪的本地工作。</span></span>
+    </h2>
+    <p class="section-desc reveal">
+      <span class="en">OnMyAgent gives every agent a queue, a session, logs, permissions, and deliverables, so local AI work can be managed.</span>
+      <span class="zh">OnMyAgent 给每个 Agent 补上队列、会话、日志、权限和交付物，让本地 AI 工作可以被管理。</span>
+    </p>
+    <div class="solution-quote reveal">
+      <span class="en">Not another agent. The workspace for the agents you already use.</span>
+      <span class="zh">不是另一个 Agent，而是你已有 Agent 的工作台。</span>
+    </div>
+    <div class="worker-grid">
+      <div class="worker-card reveal rd1">
+        <div class="worker-key"><span class="en">SCHEDULABLE</span><span class="zh">可调度</span></div>
+        <h3><span class="en">One queue for many agents</span><span class="zh">多个 Agent，一条队列</span></h3>
+        <span class="worker-en">Schedulable</span>
+        <p><span class="en">Submit tasks, pick the right agent, route them through a unified Work Queue, and know who is doing what.</span><span class="zh">统一发起任务、选择 Agent、进入 Work Queue，知道谁在干什么。</span></p>
+      </div>
+      <div class="worker-card reveal rd2">
+        <div class="worker-key"><span class="en">TRACEABLE</span><span class="zh">可追踪</span></div>
+        <h3><span class="en">Every step recorded</span><span class="zh">每一步都有记录</span></h3>
+        <span class="worker-en">Traceable</span>
+        <p><span class="en">Plans, commands, tool calls, MCP requests, logs, and state are captured in one timeline you can replay.</span><span class="zh">保存计划、命令、Tool Calls、MCP 调用、日志和状态，形成可回看的时间线。</span></p>
+      </div>
+      <div class="worker-card reveal rd3">
+        <div class="worker-key"><span class="en">DELIVERABLE</span><span class="zh">可交付</span></div>
+        <h3><span class="en">Artifacts you can ship</span><span class="zh">产物可以直接交付</span></h3>
+        <span class="worker-en">Deliverable</span>
+        <p><span class="en">Diffs, reports, screenshots, files, and test results are collected as Artifacts and ready to deliver.</span><span class="zh">归档 Diff、报告、截图、文件、测试结果和最终 Artifact，准备好直接交付。</span></p>
+      </div>
+    </div>
+    <div class="transform-arrow reveal">
+      <span class="from"><span class="en">scattered local agents</span><span class="zh">分散的本地 Agent</span></span>
+      <span class="arrow">→</span>
+      <span class="to"><span class="en">manageable AI Workers</span><span class="zh">可管理的 AI Worker</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- S4 CONTROL PLANE -->
+<section class="controlplane" id="controlplane">
+  <div class="container">
+    <div class="section-label reveal en">Control Plane</div><div class="section-label reveal zh">控制平面</div>
+    <h2 class="section-title reveal" style="text-align:center">
+      <span class="en">One local control plane for your agent stack.</span>
+      <span class="zh">一个本地控制平面<br>管住你的 Agent 技术栈</span>
+    </h2>
+    <p class="section-desc reveal" style="text-align:center;margin-left:auto;margin-right:auto">
+      <span class="en">The technical view: agent aggregation, workflow control, and local-first ownership running on your own machine.</span>
+      <span class="zh">Agent 聚合、工作流控制、本地优先三层结构，全部跑在你自己的机器上。</span>
+    </p>
+    <div class="cp-stack">
+      <div class="cp-layer reveal rd1">
+        <div class="cp-layer-head">
+          <span class="cp-layer-num">1</span>
+          <span class="cp-layer-name"><span class="en">Agent Aggregation</span><span class="zh">Agent 聚合</span></span>
+          <span class="cp-layer-tag">Bring your own agents</span>
+        </div>
+        <div class="cp-items">
+          <span class="cp-item">Codex</span><span class="cp-item">Claude Code</span><span class="cp-item">OpenCode</span><span class="cp-item">Kilo</span><span class="cp-item">Cline</span><span class="cp-item">Roo</span><span class="cp-item">MCP</span>
+        </div>
+      </div>
+      <div class="cp-conn"></div>
+      <div class="cp-layer reveal rd2">
+        <div class="cp-layer-head">
+          <span class="cp-layer-num">2</span>
+          <span class="cp-layer-name"><span class="en">Workflow Control</span><span class="zh">工作流控制</span></span>
+          <span class="cp-layer-tag">Session · Task · Artifact</span>
+        </div>
+        <div class="cp-items">
+          <span class="cp-item">Session</span><span class="cp-item">Task</span><span class="cp-item">Artifact</span><span class="cp-item">Memory</span><span class="cp-item">Skill</span><span class="cp-item">Logs</span><span class="cp-item">Approvals</span>
+        </div>
+      </div>
+      <div class="cp-conn"></div>
+      <div class="cp-layer reveal rd3">
+        <div class="cp-layer-head">
+          <span class="cp-layer-num">3</span>
+          <span class="cp-layer-name"><span class="en">Local-first Ownership</span><span class="zh">本地优先</span></span>
+          <span class="cp-layer-tag">Your keys · Your context</span>
+        </div>
+        <div class="cp-items">
+          <span class="cp-item">BYOK</span><span class="cp-item">Local-first</span><span class="cp-item">User-owned context</span><span class="cp-item">Model Keys</span><span class="cp-item">Project Context</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S5 PRODUCT MODULES -->
+<section class="modules" id="modules">
+  <div class="container">
+    <div class="section-label reveal en">Product Modules</div><div class="section-label reveal zh">产品模块</div>
+    <h2 class="section-title reveal">
+      <span class="en">Everything your local agents need, in one workspace.</span>
+      <span class="zh">本地 Agent 需要的东西，都在一个工作台里。</span>
+    </h2>
+    <p class="section-desc reveal">
+      <span class="en">Eight modules. One mental model. Zero terminal gymnastics.</span>
+      <span class="zh">八个核心模块，一套统一心智，告别终端切来切去。</span>
+    </p>
+    <div class="bento">
+      <div class="bento-card span2 reveal rd1">
+        <div>
+          <div class="bento-icon">AG</div>
+          <h4><span class="en">Agent Registry</span><span class="zh">Agent Registry</span></h4>
+          <span class="b-en">Bring your own agents</span>
+          <p><span class="en">Register Codex, Claude Code, OpenCode, Hermes, OpenClaw, or any custom CLI agent. Detect, configure, and switch with one click.</span><span class="zh">接入 Codex、Claude Code、OpenCode、Hermes、OpenClaw 和自定义 CLI Agent。检测、配置、一键切换。</span></p>
+        </div>
+      </div>
+      <div class="bento-card reveal rd2">
+        <div class="bento-icon">WQ</div>
+        <h4><span class="en">Work Queue</span><span class="zh">Work Queue</span></h4>
+        <span class="b-en">Queue · Run · Resume</span>
+        <p><span class="en">Task queue with execution state, retries, and recovery.</span><span class="zh">任务队列、执行状态、失败恢复。</span></p>
+      </div>
+      <div class="bento-card reveal rd3">
+        <div class="bento-icon">AD</div>
+        <h4><span class="en">Artifacts & Diff</span><span class="zh">Artifacts & Diff</span></h4>
+        <span class="b-en">Review what changed</span>
+        <p><span class="en">Diffs, reports, screenshots, deliverables in one place.</span><span class="zh">集中查看 Diff、报告、截图、交付物。</span></p>
+      </div>
+      <div class="bento-card reveal rd1">
+        <div class="bento-icon">MP</div>
+        <h4><span class="en">MCP Manager</span><span class="zh">MCP Manager</span></h4>
+        <span class="b-en">Install · Test · Debug</span>
+        <p><span class="en">Configure, enable, and troubleshoot MCP servers.</span><span class="zh">安装、启用、测试、排错 MCP Server。</span></p>
+      </div>
+      <div class="bento-card reveal rd2">
+        <div class="bento-icon">SK</div>
+        <h4><span class="en">Skill Sync</span><span class="zh">Skill Sync</span></h4>
+        <span class="b-en">Reusable capabilities</span>
+        <p><span class="en">Manage Skills across OnMyAgent, Codex, and other tools.</span><span class="zh">管理 Skills，支持跨工具同步。</span></p>
+      </div>
+      <div class="bento-card reveal rd3">
+        <div class="bento-icon">MB</div>
+        <h4><span class="en">Memory Bridge</span><span class="zh">Memory Bridge</span></h4>
+        <span class="b-en">Context that persists</span>
+        <p><span class="en">User, project, and agent memory in one bridge.</span><span class="zh">管理用户、项目和 Agent 记忆。</span></p>
+      </div>
+      <div class="bento-card reveal rd4">
+        <div class="bento-icon">SM</div>
+        <h4><span class="en">Session Manager</span><span class="zh">Session Manager</span></h4>
+        <span class="b-en">Resume from anywhere</span>
+        <p><span class="en">View, restore, archive sessions across agents.</span><span class="zh">统一查看、恢复、归档会话。</span></p>
+      </div>
+      <div class="bento-card reveal rd1">
+        <div class="bento-icon">PA</div>
+        <h4><span class="en">Permission & Approval</span><span class="zh">Permission & Approval</span></h4>
+        <span class="b-en">Stay in control</span>
+        <p><span class="en">Explicit approval for risky actions, scoped permissions per Worker.</span><span class="zh">高风险动作显式审批，每个 Worker 独立权限边界。</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S6 WORKFLOW -->
+<section class="workflow" id="workflow">
+  <div class="container">
+    <h2 class="section-title reveal">
+      <span class="en">From <span class="accent">one request</span> to <span class="accent">shipped artifacts.</span></span>
+      <span class="zh">从<span class="accent">一句话需求</span>到<span class="accent">产物交付</span></span>
+    </h2>
+    <p class="section-desc reveal">
+      <span class="en">A simple loop: connect tools, run work, track progress, deliver artifacts, keep memory.</span>
+      <span class="zh">一个简单闭环：连接工具、执行任务、追踪过程、交付产物、沉淀记忆。</span>
+    </p>
+    <div class="wf-steps5">
+      <div class="wf-step5 reveal rd1">
+        <div class="wf-step5-num">1</div>
+        <span class="wf-en">Detect</span>
+        <h4><span class="en">Detect environment</span><span class="zh">检测环境</span></h4>
+        <p><span class="en">Local agents, model keys, MCP, and runtime are checked before work starts.</span><span class="zh">检测本地 Agent、模型 Key、MCP、运行环境。</span></p>
+      </div>
+      <div class="wf-step5 reveal rd2">
+        <div class="wf-step5-num">2</div>
+        <span class="wf-en">Connect</span>
+        <h4><span class="en">Connect agents</span><span class="zh">接入 Agent</span></h4>
+        <p><span class="en">Wire up Codex, Claude Code, OpenCode, Hermes, OpenClaw, Skills, Memory.</span><span class="zh">接入 Codex / Claude Code / OpenCode / Hermes / OpenClaw / Skills / Memory。</span></p>
+      </div>
+      <div class="wf-step5 reveal rd3">
+        <div class="wf-step5-num">3</div>
+        <span class="wf-en">Run</span>
+        <h4><span class="en">Run as a Worker</span><span class="zh">作为 Worker 执行</span></h4>
+        <p><span class="en">Submit a task, pick an agent, enter the Work Queue.</span><span class="zh">发起任务，选择 Agent，进入 Work Queue。</span></p>
+      </div>
+      <div class="wf-step5 reveal rd4">
+        <div class="wf-step5-num">4</div>
+        <span class="wf-en">Track</span>
+        <h4><span class="en">Track everything</span><span class="zh">全程追踪</span></h4>
+        <p><span class="en">Plans, commands, logs, tool calls, and diffs stay in one timeline.</span><span class="zh">追踪计划、命令、日志、Tool Calls、Diff，统一时间线。</span></p>
+      </div>
+      <div class="wf-step5 reveal rd4">
+        <div class="wf-step5-num">5</div>
+        <span class="wf-en">Deliver</span>
+        <h4><span class="en">Deliver artifacts</span><span class="zh">交付产物</span></h4>
+        <p><span class="en">Archive deliverables, summarize results, persist Memory.</span><span class="zh">归档 Artifact，总结结果，沉淀 Memory。</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S7 INTEGRATIONS -->
+<section class="integrations" id="integrations">
+  <div class="container">
+    <h2 class="section-title reveal">
+      <span class="en">Bring your own agents.</span>
+      <span class="zh">带上你已有的 Agent</span>
+    </h2>
+    <div class="int-quote reveal">
+      <span class="int-line en">Bring Codex, Claude Code, OpenCode, Hermes, and OpenClaw into one workspace.</span>
+      <span class="int-line muted en">Add MCP, Skills, Memory, and model keys without changing your tools.</span>
+      <span class="int-line zh">把 Codex、Claude Code、OpenCode、Hermes 和 OpenClaw 收进同一个工作台。</span>
+      <span class="int-line muted zh">接入 MCP、Skills、Memory 和模型 Key，但不改变你已有的工具。</span>
+    </div>
+    <div class="int-grid">
+      <div class="int-chip reveal rd1"><span class="int-chip-icon">●</span><span class="int-chip-name">Codex</span><span class="int-chip-tag">Worker</span></div>
+      <div class="int-chip reveal rd1"><span class="int-chip-icon">●</span><span class="int-chip-name">Claude Code</span><span class="int-chip-tag">Worker</span></div>
+      <div class="int-chip reveal rd1"><span class="int-chip-icon">●</span><span class="int-chip-name">OpenCode</span><span class="int-chip-tag">Core</span></div>
+      <div class="int-chip reveal rd2"><span class="int-chip-icon">●</span><span class="int-chip-name">Cline</span><span class="int-chip-tag">Worker</span></div>
+      <div class="int-chip reveal rd2"><span class="int-chip-icon">●</span><span class="int-chip-name">Roo Code</span><span class="int-chip-tag">Worker</span></div>
+      <div class="int-chip reveal rd2"><span class="int-chip-icon">●</span><span class="int-chip-name">Hermes</span><span class="int-chip-tag">Worker</span></div>
+      <div class="int-chip reveal rd3"><span class="int-chip-icon">🦞</span><span class="int-chip-name">OpenClaw</span><span class="int-chip-tag">Worker</span></div>
+      <div class="int-chip reveal rd3"><span class="int-chip-icon">⌁</span><span class="int-chip-name">MCP servers</span><span class="int-chip-tag">Tools</span></div>
+      <div class="int-chip reveal rd3"><span class="int-chip-icon">◆</span><span class="int-chip-name">Skills</span><span class="int-chip-tag">Capability</span></div>
+      <div class="int-chip reveal rd4"><span class="int-chip-icon">◐</span><span class="int-chip-name">Memory</span><span class="int-chip-tag">Context</span></div>
+      <div class="int-chip coming reveal rd4"><span class="int-chip-icon">AD</span><span class="int-chip-name">Custom CLI</span><span class="int-chip-tag">Soon</span></div>
+      <div class="int-chip coming reveal rd4"><span class="int-chip-icon">AD</span><span class="int-chip-name">Your agent</span><span class="int-chip-tag">Soon</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- S8 OPEN-SOURCE / LOCAL-FIRST -->
+<section class="trust" id="trust">
+  <div class="container">
+    <div class="section-label reveal en">Free desktop entry to local AI work</div><div class="section-label reveal zh">免费的桌面级本地 AI 工作入口</div>
+    <h2 class="section-title reveal">
+      <span class="en">Open-source. Local-first. Bring your own keys.</span>
+      <span class="zh">开源 本地 免费 优先 使用自有模型</span>
+    </h2>
+    <p class="section-desc reveal">
+      <span class="en">Three reasons OnMyAgent is safe to put at the center of your local agent stack.</span>
+      <span class="zh">三个理由，让 OnMyAgent 放心成为你本地 Agent 技术栈的中心。</span>
+    </p>
+    <div class="trust-grid">
+      <div class="trust-card reveal rd1">
+        <div class="trust-icon">●</div>
+        <h3><span class="en">Open-source</span><span class="zh">开源</span></h3>
+        <span class="trust-en">Auditable · Extensible</span>
+        <p><span class="en">Read the code, audit it, contribute Adapters, and shape the roadmap. No black box.</span><span class="zh">开源透明，适合开发者试用、审计和贡献 Adapter。没有黑盒。</span></p>
+      </div>
+      <div class="trust-card reveal rd2">
+        <div class="trust-icon">LO</div>
+        <h3><span class="en">Local-first</span><span class="zh">本地优先</span></h3>
+        <span class="trust-en">Your machine · Your data</span>
+        <p><span class="en">Sessions, logs, artifacts, and context live in your local workspace before anything leaves the machine.</span><span class="zh">会话、日志、产物、上下文优先沉淀在你的本地工作区，离开机器前由你决定。</span></p>
+      </div>
+      <div class="trust-card reveal rd3">
+        <div class="trust-icon">⌁</div>
+        <h3><span class="en">BYOK</span><span class="zh">BYOK 自带 Key</span></h3>
+        <span class="trust-en">No vendor lock-in</span>
+        <p><span class="en">Use your own OpenAI, Anthropic, OpenCode-compatible, or any provider key. No relay required.</span><span class="zh">使用你自己的 OpenAI、Anthropic 或任意兼容服务商 Key，不强绑定单一模型平台。</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S9 FAQ + FINAL CTA -->
+<section class="faq-section" id="faq">
+  <div class="container">
+      <h2 class="section-title reveal" style="text-align:center"><span class="en">Questions, answered</span><span class="zh">常见问题 这里有答案</span></h2>
+    <div style="height:40px"></div>
+    <div class="faq-list">
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">Is OnMyAgent based on OpenCode?</span><span class="zh">OnMyAgent 是基于 OpenCode 的吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">Yes. OnMyAgent is built on OpenCode as a local agent runtime foundation, then adds a desktop workspace for agent registry, work queue, sessions, logs, artifacts, skills, memory, and approvals. It is not a replacement for OpenCode. It is the workspace around it.</span><span class="zh">是的。OnMyAgent 基于 OpenCode 作为本地 Agent 运行基础，并在外层增加桌面工作台，用来管理 Agent Registry、Work Queue、会话、日志、产物、Skills、Memory 和审批。它不是替代 OpenCode，而是围绕 OpenCode 和其他 Agent 工具的工作台。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">OnMyAgent vs Codex / Claude Code / OpenCode?</span><span class="zh">OnMyAgent 和 Codex / Claude Code / OpenCode 是什么关系？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">Codex / Claude Code / OpenCode are agents. OnMyAgent is the workspace and local Agent control console that manages them: registry, queue, sessions, logs, diffs, artifacts, and approvals all in one local app. We do not replace them; we make them easier to operate.</span><span class="zh">Codex / Claude Code / OpenCode 是 Agent。OnMyAgent 是管理它们的工作台和本地 Agent 控制台：Agent Registry、队列、会话、日志、Diff、产物、审批，都在一个本地应用里。我们不替代它们，而是让它们更好用。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">OnMyAgent vs LibreChat / Open WebUI / LobeChat?</span><span class="zh">OnMyAgent 和 LibreChat / Open WebUI / LobeChat 有什么区别？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">Those are excellent chat clients / LLM web UIs. OnMyAgent manages CLI agents, MCP, Skills, Memory, sessions, work queues, and artifacts on your machine. Different category.</span><span class="zh">它们是优秀的聊天客户端 / LLM Web UI。OnMyAgent 在你的机器上管理 CLI Agent、MCP、Skills、Memory、会话、Work Queue 和产物。不同品类。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">OnMyAgent vs n8n / Dify / Zapier?</span><span class="zh">和 n8n / Dify / Zapier 有什么区别？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">n8n / Dify / Zapier are cloud workflow automation platforms. OnMyAgent focuses on local-first agent work: your code, your machine, your model keys, your artifacts. Different category.</span><span class="zh">它们是云端工作流自动化平台。OnMyAgent 聚焦本地优先的 Agent 工作：你的代码、你的机器、你的 Key、你的产物。不同品类。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">Is it free? Is it really open source?</span><span class="zh">免费吗？真的开源吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">Yes. OnMyAgent is planned as free and open source for individuals, developers, learning, research, and self-hosted personal use. Commercial or enterprise use may require a separate license. Final terms will be published in the repo before release.</span><span class="zh">是的。OnMyAgent 计划对个人、开发者、学习研究和自托管个人使用免费开源。商业或企业使用可能需要单独授权。最终协议条款会在仓库发布前明确写清楚。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">Relationship with WeaveQ?</span><span class="zh">和 WeaveQ 什么关系？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">OnMyAgent is the open-source local AI workspace for individuals, and under the hood it works as a local Agent control plane. WeaveQ is the enterprise Worker delivery platform with deeper business surfaces. Same team, different scope.</span><span class="zh">OnMyAgent 是面向个人的开源本地 AI 工作台，底层是一个本地 Agent 控制平面。WeaveQ 是企业 Worker 交付平台，具备更深的业务能力。同一团队，不同范围。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">Can my team use it?</span><span class="zh">团队可以用吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">OnMyAgent is free for individuals. Team support is planned for later, with shared workspaces, permissions, and organization-level audit opening through private beta.</span><span class="zh">OnMyAgent 面向个人免费。团队能力会放在后续路线图中，通过私有 Beta 开放共享工作区、权限和组织级审计。</span></div>
+      </div>
+    </div>
+    <div class="final-cta reveal">
+      <h2><span class="en">Ready to manage local agents</span><span class="zh">准备好管理你的本地 Agent</span></h2>
+      <p>
+        <span class="en">Free desktop entry to local AI work. One workspace for Codex, Claude Code, OpenCode, Hermes, OpenClaw, MCP, Skills, Memory, sessions, and artifacts.</span>
+        <span class="zh">免费的桌面级本地 AI 工作入口。一个工作台管好 Codex、Claude Code、OpenCode、Hermes、OpenClaw、MCP、Skills、Memory、会话和产物。</span>
+      </p>
+      <div class="final-cta-buttons">
+        <a href="#" class="btn-primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg><span class="en">Star on GitHub</span><span class="zh">GitHub Star</span></a>
+        <a href="#" class="btn-secondary"><span class="en">Try locally</span><span class="zh">本地试用</span></a>
+        <a href="#" class="btn-ghost"><span class="en">Read the docs</span><span class="zh">查看文档</span></a>
+      </div>
+    </div>
+    <footer class="footer">
+      <p>OnMyAgent by <a href="#">WeaveQ</a>. Free desktop entry to local AI work</p>
+      <p style="margin-top:8px"><span class="en">Not another agent. The workspace for the agents you already use.</span><span class="zh">不是另一个 Agent，而是你已有 Agent 的工作台。</span></p>
+    </footer>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+function toggleLang(){const h=document.documentElement,b=document.getElementById('langBtn');if(h.dataset.lang==='en'){h.dataset.lang='zh';b.textContent='EN'}else{h.dataset.lang='en';b.textContent='中文'}}
+function toggleTheme(){const h=document.documentElement,b=document.getElementById('themeBtn');if(h.dataset.theme==='dark'){h.dataset.theme='light';b.textContent='Dark'}else{h.dataset.theme='dark';b.textContent='Light'}}
+const obs=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add('visible')})},{threshold:.1,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',function(e){const href=this.getAttribute('href');if(href==='#')return;e.preventDefault();const t=document.querySelector(href);if(t)t.scrollIntoView({behavior:'smooth'})})});
+if(window.gsap&&window.ScrollTrigger){gsap.registerPlugin(ScrollTrigger);gsap.from('.cockpit',{scale:.86,opacity:.65,y:48,duration:1.1,ease:'power3.out'});gsap.utils.toArray('.bento-card,.wf-step5,.trust-card').forEach((el,i)=>{gsap.fromTo(el,{scale:.92,opacity:.55},{scale:1,opacity:1,ease:'none',scrollTrigger:{trigger:el,start:'top 88%',end:'bottom 45%',scrub:true}})});gsap.utils.toArray('.section-title').forEach(el=>{gsap.fromTo(el,{opacity:.35,y:30},{opacity:1,y:0,ease:'none',scrollTrigger:{trigger:el,start:'top 84%',end:'top 48%',scrub:true}})});}
+</script>
+</body>
+</html>

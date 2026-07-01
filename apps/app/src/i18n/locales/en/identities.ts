@@ -1,0 +1,176 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "identities.agent_behavior_desc":
+    "One file per workspace. Add optional first line @agent <id> to route via a specific OpenCode agent.",
+  "identities.agent_behavior_title": "Messaging agent behavior",
+  "identities.agent_created": "Created default messaging agent file.",
+  "identities.agent_file_changed":
+    "File changed remotely. Reload and save again.",
+  "identities.agent_loading": "Loading agent file…",
+  "identities.agent_none": "none",
+  "identities.agent_not_found": "Agent file not found in this workspace yet.",
+  "identities.agent_placeholder":
+    "Describe how the messaging agent should respond in this workspace.",
+  "identities.agent_saved": "Saved messaging behavior.",
+  "identities.agent_scope_status":
+    "Active scope: workspace · status: {status} · selected agent: {agent}",
+  "identities.agent_status_loaded": "loaded",
+  "identities.agent_status_missing": "missing",
+  "identities.agent_worker_scope_unavailable": "Worker scope unavailable.",
+  "identities.all_channels": "All channels",
+  "identities.app_token_label": "App token",
+  "identities.auto_bind_label": "Auto-bind peer to directory on direct send",
+  "identities.available_channels": "Available channels",
+  "identities.bot_token_label": "Bot token",
+  "identities.bot_token_placeholder":
+    "Paste Telegram bot token from @BotFather",
+  "identities.botfather_step1_open": "1. Open @BotFather in Telegram",
+  "identities.botfather_step1_run": "and run /newbot",
+  "identities.botfather_step3_choose":
+    "3. Choose a name and username for your bot",
+  "identities.botfather_step3_or_private": "for open inbox or",
+  "identities.botfather_step3_private": "Private",
+  "identities.botfather_step3_public": "Public",
+  "identities.botfather_step3_to_require": "to require",
+  "identities.channel_label": "Channel",
+  "identities.channels_connected": "connected",
+  "identities.channels_label": "Channels",
+  "identities.configured_suffix": "configured",
+  "identities.connect_server_desc": `Identities are available when you are connected to an ${APP_NAME} host.`,
+  "identities.connect_server_title": `Connect to an ${APP_NAME} server`,
+  "identities.connect_slack": "Connect Slack",
+  "identities.connected_badge": "Connected",
+  "identities.connecting": "Connecting...",
+  "identities.copy_bot_token_hint": "Copy the bot token and paste it below.",
+  "identities.copy_code": "Copy code",
+  "identities.create_default_file": "Create default file",
+  "identities.create_private_bot": "Create private bot",
+  "identities.create_public_bot": "Create public bot",
+  "identities.days_ago": "{days}d ago",
+  "identities.default_routing": "Default routing",
+  "identities.directory_label": "Directory (optional)",
+  "identities.disable_messaging": "Disable messaging",
+  "identities.disable_messaging_message":
+    "This will turn off messaging for this workspace. Telegram and Slack setup will be hidden until messaging is enabled again, and you will need to restart the worker to fully stop the messaging sidecar.",
+  "identities.disable_messaging_title": "Disable messaging for this worker?",
+  "identities.disabled_label": "Disabled",
+  "identities.disabling": "Disabling...",
+  "identities.disconnect": "Disconnect",
+  "identities.dispatched_messages": "Dispatched {sent}/{attempted} messages.",
+  "identities.enable_messaging": "Enable messaging",
+  "identities.enable_messaging_risk":
+    "Messaging can expose this worker to remote commands. If a bot is public or compromised, it can access files, credentials, and API keys available to this worker.",
+  "identities.enable_messaging_title": "Enable messaging for this worker?",
+  "identities.enabled_label": "Enabled",
+  "identities.enabling": "Enabling...",
+  "identities.health_offline": "Offline",
+  "identities.health_running": "Running",
+  "identities.health_unavailable": "Unavailable",
+  "identities.health_unavailable_status": "Unavailable ({status})",
+  "identities.health_unknown": "Unknown",
+  "identities.hours_ago": "{hours}h ago",
+  "identities.identities_label": "Identities",
+  "identities.just_now": "Just now",
+  "identities.last_activity": "Last activity",
+  "identities.later": "Later",
+  "identities.message_label": "Message",
+  "identities.message_routing_desc":
+    "Control which conversations go to which workspace folder. Messages are routed to the worker's default folder unless you set up rules here.",
+  "identities.message_routing_title": "Message routing",
+  "identities.messages_today": "Messages today",
+  "identities.messaging_disabled_hint":
+    "Enable messaging only if you understand the risk and plan to secure access (for example, private Telegram pairing).",
+  "identities.messaging_disabled_restart":
+    "Messaging disabled. Restart this worker to stop the messaging sidecar.",
+  "identities.messaging_disabled_risk":
+    "Messaging bots can execute actions against your local worker. If exposed publicly, they may allow access to files, credentials, and API keys available to this worker.",
+  "identities.messaging_disabled_title": "Messaging is disabled by default",
+  "identities.messaging_enabled_restart":
+    "Messaging enabled. Restart this worker to apply before configuring channels.",
+  "identities.messaging_sidecar_not_running":
+    "Messaging is enabled in this workspace, but the messaging sidecar is not running yet. Restart this worker, then return to Messaging settings to connect Telegram or Slack.",
+  "identities.minutes_ago": "{minutes}m ago",
+  "identities.not_set": "Not set",
+  "identities.open_bot_link": "Open @{username} in Telegram",
+  "identities.pairing_code_copied": "Pairing code copied.",
+  "identities.pairing_code_copy_failed":
+    "Could not copy pairing code. Copy it manually.",
+  "identities.pairing_code_instruction_prefix": "Send",
+  "identities.peer_id_label": "Peer ID (optional)",
+  "identities.peer_id_placeholder_slack": "e.g. slack:U12345678",
+  "identities.peer_id_placeholder_telegram": "e.g. telegram:123456789",
+  "identities.private_label": "Private",
+  "identities.private_pairing_code": "Private pairing code",
+  "identities.public_bot_confirm": "Yes I understand the risk",
+  "identities.public_bot_warning_message":
+    "Your bot will be accessible to the public and anyone who gets access to your bot will be able to have full access to your local worker including any files or API keys that you've given it. If you create a private bot, you can limit who can access it by requiring a pairing token. Are you sure you want to make your bot public?",
+  "identities.public_bot_warning_title": "Make this bot public?",
+  "identities.public_label": "Public",
+  "identities.quick_setup": "Quick setup",
+  "identities.reconnect_failed": `Reconnect failed. Check ${APP_NAME} URL/token and try again.`,
+  "identities.reconnected": "Reconnected.",
+  "identities.reconnected_refreshing":
+    "Reconnected. Refreshing worker state...",
+  "identities.reload": "Reload",
+  "identities.repair_reconnect": "Repair & reconnect",
+  "identities.restart_failed":
+    "Restart failed. Please restart the worker from Settings and try again.",
+  "identities.restart_to_disable_messaging":
+    "Messaging was disabled for this workspace. Restart the worker now to stop the messaging sidecar.",
+  "identities.restart_to_enable_messaging":
+    "Messaging was enabled for this workspace. Restart the worker now to start the messaging sidecar and unlock Telegram and Slack setup.",
+  "identities.restart_worker": "Restart worker",
+  "identities.restart_worker_title": "Restart worker now?",
+  "identities.restarting": "Restarting...",
+  "identities.routing_override_prefix": "All messages routed to",
+  "identities.routing_override_suffix": "(override active)",
+  "identities.running_label": "Running",
+  "identities.save_behavior": "Save behavior",
+  "identities.saving": "Saving...",
+  "identities.send_test_button": "Send test message",
+  "identities.send_test_desc":
+    "Validate outbound wiring. Use a peer ID for direct send, or leave peer ID empty to fan out by bindings in a directory.",
+  "identities.send_test_title": "Send test message",
+  "identities.sending": "Sending...",
+  "identities.slack_desc":
+    "Your worker appears as a bot in Slack channels. Team members can message it directly or mention it in threads.",
+  "identities.slack_intro":
+    "Connect your Slack workspace to let team members interact with this worker in channels and DMs.",
+  "identities.slack_unavailable": "Slack identities unavailable.",
+  "identities.status_active": "Active",
+  "identities.status_label": "Status",
+  "identities.status_stopped": "Stopped",
+  "identities.stopped_label": "Stopped",
+  "identities.subtitle":
+    "Let people reach your worker through messaging apps. Connect a channel and your worker will automatically read and respond to messages.",
+  "identities.tab_general": "General",
+  "identities.telegram_bot_access_desc":
+    "Public bot: first Telegram chat auto-links. Private bot: requires a pairing code before any messages run tools.",
+  "identities.telegram_delete_failed": "Failed to delete.",
+  "identities.telegram_deleted": "Deleted.",
+  "identities.telegram_deleted_pending": "Deleted (pending apply).",
+  "identities.telegram_desc":
+    "Connect a Telegram bot in public mode (open inbox) or private mode (pairing code required).",
+  "identities.telegram_private_saved_pair":
+    "Private bot saved. Pair via /pair {code}",
+  "identities.telegram_save_failed": "Failed to save.",
+  "identities.telegram_saved": "Saved.",
+  "identities.telegram_saved_pending": "Saved (pending apply).",
+  "identities.telegram_saved_username": "Saved (@{username})",
+  "identities.telegram_unavailable": "Telegram identities unavailable.",
+  "identities.title": "Messaging channels",
+  "identities.unsaved_changes": "Unsaved changes",
+  "identities.worker_offline": "Worker offline",
+  "identities.worker_online": "Worker online",
+  "identities.worker_restarted": "Worker restarted.",
+  "identities.worker_restarted_refreshing":
+    "Worker restarted. Refreshing messaging status...",
+  "identities.worker_scope_unavailable": "Worker scope unavailable.",
+  "identities.worker_scope_unavailable_detail":
+    "Worker scope unavailable. Reconnect using a worker URL or switch to a known worker.",
+  "identities.worker_unavailable": "Worker unavailable",
+  "identities.workspace_id_required":
+    "Workspace ID is required to manage identities. Reconnect with a workspace URL or select a workspace mapped on this host.",
+  "identities.workspace_scope_prefix": "Workspace scope:",
+} as const;

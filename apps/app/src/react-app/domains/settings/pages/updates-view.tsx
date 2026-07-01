@@ -1,0 +1,269 @@
+/** @jsxImportSource react */
+import { CircleAlert, Info } from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Progress,
+  ProgressLabel,
+  ProgressValue,
+} from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { formatBytes, formatRelativeTime } from "../../../../app/utils";
+import { t } from "../../../../i18n";
+import type { ReleaseChannel } from "../../../../app/types";
+import type { SettingsUpdateStatus } from "../state/electron-updater-state";
+import {
+  LayoutSectionItem,
+  LayoutSectionItemDescription,
+  LayoutSectionItemHeader,
+  LayoutSectionItemHeaderActions,
+  LayoutSectionItemTitle,
+  LayoutStack,
+} from "../settings-layout";
+import { Separator } from "@/components/ui/separator";
+
+const RELEASE_CHANNEL_OPTIONS: { label: string; value: ReleaseChannel }[] = [
+  { label: t("settings.shell_view_release_channel_stable"), value: "stable" },
+  { label: t("settings.shell_view_release_channel_alpha"), value: "alpha" },
+];
+
+type UpdateDownloadProgressProps = {
+  downloadedBytes: number | null;
+  totalBytes: number | null;
+};
+
+function UpdateDownloadProgress(props: UpdateDownloadProgressProps) {
+  const downloadedBytes = props.downloadedBytes ?? 0;
+  const progressPercent =
+    props.totalBytes != null && props.totalBytes > 0
+      ? Math.min(100, Math.round((downloadedBytes / props.totalBytes) * 100))
+      : 0;
+  const progressLabel = (
+    <>
+      {formatBytes(downloadedBytes)}
+      {props.totalBytes != null ? ` / ${formatBytes(props.totalBytes)}` : ""}
+    </>
+  );
+
+  return (
+    <Progress value={progressPercent} className="w-full">
+      <ProgressLabel className="text-sm text-muted-foreground font-normal">
+        {progressLabel}
+      </ProgressLabel>
+      <ProgressValue className="text-sm" />
+    </Progress>
+  );
+}
+
+export type UpdatesViewProps = {
+  busy: boolean;
+  webDeployment: boolean;
+  appVersion: string | null;
+  updateEnv: { supported?: boolean; reason?: string | null } | null;
+  updateAutoCheck: boolean;
+  toggleUpdateAutoCheck: () => void;
+  updateAutoDownload: boolean;
+  toggleUpdateAutoDownload: () => void;
+  updateStatus: SettingsUpdateStatus;
+  anyActiveRuns: boolean;
+  checkForUpdates: () => void | Promise<void>;
+  downloadUpdate: () => void | Promise<void>;
+  installUpdateAndRestart: () => void | Promise<void>;
+  /** Currently selected release channel. Optional; callers may omit. */
+  releaseChannel?: ReleaseChannel;
+  /**
+   * Change the release channel. When not provided, the channel row is
+   * rendered read-only — useful for contexts where the pref can't be
+   * mutated (e.g. web preview).
+   */
+  onReleaseChannelChange?: (next: ReleaseChannel) => void;
+  /**
+   * Whether the alpha channel is available on this platform. Alpha is
+   * macOS-only today; other platforms should receive `false` so the
+   * toggle is hidden.
+   */
+  alphaChannelSupported?: boolean;
+};
+
+export function UpdatesView(props: UpdatesViewProps) {
+  const updateState = props.updateStatus?.state ?? "idle";
+  const updateVersion = props.updateStatus?.version ?? null;
+  const updateDate = props.updateStatus?.date ?? null;
+  const updateLastCheckedAt = props.updateStatus?.lastCheckedAt ?? null;
+  const updateDownloadedBytes = props.updateStatus?.downloadedBytes ?? null;
+  const updateTotalBytes = props.updateStatus?.totalBytes ?? null;
+  const updateErrorMessage = props.updateStatus?.message ?? null;
+  const updateNotes = props.updateStatus?.notes ?? null;
+
+  const updateRestartBlockedMessage =
+    updateState === "ready" && props.anyActiveRuns
+      ? t("settings.restart_blocked_message")
+      : null;
+
+  return (
+    <LayoutStack>
+      {props.appVersion ? (
+        <LayoutSectionItem>
+          <LayoutSectionItemHeader>
+            <LayoutSectionItemTitle>
+              {t("settings.shell_view_current_version_description")}
+            </LayoutSectionItemTitle>
+            <LayoutSectionItemDescription className="font-mono">
+              v{props.appVersion}
+            </LayoutSectionItemDescription>
+          </LayoutSectionItemHeader>
+        </LayoutSectionItem>
+      ) : null}
+      {/* <LayoutSectionItem>
+        <LayoutSectionItemHeader>
+          <LayoutSectionItemTitle>
+            {t("settings.update_uptodate")}
+          </LayoutSectionItemTitle>
+          <LayoutSectionItemDescription>
+            {updateState === "idle" && updateLastCheckedAt
+              ? t("settings.update_last_checked", undefined, {
+                  time: formatRelativeTime(updateLastCheckedAt),
+                })
+              : updateState === "available" && updateDate
+                ? t("settings.update_published", undefined, {
+                    date: updateDate,
+                  })
+                : null}
+          </LayoutSectionItemDescription>
+        </LayoutSectionItemHeader>
+
+        {updateState === "downloading" ? (
+          <UpdateDownloadProgress
+            downloadedBytes={updateDownloadedBytes}
+            totalBytes={updateTotalBytes}
+          />
+        ) : null}
+
+        {updateState === "error" && updateErrorMessage ? (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>{updateErrorMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {updateRestartBlockedMessage ? (
+          <Alert>
+            <Info />
+            <AlertDescription>{updateRestartBlockedMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+      </LayoutSectionItem> */}
+
+      {updateState === "available" && updateNotes ? (
+        <LayoutSectionItem className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
+          {updateNotes}
+        </LayoutSectionItem>
+      ) : null}
+
+      {props.webDeployment ? (
+        <Alert>
+          <AlertDescription>
+            {t("settings.updates_desktop_only")}
+          </AlertDescription>
+        </Alert>
+      ) : props.updateEnv && props.updateEnv.supported === false ? (
+        <Alert>
+          <AlertDescription>
+            {props.updateEnv.reason ?? t("settings.updates_not_supported")}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          <Separator />
+          {props.alphaChannelSupported && props.releaseChannel ? (
+            <LayoutSectionItem>
+              <LayoutSectionItemHeader>
+                <LayoutSectionItemTitle>
+                  {t("settings.shell_view_release_channel")}
+                </LayoutSectionItemTitle>
+                <LayoutSectionItemDescription>
+                  {t("settings.shell_view_release_channel_description")}
+                </LayoutSectionItemDescription>
+                <LayoutSectionItemHeaderActions>
+                  <Select
+                    value={props.releaseChannel}
+                    items={RELEASE_CHANNEL_OPTIONS}
+                    onValueChange={(value) => {
+                      if (value === "stable" || value === "alpha") {
+                        props.onReleaseChannelChange?.(value);
+                      }
+                    }}
+                    disabled={!props.onReleaseChannelChange}
+                  >
+                    <SelectTrigger
+                      aria-label={t("settings.release_channel")}
+                      className="w-48"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {RELEASE_CHANNEL_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </LayoutSectionItemHeaderActions>
+              </LayoutSectionItemHeader>
+            </LayoutSectionItem>
+          ) : null}
+
+          <LayoutSectionItem>
+            <LayoutSectionItemHeader>
+              <LayoutSectionItemTitle>
+                {t("settings.background_checks_title")}
+              </LayoutSectionItemTitle>
+              <LayoutSectionItemDescription>
+                {t("settings.background_checks_desc")}
+              </LayoutSectionItemDescription>
+              <LayoutSectionItemHeaderActions>
+                <Switch
+                  aria-label={t("settings.background_checks_title")}
+                  checked={props.updateAutoCheck}
+                  onCheckedChange={props.toggleUpdateAutoCheck}
+                  disabled
+                />
+              </LayoutSectionItemHeaderActions>
+            </LayoutSectionItemHeader>
+          </LayoutSectionItem>
+
+          <LayoutSectionItem>
+            <LayoutSectionItemHeader>
+              <LayoutSectionItemTitle>
+                {t("settings.auto_update_title")}
+              </LayoutSectionItemTitle>
+              <LayoutSectionItemDescription>
+                {t("settings.auto_update_desc")}
+              </LayoutSectionItemDescription>
+              <LayoutSectionItemHeaderActions>
+                <Switch
+                  aria-label={t("settings.auto_update_title")}
+                  checked={props.updateAutoDownload}
+                  onCheckedChange={props.toggleUpdateAutoDownload}
+                  disabled
+                />
+              </LayoutSectionItemHeaderActions>
+            </LayoutSectionItemHeader>
+          </LayoutSectionItem>
+        </>
+      )}
+    </LayoutStack>
+  );
+}

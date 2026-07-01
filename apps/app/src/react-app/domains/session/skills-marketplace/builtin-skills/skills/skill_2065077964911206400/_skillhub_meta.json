@@ -1,0 +1,19 @@
+{
+  "name": "瑞幸咖啡下单助手",
+  "installedAt": 1782877131491,
+  "source": "marketplace",
+  "version": "0.8.2",
+  "skillId": "skill_2065077964911206400",
+  "examples_zh": [
+    "帮我查附近的瑞幸门店",
+    "我想在瑞幸点一杯生椰拿铁",
+    "帮我查询瑞幸订单状态"
+  ],
+  "examples_en": [
+    "Find nearby Luckin Coffee stores",
+    "Order a Coconut Latte for pickup",
+    "Check my Luckin Coffee order status"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2065077964911206400/0050ac2db5c1a9de.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2065077964911206400/0050ac2db5c1a9de.png"
+}

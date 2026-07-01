@@ -1,0 +1,18 @@
+{
+  "name": "macOS界面自动化",
+  "installedAt": 1782877225886,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082563940843520",
+  "examples_zh": [
+    "截取当前macOS桌面的截图",
+    "点击屏幕上的某个按钮",
+    "读取屏幕上某个窗口的文字内容"
+  ],
+  "examples_en": [
+    "Take a screenshot of the current macOS desktop",
+    "Click a button on the screen",
+    "Read text content from a window on screen"
+  ],
+  "iconSource": "letter:auto"
+}

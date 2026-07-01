@@ -1,0 +1,19 @@
+{
+  "name": "企业微信套件",
+  "installedAt": 1782877055986,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2053083151135014912",
+  "examples_zh": [
+    "给张三发条消息，告诉他下午3点有个会",
+    "帮我新建一个企业微信文档，把本周会议纪要整理进去",
+    "下周一上午10点约产品组开个需求评审会，提前半小时提醒我"
+  ],
+  "examples_en": [
+    "Send a message to Zhangsan reminding him of the 3 PM meeting",
+    "Create a new WeCom doc and put this week's meeting notes into it",
+    "Schedule a product review meeting at 10 AM next Monday, remind me 30 min ahead"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/wecom-unified.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/wecom-unified.svg"
+}

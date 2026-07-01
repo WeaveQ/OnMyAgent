@@ -1,0 +1,38 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "files.category_all": "All types",
+  "files.category_audio": "Audio",
+  "files.category_code": "Code",
+  "files.category_document": "Documents",
+  "files.category_image": "Images",
+  "files.category_markdown": "Markdown",
+  "files.category_other": "Other",
+  "files.category_pdf": "PDF",
+  "files.category_presentation": "Presentations",
+  "files.category_spreadsheet": "Spreadsheets",
+  "files.category_video": "Video",
+  "files.category_website": "Websites",
+  "files.cloud_coming_soon": "Cloud drive is coming soon",
+  "files.cloud_drive": "Cloud drive",
+  "files.cloud_empty_description":
+    "Synced task files, cross-device materials, and shared team content will appear here when cloud drive is available.",
+  "files.cloud_empty_title": "Cloud drive is almost ready",
+  "files.current_workspace": "Current workspace",
+  "files.description":
+    "Review files and task artifacts created by agents, then upload them to the cloud for cross-device sync.",
+  "files.file_count": "{count} files",
+  "files.files_unit": "files",
+  "files.load_failed": "Failed to load the file list",
+  "files.loading": "Loading files…",
+  "files.no_files": "No files yet",
+  "files.no_matching_files": "No matching files",
+  "files.open_file": "Open file",
+  "files.open_in_folder": "Open in folder",
+  "files.search_placeholder": "Search files, tasks, or workspaces",
+  "files.task_results": "Task results",
+  "files.title": "My files",
+  "files.ungrouped": "Ungrouped",
+  "files.workspace": "Workspace",
+  "files.workspace_root": "Workspace root",
+} as const;

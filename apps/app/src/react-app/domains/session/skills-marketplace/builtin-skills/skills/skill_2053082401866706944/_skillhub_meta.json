@@ -1,0 +1,19 @@
+{
+  "name": "PDF 文档生成",
+  "installedAt": 1782877093970,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082401866706944",
+  "examples_zh": [
+    "生成一份精美排版的 PDF 报告",
+    "把这份内容做成简历 PDF",
+    "帮我做一个产品介绍 PDF"
+  ],
+  "examples_en": [
+    "Generate a beautifully designed PDF report",
+    "Create a resume PDF from this content",
+    "Make a product introduction PDF"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/minimax-pdf.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/minimax-pdf.svg"
+}

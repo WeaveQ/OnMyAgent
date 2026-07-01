@@ -1,0 +1,19 @@
+{
+  "name": "叙事转译",
+  "installedAt": 1782877256735,
+  "source": "marketplace",
+  "version": "2.0.0",
+  "skillId": "skill_2067180651060314112",
+  "examples_zh": [
+    "帮我把这段短篇小说做成影视开发读本，先做诊断",
+    "这是一段我和AI角色扮演的长会话记录，帮我做影视化分析",
+    "看看这个悬疑剧大纲能不能开发，找找动机和场景缺口"
+  ],
+  "examples_en": [
+    "Turn this short story into a screen development reader, start with a quick diagnosis",
+    "Here is a long chat log of an AI roleplay, help me analyze it for screen adaptation",
+    "Check if this mystery drama outline is developable, find motivation and scene gaps"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2067180651060314112/4d0a638fa8640f91.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2067180651060314112/4d0a638fa8640f91.png"
+}

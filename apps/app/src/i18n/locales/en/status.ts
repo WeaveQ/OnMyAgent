@@ -1,0 +1,30 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "status.back": "Back to previous screen",
+  "status.connected": "Connected",
+  "status.connecting": "Connecting",
+  "status.creating_task": "Creating new task",
+  "status.developer_mode": "Developer mode",
+  "status.disconnected": "Disconnected",
+  "status.disconnected_hint": "Open settings to reconnect",
+  "status.disconnected_label": "Disconnected",
+  "status.docs": "Docs",
+  "status.feedback": "Feedback",
+  "status.limited_hint": `Reconnect to restore full ${APP_NAME} features`,
+  "status.limited_mcp_hint":
+    "{count} MCP connected · reconnect for full features",
+  "status.limited_mode": "Limited Mode",
+  "status.loading_session": "Loading session",
+  "status.mcp_connected": "{count} MCP connected",
+  "status.open_docs": "Open documentation",
+  "status.open_docs_desc": "Open the documentation from the status bar.",
+  "status.onmyagent_ready": `${APP_NAME} Ready`,
+  "status.providers_connected_one": "{count} provider connected",
+  "status.providers_connected_other": "{count} providers connected",
+  "status.ready_for_tasks": "Ready for new tasks",
+  "status.running": "Running",
+  "status.send_feedback": "Send feedback",
+  "status.settings": "Settings",
+  "status.send_feedback_desc": `Open the ${APP_NAME} feedback surface from the status bar.`,
+} as const;

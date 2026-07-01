@@ -1,0 +1,17 @@
+{
+  "name": "腾讯文档",
+  "installedAt": 1781059969217,
+  "source": "marketplace",
+  "version": "1.0.36",
+  "skillId": "skill_2053084036212973568",
+  "examples_zh": [
+    "新建一个名为Q1预算的Excel表格",
+    "搜索我的空间里关于项目路线图的文档",
+    "创建一个产品发布的PPT演示文稿"
+  ],
+  "examples_en": [
+    "Create a new Excel spreadsheet titled Q1 Budget",
+    "Search for documents about project roadmap",
+    "Create a presentation about our product launch"
+  ]
+}

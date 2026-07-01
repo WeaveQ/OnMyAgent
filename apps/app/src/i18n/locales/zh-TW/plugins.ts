@@ -1,0 +1,26 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "plugins.add": "添加",
+  "plugins.add_hint": "添加npm包名稱，例如opencode-wakatime",
+  "plugins.add_label": "添加插件",
+  "plugins.added": "已添加",
+  "plugins.config": "配置",
+  "plugins.config_label": "配置",
+  "plugins.connect": "連接",
+  "plugins.desc": "管理項目或全局OpenCode插件的`opencode.json`。",
+  "plugins.empty": "尚未配置插件。",
+  "plugins.enabled": "已啟用",
+  "plugins.hide_setup": "隱藏設置",
+  "plugins.missing_client": "缺少客戶端",
+  "plugins.missing_workspace": "缺少工作區",
+  "plugins.not_loaded": "尚未加載",
+  "plugins.not_loaded_yet": "尚未加載",
+  "plugins.remove": "移除",
+  "plugins.scope_global": "全局",
+  "plugins.scope_project": "項目",
+  "plugins.setup": "設置",
+  "plugins.suggested": "建議的插件",
+  "plugins.suggested_heading": "建議的插件",
+  "plugins.title": "OpenCode插件",
+} as const;

@@ -1,0 +1,19 @@
+{
+  "name": "Apple备忘录",
+  "installedAt": 1782885578284,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2053081347554050048",
+  "examples_zh": [
+    "新建一篇Apple备忘录，标题为读书笔记",
+    "搜索备忘录里关于会议的内容",
+    "把所有备忘录导出为文本"
+  ],
+  "examples_en": [
+    "Create a new Apple Note titled Reading Notes",
+    "Search notes for meeting-related content",
+    "Export all notes to text format"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/apple-notes.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/apple-notes.png"
+}

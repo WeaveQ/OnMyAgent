@@ -1,0 +1,19 @@
+{
+  "name": "剧本锻造",
+  "installedAt": 1782877230587,
+  "source": "marketplace",
+  "version": "0.4.6",
+  "skillId": "skill_2067179854164107264",
+  "examples_zh": [
+    "我有一篇5000字短篇小说，想改成影视剧本，先帮我看看适合什么形态",
+    "这是我确认好的短片剧本，帮我生成分镜表",
+    "剧本定稿了，帮我生成角色、场景、道具的数字资产清单"
+  ],
+  "examples_en": [
+    "I have a 5000-word short story. Help me turn it into a screenplay, first suggest the best format",
+    "Here is my confirmed short film script. Generate a shot list for me",
+    "The screenplay is locked. Generate a digital asset list for characters, scenes, and props"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2067179854164107264/a7167eda3f80ff53.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2067179854164107264/a7167eda3f80ff53.png"
+}

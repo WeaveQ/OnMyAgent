@@ -1,0 +1,19 @@
+{
+  "name": "元宝高考通-地区分数线查询",
+  "installedAt": 1782877111286,
+  "source": "marketplace",
+  "version": "1.0.4",
+  "skillId": "skill_2060612770581417984",
+  "examples_zh": [
+    "福建2024年物理类本科批的录取分数线是多少？",
+    "查一下北京近三年的高考分数线",
+    "广东历史类专科批的录取分数线和对应位次"
+  ],
+  "examples_en": [
+    "What was the 2024 undergraduate cut-off score for Physics track in Fujian?",
+    "Show me Beijing's Gaokao score lines for the past three years",
+    "Guangdong History-track college (zhuanke) admission scores and rankings"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2060612770581417984/64cbd9db986f8063.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2060612770581417984/64cbd9db986f8063.svg"
+}

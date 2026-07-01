@@ -1,0 +1,40 @@
+import { APP_NAME } from "../brand";
+
+export default {
+  "store.add_skill": "添加技能",
+  "store.all_experts": "全部專家",
+  "store.experts_marketplace": "專家市場",
+  "store.my_skills": "我的技能",
+  "store.no_connectors_hint":
+    "在設置中配置連接器後即可在此處使用。",
+  "store.no_connectors_installed": "暫未安裝任何連接器",
+  "store.no_skills_installed": "暫未安裝任何技能",
+  "store.place_skill_prefix": "把 SKILL.md 放到",
+  "store.place_skill_suffix": "下，就會出現在這裡。",
+  "store.search_skills": "搜索技能",
+  "store.local_skills_desc": "從本地掃描所有可用的技能",
+  "store.scope_builtin_desc": "隨 OnMyAgent 安裝包提供，只讀可用",
+  "store.scope_local_desc":
+    "從 .opencode/skills、~/.config/opencode/skills、~/.claude/skills、~/.agents/skills 等目錄掃描到",
+  "store.scope_onmyagent_desc":
+    "通過 OnMyAgent 安裝或創建，存放在 ~/.onmyagent/skills",
+  "store.skills_marketplace": "技能市場",
+  "store.upload": "上傳",
+  "skills_marketplace.category_all": "全部",
+  "skills_marketplace.category_opc": "OPC-一人公司",
+  "skills_marketplace.category_life": "生活服務",
+  "skills_marketplace.category_developer": "開發工具",
+  "skills_marketplace.category_deploy": "網站部署",
+  "skills_marketplace.category_education": "教育學習",
+  "skills_marketplace.category_finance": "投資理財",
+  "skills_marketplace.category_content": "內容創作",
+  "skills_marketplace.category_news": "信息資訊",
+  "skills_marketplace.category_productivity": "效率工具",
+  "skills_marketplace.category_office": "辦公協同",
+  "skills_marketplace.category_business": "商業運營",
+  "skills_marketplace.category_data": "數據分析",
+  "skills_marketplace.category_knowledge": "知識與學習",
+  "skills_marketplace.install": "安裝技能",
+  "skills_marketplace.install_skill": "安裝 {name}",
+  "skills_marketplace.installed": "已安裝",
+} as const;

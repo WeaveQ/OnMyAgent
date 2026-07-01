@@ -1,0 +1,14 @@
+{
+  "name": "@onmyagent/website",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "preview": "node scripts/serve.mjs --dist"
+  },
+  "packageManager": "pnpm@10.27.0",
+  "license": "Apache-2.0"
+}

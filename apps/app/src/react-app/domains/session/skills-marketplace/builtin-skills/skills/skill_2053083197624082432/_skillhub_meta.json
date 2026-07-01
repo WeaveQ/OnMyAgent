@@ -1,0 +1,19 @@
+{
+  "name": "腾讯问卷",
+  "installedAt": 1782877158984,
+  "source": "marketplace",
+  "version": "1.1.2",
+  "skillId": "skill_2053083197624082432",
+  "examples_zh": [
+    "用纯文本帮我创建一份员工满意度腾讯问卷，包含单选、量表和开放题。",
+    "把这份腾讯问卷的第 5 题改成多选题，并保留原有选项含义。",
+    "为课程反馈问卷设置逻辑：选择\"不满意\"的用户跳转到原因追问题。"
+  ],
+  "examples_en": [
+    "Create a Tencent Survey from plain text for employee satisfaction, with single-choice, scale, and open-ended questions.",
+    "Update question 5 in this Tencent Survey into a multiple-choice question while preserving the option meanings.",
+    "Set survey logic so respondents who choose \"Dissatisfied\" in the course feedback form jump to a follow-up reason question."
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-survey.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-survey.png"
+}

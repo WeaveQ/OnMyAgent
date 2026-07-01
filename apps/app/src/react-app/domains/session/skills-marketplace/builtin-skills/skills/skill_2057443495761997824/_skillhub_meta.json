@@ -1,0 +1,19 @@
+{
+  "name": "微信读书助手",
+  "installedAt": 1782877073110,
+  "source": "marketplace",
+  "version": "1.0.3",
+  "skillId": "skill_2057443495761997824",
+  "examples_zh": [
+    "帮我搜一下《三体》",
+    "看看我的书架有哪些书",
+    "查一下我在《百年孤独》里的笔记和划线"
+  ],
+  "examples_en": [
+    "Search for the book 'The Three-Body Problem'",
+    "Show me my bookshelf",
+    "Find my highlights and notes in 'One Hundred Years of Solitude'"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2057443495761997824/cc43dbd5eec51dd2.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2057443495761997824/cc43dbd5eec51dd2.png"
+}

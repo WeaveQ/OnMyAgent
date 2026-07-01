@@ -1,0 +1,18 @@
+{
+  "name": "博客监控",
+  "installedAt": 1782885654446,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2053081394013753344",
+  "examples_zh": [
+    "监控36氪的最新文章更新",
+    "添加一个RSS订阅源",
+    "获取今天所有博客的新文章列表"
+  ],
+  "examples_en": [
+    "Monitor a blog for new posts",
+    "Add a new RSS feed to watch",
+    "Get today's new articles from all subscriptions"
+  ],
+  "iconSource": "letter:auto"
+}

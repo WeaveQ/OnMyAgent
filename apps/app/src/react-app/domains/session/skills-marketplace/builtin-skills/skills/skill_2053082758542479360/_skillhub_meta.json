@@ -1,0 +1,19 @@
+{
+  "name": "QQ邮箱",
+  "installedAt": 1782877049050,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082758542479360",
+  "examples_zh": [
+    "用QQ邮箱给同事发一封项目进展邮件",
+    "查看QQ邮箱最新的未读邮件",
+    "读取老板发给我的最新邮件"
+  ],
+  "examples_en": [
+    "Send a project update email via QQ Mail",
+    "Check my QQ inbox for new messages",
+    "Read the latest email from my manager"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/qq-email.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/qq-email.png"
+}

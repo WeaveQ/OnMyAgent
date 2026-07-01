@@ -1,0 +1,18 @@
+{
+  "name": "本地语音转文字",
+  "installedAt": 1782877156986,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082521955860480",
+  "examples_zh": [
+    "把这个MP3文件转录成文字",
+    "转录这段会议录音，输出中文",
+    "把视频里的音频提取并转文字"
+  ],
+  "examples_en": [
+    "Transcribe this MP3 file to text",
+    "Transcribe this meeting recording in Chinese",
+    "Extract and transcribe audio from this video"
+  ],
+  "iconSource": "letter:auto"
+}

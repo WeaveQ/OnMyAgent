@@ -1,0 +1,18 @@
+{
+  "name": "Perplexity 搜索",
+  "installedAt": 1782877246784,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082581570363392",
+  "examples_zh": [
+    "用 Perplexity 搜索一下最新的 AI 行业动态",
+    "帮我查一下这个技术问题的最新解决方案",
+    "搜索并总结一下这个话题的最新新闻"
+  ],
+  "examples_en": [
+    "Search for the latest AI industry news",
+    "Find the most recent solution to this technical problem",
+    "Search and summarize the latest news on this topic"
+  ],
+  "iconSource": "letter:auto"
+}
