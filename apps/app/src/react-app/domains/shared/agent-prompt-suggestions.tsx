@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export type PromptSuggestion = {
   title: string;
-  description: string;
+  description?: string;
   prompt: string;
   icon: ComponentType<{ className?: string }>;
 };
@@ -113,6 +114,8 @@ const TEMPLATE_PROMPTS: PromptTemplates = {
   ],
 };
 
+const EXPERT_PROMPT_ICONS = [Sparkles, FileText, Target];
+
 const CODE_PROMPTS: PromptSuggestion[] = [
   {
     title: "代码审查",
@@ -201,12 +204,36 @@ function resolvePrompts(
   return GENERIC_PROMPTS;
 }
 
+function promptsFromExpertQuickPrompts(quickPrompts: string[] | undefined): PromptSuggestion[] | null {
+  const prompts = (quickPrompts ?? [])
+    .map((prompt) => prompt.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  if (prompts.length === 0) return null;
+  return [
+    {
+      title: t("session.expert_self_intro_prompt_title"),
+      description: t("session.expert_self_intro_prompt"),
+      prompt: t("session.expert_self_intro_prompt"),
+      icon: MessageSquare,
+    },
+    ...prompts.map((prompt, index) => ({
+      title: prompt,
+      prompt,
+      icon: EXPERT_PROMPT_ICONS[index] ?? Sparkles,
+    })),
+  ];
+}
+
 export function AgentPromptSuggestions(props: {
   agentId: string | null | undefined;
+  quickPrompts?: string[];
   onSelect: (prompt: string) => void;
   className?: string;
 }) {
-  const prompts = resolvePrompts(props.agentId).slice(0, 4);
+  const prompts =
+    promptsFromExpertQuickPrompts(props.quickPrompts) ??
+    resolvePrompts(props.agentId).slice(0, 4);
   return (
     <div className={cn("w-full max-w-[720px] pt-12", props.className)}>
       <div className="grid grid-cols-2 gap-2.5">
@@ -226,12 +253,17 @@ export function AgentPromptSuggestions(props: {
                   <Icon className="size-3.5" />
                 </IconTile>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-dls-text">
+                  <div className={cn(
+                    "text-sm font-medium text-dls-text",
+                    p.description ? "truncate" : "line-clamp-2 leading-5",
+                  )}>
                     {p.title}
                   </div>
-                  <div className="mt-0.5 line-clamp-2 text-xs leading-[1.4] text-dls-secondary">
-                    {p.description}
-                  </div>
+                  {p.description ? (
+                    <div className="mt-0.5 line-clamp-2 text-xs leading-[1.4] text-dls-secondary">
+                      {p.description}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </ActionRowButton>

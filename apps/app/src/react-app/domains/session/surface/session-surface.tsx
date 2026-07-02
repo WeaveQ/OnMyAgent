@@ -2074,6 +2074,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     </div>
                     <AgentPromptSuggestions
                       agentId={effectiveAgent.id}
+                      quickPrompts={effectiveAgent.quickPrompts}
                       onSelect={(prompt) => void typeComposerText(prompt)}
                     />
                   </div>
