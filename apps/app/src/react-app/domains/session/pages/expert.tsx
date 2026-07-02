@@ -809,6 +809,9 @@ export function ExpertPage(props: ExpertPageProps) {
     setStoreActiveTab("experts");
     setActiveSidebarView("store");
   }, []);
+  const openFreshExpertDraft = useCallback(() => {
+    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
+  }, [props.selectedWorkspaceId, props.sidebar]);
 
   const handleCreateExpert = useCallback(async () => {
     if (isElectronRuntime()) {
@@ -827,11 +830,12 @@ export function ExpertPage(props: ExpertPageProps) {
       "office",
       { kind: "newTask" },
     );
+    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
     useComposerStateStore
       .getState()
       .setDraft(`draft:${props.selectedWorkspaceId}`, CREATE_EXPERT_PROMPT);
     props.onNavigateToMode("assistant");
-  }, [props.onNavigateToMode, props.selectedWorkspaceId]);
+  }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
@@ -851,10 +855,12 @@ export function ExpertPage(props: ExpertPageProps) {
         (agent) => pendingAgentMatchesMarketplaceExpert(agent, expert),
       );
       if (existingDraftAgent) {
+        openFreshExpertDraft();
         activateDraftAgent(existingDraftAgent);
         return;
       }
 
+      openFreshExpertDraft();
       activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert));
       setActiveSidebarView("chat");
     },
@@ -863,6 +869,7 @@ export function ExpertPage(props: ExpertPageProps) {
       conversationGroups,
       draftAgentContexts,
       handleOpenExpertSession,
+      openFreshExpertDraft,
       props.sidebar.selectedWorkspaceId,
     ],
   );

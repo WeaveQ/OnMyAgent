@@ -166,12 +166,13 @@ export function AssistantPage(props: AssistantPageProps) {
   >([]);
   const handleSummonMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
+      props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
       usePendingAgentStore
         .getState()
         .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
       props.onNavigateToMode("expert");
     },
-    [props.onNavigateToMode],
+    [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar],
   );
   const [agentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);

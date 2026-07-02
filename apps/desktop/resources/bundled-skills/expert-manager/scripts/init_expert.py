@@ -279,7 +279,7 @@ README_TEMPLATE = """# %(title)s
 
 ## 头像
 
-头像已自动生成在 `avatars/` 目录下。如需替换为自定义头像，要求：
+头像将自动生成在 `avatars/` 目录下；优先使用高质量生图能力，必要时使用其他生图模型/端点或脚本化绘制兜底。如需替换为自定义头像，要求：
 - 格式：PNG（推荐）或 JPG
 - 尺寸：512×512 px
 - 大小：单张不超过 500KB
@@ -334,7 +334,7 @@ def init_agent(expert_dir, name):
     avatars_dir = expert_dir / 'avatars'
     avatars_dir.mkdir()
     (avatars_dir / '.gitkeep').touch()
-    print("  ✅ avatars/ (awaiting ImageGen)")
+    print("  ✅ avatars/ (awaiting avatar generation)")
 
     # README.md
     (expert_dir / 'README.md').write_text(
@@ -378,7 +378,7 @@ def init_team(expert_dir, name):
     avatars_dir = expert_dir / 'avatars'
     avatars_dir.mkdir()
     (avatars_dir / '.gitkeep').touch()
-    print("  ✅ avatars/ (awaiting ImageGen)")
+    print("  ✅ avatars/ (awaiting avatar generation)")
 
     # settings.json
     (expert_dir / 'settings.json').write_text(
@@ -464,7 +464,7 @@ def main():
     print(f"\n✅ Expert '{name}' ({expert_type}) initialized at {expert_dir}")
     print("\nNext steps:")
     print("  1. Fill in all [TODO] placeholders in generated files")
-    print("  2. Generate avatars using ImageGen (see references/avatar-spec.md)")
+    print("  2. Generate avatars using the best available image path (see references/avatar-spec.md)")
     print("  3. Run validate_expert.py to check the package")
     print("  4. Run register_expert.py to register in marketplace.json (makes it visible in OnMyAgent)")
     print(f"\n   Note: The expert will NOT appear in OnMyAgent until registered.")
