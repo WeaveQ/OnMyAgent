@@ -7,12 +7,12 @@ import path from "node:path";
 import { injectPersonalAgentContext } from "./context-injection.mjs";
 import { extractAcpSessionId, normalizeAcpUpdate, spawnAcpClient, textFromAcpContent } from "./acp-client.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
-import { MANAGED_ACP_TOOLS, managedAcpBinPath, managedAcpToolRoot } from "./managed-acp-tools.mjs";
-import { personalAgentAvailableMetadataList, personalAgentMetadataFromAgent, personalAgentMetadataList } from "./agent-metadata.mjs";
+import { MANAGED_ACP_TOOLS, managedAcpBinPath, managedAcpToolRoot, validateManagedAcpTool } from "./managed-acp-tools.mjs";
+import { personalAgentAvailableMetadataList, personalAgentMetadataFromAgent, personalAgentMetadataList, normalizeAgentStatus } from "./agent-metadata.mjs";
 import { runEventsToConversationMessages } from "./contract.mjs";
 import { createConversation, getConversation, getOrCreateConversation, listConversations, readConversationEvents, updateConversation } from "./conversation-store.mjs";
 import { createPersonalAgentRuntime } from "./index.mjs";
-import { clearAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess } from "./process-registry.mjs";
+import { clearAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess, recordAgentCrash, crashRestartBackoffMs, clearAgentCrashHistory } from "./process-registry.mjs";
 import {
   sessionArchiveDbFile,
   sessionArchiveLogRoot,
@@ -264,7 +264,7 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-describe("personal agent AionUI-style metadata", () => {
+describe("personal agent metadata", () => {
   it("maps detected local agents to metadata without inventing unsupported capabilities", () => {
     const metadata = personalAgentMetadataFromAgent({
       id: "openclaw",
@@ -360,6 +360,58 @@ describe("personal agent AionUI-style metadata", () => {
     assert.equal(listed.metadata.length, 1);
     assert.equal(listed.metadata[0].agent_type, "acp");
     assert.equal(listed.metadata[0].handshake.agent_capabilities.sessionCapabilities.resume, null);
+  });
+
+  it("maps agent status onto the 5-state model", () => {
+    assert.equal(normalizeAgentStatus({ status: "online" }), "online");
+    assert.equal(normalizeAgentStatus({ status: "needs_auth" }), "needs_auth");
+    assert.equal(normalizeAgentStatus({ status: "offline", errorInfo: { code: "missing_binary" } }), "missing");
+    assert.equal(normalizeAgentStatus({ status: "offline", errorInfo: { code: "auth_required" } }), "needs_auth");
+    assert.equal(normalizeAgentStatus({ status: "error", error: "command not found" }), "missing");
+    assert.equal(normalizeAgentStatus({ status: "error", error: "login required" }), "needs_auth");
+    assert.equal(normalizeAgentStatus({ status: "error" }), "offline");
+    assert.equal(normalizeAgentStatus({ status: "offline" }), "offline");
+    assert.equal(normalizeAgentStatus({ status: "" }), "unknown");
+    assert.equal(normalizeAgentStatus({ capability: { installed: false } }), "missing");
+    assert.equal(normalizeAgentStatus({ status: "offline", capability: { installed: true, authenticated: false } }), "needs_auth");
+  });
+
+  it("only marks a 5-state online agent as available", () => {
+    const agents = [
+      { id: "codex", name: "Codex", provider: "codex", executablePath: "codex", status: "online", enabled: true },
+      { id: "claude", name: "Claude", provider: "claude", executablePath: "claude", status: "needs_auth", enabled: true, error: "login required" },
+      { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode", status: "missing", enabled: true },
+    ];
+    const management = personalAgentMetadataList(agents);
+    assert.equal(management[0].status, "online");
+    assert.equal(management[0].available, true);
+    assert.equal(management[1].status, "needs_auth");
+    assert.equal(management[1].available, false);
+    assert.equal(management[2].status, "missing");
+    assert.equal(management[2].available, false);
+  });
+
+  it("persists ACP session/new metadata into agent handshake", () => {
+    const metadata = personalAgentMetadataFromAgent({
+      id: "codex",
+      name: "Codex",
+      provider: "codex",
+      executablePath: "codex",
+      status: "online",
+      capability: { supportsAcp: true, supportsModelOverride: true },
+      sessionMetadata: {
+        availableModels: [{ id: "gpt-5.5", name: "GPT 5.5" }],
+        currentModelId: "gpt-5.5",
+        configOptions: [{ id: "mode", label: "Mode" }],
+        modes: [{ id: "agent", label: "Agent" }],
+        availableCommands: [{ name: "/help" }],
+      },
+    });
+    assert.deepEqual(metadata.handshake.available_models, [{ id: "gpt-5.5", label: "GPT 5.5" }]);
+    assert.deepEqual(metadata.handshake.config_options, [{ id: "mode", label: "Mode" }]);
+    assert.deepEqual(metadata.handshake.available_modes, [{ id: "agent", label: "Agent" }]);
+    assert.deepEqual(metadata.handshake.available_commands, [{ name: "/help" }]);
+    assert.equal(metadata.handshake.session_metadata.currentModelId, "gpt-5.5");
   });
 
   it("separates management metadata from picker-safe available metadata", () => {
@@ -490,6 +542,22 @@ describe("personal agent ACP JSON-RPC client", () => {
     assert.match(managedAcpBinPath("claude"), /managed-resources\/acp\/claude-agent-acp\/0\.52\.0\/.*\/node_modules\/\.bin\/claude-agent-acp/);
   });
 
+  it("validates managed ACP tool version, reporting not_installed for missing tools", async () => {
+    const unknown = await validateManagedAcpTool("nonexistent");
+    assert.equal(unknown.reason, "unknown_provider");
+    assert.equal(unknown.match, false);
+    // Real providers that aren't actually installed should report not_installed.
+    const codex = await validateManagedAcpTool("codex");
+    if (!codex.installed) {
+      assert.equal(codex.reason, "not_installed");
+      assert.equal(codex.match, false);
+    } else {
+      assert.equal(codex.installed, true);
+      assert.equal(codex.match, true);
+      assert.equal(codex.installedVersion, codex.expected);
+    }
+  });
+
   it("runs initialize, session/new, and streaming session/prompt against a fake ACP CLI", async () => {
     const events = [];
     const chunks = [];
@@ -535,7 +603,28 @@ describe("personal agent ACP JSON-RPC client", () => {
       timeoutMs: 500,
     });
     assert.equal(result.ok, false);
+    assert.equal(result.step, "fail_cli");
+    assert.equal(result.status, "missing");
     assert.match(result.error, /ACP process exited: 1|initialize timed out/);
+  });
+
+  it("two-step probe returns online when session/new succeeds", async () => {
+    const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+    const result = await probeAcpCommand({ command: process.execPath, args: [fixture], timeoutMs: 4_000 });
+    assert.equal(result.ok, true);
+    assert.equal(result.step, "online");
+    assert.equal(result.status, "online");
+    assert.equal(result.initialized.agentInfo.name, "fake-acp-cli");
+    assert.match(String(result.sessionResult.sessionId), /^fake-session-/);
+  });
+
+  it("two-step probe returns needs_auth when session/new reports authentication", async () => {
+    const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+    const result = await probeAcpCommand({ command: process.execPath, args: [fixture, "--auth-required"], timeoutMs: 4_000 });
+    assert.equal(result.ok, false);
+    assert.equal(result.step, "needs_auth");
+    assert.equal(result.status, "needs_auth");
+    assert.match(result.error, /Authentication required/i);
   });
 
   it("handles ACP permission requests and continues the prompt stream", async () => {
@@ -578,7 +667,7 @@ describe("personal agent ACP JSON-RPC client", () => {
 });
 
 describe("personal agent normalized conversation message stream", () => {
-  it("maps ACP-style run events into AionUI-style conversation messages", () => {
+  it("maps ACP run events into conversation messages", () => {
     const messages = runEventsToConversationMessages([
       { type: "status", text: "codex ACP flow started", at: 1 },
       { type: "assistant_chunk", text: "Hello", at: 2 },
@@ -769,6 +858,48 @@ describe("personal agent process registry", () => {
     } finally {
       await cleanup(workspaceRoot);
     }
+  });
+
+  it("records crashes and implements exponential backoff restart policy", () => {
+    clearAgentProcesses();
+    clearAgentCrashHistory(undefined);
+    const runId = "crash-test-run";
+    registerAgentProcess({ runId, provider: "codex", conversationId: "crash-conv", pid: 1111, command: "codex-acp", startedAt: Date.now() });
+
+    const r1 = recordAgentCrash(runId);
+    assert.equal(r1.shouldRestart, true);
+    assert.equal(r1.attempt, 1);
+    assert.equal(r1.backoffMs, 1000);
+    assert.equal(getAgentProcess(runId)?.status, "restarting");
+    assert.equal(getAgentProcess(runId)?.staleReason, "crash_restart_1");
+
+    const r2 = recordAgentCrash(runId);
+    assert.equal(r2.shouldRestart, true);
+    assert.equal(r2.backoffMs, 2000);
+
+    const r3 = recordAgentCrash(runId);
+    assert.equal(r3.shouldRestart, true);
+    assert.equal(r3.backoffMs, 4000);
+
+    const r4 = recordAgentCrash(runId);
+    assert.equal(r4.shouldRestart, false);
+    assert.equal(r4.attempt, 4);
+    assert.equal(r4.backoffMs, 0);
+    assert.equal(getAgentProcess(runId)?.status, "error");
+    assert.equal(getAgentProcess(runId)?.staleReason, "crash_restart_exhausted");
+
+    const r5 = recordAgentCrash("other-run");
+    assert.equal(r5.shouldRestart, true);
+    assert.equal(r5.attempt, 1);
+
+    clearAgentProcesses();
+    clearAgentCrashHistory(undefined);
+  });
+
+  it("computes exponential backoff for crash restarts", () => {
+    assert.equal(crashRestartBackoffMs(1), 1000);
+    assert.equal(crashRestartBackoffMs(2), 2000);
+    assert.equal(crashRestartBackoffMs(3), 4000);
   });
 });
 
@@ -1109,9 +1240,10 @@ describe("personal agent runtime facade", () => {
       assert.deepEqual(completed.metadata, { resumeSupported: true });
       assert.match(completed.debugSummary, /providerSessionId=provider-session-1/);
       assert.equal(completed.events.filter((event) => event.type === "assistant_chunk").length, 1);
-      const finalEvents = completed.events.filter((event) => event.type === "assistant");
+      const finalEvents = completed.events.filter((event) => event.type === "finish");
       assert.equal(finalEvents.length, 1);
       assert.equal(finalEvents[0]?.text, "final answer");
+      assert.equal(completed.events.filter((event) => event.type === "assistant").length, 0);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -2353,6 +2485,57 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.equal(result.output, "Fake response to: hello-after-refusal");
       assert.equal(events.some((event) => event.type === "tool" && /User refused permission to run tool/.test(String(event.text ?? ""))), true);
       assert.equal(events.some((event) => event.type === "status" && /preserving the assistant response/.test(String(event.text ?? ""))), true);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("marks Codex ACP runs with non-clean stop reasons as incomplete warning (not failure)", () => {
+    assert.equal(acpGenericTest.acpPromptStopReason({ stopReason: "max_tokens" }), "max_tokens");
+    const result = acpGenericTest.assertAcpPromptCompleted("codex", { stopReason: "max_tokens" });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, "acp_incomplete_output");
+    assert.match(result.message, /stopReason=max_tokens/);
+  });
+
+  it("does not guess truncation from Markdown shape when the ACP stop reason is clean", () => {
+    // A clean stopReason means
+    // complete, even if the assistant text ends on a bold heading.
+    const result = acpGenericTest.assertAcpPromptCompleted("codex", { stopReason: "end_turn" });
+    assert.equal(result.ok, true);
+    assert.equal(result.stopReason, "end_turn");
+  });
+
+  it("reports non-clean stop reasons as incomplete regardless of text shape", () => {
+    const complete = acpGenericTest.assertAcpPromptCompleted("codex", { stopReason: "max_tokens" });
+    assert.equal(complete.ok, false);
+    assert.equal(complete.code, "acp_incomplete_output");
+    assert.equal(complete.stopReason, "max_tokens");
+  });
+
+  it("does not auto-continue a truncated Codex ACP turn; shows it as-is with a warning", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const events = [];
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: (event) => events.push(event), registerCancel: () => undefined });
+      const result = await adapter.sendMessage({
+        workspaceRoot,
+        prompt: "research-ai-hotspots",
+        model: "gpt-test[medium]",
+        approvalMode: "ask",
+        agent: { id: "codex", name: "Codex", provider: "codex", executablePath: process.execPath, customArgs: [fixture, "--truncated-reply", "--max-tokens-stop"], managedAcpTool: { id: "codex-acp-test" } },
+      });
+
+      // The single truncated turn is preserved verbatim — no continuation prompt.
+      assert.equal(result.output, "**3. AI 对就业影响成为主流议题**");
+      assert.equal(result.truncated, true);
+      assert.equal(result.stopReason, "max_tokens");
+      assert.equal(result.metadata.truncated, true);
+      // Exactly one turn (two chunks from the fake CLI), no continuation turn.
+      assert.equal(events.filter((event) => event.type === "assistant_chunk").length, 2);
+      assert.equal(events.some((event) => event.type === "status" && /requesting continuation/.test(String(event.text ?? ""))), false);
+      assert.equal(events.some((event) => event.type === "status" && /did not finish cleanly/.test(String(event.text ?? ""))), true);
     } finally {
       await cleanup(workspaceRoot);
     }

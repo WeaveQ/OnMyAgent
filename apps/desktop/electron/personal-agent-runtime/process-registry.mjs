@@ -135,5 +135,56 @@ export async function recoverAgentProcesses(options = {}) {
 
 export function clearAgentProcesses(options = {}) {
   processes.clear();
+  crashHistory.clear();
   if (options.persist !== false) persistRegistryBestEffort();
+}
+
+// Crash restart policy: 3 restarts inside a 60s window with exponential
+// backoff. Exceeding the budget marks the process `error` and stops.
+const CRASH_WINDOW_MS = 60_000;
+const MAX_CRASH_RESTARTS = 3;
+const crashHistory = new Map();
+
+export function crashRestartBackoffMs(attempt) {
+  // attempt is 1-based: 1 -> 1s, 2 -> 2s, 3 -> 4s.
+  const n = Math.max(1, Number(attempt) || 1);
+  return 1_000 * 2 ** (n - 1);
+}
+
+/**
+ * Record a crash for a run and decide whether it should be restarted.
+ * Returns { shouldRestart, attempt, backoffMs, restartsInWindow }.
+ * When the crash budget is exceeded the process record is marked `error`.
+ */
+export function recordAgentCrash(runId, options = {}) {
+  const id = key(runId);
+  if (!id) return { shouldRestart: false, attempt: 0, backoffMs: 0, restartsInWindow: 0 };
+  const now = timestamp(options.now);
+  const previous = crashHistory.get(id) ?? [];
+  const recent = previous.filter((ts) => now - ts < CRASH_WINDOW_MS);
+  recent.push(now);
+  crashHistory.set(id, recent);
+  const attempt = recent.length;
+  if (attempt > MAX_CRASH_RESTARTS) {
+    const current = processes.get(id);
+    if (current) {
+      processes.set(id, normalizeProcessRecord({ status: "error", staleReason: "crash_restart_exhausted" }, current));
+      persistRegistryBestEffort();
+    }
+    return { shouldRestart: false, attempt, backoffMs: 0, restartsInWindow: recent.length };
+  }
+  const current = processes.get(id);
+  if (current) {
+    processes.set(id, normalizeProcessRecord({ status: "restarting", staleReason: `crash_restart_${attempt}` }, current));
+    persistRegistryBestEffort();
+  }
+  return { shouldRestart: true, attempt, backoffMs: crashRestartBackoffMs(attempt), restartsInWindow: recent.length };
+}
+
+export function clearAgentCrashHistory(runId) {
+  if (runId === undefined) {
+    crashHistory.clear();
+    return;
+  }
+  crashHistory.delete(key(runId));
 }

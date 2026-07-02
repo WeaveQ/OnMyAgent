@@ -90,6 +90,7 @@ import type {
   PersonalLocalAgentNativeSessionsListResult,
   PersonalLocalAgentProcessRecord,
   PersonalLocalAgentProvider,
+  PersonalLocalAgentStatus,
   PersonalLocalAgentResetConversationInput,
   PersonalLocalAgentResetConversationResult,
   PersonalLocalAgentRunInput,
@@ -959,6 +960,28 @@ export function personalLocalAgentAcpProcessesList(input?: {
   );
 }
 
+export type PersonalLocalAgentTestConnectionResult = {
+  ok: boolean;
+  status: PersonalLocalAgentStatus;
+  step: "fail_cli" | "fail_acp" | "needs_auth" | "online" | string;
+  error: string | null;
+  capabilities: Record<string, unknown> | null;
+  models: Array<{ id: string; label: string }>;
+  configOptions: unknown[];
+  checkedAt: number;
+};
+
+export function personalLocalAgentTestConnection(input: {
+  agent: Partial<PersonalLocalAgent>;
+  workspaceRoot?: string;
+  timeoutMs?: number;
+}): Promise<PersonalLocalAgentTestConnectionResult> {
+  return invokeElectronHelper<PersonalLocalAgentTestConnectionResult>(
+    "personalLocalAgentTestConnection",
+    input,
+  );
+}
+
 export function personalLocalAgentValidate(
   agent: Partial<PersonalLocalAgent>,
 ): Promise<PersonalLocalAgent> {
@@ -1231,7 +1254,7 @@ export function feishuProbeAccessibleRoot(input: { root: string } | { folderPath
 }
 
 // --- Channel Infrastructure API ---
-// Wrappers for AionUi-style channel pairing, session, and event APIs
+// Wrappers for channel pairing, session, and event APIs
 
 export interface ChannelPairingRequest {
   code: string;

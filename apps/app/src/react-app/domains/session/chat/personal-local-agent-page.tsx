@@ -13,6 +13,7 @@ import {
   FileText,
   Globe,
   KeyRound,
+  LayoutGrid,
   Loader2,
   Play,
   Plus,
@@ -86,6 +87,8 @@ import {
   shortDateTime,
   type HeartbeatDraft,
 } from "./personal-local-agent-scheduled-tasks";
+import { LocalAgentManagementPanel } from "../../local-agents/local-agent-management-panel";
+import type { LocalAgentRepairAction } from "../../local-agents/local-agent-repair-panel";
 
 type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
@@ -637,7 +640,7 @@ function visibleRunTimelineMessages(run: PersonalLocalAgentRunResult | null | un
       if (!text) return [];
       const createdAt = event.at || Date.now();
       if (event.type === "assistant_chunk") return [{ id: `event-${index}`, type: "text", role: "assistant", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "assistant") return [{ id: `event-${index}`, type: "finish", role: "assistant", text, createdAt, sourceEventType: event.type }];
+      if (event.type === "assistant" || event.type === "finish") return [{ id: `event-${index}`, type: "finish", role: "assistant", text, createdAt, sourceEventType: event.type }];
       if (event.type === "tool") return [{ id: `event-${index}`, type: "tool", role: "tool", text, createdAt, sourceEventType: event.type, status: /failed|error/i.test(text) ? "failed" : "running", toolCall: event.toolCall ?? null }];
       if (event.type === "approval_request") return [{ id: `event-${index}`, type: "permission", role: "system", text, createdAt, sourceEventType: event.type, approval: event.approval ?? null }];
       if (event.type === "error") return [{ id: `event-${index}`, type: "error", role: "system", text, createdAt, sourceEventType: event.type }];
@@ -646,6 +649,10 @@ function visibleRunTimelineMessages(run: PersonalLocalAgentRunResult | null | un
     });
   const messages = sourceMessages.filter((message) => {
     if (!message.text.trim()) return false;
+    if (message.type === "finish") return false;
+    if (message.role === "assistant" && message.type === "text" && message.text.trim()) {
+      return false;
+    }
     if (message.type === "agent_status") return false;
     if (message.type === "agent_status" && /^.+ ACP flow started$/.test(message.text.trim())) return false;
     if (message.type === "available_commands" || message.type === "context_usage") return false;
@@ -687,7 +694,7 @@ function resolveLocalAgentToolStatus(message: PersonalLocalAgentConversationMess
   return "running";
 }
 
-// 对标 AionUi getKindDisplayName：把原始 kind/泛名映射成友好工具名，确保永不为空
+// Map raw tool kinds and generic names into stable user-facing labels.
 const LOCAL_AGENT_TOOL_KIND_LABELS: Record<string, string> = {
   edit: "File Edit",
   read: "File Read",
@@ -740,6 +747,7 @@ function inferTitleFromInput(input?: string): string | null {
 function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage) {
   const tool = message.toolCall;
   let title: string;
+  let description: string;
 
   const rawName = tool?.name?.trim() ?? "";
   const rawKind = tool?.kind?.trim();
@@ -757,12 +765,20 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage) {
     title = inferred;
   }
 
+  description =
+    tool?.description?.trim() ||
+    inferTitleFromInput(tool?.input) ||
+    (tool?.kind ? getKindDisplayName(tool.kind) : "") ||
+    message.text.replace(/^acp_tool_call(_update)?[>:\s-]*/i, "").trim().slice(0, 80) ||
+    title;
+
   const detailSections: Array<{ label: string; value: string; truncated?: boolean }> = [];
   if (tool?.input?.trim()) detailSections.push({ label: "Input", value: tool.input.trim(), truncated: tool.inputTruncated });
   if (tool?.output?.trim()) detailSections.push({ label: "Output", value: tool.output.trim(), truncated: tool.outputTruncated });
 
   return {
     title,
+    description,
     status: resolveLocalAgentToolStatus(message),
     detail: detailSections.length ? detailSections : [],
   };
@@ -794,7 +810,7 @@ function LocalAgentToolRow(props: { message: PersonalLocalAgentConversationMessa
 
   const dotClass =
     tool.status === "running"
-      ? "bg-dls-accent aionui-tool-breathing"
+      ? "bg-dls-accent local-agent-tool-breathing"
       : tool.status === "failed"
         ? "bg-dls-status-danger"
         : tool.status === "pending"
@@ -805,7 +821,10 @@ function LocalAgentToolRow(props: { message: PersonalLocalAgentConversationMessa
     <div className="flex min-w-0 flex-col overflow-hidden">
       <div className="flex w-full items-center gap-3 rounded-md py-0.5 text-left text-[13px] leading-5 text-dls-secondary overflow-hidden">
         <span className={cn("size-2 shrink-0 rounded-full", dotClass)} />
-        <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{tool.title}</span>
+        <span className="min-w-0 flex-1 truncate">
+          <span className="font-medium text-dls-text">{tool.title}</span>
+          {tool.description && tool.description !== tool.title ? <span className="ml-1 text-dls-secondary">{tool.description}</span> : null}
+        </span>
       </div>
       {hasDetail ? (
         <div className="ml-5 mt-1 space-y-2 overflow-hidden">
@@ -829,12 +848,12 @@ function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConvers
   const hasRunning = tools.some((tool) => tool.status === "running");
 
   return (
-    <div className="max-w-full rounded-2xl border border-dls-border/60 aionui-tool-container">
-      <div className="flex w-full items-center gap-2 rounded-2xl px-3.5 py-2.5 text-left text-[13px] text-dls-secondary">
+    <div className="max-w-full">
+      <div className="inline-flex w-auto max-w-full cursor-default items-center gap-1.5 text-[13px] leading-none text-dls-accent">
         {hasRunning ? <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
-        <span className="min-w-0 flex-1 font-medium text-dls-text">{t("local_agent.timeline_tool_group_title", { count: props.messages.length })}</span>
+        <span className="truncate">{t("local_agent.timeline_tool_group_title", { count: props.messages.length })}</span>
       </div>
-      <div className="flex flex-col gap-0.5 px-3.5 pb-2.5 pt-0.5">
+      <div className="mt-1.5 ml-5 flex max-w-full flex-col gap-2 rounded-lg bg-dls-surface-muted/60 px-3.5 py-2.5">
         {props.messages.map((message) => (
           <LocalAgentToolRow key={message.id} message={message} />
         ))}
@@ -1094,6 +1113,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [heartbeatBusy, setHeartbeatBusy] = useState<string | null>(null);
   const [heartbeatError, setHeartbeatError] = useState<string | null>(null);
   const [showScheduledTasks, setShowScheduledTasks] = useState(false);
+  const [showManagement, setShowManagement] = useState(false);
   const [selectedConversationIdByAgent, setSelectedConversationIdByAgent] = useState<Record<string, string>>(persistedState.selectedConversationIdByAgent ?? {});
   const [loadingConversationsByAgent, setLoadingConversationsByAgent] = useState<Record<string, boolean>>({});
   const [loadingNativeSessionsByAgent, setLoadingNativeSessionsByAgent] = useState<Record<string, boolean>>({});
@@ -1104,6 +1124,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // auto-scroll on new messages when they already are — otherwise scrolling up
   // to read earlier output yanks them back down on every poll tick.
   const stickToBottomRef = useRef(true);
+  // Once a run's terminal snapshot (finish/completed/failed/cancelled) is
+  // observed we record its runId here; late chunks or stale "running" snapshots
+  // for that same run are then ignored so the transcript never flips back into
+  // the running state after a turn has finished.
+  const turnFinishedRef = useRef<Record<string, boolean>>({});
   const scheduledTasksButtonRef = useRef<HTMLButtonElement | null>(null);
   const scheduledTasksPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -1444,11 +1469,31 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // Switching agents/conversations should always start pinned to the latest.
   useEffect(() => {
     stickToBottomRef.current = true;
+    // Clear stale turn-finish guards when switching agents. Completed
+    // runs are no longer polled, so their guards are dead weight; clearing here
+    // bounds the ref to the active agent's runs only.
+    turnFinishedRef.current = {};
   }, [selectedChatKey]);
 
+  // Auto-scroll to the newest content only while the user is pinned to the
+  // bottom. Streaming re-renders the transcript on every poll tick, so
+  // we (a) use instant scrolling — a smooth animation would still be running
+  // when the next tick fires and emit its own onScroll events, and (b) mark the
+  // scroll as programmatic so the onScroll handler does not treat our own jump
+  // as the user leaving the bottom. Without this guard the viewport fights any
+  // attempt to scroll up and feels locked to the top of the transcript.
+  const programmaticScrollRef = useRef(false);
   useEffect(() => {
     if (!stickToBottomRef.current) return;
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    const el = scrollRef.current;
+    if (!el) return;
+    programmaticScrollRef.current = true;
+    el.scrollTop = el.scrollHeight;
+    // Release the guard on the next frame, after the scroll event has fired.
+    const id = window.requestAnimationFrame(() => {
+      programmaticScrollRef.current = false;
+    });
+    return () => window.cancelAnimationFrame(id);
   }, [selectedAgentId, selectedMessages]);
 
   const rememberRunResult = useCallback((agentId: string, run: PersonalLocalAgentRunResult) => {
@@ -1493,17 +1538,27 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             }));
             return;
           }
-          const fallbackAgent = agents.find((agent) => agent.id === snapshot.agentId) ?? agents.find((agent) => agent.id === agentId) ?? selectedAgent;
+          // If this turn already finished, ignore any late snapshot
+          // that still reports "running" so the transcript cannot flip back into
+          // the running state after the finish event.
+          const alreadyFinished = turnFinishedRef.current[runId] === true;
+          const effectiveSnapshot = alreadyFinished && snapshot.status === "running"
+            ? { ...snapshot, status: "completed" as const }
+            : snapshot;
+          if (effectiveSnapshot.status !== "running") {
+            turnFinishedRef.current[runId] = true;
+          }
+          const fallbackAgent = agents.find((agent) => agent.id === effectiveSnapshot.agentId) ?? agents.find((agent) => agent.id === agentId) ?? selectedAgent;
           setMessagesByAgent((current) => ({
             ...current,
             [chatKey]: (current[chatKey] ?? (fallbackAgent ? [welcomeMessageForAgent(fallbackAgent)] : [])).map((message) =>
               message.run?.runId === runId
-                ? { ...message, text: messageTextForRun(snapshot, message.text), run: snapshot }
+                ? { ...message, text: messageTextForRun(effectiveSnapshot, message.text), run: effectiveSnapshot }
                 : message,
             ),
           }));
-          rememberRunResult(agentId, snapshot);
-          if (snapshot.status !== "running") {
+          rememberRunResult(agentId, effectiveSnapshot);
+          if (effectiveSnapshot.status !== "running") {
             setActiveRunIdByAgent((current) => ({
               ...current,
               [chatKey]: current[chatKey] === runId ? null : current[chatKey] ?? null,
@@ -1588,6 +1643,12 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       });
       if (selectedModel && typeof window !== "undefined") {
         window.localStorage.setItem(personalAgentModelPrefKey(runAgent.id), selectedModel);
+      }
+      // A fresh turn starts unfinished; clear any prior guard for this runId.
+      if (started.status === "running") {
+        turnFinishedRef.current[started.runId] = false;
+      } else {
+        turnFinishedRef.current[started.runId] = true;
       }
       rememberRunResult(runAgent.id, started);
       if (options?.healthCheck) {
@@ -2125,6 +2186,9 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+              <Button variant={showManagement ? "default" : "outline"} size="sm" className="whitespace-nowrap" onClick={() => setShowManagement((open) => !open)} data-testid="local-agent-manage-button" aria-pressed={showManagement}>
+                <LayoutGrid className="mr-1.5 size-3.5" />{t("local_agent.manage_agents")}
+              </Button>
               <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => void refreshAgents()} disabled={refreshing}>
                 <RefreshCw className={cn(localAgentLayoutClass.refreshIcon, refreshing && "animate-spin")} />{t("common.refresh")}
               </Button>
@@ -2229,6 +2293,9 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
           onScroll={(event) => {
+            // Ignore scroll events triggered by our own auto-scroll; only real
+            // user scrolls should update whether we stay pinned to the bottom.
+            if (programmaticScrollRef.current) return;
             const el = event.currentTarget;
             // Pin to bottom only when the user is within a small threshold of
             // the end; once they scroll up, stop force-scrolling on new output.
@@ -2237,6 +2304,23 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
           }}
         >
           <div className={localAgentLayoutClass.pageContent}>
+            {showManagement ? (
+              <LocalAgentManagementPanel
+                agents={agents}
+                workspaceRoot={props.workspaceRoot}
+                selectedAgentId={selectedAgentId}
+                refreshing={refreshing}
+                providerLabel={(agent) => PROVIDER_LABELS[agent.provider] ?? agent.provider}
+                providerIconUrl={(agent) => providerIconUrl(agent.provider)}
+                onSelectAgent={(agentId) => setSelectedAgentId(agentId)}
+                onRefresh={() => void refreshAgents()}
+                onConfigure={() => setShowManagement(false)}
+                onRepairAction={(action: LocalAgentRepairAction) => {
+                  if (action === "recheck") void refreshAgents();
+                }}
+                supportedRepairActions={["recheck"]}
+              />
+            ) : null}
             {activeRuns.length ? (
               <ActiveRunsOverview
                 activeRuns={activeRuns}
@@ -2567,10 +2651,12 @@ const ChatBubble = memo(function ChatBubble(props: {
   );
   const timelineMessages = useMemo(() => visibleRunTimelineMessages(run), [run]);
   const timelineItems = useMemo(() => groupLocalAgentTimeline(timelineMessages), [timelineMessages]);
-  const [timelineExpanded, setTimelineExpanded] = useState(run?.status === "running");
+
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
 
   useEffect(() => {
     if (run?.status === "running") setTimelineExpanded(true);
+    else setTimelineExpanded(false);
   }, [run?.runId, run?.status]);
 
   return (
@@ -2620,28 +2706,7 @@ const ChatBubble = memo(function ChatBubble(props: {
         ) : null}
 
         {run ? (
-          <div className="mt-3 space-y-2 border-t border-dls-border pt-3 text-xs text-dls-secondary">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge className="gap-1.5" tone={runStatusTone(run.status)} size="default">
-                {run.status === "running" ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
-                {runStatusLabel(run.status)}
-              </StatusBadge>
-              <span>{runHumanSummary(run)}</span>
-            </div>
-            <details className="rounded-xl bg-dls-surface-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
-              <summary className="cursor-pointer select-none font-medium text-dls-secondary">
-                {t("local_agent.run_details_summary", { connection: run.connectionMode || "--", started: shortTime(run.startedAt), finished: shortTime(run.finishedAt) })}
-              </summary>
-              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-                <div>{t("local_agent.run_detail_run_id")}<span className="font-mono">{run.runId}</span></div>
-                <div>{t("local_agent.run_detail_connection")}<span className="font-medium">{run.connectionMode || "--"}</span></div>
-                <div>{t("local_agent.run_detail_provider_session")}<span className="font-mono">{run.providerSessionId ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_resume_key")}<span className="font-mono">{run.resumeKey ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_workdir")}<span className="font-mono">{run.workdir ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_pid")}<span className="font-mono">{run.pid ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_time")}{shortTime(run.startedAt)} - {shortTime(run.finishedAt)}</div>
-              </div>
-            </details>
+          <div className="mt-3 space-y-2 text-xs text-dls-secondary">
             {run.errorInfo ? <NoticeBox tone="error">{classifiedRunFailureMessage(run)}<span className={`ml-2 ${localAgentTextClass.debugMeta}`}>{run.errorInfo.code}</span></NoticeBox> : run.error ? <NoticeBox tone="error">{run.error}</NoticeBox> : null}
             {run.pendingApprovals?.length ? (
               <div className={approvalClass.panel}>
@@ -2709,7 +2774,20 @@ const ChatBubble = memo(function ChatBubble(props: {
               </div>
             ) : null}
             {showRunDiagnostics ? (
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            <details className="rounded-lg bg-dls-surface-muted/60 px-3 py-2">
+              <summary className="cursor-pointer select-none text-xs font-medium text-dls-secondary">
+                {t("local_agent.run_details_summary", { connection: run.connectionMode || "--", started: shortTime(run.startedAt), finished: shortTime(run.finishedAt) })}
+              </summary>
+              <div className="mt-2 grid gap-1.5 text-xs leading-5 text-dls-secondary sm:grid-cols-2">
+                <div>{t("local_agent.run_detail_run_id")}<span className="font-mono">{run.runId}</span></div>
+                <div>{t("local_agent.run_detail_connection")}<span className="font-medium">{run.connectionMode || "--"}</span></div>
+                <div>{t("local_agent.run_detail_provider_session")}<span className="font-mono">{run.providerSessionId ?? "--"}</span></div>
+                <div>{t("local_agent.run_detail_resume_key")}<span className="font-mono">{run.resumeKey ?? "--"}</span></div>
+                <div>{t("local_agent.run_detail_workdir")}<span className="font-mono">{run.workdir ?? "--"}</span></div>
+                <div>{t("local_agent.run_detail_pid")}<span className="font-mono">{run.pid ?? "--"}</span></div>
+                <div>{t("local_agent.run_detail_time")}{shortTime(run.startedAt)} - {shortTime(run.finishedAt)}</div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
               {run.logPath ? (
                 <Button variant="outline" size="sm" onClick={() => void handleCopy("log-path", run.logPath, t("local_agent.copy_log_path"))}>
                   <Clipboard className="mr-1.5 size-3.5" />{t("local_agent.copy_log_path")}
@@ -2733,9 +2811,10 @@ const ChatBubble = memo(function ChatBubble(props: {
                   {actionFeedback.text}
                 </StatusBadge>
               ) : null}
-            </div>
+              </div>
+            </details>
             ) : null}
-            <details className="rounded-lg border border-dls-border bg-dls-surface-muted p-2">
+            <details className="rounded-lg bg-dls-surface-muted/60 px-3 py-2">
               <summary className="flex cursor-pointer items-center gap-1.5 text-dls-secondary"><TerminalSquare className="size-3.5" />{t("local_agent.raw_log_summary")}</summary>
               <div className="mt-2 space-y-2">
                 <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{run.command}</pre>

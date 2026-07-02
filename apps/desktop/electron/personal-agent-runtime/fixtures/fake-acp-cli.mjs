@@ -4,6 +4,11 @@ import { createInterface } from "node:readline";
 let sessionCounter = 0;
 const noSetModel = process.argv.includes("--no-set-model");
 const failToolAfterAssistant = process.argv.includes("--fail-tool-after-assistant");
+const truncatedReply = process.argv.includes("--truncated-reply");
+const maxTokensStop = process.argv.includes("--max-tokens-stop");
+const continuationCompletes = process.argv.includes("--continuation-completes");
+const authRequired = process.argv.includes("--auth-required");
+let promptCounter = 0;
 
 function sendResponse(id, result) {
   process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`);
@@ -27,6 +32,10 @@ function handleRequest(message) {
     return;
   }
   if (method === "session/new") {
+    if (authRequired) {
+      process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32001, message: "Authentication required: please login first" } })}\n`);
+      return;
+    }
     sessionCounter += 1;
     sendResponse(id, {
       sessionId: `fake-session-${sessionCounter}`,
@@ -36,9 +45,15 @@ function handleRequest(message) {
     return;
   }
   if (method === "session/prompt") {
+    promptCounter += 1;
     const sessionId = params?.sessionId || "unknown";
     const promptText = Array.isArray(params?.prompt) && params.prompt[0]?.text ? params.prompt[0].text : "unknown";
-    const response = `Fake response to: ${promptText}`;
+    const isContinuation = /previous response appears incomplete|continue exactly from where it stopped/i.test(promptText);
+    const response = continuationCompletes && isContinuation
+      ? "，后续补齐内容，形成完整结论。"
+      : truncatedReply
+        ? "**3. AI 对就业影响成为主流议题**"
+        : `Fake response to: ${promptText}`;
     if (/approval/i.test(promptText)) {
       process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: `perm-${id}`, method: "session/request_permission", params: { toolName: "Bash", command: "touch /tmp/fake-acp", options: [{ optionId: "reject", label: "Reject" }, { optionId: "approve", label: "Approve" }, { optionId: "approve_for_session", label: "Approve for session" }] } })}\n`);
     }
@@ -66,7 +81,8 @@ function handleRequest(message) {
         },
       });
     }
-    sendResponse(id, { stopReason: "end_turn", usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 } });
+    const stopReason = maxTokensStop && (!continuationCompletes || promptCounter === 1) ? "max_tokens" : "end_turn";
+    sendResponse(id, { stopReason, usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 } });
     return;
   }
   if (method === "session/cancel") return;

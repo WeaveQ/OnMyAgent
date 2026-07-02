@@ -8,7 +8,7 @@
  * - ChannelSessionStore: Independent session persistence
  * - ChannelMessageAdapter: Unified message handling
  * 
- * Design follows AionUi channel architecture patterns.
+ * Design follows shared channel architecture patterns.
  */
 
 export { BaseChannelPlugin, CHANNEL_STATES } from "./BaseChannelPlugin.mjs";

@@ -6792,6 +6792,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.acpConfigOptions(args[0] ?? {});
     case "personalLocalAgentAcpProcessesList":
       return personalAgentRuntime.listProcesses(args[0] ?? {});
+    case "personalLocalAgentTestConnection":
+      return personalAgentRuntime.testConnection(args[0] ?? {});
     case "personalLocalAgentValidate":
       return personalAgentRuntime.validateAgent(args[0] ?? {});
     case "personalLocalAgentStart":

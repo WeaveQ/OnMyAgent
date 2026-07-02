@@ -1,4 +1,4 @@
-import { access, mkdir } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -77,4 +77,51 @@ export async function resolveManagedAcpTool(provider) {
   const root = managedAcpToolRoot(provider);
   const binPath = managedAcpBinPath(provider);
   return { ...spec, root, binPath, installed: await exists(binPath), prepared: false };
+}
+
+// Read the installed package version from the managed install's node_modules
+// manifest so we can compare it against the expected version.
+async function readInstalledVersion(provider) {
+  const spec = managedAcpToolSpec(provider);
+  if (!spec) return null;
+  const manifest = path.join(managedAcpToolRoot(provider), "node_modules", spec.packageName, "package.json");
+  try {
+    const raw = await readFile(manifest, "utf8");
+    const parsed = JSON.parse(raw);
+    const version = String(parsed?.version ?? "").trim();
+    return version || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Validate the installed managed ACP tool against the expected version.
+ * Returns { provider, expected, installed, installedVersion, match, reason }.
+ * When the tool is missing or the version differs, `match` is false and the
+ * caller should prompt a reinstall (via `ensureManagedAcpTool`).
+ */
+export async function validateManagedAcpTool(provider) {
+  const spec = managedAcpToolSpec(provider);
+  if (!spec) return { provider, expected: null, installed: false, installedVersion: null, match: false, reason: "unknown_provider" };
+  const binPath = managedAcpBinPath(provider);
+  const installed = await exists(binPath);
+  if (!installed) {
+    return { provider, expected: spec.version, installed: false, installedVersion: null, match: false, reason: "not_installed" };
+  }
+  const installedVersion = await readInstalledVersion(provider);
+  if (!installedVersion) {
+    // Binary present but manifest unreadable — treat as a match to avoid
+    // needless reinstalls, but surface the ambiguity.
+    return { provider, expected: spec.version, installed: true, installedVersion: null, match: true, reason: "version_unknown" };
+  }
+  const match = installedVersion === spec.version;
+  return {
+    provider,
+    expected: spec.version,
+    installed: true,
+    installedVersion,
+    match,
+    reason: match ? "ok" : "version_mismatch",
+  };
 }

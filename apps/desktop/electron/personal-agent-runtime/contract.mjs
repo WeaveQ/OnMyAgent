@@ -1,4 +1,4 @@
-const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "tool", "error", "exit", "approval_request", "approval_decision", "artifact"]);
+const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "error", "exit", "approval_request", "approval_decision", "artifact"]);
 const TOOL_DETAIL_PREVIEW_CHARS = 2000;
 const TOOL_DESCRIPTION_PREVIEW_CHARS = 160;
 
@@ -7,6 +7,10 @@ function textValue(value) {
   return String(value).trim();
 }
 
+/**
+ * @param {Record<string, any>} [event]
+ * @returns {Record<string, any> & { type: string, text: string, stopReason?: string | null, truncated?: boolean }}
+ */
 export function normalizeRunEvent(event = {}) {
   const rawType = String(event.type ?? "log").trim();
   let type = rawType;
@@ -178,16 +182,50 @@ function pushConversationMessage(messages, message) {
 export function runEventsToConversationMessages(events = []) {
   const messages = [];
   let assistantText = "";
+  // Merge streaming chunks into one live assistant message per turn. A final
+  // `finish` event closes the turn so the next prompt starts a fresh message.
+  let liveAssistantIndex = -1;
+  let liveMsgSeq = 0;
   const toolMessageById = new Map();
+  const closeAssistantTurn = () => {
+    liveAssistantIndex = -1;
+    assistantText = "";
+    liveMsgSeq += 1;
+  };
   for (const event of Array.isArray(events) ? events : []) {
     const normalized = normalizeRunEvent(event);
     const at = Number(event?.at) || Date.now();
     if (normalized.type === "assistant_chunk") {
+      if (!normalized.text) continue;
       assistantText += normalized.text;
-      if (normalized.text) pushConversationMessage(messages, { type: "text", role: "assistant", text: normalized.text, createdAt: at, sourceEventType: normalized.type });
-    } else if (normalized.type === "assistant") {
+      if (liveAssistantIndex === -1) {
+        liveAssistantIndex = messages.length;
+        pushConversationMessage(messages, {
+          type: "text",
+          role: "assistant",
+          text: assistantText,
+          createdAt: at,
+          sourceEventType: normalized.type,
+          msgId: `assistant-${liveMsgSeq}`,
+        });
+      } else {
+        const previous = messages[liveAssistantIndex];
+        messages[liveAssistantIndex] = { ...previous, text: assistantText, createdAt: at };
+      }
+    } else if (normalized.type === "assistant" || normalized.type === "finish") {
       const text = normalized.text || assistantText.trim();
-      if (text) pushConversationMessage(messages, { type: "finish", role: "assistant", text, createdAt: at, sourceEventType: normalized.type });
+      if (text) {
+        pushConversationMessage(messages, {
+          type: "finish",
+          role: "assistant",
+          text,
+          createdAt: at,
+          sourceEventType: normalized.type,
+          stopReason: normalized.stopReason ?? null,
+          truncated: Boolean(normalized.truncated),
+        });
+      }
+      closeAssistantTurn();
     } else if (normalized.type === "tool") {
       if (/^item_(?:start|done)>/i.test(normalized.text)) continue;
       const rawToolCall = event?.toolCall;

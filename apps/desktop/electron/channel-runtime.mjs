@@ -53,7 +53,7 @@ export function createMessagingChannelServices(options = {}) {
     weixinService,
     feishuService,
 
-    // Shared infrastructure (new AionUi-style)
+    // Shared channel infrastructure
     channelEventBus: infrastructure.eventBus,
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
