@@ -4,17 +4,26 @@ import {
 } from "./categories";
 import type { SkillMarketplaceEntry } from "./types";
 
-const skillModules = import.meta.glob<string>("./builtin-skills/skills/*/SKILL.md", {
-  eager: true,
-  import: "default",
-  query: "?raw",
-});
+import builtinSkillsManifest from "./builtin-skills.manifest.json";
 
-const iconModules = import.meta.glob<string>("./builtin-skills/skills/*/_icon.{png,jpg,jpeg,webp,svg}", {
-  eager: true,
-  import: "default",
-  query: "?url",
-});
+type BuiltinSkillManifestEntry = {
+  packageName: string;
+  skillMarkdown: string;
+};
+
+type BuiltinSkillsManifest = {
+  version: number;
+  skills: BuiltinSkillManifestEntry[];
+};
+
+const builtinSkillEntries = (builtinSkillsManifest as BuiltinSkillsManifest).skills;
+
+const skillModules = Object.fromEntries(
+  builtinSkillEntries.map((entry) => [
+    `./builtin-skills/skills/${entry.packageName}/SKILL.md`,
+    entry.skillMarkdown,
+  ]),
+) as Record<string, string>;
 
 function packageNameFromPath(path: string): string {
   return path.match(/builtin-skills\/skills\/([^/]+)\//)?.[1] ?? path;
@@ -62,14 +71,6 @@ function descriptionFromMarkdown(markdown: string): string {
       .find((line) => line && !line.startsWith("#") && !line.startsWith(">") && !line.startsWith("```")) ??
     ""
   );
-}
-
-function resolveIconUrl(packageName: string): string | null {
-  const prefix = `./builtin-skills/skills/${packageName}/_icon.`;
-  const path = Object.keys(iconModules)
-    .filter((item) => item.startsWith(prefix))
-    .sort()[0];
-  return path ? iconModules[path] ?? null : null;
 }
 
 function inferCategoryIds(entry: {
@@ -128,7 +129,7 @@ export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
         categoryLabel: skillMarketplaceCategoryLabel(categoryId),
         categoryLabels: categoryIds.map(skillMarketplaceCategoryLabel),
         tags,
-        iconUrl: resolveIconUrl(packageName),
+        iconUrl: null,
         version: frontmatterValue(rawSkill, "version") || null,
       };
     })
