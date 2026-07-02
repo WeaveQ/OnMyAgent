@@ -122,7 +122,32 @@ function getFileCategory(name: string): FileCategory {
 }
 
 function fileCategoryLabel(category: FileCategory) {
-  return t(`files.category_${category}`);
+  switch (category) {
+    case "all":
+      return t("files.category_all");
+    case "document":
+      return t("files.category_document");
+    case "spreadsheet":
+      return t("files.category_spreadsheet");
+    case "presentation":
+      return t("files.category_presentation");
+    case "pdf":
+      return t("files.category_pdf");
+    case "image":
+      return t("files.category_image");
+    case "video":
+      return t("files.category_video");
+    case "audio":
+      return t("files.category_audio");
+    case "website":
+      return t("files.category_website");
+    case "markdown":
+      return t("files.category_markdown");
+    case "code":
+      return t("files.category_code");
+    case "other":
+      return t("files.category_other");
+  }
 }
 
 function CloudDriveEmptyState() {

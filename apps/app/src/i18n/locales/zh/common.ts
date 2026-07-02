@@ -44,5 +44,7 @@ export default {
   "common.dismiss": "关闭提示",
   "common.enabled": "已启用",
   "common.error": "错误",
+  "common.loading": "加载中…",
   "common.offline": "离线",
+  "common.unavailable": "不可用",
 } as const;

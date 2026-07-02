@@ -44,5 +44,7 @@ export default {
   "common.dismiss": "Dismiss",
   "common.enabled": "Enabled",
   "common.error": "Error",
+  "common.loading": "Loading...",
   "common.offline": "Offline",
+  "common.unavailable": "Unavailable",
 } as const;
