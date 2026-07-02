@@ -163,7 +163,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
 3. 下一步：继续压缩 `server.ts` 中 OpenCode/client/config 共享 helper，条件成熟后迁入专门 service 模块，但保持路由 composition root 不承载业务路由实现。
 4. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
-5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 CDP/Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`；后续继续拆窗口、IPC、browser view、runtime sidecar 等注册模块。
+5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 CDP/Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions 迁入 `apps/desktop/electron/code-workspace-actions.mjs`；后续继续拆窗口、IPC、browser view、runtime sidecar 等注册模块。
 
 ## Personal Local Agent Runtime Plan
 
