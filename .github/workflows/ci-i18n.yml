@@ -4,9 +4,15 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - apps/app/src/**
+      - scripts/checks/i18n-audit.mjs
   push:
     branches:
       - main
+    paths:
+      - apps/app/src/**
+      - scripts/checks/i18n-audit.mjs
 
 permissions:
   contents: read
