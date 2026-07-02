@@ -1,4 +1,7 @@
-# Contributing to OnMyAgent
+# Contributing to 
+
+
+
 
 Thanks for helping improve OnMyAgent. This project is a local-first agent workspace, so changes should stay focused, auditable, and safe by default.
 
@@ -14,6 +17,7 @@ Thanks for helping improve OnMyAgent. This project is a local-first agent worksp
 Requirements:
 
 - Node.js `24` from `.nvmrc`.
+
 - pnpm `10.27.0` from `package.json`.
 - macOS is the primary desktop development target today.
 
