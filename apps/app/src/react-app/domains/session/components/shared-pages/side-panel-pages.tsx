@@ -468,7 +468,7 @@ export function StorePage(props: {
             onSummonMarketplaceExpert={(expert) => {
               props.onSummonMarketplaceExpert?.(expert);
             }}
-            onCreateExpert={showComingSoonToast}
+            onCreateExpert={props.onCreateExpert ?? showComingSoonToast}
           />
         ) : activeTab === "skills" ? (
           <SkillsMarketplacePage
