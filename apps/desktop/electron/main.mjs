@@ -93,6 +93,7 @@ const BROWSER_PLUGIN = "opencode-chrome-devtools";
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
 let cachedBundledSkillsRootPath = undefined;
 const ONMYAGENT_USER_SKILLS_DIR_SUBPATH = ".onmyagent/skills";
+const ONMYAGENT_LEGACY_USER_SKILLS_DIR_SUBPATH = "onmyagent/skills";
 
 function commandExists(command) {
   return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
@@ -1676,6 +1677,10 @@ function userAgentRegistryPath() {
 
 function onmyagentUserSkillsRoot() {
   return path.join(getRealHomeDir(), ONMYAGENT_USER_SKILLS_DIR_SUBPATH);
+}
+
+function legacyOnmyagentUserSkillsRoot() {
+  return path.join(getRealHomeDir(), ONMYAGENT_LEGACY_USER_SKILLS_DIR_SUBPATH);
 }
 
 function onmyagentMarketplaceRoot(marketplace) {
@@ -6538,10 +6543,10 @@ async function collectGlobalSkillRoots() {
   const sandboxHome = os.homedir();
   const realHome = getRealHomeDir();
   const bundledRoot = bundledSkillsRootPath();
-  if (bundledRoot) roots.push(bundledRoot);
 
   const candidates = [
     onmyagentUserSkillsRoot(),
+    legacyOnmyagentUserSkillsRoot(),
     path.join(sandboxHome, ".claude", "skills"),
     path.join(sandboxHome, ".agents", "skills"),
     path.join(sandboxHome, ".agent", "skills"),
@@ -6549,6 +6554,7 @@ async function collectGlobalSkillRoots() {
     path.join(sandboxHome, ".cursor", "skills"),
     path.join(sandboxHome, ".windsurf", "skills"),
     path.join(sandboxHome, ".onmyagent", "skills"),
+    path.join(sandboxHome, "onmyagent", "skills"),
     path.join(globalOpencodeRoot(), "skills"),
   ];
 
@@ -6563,8 +6569,11 @@ async function collectGlobalSkillRoots() {
       path.join(realHome, ".cursor", "skills"),
       path.join(realHome, ".windsurf", "skills"),
       path.join(realHome, ".onmyagent", "skills"),
+      path.join(realHome, "onmyagent", "skills"),
     );
   }
+
+  if (bundledRoot) candidates.push(bundledRoot);
 
   for (const candidate of candidates) {
     const isDir = await isDirectory(candidate);
