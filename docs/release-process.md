@@ -37,9 +37,16 @@ This repository uses pull requests for code changes and GitHub Actions for relea
 
    - `OnMyAgent Tests` runs workspace checks and unit/API/runtime/UI tests.
    - `i18n Audit` checks translation coverage.
+   - `onmyagent-ui-mcp` checks MCP package changes when `packages/onmyagent-ui-mcp/**` is touched.
    - `Build Electron Desktop` can be run manually when packaging behavior changes.
 
 5. Merge only after the PR checks are green and the review notes are resolved.
+
+After a merge to `main`, the same mainline branch is the source for automated CI and release-channel workflows:
+
+- `OnMyAgent Tests` and `i18n Audit` run on matching `main` pushes.
+- `onmyagent-ui-mcp` runs on `main` pushes that touch the MCP package and still publishes only from `onmyagent-ui-mcp-v*` tags.
+- `Alpha Channel (macOS arm64)` publishes the rolling alpha channel from `main`; use `Release App` for tagged preview or stable releases.
 
 ## Preview Release Flow
 
