@@ -91,7 +91,9 @@ const RELEASE_PAGE_URL =
 const DOCS_PAGE_URL = "https://onmyagentlabs.com/docs";
 const BROWSER_PLUGIN = "opencode-chrome-devtools";
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
+const MARKETPLACE_RESOURCE_DIR = "marketplace";
 let cachedBundledSkillsRootPath = undefined;
+let cachedMarketplaceRootPath = undefined;
 const ONMYAGENT_USER_SKILLS_DIR_SUBPATH = ".onmyagent/skills";
 const ONMYAGENT_LEGACY_USER_SKILLS_DIR_SUBPATH = "onmyagent/skills";
 
@@ -750,6 +752,21 @@ function bundledSkillsRootPath() {
     ? bundledSkillsRoot
     : null;
   return cachedBundledSkillsRootPath;
+}
+
+function marketplaceRootPath() {
+  if (cachedMarketplaceRootPath !== undefined) {
+    return cachedMarketplaceRootPath;
+  }
+  let marketplaceRoot = path.join(process.resourcesPath, MARKETPLACE_RESOURCE_DIR);
+  if (!existsSync(marketplaceRoot)) {
+    const devFallback = path.resolve(__dirname, "..", "resources", MARKETPLACE_RESOURCE_DIR);
+    if (existsSync(devFallback)) {
+      marketplaceRoot = devFallback;
+    }
+  }
+  cachedMarketplaceRootPath = existsSync(marketplaceRoot) ? marketplaceRoot : null;
+  return cachedMarketplaceRootPath;
 }
 
 async function ensureOnMyAgentUserDataDirs() {
@@ -1724,27 +1741,14 @@ function validateBuiltinSkillPackageName(value) {
 function builtinExpertPackageSource(packageName) {
   const safePackage = validateExpertPackageName(packageName);
   const workspaceRoot = path.resolve(__dirname, "../../..");
+  const marketplaceRoot = marketplaceRootPath();
   const candidates = [
-    path.join(
-      workspaceRoot,
-      "apps/app/src/react-app/domains/session/expert-marketplace/builtin-experts/plugins",
-      safePackage,
-    ),
-    path.join(
-      app.getAppPath(),
-      "apps/app/src/react-app/domains/session/expert-marketplace/builtin-experts/plugins",
-      safePackage,
-    ),
-    path.join(
-      app.getAppPath(),
-      "src/react-app/domains/session/expert-marketplace/builtin-experts/plugins",
-      safePackage,
-    ),
-    path.join(
-      process.cwd(),
-      "apps/app/src/react-app/domains/session/expert-marketplace/builtin-experts/plugins",
-      safePackage,
-    ),
+    ...(marketplaceRoot
+      ? [path.join(marketplaceRoot, "experts", "plugins", safePackage)]
+      : []),
+    path.join(workspaceRoot, "apps/desktop/resources/marketplace/experts/plugins", safePackage),
+    path.join(app.getAppPath(), "apps/desktop/resources/marketplace/experts/plugins", safePackage),
+    path.join(process.cwd(), "apps/desktop/resources/marketplace/experts/plugins", safePackage),
   ];
   return { safePackage, candidates };
 }
@@ -1752,29 +1756,14 @@ function builtinExpertPackageSource(packageName) {
 function builtinSkillPackageSource(packageName) {
   const safePackage = validateBuiltinSkillPackageName(packageName);
   const workspaceRoot = path.resolve(__dirname, "../../..");
-  const bundledRoot = bundledSkillsRootPath();
+  const marketplaceRoot = marketplaceRootPath();
   const candidates = [
-    ...(bundledRoot ? [path.join(bundledRoot, safePackage)] : []),
-    path.join(
-      workspaceRoot,
-      "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills/skills",
-      safePackage,
-    ),
-    path.join(
-      app.getAppPath(),
-      "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills/skills",
-      safePackage,
-    ),
-    path.join(
-      app.getAppPath(),
-      "src/react-app/domains/session/skills-marketplace/builtin-skills/skills",
-      safePackage,
-    ),
-    path.join(
-      process.cwd(),
-      "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills/skills",
-      safePackage,
-    ),
+    ...(marketplaceRoot
+      ? [path.join(marketplaceRoot, "skills", "skills", safePackage)]
+      : []),
+    path.join(workspaceRoot, "apps/desktop/resources/marketplace/skills/skills", safePackage),
+    path.join(app.getAppPath(), "apps/desktop/resources/marketplace/skills/skills", safePackage),
+    path.join(process.cwd(), "apps/desktop/resources/marketplace/skills/skills", safePackage),
   ];
   return { safePackage, candidates };
 }

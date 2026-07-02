@@ -9,6 +9,7 @@ pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `pac
 ```text
 apps/
   desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；architecture-info、application-menu、startup-flags 与 Computer Use desktop helper 已拆为独立模块
+    resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
   server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE 事件流；server.ts 只保留 composition root + OpenCode/配置共享 helper，路由已按 system/dev-ui/runtime/integration/workspace/file/session/import-export/blueprint 等模块注册
     src/        运行时代码：core/routes/services/workspace 分层，根目录只保留入口与编排文件
@@ -43,6 +44,7 @@ apps/app/src/react-app/
     shared/        跨域共享工具 (lib/components/hooks)
 apps/app/src/components/ui/  shadcn/ui 组件
 apps/app/src/app/lib/        兼容层：desktop.ts、onmyagent-server.ts、opencode.ts
+apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索引：只供 UI 列表与搜索，不承载完整内容包
 ```
 
 边界规则：
