@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const repoRoot = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
@@ -15,6 +15,7 @@ const ignoredFiles = new Set([
   "apps/app/public/openwork-logo-square.svg",
   "apps/app/public/openwork-logo.svg",
   "apps/app/public/openwork-mark.svg",
+  ".codex/skills/documentation-audit/SKILL.md",
   "docs/LOOP-RUN-LOG.md",
   "scripts/checks/rename-consistency.test.mjs",
 ]);
@@ -73,7 +74,8 @@ function walk(directory, files = []) {
     if (ignoredDirectories.has(entry)) continue;
     const path = join(directory, entry);
     const relativePath = relative(repoRoot, path).split("\\").join("/");
-    const stats = statSync(path);
+    const stats = lstatSync(path);
+    if (stats.isSymbolicLink()) continue;
     if (stats.isDirectory()) {
       walk(path, files);
       continue;
