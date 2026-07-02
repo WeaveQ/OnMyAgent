@@ -38,14 +38,78 @@ const GENERATED_AVATAR_PALETTE = [
   { background: "#ddefc8", foreground: "#355a18", accent: "#97c86b" },
 ];
 
+function localizedTemplateName(id: AgentTemplate["id"]) {
+  switch (id) {
+    case "blank-agent":
+      return t("agents.template_blank_agent_name");
+    case "daily-assistant":
+      return t("agents.template_daily_assistant_name");
+    case "shopify-operator":
+      return t("agents.template_shopify_operator_name");
+    case "dropshipping-helper":
+      return t("agents.template_dropshipping_helper_name");
+    case "engineering-helper":
+      return t("agents.template_engineering_helper_name");
+    case "commerce-expert":
+      return t("agents.template_commerce_expert_name");
+    case "finance-expert":
+      return t("agents.template_finance_expert_name");
+    case "product-manager":
+      return t("agents.template_product_manager_name");
+    case "tl":
+      return t("agents.template_tl_name");
+    case "design-expert":
+      return t("agents.template_design_expert_name");
+    case "product-expert":
+      return t("agents.template_product_expert_name");
+    case "business-expert":
+      return t("agents.template_business_expert_name");
+    default:
+      return null;
+  }
+}
+
+function localizedTemplateDescription(id: AgentTemplate["id"]) {
+  switch (id) {
+    case "blank-agent":
+      return t("agents.template_blank_agent_desc");
+    case "daily-assistant":
+      return t("agents.template_daily_assistant_desc");
+    case "shopify-operator":
+      return t("agents.template_shopify_operator_desc");
+    case "dropshipping-helper":
+      return t("agents.template_dropshipping_helper_desc");
+    case "engineering-helper":
+      return t("agents.template_engineering_helper_desc");
+    case "commerce-expert":
+      return t("agents.template_commerce_expert_desc");
+    case "finance-expert":
+      return t("agents.template_finance_expert_desc");
+    case "product-manager":
+      return t("agents.template_product_manager_desc");
+    case "tl":
+      return t("agents.template_tl_desc");
+    case "design-expert":
+      return t("agents.template_design_expert_desc");
+    case "product-expert":
+      return t("agents.template_product_expert_desc");
+    case "business-expert":
+      return t("agents.template_business_expert_desc");
+    default:
+      return null;
+  }
+}
+
 export function normalizeAgentCardItem(item: AgentCardItem) {
   const source = item.kind === "template" ? item.template : item.agent;
-  const templateKey =
-    item.kind === "template" ? `agents.template_${item.template.id.replaceAll("-", "_")}` : null;
+  const templateName =
+    item.kind === "template" ? localizedTemplateName(item.template.id) : null;
+  const templateDescription =
+    item.kind === "template" ? localizedTemplateDescription(item.template.id) : null;
   return {
     id: source.id,
-    name: templateKey ? t(`${templateKey}_name`) : source.name,
-    description: templateKey ? t(`${templateKey}_desc`) : source.description,
+    name: templateName ?? source.name,
+    description: templateDescription ?? source.description,
     avatarStyle: source.avatarStyle,
     avatarOptionId: source.avatarOptionId,
     customAvatarDataUrl:

@@ -84,11 +84,45 @@ export function agentAvatarStyleLabel(style: AgentAvatarStyle) {
 }
 
 export function agentToolCategoryLabel(category: AgentToolCategoryId) {
-  return t(`agents.tool_${category}`);
+  switch (category) {
+    case "filesystem":
+      return t("agents.tool_filesystem");
+    case "web":
+      return t("agents.tool_web");
+    case "commerce":
+      return t("agents.tool_commerce");
+    case "code":
+      return t("agents.tool_code");
+    case "media":
+      return t("agents.tool_media");
+    case "utility":
+      return t("agents.tool_utility");
+    case "memory":
+      return t("agents.tool_memory");
+    case "collaboration":
+      return t("agents.tool_collaboration");
+  }
 }
 
 export function agentToolCategoryDescription(category: AgentToolCategoryId) {
-  return t(`agents.tool_${category}_desc`);
+  switch (category) {
+    case "filesystem":
+      return t("agents.tool_filesystem_desc");
+    case "web":
+      return t("agents.tool_web_desc");
+    case "commerce":
+      return t("agents.tool_commerce_desc");
+    case "code":
+      return t("agents.tool_code_desc");
+    case "media":
+      return t("agents.tool_media_desc");
+    case "utility":
+      return t("agents.tool_utility_desc");
+    case "memory":
+      return t("agents.tool_memory_desc");
+    case "collaboration":
+      return t("agents.tool_collaboration_desc");
+  }
 }
 
 export function localizedSkillCategoryLabel(category: string) {

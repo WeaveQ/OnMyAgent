@@ -95,6 +95,7 @@ export default {
     "Preview unavailable. Open externally to view this file.",
   "session.status_awaiting_approval": "Awaiting approval",
   "session.status_failed": "Failed",
+  "session.status_running": "Running",
   "session.copy_message": "Copy message",
   "session.expand_pasted_text": "Expand pasted text",
   "session.collapse_pasted_text": "Collapse pasted text",
