@@ -41,6 +41,8 @@ export default {
   "session.create_expert_desc": "Create a dedicated expert and save it locally.",
   "session.expert_capability": "Capabilities",
   "session.expert_strengths": "Strengths",
+  "session.expert_self_intro_prompt_title": "Self intro",
+  "session.expert_self_intro_prompt": "Please tell me who you are and what you can do.",
   "session.try_ask_expert": "Try asking",
   "session.summon_expert": "Summon {name}",
   "session.expert_marketplace_category_all": "All",
