@@ -87,6 +87,7 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("onOpenAgents={openExpertMarket}");
     expect(expertPage).toContain("activeTab={storeActiveTab}");
     expect(expertPage).toContain("onSummonMarketplaceExpert={handleStartMarketplaceExpert}");
+    expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
     expect(expertPage).not.toContain("agentEditRequest");
     expect(expertPage).not.toContain("onOpenAgentSettings={");
     expect(expertPage).not.toContain("<ExpertMarketplaceDialog");
@@ -95,6 +96,25 @@ describe("expert marketplace UI contract", () => {
     expect(pendingAgent).toContain('avatarOptionId: "marketplace-expert"');
     expect(pendingAgent).toContain("systemPrompt: expert.systemPrompt");
     expect(pendingAgent).toContain("packagePath: expert.packagePath");
+  });
+
+  test("expert store create expert opens a fresh assistant draft before prefill", () => {
+    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+
+    expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
+    expect(expertPage).toContain(".setDraft(`draft:${props.selectedWorkspaceId}`, CREATE_EXPERT_PROMPT)");
+    expect(expertPage).toContain('props.onNavigateToMode("assistant")');
+  });
+
+  test("marketplace summon opens a fresh expert draft before agent activation", () => {
+    const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
+    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+
+    expect(assistantPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
+    expect(assistantPage).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
+    expect(expertPage).toContain("openFreshExpertDraft();");
+    expect(expertPage).toContain("activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert))");
   });
 
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {

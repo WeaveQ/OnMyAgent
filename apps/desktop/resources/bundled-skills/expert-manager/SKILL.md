@@ -45,7 +45,7 @@ description: |
 1. 收集信息（交互 or 资料转化）
 2. 初始化目录 → scripts/init_expert.py
 3. 生成文件内容 → 参考 references/
-4. 生成头像 → 参考 references/avatar-spec.md
+4. 生成头像 → 参考 references/avatar-spec.md，按可用能力分层生成
 5. 校验 → scripts/validate_expert.py
 6. 注册 → scripts/register_expert.py
 7. 打包 → scripts/package_expert.py
@@ -132,7 +132,15 @@ python3 scripts/init_expert.py <expert-name> --type agent|team --path ~/.onmyage
 
 ### 第四步：生成头像
 
-参考 `@references/avatar-spec.md` 使用 `ImageGen` 工具为每个角色自动生成头像。
+参考 `@references/avatar-spec.md` 为每个角色自动生成头像。头像生成必须按“优先高质量生图 → 其他可用生图模型/端点 → 脚本化绘制兜底”的顺序执行，不得因为 `ImageGen` 工具不可用就直接宣告头像生成失败。
+
+**头像生成能力探测顺序：**
+1. 优先使用当前环境原生高质量图像生成工具（如 ImageGen / imagegen）。
+2. 如果没有原生工具，检查可用扩展、MCP、插件 action 或模型端点中是否存在图像生成能力（例如支持 `/images/generations` 的 agent-ai / agnes-image 系列模型、OpenAI Image Gen 扩展的 `image_generate` 工具等）。
+3. 如果存在多个可用生图方式，优先选择效果更好的真实生图模型；必要时先生成 1 张样图验证质量，再批量生成团队头像。
+4. 如果所有外部/模型生图能力都不可用，使用本地脚本兜底生成 PNG/JPG 头像（优先使用 `scripts/generate_avatar_fallback.py`；也可按需使用 Python + Pillow、Canvas、SVG/HTML 渲染后转图），但必须仍然基于角色特征设计，而不是生成空白占位图。
+
+只有在“原生工具、其他生图模型/端点、脚本化兜底”全部不可用或执行失败时，才可以向用户说明头像生成失败，并附上已尝试路径、失败原因和可直接复用的 prompt。禁止只因为 `ImageGen` 不可用就停止。
 
 ### 第五步：校验
 
@@ -216,7 +224,7 @@ python3 scripts/package_expert.py <path/to/expert-dir> [output-dir]
 7. **主理人文件名必须加专家团前缀**：如 `trading-team-lead.md`，不可用通用 `team-lead.md`
 8. **Team 型 members 数组含主理人**（role=lead），teamInfo.memberAgents 不含主理人
 9. **Team 型 profession 须与 displayName 一致**
-10. **头像自动生成后放入 avatars/**，同一团队头像风格统一
+10. **头像自动生成后放入 avatars/**，同一团队头像风格统一；`ImageGen` 不可用时必须尝试其他生图模型/端点或脚本化绘制兜底
 11. **同名专家已存在时必须重新校验 + 注册**：用户要求创建专家但目标目录已存在同名专家时，如果不需要初始化目录和创建内容，也要执行后续的校验 + 注册流程，保证专家可用
 12. **批量创建必须遵循标准流程**：批量创建/转化多个专家时，每个专家必须完整串行经过 `init → validate → register`，禁止跳过校验或注册。参考 `scripts/batch_create.py`，核心模式：
     ```python
@@ -233,7 +241,7 @@ python3 scripts/package_expert.py <path/to/expert-dir> [output-dir]
 ## 五、收尾提醒
 
 生成完毕后告知用户：
-1. 🎨 头像已通过 `ImageGen` 生成在 `avatars/`，可手动替换（PNG/JPG，512×512，≤500KB）
+1. 🎨 头像已生成在 `avatars/`，说明实际使用的生成方式（ImageGen、其他生图模型/端点或脚本化绘制兜底），可手动替换（PNG/JPG，512×512，≤500KB）
 2. 📦 打包分享：`python3 scripts/package_expert.py <expert-dir>`
 3. 📋 请核对内容是否准确
 
