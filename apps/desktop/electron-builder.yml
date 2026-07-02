@@ -20,6 +20,8 @@ extraResources:
     to: app-dist
   - from: resources/bundled-skills
     to: bundled-skills
+  - from: resources/marketplace
+    to: marketplace
   - from: resources/runtimes
     to: runtimes
 asar: true
