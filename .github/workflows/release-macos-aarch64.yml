@@ -22,27 +22,27 @@ on:
         description: "Create the GitHub Release as a draft"
         required: false
         type: boolean
-        default: false
+        default: true
       prerelease:
         description: "Mark the GitHub Release as a prerelease"
         required: false
         type: boolean
-        default: false
+        default: true
       notarize:
         description: "Notarize macOS builds (requires Apple team configured)"
         required: false
         type: boolean
-        default: true
+        default: false
       publish_sidecars:
         description: "Build + upload onmyagent-orchestrator sidecar release assets"
         required: false
         type: boolean
-        default: true
+        default: false
       publish_npm:
         description: "Publish onmyagent-orchestrator/onmyagent-server to npm if versions changed"
         required: false
         type: boolean
-        default: true
+        default: false
       build_electron:
         description: "Build + publish Electron desktop artifacts (macOS only)"
         required: false

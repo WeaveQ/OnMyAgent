@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, extname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -186,7 +186,8 @@ function scanDirectory(dir, onFile) {
   for (const entry of readdirSync(dir)) {
     if (ignoredDirs.has(entry)) continue
     const path = join(dir, entry)
-    const stats = statSync(path)
+    const stats = lstatSync(path)
+    if (stats.isSymbolicLink()) continue
     if (stats.isDirectory()) {
       scanDirectory(path, onFile)
       continue
