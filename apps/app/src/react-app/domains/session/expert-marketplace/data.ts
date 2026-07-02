@@ -8,7 +8,7 @@ import type {
   LocalizedText,
 } from "./types";
 
-const manifestModules = import.meta.glob("./builtin-experts/plugins/*/.codebuddy-plugin/plugin.json", {
+const manifestModules = import.meta.glob("./builtin-experts/plugins/*/.expert-plugin/plugin.json", {
   eager: true,
   import: "default",
   query: "?raw",

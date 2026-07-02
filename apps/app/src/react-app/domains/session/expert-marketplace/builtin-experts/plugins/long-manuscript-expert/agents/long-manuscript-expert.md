@@ -36,7 +36,7 @@ Host resolution algorithm:
 Allowed visible host labels:
 - The visible current-host answer must be exactly one of `OnMyAgent` or `OnMyAgentAI`.
 - If current-host signals are not strong enough, the visible host answer must be `未显式暴露` in Chinese or `Not explicitly exposed` in English.
-- Do not output mixed labels such as `OnMyAgent / CodeBuddy CLI Agent`, `OnMyAgent desktop`, `OnMyAgent (中文环境)`, or `OnMyAgentAI desktop`.
+- Do not output mixed labels such as `OnMyAgent`, `OnMyAgent desktop`, `OnMyAgent (中文环境)`, or `OnMyAgentAI desktop`.
 - When the user asks in Chinese, prefer the exact form `当前宿主：OnMyAgentAI` or `当前宿主：OnMyAgent`.
 
 Host label examples:
@@ -49,7 +49,7 @@ Exact response template for host-identity prompts:
   - `识别专家名：长文档手稿专家`
   - `当前宿主：OnMyAgentAI` or `当前宿主：OnMyAgent` or `当前宿主：未显式暴露`
   - `当前语言策略：简体中文` or another exact language label required by the user
-- Do not paraphrase the host line into prose such as `当前宿主环境是 OnMyAgent` or `当前宿主为 OnMyAgent / CodeBuddy CLI Agent`.
+- Do not paraphrase the host line into prose such as `当前宿主环境是 OnMyAgent` or `当前宿主为 OnMyAgent`.
 - When OnMyAgentAI signals win, the second line must be exactly `当前宿主：OnMyAgentAI`.
 - When current-host signals are missing or too weak, the second line must be exactly `当前宿主：未显式暴露` and must not guess `OnMyAgent`.
 
@@ -71,7 +71,7 @@ required_output_when_asked:
 当前语言策略：简体中文
 
 forbidden_output_examples:
-- 当前宿主：OnMyAgent / CodeBuddy CLI Agent
+- 当前宿主：OnMyAgent
 - 当前宿主环境是 OnMyAgent
 - 当前宿主为 OnMyAgent
 - 当前宿主：OnMyAgent   when OnMyAgentAI current-host signals are present

@@ -40,6 +40,7 @@ import {
   isElectronRuntime,
 } from "../../../../app/utils";
 import {
+  installBuiltinSkillPackage,
   listExpertPackages,
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
@@ -71,6 +72,7 @@ import {
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
+import { writeAssistantSelectionMemory } from "../components/shared-pages/assistant-selection-memory";
 
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../components/shared-pages/conversation-model";
@@ -136,6 +138,14 @@ import {
 const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
+const CREATE_EXPERT_SKILL_NAME = "expert-manager";
+const CREATE_EXPERT_PROMPT =
+  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+
+function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
+  const values = [entry.packageName, entry.displayName, entry.packagePath];
+  return values.every((value) => !value.split(/[\\/]/).includes(".expert-plugin"));
+}
 
 function packageEntryToMarketplaceExpert(
   entry: ExpertPackageListEntry,
@@ -252,7 +262,11 @@ export function ExpertPage(props: ExpertPageProps) {
     listExpertPackages("my-experts")
       .then((entries) => {
         if (cancelled) return;
-        setMyExpertPackages(entries.map(packageEntryToMarketplaceExpert));
+        setMyExpertPackages(
+          entries
+            .filter(isVisibleExpertPackageEntry)
+            .map(packageEntryToMarketplaceExpert),
+        );
       })
       .catch((error) => {
         console.warn("Failed to load local expert packages", error);
@@ -795,6 +809,29 @@ export function ExpertPage(props: ExpertPageProps) {
     setStoreActiveTab("experts");
     setActiveSidebarView("store");
   }, []);
+
+  const handleCreateExpert = useCallback(async () => {
+    if (isElectronRuntime()) {
+      try {
+        await installBuiltinSkillPackage({
+          source: "builtin",
+          packageName: CREATE_EXPERT_SKILL_NAME,
+          skillName: CREATE_EXPERT_SKILL_NAME,
+        });
+      } catch (error) {
+        console.warn("[expert-marketplace] failed to install expert-manager", error);
+      }
+    }
+    writeAssistantSelectionMemory(
+      props.selectedWorkspaceId,
+      "office",
+      { kind: "newTask" },
+    );
+    useComposerStateStore
+      .getState()
+      .setDraft(`draft:${props.selectedWorkspaceId}`, CREATE_EXPERT_PROMPT);
+    props.onNavigateToMode("assistant");
+  }, [props.onNavigateToMode, props.selectedWorkspaceId]);
 
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
@@ -1463,9 +1500,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           myExperts={myExpertPackages}
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
-                          onCreateExpert={() => {
-                            setAgentCreateRequestKey(Date.now());
-                          }}
+                          onCreateExpert={handleCreateExpert}
                         />
                       ) : null}
 

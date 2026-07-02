@@ -36,7 +36,7 @@ Evaluate → Improve → Test → Human Confirm → Keep or Revert. Repeat.
 
 ## Why This Exists
 
-Agent skill ecosystems are expanding fast. Claude Code, Codex, OpenClaw, Trae, CodeBuddy and more all support the SKILL.md format. When you have 10 skills, you can maintain them by hand. When you have 60+, you need a system.
+Agent skill ecosystems are expanding fast. Claude Code, Codex, OpenClaw, Trae, OnMyAgent and more all support the SKILL.md format. When you have 10 skills, you can maintain them by hand. When you have 60+, you need a system.
 
 Traditional skill review is purely structural: does the frontmatter look right? Are the steps numbered? Do the file paths exist? But a perfectly formatted skill can still produce terrible output.
 

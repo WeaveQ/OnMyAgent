@@ -2115,6 +2115,40 @@ export function SessionRoute() {
         forceNewSessionOnNextSendRef.current = false;
         const { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
 
+        let skillCommandPrompt: {
+          systemPrompt: string;
+          visiblePrompt: string;
+        } | null = null;
+        if (draft.command) {
+          const command = draft.command;
+          const commandSource =
+            command.source ??
+            (await listCommands(opencodeClient, taskWorkspaceRoot || undefined))
+              .find((item) => item.name === command.name)?.source;
+          const isSkillCommand =
+            commandSource === "skill" || command.name === "expert-manager";
+          if (isSkillCommand) {
+            const skillClient = selectedWorkspaceEndpoint?.client ?? client;
+            const skillWorkspaceId =
+              selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+            const skill = await skillClient.getSkill(skillWorkspaceId, command.name, {
+              includeGlobal: true,
+            });
+            const skillArguments = command.arguments.trim();
+            skillCommandPrompt = {
+              systemPrompt: [
+                `The user invoked the /${command.name} skill. Read and follow this SKILL.md content for this turn.`,
+                "The user-facing prompt may start with a [[skill:name]] marker; treat it as UI metadata and focus on the arguments after it.",
+                "",
+                "```markdown",
+                skill.content,
+                "```",
+              ].join("\n"),
+              visiblePrompt: `[[skill:${command.name}]] ${skillArguments || command.name}`.trim(),
+            };
+          }
+        }
+
         let sessionId = sendPlan.initialSessionId;
         let createdSession: { id: string; directory?: string } | null = null;
         if (!sessionId) {
@@ -2233,7 +2267,7 @@ export function SessionRoute() {
           return;
         }
 
-        if (draft.command) {
+        if (draft.command && !skillCommandPrompt) {
           const command = draft.command;
           const result = await runWithCreatedSessionRuntimeSync(() =>
             opencodeClient.session.command({
@@ -2252,7 +2286,23 @@ export function SessionRoute() {
           return;
         }
 
-        const parts = await draftToParts(draft, taskWorkspaceRoot, {
+        const promptDraft: ComposerDraft = skillCommandPrompt
+          ? {
+              ...draft,
+              command: undefined,
+              text: skillCommandPrompt.visiblePrompt,
+              resolvedText: skillCommandPrompt.visiblePrompt,
+              parts: [
+                { type: "text", text: skillCommandPrompt.visiblePrompt },
+                ...draft.parts.filter(
+                  (part): part is Extract<ComposerPart, { type: "agent" | "file" }> =>
+                    part.type === "agent" || part.type === "file",
+                ),
+              ],
+            }
+          : draft;
+
+        const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
           uploadAttachment:
             client && selectedWorkspaceId.trim()
               ? (attachment, uploadPath) =>
@@ -2303,6 +2353,7 @@ export function SessionRoute() {
         const combinedSystem = joinSystemParts([
           envSystemContext,
           buildLanguageSystemPrompt(currentLocale()),
+          skillCommandPrompt?.systemPrompt,
           buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
             undefined,
           pendingAgentSnapshot?.systemPrompt || undefined,

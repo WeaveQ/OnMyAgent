@@ -48,7 +48,7 @@ Agent 型（单个专家）
 
 ```
 chuangye-manor/
-├── .codebuddy-plugin/
+├── .expert-plugin/
 │   └── plugin.json
 ├── avatars/
 │   └── expert.jpg
