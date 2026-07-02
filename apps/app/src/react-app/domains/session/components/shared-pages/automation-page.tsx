@@ -111,6 +111,68 @@ const weekdays = [1, 2, 3, 4, 5, 6, 7];
 const automationStatusTabs: AutomationStatusTab[] = ["scheduled", "running", "completed"];
 const riskAcceptedStorageKey = "onmyagent.automationFullAccessRiskAccepted.v1";
 
+function automationFrequencyLabel(mode: AutomationFrequencyMode) {
+  switch (mode) {
+    case "weekly":
+      return t("automation.frequency_weekly");
+    case "interval":
+      return t("automation.frequency_interval");
+    case "once":
+      return t("automation.frequency_once");
+  }
+}
+
+function automationCycleLabel(cycle: AutomationCycle) {
+  switch (cycle) {
+    case "daily":
+      return t("automation.day_daily");
+    case "weekly":
+      return t("automation.day_weekly");
+    case "biweekly":
+      return t("automation.day_biweekly");
+    case "monthly":
+      return t("automation.day_monthly");
+    case "yearly":
+      return t("automation.day_yearly");
+  }
+}
+
+function automationScheduleLabel(cycle: AutomationCycle, time: string) {
+  switch (cycle) {
+    case "daily":
+      return t("automation.schedule_daily_at", { time });
+    case "weekly":
+      return t("automation.schedule_weekly_at", { time });
+    case "biweekly":
+      return t("automation.schedule_biweekly_at", { time });
+    case "monthly":
+      return t("automation.schedule_monthly_at", { time });
+    case "yearly":
+      return t("automation.schedule_yearly_at", { time });
+  }
+}
+
+function automationWeekdayLabel(weekday: number) {
+  switch (weekday) {
+    case 1:
+      return t("automation.weekday_1");
+    case 2:
+      return t("automation.weekday_2");
+    case 3:
+      return t("automation.weekday_3");
+    case 4:
+      return t("automation.weekday_4");
+    case 5:
+      return t("automation.weekday_5");
+    case 6:
+      return t("automation.weekday_6");
+    case 7:
+      return t("automation.weekday_7");
+    default:
+      return String(weekday);
+  }
+}
+
 function localDateValue(timestamp: number) {
   const date = new Date(timestamp);
   const year = date.getFullYear();
@@ -243,7 +305,7 @@ function scheduleLabel(schedule: OpenworkAutomationTaskItem["schedule"]) {
     }
     return t("automation.schedule_interval_minutes", { minutes });
   }
-  return t(`automation.schedule_${schedule.day}_at`, { time: schedule.time });
+  return automationScheduleLabel(schedule.day, schedule.time);
 }
 
 function nextRunLabel(item: OpenworkAutomationTaskItem) {
@@ -617,7 +679,7 @@ function FrequencyFields(props: {
             className="whitespace-nowrap"
             onClick={() => setForm({ frequencyMode: mode })}
           >
-            {t(`automation.frequency_${mode}`)}
+            {automationFrequencyLabel(mode)}
           </SegmentedTabButton>
         ))}
       </div>
@@ -630,7 +692,7 @@ function FrequencyFields(props: {
                 <Button type="button" variant="outline" size="lg" className="min-w-28 justify-between px-4" />
               }
             >
-              {t(`automation.day_${props.form.day}`)}
+              {automationCycleLabel(props.form.day)}
               <ChevronDown className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -647,7 +709,7 @@ function FrequencyFields(props: {
                       : "rounded-lg"
                   }
                 >
-                  {t(`automation.day_${cycle}`)}
+                  {automationCycleLabel(cycle)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -704,7 +766,7 @@ function FrequencyFields(props: {
                       : [...props.form.weekdays, weekday].sort((left, right) => left - right),
                   })}
                 >
-                  {t(`automation.weekday_${weekday}`)}
+                  {automationWeekdayLabel(weekday)}
                 </SegmentedTabButton>
               );
             })}

@@ -91,6 +91,7 @@ export default {
   "session.artifact_preview_unavailable": "無法預覽。請在外部打開此文件查看。",
   "session.status_awaiting_approval": "等待審批",
   "session.status_failed": "失敗",
+  "session.status_running": "運行中",
   "session.copy_message": "複製消息",
   "session.expand_pasted_text": "展開粘貼文本",
   "session.collapse_pasted_text": "收起粘貼文本",
