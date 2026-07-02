@@ -216,6 +216,18 @@ function isTrackableAccessibleTarget(target: OpenTarget) {
   );
 }
 
+function setComposerDraftAfterNewTask(workspaceId: string, draft: string) {
+  const sessionId = `draft:${workspaceId}`;
+  const apply = () => {
+    useComposerStateStore.getState().setDraft(sessionId, draft);
+  };
+  apply();
+  window.setTimeout(apply, 0);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(apply);
+  });
+}
+
 export function ExpertPage(props: ExpertPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeSidebarView, setActiveSidebarView] =
@@ -831,9 +843,7 @@ export function ExpertPage(props: ExpertPageProps) {
       { kind: "newTask" },
     );
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-    useComposerStateStore
-      .getState()
-      .setDraft(`draft:${props.selectedWorkspaceId}`, CREATE_EXPERT_PROMPT);
+    setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT);
     props.onNavigateToMode("assistant");
   }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
