@@ -1747,7 +1747,9 @@ function builtinExpertPackageSource(packageName) {
 function builtinSkillPackageSource(packageName) {
   const safePackage = validateBuiltinSkillPackageName(packageName);
   const workspaceRoot = path.resolve(__dirname, "../../..");
+  const bundledRoot = bundledSkillsRootPath();
   const candidates = [
+    ...(bundledRoot ? [path.join(bundledRoot, safePackage)] : []),
     path.join(
       workspaceRoot,
       "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills/skills",
@@ -1880,7 +1882,7 @@ function resolvePackageAvatarDataUrl(packagePath, avatarPath) {
 }
 
 function expertPackageEntryFromDirectory(packagePath, packageName, marketplace) {
-  const manifest = readJsonIfExists(path.join(packagePath, ".codebuddy-plugin", "plugin.json"));
+  const manifest = readJsonIfExists(path.join(packagePath, ".expert-plugin", "plugin.json"));
   const readme = readTextIfExists(path.join(packagePath, "README.md"));
   const agentMarkdown = resolvePackageAgentMarkdown(packagePath, manifest);
   const fallbackName = titleFromMarkdown(readme, titleFromMarkdown(agentMarkdown, packageName));
@@ -1930,7 +1932,10 @@ function listExpertPackages(marketplace) {
   const root = onmyagentMarketplaceRoot(safeMarketplace);
   if (!existsSync(root)) return [];
   return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) return false;
+      return existsSync(path.join(root, entry.name, ".expert-plugin", "plugin.json"));
+    })
     .map((entry) => {
       const packageName = validateExpertPackageName(entry.name);
       return expertPackageEntryFromDirectory(
@@ -7579,10 +7584,10 @@ async function handleDesktopInvoke(event, command, ...args) {
       const destination = path.join(destinationRoot, safePackage);
       const files = myExpertPackageFiles(input, safePackage);
       await rm(destination, { recursive: true, force: true });
-      await mkdir(path.join(destination, ".codebuddy-plugin"), { recursive: true });
+      await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
       await mkdir(path.join(destination, "agents"), { recursive: true });
       await writeFile(
-        path.join(destination, ".codebuddy-plugin", "plugin.json"),
+        path.join(destination, ".expert-plugin", "plugin.json"),
         `${JSON.stringify(files.plugin, null, 2)}\n`,
         "utf8",
       );

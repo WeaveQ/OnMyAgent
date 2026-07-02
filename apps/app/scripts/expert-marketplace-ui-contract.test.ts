@@ -30,7 +30,7 @@ describe("expert marketplace UI contract", () => {
     expect(packageNames.length).toBeGreaterThanOrEqual(10);
     for (const packageName of packageNames) {
       const packageRoot = join(builtinPluginsRoot, packageName);
-      expect(existsSync(join(packageRoot, ".codebuddy-plugin/plugin.json"))).toBe(true);
+      expect(existsSync(join(packageRoot, ".expert-plugin/plugin.json"))).toBe(true);
       expect(existsSync(join(packageRoot, "agents"))).toBe(true);
     }
 
