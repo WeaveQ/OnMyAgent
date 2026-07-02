@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   Filter,
   Folder,
@@ -352,7 +353,6 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   workspaceId={props.workspaceId}
                   selectedSessionId={props.selectedSessionId}
                   pinned
-                  typeIcon={<MessageSquare className="size-3.5 text-dls-secondary" />}
                   onOpenSession={props.onOpenSession}
                   onPrefetchSession={props.onPrefetchSession}
                   onTogglePinned={props.onTogglePinned}
@@ -368,7 +368,6 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                 groups={visibleTaskGroups}
                 workspaceId={props.workspaceId}
                 selectedSessionId={props.selectedSessionId}
-                typeIcon={<MessageSquare className="size-3.5 text-dls-secondary" />}
                 onOpenSession={props.onOpenSession}
                 onPrefetchSession={props.onPrefetchSession}
                 onTogglePinned={props.onTogglePinned}
@@ -507,6 +506,11 @@ export function AssistantConversationSections(props: AssistantConversationSectio
               className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center rounded-lg text-xs text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
               onClick={() => setShowAllRows((value) => !value)}
             >
+              {showAllRows ? (
+                <ChevronUp className="size-3.5 shrink-0" />
+              ) : (
+                <ChevronDown className="size-3.5 shrink-0" />
+              )}
               {showAllRows
                 ? t("session.task_list_show_less")
                 : t("session.task_list_show_more", {
