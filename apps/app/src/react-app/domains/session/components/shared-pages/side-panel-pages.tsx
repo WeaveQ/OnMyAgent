@@ -9,14 +9,15 @@ import {
   Network,
   Search,
   Sparkles,
-  Upload,
+  Plus,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { CountBadge } from "@/components/ui/status-badge";
 import type { OpenworkServerClient } from "../../../../../app/lib/onmyagent-server";
 import { t } from "../../../../../i18n";
 import { cn } from "@/lib/utils";
@@ -364,11 +365,13 @@ export function StorePage(props: {
   onCreateExpert?: () => void;
 }) {
   const { showToast } = useStatusToasts();
-  const skillUploadInputRef = useRef<HTMLInputElement>(null);
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
     useState<StorePrimaryTab>(props.activeTab ?? "experts");
   const [expertView, setExpertView] = useState<ExpertMarketplaceView>("market");
+  const [skillView, setSkillView] = useState<"market" | "installed">("market");
+  const [installedSkillCount, setInstalledSkillCount] = useState(0);
   const [query, setQuery] = useState("");
+  const [skillImportOpen, setSkillImportOpen] = useState(false);
   const activeTab = props.activeTab ?? uncontrolledActiveTab;
 
   useEffect(() => {
@@ -379,6 +382,7 @@ export function StorePage(props: {
     setUncontrolledActiveTab(tab);
     props.onActiveTabChange?.(tab);
     if (tab !== "experts") setExpertView("market");
+    if (tab !== "skills") setSkillView("market");
     setQuery("");
   };
 
@@ -408,11 +412,22 @@ export function StorePage(props: {
             <ChevronLeft data-icon="inline-start" className="size-4" />
             {t("store.all_experts")}
           </Button>
+        ) : activeTab === "skills" && skillView === "installed" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setSkillView("market")}
+            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+          >
+            <ChevronLeft data-icon="inline-start" className="size-4" />
+            {t("store.skills_marketplace")}
+          </Button>
         ) : (
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2.5 mac:titlebar-no-drag">
-          {expertView === "market" ? (
+          {expertView === "market" && skillView === "market" ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-72 mac:titlebar-no-drag">
               <InputGroupAddon align="inline-start">
                 <Search className="size-3.5" />
@@ -436,26 +451,32 @@ export function StorePage(props: {
               {t("session.my_experts")}
             </Button>
           ) : activeTab === "skills" ? (
-            <>
-              <input
-                ref={skillUploadInputRef}
-                type="file"
-                className="hidden"
-                accept=".md,.json,.zip,.tar,.tgz,.gz"
-                onChange={(event) => {
-                  event.currentTarget.value = "";
-                }}
-              />
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => skillUploadInputRef.current?.click()}
-                className="rounded-md mac:titlebar-no-drag"
-              >
-                <Upload data-icon="inline-start" className="size-4" />
-                {t("store.add_skill")}
-              </Button>
-            </>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setSkillImportOpen(true)}
+              className="rounded-md mac:titlebar-no-drag"
+            >
+              <Plus data-icon="inline-start" className="size-4" />
+              {t("store.add_skill")}
+            </Button>
+          ) : null}
+          {activeTab === "skills" && skillView === "market" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSkillView("installed");
+                setQuery("");
+              }}
+              className="rounded-md mac:titlebar-no-drag"
+            >
+              {t("skills_marketplace.installed")}
+              <CountBadge size="dot" className="ml-1.5">
+                {installedSkillCount}
+              </CountBadge>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -472,8 +493,14 @@ export function StorePage(props: {
           />
         ) : activeTab === "skills" ? (
           <SkillsMarketplacePage
+            workspaceId={props.workspaceId}
             workspaceRoot={props.workspaceRoot}
+            client={props.client}
             query={query}
+            view={skillView}
+            importOpen={skillImportOpen}
+            onImportOpenChange={setSkillImportOpen}
+            onInstalledCountChange={setInstalledSkillCount}
           />
         ) : null}
       </div>
