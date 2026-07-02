@@ -10,6 +10,8 @@ import { ensureProviderWorkdir } from "../workdir.mjs";
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
 const DEFAULT_CODEX_REASONING_EFFORT = "medium";
 const OPENCLAW_DEFAULT_GATEWAY_PORT = 18789;
+const COMPLETE_STOP_REASONS = new Set(["", "end_turn", "stop", "complete", "completed", "done", "success", "succeeded"]);
+const TRUNCATED_STOP_REASONS = new Set(["max_tokens", "length", "token_limit", "context_length", "cancelled", "canceled", "interrupted", "error", "failed"]);
 
 function acpArgsForProvider(provider, ctx, workdir) {
   if (ctx.agent.managedAcpTool) return [...(ctx.agent.customArgs ?? [])];
@@ -35,6 +37,7 @@ function acpFailureCode(provider, message) {
   const text = String(message ?? "");
   if (provider === "codex" && /Unsupported format of modelId|Expected: modelId\[effort\]|set_model/i.test(text)) return "codex_acp_model_format";
   if (provider === "codex" && /set_mode|modeId|mode/i.test(text)) return "codex_acp_mode_failed";
+  if (/did not finish cleanly|incomplete output/i.test(text)) return "acp_incomplete_output";
   if (/conversation interrupted/i.test(text)) return "acp_bridge_interrupted";
   if (/tool call failed/i.test(text)) return "acp_tool_failed";
   return null;
@@ -46,6 +49,74 @@ function acpFailureError(provider, code, message) {
   error.code = code;
   error.provider = provider;
   return error;
+}
+
+function acpPromptStopReason(result) {
+  const direct = textValue(result?.stopReason ?? result?.stop_reason ?? result?.reason ?? result?.finishReason ?? result?.finish_reason).toLowerCase();
+  if (direct) return direct;
+  if (!result || typeof result !== "object") return "";
+  return textValue(result?.result?.stopReason ?? result?.result?.stop_reason ?? result?.turn?.stopReason ?? result?.turn?.stop_reason).toLowerCase();
+}
+
+function extractAcpSessionMetadata(source) {
+  if (!source || typeof source !== "object") return null;
+  const modelsBlock = source.models && typeof source.models === "object" ? source.models : source;
+  const availableModelsRaw = Array.isArray(source.availableModels)
+    ? source.availableModels
+    : Array.isArray(modelsBlock?.availableModels)
+      ? modelsBlock.availableModels
+      : Array.isArray(source.available_models)
+        ? source.available_models
+        : [];
+  const availableModels = availableModelsRaw
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        const id = textValue(item);
+        return id ? { id, name: id } : null;
+      }
+      const id = textValue(item.id ?? item.modelId ?? item.model_id ?? item.name);
+      if (!id) return null;
+      return { id, name: textValue(item.name ?? item.label ?? item.displayName) || id };
+    })
+    .filter(Boolean);
+  const currentModelId = textValue(
+    source.currentModelId ?? source.current_model_id ?? modelsBlock?.currentModelId ?? modelsBlock?.current_model_id,
+  ) || null;
+  const configOptions = Array.isArray(source.configOptions)
+    ? source.configOptions
+    : Array.isArray(source.config_options)
+      ? source.config_options
+      : [];
+  const modes = Array.isArray(source.modes)
+    ? source.modes
+    : Array.isArray(source.availableModes)
+      ? source.availableModes
+      : Array.isArray(source.available_modes)
+        ? source.available_modes
+        : source.modes && typeof source.modes === "object"
+          ? source.modes
+          : null;
+  const availableCommands = Array.isArray(source.availableCommands)
+    ? source.availableCommands
+    : Array.isArray(source.available_commands)
+      ? source.available_commands
+      : [];
+  if (!availableModels.length && !configOptions.length && !availableCommands.length && !currentModelId && !modes) {
+    return null;
+  }
+  return { availableModels, currentModelId, configOptions, modes, availableCommands };
+}
+
+function assertAcpPromptCompleted(provider, promptResult) {
+  const stopReason = acpPromptStopReason(promptResult);
+  // Faithfully read stopReason from the ACP session/prompt response instead of
+  // guessing from content shape. We never inspect the assistant text with
+  // regex heuristics, and we never auto-continue: a truncated turn is reported
+  // as `acp_incomplete_output` and shown to the user as-is.
+  if (TRUNCATED_STOP_REASONS.has(stopReason) || (stopReason && !COMPLETE_STOP_REASONS.has(stopReason))) {
+    return { ok: false, code: "acp_incomplete_output", stopReason, message: `${provider} ACP reply did not finish cleanly: stopReason=${stopReason}` };
+  }
+  return { ok: true, stopReason };
 }
 
 function textValue(value) {
@@ -172,6 +243,49 @@ function waitForExit(child, timeoutMs = 10_000) {
   });
 }
 
+// Kill the whole process tree, not just the direct child. On non-Windows the
+// child was spawned detached (its own process group), so a
+// negative pid signals every process in that group — the ACP bridge plus any
+// agent CLI it forked. Escalate SIGTERM → SIGKILL. Windows uses taskkill /T /F.
+async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const pid = child.pid;
+  if (process.platform === "win32") {
+    if (pid) {
+      try {
+        spawn("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      } catch {
+        child.kill("SIGKILL");
+      }
+    }
+    await waitForExit(child, graceMs + 2_000);
+    return;
+  }
+  const killGroup = (signal) => {
+    if (!pid) return child.kill(signal);
+    try {
+      process.kill(-pid, signal);
+    } catch {
+      // Process group already gone, or child was not a group leader; fall back
+      // to signalling the direct child.
+      try {
+        child.kill(signal);
+      } catch {
+        // Already exited.
+      }
+    }
+  };
+  killGroup("SIGTERM");
+  await Promise.race([
+    waitForExit(child, graceMs),
+    new Promise((resolve) => setTimeout(resolve, graceMs).unref?.()),
+  ]);
+  if (child.exitCode === null && child.signalCode === null) {
+    killGroup("SIGKILL");
+    await waitForExit(child, 2_000);
+  }
+}
+
 function acpPermissionKind(params = {}) {
   const text = JSON.stringify(params).toLowerCase();
   if (/bash|shell|command|execute|exec/.test(text)) return "command";
@@ -229,6 +343,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         args,
         cwd: workdir,
         env,
+        detached: true,
         appendEvent,
         onNotification: (params) => {
           const { type, data } = normalizeAcpUpdate(params.update ?? params);
@@ -288,16 +403,18 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       child.unref?.();
       if (ctx.runId) active.set(ctx.runId, child);
       registerCancel?.(async () => {
-        child.kill("SIGTERM");
+        await terminateProcessTree(child);
         if (ctx.runId) active.delete(ctx.runId);
       });
 
       try {
-        await client.request("initialize", {
+        let sessionMetadata = null;
+        const initialized = await client.request("initialize", {
           protocolVersion: 1,
           clientInfo: { name: "onmyagent-personal-agent", version: "0.1.0" },
           clientCapabilities: {},
         });
+        sessionMetadata = extractAcpSessionMetadata(initialized) ?? sessionMetadata;
         const stored = await readSession(ctx.workspaceRoot, provider, ctx.agent.id);
         const explicitSessionId = normalizeExplicitSessionId(provider, ctx.resumeKey ?? ctx.providerSessionId);
         const storedSessionId = shouldResumeProviderSession(provider, ctx, stored)
@@ -308,6 +425,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           try {
             const resumed = await client.request("session/resume", { sessionId: storedSessionId, cwd: workdir, ...(modelId ? { model: modelId } : {}) });
             sessionId = extractAcpSessionId(resumed) || storedSessionId;
+            sessionMetadata = extractAcpSessionMetadata(resumed) ?? sessionMetadata;
             appendEvent({ type: "log", text: `${provider} ACP session resumed ${sessionId}` });
           } catch (error) {
             appendEvent({ type: "log", text: `${provider} ACP resume failed; creating new session: ${error.message}` });
@@ -317,7 +435,11 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           const created = await client.request("session/new", { cwd: workdir, mcpServers: [], ...(modelId ? { model: modelId } : {}) });
           sessionId = extractAcpSessionId(created);
           if (!sessionId) throw new Error(`${provider} ACP session/new returned no sessionId`);
+          sessionMetadata = extractAcpSessionMetadata(created) ?? sessionMetadata;
           appendEvent({ type: "log", text: `${provider} ACP session created ${sessionId}` });
+        }
+        if (sessionMetadata) {
+          appendEvent({ type: "status", text: `acp_session_metadata> ${JSON.stringify(sessionMetadata)}` });
         }
         if (provider === "codex") {
           const modeId = codexModeForApprovalMode(ctx.approvalMode);
@@ -338,8 +460,11 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           appendEvent({ type: "status", text: `${provider} ACP set_model skipped: model is passed during session create/resume` });
         }
         await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, { sessionId, workdir, health: "healthy", updatedAt: Date.now() });
-        await client.request("session/prompt", { sessionId, prompt: [{ type: "text", text: ctx.prompt }] }, DEFAULT_TURN_TIMEOUT_MS);
+        // One turn = one ACP session/prompt request/response. We faithfully read
+        // `stopReason` and never guess truncation from text or auto-continue.
+        const promptResult = await client.request("session/prompt", { sessionId, prompt: [{ type: "text", text: ctx.prompt }] }, DEFAULT_TURN_TIMEOUT_MS);
         const output = outputParts.join("").trim();
+        const completion = assertAcpPromptCompleted(provider, promptResult);
         if (/\*?conversation interrupted\*?/i.test(output)) {
           const detail = failedToolUpdates.at(-1) ?? "ACP session reported conversation interrupted";
           await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, { sessionId, workdir, health: "unhealthy", lastFailureCode: "acp_bridge_interrupted", lastFailure: detail, updatedAt: Date.now() });
@@ -356,32 +481,48 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           }
         }
         if (!output) throw new Error(`${provider} ACP completed without assistant text`);
+        if (!completion.ok) {
+          // Truncated output is preserved and shown as-is; the incomplete-output
+          // warning lets the frontend render a truncation indicator.
+          appendEvent({ type: "status", text: completion.message });
+        }
         return {
           output,
+          stopReason: completion.stopReason || "",
+          truncated: !completion.ok,
           command: [command, `sessionID=${sessionId}`, `cwd=${workdir}`, modelId ? `model=${modelId}` : "model=<default>"].join("\n"),
           connectionMode: `${ctx.agent.name || provider} ACP session`,
           providerSessionId: sessionId,
           resumeKey: sessionId,
           sessionId,
+          sessionMetadata,
           workdir,
           pid: child.pid ?? null,
-          metadata: { agent_type: "acp", provider, connectionMode: `${ctx.agent.name || provider} ACP session`, managedAcpTool: ctx.agent.managedAcpTool ?? null },
+          metadata: {
+            agent_type: "acp",
+            provider,
+            connectionMode: `${ctx.agent.name || provider} ACP session`,
+            managedAcpTool: ctx.agent.managedAcpTool ?? null,
+            stopReason: completion.stopReason || null,
+            truncated: !completion.ok,
+            sessionMetadata: sessionMetadata ?? null,
+          },
         };
       } finally {
         if (ctx.runId) active.delete(ctx.runId);
         client.dispose();
-        if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
-        await waitForExit(child);
+        // Tear down the entire ACP process tree so no agent CLI is orphaned
+        // when the turn ends.
+        await terminateProcessTree(child);
         for (const owned of ownedProcesses) {
-          if (owned.exitCode === null && owned.signalCode === null) owned.kill("SIGTERM");
-          await waitForExit(owned, 2_000);
+          await terminateProcessTree(owned, { graceMs: 2_000 });
         }
       }
     },
     async cancel(ctx) {
       const child = active.get(ctx.runId);
       if (!child) throw new Error("ACP run is not active");
-      child.kill("SIGTERM");
+      await terminateProcessTree(child);
       active.delete(ctx.runId);
     },
   };
@@ -394,5 +535,8 @@ export const __test__ = {
   acpFailureCode,
   codexModeForApprovalMode,
   supportsSessionSetModel,
+  acpPromptStopReason,
+  assertAcpPromptCompleted,
+  extractAcpSessionMetadata,
   createGenericAcpAdapterForTest: createGenericAcpAdapter,
 };

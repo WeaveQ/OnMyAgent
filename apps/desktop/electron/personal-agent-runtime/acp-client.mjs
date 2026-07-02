@@ -79,6 +79,7 @@ export class AcpJsonRpcClient {
     this.onRequest = onRequest ?? null;
     this.nextId = 1;
     this.pending = new Map();
+    this.disposed = false;
     this.stdout = createInterface({ input: child.stdout });
     this.stdout.on("line", (line) => this.handleLine(line));
     child.stderr?.on("data", (chunk) => {
@@ -86,10 +87,14 @@ export class AcpJsonRpcClient {
       if (text) this.appendEvent({ type: "log", text: `stderr> ${text}` });
     });
     child.once("error", (error) => this.rejectAll(error));
-    child.once("close", (code, signal) => this.rejectAll(new Error(`ACP process exited: ${code ?? "null"}${signal ? ` signal ${signal}` : ""}`)));
+    child.once("close", (code, signal) => {
+      if (this.disposed) return;
+      this.rejectAll(new Error(`ACP process exited: ${code ?? "null"}${signal ? ` signal ${signal}` : ""}`));
+    });
   }
 
   dispose() {
+    this.disposed = true;
     this.stdout?.close();
     this.child.stdout?.destroy();
     this.child.stderr?.destroy();
@@ -176,8 +181,12 @@ export class AcpJsonRpcClient {
   }
 }
 
-export function spawnAcpClient({ command, args = [], cwd = process.cwd(), env = process.env, appendEvent, onNotification = () => undefined, onRequest = null }) {
-  const child = spawn(command, args, { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+export function spawnAcpClient({ command, args = [], cwd = process.cwd(), env = process.env, appendEvent, onNotification = () => undefined, onRequest = null, detached = false }) {
+  // Spawn detached on non-Windows so the child becomes a process-group leader.
+  // That lets the caller kill the whole tree (child + any grandchildren
+  // it spawns, e.g. codex-acp → codex) via `process.kill(-pid, signal)`.
+  const useDetached = detached && process.platform !== "win32";
+  const child = spawn(command, args, { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], detached: useDetached });
   child.unref?.();
   appendEvent?.({ type: "log", text: `${command} ${args.join(" ")}`.trim() });
   appendEvent?.({ type: "log", text: `pid ${child.pid ?? "unknown"}` });

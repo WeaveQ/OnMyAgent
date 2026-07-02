@@ -372,7 +372,14 @@ export type PersonalLocalAgentModelOption = {
   label: string;
 };
 
-export type PersonalLocalAgentStatus = "online" | "offline" | "error";
+export type PersonalLocalAgentStatus =
+  | "online"
+  | "needs_auth"
+  | "offline"
+  | "missing"
+  | "unknown"
+  // Legacy value kept for backward compatibility with persisted state.
+  | "error";
 
 export type PersonalLocalAgentCapability = {
   installed: boolean;
@@ -382,7 +389,7 @@ export type PersonalLocalAgentCapability = {
   supportsResume: boolean;
   supportsModelOverride: boolean;
   supportsPermissionAutoApprove: boolean;
-  /** Whether this provider exposes a real ACP entrypoint for Local Agent parity. */
+  /** Whether this provider exposes a real ACP entrypoint for Local Agent sessions. */
   supportsAcp: boolean;
   /**
    * Whether the adapter can route native approval requests through Studio's
@@ -493,6 +500,7 @@ export type PersonalLocalAgentRunEvent = {
     | "assistant_chunk"
     | "chunk"
     | "assistant"
+    | "finish"
     | "tool"
     | "error"
     | "exit"
@@ -501,6 +509,8 @@ export type PersonalLocalAgentRunEvent = {
     | "artifact";
   text: string;
   at: number;
+  stopReason?: string | null;
+  truncated?: boolean;
   approval?: PersonalLocalAgentApprovalRequest | null;
   artifact?: PersonalLocalAgentRunArtifact | null;
   toolCall?: PersonalLocalAgentToolCall | null;
@@ -525,6 +535,8 @@ export type PersonalLocalAgentConversationMessage = {
   text: string;
   createdAt: number;
   sourceEventType?: string;
+  stopReason?: string | null;
+  truncated?: boolean;
   status?: "running" | "completed" | "failed" | string;
   category?: "permission" | "auth" | "network" | "provider" | string;
   approval?: PersonalLocalAgentApprovalRequest | null;

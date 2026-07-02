@@ -83,14 +83,20 @@ async function main() {
     const visibleAssistantSegmentCount = await page.evaluate(`Array.from(document.querySelectorAll('body *')).filter((node) => node.textContent?.trim() === '回复片段').length`);
     assert.equal(visibleAssistantSegmentCount, 0, "assistant streaming chunks should not be labeled as separate visible steps");
     const visibleStatusCount = await page.evaluate(`Array.from(document.querySelectorAll('body *')).filter((node) => node.textContent?.trim() === '状态').length`);
-    assert.equal(visibleStatusCount, 0, "runtime status events should not be displayed in the AionUI-style step group");
+    assert.equal(visibleStatusCount, 0, "runtime status events should not be displayed in the visible step group");
+    const defaultVisibleRunIdCount = await page.evaluate(`Array.from(document.querySelectorAll('body *')).filter((node) => {
+      if (!node.textContent?.trim().startsWith('Run ID')) return false;
+      const details = node.closest('details');
+      return !details || details.open;
+    }).length`);
+    assert.equal(defaultVisibleRunIdCount, 0, "Run ID should stay inside closed debug details by default");
     await page.waitFor(() => document.querySelectorAll('strong').length > 0, 10000);
-    await screenshot(page, "02-three-turns-markdown.png");
+    await screenshot(page, "studio-completed.png");
 
     await page.fillTextarea("approval smoke");
     await page.clickSend();
     await page.waitForText("需要你审批后继续", 15000);
-    await screenshot(page, "03-approval-card.png");
+    await screenshot(page, "studio-running.png");
     await page.clickText(["允许一次", "Allow once"]);
     await page.waitForText("ACP approved reply", 15000);
 

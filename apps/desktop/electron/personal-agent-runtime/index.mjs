@@ -24,6 +24,7 @@ import { clearSession } from "./session-store.mjs";
 import { runId } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState } from "./runtime-state.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
+import { probeAcpCommand } from "./acp-probe.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
@@ -318,6 +319,7 @@ export function createPersonalAgentRuntime(options) {
     else if (/set_mode failed|modeid|codex_acp_mode_failed/.test(lower)) code = "codex_acp_mode_failed";
     else if (/conversation interrupted/.test(lower)) code = "acp_bridge_interrupted";
     else if (/acp_bridge_interrupted_after_retry/.test(lower)) code = "acp_bridge_interrupted_after_retry";
+    else if (/did not finish cleanly|incomplete output/.test(lower)) code = "acp_incomplete_output";
     else if (/tool call failed/.test(lower)) code = "acp_tool_failed";
     else if (/sandbox|network|could not resolve host|permission denied|operation not permitted/.test(lower)) code = "sandbox_or_network_refusal";
     else if (/not found|no such file|enoent|command not found|未配置|命令不可用/.test(lower)) code = "missing_binary";
@@ -363,11 +365,17 @@ export function createPersonalAgentRuntime(options) {
       approval,
     });
     state.updatedAt = Date.now();
-    void persistRun(state);
-
-    return new Promise((resolve) => {
+    // Register the resolver synchronously so a decision arriving during the
+    // durable write is never dropped. The persist is fire-and-forget for the
+    // in-memory pending state (already observable), but the recoverable
+    // confirmation write (ASP-3) is awaited via `state.persistedApproval` so
+    // callers that need the durable record can synchronize on it.
+    const decision = new Promise((resolve) => {
       state.approvalResolvers.set(approval.id, resolve);
     });
+    state.lastApprovalPersist = persistRun(state);
+    void state.lastApprovalPersist;
+    return decision;
   }
 
   async function resolveApproval(input = {}) {
@@ -660,7 +668,14 @@ export function createPersonalAgentRuntime(options) {
             startedAt: state.startedAt,
           });
         }
-        appendContractEvent(events, { type: "assistant", text: result.output });
+        // Stream chunks flow live via appendEvent during the run; completion is
+        // marked by a single `finish` event carrying stopReason and truncation.
+        appendContractEvent(events, {
+          type: "finish",
+          text: result.output,
+          stopReason: result.metadata?.stopReason ?? null,
+          truncated: Boolean(result.metadata?.truncated),
+        });
         harvestArtifactsFromText(state, result.output, "assistant");
         state.updatedAt = Date.now();
         state.status = "completed";
@@ -860,6 +875,12 @@ export function createPersonalAgentRuntime(options) {
       && (!conversation?.id || state.conversationId === conversation.id)
       && state.status === "running"
     ));
+    // Ensure any in-flight approval persist has flushed before reading the
+    // durable conversation events, so recovered confirmations (ASP-3) are
+    // consistent with the in-memory pending approvals.
+    if (activeRun?.lastApprovalPersist) {
+      await activeRun.lastApprovalPersist.catch(() => undefined);
+    }
     const persisted = conversation?.id
       ? await readConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id)
       : { events: [], messages: [] };
@@ -982,6 +1003,99 @@ export function createPersonalAgentRuntime(options) {
     return { processes: listAgentProcesses(input) };
   }
 
+  // Run a two-step ACP probe (CLI spawn -> initialize -> session/new) against
+  // an agent and return a structured connection result the
+  // UI can render (status color, capabilities, models, config options).
+  async function testConnection(input = {}) {
+    const checkedAt = Date.now();
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const detected = await legacy.detectAgent(agent, workspaceRoot).catch((error) => ({
+      ...agent,
+      status: "offline",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    if (detected.status && detected.status !== "online") {
+      // Collapse legacy "error" status into "offline" so the 5-state model
+      // (online / needs_auth / offline / missing / unknown) is always returned.
+      const rawStatus = detected.status === "error" ? "offline" : detected.status;
+      const status = rawStatus === "offline" && /auth|login|认证|登录/i.test(String(detected.error ?? ""))
+        ? "needs_auth"
+        : rawStatus;
+      return {
+        ok: false,
+        status,
+        step: status === "missing" ? "fail_cli" : status === "needs_auth" ? "needs_auth" : "fail_cli",
+        error: detected.error ?? `${detected.name ?? agent.name ?? agent.provider} unavailable`,
+        capabilities: null,
+        models: [],
+        configOptions: [],
+        checkedAt,
+      };
+    }
+    const provider = detected.provider ?? agent.provider;
+    let executablePath = detected.executablePath || provider;
+    let args = ["acp", ...(Array.isArray(detected.customArgs) ? detected.customArgs : [])];
+    try {
+      if (provider === "codex" || provider === "claude") {
+        const tool = await resolveManagedAcpTool(provider);
+        if (tool?.installed && tool.binPath) {
+          executablePath = tool.binPath;
+          args = [...(Array.isArray(detected.customArgs) ? detected.customArgs : [])];
+        }
+      }
+      const probe = await probeAcpCommand({ command: executablePath, args, cwd: workspaceRoot || process.cwd(), timeoutMs: Number(input.timeoutMs) || 12_000 });
+      const meta = probe.sessionResult ? extractProbeMetadata(probe.sessionResult, probe.initialized) : extractProbeMetadata(probe.initialized);
+      return {
+        ok: probe.ok,
+        status: probe.status,
+        step: probe.step,
+        error: probe.error ?? null,
+        capabilities: probe.initialized?.capabilities ?? null,
+        models: meta.models,
+        configOptions: meta.configOptions,
+        checkedAt,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        status: "offline",
+        step: "fail_cli",
+        error: error instanceof Error ? error.message : String(error),
+        capabilities: null,
+        models: [],
+        configOptions: [],
+        checkedAt,
+      };
+    }
+  }
+
+  function extractProbeMetadata(...sources) {
+    for (const source of sources) {
+      if (!source || typeof source !== "object") continue;
+      const modelsBlock = source.models && typeof source.models === "object" ? source.models : source;
+      const rawModels = Array.isArray(modelsBlock?.availableModels)
+        ? modelsBlock.availableModels
+        : Array.isArray(source.availableModels)
+          ? source.availableModels
+          : Array.isArray(source.available_models)
+            ? source.available_models
+            : [];
+      const models = rawModels
+        .map((item) => (item && typeof item === "object"
+          ? { id: String(item.id ?? item.modelId ?? item.name ?? "").trim(), label: String(item.name ?? item.label ?? item.id ?? "").trim() }
+          : { id: String(item ?? "").trim(), label: String(item ?? "").trim() }))
+        .filter((m) => m.id);
+      const configOptions = Array.isArray(source.configOptions)
+        ? source.configOptions
+        : Array.isArray(source.config_options)
+          ? source.config_options
+          : [];
+      if (models.length || configOptions.length) return { models, configOptions };
+    }
+    return { models: [], configOptions: [] };
+  }
+
   return {
     listAgents,
     listAgentMetadata,
@@ -993,6 +1107,7 @@ export function createPersonalAgentRuntime(options) {
     acpResolveApproval,
     acpConfigOptions,
     listProcesses,
+    testConnection,
     validateAgent: legacy.detectAgent,
     startMessage: start,
     getRun: status,
