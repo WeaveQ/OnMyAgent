@@ -75,6 +75,8 @@ import {
   parseEditorTarget,
   resolveEditorCommand,
 } from "./code-workspace-actions.mjs";
+import { createEmbeddedBrowserPanel } from "./embedded-browser-panel.mjs";
+import { createUiControlServer } from "./ui-control-server.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
@@ -333,9 +335,6 @@ const IDLE_ROUTER_INFO = Object.freeze({
 
 let mainWindow = null;
 const pendingDeepLinks = [];
-let uiControlServer = null;
-let uiControlDiscoveryPath = null;
-const uiControlToken = randomBytes(32).toString("hex");
 
 function isLocalRendererOrigin(origin) {
   const value = String(origin ?? "").trim();
@@ -404,71 +403,6 @@ function installMediaPermissionHandlers() {
   );
 }
 
-// ── Embedded browser panel ─────────────────────────────────────────────
-const browserTabs = new Map();
-let browserTabOrder = [];
-let activeBrowserTabId = null;
-let browserViewVisible = false;
-let lastBrowserBounds = null;
-let browserTabCounter = 0;
-const BROWSER_DEFAULT_URL = "https://www.google.com";
-const MENU_OVERLAY_HTML = "overlay.html";
-const MENU_OVERLAY_WIDTH = 196;
-const MENU_OVERLAY_HEIGHT = 176;
-const MENU_OVERLAY_READY_TIMEOUT_MS = 2000;
-let menuOverlayView = null;
-let menuOverlayRequest = null;
-let menuOverlayReady = false;
-let menuOverlayReadyResolvers = [];
-let menuOverlayShowSerial = 0;
-
-function resetMenuOverlayReady({ resolvePending = false } = {}) {
-  menuOverlayReady = false;
-  if (resolvePending) {
-    const resolvers = menuOverlayReadyResolvers.splice(0);
-    for (const resolve of resolvers) resolve(false);
-  }
-}
-
-function markMenuOverlayReady(view) {
-  if (!view || view.webContents.isDestroyed()) return;
-  menuOverlayReady = true;
-  const resolvers = menuOverlayReadyResolvers.splice(0);
-  for (const resolve of resolvers) resolve(true);
-}
-
-function waitForMenuOverlayReady(view) {
-  if (menuOverlayReady) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    let timer = null;
-    const done = (ready) => {
-      if (timer) clearTimeout(timer);
-      menuOverlayReadyResolvers = menuOverlayReadyResolvers.filter(
-        (candidate) => candidate !== done,
-      );
-      resolve(ready);
-    };
-    timer = setTimeout(() => done(false), MENU_OVERLAY_READY_TIMEOUT_MS);
-    menuOverlayReadyResolvers.push(done);
-    if (!view || view.webContents.isDestroyed()) done(false);
-  });
-}
-
-/** Send an IPC message to the main renderer, guarding against disposed frames. */
-function sendToRenderer(channel, payload) {
-  if (
-    !mainWindow ||
-    mainWindow.isDestroyed() ||
-    mainWindow.webContents.isDestroyed()
-  )
-    return;
-  try {
-    mainWindow.webContents.send(channel, payload);
-  } catch {
-    /* window closing */
-  }
-}
-
 const applicationMenuController = createApplicationMenuController({
   appName: APP_NAME,
   docsPageUrl: DOCS_PAGE_URL,
@@ -485,569 +419,19 @@ const {
   setApplicationMenuVisible,
 } = applicationMenuController;
 
-function createBrowserTabId() {
-  browserTabCounter += 1;
-  return `tab_${Date.now().toString(36)}_${browserTabCounter.toString(36)}`;
-}
-
-function normalizeBrowserUrl(url, fallback = BROWSER_DEFAULT_URL) {
-  const target = typeof url === "string" && url.trim() ? url.trim() : fallback;
-  if (!target || target === "about:blank") return "about:blank";
-  return /^https?:\/\//i.test(target) ? target : `https://${target}`;
-}
-
-function isExternalOpenUrlAllowed(url) {
-  if (typeof url !== "string") return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  try {
-    const parsed = new URL(trimmed);
-    return ["http:", "https:", "mailto:"].includes(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
-
-async function openAllowedExternalUrl(url) {
-  if (!isExternalOpenUrlAllowed(url)) return false;
-  await shell.openExternal(url.trim());
-  return true;
-}
-
-function getBrowserTab(tabId = activeBrowserTabId) {
-  return tabId ? (browserTabs.get(tabId) ?? null) : null;
-}
-
-function getActiveBrowserView() {
-  return getBrowserTab()?.view ?? null;
-}
-
-function getActiveWebContents() {
-  return getActiveBrowserView()?.webContents ?? null;
-}
-
-function webContentsCanGoBack(webContents) {
-  return (
-    webContents?.navigationHistory?.canGoBack?.() ??
-    webContents?.canGoBack?.() ??
-    false
-  );
-}
-
-function webContentsCanGoForward(webContents) {
-  return (
-    webContents?.navigationHistory?.canGoForward?.() ??
-    webContents?.canGoForward?.() ??
-    false
-  );
-}
-
-function listBrowserTabs() {
-  return browserTabOrder
-    .map((tabId) => {
-      const tab = browserTabs.get(tabId);
-      if (!tab || tab.view.webContents.isDestroyed()) return null;
-      const { webContents } = tab.view;
-      return {
-        tabId,
-        url: webContents.getURL(),
-        title: webContents.getTitle(),
-        favicon: tab.favicon,
-        canGoBack: webContentsCanGoBack(webContents),
-        canGoForward: webContentsCanGoForward(webContents),
-        isLoading: webContents.isLoading(),
-        isActive: tabId === activeBrowserTabId,
-      };
-    })
-    .filter(Boolean);
-}
-
-function browserStatePayload() {
-  const activeTab = getBrowserTab();
-  const activeWebContents = activeTab?.view.webContents;
-  const activeState =
-    activeWebContents && !activeWebContents.isDestroyed()
-      ? {
-          url: activeWebContents.getURL(),
-          title: activeWebContents.getTitle(),
-          canGoBack: webContentsCanGoBack(activeWebContents),
-          canGoForward: webContentsCanGoForward(activeWebContents),
-          isLoading: activeWebContents.isLoading(),
-        }
-      : {
-          url: "",
-          title: "",
-          canGoBack: false,
-          canGoForward: false,
-          isLoading: false,
-        };
-  return {
-    ...activeState,
-    activeTabId: activeBrowserTabId,
-    tabs: listBrowserTabs(),
-  };
-}
-
-function browserTabUrl(tab) {
-  const url = tab?.view?.webContents?.getURL?.();
-  return typeof url === "string" && url && url !== "about:blank" ? url : null;
-}
-
-function isHttpUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function normalizeMenuOverlayPoint(point) {
-  if (!point || typeof point !== "object") {
-    return { x: 0, y: 0 };
-  }
-  const x = Number(point.x);
-  const y = Number(point.y);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
-    return { x: 0, y: 0 };
-  }
-  return { x: Math.round(x), y: Math.round(y) };
-}
-
-function menuOverlayBounds(point) {
-  const [contentWidth, contentHeight] = mainWindow?.getContentSize?.() ?? [
-    MENU_OVERLAY_WIDTH,
-    MENU_OVERLAY_HEIGHT,
-  ];
-  return {
-    x: Math.min(
-      Math.max(point.x, 0),
-      Math.max(contentWidth - MENU_OVERLAY_WIDTH - 4, 0),
-    ),
-    y: Math.min(
-      Math.max(point.y, 0),
-      Math.max(contentHeight - MENU_OVERLAY_HEIGHT - 4, 0),
-    ),
-    width: MENU_OVERLAY_WIDTH,
-    height: MENU_OVERLAY_HEIGHT,
-  };
-}
-
-function menuOverlayUrl() {
-  const currentUrl = mainWindow?.webContents?.getURL?.();
-  if (currentUrl && /^https?:\/\//i.test(currentUrl)) {
-    return new URL(MENU_OVERLAY_HTML, currentUrl).toString();
-  }
-  return null;
-}
-
-async function loadMenuOverlayRenderer(view) {
-  const devUrl = menuOverlayUrl();
-  if (devUrl) {
-    await view.webContents.loadURL(devUrl);
-    return;
-  }
-
-  const packagedOverlayPath = path.join(
-    process.resourcesPath,
-    "app-dist",
-    MENU_OVERLAY_HTML,
-  );
-  const devOverlayPath = path.resolve(
-    __dirname,
-    "../../app/dist",
-    MENU_OVERLAY_HTML,
-  );
-  await view.webContents.loadFile(
-    app.isPackaged ? packagedOverlayPath : devOverlayPath,
-  );
-}
-
-async function ensureMenuOverlayView() {
-  if (menuOverlayView && !menuOverlayView.webContents.isDestroyed()) {
-    return menuOverlayView;
-  }
-
-  const view = new WebContentsView({
-    webPreferences: {
-      // Electron only runs ESM preload scripts reliably with sandbox disabled.
-      // Keep the bridge isolated and node-free for the React overlay document.
-      backgroundThrottling: false,
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: path.join(__dirname, "menu-overlay-preload.mjs"),
-    },
-  });
-  view.setBackgroundColor?.("#00000000");
-  view.setVisible?.(false);
-  view.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  view.webContents.on(
-    "did-start-navigation",
-    (_event, _url, isInPlace, isMainFrame) => {
-      if (isMainFrame && !isInPlace) resetMenuOverlayReady();
-    },
-  );
-  view.webContents.once("destroyed", () => {
-    if (menuOverlayView === view) {
-      menuOverlayView = null;
-      menuOverlayRequest = null;
-      resetMenuOverlayReady({ resolvePending: true });
-    }
-  });
-
-  menuOverlayView = view;
-  resetMenuOverlayReady({ resolvePending: true });
-  await loadMenuOverlayRenderer(view);
-  return view;
-}
-
-function hideMenuOverlay() {
-  const view = menuOverlayView;
-  menuOverlayShowSerial += 1;
-  menuOverlayRequest = null;
-  if (!view || !mainWindow) return;
-  view.setVisible?.(false);
-  try {
-    if (mainWindow.contentView.children.includes(view)) {
-      mainWindow.contentView.removeChildView(view);
-    }
-  } catch {
-    // already removed
-  }
-}
-
-function bringMenuOverlayToTop(view) {
-  if (!mainWindow) return;
-  try {
-    if (mainWindow.contentView.children.includes(view)) {
-      mainWindow.contentView.removeChildView(view);
-    }
-  } catch {
-    // already removed
-  }
-  mainWindow.contentView.addChildView(view);
-}
-
-function tabMenuRequest(tab, point) {
-  const url = browserTabUrl(tab);
-  return {
-    id: `tab-menu:${tab.tabId}:${Date.now()}`,
-    source: "tab",
-    tabId: tab.tabId,
-    url,
-    bounds: menuOverlayBounds(normalizeMenuOverlayPoint(point)),
-    items: [
-      { id: "copy-url", label: "Copy URL", iconName: "copy", disabled: !url },
-      {
-        id: "open-external",
-        label: "Open in Browser",
-        iconName: "external",
-        disabled: !(url && isHttpUrl(url)),
-      },
-      {
-        id: "close-tab",
-        label: "Close Tab",
-        iconName: "close",
-        separatorBefore: true,
-      },
-      { id: "close-all-tabs", label: "Close All Tabs", iconName: "close" },
-    ],
-  };
-}
-
-async function showBrowserTabContextMenu(tabId, point) {
-  const tab = getBrowserTab(String(tabId ?? ""));
-  if (!mainWindow || !tab || tab.view.webContents.isDestroyed()) return;
-
-  const showSerial = menuOverlayShowSerial + 1;
-  menuOverlayShowSerial = showSerial;
-  const request = tabMenuRequest(tab, point);
-  const view = await ensureMenuOverlayView();
-  if (showSerial !== menuOverlayShowSerial || menuOverlayView !== view) return;
-  menuOverlayRequest = request;
-  view.setBounds(request.bounds);
-  view.setVisible?.(true);
-  bringMenuOverlayToTop(view);
-  const ready = await waitForMenuOverlayReady(view);
-  if (
-    showSerial !== menuOverlayShowSerial ||
-    menuOverlayRequest !== request ||
-    menuOverlayView !== view
-  )
-    return;
-  if (!ready) {
-    console.warn(
-      "[menu-overlay] renderer did not signal readiness before show",
-    );
-  }
-  view.webContents.send("onmyagent:menu-overlay:show", {
-    id: request.id,
-    source: request.source,
-    items: request.items,
-  });
-  view.webContents.focus();
-}
-
-function handleMenuOverlayChoice(payload) {
-  if (!payload || payload.requestId !== menuOverlayRequest?.id) return;
-  const request = menuOverlayRequest;
-  const tab = getBrowserTab(request.tabId);
-  hideMenuOverlay();
-
-  switch (payload.itemId) {
-    case "copy-url":
-      if (request.url) clipboard.writeText(request.url);
-      break;
-    case "open-external":
-      if (request.url && isHttpUrl(request.url))
-        void openAllowedExternalUrl(request.url);
-      break;
-    case "close-tab":
-      if (tab) closeBrowserTab(tab.tabId);
-      break;
-    case "close-all-tabs":
-      closeAllBrowserTabs();
-      break;
-  }
-}
-
-function createBrowserTab(url = "about:blank", { select = true } = {}) {
-  const tabId = createBrowserTabId();
-  const view = new WebContentsView({
-    webPreferences: {
-      backgroundThrottling: false,
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: path.join(__dirname, "browser-content-preload.cjs"),
-      partition: "persist:onmyagent-browser",
-    },
-  });
-  const tab = { tabId, view, favicon: null };
-  browserTabs.set(tabId, tab);
-  browserTabOrder.push(tabId);
-  // Load about:blank immediately to preempt persistent-session restore.
-  // Cookies live on the session object, not the document — they survive this.
-  view.webContents.loadURL("about:blank");
-  view.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
-    void openAllowedExternalUrl(targetUrl);
-    return { action: "deny" };
-  });
-  view.webContents.on(
-    "did-start-navigation",
-    (_event, targetUrl, isInPlace, isMainFrame) => {
-      if (isMainFrame && !isInPlace && targetUrl !== "about:blank") {
-        sendToRenderer("onmyagent:browser:panel-opened");
-      }
-    },
-  );
-  view.webContents.on("did-navigate", () => sendBrowserState());
-  view.webContents.on("did-navigate-in-page", () => sendBrowserState());
-  view.webContents.on("page-title-updated", () => sendBrowserState());
-  view.webContents.on("page-favicon-updated", (_event, favicons) => {
-    tab.favicon = Array.isArray(favicons) ? (favicons[0] ?? null) : null;
-    sendBrowserState();
-  });
-  view.webContents.on("did-start-loading", () => sendBrowserState());
-  view.webContents.on("did-stop-loading", () => sendBrowserState());
-  view.webContents.once("destroyed", () => {
-    browserTabs.delete(tabId);
-    browserTabOrder = browserTabOrder.filter((id) => id !== tabId);
-    if (activeBrowserTabId === tabId)
-      activeBrowserTabId = browserTabOrder[0] ?? null;
-    sendBrowserState();
-  });
-  if (select || !activeBrowserTabId) {
-    selectBrowserTab(tabId);
-  } else {
-    sendBrowserState();
-  }
-  const finalUrl = normalizeBrowserUrl(url, "about:blank");
-  if (finalUrl !== "about:blank") {
-    view.webContents.loadURL(finalUrl);
-  }
-  return tab;
-}
-
-function detachBrowserView(view) {
-  if (!mainWindow || !view) return;
-  try {
-    if (mainWindow.contentView.children.includes(view)) {
-      mainWindow.contentView.removeChildView(view);
-    }
-  } catch {
-    // already removed
-  }
-}
-
-function attachActiveBrowserView() {
-  if (!mainWindow || !browserViewVisible) return;
-  const view = getActiveBrowserView();
-  if (!view) return;
-  for (const tab of browserTabs.values()) {
-    if (tab.view !== view) detachBrowserView(tab.view);
-  }
-  if (!mainWindow.contentView.children.includes(view)) {
-    mainWindow.contentView.addChildView(view);
-  }
-  if (
-    lastBrowserBounds &&
-    lastBrowserBounds.width > 0 &&
-    lastBrowserBounds.height > 0
-  ) {
-    view.setBounds(lastBrowserBounds);
-  }
-}
-
-function selectBrowserTab(tabId) {
-  if (!browserTabs.has(tabId)) throw new Error(`Unknown browser tab: ${tabId}`);
-  hideMenuOverlay();
-  const previousView = getActiveBrowserView();
-  activeBrowserTabId = tabId;
-  if (previousView && previousView !== getActiveBrowserView()) {
-    detachBrowserView(previousView);
-  }
-  attachActiveBrowserView();
-  sendBrowserState();
-  return getBrowserTab(tabId);
-}
-
-function closeBrowserTab(tabId = activeBrowserTabId) {
-  const tab = getBrowserTab(tabId);
-  if (!tab) return null;
-  if (menuOverlayRequest?.tabId === tabId) hideMenuOverlay();
-  const closingIndex = browserTabOrder.indexOf(tabId);
-  const wasActive = activeBrowserTabId === tabId;
-  detachBrowserView(tab.view);
-  browserTabs.delete(tabId);
-  browserTabOrder = browserTabOrder.filter((id) => id !== tabId);
-  if (wasActive) {
-    const nextTabId =
-      browserTabOrder[Math.min(closingIndex, browserTabOrder.length - 1)] ??
-      browserTabOrder[closingIndex - 1] ??
-      null;
-    activeBrowserTabId = nextTabId;
-    if (nextTabId) {
-      attachActiveBrowserView();
-    } else {
-      hideBrowserView();
-      sendToRenderer("onmyagent:browser:panel-closed");
-    }
-  }
-  try {
-    tab.view.webContents.close();
-  } catch {
-    /* already destroyed */
-  }
-  sendBrowserState();
-  return tabId;
-}
-
-function closeAllBrowserTabs() {
-  const closedTabIds = [...browserTabOrder];
-  if (closedTabIds.length === 0) return [];
-  hideMenuOverlay();
-  const tabsToClose = closedTabIds
-    .map((tabId) => browserTabs.get(tabId))
-    .filter(Boolean);
-  hideBrowserView();
-  browserTabs.clear();
-  browserTabOrder = [];
-  activeBrowserTabId = null;
-  for (const tab of tabsToClose) {
-    try {
-      tab.view.webContents.close();
-    } catch {
-      /* already destroyed */
-    }
-  }
-  sendToRenderer("onmyagent:browser:panel-closed");
-  sendBrowserState();
-  return closedTabIds;
-}
-
-function reorderBrowserTabs(tabIds) {
-  const nextOrder = Array.isArray(tabIds) ? tabIds.map(String) : [];
-  if (nextOrder.length !== browserTabOrder.length) {
-    throw new Error("Tab order must include every open tab.");
-  }
-  if (new Set(nextOrder).size !== nextOrder.length) {
-    throw new Error("Tab order must not contain duplicate tabs.");
-  }
-  const current = new Set(browserTabOrder);
-  if (nextOrder.some((tabId) => !current.has(tabId))) {
-    throw new Error("Tab order contains an unknown tab.");
-  }
-  browserTabOrder = nextOrder;
-  sendBrowserState();
-  return listBrowserTabs();
-}
-
-function sendBrowserState() {
-  sendToRenderer("onmyagent:browser:state", browserStatePayload());
-}
-
-/**
- * Attach the browser view to the main window.
- * @param {object} bounds — { x, y, width, height }
- * @param {object} [opts]
- * @param {boolean} [opts.preloadDefault=true] - load default URL if the view has no URL
- * @param {boolean} [opts.ensureTab=true] - create a blank tab if needed
- */
-function attachBrowserView(
-  bounds,
-  { preloadDefault = true, ensureTab = true } = {},
-) {
-  if (!mainWindow) return;
-  lastBrowserBounds = bounds;
-  browserViewVisible = true;
-  if (ensureTab && !activeBrowserTabId) createBrowserTab("about:blank");
-  const view = getActiveBrowserView();
-  attachActiveBrowserView();
-  if (bounds.width > 0 && bounds.height > 0) {
-    view?.setBounds(bounds);
-  }
-  const url = view?.webContents.getURL();
-  if (preloadDefault && (!url || url === "about:blank")) {
-    view?.webContents.loadURL(BROWSER_DEFAULT_URL);
-  }
-  sendBrowserState();
-}
-
-function hideBrowserView() {
-  hideMenuOverlay();
-  browserViewVisible = false;
-  if (!mainWindow) return;
-  for (const tab of browserTabs.values()) {
-    detachBrowserView(tab.view);
-  }
-}
-
-function destroyBrowserView() {
-  hideBrowserView();
-  const overlayView = menuOverlayView;
-  menuOverlayView = null;
-  menuOverlayRequest = null;
-  try {
-    overlayView?.webContents.close();
-  } catch {
-    /* already destroyed */
-  }
-  for (const tab of browserTabs.values()) {
-    try {
-      tab.view.webContents.close();
-    } catch {
-      /* already destroyed */
-    }
-  }
-  browserTabs.clear();
-  browserTabOrder = [];
-  activeBrowserTabId = null;
-  lastBrowserBounds = null;
-  sendBrowserState();
-}
-
+const embeddedBrowserPanel = createEmbeddedBrowserPanel({
+  app,
+  WebContentsView,
+  clipboard,
+  shell,
+  dirname: __dirname,
+});
+const uiControlBridge = createUiControlServer({
+  app,
+  appName: APP_NAME,
+  appIdentifier: APP_IDENTIFIER,
+  createMainWindow,
+});
 function normalizePlatform(value) {
   if (value === "darwin" || value === "linux") return value;
   if (value === "win32") return "windows";
@@ -7223,177 +6607,6 @@ async function handleDesktopInvoke(event, command, ...args) {
   }
 }
 
-function sendJsonResponse(response, statusCode, payload) {
-  response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
-  });
-  response.end(JSON.stringify(payload));
-}
-
-function readJsonRequestBody(request) {
-  return new Promise((resolve, reject) => {
-    let raw = "";
-    request.setEncoding("utf8");
-    request.on("data", (chunk) => {
-      raw += chunk;
-      if (raw.length > 128_000) {
-        reject(new Error("Request body too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      if (!raw.trim()) {
-        resolve({});
-        return;
-      }
-      try {
-        resolve(JSON.parse(raw));
-      } catch {
-        reject(new Error("Request body must be JSON"));
-      }
-    });
-    request.on("error", reject);
-  });
-}
-
-function authorizedUiControlRequest(request) {
-  const auth = request.headers.authorization ?? "";
-  return auth === `Bearer ${uiControlToken}`;
-}
-
-function jsonForJavaScript(value) {
-  return JSON.stringify(JSON.stringify(value ?? {}));
-}
-
-async function evaluateOpenworkControl(expression, options = {}) {
-  const win = await createMainWindow();
-  if (options.focus === true) {
-    win.show();
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  }
-  return win.webContents.executeJavaScript(expression, true);
-}
-
-async function runOpenworkControlCommand(command, args = {}) {
-  const argsJsonLiteral = jsonForJavaScript(args);
-  if (command === "snapshot") {
-    return evaluateOpenworkControl(`(async () => {
-      const control = window.__onmyagentControl;
-      if (!control) return { ok: false, error: "OnMyAgent control surface is not available yet." };
-      control.setEnabled?.(true);
-      return { ok: true, ...control.snapshot() };
-    })()`);
-  }
-  if (command === "actions") {
-    return evaluateOpenworkControl(`(async () => {
-      const control = window.__onmyagentControl;
-      if (!control) return { ok: false, error: "OnMyAgent control surface is not available yet." };
-      control.setEnabled?.(true);
-      return { ok: true, actions: control.listActions() };
-    })()`);
-  }
-  if (command === "execute") {
-    return evaluateOpenworkControl(
-      `(async () => {
-      const control = window.__onmyagentControl;
-      const input = JSON.parse(${argsJsonLiteral});
-      if (!control) return { ok: false, error: "OnMyAgent control surface is not available yet." };
-      if (!input || typeof input.actionId !== "string" || !input.actionId.trim()) {
-        return { ok: false, error: "Missing OnMyAgent actionId." };
-      }
-      control.setEnabled?.(true);
-      return control.execute(input.actionId, input.args ?? {});
-    })()`,
-      { focus: true },
-    );
-  }
-  return { ok: false, error: `Unknown OnMyAgent control command: ${command}` };
-}
-
-async function startUiControlServer() {
-  if (uiControlServer) return;
-  uiControlServer = createServer(async (request, response) => {
-    try {
-      const url = new URL(request.url ?? "/", "http://127.0.0.1");
-      if (request.method === "GET" && url.pathname === "/health") {
-        sendJsonResponse(response, 200, {
-          ok: true,
-          app: APP_NAME,
-          version: 1,
-        });
-        return;
-      }
-      if (!authorizedUiControlRequest(request)) {
-        sendJsonResponse(response, 401, { ok: false, error: "Unauthorized" });
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/snapshot") {
-        sendJsonResponse(
-          response,
-          200,
-          await runOpenworkControlCommand("snapshot"),
-        );
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/actions") {
-        sendJsonResponse(
-          response,
-          200,
-          await runOpenworkControlCommand("actions"),
-        );
-        return;
-      }
-      if (request.method === "POST" && url.pathname === "/execute") {
-        sendJsonResponse(
-          response,
-          200,
-          await runOpenworkControlCommand(
-            "execute",
-            await readJsonRequestBody(request),
-          ),
-        );
-        return;
-      }
-      sendJsonResponse(response, 404, { ok: false, error: "Not found" });
-    } catch (error) {
-      sendJsonResponse(response, 500, {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
-  await new Promise((resolve, reject) => {
-    uiControlServer.once("error", reject);
-    uiControlServer.listen(0, "127.0.0.1", () => resolve(undefined));
-  });
-  const address = uiControlServer.address();
-  const port = typeof address === "object" && address ? address.port : null;
-  if (!port) throw new Error("Could not start OnMyAgent UI control bridge.");
-  uiControlDiscoveryPath = path.join(
-    app.getPath("userData"),
-    "onmyagent-ui-control.json",
-  );
-  await writeFile(
-    uiControlDiscoveryPath,
-    `${JSON.stringify({ version: 1, app: APP_NAME, identifier: APP_IDENTIFIER, platform: process.platform, baseUrl: `http://127.0.0.1:${port}`, token: uiControlToken }, null, 2)}\n`,
-    "utf8",
-  );
-}
-
-async function stopUiControlServer() {
-  if (uiControlDiscoveryPath) {
-    await rm(uiControlDiscoveryPath, { force: true }).catch(() => undefined);
-    uiControlDiscoveryPath = null;
-  }
-  if (!uiControlServer) return;
-  await new Promise((resolve) =>
-    uiControlServer.close(() => resolve(undefined)),
-  );
-  uiControlServer = null;
-}
-
 async function createMainWindow() {
   if (mainWindow) return mainWindow;
 
@@ -7450,7 +6663,8 @@ async function createMainWindow() {
   });
 
   mainWindow.on("closed", () => {
-    destroyBrowserView();
+    embeddedBrowserPanel.destroyBrowserView();
+    embeddedBrowserPanel.setMainWindow(null);
     mainWindow = null;
   });
 
@@ -7460,7 +6674,7 @@ async function createMainWindow() {
       url.startsWith("http://127.0.0.1") ||
       url.startsWith("http://localhost");
     if (!local) {
-      void openAllowedExternalUrl(url);
+      void embeddedBrowserPanel.openAllowedExternalUrl(url);
       return { action: "deny" };
     }
     return { action: "allow" };
@@ -7488,8 +6702,9 @@ async function createMainWindow() {
     await mainWindow.loadURL("about:blank").catch(() => undefined);
   }
 
-  if (!activeBrowserTabId) {
-    createBrowserTab("about:blank", { select: true });
+  embeddedBrowserPanel.setMainWindow(mainWindow);
+  if (!embeddedBrowserPanel.hasActiveBrowserTab()) {
+    embeddedBrowserPanel.createBrowserTab("about:blank", { select: true });
   }
 
   return mainWindow;
@@ -7500,7 +6715,7 @@ const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 ipcMain.handle(DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
 ipcMain.handle(LEGACY_DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
 ipcMain.handle("onmyagent:shell:openExternal", async (_event, url) => {
-  return openAllowedExternalUrl(url);
+  return embeddedBrowserPanel.openAllowedExternalUrl(url);
 });
 ipcMain.handle("onmyagent:shell:relaunch", async () => {
   app.relaunch();
@@ -7546,72 +6761,66 @@ ipcMain.handle("onmyagent:system:architecture", async () =>
 
 // ── Embedded browser IPC ────────────────────────────────────────────────
 ipcMain.handle("onmyagent:browser:show", (_event, bounds) =>
-  attachBrowserView(bounds),
+  embeddedBrowserPanel.attachBrowserView(bounds),
 );
-ipcMain.handle("onmyagent:browser:hide", () => hideBrowserView());
-ipcMain.handle("onmyagent:browser:navigate", (_event, url) => {
-  const view =
-    getActiveBrowserView() ??
-    createBrowserTab("about:blank", { select: true }).view;
-  view.webContents.loadURL(normalizeBrowserUrl(url));
-});
-ipcMain.handle("onmyagent:browser:back", () => {
-  const webContents = getActiveWebContents();
-  if (webContentsCanGoBack(webContents)) webContents.goBack();
-});
-ipcMain.handle("onmyagent:browser:forward", () => {
-  const webContents = getActiveWebContents();
-  if (webContentsCanGoForward(webContents)) webContents.goForward();
-});
+ipcMain.handle("onmyagent:browser:hide", () =>
+  embeddedBrowserPanel.hideBrowserView(),
+);
+ipcMain.handle("onmyagent:browser:navigate", (_event, url) =>
+  embeddedBrowserPanel.navigate(url),
+);
+ipcMain.handle("onmyagent:browser:back", () => embeddedBrowserPanel.goBack());
+ipcMain.handle("onmyagent:browser:forward", () =>
+  embeddedBrowserPanel.goForward(),
+);
 ipcMain.handle("onmyagent:browser:reload", () =>
-  getActiveWebContents()?.reload(),
+  embeddedBrowserPanel.reload(),
 );
-ipcMain.handle("onmyagent:browser:bounds", (_event, bounds) => {
-  lastBrowserBounds = bounds;
-  const view = getActiveBrowserView();
-  if (view && browserViewVisible && bounds.width > 0 && bounds.height > 0) {
-    view.setBounds(bounds);
-  }
-});
-ipcMain.handle("onmyagent:browser:state", () => browserStatePayload());
+ipcMain.handle("onmyagent:browser:bounds", (_event, bounds) =>
+  embeddedBrowserPanel.setBounds(bounds),
+);
+ipcMain.handle("onmyagent:browser:state", () =>
+  embeddedBrowserPanel.browserStatePayload(),
+);
 ipcMain.handle("onmyagent:browser:createTab", (_event, url) => {
-  const tab = createBrowserTab(url ?? "about:blank", { select: true });
+  const tab = embeddedBrowserPanel.createBrowserTab(url ?? "about:blank", {
+    select: true,
+  });
   return { tabId: tab.tabId };
 });
 ipcMain.handle("onmyagent:browser:closeTab", (_event, tabId) =>
-  closeBrowserTab(tabId == null ? undefined : String(tabId)),
+  embeddedBrowserPanel.closeBrowserTab(tabId == null ? undefined : String(tabId)),
 );
-ipcMain.handle("onmyagent:browser:closeAllTabs", () => closeAllBrowserTabs());
-ipcMain.handle(
-  "onmyagent:browser:selectTab",
-  (_event, tabId) => selectBrowserTab(String(tabId ?? "")).tabId,
+ipcMain.handle("onmyagent:browser:closeAllTabs", () =>
+  embeddedBrowserPanel.closeAllBrowserTabs(),
+);
+ipcMain.handle("onmyagent:browser:selectTab", (_event, tabId) =>
+  embeddedBrowserPanel.selectBrowserTab(String(tabId ?? "")).tabId,
 );
 ipcMain.handle("onmyagent:browser:reorderTabs", (_event, tabIds) =>
-  reorderBrowserTabs(tabIds),
+  embeddedBrowserPanel.reorderBrowserTabs(tabIds),
 );
-ipcMain.handle("onmyagent:browser:listTabs", () => listBrowserTabs());
+ipcMain.handle("onmyagent:browser:listTabs", () =>
+  embeddedBrowserPanel.listBrowserTabs(),
+);
 ipcMain.handle("onmyagent:browser:tabContextMenu", (_event, tabId, point) =>
-  showBrowserTabContextMenu(tabId, point),
+  embeddedBrowserPanel.showBrowserTabContextMenu(tabId, point),
 );
-ipcMain.handle("onmyagent:browser:destroy", () => destroyBrowserView());
-ipcMain.on("onmyagent:menu-overlay:ready", (event) => {
-  if (event.sender !== menuOverlayView?.webContents) return;
-  markMenuOverlayReady(menuOverlayView);
-});
-ipcMain.on("onmyagent:menu-overlay:choose", (event, payload) => {
-  if (event.sender !== menuOverlayView?.webContents) return;
-  handleMenuOverlayChoice(payload);
-});
-ipcMain.on("onmyagent:menu-overlay:close", (event, payload) => {
-  if (event.sender !== menuOverlayView?.webContents) return;
-  if (payload?.requestId && payload.requestId !== menuOverlayRequest?.id)
-    return;
-  hideMenuOverlay();
-});
-ipcMain.on("onmyagent:menu-overlay:dismiss", (event) => {
-  if (event.sender === menuOverlayView?.webContents) return;
-  hideMenuOverlay();
-});
+ipcMain.handle("onmyagent:browser:destroy", () =>
+  embeddedBrowserPanel.destroyBrowserView(),
+);
+ipcMain.on("onmyagent:menu-overlay:ready", (event) =>
+  embeddedBrowserPanel.onMenuOverlayReady(event),
+);
+ipcMain.on("onmyagent:menu-overlay:choose", (event, payload) =>
+  embeddedBrowserPanel.onMenuOverlayChoose(event, payload),
+);
+ipcMain.on("onmyagent:menu-overlay:close", (event, payload) =>
+  embeddedBrowserPanel.onMenuOverlayClose(event, payload),
+);
+ipcMain.on("onmyagent:menu-overlay:dismiss", (event) =>
+  embeddedBrowserPanel.onMenuOverlayDismiss(event),
+);
 
 registerMigrationIpc({ app, ipcMain });
 const { ensureAutoUpdater } = registerUpdaterIpc({
@@ -7629,7 +6838,7 @@ if (!app.requestSingleInstanceLock()) {
     codeTerminalManager.dispose();
     void Promise.all([
       disposeRuntimeBeforeQuit(),
-      stopUiControlServer(),
+      uiControlBridge.stop(),
     ]).finally(() => app.quit());
   });
 
@@ -7659,7 +6868,7 @@ if (!app.requestSingleInstanceLock()) {
     // Electron see the same workspace list. Import the short-lived
     // Electron-only filename only when the shared file is missing.
     await migrateLegacyElectronWorkspaceStateIfNeeded();
-    await startUiControlServer().catch((error) => {
+    await uiControlBridge.start().catch((error) => {
       console.warn("[ui-control] failed to start", error);
     });
     void weixinService.autoStart().catch((error) => {
