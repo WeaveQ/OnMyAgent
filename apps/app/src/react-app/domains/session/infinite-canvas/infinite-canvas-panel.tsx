@@ -44,6 +44,23 @@ function isCanvasTemplateId(value: string): value is CanvasTemplateId {
   return TEMPLATE_IDS.some((id) => id === value);
 }
 
+function canvasTemplateLabel(id: CanvasTemplateId) {
+  switch (id) {
+    case "blank":
+      return t("infinite_canvas.template.blank");
+    case "flowchart":
+      return t("infinite_canvas.template.flowchart");
+    case "taskBreakdown":
+      return t("infinite_canvas.template.taskBreakdown");
+    case "architecture":
+      return t("infinite_canvas.template.architecture");
+    case "meeting":
+      return t("infinite_canvas.template.meeting");
+    case "expertAnalysis":
+      return t("infinite_canvas.template.expertAnalysis");
+  }
+}
+
 function getStorage() {
   if (globalThis.window === undefined) return null;
   return window.localStorage;
@@ -204,7 +221,7 @@ export function InfiniteCanvasPanel(props: InfiniteCanvasPanelProps) {
     () =>
       TEMPLATE_IDS.map((id) => ({
         id,
-        label: t(`infinite_canvas.template.${id}`),
+        label: canvasTemplateLabel(id),
       })),
     [],
   );

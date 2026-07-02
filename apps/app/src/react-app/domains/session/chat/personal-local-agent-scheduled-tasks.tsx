@@ -68,6 +68,21 @@ export function heartbeatStatusTone(status: PersonalLocalAgentRunResult["status"
   return "neutral";
 }
 
+function heartbeatStatusLabel(status: PersonalLocalAgentRunResult["status"]) {
+  switch (status) {
+    case "running":
+      return t("local_agent.status_running");
+    case "completed":
+      return t("local_agent.status_completed");
+    case "failed":
+      return t("local_agent.status_failed");
+    case "cancelled":
+      return t("local_agent.status_cancelled");
+    case "missing":
+      return t("local_agent.status_missing");
+  }
+}
+
 export function scheduledRunSummary(run: PersonalLocalAgentHeartbeatJob["runs"][number]) {
   const text = run.error || run.output || "";
   const normalized = text.replace(/\s+/g, " ").trim();
@@ -77,7 +92,7 @@ export function scheduledRunSummary(run: PersonalLocalAgentHeartbeatJob["runs"][
 
 export function scheduledRunMessage(job: PersonalLocalAgentHeartbeatJob, run: PersonalLocalAgentHeartbeatJob["runs"][number]) {
   const title = job.title || t("local_agent.heartbeat_default_title");
-  const status = t(`local_agent.status_${run.status}`);
+  const status = heartbeatStatusLabel(run.status);
   const runIdValue = run.runId ?? run.id;
   const output = scheduledRunSummary(run);
   return {
@@ -257,7 +272,7 @@ export function HeartbeatPanel(props: {
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="truncate font-medium">{job.title}</span>
                     <StatusBadge tone={job.enabled ? "accent" : "neutral"}>{job.enabled ? t("common.on") : t("common.off")}</StatusBadge>
-                    {lastStatus ? <StatusBadge tone={heartbeatStatusTone(lastStatus)}>{t(`local_agent.status_${lastStatus}`)}</StatusBadge> : null}
+                    {lastStatus ? <StatusBadge tone={heartbeatStatusTone(lastStatus)}>{heartbeatStatusLabel(lastStatus)}</StatusBadge> : null}
                   </div>
                   <div className={heartbeatClass.meta}>
                     <span>{t("local_agent.heartbeat_every", { minutes: job.schedule.intervalMinutes })}</span>
@@ -349,7 +364,7 @@ export function ScheduledTaskRunHistory(props: { job: PersonalLocalAgentHeartbea
           {visibleRuns.map((run) => (
             <div key={run.id} className={heartbeatClass.runItem}>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge tone={heartbeatStatusTone(run.status)}>{t(`local_agent.status_${run.status}`)}</StatusBadge>
+                <StatusBadge tone={heartbeatStatusTone(run.status)}>{heartbeatStatusLabel(run.status)}</StatusBadge>
                 <span className="text-dls-secondary">{t("local_agent.heartbeat_run_started", { time: shortDateTime(run.startedAt) })}</span>
                 <span className="text-dls-secondary">{t("local_agent.heartbeat_run_finished", { time: shortDateTime(run.finishedAt) })}</span>
                 {run.runId ? <span className="font-mono text-dls-secondary">{t("local_agent.heartbeat_run_id", { id: run.runId })}</span> : null}
