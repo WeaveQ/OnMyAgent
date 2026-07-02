@@ -100,6 +100,7 @@ export default {
   "session_archive.insight_delete_failed": "删除洞察失败。",
   "session_archive.load_failed": "加载会话归档失败。",
   "session_archive.messages_failed": "加载归档 transcript 失败。",
+  "session_archive.search_failed": "搜索会话归档失败。",
   "session_archive.sync_failed": "同步会话归档失败。",
   "session_archive.action_failed": "归档操作失败。",
   "session_archive.archive_tab": "会话",

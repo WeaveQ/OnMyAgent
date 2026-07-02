@@ -100,6 +100,7 @@ export default {
   "session_archive.insight_delete_failed": "Failed to delete insight.",
   "session_archive.load_failed": "Failed to load the session archive.",
   "session_archive.messages_failed": "Failed to load the archived transcript.",
+  "session_archive.search_failed": "Failed to search the session archive.",
   "session_archive.sync_failed": "Failed to sync the session archive.",
   "session_archive.action_failed": "Archive action failed.",
   "session_archive.archive_tab": "Sessions",
