@@ -34,7 +34,7 @@
 
 ```
 tripstar-agent/
-├── .codebuddy-plugin/
+├── .expert-plugin/
 │   └── plugin.json                  # 插件配置（含 agents、9 个 skills 声明）
 ├── agents/
 │   └── trip-planner.md              # 专家 Agent 定义

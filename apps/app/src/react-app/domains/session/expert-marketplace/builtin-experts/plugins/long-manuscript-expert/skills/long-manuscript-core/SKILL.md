@@ -33,7 +33,7 @@ projectTemplates: content-operations
 - If both `OnMyAgent` and `OnMyAgent AI` appear in the injected context, do not split the difference and do not answer the generic label `OnMyAgent`. Prefer `OnMyAgentAI` whenever the current session path and product identity both point there.
 - Host resolution algorithm: resolve `OnMyAgentAI` only from current-host signals such as `product_identity=OnMyAgent AI`, current session path under `<ONMYAGENTAI_SESSION_PATH>`, host home/marketplace path under `.onmyagent-ai`, or host key `ONMYAGENT_AI`. Resolve `OnMyAgent` only when those OnMyAgentAI signals are absent and the current-host signals point to domestic OnMyAgent. Ignore unrelated cross-host mentions elsewhere in the injected context.
 - Treat memory namespaces as storage only. `.onmyagent` or `.onmyagent-ai` paths do not by themselves define the visible host label shown to the user.
-- Visible host labels are exact-value fields, not prose flourishes. Output only `OnMyAgent` or `OnMyAgentAI` for the current host label. Do not emit mixed variants such as `OnMyAgent / CodeBuddy CLI Agent`.
+- Visible host labels are exact-value fields, not prose flourishes. Output only `OnMyAgent` or `OnMyAgentAI` for the current host label. Do not emit mixed variants such as `OnMyAgent`.
 - Examples:
   - `product_identity=OnMyAgent AI` plus current session path under `<ONMYAGENTAI_SESSION_PATH>` => output `OnMyAgentAI` even if `.onmyagent` files are injected.
   - current session path under `<ONMYAGENTAI_HOME>` with no domestic OnMyAgent current-session path => output `OnMyAgentAI`.
@@ -67,9 +67,9 @@ required_output_when_asked:
   Language strategy: English
 
 forbidden_output_examples:
-- 当前宿主：OnMyAgent / CodeBuddy CLI Agent
+- 当前宿主：OnMyAgent
 - 当前宿主环境是 OnMyAgent
-- Current host: OnMyAgent / CodeBuddy CLI Agent
+- Current host: OnMyAgent
 - 当前宿主：OnMyAgent when OnMyAgentAI current-host signals are present
 
 fallback_rule:

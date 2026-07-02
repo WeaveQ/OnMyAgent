@@ -38,7 +38,7 @@ cd skills/fortune-master && npm install   # iztro + lunar-typescript
 
 ## 推送功能已禁用
 
-原 `university-applications` 包含基于 OpenClaw cron 的每日运程推送功能（`daily-push.js` / `push-toggle.js`）。CodeBuddy 不依赖 OpenClaw runtime，且本项目专家不应自动启动定时任务，因此这两个脚本及相关 SKILL.md 章节已删除。
+原 `university-applications` 包含基于 OpenClaw cron 的每日运程推送功能（`daily-push.js` / `push-toggle.js`）。expert 不依赖 OpenClaw runtime，且本项目专家不应自动启动定时任务，因此这两个脚本及相关 SKILL.md 章节已删除。
 
 `daily-fortune.js`（按需查询当日运势）、`profile.js`（用户档案管理）、`preference-tracker.js`（本地偏好学习）保留，由 agent 按需调用。
 
