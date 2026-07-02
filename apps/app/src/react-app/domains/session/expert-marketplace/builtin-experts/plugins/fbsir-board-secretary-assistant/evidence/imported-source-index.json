@@ -83,7 +83,7 @@
   },
   "packageJsonReconstruction": {
     "pluginManifestParity": {
-      "onmyagentAndCodebuddyPluginJsonSame": true,
+      "onmyagentAndExpertPluginJsonSame": true,
       "authoritativeManifest": ".onmyagent-plugin/plugin.json"
     },
     "provenFields": {
@@ -233,7 +233,7 @@
         "reason": "authoritative source for package.json reconstruction and plugin metadata cross-check; not intended as repo package file"
       },
       {
-        "source": "TEMP_CANONICAL_CANDIDATE_ROOT\\.codebuddy-plugin\\plugin.json",
+        "source": "TEMP_CANONICAL_CANDIDATE_ROOT\\.expert-plugin\\plugin.json",
         "reason": "parity confirmation for .onmyagent-plugin/plugin.json; not intended as repo package file"
       }
     ],

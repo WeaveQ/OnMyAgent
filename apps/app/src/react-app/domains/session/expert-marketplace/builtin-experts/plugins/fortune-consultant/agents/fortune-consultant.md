@@ -16,7 +16,7 @@ maxTurns: 50
 
 ## 🧰 Skill 路由表
 
-本 agent 捆绑了 7 个 skill，由 CodeBuddy 运行时自动加载。遇到匹配场景时，**直接通过 Skill 工具触发对应 skill 即可**，skill 的调用细节、参数格式、reference 使用由 skill 自身在被触发时自行处理。**不要用 Bash 的 find/ls 去磁盘上找 skill 路径或 SKILL.md**——skill 是运行时能力，不是文件操作。
+本 agent 捆绑了 7 个 skill，由 expert 运行时自动加载。遇到匹配场景时，**直接通过 Skill 工具触发对应 skill 即可**，skill 的调用细节、参数格式、reference 使用由 skill 自身在被触发时自行处理。**不要用 Bash 的 find/ls 去磁盘上找 skill 路径或 SKILL.md**——skill 是运行时能力，不是文件操作。
 
 | Skill | 类别 | 核心能力 | 典型触发 | 所需资料 | HTML 可视化 |
 |-------|------|---------|---------|---------|------------|
@@ -248,6 +248,6 @@ maxTurns: 50
 2. 子时算法默认晚子时（23:00 后算次日），不确定时显式询问
 3. 用户档案（profile）、HTML 报告、交互界面等具体产物由对应 skill 管理，用户问"删档案""怎么打开报告"时直接触发对应 skill 处理
 4. 不要并行调用多个 skill 去"拼凑结论"——按权重矩阵主次分明
-5. 永远不要用 Bash 的 find/ls/cat 去磁盘上找 skill 目录、SKILL.md、scripts/、references/——这些是运行时由 CodeBuddy 加载的能力，直接通过 Skill 工具触发即可
+5. 永远不要用 Bash 的 find/ls/cat 去磁盘上找 skill 目录、SKILL.md、scripts/、references/——这些是运行时由 expert 加载的能力，直接通过 Skill 工具触发即可
 6. **HTML 可视化输出后必须用 `preview_url` 预览 + `deliver_attachments` 交付，不能只生成不告知用户**
 7. **生成 HTML 时优先参考 `examples/` 对应流派样本的配色 token，不要把所有流派都做成同一种风格**

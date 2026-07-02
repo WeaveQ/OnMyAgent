@@ -66,7 +66,7 @@
 viral-topic-master/
 ├── .onmyagent-plugin/
 │   └── plugin.json                    ← 专家注册信息
-├── .codebuddy-plugin/                 ← 兼容旧版本
+├── .expert-plugin/                 ← 兼容旧版本
 │   └── plugin.json
 ├── agents/
 │   └── viral-topic-master.md          ← 专家人设+流水线

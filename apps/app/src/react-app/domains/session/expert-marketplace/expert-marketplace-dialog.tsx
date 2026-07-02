@@ -181,6 +181,14 @@ export function ExpertMarketplacePage(props: {
                   {t("session.create_expert_desc")}
                 </div>
               </button>
+              {props.myExperts.map((expert) => (
+                <ExpertCard
+                  key={expert.id}
+                  expert={expert}
+                  active={selectedExpert?.id === expert.id}
+                  onOpen={setSelectedExpert}
+                />
+              ))}
             </div>
           </div>
         )}
