@@ -4,38 +4,22 @@
 ## Why
 -
 
-## Issue
-- Closes #
-
 ## Scope
 -
 
-## Out of scope
--
-
 ## Testing
-### Ran
-- `...`
-
-### Result
-- pass/fail:
-- if fail, exact files/errors:
-
-## CI status
-- pass:
-- code-related failures:
-- external/env/auth blockers:
-
-## Manual verification
-1.
-2.
-3.
-
-## Evidence
-- video/screenshot link, or `N/A (docs-only)`
+- [ ] `pnpm check`
+- [ ] `pnpm test:unit`
+- [ ] Manual desktop smoke (`pnpm dev`) if UI or Electron changed
+- [ ] `Build Electron Desktop` workflow if packaging behavior changed
 
 ## Risk
--
+- [ ] No secrets, runtime artifacts, or local caches included
+- [ ] No release/package publishing side effects
+- [ ] User-facing copy is covered by i18n when applicable
+
+## Screenshots / Evidence
+- N/A
 
 ## Rollback
 -
