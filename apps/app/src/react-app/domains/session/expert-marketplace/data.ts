@@ -16,7 +16,7 @@ type BuiltinExpertManifestEntry = {
   readme: string;
   agentMarkdown: string;
   agentPath: string;
-  avatarDataUrl?: string | null;
+  avatarAssetPath?: string | null;
 };
 
 type BuiltinExpertsManifest = {
@@ -138,6 +138,12 @@ function looksLikeExpertAlias(value: string): boolean {
   return /^[A-Za-z]+Q$/.test(value.trim());
 }
 
+function resolveMarketplaceAssetUrl(assetPath: string | null | undefined): string | null {
+  if (!assetPath) return null;
+  const baseUrl = import.meta.env.BASE_URL || "/";
+  return `${baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`}${assetPath}`;
+}
+
 function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManifest): string {
   const declaredAgent = firstAgentPath(manifest.agents);
   if (declaredAgent) {
@@ -153,7 +159,8 @@ function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManife
 
 function resolveAvatarUrl(packageName: string, avatarPath: string | null | undefined): string | null {
   const bundledEntry = builtinExpertEntries.find((entry) => entry.packageName === packageName);
-  if (bundledEntry?.avatarDataUrl) return bundledEntry.avatarDataUrl;
+  const bundledAvatarUrl = resolveMarketplaceAssetUrl(bundledEntry?.avatarAssetPath);
+  if (bundledAvatarUrl) return bundledAvatarUrl;
   if (avatarPath) {
     const normalized = avatarPath.replace(/^\.\//, "");
     const path = `./builtin-experts/plugins/${packageName}/${normalized}`;

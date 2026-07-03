@@ -1,11 +1,20 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const appScriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(appScriptsRoot, "../../..");
 const desktopMarketplaceRoot = path.join(repoRoot, "apps/desktop/resources/marketplace");
+const marketplaceAssetsRoot = path.join(repoRoot, "apps/app/public/marketplace-assets");
 const expertOutputPath = path.join(
   repoRoot,
   "apps/app/src/react-app/domains/session/expert-marketplace/builtin-experts.manifest.json",
@@ -34,18 +43,13 @@ function firstFile(directoryPath, predicate) {
     .sort()[0] ?? "";
 }
 
-function imageMimeType(filePath) {
-  const extension = path.extname(filePath).toLowerCase();
-  if (extension === ".svg") return "image/svg+xml";
-  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
-  if (extension === ".webp") return "image/webp";
-  return "image/png";
-}
-
-function imageDataUrl(filePath) {
+function copyAsset(filePath, targetSegments) {
   if (!filePath || !existsSync(filePath)) return null;
-  const bytes = readFileSync(filePath);
-  return `data:${imageMimeType(filePath)};base64,${bytes.toString("base64")}`;
+  const targetRelativePath = path.join("marketplace-assets", ...targetSegments, path.basename(filePath));
+  const targetPath = path.join(repoRoot, "apps/app/public", targetRelativePath);
+  mkdirSync(path.dirname(targetPath), { recursive: true });
+  copyFileSync(filePath, targetPath);
+  return targetRelativePath.split(path.sep).join("/");
 }
 
 function firstAgentPath(packageRoot, manifest) {
@@ -56,20 +60,22 @@ function firstAgentPath(packageRoot, manifest) {
   return firstAgent ? `agents/${firstAgent}` : "";
 }
 
-function firstAvatarDataUrl(packageRoot, manifest) {
+function firstAvatarAssetPath(packageRoot, packageName, manifest) {
   const declared = String(manifest.avatar ?? "").replace(/^\.\//, "");
   if (declared) {
     const declaredPath = path.join(packageRoot, declared);
-    if (existsSync(declaredPath)) return imageDataUrl(declaredPath);
+    if (existsSync(declaredPath)) return copyAsset(declaredPath, ["experts", packageName]);
   }
   const firstAvatar = firstFile(
     path.join(packageRoot, "avatars"),
     (name) => /\.(png|jpe?g|webp|svg)$/i.test(name),
   );
-  return firstAvatar ? imageDataUrl(path.join(packageRoot, "avatars", firstAvatar)) : null;
+  return firstAvatar
+    ? copyAsset(path.join(packageRoot, "avatars", firstAvatar), ["experts", packageName])
+    : null;
 }
 
-function firstSkillIconDataUrl(skillRoot, skillMarkdown) {
+function firstSkillIconAssetPath(skillRoot, packageName, skillMarkdown) {
   const iconFromFrontmatter = skillMarkdown
     .match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1]
     ?.split(/\r?\n/)
@@ -81,13 +87,13 @@ function firstSkillIconDataUrl(skillRoot, skillMarkdown) {
     .replace(/^["']|["']$/g, "");
   if (iconFromFrontmatter && !/^https?:\/\//i.test(iconFromFrontmatter)) {
     const iconPath = path.join(skillRoot, iconFromFrontmatter.replace(/^\.\//, ""));
-    if (existsSync(iconPath)) return imageDataUrl(iconPath);
+    if (existsSync(iconPath)) return copyAsset(iconPath, ["skills", packageName]);
   }
   const firstIcon = firstFile(
     skillRoot,
     (name) => /^_?icon\.(png|jpe?g|webp|svg)$/i.test(name),
   );
-  return firstIcon ? imageDataUrl(path.join(skillRoot, firstIcon)) : null;
+  return firstIcon ? copyAsset(path.join(skillRoot, firstIcon), ["skills", packageName]) : null;
 }
 
 function directoryNames(root) {
@@ -116,7 +122,7 @@ function generateExperts() {
         readme: readText(path.join(packageRoot, "README.md")),
         agentMarkdown: agentPath ? readText(path.join(packageRoot, agentPath)) : "",
         agentPath,
-        avatarDataUrl: firstAvatarDataUrl(packageRoot, manifest),
+        avatarAssetPath: firstAvatarAssetPath(packageRoot, packageName, manifest),
       };
     })
     .filter(Boolean);
@@ -138,7 +144,7 @@ function generateSkills() {
       return {
         packageName,
         skillMarkdown,
-        iconDataUrl: firstSkillIconDataUrl(packageRoot, skillMarkdown),
+        iconAssetPath: firstSkillIconAssetPath(packageRoot, packageName, skillMarkdown),
       };
     })
     .filter(Boolean);
@@ -150,6 +156,7 @@ function generateSkills() {
   return skills.length;
 }
 
+rmSync(marketplaceAssetsRoot, { recursive: true, force: true });
 const expertCount = generateExperts();
 const skillCount = generateSkills();
 console.log(`Generated marketplace manifests: ${expertCount} experts, ${skillCount} skills`);
