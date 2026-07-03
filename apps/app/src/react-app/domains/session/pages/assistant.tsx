@@ -24,6 +24,7 @@ import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import ProviderAuthModal from "../../shared/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import { SessionSurface } from "../surface/session-surface";
+import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
 import { OwDotTicker } from "../../../shell/dot-ticker";
 import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
@@ -34,6 +35,11 @@ import {
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
+import {
+  installBuiltinSkillPackage,
+  listExpertPackages,
+  type ExpertPackageListEntry,
+} from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import {
@@ -51,6 +57,11 @@ import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
 import { SessionArchivePage } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
+import {
+  expertMarketplaceCategoryLabel,
+  normalizeExpertMarketplaceCategoryId,
+} from "../expert-marketplace/categories";
+import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 
@@ -108,11 +119,45 @@ export type AssistantPageProps = SessionPageProps & {
 
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
+const CREATE_EXPERT_SKILL_NAME = "expert-manager";
+const CREATE_EXPERT_PROMPT =
+  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+
+function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
+  const values = [entry.packageName, entry.displayName, entry.packagePath];
+  return values.every((value) => !value.split(/[\\/]/).includes(".expert-plugin"));
+}
+
+function packageEntryToMarketplaceExpert(
+  entry: ExpertPackageListEntry,
+): ExpertMarketplaceEntry {
+  const categoryId = normalizeExpertMarketplaceCategoryId(entry.categoryId);
+  return {
+    ...entry,
+    categoryId,
+    categoryIds: categoryId === "all" ? [] : [categoryId],
+    categoryLabel: expertMarketplaceCategoryLabel(categoryId),
+    categoryLabels:
+      categoryId === "all" ? [] : [expertMarketplaceCategoryLabel(categoryId)],
+  };
+}
 
 function isTrackableAccessibleTarget(target: OpenTarget) {
   return (
     isCollectibleArtifactTarget(target) || isLocalhostBrowserTarget(target)
   );
+}
+
+function setComposerDraftAfterNewTask(workspaceId: string, draft: string) {
+  const sessionId = `draft:${workspaceId}`;
+  const apply = () => {
+    useComposerStateStore.getState().setDraft(sessionId, draft);
+  };
+  apply();
+  window.setTimeout(apply, 0);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(apply);
+  });
 }
 
 export function AssistantPage(props: AssistantPageProps) {
@@ -129,14 +174,21 @@ export function AssistantPage(props: AssistantPageProps) {
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
+  const [myExpertPackages, setMyExpertPackages] = useState<
+    ExpertMarketplaceEntry[]
+  >([]);
   const handleSummonMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
+      void installSummonedMarketplaceExpert(expert).catch((error) => {
+        console.warn("[expert-marketplace] failed to install expert package", error);
+      });
+      props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
       usePendingAgentStore
         .getState()
         .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
       props.onNavigateToMode("expert");
     },
-    [props.onNavigateToMode],
+    [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar],
   );
   const [agentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
@@ -175,6 +227,10 @@ export function AssistantPage(props: AssistantPageProps) {
       ),
     [hiddenAccessibleTargetIds, openTargets],
   );
+  const artifactFileTargets = useMemo(
+    () => accessibleTargets.filter(isCollectibleArtifactTarget),
+    [accessibleTargets],
+  );
   const activeSidePanel = voiceSidePanelOpen ? "voice" : sessionSidePanel;
   const sidePanelOpen = activeSidePanel !== null;
   const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
@@ -194,6 +250,35 @@ export function AssistantPage(props: AssistantPageProps) {
   const voiceExtensionEnabled = voiceExtension
     ? isOnMyAgentExtensionEnabled(voiceExtension)
     : false;
+
+  useEffect(() => {
+    if (activeSidebarView !== "store") {
+      return undefined;
+    }
+    if (!isElectronRuntime()) {
+      setMyExpertPackages([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    listExpertPackages("my-experts")
+      .then((entries) => {
+        if (cancelled) return;
+        setMyExpertPackages(
+          entries
+            .filter(isVisibleExpertPackageEntry)
+            .map(packageEntryToMarketplaceExpert),
+        );
+      })
+      .catch((error) => {
+        console.warn("Failed to load local expert packages", error);
+        if (!cancelled) setMyExpertPackages([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSidebarView]);
 
   const startAgentPanelResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -264,6 +349,23 @@ export function AssistantPage(props: AssistantPageProps) {
       props.sidebar,
     ],
   );
+
+  const handleCreateExpert = useCallback(async () => {
+    if (isElectronRuntime()) {
+      try {
+        await installBuiltinSkillPackage({
+          source: "builtin",
+          packageName: CREATE_EXPERT_SKILL_NAME,
+          skillName: CREATE_EXPERT_SKILL_NAME,
+        });
+      } catch (error) {
+        console.warn("[expert-marketplace] failed to install expert-manager", error);
+      }
+    }
+    setAssistantCategoryId("office");
+    openAssistantNewTask("office");
+    setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT);
+  }, [openAssistantNewTask, props.selectedWorkspaceId]);
 
   const applyAssistantSelection = useCallback(
     (
@@ -928,7 +1030,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           client={props.onmyagentServerClient}
+                          myExperts={myExpertPackages}
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
+                          onCreateExpert={handleCreateExpert}
                         />
                       ) : null}
 
@@ -1253,6 +1357,8 @@ export function AssistantPage(props: AssistantPageProps) {
                       <CodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
+                        fileRoot={props.selectedSessionFileRoot ?? ""}
+                        fileTargets={artifactFileTargets}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}

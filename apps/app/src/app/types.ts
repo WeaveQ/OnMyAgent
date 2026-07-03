@@ -130,8 +130,8 @@ export type ComposerDraft = {
    * this includes the full pasted text instead.
    */
   resolvedText?: string;
-  /** When set, draft is a slash command invocation */
-  command?: { name: string; arguments: string } | undefined;
+  /** When set, draft starts with a slash command or skill reference. */
+  command?: { name: string; arguments: string; source?: "command" | "mcp" | "skill" } | undefined;
 };
 
 export type ComposerAccessMode = "default" | "full";

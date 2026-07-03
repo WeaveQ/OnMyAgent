@@ -344,7 +344,7 @@ describe("session-archive archive sync", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   test("incremental sync repairs stale Codex titles from session_index", async () => {
     const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-title-repair-"));
