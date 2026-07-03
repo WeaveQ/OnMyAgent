@@ -6790,10 +6790,26 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.acpResolveApproval(args[0] ?? {});
     case "personalLocalAgentAcpConfigOptions":
       return personalAgentRuntime.acpConfigOptions(args[0] ?? {});
+    case "personalLocalAgentSetAcpConfigOption":
+      return personalAgentRuntime.setConfigOption(args[0] ?? {});
+    case "personalLocalAgentCreateCustomAgent":
+      return personalAgentRuntime.createCustomAgent(args[0] ?? {});
+    case "personalLocalAgentUpdateCustomAgent":
+      return personalAgentRuntime.updateCustomAgent(args[0] ?? {});
+    case "personalLocalAgentDeleteCustomAgent":
+      return personalAgentRuntime.deleteCustomAgent(args[0] ?? {});
+    case "personalLocalAgentGetAgentOverrides":
+      return personalAgentRuntime.getAgentOverrides(args[0] ?? {});
+    case "personalLocalAgentSetAgentOverrides":
+      return personalAgentRuntime.setAgentOverrides(args[0] ?? {});
     case "personalLocalAgentAcpProcessesList":
       return personalAgentRuntime.listProcesses(args[0] ?? {});
     case "personalLocalAgentTestConnection":
       return personalAgentRuntime.testConnection(args[0] ?? {});
+    case "personalLocalAgentCheckProviderHealth":
+      return personalAgentRuntime.checkProviderHealth(args[0] ?? {});
+    case "personalLocalAgentCheckManagedAgentHealthById":
+      return personalAgentRuntime.checkManagedAgentHealthById(args[0] ?? {});
     case "personalLocalAgentValidate":
       return personalAgentRuntime.validateAgent(args[0] ?? {});
     case "personalLocalAgentStart":
@@ -6816,6 +6832,18 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.createConversation(args[0] ?? {});
     case "personalLocalAgentConversationStatus":
       return personalAgentRuntime.getConversationStatus(args[0] ?? {});
+    case "personalLocalAgentConversationWarmup":
+      return personalAgentRuntime.warmupConversation(args[0] ?? {});
+    case "personalLocalAgentSideQuestion":
+      return personalAgentRuntime.sideQuestion(args[0] ?? {});
+    case "personalLocalAgentProviderSessionsList":
+      return personalAgentRuntime.listProviderSessions(args[0] ?? {});
+    case "personalLocalAgentProviderSessionLoad":
+      return personalAgentRuntime.loadProviderSession(args[0] ?? {});
+    case "personalLocalAgentProviderSessionClose":
+      return personalAgentRuntime.closeProviderSession(args[0] ?? {});
+    case "personalLocalAgentProviderSessionFork":
+      return personalAgentRuntime.forkProviderSession(args[0] ?? {});
     case "personalLocalAgentConversationConfirmationsList":
       return personalAgentRuntime.listConversationConfirmations(args[0] ?? {});
     case "personalLocalAgentConversationConfirmationConfirm":

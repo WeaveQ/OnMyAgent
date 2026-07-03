@@ -30,9 +30,18 @@ export function normalizeAcpUpdate(update) {
   const mapped = {
     agentmessagechunk: "agent_message_chunk",
     agentthoughtchunk: "agent_thought_chunk",
+    thought: "agent_thought_chunk",
+    thoughtchunk: "agent_thought_chunk",
+    reasoning: "agent_thought_chunk",
+    reasoningchunk: "agent_thought_chunk",
+    reasoningdelta: "agent_thought_chunk",
     toolcall: "tool_call",
     toolcallupdate: "tool_call_update",
     toolcallcomplete: "tool_call_update",
+    plan: "plan",
+    planupdate: "plan",
+    thinking: "thinking",
+    thinkingupdate: "thinking",
     usageupdate: "usage_update",
     turnend: "turn_end",
     endturn: "turn_end",
@@ -62,6 +71,39 @@ export function textFromAcpContent(value) {
   if (typeof value.content?.text === "string") return value.content.text;
   if (Array.isArray(value.content)) return textFromAcpContent(value.content);
   return textFromAcpContent(value.content ?? value.output ?? value.result ?? value.data);
+}
+
+export function normalizeAcpSessionInfo(value) {
+  if (!value || typeof value !== "object") {
+    const id = textValue(value);
+    return id ? { id, sessionId: id, title: id } : null;
+  }
+  const sessionId = textValue(value.sessionId ?? value.session_id ?? value.id);
+  if (!sessionId) return null;
+  const createdAt = Number(value.createdAt ?? value.created_at) || null;
+  const updatedAt = Number(value.updatedAt ?? value.updated_at ?? value.lastUpdatedAt ?? value.last_updated_at) || null;
+  return {
+    id: sessionId,
+    sessionId,
+    title: textValue(value.title ?? value.name ?? value.label) || sessionId,
+    cwd: textValue(value.cwd ?? value.workdir ?? value.workspaceRoot) || null,
+    createdAt,
+    updatedAt,
+    metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : null,
+  };
+}
+
+export function normalizeAcpSessionList(result) {
+  const raw = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.sessions)
+      ? result.sessions
+      : Array.isArray(result?.items)
+        ? result.items
+        : Array.isArray(result?.result?.sessions)
+          ? result.result.sessions
+          : [];
+  return raw.map(normalizeAcpSessionInfo).filter(Boolean);
 }
 
 function formatAcpError(error) {
@@ -117,6 +159,38 @@ export class AcpJsonRpcClient {
         reject(error);
       });
     });
+  }
+
+  initialize(clientInfo = { name: "onmyagent-personal-agent", version: "0.1.0" }, clientCapabilities = {}) {
+    return this.request("initialize", { protocolVersion: 1, clientInfo, clientCapabilities });
+  }
+
+  createSession(params = {}) {
+    return this.request("session/new", params);
+  }
+
+  resumeSession(sessionId, params = {}) {
+    return this.request("session/resume", { ...params, sessionId });
+  }
+
+  loadSession(sessionId, params = {}) {
+    return this.request("session/load", { ...params, sessionId });
+  }
+
+  listSessions(params = {}) {
+    return this.request("session/list", params);
+  }
+
+  closeSession(sessionId, params = {}) {
+    return this.request("session/close", { ...params, sessionId });
+  }
+
+  forkSession(sessionId, params = {}) {
+    return this.request("session/fork", { ...params, sessionId });
+  }
+
+  setConfigOption(sessionId, optionId, value, params = {}) {
+    return this.request("config/set", { ...params, sessionId, optionId, value });
   }
 
   respond(id, result) {

@@ -147,6 +147,7 @@ export function personalAgentMetadataFromAgent(agent) {
       permission_mode: agent?.behaviorPolicy?.permissionMode ?? agent?.behavior_policy?.permission_mode ?? "ask",
       yolo_mode_id: agent?.behaviorPolicy?.yoloModeId ?? agent?.behavior_policy?.yolo_mode_id ?? null,
       auto_approve_readonly: Boolean(agent?.behaviorPolicy?.autoApproveReadonly ?? agent?.behavior_policy?.auto_approve_readonly),
+      supports_side_question: (() => { const explicit = agent?.behaviorPolicy?.supportsSideQuestion ?? agent?.behavior_policy?.supports_side_question; if (typeof explicit === "boolean") return explicit; return Boolean(capability?.supportsAcp); })(),
     },
     connectionMode,
     status,
