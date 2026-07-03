@@ -9,6 +9,7 @@ import type {
 } from "./types";
 
 import builtinExpertsManifest from "./builtin-experts.manifest.json";
+import { BUILTIN_EXPERT_AVATAR_URLS } from "./builtin-expert-assets";
 
 type BuiltinExpertManifestEntry = {
   packageName: string;
@@ -16,6 +17,7 @@ type BuiltinExpertManifestEntry = {
   readme: string;
   agentMarkdown: string;
   agentPath: string;
+  avatarAssetPath?: string | null;
 };
 
 type BuiltinExpertsManifest = {
@@ -151,6 +153,8 @@ function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManife
 }
 
 function resolveAvatarUrl(packageName: string, avatarPath: string | null | undefined): string | null {
+  const bundledAvatarUrl = BUILTIN_EXPERT_AVATAR_URLS[packageName];
+  if (bundledAvatarUrl) return bundledAvatarUrl;
   if (avatarPath) {
     const normalized = avatarPath.replace(/^\.\//, "");
     const path = `./builtin-experts/plugins/${packageName}/${normalized}`;

@@ -5,10 +5,12 @@ import {
 import type { SkillMarketplaceEntry } from "./types";
 
 import builtinSkillsManifest from "./builtin-skills.manifest.json";
+import { BUILTIN_SKILL_ICON_URLS } from "./builtin-skill-assets";
 
 type BuiltinSkillManifestEntry = {
   packageName: string;
   skillMarkdown: string;
+  iconAssetPath?: string | null;
 };
 
 type BuiltinSkillsManifest = {
@@ -17,6 +19,10 @@ type BuiltinSkillsManifest = {
 };
 
 const builtinSkillEntries = (builtinSkillsManifest as BuiltinSkillsManifest).skills;
+
+const builtinSkillEntryByPackageName = new Map(
+  builtinSkillEntries.map((entry) => [entry.packageName, entry]),
+);
 
 const skillModules = Object.fromEntries(
   builtinSkillEntries.map((entry) => [
@@ -129,7 +135,7 @@ export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
         categoryLabel: skillMarketplaceCategoryLabel(categoryId),
         categoryLabels: categoryIds.map(skillMarketplaceCategoryLabel),
         tags,
-        iconUrl: null,
+        iconUrl: BUILTIN_SKILL_ICON_URLS[packageName] ?? null,
         version: frontmatterValue(rawSkill, "version") || null,
       };
     })

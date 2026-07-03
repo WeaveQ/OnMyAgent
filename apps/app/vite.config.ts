@@ -1,4 +1,5 @@
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,8 +27,11 @@ if (shortHostname && shortHostname !== hostname) {
   addHost(shortHostname);
 }
 const appRoot = resolve(fileURLToPath(new URL(".", import.meta.url)));
+const repoRoot = resolve(appRoot, "../..");
 const appPackagePath = resolve(appRoot, "package.json");
 const desktopPackagePath = resolve(appRoot, "..", "desktop", "package.json");
+const marketplaceResourcesRoot = resolve(repoRoot, "apps/desktop/resources/marketplace");
+const marketplaceManifestScript = resolve(appRoot, "scripts/generate-marketplace-manifests.mjs");
 
 function readPackageVersion(packagePath: string): string | null {
   if (!existsSync(packagePath)) return null;
@@ -97,12 +101,39 @@ function onmyagentDevSourceBabelPlugin(api: BabelPluginApi) {
   };
 }
 
+function generateMarketplaceManifests() {
+  const result = spawnSync(process.execPath, [marketplaceManifestScript], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (result.status === 0) return;
+  const message = result.stderr.trim() || result.stdout.trim();
+  throw new Error(
+    message
+      ? `Failed to generate marketplace manifests: ${message}`
+      : "Failed to generate marketplace manifests",
+  );
+}
+
 export default defineConfig({
   base: isElectronPackagedBuild ? "./" : "/",
   define: {
     "import.meta.env.VITE_ONMYAGENT_APP_VERSION": JSON.stringify(buildAppVersion),
   },
   plugins: [
+    {
+      name: "onmyagent-marketplace-manifests",
+      buildStart() {
+        generateMarketplaceManifests();
+      },
+      configureServer(server) {
+        server.watcher.add(marketplaceResourcesRoot);
+        server.watcher.on("all", (_event, changedPath) => {
+          if (!changedPath.startsWith(marketplaceResourcesRoot)) return;
+          generateMarketplaceManifests();
+        });
+      },
+    },
     {
       name: "onmyagent-dev-server-id",
       configureServer(server) {
