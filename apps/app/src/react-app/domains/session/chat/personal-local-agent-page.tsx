@@ -1,38 +1,21 @@
 /** @jsxImportSource react */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Activity,
   Bot,
-  CheckCircle2,
-  ChevronRight,
   CircleStop,
   Clock3,
-  Clipboard,
-  Copy,
-  ExternalLink,
-  FileText,
-  GitFork,
-  Globe,
-  KeyRound,
-  LayoutGrid,
   Loader2,
-  Play,
   Plus,
-  RefreshCw,
   Search,
-  TerminalSquare,
-  Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { SendButton } from "@/components/ui/send-button";
-import { CountBadge, StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
+import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot, StatusPing } from "@/components/ui/status-dot";
-import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../../design-system/select-menu";
@@ -51,62 +34,39 @@ import {
   personalLocalAgentHeartbeatRunNow,
   personalLocalAgentHeartbeatsList,
   personalLocalAgentHeartbeatUpdate,
-  personalLocalAgentNativeSessionsList,
-  personalLocalAgentProviderSessionsList,
-  personalLocalAgentProviderSessionLoad,
-  personalLocalAgentProviderSessionClose,
-  personalLocalAgentProviderSessionFork,
   personalLocalAgentResetConversation,
   personalLocalAgentSideQuestion,
   personalLocalAgentValidate,
   personalLocalAgentStatus,
   type PersonalLocalAgent,
-  type PersonalLocalAgentAcpConfigOptionValue,
   type PersonalLocalAgentConversation,
   type PersonalLocalAgentHeartbeatJob,
-  type PersonalLocalAgentNativeSession,
-  type PersonalLocalAgentProviderSession,
   type PersonalLocalAgentProvider,
   type PersonalLocalAgentProcessRecord,
   type PersonalLocalAgentApprovalDecision,
   type PersonalLocalAgentApprovalMode,
   type PersonalLocalAgentApprovalRequest,
-  type PersonalLocalAgentConversationMessage,
-  type PersonalLocalAgentMetadata,
   type PersonalLocalAgentRunResult,
 } from "../../../../app/lib/desktop";
-import { openDesktopPath, revealDesktopItemInDir } from "../../../../app/lib/desktop";
-import claudeIconUrl from "../../../../assets/agent-icons/claude.svg";
-import codexIconUrl from "../../../../assets/agent-icons/openai.svg";
-import hermesIconUrl from "../../../../assets/agent-icons/hermes.png";
-import openclawIconUrl from "../../../../assets/agent-icons/claw.svg";
-import opencodeIconUrl from "../../../../assets/agent-icons/opencode-logo-light.svg";
-import {
-  classifyOpenTarget,
-  type OpenTarget,
-} from "../artifacts/open-target";
-import { MarkdownBlock } from "../surface/markdown";
+import { type OpenTarget } from "../artifacts/open-target";
 import {
   conversationTitle,
   HeartbeatPanel,
   heartbeatClass,
   scheduledRunMessage,
   scheduledTaskSessionContext,
-  shortDateTime,
   type HeartbeatDraft,
 } from "./personal-local-agent-scheduled-tasks";
 import { LocalAgentManagementPanel } from "../../local-agents/local-agent-management-panel";
-import { AcpConfigOptionEditor, type LocalAgentAcpConfigOption } from "../../local-agents/acp-config-option-editor";
 import { LocalAgentDraftComposer, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
-import { elapsedSeconds, runHumanSummary, runStatusLabel, shortTime } from "../../local-agents/local-agent-formatters";
-import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, HEALTH_CHECK_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
+import { elapsedSeconds, shortTime } from "../../local-agents/local-agent-formatters";
+import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
 import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
 import { ChatBubble } from "../../local-agents/messages/chat-bubble";
 import type { ChatMessage } from "../../local-agents/messages/message-types";
 import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/message-utils";
 import { lastEventTime } from "../../local-agents/messages/timeline-messages";
 import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
-import { useModeModeList } from "../../local-agents/hooks/use-mode-mode-list";
 import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
 import { BtwOverlay, agentSupportsSideQuestion } from "../../local-agents/side-question";
 import type { LocalAgentRepairAction } from "../../local-agents/local-agent-repair-panel";
@@ -159,147 +119,16 @@ const activeRunClass = {
   meta: "mt-1 flex flex-wrap gap-2 text-xs text-dls-secondary",
   cancel: "h-7 shrink-0 border-dls-accent/20 bg-dls-surface text-xs text-dls-text hover:bg-dls-accent/5",
 };
-const approvalClass = {
-  panel: "space-y-2 rounded-xl border border-dls-status-warning/25 bg-dls-status-warning/12 px-3 py-2 text-dls-status-warning",
-  item: "rounded-lg border border-dls-status-warning/25 bg-dls-surface/75 p-2",
-  meta: "mt-0.5 text-xs leading-4 text-dls-status-warning/80",
-  command: "mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-dls-status-warning/12 px-2 py-1 font-mono text-xs text-dls-status-warning",
-  cwd: "mt-1 truncate font-mono text-xs text-dls-status-warning/80",
-};
 function nowId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-function runStatusTone(status: PersonalLocalAgentRunResult["status"] | undefined) {
-  if (status === "completed") return "success";
-  if (status === "running") return "accent";
-  if (status === "cancelled") return "warning";
-  if (status === "failed") return "danger";
-  return "neutral";
 }
 function agentSubtitle(agent: PersonalLocalAgent) {
   if (agent.status !== "online") return agent.error || t("common.unavailable");
   const mode = agent.connectionMode;
   return [mode, agent.version || agent.executablePath || t("config.status_connected")].filter(Boolean).join(" · ");
 }
-function agentDefaultLabel(agent: PersonalLocalAgent | null, selectedModel = "") {
-  if (!agent) return "--";
-  const defaultConfig = t("local_agent.use_default_config");
-  const current = selectedModel || agent.model || agent.defaultModel || defaultConfig;
-  if (agent.provider === "openclaw") {
-    return current === defaultConfig ? t("local_agent.openclaw_default_agent") : current;
-  }
-  return current;
-}
-function agentMemoryProfile(agent: PersonalLocalAgent | null) {
-  if (!agent) {
-    return {
-      mode: t("local_agent.memory_none_mode"),
-      summary: t("local_agent.memory_none_summary"),
-      detail: t("local_agent.memory_none_detail"),
-    };
-  }
-  switch (agent.provider) {
-    case "opencode":
-      return {
-        mode: t("local_agent.memory_opencode_mode"),
-        summary: t("local_agent.memory_opencode_summary"),
-        detail: t("local_agent.memory_opencode_detail"),
-      };
-    case "codex":
-      return {
-        mode: t("local_agent.memory_codex_mode"),
-        summary: t("local_agent.memory_codex_summary"),
-        detail: t("local_agent.memory_codex_detail"),
-      };
-    case "claude":
-      return {
-        mode: t("local_agent.memory_claude_mode"),
-        summary: t("local_agent.memory_claude_summary"),
-        detail: t("local_agent.memory_claude_detail"),
-      };
-    case "openclaw":
-      return {
-        mode: t("local_agent.memory_openclaw_mode"),
-        summary: t("local_agent.memory_openclaw_summary"),
-        detail: t("local_agent.memory_openclaw_detail"),
-      };
-    case "hermes":
-      return {
-        mode: t("local_agent.memory_hermes_mode"),
-        summary: t("local_agent.memory_hermes_summary"),
-        detail: t("local_agent.memory_hermes_detail"),
-      };
-    default:
-      return {
-        mode: t("local_agent.memory_custom_mode"),
-        summary: t("local_agent.memory_custom_summary"),
-        detail: t("local_agent.memory_custom_detail"),
-      };
-  }
-}
-function agentWorkdirLabel(agent: PersonalLocalAgent | null) {
-  if (!agent) return "--";
-  return t("local_agent.runtime_state_workdir", { provider: agent.provider, id: agent.id });
-}
-function agentSessionCapabilities(agent: PersonalLocalAgent | null) {
-  const handshake = agent && "handshake" in agent ? (agent as { handshake?: { agent_capabilities?: unknown } }).handshake : null;
-  const capabilities = handshake?.agent_capabilities && typeof handshake.agent_capabilities === "object"
-    ? handshake.agent_capabilities as Record<string, unknown>
-    : null;
-  const sessionCapabilities = capabilities?.sessionCapabilities && typeof capabilities.sessionCapabilities === "object"
-    ? capabilities.sessionCapabilities as Record<string, unknown>
-    : capabilities?.session_capabilities && typeof capabilities.session_capabilities === "object"
-      ? capabilities.session_capabilities as Record<string, unknown>
-      : null;
-  return {
-    list: Boolean(sessionCapabilities?.list),
-    load: Boolean(capabilities?.loadSession || capabilities?.load_session || sessionCapabilities?.load),
-    close: Boolean(sessionCapabilities?.close),
-    fork: Boolean(sessionCapabilities?.fork),
-  };
-}
-function normalizeAcpConfigOptions(agent: PersonalLocalAgent | null): LocalAgentAcpConfigOption[] {
-  const rawOptions = agent && "handshake" in agent && Array.isArray(agent.handshake?.config_options)
-    ? agent.handshake.config_options
-    : [];
-  return rawOptions.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const source = item as Record<string, unknown>;
-    const id = String(source.id ?? source.name ?? source.key ?? "").trim();
-    if (!id) return [];
-    const rawType = String(source.type ?? source.kind ?? "string").toLowerCase();
-    const rawOptionsValue = Array.isArray(source.options) ? source.options : Array.isArray(source.values) ? source.values : [];
-    const options = rawOptionsValue.flatMap((option) => {
-      if (option && typeof option === "object") {
-        const optionSource = option as Record<string, unknown>;
-        const value = String(optionSource.value ?? optionSource.id ?? optionSource.name ?? "").trim();
-        if (!value) return [];
-        return [{ value, label: String(optionSource.label ?? optionSource.name ?? value).trim() || value }];
-      }
-      const value = String(option ?? "").trim();
-      return value ? [{ value, label: value }] : [];
-    });
-    const type = rawType === "select" || options.length ? "select" : rawType === "boolean" || rawType === "bool" ? "boolean" : "string";
-    const rawValue = source.value ?? source.currentValue ?? source.current_value ?? source.default ?? source.defaultValue ?? source.default_value ?? null;
-    const value = type === "boolean" ? Boolean(rawValue) : rawValue === null || rawValue === undefined ? null : String(rawValue);
-    return [{ id, label: String(source.label ?? source.title ?? id).trim() || id, type, value, options }];
-  });
-}
 function lastRunForAgent(messages: ChatMessage[] | undefined) {
   return [...(messages ?? [])].reverse().find((message) => message.run)?.run ?? null;
-}
-function healthLabel(result: AgentHealthResult | undefined, agent: PersonalLocalAgent) {
-  if (result?.status === "running") return t("local_agent.health_running");
-  if (result?.status === "passed") return t("local_agent.health_passed", { time: shortDateTime(result.at) });
-  if (result?.status === "failed") return t("local_agent.health_failed", { time: shortDateTime(result.at) });
-  if (agent.status === "online") return t("local_agent.health_not_tested");
-  return agent.errorInfo?.code === "auth_required" ? t("local_agent.health_login_required") : t("local_agent.health_unavailable");
-}
-function healthTone(result: AgentHealthResult | undefined, agent: PersonalLocalAgent): StatusBadgeTone {
-  if (result?.status === "running") return "accent";
-  if (result?.status === "passed") return "success";
-  if (result?.status === "failed" || agent.status !== "online") return "danger";
-  return "neutral";
 }
 function shouldJoinAssistantChunkTightly(current: string, next: string) {
   if (!current || /^\s/.test(next) || /\s$/.test(current)) return true;
@@ -405,7 +234,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [draftsByAgent, setDraftsByAgent] = useState<Record<string, string>>(persistedState.draftsByAgent ?? {});
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
   const [startingByAgent, setStartingByAgent] = useState<Record<string, boolean>>({});
-  const [resettingByAgent, setResettingByAgent] = useState<Record<string, boolean>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(persistedState.errorsByAgent ?? {});
   const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>(
@@ -414,8 +242,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [healthResults, setHealthResults] = useState<Record<string, AgentHealthResult>>(persistedState.healthResults ?? {});
   const [messagesByAgent, setMessagesByAgent] = useState<Record<string, ChatMessage[]>>(persistedState.messagesByAgent ?? {});
   const [conversationsByAgent, setConversationsByAgent] = useState<Record<string, PersonalLocalAgentConversation[]>>({});
-  const [nativeSessionsByAgent, setNativeSessionsByAgent] = useState<Record<string, PersonalLocalAgentNativeSession[]>>({});
-  const [providerSessionsByAgent, setProviderSessionsByAgent] = useState<Record<string, PersonalLocalAgentProviderSession[]>>({});
   const [heartbeatJobs, setHeartbeatJobs] = useState<PersonalLocalAgentHeartbeatJob[]>([]);
   const [heartbeatDraft, setHeartbeatDraft] = useState<HeartbeatDraft>({
     title: t("local_agent.heartbeat_default_title"),
@@ -429,14 +255,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [showManagement, setShowManagement] = useState(false);
   const [selectedConversationIdByAgent, setSelectedConversationIdByAgent] = useState<Record<string, string>>(persistedState.selectedConversationIdByAgent ?? {});
   const [loadingConversationsByAgent, setLoadingConversationsByAgent] = useState<Record<string, boolean>>({});
-  const [loadingNativeSessionsByAgent, setLoadingNativeSessionsByAgent] = useState<Record<string, boolean>>({});
-  const [loadingProviderSessionsByAgent, setLoadingProviderSessionsByAgent] = useState<Record<string, boolean>>({});
-  const [providerSessionBusyByAgent, setProviderSessionBusyByAgent] = useState<Record<string, boolean>>({});
-  const [configOptionBusyByAgent, setConfigOptionBusyByAgent] = useState<Record<string, string | null>>({});
-  const [configOptionValuesByAgent, setConfigOptionValuesByAgent] = useState<Record<string, Record<string, PersonalLocalAgentAcpConfigOptionValue>>>({});
-  const [configOptionMessageByAgent, setConfigOptionMessageByAgent] = useState<Record<string, string | null>>({});
-  const [showNativeSessions, setShowNativeSessions] = useState(false);
-  const [showProviderSessions, setShowProviderSessions] = useState(false);
   const [approvalMode, setApprovalMode] = useState<PersonalLocalAgentApprovalMode>(() => safeReadApprovalMode(props.workspaceRoot));
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Track whether the user is pinned to the bottom of the transcript. We only
@@ -457,18 +275,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const selectedConversations = selectedAgent ? conversationsByAgent[selectedAgent.id] ?? [] : [];
   const selectedConversationId = selectedAgent ? selectedConversationIdByAgent[selectedAgent.id] ?? selectedConversations[0]?.id ?? null : null;
   const selectedConversation = selectedConversations.find((item) => item.id === selectedConversationId) ?? selectedConversations[0] ?? null;
-  const selectedNativeSessions = selectedAgent ? nativeSessionsByAgent[selectedAgent.id] ?? [] : [];
-  const selectedProviderSessions = selectedAgent ? providerSessionsByAgent[selectedAgent.id] ?? [] : [];
-  const selectedProviderSessionId = selectedConversation?.providerSessionId || selectedConversation?.resumeKey || "";
-  const selectedSessionCapabilities = agentSessionCapabilities(selectedAgent);
   const selectedAcpModelInfo = useAcpModelInfo(selectedAgent);
-  const selectedAcpModeList = useModeModeList(selectedAgent);
-  const selectedConfigOptions = useMemo(() => normalizeAcpConfigOptions(selectedAgent).filter((option) => option.id !== selectedAcpModelInfo.modelOptionId && (option.id !== selectedAcpModeList.optionId || selectedAcpModeList.supportsModeOverride)), [selectedAcpModeList.optionId, selectedAcpModeList.supportsModeOverride, selectedAcpModelInfo.modelOptionId, selectedAgent]);
   const selectedSlashCommands = useMemo(
     () => mergeSlashCommands([...builtinSlashCommands(selectedAgent), ...normalizeAcpSlashCommands(selectedAgent)]),
     [selectedAgent],
   );
-  const selectedConfigOptionValues = selectedAgent ? configOptionValuesByAgent[selectedAgent.id] ?? {} : {};
   const selectedHeartbeatJobs = selectedAgent ? heartbeatJobs.filter((job) => job.agent?.id === selectedAgent.id) : [];
   const selectedChatKey = selectedAgent ? localAgentChatKey(selectedAgent.id, selectedConversationId) : "";
   const handleWarmupResult = useCallback((result: { ok: boolean; providerSessionId?: string | null }) => {
@@ -527,11 +338,9 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     () => selectedMessages.find((message) => message.run?.runId === activeRunId)?.run ?? null,
     [activeRunId, selectedMessages],
   );
-  const resetting = Boolean(selectedAgent && resettingByAgent[selectedChatKey]);
   const running = Boolean(activeRun?.status === "running" || (selectedAgent && startingByAgent[selectedChatKey]));
   const selectedModelOptions = selectedAcpModelInfo.options;
   const loadingSelectedModels = Boolean(selectedAgent && selectedAgent.status === "online" && selectedModelOptions.length === 0);
-  const selectedHealth = selectedAgent ? healthResults[selectedAgent.id] ?? DEFAULT_HEALTH_RESULT : DEFAULT_HEALTH_RESULT;
   const selectedError = selectedAgent ? errorsByAgent[selectedAgent.id] ?? null : null;
   const selectedCapability = selectedAgent?.capability ?? null;
   const selectedAgentIconUrl = selectedAgent ? providerIconUrl(selectedAgent.provider) : null;
@@ -1073,14 +882,9 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       [agent.id]: DEFAULT_HEALTH_RESULT,
     }));
   }, [selectedConversationIdByAgent]);
-  const sendDraft = useCallback(async () => {
-    const prompt = selectedAgent ? (draftsByAgent[selectedChatKey] ?? "").trim() : "";
-    await startAgentRun(prompt);
-  }, [draftsByAgent, selectedAgent, selectedChatKey, startAgentRun]);
   const clearCurrentAgentChat = useCallback(async () => {
     if (!selectedAgent || running) return;
     const agent = selectedAgent;
-    setResettingByAgent((current) => ({ ...current, [agent.id]: true }));
     setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
     try {
       const result = await personalLocalAgentResetConversation({
@@ -1098,7 +902,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
       }));
     } finally {
-      setResettingByAgent((current) => ({ ...current, [agent.id]: false }));
     }
   }, [props.workspaceRoot, resetAgentChat, running, selectedAgent, selectedConversationId]);
   const createNewConversation = useCallback(async () => {
@@ -1201,32 +1004,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setHeartbeatBusy(null);
     }
   }, [loadHeartbeats, props.workspaceRoot]);
-  const loadNativeSessions = useCallback(async () => {
-    if (!selectedAgent) return;
-    const agent = selectedAgent;
-    setLoadingNativeSessionsByAgent((current) => ({ ...current, [agent.id]: true }));
-    setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
-    try {
-      const result = await personalLocalAgentNativeSessionsList({ workspaceRoot: props.workspaceRoot, agent, limit: 50 });
-      setNativeSessionsByAgent((current) => ({ ...current, [agent.id]: result.sessions }));
-      if (result.error) {
-        setErrorsByAgent((current) => ({ ...current, [agent.id]: result.error ?? null }));
-      }
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({
-        ...current,
-        [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
-      }));
-    } finally {
-      setLoadingNativeSessionsByAgent((current) => ({ ...current, [agent.id]: false }));
-    }
-  }, [props.workspaceRoot, selectedAgent]);
-  useEffect(() => {
-    if (!showNativeSessions || !selectedAgent) return;
-    if (Object.prototype.hasOwnProperty.call(nativeSessionsByAgent, selectedAgent.id)) return;
-    if (loadingNativeSessionsByAgent[selectedAgent.id]) return;
-    void loadNativeSessions();
-  }, [loadNativeSessions, loadingNativeSessionsByAgent, nativeSessionsByAgent, selectedAgent, showNativeSessions]);
   const loadConversationTranscript = useCallback(async (agent: PersonalLocalAgent, conversation: PersonalLocalAgentConversation) => {
     const key = localAgentChatKey(agent.id, conversation.id);
     const sessionId = conversation.resumeKey || conversation.providerSessionId;
@@ -1267,157 +1044,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (messagesByAgent[key]?.length) return;
     void loadConversationTranscript(selectedAgent, selectedConversation);
   }, [loadConversationTranscript, messagesByAgent, selectedAgent, selectedConversation]);
-  const importNativeSession = useCallback(async (session: PersonalLocalAgentNativeSession) => {
-    if (!selectedAgent || running) return;
-    const agent = selectedAgent;
-    setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: true }));
-    setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
-    try {
-      const result = await personalLocalAgentConversationCreate({
-        workspaceRoot: props.workspaceRoot,
-        agent,
-        title: session.title,
-        providerSessionId: session.providerSessionId,
-        resumeKey: session.resumeKey,
-        workdir: session.workdir,
-        source: session.source,
-        metadata: session.metadata ?? null,
-      });
-      setConversationsByAgent((current) => ({
-        ...current,
-        [agent.id]: [result.conversation, ...(current[agent.id] ?? [])],
-      }));
-      setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: result.conversation.id }));
-      await loadConversationTranscript(agent, result.conversation);
-      setShowNativeSessions(false);
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({
-        ...current,
-        [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
-      }));
-    } finally {
-      setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
-    }
-  }, [loadConversationTranscript, props.workspaceRoot, running, selectedAgent]);
-  const loadProviderSessions = useCallback(async () => {
-    if (!selectedAgent || !selectedAgent.capability?.supportsAcp) return;
-    const agent = selectedAgent;
-    setLoadingProviderSessionsByAgent((current) => ({ ...current, [agent.id]: true }));
-    setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
-    try {
-      const result = await personalLocalAgentProviderSessionsList({ workspaceRoot: props.workspaceRoot, agent });
-      setProviderSessionsByAgent((current) => ({ ...current, [agent.id]: result.sessions }));
-      if (result.unsupportedReason) setErrorsByAgent((current) => ({ ...current, [agent.id]: result.unsupportedReason ?? null }));
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({ ...current, [agent.id]: nextError instanceof Error ? nextError.message : String(nextError) }));
-    } finally {
-      setLoadingProviderSessionsByAgent((current) => ({ ...current, [agent.id]: false }));
-    }
-  }, [props.workspaceRoot, selectedAgent]);
-  useEffect(() => {
-    if (!showProviderSessions || !selectedAgent) return;
-    if (Object.prototype.hasOwnProperty.call(providerSessionsByAgent, selectedAgent.id)) return;
-    if (loadingProviderSessionsByAgent[selectedAgent.id]) return;
-    void loadProviderSessions();
-  }, [loadProviderSessions, loadingProviderSessionsByAgent, providerSessionsByAgent, selectedAgent, showProviderSessions]);
-  const loadProviderSession = useCallback(async (session: PersonalLocalAgentProviderSession) => {
-    if (!selectedAgent || running) return;
-    const agent = selectedAgent;
-    setProviderSessionBusyByAgent((current) => ({ ...current, [agent.id]: true }));
-    setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
-    try {
-      const result = await personalLocalAgentProviderSessionLoad({ workspaceRoot: props.workspaceRoot, agent, sessionId: session.sessionId, title: session.title });
-      if (!result.conversation) throw new Error("session/load returned no conversation");
-      const conversation = result.conversation;
-      setConversationsByAgent((current) => ({ ...current, [agent.id]: [conversation, ...(current[agent.id] ?? [])] }));
-      setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: conversation.id }));
-      await loadConversationTranscript(agent, conversation);
-      setShowProviderSessions(false);
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({ ...current, [agent.id]: nextError instanceof Error ? nextError.message : String(nextError) }));
-    } finally {
-      setProviderSessionBusyByAgent((current) => ({ ...current, [agent.id]: false }));
-    }
-  }, [loadConversationTranscript, props.workspaceRoot, running, selectedAgent]);
-  const closeProviderSession = useCallback(async () => {
-    if (!selectedAgent || !selectedProviderSessionId || running) return;
-    const agent = selectedAgent;
-    setProviderSessionBusyByAgent((current) => ({ ...current, [agent.id]: true }));
-    setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
-    try {
-      const result = await personalLocalAgentProviderSessionClose({ workspaceRoot: props.workspaceRoot, agent, conversationId: selectedConversation?.id ?? null, sessionId: selectedProviderSessionId });
-      if (!result.ok) throw new Error(result.error || "session/close failed");
-      await loadConversationsForAgent(agent);
-      await loadProviderSessions();
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({ ...current, [agent.id]: nextError instanceof Error ? nextError.message : String(nextError) }));
-    } finally {
-      setProviderSessionBusyByAgent((current) => ({ ...current, [agent.id]: false }));
-    }
-  }, [loadConversationsForAgent, loadProviderSessions, props.workspaceRoot, running, selectedAgent, selectedConversation?.id, selectedProviderSessionId]);
-  const forkProviderSession = useCallback(async () => {
-    if (!selectedAgent || !selectedProviderSessionId || running) return;
-    const agent = selectedAgent;
-    setProviderSessionBusyByAgent((current) => ({ ...current, [agent.id]: true }));
-    setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
-    try {
-      const result = await personalLocalAgentProviderSessionFork({ workspaceRoot: props.workspaceRoot, agent, sessionId: selectedProviderSessionId, title: selectedConversation ? `${conversationTitle(selectedConversation)} fork` : undefined });
-      if (!result.conversation) throw new Error("session/fork returned no conversation");
-      const conversation = result.conversation;
-      setConversationsByAgent((current) => ({ ...current, [agent.id]: [conversation, ...(current[agent.id] ?? [])] }));
-      setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: conversation.id }));
-      await loadConversationTranscript(agent, conversation);
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({ ...current, [agent.id]: nextError instanceof Error ? nextError.message : String(nextError) }));
-    } finally {
-      setProviderSessionBusyByAgent((current) => ({ ...current, [agent.id]: false }));
-    }
-  }, [loadConversationTranscript, props.workspaceRoot, running, selectedAgent, selectedConversation, selectedProviderSessionId]);
-  const setAcpConfigOption = useCallback(async (option: LocalAgentAcpConfigOption, value: PersonalLocalAgentAcpConfigOptionValue) => {
-    if (!selectedAgent) return;
-    setConfigOptionBusyByAgent((current) => ({ ...current, [selectedAgent.id]: option.id }));
-    setConfigOptionMessageByAgent((current) => ({ ...current, [selectedAgent.id]: null }));
-    try {
-      const result = await personalLocalAgentSetAcpConfigOption({
-        workspaceRoot: props.workspaceRoot,
-        agent: selectedAgent,
-        sessionId: selectedProviderSessionId || undefined,
-        optionId: option.id,
-        value,
-      });
-      setConfigOptionValuesByAgent((current) => ({
-        ...current,
-        [selectedAgent.id]: { ...(current[selectedAgent.id] ?? {}), [option.id]: result.value ?? value },
-      }));
-      if (Array.isArray(result.configOptions) && result.configOptions.length) {
-        setAgents((current) => current.map((agent) => agent.id === selectedAgent.id ? {
-          ...agent,
-          handshake: {
-            ...(agent.handshake ?? {}),
-            config_options: result.configOptions,
-            ...(option.id === selectedAcpModelInfo.modelOptionId ? { currentModelId: String(result.value ?? value), current_model_id: String(result.value ?? value) } : {}),
-          },
-        } : agent));
-      } else if (option.id === selectedAcpModelInfo.modelOptionId) {
-        setAgents((current) => current.map((agent) => agent.id === selectedAgent.id ? {
-          ...agent,
-          handshake: {
-            ...(agent.handshake ?? {}),
-            currentModelId: String(result.value ?? value),
-            current_model_id: String(result.value ?? value),
-          },
-        } : agent));
-      }
-      setConfigOptionMessageByAgent((current) => ({ ...current, [selectedAgent.id]: result.confirmation || t("local_agent.config_option_saved") }));
-    } catch (error) {
-      setConfigOptionMessageByAgent((current) => ({ ...current, [selectedAgent.id]: error instanceof Error ? error.message : String(error) }));
-    } finally {
-      setConfigOptionBusyByAgent((current) => ({ ...current, [selectedAgent.id]: null }));
-    }
-  }, [props.workspaceRoot, selectedAcpModelInfo.modelOptionId, selectedAgent, selectedProviderSessionId]);
-  const runHealthCheck = useCallback(async () => {
-    await startAgentRun(selectedAgent?.capability?.smokePrompt ?? HEALTH_CHECK_PROMPT, { healthCheck: true });
-  }, [selectedAgent, startAgentRun]);
   const submitComposerValue = useCallback(async (value: string) => {
     const prompt = value.trim();
     if (prompt.startsWith("/")) {
@@ -1429,16 +1055,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         await clearCurrentAgentChat();
         return;
       }
-      if (prompt === "/sessions") {
-        setShowProviderSessions(true);
-        await loadProviderSessions();
-        return;
-      }
       setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_unknown", { command: prompt }) }));
       return;
     }
     await startAgentRun(prompt);
-  }, [clearCurrentAgentChat, createNewConversation, loadProviderSessions, selectedAgentId, startAgentRun]);
+  }, [clearCurrentAgentChat, createNewConversation, selectedAgentId, startAgentRun]);
   const handleSlashCommandExecute = useCallback((command: LocalAgentSlashCommand) => { void submitComposerValue(command.name); }, [submitComposerValue]);
   const cancelAgentRun = useCallback(async (runId: string, chatKey: string) => {
     if (!runId || !chatKey) return;
@@ -1496,7 +1117,167 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: message }));
     }
   }, [props.workspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
- return ( <div data-onmyagent-view="personal-assistant" className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"><aside className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5" style={{ width: agentListWidth }} ><div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-border/70 px-4"><InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1"><InputGroupAddon align="inline-start" inset="tight"><Search className="size-4.5" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("local_agent.search")} className="text-sm placeholder:text-dls-secondary/75" /></InputGroup><Button type="button" size="icon-sm" onClick={() => setShowAddForm((value) => !value)} className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text" title={t("local_agent.add")} aria-label={t("local_agent.add")} ><Bot className="size-4.5" /><Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} /></Button></div> {showAddForm ? ( <div className="mx-4 mt-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3"><div className={localAgentTextClass.panelTitle}>{t("local_agent.add")}</div><Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => void refreshAgents()} disabled={refreshing}><RefreshCw className={cn(localAgentLayoutClass.refreshIcon, refreshing && "animate-spin")} />{t("local_agent.redetect")} </Button></div> ) : null} <div className="min-h-0 flex-1 overflow-y-auto"> {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}><div className="flex min-h-16 items-center justify-between gap-4 px-6 py-3 mac:titlebar-no-drag"><div className="flex min-w-0 flex-1 items-center gap-3"><div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dls-border bg-dls-surface-muted text-dls-accent"> {selectedAgentIconUrl ? ( <img src={selectedAgentIconUrl} alt="" className="size-6 object-contain" loading="lazy" draggable={false} /> ) : ( <UserRound className="size-4.5" /> )} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-2"><div className={localAgentTextClass.pageTitle}>{t("nav.local_agent")}</div> {selectedAgent ? <StatusBadge tone={healthTone(selectedHealth, selectedAgent)}>{healthLabel(selectedHealth, selectedAgent)}</StatusBadge> : null} {selectedAgent ? <StatusBadge tone="surface">{agentMemoryProfile(selectedAgent).mode}</StatusBadge> : null} </div><div className="mt-0.5 truncate text-xs text-dls-secondary"> {selectedAgent ? t("local_agent.using_workspace", { name: selectedAgent.name, workspace: props.workspaceName || props.workspaceRoot }) : t("local_agent.select_agent")} </div> {selectedAgent ? ( <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-dls-secondary"><StatusBadge tone="surface">{selectedCapability?.supportsStreaming ? t("local_agent.streaming") : t("local_agent.non_streaming")}</StatusBadge><StatusBadge tone="surface">{t("local_agent.resume_chip", { status: selectedCapability?.supportsResume ? t("local_agent.available") : t("common.off") })}</StatusBadge><StatusBadge className="max-w-[360px] truncate" tone="surface">{t("local_agent.context_isolated")}</StatusBadge></div> ) : null} </div></div><div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5"><Button variant={showManagement ? "default" : "outline"} size="sm" className="whitespace-nowrap" onClick={() => setShowManagement((open) => !open)} data-testid="local-agent-manage-button" aria-pressed={showManagement}><LayoutGrid className="mr-1.5 size-3.5" />{t("local_agent.manage_agents")} </Button><Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => void refreshAgents()} disabled={refreshing}><RefreshCw className={cn(localAgentLayoutClass.refreshIcon, refreshing && "animate-spin")} />{t("common.refresh")} </Button><Button variant="outline" size="sm" className="whitespace-nowrap" onClick={clearCurrentAgentChat} disabled={!selectedAgent || running || resetting} title={t("local_agent.clear_chat_title")}> {resetting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Trash2 className="mr-1.5 size-3.5" />}{t("local_agent.clear_chat")} </Button><Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => void runHealthCheck()} disabled={!selectedAgent || selectedAgent.status !== "online" || running}> {selectedHealth.status === "running" ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <KeyRound className="mr-1.5 size-3.5" />}{t("local_agent.health_check")} </Button><Button ref={scheduledTasksButtonRef} variant="outline" size="sm" className="whitespace-nowrap" onClick={() => setShowScheduledTasks((open) => !open)} disabled={!selectedAgent} data-testid="local-agent-scheduled-tasks-button" aria-expanded={showScheduledTasks}><Clock3 className="mr-1.5 size-3.5" />{t("local_agent.heartbeat_title")} {selectedHeartbeatJobs.length ? <CountBadge size="dot" className="ml-1 bg-dls-accent/10 text-dls-accent">{selectedHeartbeatJobs.length}</CountBadge> : null} </Button> {props.headerActions ? <div className="ml-1 flex items-center border-l border-dls-border pl-2">{props.headerActions}</div> : null} </div></div><div className="flex min-h-12 flex-wrap items-center gap-2 border-t border-dls-border/70 bg-dls-surface-muted/35 px-6 py-2 mac:titlebar-no-drag"><label className="flex min-w-[220px] flex-[1_1_280px] items-center gap-2 text-xs text-dls-secondary"><span className="shrink-0 whitespace-nowrap">{t("local_agent.conversation")}</span><div className="min-w-0 flex-1"><SelectMenu size="compact" ariaLabel={t("local_agent.conversation")} options={selectedConversations.length ? selectedConversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) })) : [{ value: "", label: t("local_agent.loading_conversations") }]} value={selectedConversationId ?? ""} onChange={(value) => { if (!selectedAgent || !value) return; setSelectedConversationIdByAgent((current) => ({ ...current, [selectedAgent.id]: value })); }} disabled={!selectedAgent || running || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])} /></div><Button variant="outline" size="icon-sm" onClick={() => void createNewConversation()} disabled={!selectedAgent || running || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])} title={t("local_agent.new_conversation")} aria-label={t("local_agent.new_conversation")}> {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} </Button></label><div className="flex min-w-[240px] flex-[1_1_320px] items-center gap-1.5"><SelectMenu size="compact" ariaLabel={t("local_agent.native_sessions")} placeholder={selectedAgent && loadingNativeSessionsByAgent[selectedAgent.id] ? t("local_agent.loading_native_sessions") : t("local_agent.native_sessions")} options={selectedNativeSessions.length ? selectedNativeSessions.map((session) => ({ value: `${session.source}:${session.id}`, label: `${session.title} · ${shortTime(session.updatedAt)} · ${session.source}` })) : [{ value: "__empty", label: selectedAgent && loadingNativeSessionsByAgent[selectedAgent.id] ? t("local_agent.loading_native_sessions") : t("local_agent.no_native_sessions") }]} value="" onOpen={() => { setShowNativeSessions(true); void loadNativeSessions(); }} onChange={(value) => { if (value === "__empty") return; const session = selectedNativeSessions.find((item) => `${item.source}:${item.id}` === value); if (!session) return; void importNativeSession(session); }} disabled={!selectedAgent || running} /> {showNativeSessions ? ( <Button variant="outline" size="icon-sm" onClick={() => void loadNativeSessions()} disabled={!selectedAgent || loadingNativeSessionsByAgent[selectedAgent.id]} title={t("common.refresh")} aria-label={t("common.refresh")}><RefreshCw className={cn("size-3.5", selectedAgent && loadingNativeSessionsByAgent[selectedAgent.id] && "animate-spin")} /></Button> ) : null} </div> {selectedAgent?.capability?.supportsAcp && selectedSessionCapabilities.list && selectedSessionCapabilities.load ? ( <div className="flex min-w-[260px] flex-[1_1_360px] items-center gap-1.5"><SelectMenu size="compact" ariaLabel={t("local_agent.provider_sessions")} placeholder={selectedAgent && loadingProviderSessionsByAgent[selectedAgent.id] ? t("local_agent.loading_provider_sessions") : t("local_agent.provider_sessions")} options={selectedProviderSessions.length ? selectedProviderSessions.map((session) => ({ value: session.sessionId, label: `${session.title} · ${shortTime(session.updatedAt)} · ACP` })) : [{ value: "__empty", label: selectedAgent && loadingProviderSessionsByAgent[selectedAgent.id] ? t("local_agent.loading_provider_sessions") : t("local_agent.no_provider_sessions") }]} value="" onOpen={() => { setShowProviderSessions(true); void loadProviderSessions(); }} onChange={(value) => { if (value === "__empty") return; const session = selectedProviderSessions.find((item) => item.sessionId === value); if (!session) return; void loadProviderSession(session); }} disabled={!selectedAgent || running || providerSessionBusyByAgent[selectedAgent.id]} /><Button variant="outline" size="icon-sm" onClick={() => void loadProviderSessions()} disabled={!selectedAgent || loadingProviderSessionsByAgent[selectedAgent.id] || providerSessionBusyByAgent[selectedAgent.id]} title={t("common.refresh")} aria-label={t("common.refresh")}><RefreshCw className={cn("size-3.5", selectedAgent && loadingProviderSessionsByAgent[selectedAgent.id] && "animate-spin")} /></Button> {selectedSessionCapabilities.close && selectedProviderSessionId ? ( <Button variant="outline" size="icon-sm" onClick={() => void closeProviderSession()} disabled={!selectedAgent || running || providerSessionBusyByAgent[selectedAgent.id]} title={t("local_agent.close_provider_session")} aria-label={t("local_agent.close_provider_session")}> {selectedAgent && providerSessionBusyByAgent[selectedAgent.id] ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />} </Button> ) : null} {selectedSessionCapabilities.fork && selectedProviderSessionId ? ( <Button variant="outline" size="icon-sm" onClick={() => void forkProviderSession()} disabled={!selectedAgent || running || providerSessionBusyByAgent[selectedAgent.id]} title={t("local_agent.fork_provider_session")} aria-label={t("local_agent.fork_provider_session")}><GitFork className="size-3.5" /></Button> ) : null} </div> ) : null} <label className="flex min-w-[220px] flex-[1_1_280px] items-center gap-2 text-xs text-dls-secondary"><span className="shrink-0 whitespace-nowrap">{modelSelectorLabel(selectedAgent)}</span><div className="min-w-0 flex-1"><SelectMenu size="compact" ariaLabel={modelSelectorLabel(selectedAgent)} options={[{ value: "", label: t("local_agent.use_default_config") }, ...(loadingSelectedModels ? [{ value: "__loading", label: t("local_agent.loading_models") }] : []), ...selectedModelOptions.map((option) => ({ value: option.id, label: option.label }))]} value={selectedModel} onChange={(value) => { if (value === "__loading") return; setSelectedModel(value); if (value && selectedAcpModelInfo.supportsModelOverride) { void setAcpConfigOption({ id: selectedAcpModelInfo.modelOptionId, label: modelSelectorLabel(selectedAgent), type: "select", value: selectedModel, options: selectedModelOptions.map((option) => ({ value: option.id, label: option.label })) }, value); } }} disabled={!selectedAgent || running || !selectedAcpModelInfo.supportsModelOverride} /></div></label> {selectedConfigOptions.slice(0, 3).map((option) => ( <AcpConfigOptionEditor key={option.id} option={option} value={selectedConfigOptionValues[option.id] ?? option.value} busy={Boolean(selectedAgent && configOptionBusyByAgent[selectedAgent.id] === option.id)} disabled={!selectedAgent || running} onChange={(value) => void setAcpConfigOption(option, value)} /> ))} {selectedAgent && configOptionMessageByAgent[selectedAgent.id] ? ( <div className="min-w-[180px] flex-[1_1_240px] truncate text-xs text-dls-secondary" role="status"> {configOptionMessageByAgent[selectedAgent.id]} </div> ) : null} </div> {showScheduledTasks && selectedAgent ? ( <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel"><HeartbeatPanel agent={selectedAgent} jobs={selectedHeartbeatJobs} draft={heartbeatDraft} conversations={selectedConversations} conversation={selectedConversation} busyId={heartbeatBusy} error={heartbeatError} onDraftChange={setHeartbeatDraft} onCreate={() => void createHeartbeat()} onRefresh={() => void loadHeartbeats()} onRunNow={(job) => void runHeartbeatNow(job)} onToggleEnabled={(job, enabled) => void updateHeartbeatEnabled(job, enabled)} onDelete={(job) => void deleteHeartbeat(job)} onClose={() => setShowScheduledTasks(false)} /></div> ) : null} </header><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {showManagement ? ( <LocalAgentManagementPanel agents={agents} workspaceRoot={props.workspaceRoot} selectedAgentId={selectedAgentId} refreshing={refreshing} providerLabel={(agent) => PROVIDER_LABELS[agent.provider] ?? agent.provider} providerIconUrl={(agent) => providerIconUrl(agent.provider)} onSelectAgent={(agentId) => setSelectedAgentId(agentId)} onAgentsChange={setAgents} onRefresh={() => void refreshAgents()} onConfigure={() => setShowManagement(false)} onRepairAction={(action: LocalAgentRepairAction) => { if (action === "recheck") void refreshAgents(); }} supportedRepairActions={["recheck"]} /> ) : null} {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => setShowManagement(true)} onSideQuestion={(value) => void sendSideQuestion(value)} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 py-4"><div className={localAgentLayoutClass.chatPanel}><LocalAgentDraftComposer draftKey={selectedChatKey} initialDraft={draft} disabled={!selectedAgent || selectedAgent.status !== "online"} submitting={running} placeholder={selectedAgent?.status === "online" ? t("local_agent.input_placeholder") : t("local_agent.input_placeholder_unavailable")} slashCommands={selectedSlashCommands} onDraftCommit={updateDraftForChat} onSlashCommandExecute={handleSlashCommandExecute} onSubmit={(value) => { updateDraftForChat(selectedChatKey, value); void submitComposerValue(value); }} /><div className="flex items-center justify-between gap-3 px-2 pb-1"><div className="truncate text-xs text-dls-secondary"> {activePendingApprovals.length ? t("local_agent.pending_approvals", { count: activePendingApprovals.length }) : activeRun?.status === "running" ? t("local_agent.running_run", { runId: activeRun.runId }) : t("local_agent.chat_calls_selected")} </div><div className="flex items-center gap-2"> {selectedAgent && agentSupportsSideQuestion(selectedAgent) ? <BtwOverlay disabled={!selectedAgent || selectedAgent.status !== "online"} submitting={false} onSubmit={(value) => void sendSideQuestion(value)} /> : null}<label className="flex items-center gap-1.5 text-xs text-dls-secondary" title={ selectedCapability && selectedCapability.supportsApproval === false ? t("local_agent.approval_not_supported") : APPROVAL_MODE_OPTIONS.find((option) => option.id === approvalMode)?.description } ><span className="shrink-0">{t("local_agent.approval_policy")}</span><div className="min-w-[140px]"><SelectMenu size="compact" value={approvalMode} onChange={(value) => setApprovalMode(value as PersonalLocalAgentApprovalMode)} disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)} ariaLabel={t("local_agent.approval_aria")} placement="top" options={APPROVAL_MODE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))} /></div> {selectedCapability && selectedCapability.supportsApproval === false ? ( <StatusBadge size="tiny" tone="accent">{t("local_agent.cli_native_policy")}</StatusBadge> ) : null} </label> {activeRun?.status === "running" ? ( <Button variant="outline" size="sm" onClick={() => void cancelRun()}><CircleStop className="mr-1.5 size-3.5" />{t("composer.stop")} </Button> ) : null} </div></div></div></footer></main></div> );
+ return ( <div data-onmyagent-view="personal-assistant" className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"><aside className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5" style={{ width: agentListWidth }} ><div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-border/70 px-4"><InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1"><InputGroupAddon align="inline-start" inset="tight"><Search className="size-4.5" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("local_agent.search")} className="text-sm placeholder:text-dls-secondary/75" /></InputGroup><Button type="button" size="icon-sm" onClick={() => setShowAddForm((value) => !value)} className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text" title={t("local_agent.add")} aria-label={t("local_agent.add")} ><Bot className="size-4.5" /><Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} /></Button></div> {showAddForm ? ( <div className="mx-4 mt-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3"><div className={localAgentTextClass.panelTitle}>{t("local_agent.add")}</div><Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => void refreshAgents()} disabled={refreshing}>
+  {refreshing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+  {t("local_agent.redetect")}
+</Button></div> ) : null} <div className="min-h-0 flex-1 overflow-y-auto"> {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}>
+  <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
+    <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
+      {selectedAgentIconUrl ? (
+        <img src={selectedAgentIconUrl} alt="" className="size-5 object-contain" loading="lazy" draggable={false} />
+      ) : (
+        <UserRound className="size-4" />
+      )}
+      {selectedAgent ? (
+        <span
+          className={cn(
+            "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-dls-surface",
+            selectedAgent.status === "online" ? "bg-dls-online" : "bg-dls-secondary",
+          )}
+          aria-hidden
+        />
+      ) : null}
+    </div>
+    <div className="min-w-0 truncate text-sm font-medium text-dls-text">
+      {selectedAgent?.name}
+    </div>
+    <div className="mx-2 h-4 w-px shrink-0 bg-dls-border/70" aria-hidden />
+    <div className="min-w-0 flex-1">
+      <SelectMenu
+        size="compact"
+        ariaLabel={t("local_agent.conversation")}
+        options={selectedConversations.length ? selectedConversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) })) : [{ value: "", label: t("local_agent.loading_conversations") }]}
+        value={selectedConversationId ?? ""}
+        onChange={(value) => {
+          if (!selectedAgent || !value) return;
+          setSelectedConversationIdByAgent((current) => ({ ...current, [selectedAgent.id]: value }));
+        }}
+        disabled={!selectedAgent || running || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])}
+      />
+    </div>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onClick={() => void createNewConversation()}
+      disabled={!selectedAgent || running || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])}
+      title={t("local_agent.new_conversation")}
+      aria-label={t("local_agent.new_conversation")}
+    >
+      {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+    </Button>
+    {selectedAcpModelInfo.supportsModelOverride ? (
+      <div className="min-w-[160px] max-w-[220px]">
+        <SelectMenu
+          size="compact"
+          ariaLabel={modelSelectorLabel(selectedAgent)}
+          options={[
+            { value: "", label: t("local_agent.use_default_config") },
+            ...(loadingSelectedModels ? [{ value: "__loading", label: t("local_agent.loading_models") }] : []),
+            ...selectedModelOptions.map((option) => ({ value: option.id, label: option.label })),
+          ]}
+          value={selectedModel}
+          onChange={(value) => {
+            if (value === "__loading") return;
+            setSelectedModel(value);
+            if (value && selectedAgent && selectedAcpModelInfo.supportsModelOverride) {
+              void personalLocalAgentSetAcpConfigOption({
+                workspaceRoot: props.workspaceRoot,
+                agent: selectedAgent,
+                optionId: selectedAcpModelInfo.modelOptionId,
+                value,
+              });
+            }
+          }}
+          disabled={!selectedAgent || running}
+        />
+      </div>
+    ) : null}
+    <Button
+      ref={scheduledTasksButtonRef}
+      variant="ghost"
+      size="icon-sm"
+      className="relative"
+      onClick={() => setShowScheduledTasks((open) => !open)}
+      disabled={!selectedAgent}
+      data-testid="local-agent-scheduled-tasks-button"
+      aria-expanded={showScheduledTasks}
+      title={t("local_agent.heartbeat_title")}
+      aria-label={t("local_agent.heartbeat_title")}
+    >
+      <Clock3 className="size-4" />
+      {selectedHeartbeatJobs.length ? (
+        <CountBadge size="dot" className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface">
+          {selectedHeartbeatJobs.length}
+        </CountBadge>
+      ) : null}
+    </Button>
+    {props.headerActions ? <div className="ml-1 flex items-center border-l border-dls-border pl-2">{props.headerActions}</div> : null}
+  </div>
+  {showScheduledTasks && selectedAgent ? (
+    <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">
+      <HeartbeatPanel
+        agent={selectedAgent}
+        jobs={selectedHeartbeatJobs}
+        draft={heartbeatDraft}
+        conversations={selectedConversations}
+        conversation={selectedConversation}
+        busyId={heartbeatBusy}
+        error={heartbeatError}
+        onDraftChange={setHeartbeatDraft}
+        onCreate={() => void createHeartbeat()}
+        onRefresh={() => void loadHeartbeats()}
+        onRunNow={(job) => void runHeartbeatNow(job)}
+        onToggleEnabled={(job, enabled) => void updateHeartbeatEnabled(job, enabled)}
+        onDelete={(job) => void deleteHeartbeat(job)}
+        onClose={() => setShowScheduledTasks(false)}
+      />
+    </div>
+  ) : null}
+</header><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {showManagement ? ( <LocalAgentManagementPanel agents={agents} workspaceRoot={props.workspaceRoot} selectedAgentId={selectedAgentId} refreshing={refreshing} providerLabel={(agent) => PROVIDER_LABELS[agent.provider] ?? agent.provider} providerIconUrl={(agent) => providerIconUrl(agent.provider)} onSelectAgent={(agentId) => setSelectedAgentId(agentId)} onAgentsChange={setAgents} onRefresh={() => void refreshAgents()} onConfigure={() => setShowManagement(false)} onRepairAction={(action: LocalAgentRepairAction) => { if (action === "recheck") void refreshAgents(); }} supportedRepairActions={["recheck"]} /> ) : null} {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => setShowManagement(true)} onSideQuestion={(value) => void sendSideQuestion(value)} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
+        <div className={localAgentLayoutClass.chatPanel}>
+          <LocalAgentDraftComposer
+            draftKey={selectedChatKey}
+            initialDraft={draft}
+            disabled={!selectedAgent || selectedAgent.status !== "online"}
+            submitting={running}
+            placeholder={selectedAgent?.status === "online" ? t("local_agent.input_placeholder") : t("local_agent.input_placeholder_unavailable")}
+            slashCommands={selectedSlashCommands}
+            onDraftCommit={updateDraftForChat}
+            onSlashCommandExecute={handleSlashCommandExecute}
+            onSubmit={(value) => { updateDraftForChat(selectedChatKey, value); void submitComposerValue(value); }}
+            toolbarLeft={
+              <div className="min-w-[136px]">
+                <SelectMenu
+                  size="compact"
+                  value={approvalMode}
+                  onChange={(value) => setApprovalMode(value as PersonalLocalAgentApprovalMode)}
+                  disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
+                  ariaLabel={t("local_agent.approval_aria")}
+                  placement="top"
+                  options={APPROVAL_MODE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
+                />
+              </div>
+            }
+            toolbarRight={
+              <>
+                {selectedAgent && agentSupportsSideQuestion(selectedAgent) ? (
+                  <BtwOverlay
+                    disabled={!selectedAgent || selectedAgent.status !== "online"}
+                    submitting={false}
+                    onSubmit={(value) => void sendSideQuestion(value)}
+                  />
+                ) : null}
+                {activeRun?.status === "running" ? (
+                  <Button variant="outline" size="sm" onClick={() => void cancelRun()}>
+                    <CircleStop className="mr-1.5 size-3.5" />
+                    {t("composer.stop")}
+                  </Button>
+                ) : null}
+              </>
+            }
+          />
+        </div>
+      </footer></main></div> );
 }
 function ActiveRunsOverview(props: { activeRuns: Array<{ chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult }>; selectedChatKey: string | null; onSelectAgent: (chatKey: string) => void; onCancelRun?: (runId: string, chatKey: string) => void;
 }) { return ( <section className={activeRunClass.overview}><div className={localAgentTextClass.runSectionTitle}><Activity className="size-4" />{t("local_agent.active_runs")} <CountBadge size="dot" className="bg-dls-accent/10 text-dls-accent">{props.activeRuns.length}</CountBadge></div><div className="grid gap-2"> {props.activeRuns.map(({ chatKey, agentId, agent, run }) => { const isSelected = props.selectedChatKey === chatKey; return ( <div key={run.runId} className={cn( activeRunClass.item, isSelected ? activeRunClass.itemSelected : activeRunClass.itemDefault, )} ><ActionRowButton type="button" onClick={() => props.onSelectAgent(chatKey)} density="compact" className="min-w-0 flex-1 border-0 bg-transparent p-0 text-left hover:bg-transparent" title={isSelected ? t("local_agent.current_agent_running") : t("local_agent.switch_to_agent_detail")} ><div className="flex flex-wrap items-center justify-between gap-2"><span className={localAgentTextClass.runItemTitle}><StatusPing /><span className="truncate">{agent?.name ?? agentId}</span></span><span className={activeRunClass.runId}>Run {run.runId}</span></div><div className={activeRunClass.meta}><span>{run.pendingApprovals?.length ? t("local_agent.waiting_approval_count", { count: run.pendingApprovals.length }) : t("local_agent.elapsed", { value: elapsedSeconds(run.startedAt, null) })}</span><span>{t("local_agent.latest_event", { time: shortTime(lastEventTime(run)) })}</span><span>{t("local_agent.connection", { value: run.connectionMode || "--" })}</span></div></ActionRowButton> {props.onCancelRun ? ( <Button variant="outline" size="sm" className={activeRunClass.cancel} onClick={() => props.onCancelRun?.(run.runId, chatKey)} title={t("local_agent.stop_run")} ><CircleStop className="mr-1 size-3.5" />{t("composer.stop")} </Button> ) : null} </div> ); })} </div></section> );
