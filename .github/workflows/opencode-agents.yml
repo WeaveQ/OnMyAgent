@@ -15,6 +15,9 @@ on:
         required: true
         type: number
 
+permissions:
+  contents: read
+
 jobs:
   triage-issue:
     if: inputs.target == 'issue'
