@@ -99,7 +99,7 @@ import { LocalAgentManagementPanel } from "../../local-agents/local-agent-manage
 import { AcpConfigOptionEditor, type LocalAgentAcpConfigOption } from "../../local-agents/acp-config-option-editor";
 import { LocalAgentDraftComposer, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
 import { elapsedSeconds, runHumanSummary, runStatusLabel, shortTime } from "../../local-agents/local-agent-formatters";
-import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, HEALTH_CHECK_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
+import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, HEALTH_CHECK_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
 import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
 import { ChatBubble } from "../../local-agents/messages/chat-bubble";
 import type { ChatMessage } from "../../local-agents/messages/message-types";
@@ -356,8 +356,9 @@ function messageTextForRun(
 }
 function placeholderRunFromProcess(process: PersonalLocalAgentProcessRecord): PersonalLocalAgentRunResult | null {
   const runId = process.runId.trim();
-  const provider = (process.provider ?? process.backend ?? "").trim() as PersonalLocalAgentProvider;
-  if (!runId || !provider) return null;
+  const providerRaw = (process.provider ?? process.backend ?? "").trim();
+  if (!runId || !providerRaw || !isPersonalLocalAgentProvider(providerRaw)) return null;
+  const provider: PersonalLocalAgentProvider = providerRaw;
   return {
     ok: false,
     runId,

@@ -30,6 +30,11 @@ export const PROVIDER_LABELS: Record<PersonalLocalAgent["provider"], string> = {
   custom: "Custom",
 };
 
+export function isPersonalLocalAgentProvider(value: string): value is PersonalLocalAgentProvider {
+  return Object.prototype.hasOwnProperty.call(PROVIDER_LABELS, value);
+}
+
+
 const PROVIDER_ICON_URLS: Partial<Record<PersonalLocalAgentProvider, string>> = {
   opencode: opencodeIconUrl,
   codex: codexIconUrl,
@@ -224,9 +229,10 @@ export function safeReadPersistedChatState(workspaceRoot: string): PersistedLoca
   try {
     const raw = window.localStorage.getItem(personalAgentChatStateKey(workspaceRoot));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedLocalAgentChatState;
-    if (!parsed || parsed.version !== 1) return null;
-    return parsed;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || !("version" in parsed) || parsed.version !== 1) return null;
+    // Structural guard above validates the persistence version; downstream fields are optional.
+    return parsed as PersistedLocalAgentChatState;
   } catch {
     return null;
   }

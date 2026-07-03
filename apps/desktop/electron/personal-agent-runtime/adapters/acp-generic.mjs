@@ -94,12 +94,12 @@ function createThinkingTracker(appendEvent) {
     },
     finishOnAssistant() {
       // Called on first real assistant_chunk of the turn to close any pending
-      // thinking streams. Mirrors AionUi's boundary between reasoning stream
+      // thinking streams. Marks the boundary between reasoning stream
       // and final assistant text.
       if (active.size) this.finishAll("assistant_chunk");
     },
     finishOnBoundary(reason) {
-      // Mirrors AionUi's shouldCompleteThinking whitelist in useAcpMessage.ts:
+      // Whitelist of side-channel events that end the reasoning stream:
       // any non-thinking / non-status side-channel event (tool_call, plan,
       // error, finish) ends the active reasoning stream and freezes durationMs
       // on the corresponding card.
@@ -112,7 +112,7 @@ function createThinkingTracker(appendEvent) {
 }
 
 // Split a raw thought text into subject/description parts used by the
-// transient hover indicator (mirrors AionUi's ThoughtDisplay {subject,
+// transient hover indicator ({subject,
 // description}). Subject is the first non-empty line (bounded to 80 chars);
 // description is any remainder text.
 function deriveThoughtHint(text) {

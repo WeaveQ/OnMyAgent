@@ -2936,7 +2936,7 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(events.length, 2);
   });
 
-  it("deriveThoughtHint splits subject/description like AionUi ThoughtDisplay", () => {
+  it("deriveThoughtHint splits subject/description", () => {
     assert.deepEqual(acpGenericTest.deriveThoughtHint("Analyzing repo"), { subject: "Analyzing repo", description: "" });
     assert.deepEqual(acpGenericTest.deriveThoughtHint("Step one\nlook up files"), { subject: "Step one", description: "look up files" });
     assert.equal(acpGenericTest.deriveThoughtHint(""), null);

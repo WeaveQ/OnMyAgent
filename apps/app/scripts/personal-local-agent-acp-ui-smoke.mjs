@@ -129,7 +129,7 @@ async function main() {
     await page.assertVisibleTestId("local-agent-thinking-card");
     await page.assertVisibleTestId("local-agent-thinking-header");
     await page.assertVisibleTestId("local-agent-thinking-body");
-    await page.waitForText("AionUI content-only plan item", 10000);
+    await page.waitForText("Content-only plan item", 10000);
     await page.waitForText("Provider timeout", 10000);
     await page.waitForText(["上下文用量", "Context usage"], 10000);
     await page.waitForText("10 / 100", 10000);
@@ -374,7 +374,7 @@ function desktopBridgeMockSource(workspaceRoot) {
         run.events.push({ type: 'assistant_chunk', text: '**Markdown** ok', at: Date.now() });
         const done = finish(run, text);
         done.conversationMessages = [
-          { id: 'plan-' + turn, type: 'plan', role: 'assistant', text: 'Inspect workspace', createdAt: now, sourceEventType: 'plan', entries: [{ id: 'p1', title: 'Inspect workspace', status: 'completed', priority: 'high' }, { id: 'p2', content: 'AionUI content-only plan item', status: 'pending' }] },
+          { id: 'plan-' + turn, type: 'plan', role: 'assistant', text: 'Inspect workspace', createdAt: now, sourceEventType: 'plan', entries: [{ id: 'p1', title: 'Inspect workspace', status: 'completed', priority: 'high' }, { id: 'p2', content: 'Content-only plan item', status: 'pending' }] },
           { id: 'thinking-' + turn, type: 'thinking', role: 'assistant', text: 'Reasoning smoke', createdAt: now, sourceEventType: 'thinking', status: 'thinking', msgId: 'msg-' + turn },
           { id: 'tool-group-' + turn, type: 'tool_group', role: 'tool', text: 'Tool calls', createdAt: now, sourceEventType: 'tool_group', msgId: 'msg-' + turn, toolCalls: [
             { id: 'tool-search-' + turn, type: 'acp_tool_call', role: 'tool', text: 'fake_search', createdAt: now, sourceEventType: 'acp_tool_call', status: 'completed', msgId: 'msg-' + turn, update: { toolCallId: 'fake-search-' + turn, title: 'fake_search', kind: 'read', status: 'completed', input: '{"query":"local agent smoke"}', output: ['result line 1', 'result line 2'].join('\\n'), locations: [{ path: 'reports/acp-smoke-' + turn + '.md' }] } },
