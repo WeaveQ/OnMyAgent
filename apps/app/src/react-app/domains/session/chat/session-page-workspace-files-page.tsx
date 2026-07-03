@@ -65,6 +65,7 @@ export function WorkspaceFilesPage(props: {
   client: OpenworkServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
+  fileRoot?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<OpenworkWorkspaceFileCatalogEntry[]>(
@@ -81,9 +82,13 @@ export function WorkspaceFilesPage(props: {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
     () => new Set(),
   );
+  const fileRoot =
+    props.fileRoot === undefined ? props.workspaceRoot : props.fileRoot?.trim() ?? "";
+  const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
+  const requiresSessionFileRoot = props.fileRoot !== undefined;
 
   useEffect(() => {
-    if (!props.client || !props.workspaceId.trim()) {
+    if (!props.client || !props.workspaceId.trim() || !fileRoot.trim()) {
       setEntries([]);
       setError(null);
       setLoading(false);
@@ -93,7 +98,11 @@ export function WorkspaceFilesPage(props: {
     setLoading(true);
     setError(null);
     void props.client
-      .listWorkspaceFiles(props.workspaceId, { includeDirs: true, limit: 5000 })
+      .listWorkspaceFiles(props.workspaceId, {
+        includeDirs: true,
+        limit: 5000,
+        ...(hasScopedFileRoot ? { root: fileRoot } : {}),
+      })
       .then((catalog) => {
         if (cancelled) return;
         setEntries(catalog.items);
@@ -123,7 +132,7 @@ export function WorkspaceFilesPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.client, props.workspaceId, refreshKey]);
+  }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
 
   const taskGroups = useMemo(() => {
     const filtered = entries.filter((e) => !shouldHideEntry(e.path));
@@ -158,7 +167,7 @@ export function WorkspaceFilesPage(props: {
     async (filePath: string) => {
       const absolutePath = filePath.startsWith("/")
         ? filePath
-        : `${props.workspaceRoot}/${filePath}`;
+        : `${fileRoot}/${filePath}`;
       try {
         await openDesktopPath(absolutePath);
       } catch (openError) {
@@ -166,7 +175,7 @@ export function WorkspaceFilesPage(props: {
       }
       setMenuPath(null);
     },
-    [props.workspaceRoot],
+    [fileRoot],
   );
 
   const toggleAgent = (name: string) => {
@@ -370,7 +379,7 @@ export function WorkspaceFilesPage(props: {
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
-            {t("files.no_files")}
+            {requiresSessionFileRoot ? t("files.no_session_files") : t("files.no_files")}
           </div>
         )}
       </div>
