@@ -9,7 +9,7 @@ import builtinSkillsManifest from "./builtin-skills.manifest.json";
 type BuiltinSkillManifestEntry = {
   packageName: string;
   skillMarkdown: string;
-  iconDataUrl?: string | null;
+  iconAssetPath?: string | null;
 };
 
 type BuiltinSkillsManifest = {
@@ -99,6 +99,12 @@ function inferCategoryIds(entry: {
   return [...new Set(categoryIds)].slice(0, 3);
 }
 
+function resolveMarketplaceAssetUrl(assetPath: string | null | undefined): string | null {
+  if (!assetPath) return null;
+  const baseUrl = import.meta.env.BASE_URL || "/";
+  return `${baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`}${assetPath}`;
+}
+
 export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
   return Object.entries(skillModules)
     .map(([skillPath, rawSkill]) => {
@@ -134,7 +140,9 @@ export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
         categoryLabel: skillMarketplaceCategoryLabel(categoryId),
         categoryLabels: categoryIds.map(skillMarketplaceCategoryLabel),
         tags,
-        iconUrl: builtinSkillEntryByPackageName.get(packageName)?.iconDataUrl ?? null,
+        iconUrl: resolveMarketplaceAssetUrl(
+          builtinSkillEntryByPackageName.get(packageName)?.iconAssetPath,
+        ),
         version: frontmatterValue(rawSkill, "version") || null,
       };
     })
