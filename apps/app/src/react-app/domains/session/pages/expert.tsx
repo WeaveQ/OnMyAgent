@@ -69,6 +69,7 @@ import {
   findBuiltinMarketplaceExpertById,
   isBuiltinMarketplaceExpertAgentId,
 } from "../expert-marketplace/data";
+import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
@@ -850,6 +851,9 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
+      void installSummonedMarketplaceExpert(expert).catch((error) => {
+        console.warn("[expert-marketplace] failed to install expert package", error);
+      });
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
