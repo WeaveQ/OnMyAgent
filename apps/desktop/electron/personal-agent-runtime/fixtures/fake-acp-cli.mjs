@@ -8,6 +8,9 @@ const truncatedReply = process.argv.includes("--truncated-reply");
 const maxTokensStop = process.argv.includes("--max-tokens-stop");
 const continuationCompletes = process.argv.includes("--continuation-completes");
 const authRequired = process.argv.includes("--auth-required");
+const emitThoughtStream = process.argv.includes("--emit-thought-stream");
+const emitReasoningInline = process.argv.includes("--emit-reasoning-inline");
+const emitPlanUpdate = process.argv.includes("--emit-plan-update");
 let promptCounter = 0;
 
 function sendResponse(id, result) {
@@ -65,6 +68,16 @@ function handleRequest(message) {
       sessionId,
       update: { sessionUpdate: "context_usage", used: 10, total: 100 },
     });
+    if (emitThoughtStream) {
+      sendNotification("session/update", { sessionId, update: { sessionUpdate: "thought", content: { type: "text", text: "step-a " }, msg_id: "thought-1" } });
+      sendNotification("session/update", { sessionId, update: { sessionUpdate: "thought", content: { type: "text", text: "step-b" }, msg_id: "thought-1" } });
+    }
+    if (emitReasoningInline) {
+      sendNotification("session/update", { sessionId, update: { sessionUpdate: "agent_message_chunk", content: [{ type: "thought", text: "inline-thought " }, { type: "text", text: "hello" }], msg_id: "m-inline" } });
+    }
+    if (emitPlanUpdate) {
+      sendNotification("session/update", { sessionId, update: { sessionUpdate: "plan", entries: [{ content: "Step 1", status: "in_progress" }, { content: "Step 2", status: "pending" }] } });
+    }
     for (const chunk of [response.slice(0, 10), response.slice(10)]) {
       sendNotification("session/update", {
         sessionId,
@@ -90,7 +103,14 @@ function handleRequest(message) {
     process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found: session/set_model" } })}\n`);
     return;
   }
-  if (["session/set_mode", "session/set_model", "session/set_config_option"].includes(method)) {
+  if (method === "config/set" || method === "session/set_config_option") {
+    sendResponse(id, {
+      confirmation: `Set ${params?.optionId ?? params?.id ?? "option"}`,
+      config_options: [{ id: params?.optionId ?? "mode", label: "Mode", type: "select", value: params?.value ?? null, options: ["default", "plan"] }],
+    });
+    return;
+  }
+  if (["session/set_mode", "session/set_model"].includes(method)) {
     sendResponse(id, {});
     return;
   }

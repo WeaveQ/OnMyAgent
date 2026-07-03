@@ -8,6 +8,7 @@ import { createHermesAdapter } from "./adapters/hermes.mjs";
 import { createOpenClawAdapter } from "./adapters/openclaw.mjs";
 import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
+import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataList } from "./agent-metadata.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
@@ -28,6 +29,9 @@ import { probeAcpCommand } from "./acp-probe.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
+import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
+import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
+import { getStoredApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
 
 const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 const MIN_RUN_TIMEOUT_MS = 30_000;
@@ -126,11 +130,13 @@ export function createPersonalAgentRuntime(options) {
     hermes: createHermesAdapter,
     claude: createClaudeAdapter,
     openclaw: createOpenClawAdapter,
+    remote: createRemoteAcpAdapter,
     ...injectedAdapters,
   };
 
   function adapterFactoryForProvider(provider) {
     if (Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) return adapterFactories[provider];
+    if (provider === "remote") return createRemoteAcpAdapter;
     if (provider === "hermes" || provider === "opencode" || provider === "openclaw" || provider === "codex" || provider === "claude") return createGenericAcpAdapter;
     return adapterFactories[provider];
   }
@@ -141,6 +147,7 @@ export function createPersonalAgentRuntime(options) {
     if (provider === "hermes") return "Hermes ACP session";
     if (provider === "claude") return "Claude Code ACP session";
     if (provider === "openclaw") return "OpenClaw ACP session";
+    if (provider === "remote") return "Remote ACP WebSocket session";
     return "本地 Agent harness session";
   }
 
@@ -308,31 +315,6 @@ export function createPersonalAgentRuntime(options) {
     };
   }
 
-  function classifyErrorInfo(error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const lower = message.toLowerCase();
-    let code = typeof error?.code === "string" && error.code.trim() ? error.code.trim() : "unknown";
-    if (code !== "unknown") {
-      return { code, message, debug: message || null };
-    }
-    if (/unsupported format of modelid|expected: modelid\[effort\]|set_model failed/.test(lower)) code = "codex_acp_model_format";
-    else if (/set_mode failed|modeid|codex_acp_mode_failed/.test(lower)) code = "codex_acp_mode_failed";
-    else if (/conversation interrupted/.test(lower)) code = "acp_bridge_interrupted";
-    else if (/acp_bridge_interrupted_after_retry/.test(lower)) code = "acp_bridge_interrupted_after_retry";
-    else if (/did not finish cleanly|incomplete output/.test(lower)) code = "acp_incomplete_output";
-    else if (/tool call failed/.test(lower)) code = "acp_tool_failed";
-    else if (/sandbox|network|could not resolve host|permission denied|operation not permitted/.test(lower)) code = "sandbox_or_network_refusal";
-    else if (/not found|no such file|enoent|command not found|未配置|命令不可用/.test(lower)) code = "missing_binary";
-    else if (/auth|login|unauthorized|forbidden|api key|认证|登录/.test(lower)) code = "auth_required";
-    else if (/version|版本|update/.test(lower)) code = "version_unsupported";
-    else if (/timeout|timed out|超时/.test(lower)) code = "timeout";
-    else if (/parse|json|解析/.test(lower)) code = "parse_failed";
-    else if (/empty|no assistant|no parseable|空/.test(lower)) code = "empty_output";
-    else if (/cancel|取消/.test(lower)) code = "cancelled";
-    else if (message.trim()) code = "provider_failed";
-    return { code, message, debug: message || null };
-  }
-
   function sanitizeApprovalParams(params) {
     if (!params || typeof params !== "object") return null;
     try {
@@ -342,7 +324,7 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  function requestRunApproval(state, request = {}) {
+  async function requestRunApproval(state, request = {}) {
     const approvalId = String(request.id ?? `${state.runId}-approval-${Date.now()}-${Math.random().toString(16).slice(2)}`).trim();
     const approval = {
       id: approvalId,
@@ -358,6 +340,19 @@ export function createPersonalAgentRuntime(options) {
       params: sanitizeApprovalParams(request.params),
       createdAt: Date.now(),
     };
+    const stored = await getStoredApprovalDecision(state.workspaceRoot, { provider: state.agentProvider, agentId: state.agentId, approval });
+    if (stored) {
+      appendContractEvent(state.events, {
+        type: "approval_decision",
+        text: `${approval.kind}: acceptForSession (stored)` ,
+        approval,
+        storedApprovalKey: stored.key,
+      });
+      state.updatedAt = Date.now();
+      state.lastApprovalPersist = persistRun(state);
+      void state.lastApprovalPersist;
+      return { decision: "acceptForSession", approval, stored: true };
+    }
     state.pendingApprovals = [...(state.pendingApprovals ?? []).filter((item) => item.id !== approval.id), approval];
     appendContractEvent(state.events, {
       type: "approval_request",
@@ -390,6 +385,9 @@ export function createPersonalAgentRuntime(options) {
     const approval = (state.pendingApprovals ?? []).find((item) => item.id === approvalId);
     if (!approval) return { ok: false, error: "approval request not found" };
     state.pendingApprovals = (state.pendingApprovals ?? []).filter((item) => item.id !== approvalId);
+    if (input.alwaysAllow === true) {
+      await rememberApprovalDecision(state.workspaceRoot, { provider: state.agentProvider, agentId: state.agentId, approval, decision: "acceptForSession" });
+    }
     appendContractEvent(state.events, {
       type: "approval_decision",
       text: `${approval.kind}: ${decision}`,
@@ -482,6 +480,7 @@ export function createPersonalAgentRuntime(options) {
       state.error = state.errorInfo.message;
       state.finishedAt = Date.now();
       appendContractEvent(events, { type: "error", text: state.error });
+      appendContractEvent(events, buildErrorTip(state.errorInfo));
       await persistRun(state);
       return snapshot(state);
     }
@@ -498,6 +497,7 @@ export function createPersonalAgentRuntime(options) {
         state.error = state.errorInfo.message;
         state.finishedAt = Date.now();
         appendContractEvent(events, { type: "error", text: state.error });
+        appendContractEvent(events, buildErrorTip(state.errorInfo));
         await persistRun(state);
         return snapshot(state);
       }
@@ -694,6 +694,7 @@ export function createPersonalAgentRuntime(options) {
           state.errorInfo.debug ? `debug=${state.errorInfo.debug}` : null,
         ].filter(Boolean).join("\n");
         appendContractEvent(events, { type: "error", text: state.error });
+        appendContractEvent(events, buildErrorTip(state.errorInfo));
         await updateConversation(workspaceRoot, detected.provider, detected.id, conversation.id, {
           lastRunId: state.runId,
           lastStatus: "failed",
@@ -767,6 +768,7 @@ export function createPersonalAgentRuntime(options) {
           "startupStalled=true",
         ].join("\n");
         appendContractEvent(state.events, { type: "error", text: state.error });
+        appendContractEvent(state.events, buildErrorTip(state.errorInfo));
         state.updatedAt = Date.now();
         void persistRun(state);
       }
@@ -863,6 +865,224 @@ export function createPersonalAgentRuntime(options) {
     return { conversation };
   }
 
+  async function warmupConversation(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    const detected = await legacy.detectAgent(agent, workspaceRoot);
+    const provider = detected.provider ?? agent.provider;
+    const agentId = detected.id ?? agent.id ?? provider;
+    const adapterFactory = adapterFactoryForProvider(provider);
+    if (!adapterFactory) return { ok: false, unsupportedReason: "adapter_not_supported" };
+    if (detected.status !== "online") return { ok: false, error: detected.error || `${detected.name ?? provider} is not online` };
+    if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
+      const tool = await ensureManagedAcpTool(provider);
+      detected.executablePath = tool.binPath;
+      detected.managedAcpTool = tool;
+      detected.connectionMode = defaultConnectionMode(provider);
+    }
+    const conversation = await getOrCreateConversation(workspaceRoot, provider, agentId, input.conversationId);
+    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
+    if (typeof adapter.warmupConversation !== "function") return { ok: false, conversation, unsupportedReason: "warmup_not_supported" };
+    try {
+      const warmed = await adapter.warmupConversation({
+        runId: `warmup-${Date.now()}`,
+        workspaceRoot,
+        accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(input.accessibleWorkspaceRoots, workspaceRoot),
+        conversationId: conversation.id,
+        providerSessionId: conversation.providerSessionId,
+        resumeKey: conversation.resumeKey,
+        conversationWorkdir: conversation.workdir,
+        agent: detected,
+        model: input.model ?? detected.model,
+        approvalMode: normalizeApprovalMode(input.approvalMode),
+      });
+      const updated = await updateConversation(workspaceRoot, provider, agentId, conversation.id, {
+        providerSessionId: warmed.providerSessionId ?? warmed.sessionId ?? conversation.providerSessionId,
+        resumeKey: warmed.resumeKey ?? warmed.providerSessionId ?? warmed.sessionId ?? conversation.resumeKey,
+        workdir: warmed.workdir ?? conversation.workdir,
+        metadata: { ...(conversation.metadata ?? {}), warmupAt: Date.now(), warmupStatus: "ready" },
+      });
+      return { ok: true, conversation: updated, providerSessionId: updated.providerSessionId, resumeKey: updated.resumeKey };
+    } catch (error) {
+      return { ok: false, conversation, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async function sideQuestion(input = {}) {
+    const prompt = String(input.prompt ?? "").trim();
+    if (!prompt) return { ok: false, error: "prompt is required" };
+
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const conversationId = String(input.conversationId ?? "").trim();
+    if (!workspaceRoot) return { ok: false, error: "workspaceRoot is required" };
+
+    // Find the active or most-recent main run for this conversation so the side
+    // question is sent to the same provider session, not an independent run/session.
+    let activeRun = null;
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const candidates = [...runs.values()].filter((state) => (
+        state.workspaceRoot === workspaceRoot
+        && state.agentProvider === agent.provider
+        && state.agentId === agent.id
+        && state.conversationId === conversationId
+        && state.providerSessionId
+      ));
+      activeRun = candidates.find((state) => state.status === "running")
+        || candidates.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0];
+      if (activeRun) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (!activeRun) {
+      return { ok: false, error: "no active run session to attach side question to" };
+    }
+
+    const detected = await legacy.detectAgent(agent, workspaceRoot);
+    if (detected.status !== "online") {
+      return { ok: false, error: detected.error || `${detected.name ?? agent.provider} is not online` };
+    }
+
+    try {
+      const ctx = await runtimeContext();
+      const adapterFactory = adapterFactoryForProvider(agent.provider);
+      if (!adapterFactory) return { ok: false, error: `No adapter for ${agent.provider}` };
+      const adapter = adapterFactory({
+        ...ctx,
+        appendEvent: () => undefined,
+        registerCancel: () => undefined,
+        requestApproval: () => ({ decision: "decline" }),
+        approvalMode: normalizeApprovalMode(input.approvalMode),
+      });
+      const result = normalizeAdapterResult(await adapter.sendMessage({
+        runId: `side-${activeRun.runId}-${Date.now()}`,
+        workspaceRoot,
+        accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(input.accessibleWorkspaceRoots, workspaceRoot),
+        conversationId,
+        providerSessionId: activeRun.providerSessionId,
+        resumeKey: activeRun.resumeKey,
+        conversationWorkdir: activeRun.workdir,
+        agent: detected,
+        model: input.model ?? detected.model,
+        prompt,
+        approvalMode: normalizeApprovalMode(input.approvalMode),
+      }));
+      const sideRun = {
+        ...snapshot(activeRun),
+        runId: `side-${activeRun.runId}`,
+        output: result.output,
+        status: "completed",
+        finishedAt: Date.now(),
+        metadata: { ...(activeRun.metadata ?? {}), sideQuestion: true },
+      };
+      return { ok: true, run: sideRun, runId: sideRun.runId };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async function listAgentProviderSessions(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
+    if (typeof adapter.listSessions !== "function") return { sessions: [], unsupportedReason: "session_list_not_supported" };
+    return adapter.listSessions({ ...input, workspaceRoot, agent });
+  }
+
+  async function loadAgentProviderSession(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
+    if (typeof adapter.loadSession !== "function") throw new Error(`${agent.provider} does not support session/load`);
+    const loaded = await adapter.loadSession({ ...input, workspaceRoot, agent });
+    const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
+      title: input.title ?? `Loaded ${loaded.sessionId}`,
+      providerSessionId: loaded.sessionId,
+      resumeKey: loaded.sessionId,
+      source: "provider-session-load",
+      metadata: loaded.raw ?? null,
+    });
+    if (Array.isArray(loaded.conversationMessages) && loaded.conversationMessages.length) {
+      await writeConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id, [], loaded.conversationMessages);
+    }
+    return { ...loaded, conversation };
+  }
+
+  async function closeAgentProviderSession(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const sessionId = String(input.sessionId ?? input.providerSessionId ?? input.resumeKey ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    if (!sessionId) throw new Error("sessionId is required");
+    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
+    if (typeof adapter.closeSession !== "function") throw new Error(`${agent.provider} does not support session/close`);
+    const result = await adapter.closeSession({ ...input, sessionId, workspaceRoot, agent });
+    const listed = await listConversations(workspaceRoot, agent.provider, agent.id);
+    const closedConversations = listed.conversations.filter((conversation) => {
+      if (input.conversationId && conversation.id === input.conversationId) return true;
+      return conversation.providerSessionId === sessionId || conversation.resumeKey === sessionId;
+    });
+    for (const conversation of closedConversations) {
+      await updateConversation(workspaceRoot, agent.provider, agent.id, conversation.id, {
+        providerSessionId: null,
+        resumeKey: null,
+        lastStatus: "closed",
+        metadata: {
+          ...(conversation.metadata ?? {}),
+          closedProviderSessionId: sessionId,
+          closedAt: Date.now(),
+        },
+      });
+      for (const state of runs.values()) {
+        if (state.workspaceRoot === workspaceRoot && state.agentProvider === agent.provider && state.agentId === agent.id && state.conversationId === conversation.id && state.status === "running") {
+          await cancel(state.runId, { reason: "provider-session-closed" }).catch(() => undefined);
+        }
+      }
+    }
+    return { ...result, closedConversationIds: closedConversations.map((conversation) => conversation.id) };
+  }
+
+  async function forkAgentProviderSession(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
+    if (typeof adapter.forkSession !== "function") throw new Error(`${agent.provider} does not support session/fork`);
+    const forked = await adapter.forkSession({ ...input, workspaceRoot, agent });
+    const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
+      title: input.title ?? `Fork ${forked.sessionId}`,
+      providerSessionId: forked.sessionId,
+      resumeKey: forked.sessionId,
+      source: "provider-session-fork",
+      metadata: forked.raw ?? null,
+    });
+    return { ...forked, conversation };
+  }
+
+  async function setAgentConfigOption(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const optionId = String(input.optionId ?? input.configOptionId ?? input.id ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    if (!optionId) throw new Error("optionId is required");
+    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
+    if (typeof adapter.setConfigOption !== "function") throw new Error(`${agent.provider} does not support config/set`);
+    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent });
+  }
+
   async function getConversationStatus(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
@@ -917,12 +1137,36 @@ export function createPersonalAgentRuntime(options) {
 
   async function listAgents(input = {}) {
     const result = await legacy.listAgents(input);
-    const agents = Array.isArray(result?.agents) ? result.agents : [];
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const customAgents = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
+    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents];
     return {
       ...result,
       agents,
       metadata: personalAgentMetadataList(agents),
     };
+  }
+
+  async function createAgent(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return createCustomAgent(workspaceRoot, input.agent ?? input);
+  }
+
+  async function updateAgent(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const id = String(input.id ?? input.agent?.id ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    if (!id) throw new Error("agent id is required");
+    return updateCustomAgent(workspaceRoot, id, input.agent ?? input);
+  }
+
+  async function deleteAgent(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const id = String(input.id ?? input.agentId ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    if (!id) throw new Error("agent id is required");
+    return deleteCustomAgent(workspaceRoot, id);
   }
 
   async function listAgentMetadata(input = {}) {
@@ -1070,6 +1314,69 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
+  async function checkProviderHealth(input = {}) {
+    const checkedAt = Date.now();
+    try {
+      const agent = await legacy.normalizeAgent(input.agent ?? {});
+      if (Object.prototype.hasOwnProperty.call(injectedAdapters, agent.provider)) {
+        // Injected adapters are not health-checked by sending a real user prompt,
+        // because that would pollute the conversation context. We rely on the
+        // detection layer (executable / managed tool / availability) instead.
+        const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+        const detected = await legacy.detectAgent(agent, workspaceRoot).catch((error) => ({
+          ...agent,
+          status: "offline",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        const healthy = detected.status === "online";
+        return {
+          ok: true,
+          healthy,
+          status: healthy ? "online" : "offline",
+          reason: detected.error ?? null,
+          step: healthy ? "online" : "fail_detect",
+          checkedAt,
+          capabilities: null,
+          models: [],
+          configOptions: [],
+        };
+      }
+      const result = await testConnection(input);
+      return {
+        ok: true,
+        healthy: Boolean(result.ok),
+        status: result.status ?? (result.ok ? "online" : "offline"),
+        reason: result.error ?? null,
+        step: result.step ?? null,
+        checkedAt,
+        capabilities: result.capabilities ?? null,
+        models: result.models ?? [],
+        configOptions: result.configOptions ?? [],
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        healthy: false,
+        status: "offline",
+        reason: error instanceof Error ? error.message : String(error),
+        step: "failed",
+        checkedAt,
+        capabilities: null,
+        models: [],
+        configOptions: [],
+      };
+    }
+  }
+
+  async function checkManagedAgentHealthById(input = {}) {
+    const id = String(input.id ?? input.agentId ?? input.provider ?? "").trim();
+    if (!id) return { ok: false, healthy: false, status: "unknown", reason: "agent id is required", checkedAt: Date.now() };
+    const agents = await listAgents({ workspaceRoot: input.workspaceRoot });
+    const agent = (agents.agents ?? []).find((item) => item.id === id || item.provider === id);
+    if (!agent) return { ok: false, healthy: false, status: "missing", reason: `agent ${id} was not found`, checkedAt: Date.now() };
+    return checkProviderHealth({ ...input, agent });
+  }
+
   function extractProbeMetadata(...sources) {
     for (const source of sources) {
       if (!source || typeof source !== "object") continue;
@@ -1106,8 +1413,16 @@ export function createPersonalAgentRuntime(options) {
     acpCancel,
     acpResolveApproval,
     acpConfigOptions,
+    setConfigOption: setAgentConfigOption,
+    createCustomAgent: createAgent,
+    updateCustomAgent: updateAgent,
+    deleteCustomAgent: deleteAgent,
+    getAgentOverrides: async (input = {}) => getAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim()),
+    setAgentOverrides: async (input = {}) => setAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim(), input.overrides ?? {}),
     listProcesses,
     testConnection,
+    checkProviderHealth,
+    checkManagedAgentHealthById,
     validateAgent: legacy.detectAgent,
     startMessage: start,
     getRun: status,
@@ -1118,9 +1433,16 @@ export function createPersonalAgentRuntime(options) {
     listConversations: listAgentConversations,
     createConversation: createAgentConversation,
     getConversation: getAgentConversation,
+    warmupConversation,
+    sideQuestion,
+    listProviderSessions: listAgentProviderSessions,
+    loadProviderSession: loadAgentProviderSession,
+    closeProviderSession: closeAgentProviderSession,
+    forkProviderSession: forkAgentProviderSession,
     getConversationStatus,
     listConversationConfirmations,
     confirmConversationConfirmation,
     classifyErrorForTest: classifyErrorInfo,
+    buildErrorTipForTest: buildErrorTip,
   };
 }
