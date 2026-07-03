@@ -2098,7 +2098,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
 
     listWorkspaceFiles: async (
       workspaceId: string,
-      options?: { includeDirs?: boolean; limit?: number; prefix?: string },
+      options?: { includeDirs?: boolean; limit?: number; prefix?: string; root?: string },
     ) => {
       const id = workspaceId.trim();
       if (!id) throw new Error("workspaceId is required");
@@ -2113,7 +2113,11 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
           token,
           hostToken,
           method: "POST",
-          body: { write: false, ttlSeconds: 30 },
+          body: {
+            write: false,
+            ttlSeconds: 30,
+            ...(options?.root?.trim() ? { root: options.root.trim() } : {}),
+          },
         },
       );
       const sessionId = sessionResult.session.id.trim();
