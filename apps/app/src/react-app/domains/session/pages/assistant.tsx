@@ -61,6 +61,7 @@ import {
   expertMarketplaceCategoryLabel,
   normalizeExpertMarketplaceCategoryId,
 } from "../expert-marketplace/categories";
+import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 
@@ -178,6 +179,9 @@ export function AssistantPage(props: AssistantPageProps) {
   >([]);
   const handleSummonMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
+      void installSummonedMarketplaceExpert(expert).catch((error) => {
+        console.warn("[expert-marketplace] failed to install expert package", error);
+      });
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
       usePendingAgentStore
         .getState()
