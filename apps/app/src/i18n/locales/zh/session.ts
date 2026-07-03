@@ -38,6 +38,8 @@ export default {
   "session.create_expert_desc": "创建一个专属专家，并保存到本地专家目录。",
   "session.expert_capability": "能力介绍",
   "session.expert_strengths": "擅长领域",
+  "session.expert_self_intro_prompt_title": "自我介绍",
+  "session.expert_self_intro_prompt": "请告诉我你是谁? 能做什么?",
   "session.try_ask_expert": "试试这样问我",
   "session.summon_expert": "召唤 {name}",
   "session.expert_marketplace_category_all": "全部",
