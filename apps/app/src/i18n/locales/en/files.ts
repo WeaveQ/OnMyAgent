@@ -27,6 +27,7 @@ export default {
   "files.loading": "Loading files…",
   "files.no_files": "No files yet",
   "files.no_matching_files": "No matching files",
+  "files.no_session_files": "This session has not generated files yet",
   "files.open_file": "Open file",
   "files.open_in_folder": "Open in folder",
   "files.search_placeholder": "Search files, tasks, or workspaces",
