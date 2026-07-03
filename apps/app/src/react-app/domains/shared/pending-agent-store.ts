@@ -55,6 +55,7 @@ export type PendingAgentContext = {
   systemPrompt: string;
   model?: { providerID: string; modelID: string };
   tools?: AgentToolAccessMap;
+  quickPrompts?: string[];
   conversationStartId?: number;
   draftSource?: "agent-selection" | "new-session";
   marketplaceExpert?: {

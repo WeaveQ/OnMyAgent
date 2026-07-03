@@ -474,6 +474,7 @@ export function ExpertPage(props: ExpertPageProps) {
           avatarBackground: "var(--ow-primary-light)",
         },
         systemPrompt: marketplaceExpert.systemPrompt,
+        quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
         marketplaceExpert: {
           source: "builtin",
           packageName: marketplaceExpert.packageName,
