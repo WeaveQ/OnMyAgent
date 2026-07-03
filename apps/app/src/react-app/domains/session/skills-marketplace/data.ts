@@ -5,6 +5,7 @@ import {
 import type { SkillMarketplaceEntry } from "./types";
 
 import builtinSkillsManifest from "./builtin-skills.manifest.json";
+import { BUILTIN_SKILL_ICON_URLS } from "./builtin-skill-assets";
 
 type BuiltinSkillManifestEntry = {
   packageName: string;
@@ -99,12 +100,6 @@ function inferCategoryIds(entry: {
   return [...new Set(categoryIds)].slice(0, 3);
 }
 
-function resolveMarketplaceAssetUrl(assetPath: string | null | undefined): string | null {
-  if (!assetPath) return null;
-  const baseUrl = import.meta.env.BASE_URL || "/";
-  return `${baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`}${assetPath}`;
-}
-
 export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
   return Object.entries(skillModules)
     .map(([skillPath, rawSkill]) => {
@@ -140,9 +135,7 @@ export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
         categoryLabel: skillMarketplaceCategoryLabel(categoryId),
         categoryLabels: categoryIds.map(skillMarketplaceCategoryLabel),
         tags,
-        iconUrl: resolveMarketplaceAssetUrl(
-          builtinSkillEntryByPackageName.get(packageName)?.iconAssetPath,
-        ),
+        iconUrl: BUILTIN_SKILL_ICON_URLS[packageName] ?? null,
         version: frontmatterValue(rawSkill, "version") || null,
       };
     })

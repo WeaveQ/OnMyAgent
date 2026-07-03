@@ -9,6 +9,7 @@ import type {
 } from "./types";
 
 import builtinExpertsManifest from "./builtin-experts.manifest.json";
+import { BUILTIN_EXPERT_AVATAR_URLS } from "./builtin-expert-assets";
 
 type BuiltinExpertManifestEntry = {
   packageName: string;
@@ -138,12 +139,6 @@ function looksLikeExpertAlias(value: string): boolean {
   return /^[A-Za-z]+Q$/.test(value.trim());
 }
 
-function resolveMarketplaceAssetUrl(assetPath: string | null | undefined): string | null {
-  if (!assetPath) return null;
-  const baseUrl = import.meta.env.BASE_URL || "/";
-  return `${baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`}${assetPath}`;
-}
-
 function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManifest): string {
   const declaredAgent = firstAgentPath(manifest.agents);
   if (declaredAgent) {
@@ -158,8 +153,7 @@ function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManife
 }
 
 function resolveAvatarUrl(packageName: string, avatarPath: string | null | undefined): string | null {
-  const bundledEntry = builtinExpertEntries.find((entry) => entry.packageName === packageName);
-  const bundledAvatarUrl = resolveMarketplaceAssetUrl(bundledEntry?.avatarAssetPath);
+  const bundledAvatarUrl = BUILTIN_EXPERT_AVATAR_URLS[packageName];
   if (bundledAvatarUrl) return bundledAvatarUrl;
   if (avatarPath) {
     const normalized = avatarPath.replace(/^\.\//, "");
