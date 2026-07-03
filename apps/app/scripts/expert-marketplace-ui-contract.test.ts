@@ -50,7 +50,8 @@ describe("expert marketplace UI contract", () => {
     const data = readMarketplaceFile("data.ts");
 
     expect(data).toContain("titleFromReadme(agentMarkdown, packageName)");
-    expect(data).toContain("bundledEntry?.avatarDataUrl");
+    expect(data).toContain("bundledEntry?.avatarAssetPath");
+    expect(data).toContain("resolveMarketplaceAssetUrl");
     expect(data).toContain("id: `${manifest.name?.trim() || packageName}:${packageName}`");
     expect(data).toContain("packagePath: `builtin-experts/plugins/${packageName}`");
     expect(data).toContain("systemPrompt: agentMarkdown || readme");
@@ -131,6 +132,25 @@ describe("expert marketplace UI contract", () => {
     expect(viteConfig).toContain("apps/desktop/resources/marketplace");
     expect(viteConfig).toContain("buildStart()");
     expect(viteConfig).toContain("server.watcher.add(marketplaceResourcesRoot)");
+  });
+
+  test("marketplace manifests stay lightweight and reference generated public assets", () => {
+    const generator = readWorkspaceFile("apps/app/scripts/generate-marketplace-manifests.mjs");
+    const expertManifest = readMarketplaceFile("builtin-experts.manifest.json");
+    const skillManifest = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills.manifest.json",
+    );
+    const skillData = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/skills-marketplace/data.ts",
+    );
+
+    expect(generator).toContain("apps/app/public/marketplace-assets");
+    expect(generator).toContain("copyAsset");
+    expect(expertManifest).toContain("avatarAssetPath");
+    expect(skillManifest).toContain("iconAssetPath");
+    expect(skillData).toContain("resolveMarketplaceAssetUrl");
+    expect(expertManifest).not.toContain("data:image");
+    expect(skillManifest).not.toContain("data:image");
   });
 
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {
