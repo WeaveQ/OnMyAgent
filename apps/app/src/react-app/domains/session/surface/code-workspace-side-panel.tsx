@@ -33,6 +33,7 @@ import type {
 } from "../../../../app/lib/desktop-types";
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
+import type { OpenTarget } from "../artifacts/open-target";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,21 @@ function flattenWorkspaceFileTree(
     },
     ...flattenWorkspaceFileTree(child),
   ]);
+}
+
+function openTargetsToCatalogEntries(
+  targets: OpenTarget[] | undefined,
+): OpenworkWorkspaceFileCatalogEntry[] {
+  return (targets ?? []).flatMap((target) => {
+    if (target.kind !== "file" || !target.value.trim()) return [];
+    return [{
+      path: target.value.trim().replace(/\\/g, "/").replace(/^\.\//, ""),
+      kind: "file" as const,
+      size: target.size ?? 0,
+      mtimeMs: target.updatedAt ?? 0,
+      revision: "",
+    }];
+  });
 }
 
 function WorkspaceTreeRow(props: {
@@ -147,6 +163,8 @@ function WorkspaceFilesPanel(props: {
   workspaceId: string | null;
   workspaceCatalogRoot: string;
   workspacePath: string;
+  fileRoot?: string | null;
+  fileTargets?: OpenTarget[];
 }) {
   const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -156,18 +174,36 @@ function WorkspaceFilesPanel(props: {
   const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
     new Set(),
   );
-  const prefix = useMemo(() => {
+  const fileRoot =
+    props.fileRoot === undefined ? props.workspacePath : props.fileRoot?.trim() ?? "";
+  const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
+  const requiresSessionFileRoot = props.fileRoot !== undefined;
+  const rootRelativePrefix = useMemo(() => {
     const root = props.workspaceCatalogRoot.replaceAll("\\", "/").replace(/\/+$/, "");
-    const selected = props.workspacePath.replaceAll("\\", "/").replace(/\/+$/, "");
+    const selected = fileRoot.replaceAll("\\", "/").replace(/\/+$/, "");
     if (!root || !selected || selected === root) return "";
     return selected.startsWith(`${root}/`) ? selected.slice(root.length + 1) : "";
-  }, [props.workspaceCatalogRoot, props.workspacePath]);
+  }, [fileRoot, props.workspaceCatalogRoot]);
+  const catalogPrefix = hasScopedFileRoot ? "" : rootRelativePrefix;
 
   useEffect(() => {
-    if (isElectronRuntime() && props.workspacePath) {
+    if (!fileRoot.trim()) {
+      setTree(
+        filterHiddenFromTree(
+          buildWorkspaceFileTree(openTargetsToCatalogEntries(props.fileTargets)),
+        ),
+      );
+      setLoadedDirectories(new Set([""]));
+      setExpanded(new Set());
+      setSelectedPath(null);
+      setContent("");
+      setError(null);
+      return;
+    }
+    if (isElectronRuntime() && fileRoot) {
       let disposed = false;
       setError(null);
-      void listCodeWorkspaceFiles({ workspacePath: props.workspacePath })
+      void listCodeWorkspaceFiles({ workspacePath: fileRoot })
         .then((result) => {
           if (disposed) return;
           setTree(
@@ -198,17 +234,18 @@ function WorkspaceFilesPanel(props: {
       .listWorkspaceFiles(props.workspaceId, {
         includeDirs: true,
         limit: 10_000,
-        prefix: prefix || undefined,
+        ...(hasScopedFileRoot ? { root: fileRoot } : {}),
+        prefix: catalogPrefix || undefined,
       })
       .then((result) => {
         if (disposed) return;
-        const prefixWithSlash = prefix ? `${prefix}/` : "";
+        const prefixWithSlash = catalogPrefix ? `${catalogPrefix}/` : "";
         const items = result.items.flatMap((item) => {
-          if (prefix && item.path === prefix) return [];
-          if (prefix && !item.path.startsWith(prefixWithSlash)) return [];
+          if (catalogPrefix && item.path === catalogPrefix) return [];
+          if (catalogPrefix && !item.path.startsWith(prefixWithSlash)) return [];
           return [{
             ...item,
-            path: prefix ? item.path.slice(prefixWithSlash.length) : item.path,
+            path: catalogPrefix ? item.path.slice(prefixWithSlash.length) : item.path,
           }];
         });
         const nextTree = filterHiddenFromTree(buildWorkspaceFileTree(items));
@@ -221,12 +258,19 @@ function WorkspaceFilesPanel(props: {
     return () => {
       disposed = true;
     };
-  }, [prefix, props.client, props.workspaceId, props.workspacePath]);
+  }, [
+    catalogPrefix,
+    fileRoot,
+    hasScopedFileRoot,
+    props.client,
+    props.fileTargets,
+    props.workspaceId,
+  ]);
 
   const selectFile = useCallback(
     async (path: string) => {
       if (
-        (!isElectronRuntime() || !props.workspacePath) &&
+        (!isElectronRuntime() || !fileRoot) &&
         (!props.client || !props.workspaceId)
       ) {
         return;
@@ -235,9 +279,9 @@ function WorkspaceFilesPanel(props: {
       setError(null);
       try {
         let result;
-        if (isElectronRuntime() && props.workspacePath) {
+        if (isElectronRuntime() && fileRoot) {
           result = await readCodeWorkspaceFile({
-            workspacePath: props.workspacePath,
+            workspacePath: fileRoot,
             relativePath: path,
           });
         } else {
@@ -246,7 +290,7 @@ function WorkspaceFilesPanel(props: {
           if (!client || !workspaceId) return;
           result = await client.readWorkspaceFile(
             workspaceId,
-            prefix ? `${prefix}/${path}` : path,
+            rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path,
           );
         }
         setContent(result.content);
@@ -255,7 +299,7 @@ function WorkspaceFilesPanel(props: {
         setError(nextError instanceof Error ? nextError.message : String(nextError));
       }
     },
-    [prefix, props.client, props.workspaceId, props.workspacePath],
+    [fileRoot, rootRelativePrefix, props.client, props.workspaceId],
   );
 
   const toggleDirectory = useCallback(
@@ -268,14 +312,14 @@ function WorkspaceFilesPanel(props: {
       });
       if (
         !isElectronRuntime() ||
-        !props.workspacePath ||
+        !fileRoot ||
         loadedDirectories.has(path)
       ) {
         return;
       }
       try {
         const result = await listCodeWorkspaceFiles({
-          workspacePath: props.workspacePath,
+          workspacePath: fileRoot,
           relativePath: path,
         });
         setTree((current) => {
@@ -293,13 +337,13 @@ function WorkspaceFilesPanel(props: {
         );
       }
     },
-    [loadedDirectories, props.workspacePath],
+    [fileRoot, loadedDirectories],
   );
 
   return (
     <div className="grid h-full min-h-0 grid-cols-[220px_minmax(0,1fr)] bg-dls-background">
       <div className="min-h-0 overflow-auto border-r border-dls-border p-2">
-        {tree?.children.map((node) => (
+        {tree?.children.length ? tree.children.map((node) => (
           <WorkspaceTreeRow
             key={node.path}
             node={node}
@@ -309,7 +353,11 @@ function WorkspaceFilesPanel(props: {
             onSelect={(path) => void selectFile(path)}
             onToggle={(path) => void toggleDirectory(path)}
           />
-        ))}
+        )) : (
+          <div className="px-2 py-3 text-xs text-dls-secondary">
+            {requiresSessionFileRoot ? t("files.no_session_files") : t("files.no_files")}
+          </div>
+        )}
       </div>
       <div className="flex min-h-0 min-w-0 flex-col">
         <div className="h-9 shrink-0 truncate border-b border-dls-border px-3 py-2 text-xs text-dls-secondary">
@@ -453,6 +501,8 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
 export function CodeWorkspaceSidePanel(props: {
   workspacePath: string | null;
   workspaceCatalogRoot: string;
+  fileRoot?: string | null;
+  fileTargets?: OpenTarget[];
   workspaceId: string | null;
   sessionId: string | null;
   client: OpenworkServerClient | null;
@@ -558,6 +608,8 @@ export function CodeWorkspaceSidePanel(props: {
           workspaceId={props.workspaceId}
           workspaceCatalogRoot={props.workspaceCatalogRoot}
           workspacePath={props.workspacePath ?? props.workspaceCatalogRoot}
+          fileRoot={props.fileRoot}
+          fileTargets={props.fileTargets}
         />
       );
     }
@@ -567,6 +619,8 @@ export function CodeWorkspaceSidePanel(props: {
     props.client,
     props.sessionId,
     props.workspaceCatalogRoot,
+    props.fileRoot,
+    props.fileTargets,
     props.workspaceId,
     props.workspacePath,
   ]);
