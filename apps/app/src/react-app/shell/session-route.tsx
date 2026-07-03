@@ -1488,6 +1488,14 @@ export function SessionRoute() {
     errorsByWorkspaceId,
     sessionsByWorkspaceId,
   });
+  const normalizedSelectedWorkspaceRoot = normalizeDirectoryPath(selectedWorkspaceRoot);
+  const normalizedSessionDirectory = normalizeDirectoryPath(selectedSessionDirectory ?? "");
+  const selectedSessionFileRoot =
+    selectedSessionWorkspace?.directory?.trim() ||
+    (normalizedSessionDirectory &&
+    normalizedSessionDirectory !== normalizedSelectedWorkspaceRoot
+      ? selectedSessionDirectory?.trim() ?? ""
+      : "");
   // Single source of truth for the selected workspace's server URL/token/id.
   // For remote workspaces this is the worker that owns the workspace; for
   // local workspaces it's the user's local OnMyAgent server.
@@ -2969,6 +2977,7 @@ export function SessionRoute() {
               : { workspaceType: "local" }
           }
           selectedWorkspaceRoot={sessionWorkspaceRoot}
+          selectedSessionFileRoot={selectedSessionFileRoot}
           selectedWorkspaceError={selectedWorkspaceError}
           runtimeWorkspaceId={selectedWorkspaceEndpoint?.workspaceId || null}
           opencodeBaseUrl={opencodeBaseUrl}

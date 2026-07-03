@@ -295,6 +295,7 @@ export type SessionPageProps = {
     workspaceType?: WorkspaceInfo["workspaceType"];
   };
   selectedWorkspaceRoot: string;
+  selectedSessionFileRoot?: string | null;
   selectedWorkspaceError?: string | null;
   runtimeWorkspaceId: string | null;
   /**

@@ -1846,6 +1846,8 @@ export function ExpertPage(props: ExpertPageProps) {
                       <CodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
+                        fileRoot={props.selectedSessionFileRoot ?? ""}
+                        fileTargets={artifactFileTargets}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}

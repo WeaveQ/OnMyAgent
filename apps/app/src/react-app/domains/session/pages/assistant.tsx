@@ -227,6 +227,10 @@ export function AssistantPage(props: AssistantPageProps) {
       ),
     [hiddenAccessibleTargetIds, openTargets],
   );
+  const artifactFileTargets = useMemo(
+    () => accessibleTargets.filter(isCollectibleArtifactTarget),
+    [accessibleTargets],
+  );
   const activeSidePanel = voiceSidePanelOpen ? "voice" : sessionSidePanel;
   const sidePanelOpen = activeSidePanel !== null;
   const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
@@ -1353,6 +1357,8 @@ export function AssistantPage(props: AssistantPageProps) {
                       <CodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
+                        fileRoot={props.selectedSessionFileRoot ?? ""}
+                        fileTargets={artifactFileTargets}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}
