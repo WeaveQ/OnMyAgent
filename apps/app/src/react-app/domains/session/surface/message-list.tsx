@@ -73,6 +73,7 @@ const messageTextClass = {
 
 const messageStateClass = {
   pastedTextChip: "inline-flex rounded-full border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning hover:bg-dls-status-warning/20",
+  skillReferenceChip: "inline-flex items-center gap-1 rounded-full border border-dls-accent/25 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
   toolError: "overflow-x-auto rounded-xl border border-dls-status-danger/25 bg-dls-status-danger/10 px-4 py-3 text-xs leading-6 text-dls-status-danger",
   sheetBadge: "min-w-5 border border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
   activeSearchOutline: "outline outline-2 outline-amber-8/70 outline-offset-2 rounded-2xl",
@@ -794,6 +795,80 @@ function HighlightedPlainText(props: {
   );
 }
 
+function parseExpandedSkillReference(text: string): { name: string; arguments: string } | null {
+  const frontmatter = text.match(/^---\s*\r?\n[\s\S]*?\bname:\s*["']?([A-Za-z0-9][\w.-]*)["']?\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n/);
+  const name = frontmatter?.[1];
+  if (!name) return null;
+
+  const lines = text.trimEnd().split(/\r?\n/);
+  const trailing: string[] = [];
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index] ?? "";
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (trailing.length > 0) break;
+      continue;
+    }
+    if (
+      trimmed.startsWith("#") ||
+      trimmed.startsWith(">") ||
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ") ||
+      trimmed.startsWith("```") ||
+      trimmed.startsWith("|") ||
+      /^\d+\.\s/.test(trimmed)
+    ) {
+      break;
+    }
+    trailing.unshift(line);
+  }
+
+  const args = trailing.join("\n").trim();
+  if (!args || args === text.trim()) return null;
+  return { name, arguments: args };
+}
+
+function parseSkillReference(text: string): { name: string; arguments: string } | null {
+  const markerMatch = text.match(/^\[\[skill:([A-Za-z0-9][\w.-]*)\]\]\s*([\s\S]*)$/);
+  if (markerMatch?.[1]) {
+    return { name: markerMatch[1], arguments: markerMatch[2] ?? "" };
+  }
+
+  const slashMatch = text.match(/^\/([A-Za-z0-9][\w.-]*)\s+([\s\S]*)$/);
+  if (slashMatch?.[1]) {
+    return { name: slashMatch[1], arguments: slashMatch[2] ?? "" };
+  }
+
+  return parseExpandedSkillReference(text);
+}
+
+function SkillReferenceText(props: { text: string; highlightQuery?: string }) {
+  const skillReference = parseSkillReference(props.text);
+  if (!skillReference) {
+    return (
+      <HighlightedPlainText
+        text={props.text}
+        className="whitespace-pre-wrap wrap-break-word text-foreground"
+        highlightQuery={props.highlightQuery}
+      />
+    );
+  }
+
+  return (
+    <div className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 whitespace-pre-wrap wrap-break-word text-foreground">
+      <span className={messageStateClass.skillReferenceChip}>
+        <Terminal size={12} aria-hidden="true" />
+        /{skillReference.name}
+      </span>
+      <HighlightedPlainText
+        text={skillReference.arguments}
+        className="min-w-0 wrap-break-word"
+        highlightQuery={props.highlightQuery}
+      />
+    </div>
+  );
+}
+
 function FileCard(props: {
   part: { filename?: string; url: string; mediaType: string };
   tone: "assistant" | "user";
@@ -1397,9 +1472,8 @@ function MessageBlockRow(props: {
                 const text = partToText(group.part);
                 if (block.isUser) {
                   return (
-                    <HighlightedPlainText
+                    <SkillReferenceText
                       text={text}
-                      className="whitespace-pre-wrap wrap-break-word text-foreground"
                       highlightQuery={highlightQuery}
                     />
                   );

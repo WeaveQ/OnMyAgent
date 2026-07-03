@@ -40,6 +40,7 @@ import {
   isElectronRuntime,
 } from "../../../../app/utils";
 import {
+  installBuiltinSkillPackage,
   listExpertPackages,
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
@@ -68,9 +69,11 @@ import {
   findBuiltinMarketplaceExpertById,
   isBuiltinMarketplaceExpertAgentId,
 } from "../expert-marketplace/data";
+import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
+import { writeAssistantSelectionMemory } from "../components/shared-pages/assistant-selection-memory";
 
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../components/shared-pages/conversation-model";
@@ -136,6 +139,14 @@ import {
 const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
+const CREATE_EXPERT_SKILL_NAME = "expert-manager";
+const CREATE_EXPERT_PROMPT =
+  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+
+function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
+  const values = [entry.packageName, entry.displayName, entry.packagePath];
+  return values.every((value) => !value.split(/[\\/]/).includes(".expert-plugin"));
+}
 
 function packageEntryToMarketplaceExpert(
   entry: ExpertPackageListEntry,
@@ -206,6 +217,18 @@ function isTrackableAccessibleTarget(target: OpenTarget) {
   );
 }
 
+function setComposerDraftAfterNewTask(workspaceId: string, draft: string) {
+  const sessionId = `draft:${workspaceId}`;
+  const apply = () => {
+    useComposerStateStore.getState().setDraft(sessionId, draft);
+  };
+  apply();
+  window.setTimeout(apply, 0);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(apply);
+  });
+}
+
 export function ExpertPage(props: ExpertPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeSidebarView, setActiveSidebarView] =
@@ -252,7 +275,11 @@ export function ExpertPage(props: ExpertPageProps) {
     listExpertPackages("my-experts")
       .then((entries) => {
         if (cancelled) return;
-        setMyExpertPackages(entries.map(packageEntryToMarketplaceExpert));
+        setMyExpertPackages(
+          entries
+            .filter(isVisibleExpertPackageEntry)
+            .map(packageEntryToMarketplaceExpert),
+        );
       })
       .catch((error) => {
         console.warn("Failed to load local expert packages", error);
@@ -448,6 +475,7 @@ export function ExpertPage(props: ExpertPageProps) {
           avatarBackground: "var(--ow-primary-light)",
         },
         systemPrompt: marketplaceExpert.systemPrompt,
+        quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
         marketplaceExpert: {
           source: "builtin",
           packageName: marketplaceExpert.packageName,
@@ -795,9 +823,37 @@ export function ExpertPage(props: ExpertPageProps) {
     setStoreActiveTab("experts");
     setActiveSidebarView("store");
   }, []);
+  const openFreshExpertDraft = useCallback(() => {
+    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
+  }, [props.selectedWorkspaceId, props.sidebar]);
+
+  const handleCreateExpert = useCallback(async () => {
+    if (isElectronRuntime()) {
+      try {
+        await installBuiltinSkillPackage({
+          source: "builtin",
+          packageName: CREATE_EXPERT_SKILL_NAME,
+          skillName: CREATE_EXPERT_SKILL_NAME,
+        });
+      } catch (error) {
+        console.warn("[expert-marketplace] failed to install expert-manager", error);
+      }
+    }
+    writeAssistantSelectionMemory(
+      props.selectedWorkspaceId,
+      "office",
+      { kind: "newTask" },
+    );
+    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
+    setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT);
+    props.onNavigateToMode("assistant");
+  }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
+      void installSummonedMarketplaceExpert(expert).catch((error) => {
+        console.warn("[expert-marketplace] failed to install expert package", error);
+      });
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
@@ -814,10 +870,12 @@ export function ExpertPage(props: ExpertPageProps) {
         (agent) => pendingAgentMatchesMarketplaceExpert(agent, expert),
       );
       if (existingDraftAgent) {
+        openFreshExpertDraft();
         activateDraftAgent(existingDraftAgent);
         return;
       }
 
+      openFreshExpertDraft();
       activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert));
       setActiveSidebarView("chat");
     },
@@ -826,6 +884,7 @@ export function ExpertPage(props: ExpertPageProps) {
       conversationGroups,
       draftAgentContexts,
       handleOpenExpertSession,
+      openFreshExpertDraft,
       props.sidebar.selectedWorkspaceId,
     ],
   );
@@ -1463,9 +1522,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           myExperts={myExpertPackages}
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
-                          onCreateExpert={() => {
-                            setAgentCreateRequestKey(Date.now());
-                          }}
+                          onCreateExpert={handleCreateExpert}
                         />
                       ) : null}
 
@@ -1789,6 +1846,8 @@ export function ExpertPage(props: ExpertPageProps) {
                       <CodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
+                        fileRoot={props.selectedSessionFileRoot ?? ""}
+                        fileTargets={artifactFileTargets}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}

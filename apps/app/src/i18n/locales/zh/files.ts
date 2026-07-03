@@ -25,6 +25,7 @@ export default {
   "files.loading": "正在加载文件…",
   "files.no_files": "暂无文件",
   "files.no_matching_files": "暂无符合条件的文件",
+  "files.no_session_files": "当前会话暂未生成文件",
   "files.open_file": "打开文件",
   "files.open_in_folder": "在文件夹中打开",
   "files.search_placeholder": "搜索文件、任务或工作空间",

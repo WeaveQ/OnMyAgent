@@ -8,29 +8,49 @@ import type {
   LocalizedText,
 } from "./types";
 
-const manifestModules = import.meta.glob("./builtin-experts/plugins/*/.codebuddy-plugin/plugin.json", {
-  eager: true,
-  import: "default",
-  query: "?raw",
-}) as Record<string, string>;
+import builtinExpertsManifest from "./builtin-experts.manifest.json";
+import { BUILTIN_EXPERT_AVATAR_URLS } from "./builtin-expert-assets";
 
-const readmeModules = import.meta.glob("./builtin-experts/plugins/*/README.md", {
-  eager: true,
-  import: "default",
-  query: "?raw",
-}) as Record<string, string>;
+type BuiltinExpertManifestEntry = {
+  packageName: string;
+  manifest: ExpertPackageManifest;
+  readme: string;
+  agentMarkdown: string;
+  agentPath: string;
+  avatarAssetPath?: string | null;
+};
 
-const agentModules = import.meta.glob("./builtin-experts/plugins/*/agents/*.md", {
-  eager: true,
-  import: "default",
-  query: "?raw",
-}) as Record<string, string>;
+type BuiltinExpertsManifest = {
+  version: number;
+  experts: BuiltinExpertManifestEntry[];
+};
 
-const avatarModules = import.meta.glob("./builtin-experts/plugins/*/avatars/*.{png,jpg,jpeg,webp}", {
-  eager: true,
-  import: "default",
-  query: "?url",
-}) as Record<string, string>;
+const builtinExpertEntries = (builtinExpertsManifest as BuiltinExpertsManifest).experts;
+
+const manifestModules = Object.fromEntries(
+  builtinExpertEntries.map((entry) => [
+    `./builtin-experts/plugins/${entry.packageName}/.expert-plugin/plugin.json`,
+    JSON.stringify(entry.manifest),
+  ]),
+) as Record<string, string>;
+
+const readmeModules = Object.fromEntries(
+  builtinExpertEntries.map((entry) => [
+    `./builtin-experts/plugins/${entry.packageName}/README.md`,
+    entry.readme,
+  ]),
+) as Record<string, string>;
+
+const agentModules = Object.fromEntries(
+  builtinExpertEntries
+    .filter((entry) => entry.agentPath)
+    .map((entry) => [
+      `./builtin-experts/plugins/${entry.packageName}/${entry.agentPath}`,
+      entry.agentMarkdown,
+    ]),
+) as Record<string, string>;
+
+const avatarModules = {} as Record<string, string>;
 
 type ExpertPackageManifest = {
   name?: string;
@@ -133,6 +153,8 @@ function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManife
 }
 
 function resolveAvatarUrl(packageName: string, avatarPath: string | null | undefined): string | null {
+  const bundledAvatarUrl = BUILTIN_EXPERT_AVATAR_URLS[packageName];
+  if (bundledAvatarUrl) return bundledAvatarUrl;
   if (avatarPath) {
     const normalized = avatarPath.replace(/^\.\//, "");
     const path = `./builtin-experts/plugins/${packageName}/${normalized}`;

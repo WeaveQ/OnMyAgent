@@ -1,5 +1,5 @@
 import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import type {
   ApprovalRequest,
   ServerConfig,
@@ -154,6 +154,34 @@ function parseCatalogPathFilter(input: string | null): string | null {
   return normalizeWorkspaceRelativePath(trimmed, { allowSubdirs: true });
 }
 
+async function resolveFileSessionRoot(input: {
+  workspace: WorkspaceInfo;
+  root: unknown;
+  authorizedRoots: string[];
+}): Promise<string> {
+  const requested = typeof input.root === "string" ? input.root.trim() : "";
+  const root = requested ? resolve(requested) : resolve(input.workspace.path);
+  const authorized = input.authorizedRoots.some((candidate) => {
+    const resolved = resolve(candidate);
+    return root === resolved || root.startsWith(resolved + sep);
+  });
+  if (!authorized) {
+    throw new ApiError(
+      403,
+      "forbidden_root",
+      "Requested file session root is not authorized",
+    );
+  }
+  if (!(await exists(root))) {
+    throw new ApiError(404, "root_not_found", "Requested file session root was not found");
+  }
+  const info = await stat(root);
+  if (!info.isDirectory()) {
+    throw new ApiError(400, "invalid_root", "Requested file session root must be a directory");
+  }
+  return root;
+}
+
 function matchesCatalogFilter(path: string, filter: string | null): boolean {
   if (!filter) return true;
   return path === filter || path.startsWith(`${filter}/`);
@@ -304,14 +332,20 @@ function parseBatchWriteList(input: unknown): Array<{
         (body as Record<string, unknown>).ttlSeconds,
       );
       const requestWrite = (body as Record<string, unknown>).write !== false;
+      const workspaceRoot = await resolveFileSessionRoot({
+        workspace,
+        root: (body as Record<string, unknown>).root,
+        authorizedRoots: config.authorizedRoots,
+      });
       const canWrite =
         requestWrite &&
+        workspaceRoot === resolve(workspace.path) &&
         !config.readOnly &&
         scopeRank(ctx.actor?.scope ?? "viewer") >= scopeRank("collaborator");
 
       const session = fileSessions.create({
         workspaceId: workspace.id,
-        workspaceRoot: workspace.path,
+        workspaceRoot,
         actorTokenHash: ctx.actor?.tokenHash ?? "",
         actorScope: ctx.actor?.scope ?? "viewer",
         canWrite,
@@ -363,13 +397,13 @@ function parseBatchWriteList(input: unknown): Array<{
     "/files/sessions/:sessionId/catalog/snapshot",
     "client",
     async (ctx) => {
-      const { workspace } = resolveFileSession(ctx, ctx.params.sessionId);
+      const { session, workspace } = resolveFileSession(ctx, ctx.params.sessionId);
       const prefix = parseCatalogPathFilter(ctx.url.searchParams.get("prefix"));
       const after = parseCatalogPathFilter(ctx.url.searchParams.get("after"));
       const includeDirs = ctx.url.searchParams.get("includeDirs") !== "false";
       const limit = parseCatalogLimit(ctx.url.searchParams.get("limit"));
 
-      const entries = await listWorkspaceCatalogEntries(workspace.path);
+      const entries = await listWorkspaceCatalogEntries(session.workspaceRoot);
       const filtered = entries.filter((entry) => {
         if (!includeDirs && entry.kind === "dir") return false;
         if (!matchesCatalogFilter(entry.path, prefix)) return false;

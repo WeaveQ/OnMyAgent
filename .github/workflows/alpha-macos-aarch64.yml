@@ -1,6 +1,6 @@
 name: Alpha Channel (macOS arm64)
 
-# Every merge to `dev` publishes a fresh macOS arm64 build to the OnMyAgent
+# Every merge to `main` publishes a fresh macOS arm64 build to the OnMyAgent
 # alpha release channel.
 #
 # The alpha channel is macOS-only today. It lives as a rolling GitHub
@@ -13,9 +13,6 @@ name: Alpha Channel (macOS arm64)
 #   - .github/workflows/release-macos-aarch64.yml (stable channel)
 
 on:
-  push:
-    branches:
-      - dev
   workflow_dispatch:
 
 permissions:
