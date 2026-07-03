@@ -7,7 +7,10 @@ const marketplaceRoot = join(
   repoRoot,
   "apps/app/src/react-app/domains/session/expert-marketplace",
 );
-const builtinPluginsRoot = join(marketplaceRoot, "builtin-experts/plugins");
+const builtinPluginsRoot = join(
+  repoRoot,
+  "apps/desktop/resources/marketplace/experts/plugins",
+);
 
 function readWorkspaceFile(path: string): string {
   return readFileSync(join(repoRoot, path), "utf8");
@@ -36,9 +39,9 @@ describe("expert marketplace UI contract", () => {
 
     expect(packageNames).toEqual(
       expect.arrayContaining([
-        "meituan-living-assistant",
-        "software-company",
-        "trading-agent",
+        "ai-engineer",
+        "gaokao-advisor",
+        "viral-topic-master",
       ]),
     );
   });
@@ -46,9 +49,8 @@ describe("expert marketplace UI contract", () => {
   test("parses details from package files with folder-name fallback and duplicate-safe ids", () => {
     const data = readMarketplaceFile("data.ts");
 
-    expect(data).toContain("import.meta.glob");
-    expect(data).toContain("titleFromReadme(readme, packageName)");
-    expect(data).toContain('manifest.categoryId?.trim() || "all"');
+    expect(data).toContain("titleFromReadme(agentMarkdown, packageName)");
+    expect(data).toContain("bundledEntry?.avatarDataUrl");
     expect(data).toContain("id: `${manifest.name?.trim() || packageName}:${packageName}`");
     expect(data).toContain("packagePath: `builtin-experts/plugins/${packageName}`");
     expect(data).toContain("systemPrompt: agentMarkdown || readme");
@@ -71,22 +73,27 @@ describe("expert marketplace UI contract", () => {
 
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const storePage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/components/shared-pages/side-panel-pages.tsx",
     );
+    const installHelper = readMarketplaceFile("install.ts");
     const pendingAgent = readMarketplaceFile("pending-agent.ts");
 
-    expect(storePage).toContain('export type StorePrimaryTab = "experts" | "skills" | "connectors"');
+    expect(storePage).toContain('export type StorePrimaryTab = "experts" | "skills"');
     expect(storePage).toContain("function StorePrimaryTabs");
     expect(storePage).toContain("<ExpertMarketplacePage");
     expect(storePage).toContain('t("store.experts_marketplace")');
     expect(storePage).toContain('t("store.all_experts")');
     expect(storePage).toContain('t("store.add_skill")');
-    expect(storePage).toContain('t("store.add_connector")');
     expect(expertPage).toContain("const openExpertMarket = useCallback");
     expect(expertPage).toContain("onOpenAgents={openExpertMarket}");
     expect(expertPage).toContain("activeTab={storeActiveTab}");
     expect(expertPage).toContain("onSummonMarketplaceExpert={handleStartMarketplaceExpert}");
+    expect(expertPage).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(assistantPage).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(installHelper).toContain('expert.source !== "builtin"');
+    expect(installHelper).toContain('marketplace: "experts"');
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
     expect(expertPage).not.toContain("agentEditRequest");
     expect(expertPage).not.toContain("onOpenAgentSettings={");
@@ -102,7 +109,7 @@ describe("expert marketplace UI contract", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
 
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
-    expect(expertPage).toContain(".setDraft(`draft:${props.selectedWorkspaceId}`, CREATE_EXPERT_PROMPT)");
+    expect(expertPage).toContain("setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT)");
     expect(expertPage).toContain('props.onNavigateToMode("assistant")');
   });
 
@@ -115,6 +122,15 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
     expect(expertPage).toContain("activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+  });
+
+  test("vite regenerates marketplace manifests from desktop resources", () => {
+    const viteConfig = readWorkspaceFile("apps/app/vite.config.ts");
+
+    expect(viteConfig).toContain("generate-marketplace-manifests.mjs");
+    expect(viteConfig).toContain("apps/desktop/resources/marketplace");
+    expect(viteConfig).toContain("buildStart()");
+    expect(viteConfig).toContain("server.watcher.add(marketplaceResourcesRoot)");
   });
 
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {

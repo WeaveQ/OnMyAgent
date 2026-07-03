@@ -16,6 +16,7 @@ type BuiltinExpertManifestEntry = {
   readme: string;
   agentMarkdown: string;
   agentPath: string;
+  avatarDataUrl?: string | null;
 };
 
 type BuiltinExpertsManifest = {
@@ -151,6 +152,8 @@ function resolveAgentMarkdown(packageName: string, manifest: ExpertPackageManife
 }
 
 function resolveAvatarUrl(packageName: string, avatarPath: string | null | undefined): string | null {
+  const bundledEntry = builtinExpertEntries.find((entry) => entry.packageName === packageName);
+  if (bundledEntry?.avatarDataUrl) return bundledEntry.avatarDataUrl;
   if (avatarPath) {
     const normalized = avatarPath.replace(/^\.\//, "");
     const path = `./builtin-experts/plugins/${packageName}/${normalized}`;
