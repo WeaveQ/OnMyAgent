@@ -13,9 +13,6 @@ name: Alpha Channel (macOS arm64)
 #   - .github/workflows/release-macos-aarch64.yml (stable channel)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
