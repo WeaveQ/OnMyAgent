@@ -148,7 +148,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
   const timelineMessages = useMemo(() => visibleRunTimelineMessages(run), [run]);
   const timelineItems = useMemo(() => groupLocalAgentTimeline(timelineMessages), [timelineMessages]);
 
-  // AionUi ThoughtDisplay parity: transient subject/description shown above
+  // Transient subject/description shown above
   // the timeline while the turn is streaming. Derived from run.events; cleared
   // when a non-thought/non-status event (assistant text, plan, tool_call,
   // error, finish) arrives afterwards.
@@ -171,7 +171,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
 
   const [throttledThought, setThrottledThought] = useState<{ subject: string; description: string } | null>(null);
   useEffect(() => {
-    // Throttle updates to 50ms, matching AionUi's thoughtThrottleRef pattern.
+    // Throttle updates to 50ms, to smooth flicker.
     if (!thoughtHint) { setThrottledThought(null); return; }
     const timer = window.setTimeout(() => setThrottledThought(thoughtHint), 50);
     return () => window.clearTimeout(timer);
@@ -181,7 +181,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
   const [rawLogExpanded, setRawLogExpanded] = useState(false);
   const [runDetailsExpanded, setRunDetailsExpanded] = useState(false);
 
-  // AionUI pattern: auto-expand timeline while running, auto-collapse when done
+  // Auto-expand timeline while running, auto-collapse when done
   // BUT keep expanded if there are thinking/plan messages (user may want to review)
   const hasThinkingOrPlan = timelineItems.some(
     (item) => item.kind === "message" && (item.message.type === "thinking" || item.message.type === "plan"),
@@ -191,10 +191,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
     else if (!hasThinkingOrPlan) setTimelineExpanded(false);
   }, [run?.runId, run?.status, hasThinkingOrPlan]);
 
-  // Hide the bubble if there is no actual content to show. A freshly-seeded
-  // assistant message can briefly have empty text and no run attached (e.g. the
-  // moment a new conversation is created); rendering it produces a stray empty
-  // box below the real bubble. User bubbles always render (they carry the prompt).
   // Hide the bubble if there is no actual content to show. A freshly-seeded
   // assistant message can briefly have empty text and no run attached (e.g. the
   // moment a new conversation is created); rendering it produces a stray empty

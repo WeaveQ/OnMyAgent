@@ -788,6 +788,8 @@ export type PersonalLocalAgentConversationStatusResult = {
   activeRun: PersonalLocalAgentRunResult | null;
   running: boolean;
   status: string;
+  events?: PersonalLocalAgentRunEvent[];
+  conversationMessages?: PersonalLocalAgentConversationMessage[];
 };
 
 export type PersonalLocalAgentConversationWarmupResult = {

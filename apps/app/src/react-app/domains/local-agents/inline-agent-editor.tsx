@@ -65,6 +65,8 @@ export function InlineAgentEditor(props: {
   onCancel: () => void;
   onSave: (value: InlineAgentEditorValue) => void;
 }) {
+  // Callers pass agent objects that may carry richer editor-only fields (description,
+  // env map, nativeSkillsDirs, behaviorPolicy) not exposed on the public PersonalLocalAgent type.
   const editableAgent = props.agent as EditableAgentFields | null | undefined;
   const [id, setId] = useState(editableAgent?.id ?? "");
   const [name, setName] = useState(editableAgent?.name ?? "");

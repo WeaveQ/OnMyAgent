@@ -1,5 +1,5 @@
 import { t } from "@/i18n";
-import type { PersonalLocalAgent, PersonalLocalAgentProvider, PersonalLocalAgentRunResult } from "../../../app/lib/desktop";
+import type { PersonalLocalAgent, PersonalLocalAgentRunResult } from "../../../app/lib/desktop";
 
 const PROVIDER_LABELS: Record<PersonalLocalAgent["provider"], string> = {
   opencode: "OpenCode",
@@ -27,7 +27,7 @@ export function runStatusLabel(status: PersonalLocalAgentRunResult["status"]) {
 
 export function runHumanSummary(run: PersonalLocalAgentRunResult) {
   const status = runStatusLabel(run.status);
-  const provider = run.agentProvider ? PROVIDER_LABELS[run.agentProvider as PersonalLocalAgentProvider] : t("nav.local_agent");
+  const provider = run.agentProvider ? PROVIDER_LABELS[run.agentProvider] : t("nav.local_agent");
   if (run.status === "running" && run.pendingApprovals?.length) return t("local_agent.run_summary_waiting_approval", { provider, count: run.pendingApprovals.length });
   if (run.status === "running") return t("local_agent.run_summary_running", { provider, elapsed: elapsedSeconds(run.startedAt, null) });
   if (run.status === "completed") return t("local_agent.run_summary_completed", { provider, elapsed: elapsedSeconds(run.startedAt, run.finishedAt) });
