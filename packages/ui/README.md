@@ -6,14 +6,13 @@ This package ships a React entrypoint: `@onmyagent/ui/react`.
 
 ## Paper components
 
-The first shared components live under the `paper` namespace and wrap Paper Design shaders with OnMyAgent-specific defaults and deterministic seed support.
+The shared components live under the `paper` namespace and wrap Paper Design shaders with OnMyAgent-specific defaults and deterministic seed support.
 
 Current components:
 
-- `PaperMeshGradient`
 - `PaperGrainGradient`
 
-Both accept a `seed` prop. Pass a TypeID-like string such as `om_01kmhbscaze02vp04ykqa4tcsb` and the component will deterministically derive colors and shader params from it. The same seed always produces the same result.
+`PaperGrainGradient` accepts a `seed` prop. Pass a TypeID-like string such as `om_01kmhbscaze02vp04ykqa4tcsb` and the component will deterministically derive colors and shader params from it. The same seed always produces the same result.
 
 Explicit props still work and override the seeded values, so the merge order is:
 
