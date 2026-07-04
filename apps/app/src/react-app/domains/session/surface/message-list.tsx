@@ -1578,7 +1578,15 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
       if (!renderableParts.length) return;
 
+      // Filter out empty assistant messages. A newly-created session can briefly have
+      // an empty assistant message with just a text part containing whitespace.
+      // User messages always render even if empty because they carry the prompt.
       const isUser = message.role === "user";
+      if (!isUser && renderableParts.every((part) => {
+        if (part.type === "text") return partToText(part).trim().length === 0;
+        if (part.type === "reasoning") return partToText(part).trim().length === 0;
+        return false;
+      })) return;
       const attachments = attachmentsForParts(renderableParts);
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
       const groups = groupMessageParts(nonAttachmentParts, message.id);

@@ -48,6 +48,9 @@ packaging/docker/workspace/
 # OS
 .DS_Store
 
+# Node diagnostic reports (SIGUSR2)
+report.*.json
+
 # OpenCode mirror
 vendor/opencode/
 

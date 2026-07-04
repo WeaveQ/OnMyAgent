@@ -1,7 +1,7 @@
 /**
  * ChannelPairingService - Secure pairing and user authorization
  * 
- * Provides AionUi-style pairing mechanism:
+ * Provides local-first pairing mechanism:
  * - 6-digit pairing code with 10-minute expiry
  * - Local-only approval/denial (never approve via IM)
  * - Persistent authorized user whitelist
