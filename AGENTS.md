@@ -48,6 +48,7 @@ pnpm task check orchestrator # 低频专项检查入口：orchestrator 类型检
 pnpm task check design    # 低频专项检查入口：DESIGN.md YAML 与代码 token 漂移检测
 pnpm check:boundaries     # 架构边界 + shell-import-depth 门禁
 pnpm check:forbidden-types # any / as any / as unknown as 类型逃逸门禁
+pnpm check:i18n:cjk       # renderer 层中日韩硬编码字符串门禁
 pnpm test:unit            # server + orchestrator 单元/集成测试
 pnpm test:api             # server HTTP/API e2e 测试
 pnpm test:runtime         # Electron bridge + orchestrator runtime smoke
@@ -71,6 +72,10 @@ pnpm task build app       # UI 构建
   不得深链 `domains/<domain>/<sub>/...`。由 `pnpm check:boundaries` 中的
   shell-import-depth 规则强制，baseline 位于
   `scripts/checks/baselines/shell-import-depth.json`，同样只减不增。
+- `apps/app/src` renderer 层不新增硬编码 CJK（中/日/韩）字符串：
+  用户可见文案必须走 `apps/app/src/i18n/locales/{en,zh,zh-TW}/*.ts` 的 `t()`。
+  由 `pnpm check:i18n:cjk` 强制，历史违规冻结在
+  `scripts/checks/baselines/i18n-cjk-hardcoded.json`，只能缩减、禁止手改扩增。
 
 ### 默认技术栈
 
