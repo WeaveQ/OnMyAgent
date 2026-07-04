@@ -282,6 +282,65 @@
   </div>
 </section>
 
+<section class="pv-section" id="iconography">
+  <h2>7 · Iconography &amp; Z-Layer Stack</h2>
+  <p class="pv-body">Icon sizes come from the YAML <code>iconography:</code> block; stroke width 1.5, paint <code>currentColor</code>, library <code>lucide-react</code> only. The z-layer stack is a fixed 6-level ladder every overlay must pick from.</p>
+
+  <h3 class="pv-h3">Icon size grid</h3>
+  <div class="pv-icon-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1rem;margin-top:0.75rem;">
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <code class="pv-mono" style="font-size:11px;">xs · 12</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">inline hint</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <code class="pv-mono" style="font-size:11px;">sm · 14</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">in-row action</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <code class="pv-mono" style="font-size:11px;">base · 16</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">menu &amp; button</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg>
+      <code class="pv-mono" style="font-size:11px;">lg · 20</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">primary CTA</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      <code class="pv-mono" style="font-size:11px;">xl · 24</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">empty-state hero</span>
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">Stroke width 1.5 uniformly. Icons render at intrinsic <code>currentColor</code>; test that a color change on the parent propagates without an explicit <code>color</code> prop.</p>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Z-layer stack</h3>
+  <p class="pv-body">Overlays compose against a fixed 6-level ladder. The demo below stacks each layer visually — <code>toast</code> sits above <code>dialog</code>, which sits above <code>popover</code>, and so on.</p>
+  <div class="pv-z-demo" style="position:relative;height:260px;margin-top:0.75rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-app-bg);">
+    <div style="position:absolute;top:24px;left:24px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:8px;">
+      <span class="pv-mono" style="font-size:11px;">base · 0</span> — content
+    </div>
+    <div style="position:absolute;top:52px;left:56px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:8px;z-index:10;">
+      <span class="pv-mono" style="font-size:11px;">sticky · 10</span> — sticky header
+    </div>
+    <div style="position:absolute;top:80px;left:88px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:8px;z-index:100;">
+      <span class="pv-mono" style="font-size:11px;">dropdown · 100</span> — DropdownMenu
+    </div>
+    <div style="position:absolute;top:108px;left:120px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:8px;z-index:200;">
+      <span class="pv-mono" style="font-size:11px;">popover · 200</span> — Popover / Tooltip
+    </div>
+    <div style="position:absolute;top:136px;left:152px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border-strong);border-radius:8px;z-index:300;">
+      <span class="pv-mono" style="font-size:11px;">dialog · 300</span> — Dialog / Sheet
+    </div>
+    <div style="position:absolute;top:164px;left:184px;padding:10px 14px;background:var(--dls-primary);color:#fff;border-radius:8px;z-index:400;">
+      <span class="pv-mono" style="font-size:11px;color:#fff;">toast · 400</span> — always on top
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);"><code>overlay-max</code> (999) is reserved as an emergency ceiling — drag-preview ghosts and system-level overlays only.</p>
+</section>
+
 </main>
 
 <footer class="pv-footer">
