@@ -91,8 +91,7 @@ const devProfilerOverlayClass = {
 const PROFILER_ENABLED = (() => {
   if (typeof window === "undefined") return false;
   try {
-    const env = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
-    const flag = env.VITE_ONMYAGENT_PROFILER;
+    const flag = import.meta.env.VITE_ONMYAGENT_PROFILER;
     if (flag === "1" || flag === "true" || flag === true) return true;
   } catch {
     // ignore

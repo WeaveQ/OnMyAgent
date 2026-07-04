@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import { Readable } from "node:stream";
+import { nodeReadableToWebStream } from "../core/node-web-stream.js";
 import type {
   ApprovalRequest,
   ServerConfig,
@@ -154,9 +155,7 @@ export function registerWorkspaceFileRoutes(input: {
       "Content-Disposition",
       `inline; filename="${basename(relativePath)}"`,
     );
-    const stream = Readable.toWeb(
-      createReadStream(absPath),
-    ) as unknown as ReadableStream;
+    const stream = nodeReadableToWebStream(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 

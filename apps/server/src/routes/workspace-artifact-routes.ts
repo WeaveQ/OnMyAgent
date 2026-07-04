@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { writeFile, rename, stat } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import { Readable } from "node:stream";
+import { nodeReadableToWebStream } from "../core/node-web-stream.js";
 import type {
   ApprovalRequest,
   ServerConfig,
@@ -231,6 +232,6 @@ function fileDownloadResponse(
     "Content-Disposition",
     `attachment; filename="${basename(relativePath)}"`,
   );
-  const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+  const stream = nodeReadableToWebStream(createReadStream(absPath));
   return new Response(stream, { status: 200, headers });
 }

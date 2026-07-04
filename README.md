@@ -140,6 +140,7 @@ pnpm check
 pnpm check:i18n
 pnpm check:security
 pnpm check:boundaries
+pnpm check:forbidden-types
 pnpm task check app
 pnpm task check server
 pnpm task build app

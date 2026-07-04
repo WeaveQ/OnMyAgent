@@ -176,13 +176,13 @@ import {
   resolvePendingAgentForPrompt,
 } from "./session-route-agent-context";
 import { SessionCloudAccountBridge } from "./session-cloud-account-bridge";
-import { usePendingAgentStore } from "../domains/shared/pending-agent-store";
-import type { PendingAgentContext } from "../domains/shared/pending-agent-store";
+import { usePendingAgentStore } from "../domains/shared";
+import type { PendingAgentContext } from "../domains/shared";
 import {
   readCustomAgentIdForSession,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
-} from "../domains/agents/agent-registry-store";
+} from "../domains/agents";
 import {
   addAssistantSession,
   addExpertSession,
@@ -194,12 +194,12 @@ import {
   removeAssistantSession,
   removeExpertSession,
   writeAssistantSessionCategory,
-} from "../domains/shared/agent-session-state";
+} from "../domains/shared";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
-} from "../domains/session/components/shared-pages/automation-session-groups";
-import { useEnsureAgentRegistry } from "../domains/agents/use-agent-registry";
+} from "../domains/session";
+import { useEnsureAgentRegistry } from "../domains/agents";
 import {
   installExpertPackage,
   pickDirectory,
@@ -238,51 +238,44 @@ import {
   SessionPage,
   type PageMode,
   type SessionAgentManagementIntent,
-} from "../domains/session/pages";
-import { AgentsPage } from "../domains/agents/agents-page";
+} from "../domains/session";
+import { AgentsPage } from "../domains/agents";
 import { legacyAssistantRoute } from "./workspace-routes";
 import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
-import { useCheckDesktopRestriction } from "../domains/cloud/desktop-config-provider";
-import { useRestrictionNotice } from "../domains/cloud/restriction-notice-provider";
-import { ReactSessionRuntime } from "../domains/session/sync/runtime-sync";
-import { useSessionActivityStore } from "../domains/session/status/session-activity-store";
-import { buildOpenworkEnvSystemContext } from "../domains/shared/env-context";
+import { useCheckDesktopRestriction, useRestrictionNotice } from "../domains/cloud";
+import { ReactSessionRuntime, useSessionActivityStore } from "../domains/session";
+import { buildOpenworkEnvSystemContext } from "../domains/shared";
 import {
   assistantSessionWorkspacesChangedEvent,
   dispatchAssistantSessionWorkspacesChanged,
-  readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspace,
+  readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspaces,
   removeAssistantSessionWorkspace,
-  writeAssistantSessionWorkspace,
-} from "../domains/session/sync/assistant-session-workspaces";
-import {
   seedPermissionState,
   seedQuestionState,
   seedSessionState,
   trackWorkspaceSessionSync,
-} from "../domains/session/sync/session-sync";
-import { CreateRemoteWorkspaceModal } from "../domains/workspace/create-remote-workspace-modal";
-import { CreateWorkspaceModal } from "../domains/workspace/create-workspace-modal";
+  writeAssistantSessionWorkspace,
+} from "../domains/session";
 import {
-  createProviderAuthStore,
-  useProviderAuthStoreSnapshot,
-} from "../domains/connections/provider-auth/store";
-import { useRemoteAccessRestart } from "../domains/workspace/remote-access-restart";
-import { RenameWorkspaceModal } from "../domains/workspace/rename-workspace-modal";
-import { useRemoteWorkspaceConnectionEditor } from "../domains/workspace/use-remote-workspace-connection-editor";
-import { useCloudProviderAutoSync } from "../domains/cloud/use-cloud-provider-auto-sync";
-import {
+  CreateRemoteWorkspaceModal,
+  CreateWorkspaceModal,
+  RenameWorkspaceModal,
   diagnoseRemoteWorkspaceTaskLoadFailure,
-} from "../domains/workspace/remote-workspace-diagnostics";
+  useRemoteAccessRestart,
+  useRemoteWorkspaceConnectionEditor,
+} from "../domains/workspace";
+import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections";
+import { useCloudProviderAutoSync } from "../domains/cloud";
 import {
   buildSessionRemoteWorkspaceConnectingState,
   resolveSessionRemoteWorkspaceConnectionCheckTarget,
   runSessionRemoteWorkspaceConnectionCheckTarget,
   sessionRemoteWorkspaceConnectionCheckIsCurrent,
 } from "./session-route-remote-workspace-actions";
-import { useShareWorkspaceState } from "../domains/workspace/share-workspace-state";
-import { ModelPickerModal } from "../domains/session/modals/model-picker-modal";
+import { useShareWorkspaceState } from "../domains/workspace";
+import { ModelPickerModal } from "../domains/session";
 import {
   CommandPalette,
   type AccessibleTargetOption,
@@ -298,7 +291,7 @@ import {
   writeWorkspaceOrderIds,
 } from "./session-memory";
 import { recordInspectorEvent } from "./app-inspector";
-import { saveSessionDraft } from "../domains/session/sync/draft-store";
+import { saveSessionDraft } from "../domains/session";
 import {
   useControlAction,
 } from "./control/control-provider";
@@ -326,23 +319,21 @@ import { ensureDesktopLocalOpenworkConnection } from "./desktop-local-onmyagent"
 import { loadSessionOpenworkConnectionState } from "./session-route-server-actions";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
-import { useStatusToasts } from "../domains/shared/status-toasts";
-import { useSessionControlActions } from "../domains/session/control/session-control-actions";
+import { useStatusToasts } from "../domains/shared";
+import { useSessionControlActions } from "../domains/session";
 import {
   legacySessionRoute,
   workspaceSettingsRoute,
 } from "./workspace-routes";
 import { WorkspaceProvider } from "./workspace-provider";
-import type { OpenTarget } from "../domains/session/artifacts/open-target";
+import type { OpenTarget } from "../domains/session";
 import { SettingsSurface } from "./settings-route";
-import {
-  CloudSessionProvider,
-} from "../domains/settings/cloud/cloud-session-provider";
+import { CloudSessionProvider } from "../domains/settings";
 import {
   ensureProviderListQuery,
   refreshProviderListQueries,
   useProviderListQuery,
-} from "../domains/shared/provider-list-query";
+} from "../domains/shared";
 
 function readStringStateField(state: unknown, key: string) {
   if (!state || typeof state !== "object") return null;

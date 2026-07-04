@@ -7,6 +7,7 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
+import { nodeReadableToWebStream } from "./core/node-web-stream.js";
 
 export type ServeOptions = {
   hostname: string;
@@ -83,11 +84,7 @@ function toWebRequest(nodeReq: IncomingMessage, hostname: string, port: number):
 
   const hasBody = method !== "GET" && method !== "HEAD";
 
-  // Readable.toWeb() returns a Node stream/web ReadableStream which is structurally
-  // compatible with the global ReadableStream but TypeScript treats them as distinct.
-  const body = hasBody
-    ? (Readable.toWeb(nodeReq) as unknown as ReadableStream<Uint8Array>)
-    : null;
+  const body = hasBody ? nodeReadableToWebStream<Uint8Array>(nodeReq) : null;
 
   return new Request(url, {
     method,
