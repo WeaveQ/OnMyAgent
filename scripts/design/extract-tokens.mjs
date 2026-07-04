@@ -83,6 +83,16 @@ Report categories:
                        diverges from the DESIGN.md notifications.* budget.
   - kbd                <kbd> render sites missing the § 5a chip anatomy
                        (border + text-xs).
+  - message-roles      role=... prop values in session domain that do
+                       not match a DESIGN.md message-roles.* key.
+  - streaming          ad-hoc cursor/blink/streaming-dot class usages
+                       outside the shared StreamingCursor primitive.
+  - presence           <StatusDot state=> / <StatusBadge state=> values
+                       not present in DESIGN.md presence.*.
+  - tool-approval      approval-shaped components missing risk-tier
+                       border tokens.
+  - artifact-hue       artifact-hue tokens used outside artifact cards
+                       (leak into semantic surfaces).
 
 DESIGN.md is authoritative. When drift is reported, default remediation is to
 fix code, unless the contract itself is demonstrably outdated.`)
@@ -836,6 +846,21 @@ function enforceBaseline(baseline, report) {
       (h) => `${h.file}:${h.severity}:${h.duration ?? 'null'}`,
     ),
     kbd: (report.kbd?.drift || []).map((h) => `${h.file}:${h.classes || ''}`),
+    messageRoles: (report.messageRoles?.unknown || []).map(
+      (h) => `${h.file}:role=${h.role}`,
+    ),
+    streaming: (report.streaming?.drift || []).map(
+      (h) => `${h.file}:${h.classes || ''}`,
+    ),
+    presence: (report.presence?.unknown || []).map(
+      (h) => `${h.file}:state=${h.state}`,
+    ),
+    toolApproval: (report.toolApproval?.drift || []).map(
+      (h) => `${h.file}:hasTier=${h.hasTier}:hasBorder=${h.hasBorderToken}`,
+    ),
+    artifactHue: (report.artifactHue?.leak || []).map(
+      (h) => `${h.file}:${h.via}=${h.hue}`,
+    ),
   }
 
   for (const [name, current] of Object.entries(buckets)) {
@@ -875,6 +900,227 @@ function enforceBaseline(baseline, report) {
   }
   return violations
 }
+
+// ---------- v5 extractors: message-roles / streaming / presence / tool-approval / artifact-hue ----------
+
+const SESSION_DIR_SUFFIX = 'react-app/domains/session'
+
+function iterFiles(rootDir, filter) {
+  const out = []
+  if (!existsSync(rootDir)) return out
+  const stack = [rootDir]
+  while (stack.length) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name === 'node_modules' || name.startsWith('.')) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) stack.push(full)
+      else if (filter(name, full)) out.push(full)
+    }
+  }
+  return out
+}
+
+function readSafe(path) {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+// Message roles: scan session domain for role=... prop usages.
+// ARIA role= values used across the codebase — filter them out; message-role
+// prop is expected to migrate to messageRole= to avoid collision when the
+// component code lands. Until then, only flag roles that look like message
+// roles (present in message-roles.* or use messageRole= explicitly).
+const ARIA_ROLES = new Set([
+  'button','link','listitem','list','menu','menuitem','tab','tablist','tabpanel',
+  'dialog','alertdialog','alert','status','progressbar','separator','presentation',
+  'combobox','option','group','row','cell','columnheader','rowheader','grid',
+  'searchbox','textbox','switch','checkbox','radio','radiogroup','navigation',
+  'contentinfo','banner','main','region','article','heading','img','none',
+  'toolbar','tree','treeitem','treegrid','feed','marquee','math','note',
+])
+
+function scanMessageRoles(rootDir) {
+  const result = { candidates: [] }
+  const files = iterFiles(rootDir, (name, full) =>
+    full.includes(SESSION_DIR_SUFFIX) && /\.tsx?$/.test(name),
+  )
+  const messageRoleRe = /\bmessageRole=(?:\{['"]([\w-]+)['"]\}|['"]([\w-]+)['"])/g
+  for (const path of files) {
+    const src = readSafe(path)
+    if (!src) continue
+    const rel = path.slice(rootDir.length + 1)
+    let m
+    while ((m = messageRoleRe.exec(src))) {
+      const role = m[1] || m[2]
+      result.candidates.push({ file: rel, role })
+    }
+  }
+  return result
+}
+
+function diffMessageRoles(yaml, scan) {
+  const report = { matched: [], unknown: [] }
+  const roles = yaml['message-roles']
+  if (!roles) return report
+  const allowed = new Set(Object.keys(roles))
+  for (const hit of scan.candidates) {
+    if (allowed.has(hit.role)) {
+      report.matched.push(hit)
+    } else {
+      report.unknown.push(hit)
+    }
+  }
+  return report
+}
+
+// Streaming: flag ad-hoc cursor/pulse markup outside a shared primitive.
+// Streaming indicator markup: distinct from CSS cursor-* / animate-pulse
+// utilities on unrelated controls. Only flag when the class fragment names
+// 'streaming', 'stream-cursor', 'streaming-dot', or 'blink' AND the file
+// touches an assistant message row (has 'streaming' identifier in JS).
+function scanStreaming(rootDir) {
+  const result = { candidates: [] }
+  const files = iterFiles(rootDir, (name, full) =>
+    full.includes(SESSION_DIR_SUFFIX) && /\.tsx?$/.test(name),
+  )
+  const streamClassRe = /class(?:Name)?=(?:"([^"]*(?:streaming-dot|stream-cursor|streaming-cursor|\bblink\b)[^"]*)"|\{`([^`]*(?:streaming-dot|stream-cursor|streaming-cursor|\bblink\b)[^`]*)`\})/g
+  for (const path of files) {
+    const src = readSafe(path)
+    if (!src) continue
+    if (/StreamingCursor\b/.test(src)) continue
+    if (!/streaming|isStreaming/.test(src)) continue
+    const rel = path.slice(rootDir.length + 1)
+    let m
+    while ((m = streamClassRe.exec(src))) {
+      const classes = m[1] || m[2] || ''
+      result.candidates.push({ file: rel, classes })
+    }
+  }
+  return result
+}
+
+function diffStreaming(yaml, scan) {
+  const report = { matched: [], drift: [] }
+  if (!yaml.streaming) return report
+  for (const hit of scan.candidates) {
+    report.drift.push(hit)
+  }
+  return report
+}
+
+// Presence: scan StatusDot / StatusBadge state props.
+function scanPresence(rootDir) {
+  const result = { candidates: [] }
+  const files = iterFiles(rootDir, (name) => /\.tsx?$/.test(name))
+  const re = /<(?:StatusDot|StatusBadge)\b[^>]{0,200}?\bstate=(?:\{['"]([\w-]+)['"]\}|['"]([\w-]+)['"])/g
+  for (const path of files) {
+    const src = readSafe(path)
+    if (!src) continue
+    if (!/StatusDot|StatusBadge/.test(src)) continue
+    const rel = path.slice(rootDir.length + 1)
+    let m
+    while ((m = re.exec(src))) {
+      const state = m[1] || m[2]
+      result.candidates.push({ file: rel, state })
+    }
+  }
+  return result
+}
+
+function diffPresence(yaml, scan) {
+  const report = { matched: [], unknown: [] }
+  const presence = yaml.presence
+  if (!presence) return report
+  const allowed = new Set(Object.keys(presence))
+  for (const hit of scan.candidates) {
+    if (allowed.has(hit.state)) {
+      report.matched.push(hit)
+    } else {
+      report.unknown.push(hit)
+    }
+  }
+  return report
+}
+
+// Tool approval: flag tool-approval-shaped components missing tier border tokens.
+function scanToolApproval(rootDir) {
+  const result = { candidates: [] }
+  const files = iterFiles(rootDir, (name, full) =>
+    /\.tsx?$/.test(name) && /tool|approval/i.test(name),
+  )
+  for (const path of files) {
+    const src = readSafe(path)
+    if (!src) continue
+    if (!/\b(Approve|approve|Deny|deny)\b/.test(src)) continue
+    const rel = path.slice(rootDir.length + 1)
+    const hasTier = /\b(risk-tier|riskTier|tier)\b/.test(src)
+    const hasBorderToken = /border-l-\[.*(dls-warning|dls-danger)|border-dls-(warning|danger)/.test(src)
+    if (!hasTier || !hasBorderToken) {
+      result.candidates.push({ file: rel, hasTier, hasBorderToken })
+    }
+  }
+  return result
+}
+
+function diffToolApproval(yaml, scan) {
+  const report = { matched: [], drift: [] }
+  if (!yaml['tool-approval']) return report
+  for (const hit of scan.candidates) {
+    report.drift.push(hit)
+  }
+  return report
+}
+
+// Artifact hue: flag hues used outside artifact card surfaces.
+function scanArtifactHue(rootDir) {
+  const result = { candidates: [] }
+  const files = iterFiles(rootDir, (name) => /\.(tsx?|css)$/.test(name))
+  const hueClassRe = /artifact-hue-([a-z0-9-]+)/g
+  const hueVarRe = /--dls-artifact-hue-([a-z0-9-]+)/g
+  for (const path of files) {
+    const src = readSafe(path)
+    if (!src) continue
+    const rel = path.slice(rootDir.length + 1)
+    const isArtifactSite = /artifact/i.test(rel)
+    let m
+    while ((m = hueClassRe.exec(src))) {
+      if (!isArtifactSite) result.candidates.push({ file: rel, hue: m[1], via: 'class' })
+    }
+    while ((m = hueVarRe.exec(src))) {
+      if (!isArtifactSite) {
+        if (rel.endsWith('index.css')) continue // declarations live here
+        result.candidates.push({ file: rel, hue: m[1], via: 'var' })
+      }
+    }
+  }
+  return result
+}
+
+function diffArtifactHue(yaml, scan) {
+  const report = { matched: [], leak: [] }
+  if (!yaml['artifact-hue']) return report
+  for (const hit of scan.candidates) {
+    report.leak.push(hit)
+  }
+  return report
+}
+
 // ---------- Renderer ----------
 
 function renderReport(report) {
@@ -882,7 +1128,7 @@ function renderReport(report) {
   const total = report.colors.matched.length + report.typography.matched.length + report.radii.matched.length + (report.iconography?.matched.length || 0) + (report.zLayers?.matched.length || 0)
   lines.push(`Design token drift report — DESIGN.md ↔ code`)
   lines.push('')
-  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers, ${report.stateTimings?.matched.length || 0} state-timings, ${report.notifications?.matched.length || 0} notifications, ${report.kbd?.matched.length || 0} kbd)`)
+  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers, ${report.stateTimings?.matched.length || 0} state-timings, ${report.notifications?.matched.length || 0} notifications, ${report.kbd?.matched.length || 0} kbd, ${report.messageRoles?.matched.length || 0} message-roles, ${report.presence?.matched.length || 0} presence)`)
 
   emit('missing in code', report.colors.missingInCode.map((x) => `[${x.theme}] ${x.yamlKey} (expected ${x.expected}) — tried: ${x.tried.join(', ')}`))
   emit('mismatched color values', report.colors.mismatched.map((x) => `[${x.theme}] ${x.yamlKey} via ${x.cssName}: DESIGN.md says ${x.expected}, code has ${x.actual}`))
@@ -898,6 +1144,11 @@ function renderReport(report) {
   emit('state-timings — literal not in tokenized set', (report.stateTimings?.unknown || []).map((x) => `${x.file}: setTimeout(..., ${x.ms}) — not in state-timings.*`))
   emit('notifications — duration mismatched', (report.notifications?.mismatched || []).map((x) => `${x.file}: toast.${x.severity}(duration=${x.duration}) — expected ${x.expected}`))
   emit('kbd — chip missing border+text-xs anatomy', (report.kbd?.drift || []).map((x) => `${x.file}: <kbd className="${x.classes || ''}">`))
+  emit('message-roles — role not in message-roles.*', (report.messageRoles?.unknown || []).map((x) => `${x.file}: role="${x.role}"`))
+  emit('streaming — cursor/blink markup outside StreamingCursor primitive', (report.streaming?.drift || []).map((x) => `${x.file}: className contains cursor/blink (${x.classes || ''})`))
+  emit('presence — state not in presence.*', (report.presence?.unknown || []).map((x) => `${x.file}: <StatusDot state="${x.state}">`))
+  emit('tool-approval — component missing tier border anatomy', (report.toolApproval?.drift || []).map((x) => `${x.file}: hasTier=${x.hasTier} hasBorderToken=${x.hasBorderToken}`))
+  emit('artifact-hue — hue leaked outside artifact surfaces', (report.artifactHue?.leak || []).map((x) => `${x.file}: artifact-hue-${x.hue} via ${x.via}`))
 
   lines.push('')
   lines.push(`DESIGN.md is authoritative. Fix code to match, unless the contract itself is outdated.`)
@@ -926,7 +1177,12 @@ function totalDrift(report) {
     (report.zLayers?.mismatched.length || 0) +
     (report.stateTimings?.unknown.length || 0) +
     (report.notifications?.mismatched.length || 0) +
-    (report.kbd?.drift.length || 0)
+    (report.kbd?.drift.length || 0) +
+    (report.messageRoles?.unknown.length || 0) +
+    (report.streaming?.drift.length || 0) +
+    (report.presence?.unknown.length || 0) +
+    (report.toolApproval?.drift.length || 0) +
+    (report.artifactHue?.leak.length || 0)
   )
 }
 
@@ -962,6 +1218,11 @@ try {
   const stateTimingsScan = scanStateTimings(APP_SRC)
   const notificationsScan = scanNotifications(APP_SRC)
   const kbdScan = scanKbd(APP_SRC)
+  const messageRolesScan = scanMessageRoles(APP_SRC)
+  const streamingScan = scanStreaming(APP_SRC)
+  const presenceScan = scanPresence(APP_SRC)
+  const toolApprovalScan = scanToolApproval(APP_SRC)
+  const artifactHueScan = scanArtifactHue(APP_SRC)
   const report = {
     colors: diffColors(yaml, css),
     typography: diffTypography(yaml, css),
@@ -971,6 +1232,11 @@ try {
     stateTimings: diffStateTimings(yaml, stateTimingsScan),
     notifications: diffNotifications(yaml, notificationsScan),
     kbd: diffKbd(kbdScan),
+    messageRoles: diffMessageRoles(yaml, messageRolesScan),
+    streaming: diffStreaming(yaml, streamingScan),
+    presence: diffPresence(yaml, presenceScan),
+    toolApproval: diffToolApproval(yaml, toolApprovalScan),
+    artifactHue: diffArtifactHue(yaml, artifactHueScan),
   }
 
   const baseline = loadBaseline(flags.baseline)
