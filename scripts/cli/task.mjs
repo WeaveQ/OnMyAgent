@@ -175,4 +175,8 @@ if (!targets || !commandConfig) {
   process.exit(1)
 }
 
-runCommand(commandConfig)
+const forwardedArgs = rest.length
+  ? { ...commandConfig, args: [...commandConfig.args, ...rest] }
+  : commandConfig
+
+runCommand(forwardedArgs)
