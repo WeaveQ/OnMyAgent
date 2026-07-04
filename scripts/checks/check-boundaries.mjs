@@ -52,6 +52,30 @@ const packageRules = [
 ]
 
 const allowedDomainImports = new Set([
+  // session <-> local-agents: PR #22 introduced domains/local-agents as a
+  // sibling extract of session's local-agent code. Both pages still need
+  // direct imports across the boundary until we agree whether to fold
+  // local-agents back under session/ or promote a kernel/shared contract.
+  "apps/app/src/react-app/domains/local-agents/local-agent-page-model.ts|../session/chat/personal-local-agent-scheduled-tasks",
+  "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/artifacts/open-target",
+  "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/surface/markdown",
+  "apps/app/src/react-app/domains/local-agents/messages/message-utils.ts|../../session/artifacts/open-target",
+  "apps/app/src/react-app/domains/local-agents/messages/timeline-messages.tsx|../../session/surface/markdown",
+  "apps/app/src/react-app/domains/local-agents/side-question.tsx|../session/surface/markdown",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-initial-message",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-model-info",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-conversation-history-hydration",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-draft-composer",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-formatters",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-management-panel",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-model",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-types",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-repair-panel",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/chat-bubble",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-types",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-utils",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/timeline-messages",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/side-question",
 ])
 
 // Domain barrels the shell may import from with a shallow path (`../domains/<domain>`

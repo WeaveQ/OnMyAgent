@@ -1,7 +1,7 @@
 /**
  * ChannelSessionStore - Independent session persistence for messaging channels
  * 
- * Provides AionUi-style channel session isolation:
+ * Provides channel session isolation:
  * - Each agent has independent session context
  * - Switching agents does not carry over context
  * - Switching back restores the agent's context

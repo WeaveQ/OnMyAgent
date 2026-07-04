@@ -372,7 +372,14 @@ export type PersonalLocalAgentModelOption = {
   label: string;
 };
 
-export type PersonalLocalAgentStatus = "online" | "offline" | "error";
+export type PersonalLocalAgentStatus =
+  | "online"
+  | "needs_auth"
+  | "offline"
+  | "missing"
+  | "unknown"
+  // Legacy value kept for backward compatibility with persisted state.
+  | "error";
 
 export type PersonalLocalAgentCapability = {
   installed: boolean;
@@ -382,7 +389,7 @@ export type PersonalLocalAgentCapability = {
   supportsResume: boolean;
   supportsModelOverride: boolean;
   supportsPermissionAutoApprove: boolean;
-  /** Whether this provider exposes a real ACP entrypoint for Local Agent parity. */
+  /** Whether this provider exposes a real ACP entrypoint for Local Agent sessions. */
   supportsAcp: boolean;
   /**
    * Whether the adapter can route native approval requests through Studio's
@@ -432,6 +439,8 @@ export type PersonalLocalAgent = {
   error: string | null;
   errorInfo?: PersonalLocalAgentErrorInfo | null;
   capability?: PersonalLocalAgentCapability | null;
+  handshake?: PersonalLocalAgentMetadata["handshake"];
+  behavior_policy?: PersonalLocalAgentMetadata["behavior_policy"];
   lastCheckedAt: number | null;
 };
 
@@ -459,6 +468,7 @@ export type PersonalLocalAgentMetadata = {
     permission_mode?: string | null;
     yolo_mode_id?: string | null;
     auto_approve_readonly?: boolean;
+    supports_side_question?: boolean;
   } | null;
   connectionMode?: string | null;
   status?: PersonalLocalAgentStatus;
@@ -493,7 +503,14 @@ export type PersonalLocalAgentRunEvent = {
     | "assistant_chunk"
     | "chunk"
     | "assistant"
+    | "finish"
     | "tool"
+    | "acp_tool_call"
+    | "plan"
+    | "thinking"
+    | "thought"
+    | "tips"
+    | "tool_group"
     | "error"
     | "exit"
     | "approval_request"
@@ -501,9 +518,23 @@ export type PersonalLocalAgentRunEvent = {
     | "artifact";
   text: string;
   at: number;
+  stopReason?: string | null;
+  truncated?: boolean;
   approval?: PersonalLocalAgentApprovalRequest | null;
   artifact?: PersonalLocalAgentRunArtifact | null;
   toolCall?: PersonalLocalAgentToolCall | null;
+  update?: PersonalLocalAgentAcpToolCallUpdate | null;
+  data?: Record<string, unknown> | null;
+  plan?: { entries?: PersonalLocalAgentPlanEntry[] } | null;
+  status?: string | null;
+  category?: "error" | "warning" | "info" | string | null;
+  ownership?: string | null;
+  resolution?: { target?: string; kind?: string; message?: string } | null;
+  msgId?: string | null;
+  durationMs?: number | null;
+  startedAt?: number | null;
+  subject?: string | null;
+  description?: string | null;
 };
 
 export type PersonalLocalAgentToolCall = {
@@ -518,6 +549,25 @@ export type PersonalLocalAgentToolCall = {
   outputTruncated?: boolean;
 };
 
+export type PersonalLocalAgentPlanEntry = {
+  id: string;
+  title: string;
+  content?: string | null;
+  status: "pending" | "in_progress" | "completed" | string;
+  priority?: "low" | "medium" | "high" | string | null;
+};
+
+export type PersonalLocalAgentAcpToolCallUpdate = {
+  toolCallId?: string | null;
+  status?: "pending" | "in_progress" | "completed" | "failed" | string;
+  title?: string | null;
+  kind?: "read" | "edit" | "execute" | string | null;
+  content?: unknown[];
+  input?: string | null;
+  output?: string | null;
+  locations?: Array<{ path?: string | null } | string>;
+};
+
 export type PersonalLocalAgentConversationMessage = {
   id: string;
   type: "start" | "text" | "content" | "thinking" | "tool" | "permission" | "available_commands" | "context_usage" | "agent_status" | "finish" | "tips" | "error" | string;
@@ -525,10 +575,21 @@ export type PersonalLocalAgentConversationMessage = {
   text: string;
   createdAt: number;
   sourceEventType?: string;
+  stopReason?: string | null;
+  truncated?: boolean;
   status?: "running" | "completed" | "failed" | string;
   category?: "permission" | "auth" | "network" | "provider" | string;
   approval?: PersonalLocalAgentApprovalRequest | null;
   toolCall?: PersonalLocalAgentToolCall | null;
+  update?: PersonalLocalAgentAcpToolCallUpdate | null;
+  entries?: PersonalLocalAgentPlanEntry[];
+  toolCalls?: PersonalLocalAgentConversationMessage[];
+  msgId?: string | null;
+  durationMs?: number | null;
+  startedAt?: number | null;
+  ownership?: string | null;
+  resolution?: { target?: string; kind?: string; message?: string } | null;
+  contextUsage?: { used: number; total: number; label?: string | null } | null;
 };
 
 export type PersonalLocalAgentApprovalMode = "auto" | "ask" | "read-only-auto";
@@ -662,6 +723,58 @@ export type PersonalLocalAgentConversationInput = {
   };
 };
 
+export type PersonalLocalAgentAcpConfigOptionValue = string | number | boolean | null;
+
+export type PersonalLocalAgentAcpConfigOptionInput = {
+  workspaceRoot: string;
+  optionId: string;
+  value: PersonalLocalAgentAcpConfigOptionValue;
+  sessionId?: string | null;
+  providerSessionId?: string | null;
+  resumeKey?: string | null;
+  agent?: Partial<PersonalLocalAgent> & {
+    provider?: PersonalLocalAgentProvider;
+    customArgs?: string[];
+  };
+};
+
+export type PersonalLocalAgentAcpConfigOptionResult = {
+  ok: boolean;
+  sessionId?: string | null;
+  optionId?: string;
+  value?: PersonalLocalAgentAcpConfigOptionValue;
+  confirmation?: string | null;
+  configOptions?: unknown[];
+  raw?: unknown;
+  error?: string;
+};
+
+export type PersonalLocalAgentCustomAgentInput = {
+  workspaceRoot: string;
+  id?: string;
+  agent?: Partial<PersonalLocalAgent> & {
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    description?: string | null;
+    nativeSkillsDirs?: string[];
+    behaviorPolicy?: Record<string, unknown>;
+  };
+};
+
+export type PersonalLocalAgentCustomAgentResult = {
+  agent: PersonalLocalAgent;
+};
+
+export type PersonalLocalAgentDeleteCustomAgentResult = {
+  ok: boolean;
+  deleted: boolean;
+};
+
+export type PersonalLocalAgentOverridesResult = {
+  overrides: Record<string, unknown>;
+};
+
 export type PersonalLocalAgentConversationCreateResult = {
   conversation: PersonalLocalAgentConversation;
 };
@@ -675,6 +788,24 @@ export type PersonalLocalAgentConversationStatusResult = {
   activeRun: PersonalLocalAgentRunResult | null;
   running: boolean;
   status: string;
+  events?: PersonalLocalAgentRunEvent[];
+  conversationMessages?: PersonalLocalAgentConversationMessage[];
+};
+
+export type PersonalLocalAgentConversationWarmupResult = {
+  ok: boolean;
+  conversation?: PersonalLocalAgentConversation | null;
+  providerSessionId?: string | null;
+  resumeKey?: string | null;
+  unsupportedReason?: string | null;
+  error?: string | null;
+};
+
+export type PersonalLocalAgentSideQuestionResult = {
+  ok: boolean;
+  run?: PersonalLocalAgentRunResult | null;
+  runId?: string | null;
+  error?: string | null;
 };
 
 export type PersonalLocalAgentConversationConfirmationsResult = {
@@ -697,6 +828,43 @@ export type PersonalLocalAgentNativeSessionsListResult = {
   provider: PersonalLocalAgentProvider;
   sessions: PersonalLocalAgentNativeSession[];
   error?: string | null;
+};
+
+export type PersonalLocalAgentProviderSession = {
+  id: string;
+  sessionId: string;
+  title: string;
+  cwd?: string | null;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type PersonalLocalAgentProviderSessionsListResult = {
+  sessions: PersonalLocalAgentProviderSession[];
+  unsupportedReason?: string | null;
+  raw?: unknown;
+};
+
+export type PersonalLocalAgentProviderSessionLoadResult = {
+  sessionId?: string;
+  providerSessionId?: string;
+  conversation?: PersonalLocalAgentConversation;
+  raw?: unknown;
+};
+
+export type PersonalLocalAgentProviderSessionCloseResult = {
+  ok: boolean;
+  sessionId?: string;
+  closedConversationIds?: string[];
+  error?: string;
+};
+
+export type PersonalLocalAgentProviderSessionForkResult = {
+  sessionId?: string;
+  providerSessionId?: string;
+  conversation?: PersonalLocalAgentConversation;
+  raw?: unknown;
 };
 
 export type PersonalLocalAgentTranscriptMessage = {
@@ -837,6 +1005,7 @@ export type PersonalLocalAgentApprovalInput = {
   runId: string;
   approvalId: string;
   decision: PersonalLocalAgentApprovalDecision;
+  alwaysAllow?: boolean;
 };
 
 export type PersonalLocalAgentStatusInput = {
