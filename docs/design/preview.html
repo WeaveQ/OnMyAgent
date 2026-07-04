@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<title>OnMyAgent DESIGN.md — Light Preview</title>
+<meta name="description" content="Visual catalog rendering DESIGN.md tokens and top components in light theme.">
+<link rel="stylesheet" href="./preview.css" />
+</head>
+<body>
+<header class="pv-header">
+  <div class="pv-header-inner">
+    <div>
+      <h1>OnMyAgent — Visual Contract Preview</h1>
+      <p>Renders <code>/DESIGN.md</code> tokens and top components. This file is <strong>light theme</strong>. Dark theme lives in <a href="./preview-dark.html">preview-dark.html</a>.</p>
+    </div>
+    <nav class="pv-nav">
+      <a href="./preview.html" class="pv-nav-active">Light</a>
+      <a href="./preview-dark.html">Dark</a>
+      <a href="../../DESIGN.md">DESIGN.md</a>
+    </nav>
+  </div>
+</header>
+
+<main class="pv-main">
+
+<section class="pv-section">
+  <h2>1 · Color Palette</h2>
+  <p class="pv-desc">Semantic <code>dls-*</code> / <code>ow-*</code> tokens. See <code>DESIGN.md</code> § 2 and YAML <code>colors</code>.</p>
+  <div class="pv-swatch-grid">
+    <div class="pv-swatch"><div class="pv-chip" style="background:#005DFF"></div><div class="pv-swatch-label"><strong>primary</strong><span>#005DFF</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#004ED6"></div><div class="pv-swatch-label"><strong>primary-hover</strong><span>#004ED6</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#EAF2FF"></div><div class="pv-swatch-label"><strong>primary-soft</strong><span>#EAF2FF</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#03FFDE"></div><div class="pv-swatch-label"><strong>signal</strong><span>#03FFDE</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#0F172A"></div><div class="pv-swatch-label"><strong>ink</strong><span>#0F172A</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#64748B"></div><div class="pv-swatch-label"><strong>slate</strong><span>#64748B</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#E5E7EB"></div><div class="pv-swatch-label"><strong>mist</strong><span>#E5E7EB</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#FFFFFF;border:1px solid #E5E7EB"></div><div class="pv-swatch-label"><strong>surface</strong><span>#FFFFFF</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#F8FAFC"></div><div class="pv-swatch-label"><strong>surface-muted</strong><span>#F8FAFC</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#FAFAFA"></div><div class="pv-swatch-label"><strong>background</strong><span>#FAFAFA</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#F3F6FB"></div><div class="pv-swatch-label"><strong>rail-bg</strong><span>#F3F6FB</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#EF4444"></div><div class="pv-swatch-label"><strong>danger</strong><span>#EF4444</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#D19A2A"></div><div class="pv-swatch-label"><strong>warning</strong><span>#D19A2A</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#047857"></div><div class="pv-swatch-label"><strong>success-fg</strong><span>#047857</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#28B276"></div><div class="pv-swatch-label"><strong>online</strong><span>#28B276</span></div></div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>2 · Typography</h2>
+  <p class="pv-desc">Even-scale only. See <code>DESIGN.md</code> § 3.</p>
+  <div class="pv-type-list">
+    <div class="pv-type"><span class="pv-type-tag">text-2xs · 10</span><span style="font-size:10px">Badges &amp; counters</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-xs · 12</span><span style="font-size:12px">Secondary labels &amp; helper text</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-sm · 14</span><span style="font-size:14px">Standard dense UI text — body baseline</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-base · 16</span><span style="font-size:16px">Body &amp; emphasized UI text</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-lg · 18</span><span style="font-size:18px">Section titles</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-xl · 20</span><span style="font-size:20px">Page titles</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-2xl · 24</span><span style="font-size:24px">Hero and page emphasis</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-3xl · 28</span><span style="font-size:28px">Display headings</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-4xl · 32</span><span style="font-size:32px">Empty-state hero</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-5xl · 48</span><span style="font-size:48px">Marketing hero</span></div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>3 · Radii</h2>
+  <p class="pv-desc">See <code>DESIGN.md</code> § YAML <code>rounded</code>. Pills reserved for status/filter/chips only.</p>
+  <div class="pv-radii">
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:3px"></div><span>xs · 3</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:6px"></div><span>sm · 6</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:8px"></div><span>md · 8</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:10px"></div><span>lg · 10</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:14px"></div><span>xl · 14</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:999px"></div><span>pill · 999</span></div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>4 · Buttons</h2>
+  <p class="pv-desc">See <code>DESIGN.md</code> § 4 and YAML <code>buttons</code>. <code>lg</code> is for primary CTAs / dialog footers.</p>
+  <div class="pv-row">
+    <button class="pv-btn pv-btn-primary pv-btn-xs">xs 24</button>
+    <button class="pv-btn pv-btn-primary pv-btn-sm">sm 32</button>
+    <button class="pv-btn pv-btn-primary pv-btn-default">default 36</button>
+    <button class="pv-btn pv-btn-primary pv-btn-lg">lg 40 — Primary CTA</button>
+  </div>
+  <div class="pv-row" style="margin-top:12px">
+    <button class="pv-btn pv-btn-secondary pv-btn-default">Secondary</button>
+    <button class="pv-btn pv-btn-ghost pv-btn-default">Ghost</button>
+    <button class="pv-btn pv-btn-outline pv-btn-default">Outline</button>
+    <button class="pv-btn pv-btn-danger pv-btn-default">Destructive</button>
+  </div>
+  <div class="pv-row" style="margin-top:12px">
+    <button class="pv-btn pv-btn-icon pv-btn-icon-xs" aria-label="icon-xs">＋</button>
+    <button class="pv-btn pv-btn-icon pv-btn-icon-sm" aria-label="icon-sm">＋</button>
+    <button class="pv-btn pv-btn-icon pv-btn-icon-default" aria-label="icon">＋</button>
+    <button class="pv-btn pv-btn-icon pv-btn-icon-lg" aria-label="icon-lg">＋</button>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>5 · Row Primitives</h2>
+  <p class="pv-desc">MenuRowButton / NavTabButton / ActionRowButton. Never swap for standard <code>Button</code>.</p>
+  <div class="pv-row-primitives">
+    <div>
+      <div class="pv-eyebrow">MenuRowButton — <code>rounded-xl px-3 py-2.5</code></div>
+      <div class="pv-menu">
+        <button class="pv-menu-row"><span class="pv-menu-icon">⌘</span><span>Open command palette<span class="pv-menu-shortcut">⌘K</span></span></button>
+        <button class="pv-menu-row"><span class="pv-menu-icon">＋</span><span>New session</span></button>
+        <button class="pv-menu-row"><span class="pv-menu-icon">☰</span><span>Toggle side panel</span></button>
+      </div>
+    </div>
+    <div>
+      <div class="pv-eyebrow">NavTabButton — <code>rounded-full</code> compact</div>
+      <div class="pv-nav-tabs">
+        <button class="pv-nav-tab pv-nav-tab-active">All</button>
+        <button class="pv-nav-tab">Active</button>
+        <button class="pv-nav-tab">Archived</button>
+        <button class="pv-nav-tab">Shared</button>
+      </div>
+    </div>
+    <div>
+      <div class="pv-eyebrow">ActionRowButton — bordered row/card</div>
+      <div class="pv-action-rows">
+        <button class="pv-action-row">
+          <div class="pv-action-title">Start with an assistant</div>
+          <div class="pv-action-desc">Pick a preset agent to begin a new session.</div>
+        </button>
+        <button class="pv-action-row">
+          <div class="pv-action-title">Import an existing workspace</div>
+          <div class="pv-action-desc">Bring your Obsidian vault, code repo, or Notion export.</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>6 · Cards, Inputs, Status</h2>
+  <div class="pv-grid-2">
+    <div class="pv-card">
+      <div class="pv-card-header">
+        <div class="pv-icon-tile"><span>A</span></div>
+        <div>
+          <div class="pv-card-title">Assistant</div>
+          <div class="pv-card-sub">Local model · GPT-oss 20B</div>
+        </div>
+        <span class="pv-status-dot pv-status-dot-online" title="Running"></span>
+      </div>
+      <p class="pv-card-body">Answers scoped to the current workspace. Uses the flat surface style — no shadows.</p>
+      <div class="pv-row" style="margin-top:8px">
+        <button class="pv-btn pv-btn-primary pv-btn-sm">Open</button>
+        <button class="pv-btn pv-btn-ghost pv-btn-sm">Configure</button>
+      </div>
+    </div>
+    <div class="pv-card">
+      <div class="pv-eyebrow">Text input</div>
+      <label class="pv-field">
+        <span class="pv-field-label">Workspace name</span>
+        <input class="pv-input" value="onmyagent" />
+      </label>
+      <label class="pv-field">
+        <span class="pv-field-label">Description</span>
+        <textarea class="pv-input" rows="2">Local-first agent console.</textarea>
+      </label>
+      <div class="pv-row" style="justify-content:flex-end">
+        <button class="pv-btn pv-btn-ghost pv-btn-default">Cancel</button>
+        <button class="pv-btn pv-btn-primary pv-btn-lg">Save</button>
+      </div>
+    </div>
+  </div>
+  <div class="pv-grid-3" style="margin-top:16px">
+    <span class="pv-badge pv-badge-primary">Primary</span>
+    <span class="pv-badge pv-badge-success">Success</span>
+    <span class="pv-badge pv-badge-warning">Warning</span>
+    <span class="pv-badge pv-badge-danger">Danger</span>
+    <span class="pv-badge pv-badge-muted">Muted</span>
+    <span class="pv-badge pv-badge-signal">Signal · Running</span>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>7 · Do's &amp; Don'ts (quick reference)</h2>
+  <div class="pv-grid-2">
+    <div class="pv-card">
+      <div class="pv-eyebrow pv-eyebrow-good">Do</div>
+      <ul class="pv-list">
+        <li>Use <code>dls-*</code> semantic tokens.</li>
+        <li>Reach for atoms → composites → row primitives.</li>
+        <li>Even-scale typography only.</li>
+        <li>Add <code>mac:titlebar-no-drag</code> to titlebar / sidebar-header controls.</li>
+        <li>Route all user-visible strings through i18n.</li>
+      </ul>
+    </div>
+    <div class="pv-card">
+      <div class="pv-eyebrow pv-eyebrow-bad">Don't</div>
+      <ul class="pv-list">
+        <li>No <code>text-[Npx]</code>, <code>rounded-[Npx]</code>, arbitrary hex in page JSX.</li>
+        <li>No <code>shadow-*</code> for component hierarchy.</li>
+        <li>No <code>rounded-full</code> on standard CTAs.</li>
+        <li>No <code>any</code> / <code>as any</code> / <code>as unknown as</code>.</li>
+        <li>No raw <code>h-N w-N</code> for icon buttons — use <code>size="icon-*"</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="pv-footer">
+  Rendered from <code>/DESIGN.md</code> · This preview is a fixed HTML snapshot; if it drifts from DESIGN.md, DESIGN.md wins.
+</footer>
+</body>
+</html>

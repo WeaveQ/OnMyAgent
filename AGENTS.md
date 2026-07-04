@@ -78,6 +78,7 @@ Tailwind / TypeScript / React / shadcn+BaseUI / TanStack Query / Zustand / Zod(v
 ### UI 与文案
 
 - 最小 diff，更简单方案优先。
+- 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（tokens、components、flags）+ § 4 组件契约 + § 7 Do's/Don'ts。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
 - UI 组件用 `@/components`，新组件优先 shadcn/ui with Base UI。
 - 假设最终用户非技术用户。
 - 后续新增的用户可见功能必须接入现有中英文国际化体系，避免写死单一语言文案。
@@ -138,9 +139,11 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 |------|------|
 | `README.md` | 人类入口、快速启动、项目说明 |
 | `README-zh.md` | 中文人类入口、快速启动、项目说明 |
+| `DESIGN.md` | 视觉契约唯一事实来源：tokens、组件、Do's/Don'ts。含机器可读 YAML front matter，供 AI agent 生成/修改 UI 时读取。 |
 | `docs/README.md` | 文档索引，按类型说明 docs 目录组织 |
 | `docs/Architecture.md` | 架构、数据流、目录边界、核心契约唯一事实来源 |
 | `docs/loop-rules.md` | Loop 细则：durable ledger、Reference Parity、Kill Switch、graphify |
+| `docs/design/theme-system.md` | 设计哲学叙事（Flat first / Decision first / Blunt geometry / Signal cyan / Exceptions）；具体 token 表见 `DESIGN.md`。 |
 | `docs/design/ui-primitive-refactor-best-practices.md` | UI primitive 复用、尺寸统一、design token 防偏移最佳实践 |
 | `BUILD.md` | 桌面端打包流程 |
 | `SECURITY.md` | 安全边界、漏洞报告和 safe harbor |

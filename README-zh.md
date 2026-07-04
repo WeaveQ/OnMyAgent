@@ -230,7 +230,7 @@ pnpm check:security
 
 提交 PR 前：
 
-1. 阅读 `AGENTS.md` 和 `docs/Architecture.md`。
+1. 阅读 `AGENTS.md`、`docs/Architecture.md`；涉及 UI 变更时同时阅读根目录 `DESIGN.md`（视觉契约）。
 2. 保持改动小而聚焦。
 3. 如果行为发生变化，添加或更新测试。
 4. 对跨模块或架构类改动，先用 Graphify 判断影响范围：
