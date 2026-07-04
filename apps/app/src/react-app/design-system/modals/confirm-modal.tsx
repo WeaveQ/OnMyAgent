@@ -34,7 +34,7 @@ export function ConfirmModal(props: ConfirmModalProps) {
   const confirmVariant = props.confirmButtonVariant ?? (variant === "danger" ? "destructive" : undefined);
   const cancelVariant = props.cancelButtonVariant ?? "outline";
 
-  let iconTileClass = "bg-dls-status-warning/12 text-dls-status-warning";
+  let iconTileClass = "bg-dls-status-warning-soft text-dls-status-warning-fg";
   if (variant === "danger") iconTileClass = "bg-dls-status-danger-soft text-dls-status-danger-fg";
 
   return (

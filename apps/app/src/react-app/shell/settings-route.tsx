@@ -352,7 +352,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     <div className="flex items-center justify-end">
       <Button
         type="button"
-        className="rounded-full bg-dls-accent px-7 text-white hover:bg-dls-decision-hover"
+        size="lg"
         onClick={handleMemorySave}
       >
         {memorySaved ? t("settings.memory_saved") : t("settings.memory_save")}
@@ -1439,7 +1439,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const providerStatusLabel = connectedProviders.length > 0 ? t("status.connected") : t("status.disconnected_label");
   const providerStatusStyle = connectedProviders.length > 0
     ? "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg"
-    : "bg-dls-active/60 text-dls-secondary border-dls-border/50";
+    : "bg-dls-active text-dls-secondary border-dls-mist";
   const providerSummary = connectedProviders.length > 0
     ? t("status.providers_connected", { count: connectedProviders.length })
     : t("settings.no_providers_connected");

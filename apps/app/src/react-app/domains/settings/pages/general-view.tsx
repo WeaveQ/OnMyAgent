@@ -175,7 +175,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
               >
                 <MessageCircle size={12} />
                 {t("settings.send_feedback")}
-                <ArrowUpRight size={11} />
+                <ArrowUpRight size={12} />
               </Button>
               <Button
                 variant="outline"
@@ -183,7 +183,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
                 onClick={props.onReportIssue}
               >
                 {t("settings.report_issue")}
-                <ArrowUpRight size={11} />
+                <ArrowUpRight size={12} />
               </Button>
             </div>
           </div>

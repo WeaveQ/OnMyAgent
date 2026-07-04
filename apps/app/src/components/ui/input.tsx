@@ -30,7 +30,7 @@ function Input({
         controlSize === "lg" && "h-10",
         controlSize === "xl" && "h-11",
         radius === "xl" && "rounded-xl before:rounded-xl",
-        radius === "2xl" && "rounded-2xl before:rounded-2xl",
+        radius === "2xl" && "rounded-xl before:rounded-xl",
         density === "comfortable" && "px-4",
         className
       )}

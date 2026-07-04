@@ -120,9 +120,9 @@ function statusClass(status: MarketplacePackageStatus) {
     case "installed":
       return "border-dls-accent/30 bg-dls-accent/10 text-dls-accent";
     case "update_available":
-      return "border-dls-status-warning/30 bg-dls-status-warning/10 text-dls-status-warning";
+      return "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg";
     default:
-      return "border-dls-border/60 bg-dls-hover/20 text-dls-secondary";
+      return "border-dls-mist bg-dls-surface-muted text-dls-secondary";
   }
 }
 

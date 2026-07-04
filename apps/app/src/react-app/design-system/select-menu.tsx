@@ -26,9 +26,9 @@ type SelectMenuProps = {
 
 const triggerClasses = {
   default:
-    "flex w-full items-center justify-between gap-2 rounded-xl border border-dls-border bg-dls-surface px-3.5 py-2.5 text-left text-sm text-dls-text transition-colors hover:border-dls-border focus:outline-none focus:ring-2 focus:ring-dls-accent/15 disabled:cursor-not-allowed disabled:opacity-60",
+    "flex w-full items-center justify-between gap-2 rounded-xl border border-dls-border bg-dls-surface px-3.5 py-2.5 text-left text-sm text-dls-text transition-colors hover:border-dls-border focus:outline-none focus:ring-2 focus:ring-dls-accent/30 disabled:cursor-not-allowed disabled:opacity-60",
   compact:
-    "flex w-full items-center justify-between gap-2 rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5 text-left text-xs text-dls-text transition-colors hover:border-dls-border focus:outline-none focus:ring-2 focus:ring-dls-accent/15 disabled:cursor-not-allowed disabled:opacity-60",
+    "flex w-full items-center justify-between gap-2 rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5 text-left text-xs text-dls-text transition-colors hover:border-dls-border focus:outline-none focus:ring-2 focus:ring-dls-accent/30 disabled:cursor-not-allowed disabled:opacity-60",
 };
 
 const panelClass =
@@ -109,7 +109,7 @@ export function SelectMenu(props: SelectMenuProps) {
       >
         <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
         <ChevronDown
-          size={18}
+          size={16}
           className={`shrink-0 text-dls-secondary transition-transform duration-200 ${
             open ? "rotate-180" : ""
           }`}

@@ -168,13 +168,13 @@ const baseMarkedOptions = {
       return `<li class="my-1">${checkbox}${this.parser.parse(item.tokens)}</li>`;
     },
     blockquote({ tokens }) {
-      return `<blockquote class="my-4 rounded-r-lg border-l border-dls-border bg-dls-hover/40 pl-4 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
+      return `<blockquote class="my-4 rounded-r-lg border-l border-dls-border bg-dls-surface-muted pl-4 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
     },
     code({ text, lang }) {
-      return `<pre class="my-4 overflow-x-auto rounded-xl border border-dls-border/70 bg-dls-surface/80 px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(lang)}>${escapeHtml(text)}</code></pre>`;
+      return `<pre class="my-4 overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(lang)}>${escapeHtml(text)}</code></pre>`;
     },
     codespan({ text }) {
-      return `<code class="rounded-md bg-dls-surface-muted/70 px-1.5 py-0.5 font-mono text-sm text-foreground">${escapeHtml(text)}</code>`;
+      return `<code class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-foreground">${escapeHtml(text)}</code>`;
     },
     del({ raw, tokens }) {
       if (!raw.startsWith("~~")) return escapeHtml(raw);
@@ -188,7 +188,7 @@ const baseMarkedOptions = {
     image({ href, title, text }) {
       const safe = escapeAttribute(safeHref(href));
       const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
-      return `<img src="${safe}" alt="${escapeAttribute(text)}"${titleAttr} loading="lazy" decoding="async" class="my-4 max-w-full rounded-xl border border-dls-border/70">`;
+      return `<img src="${safe}" alt="${escapeAttribute(text)}"${titleAttr} loading="lazy" decoding="async" class="my-4 max-w-full rounded-xl border border-dls-mist">`;
     },
     table(token) {
       const header = token.header.map((cell) => this.tablecell({ ...cell, header: true })).join("");
@@ -244,7 +244,7 @@ const highlightedMarkdownParser = new Marked<string, string>({
         ],
       });
     },
-    container: `<div data-onmyagent-shiki="true" class="my-4 overflow-hidden rounded-xl border border-dls-border/70 bg-dls-surface/80 p-4 text-xs leading-6">%s</div>`,
+    container: `<div data-onmyagent-shiki="true" class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface p-4 text-xs leading-6">%s</div>`,
   }),
 );
 

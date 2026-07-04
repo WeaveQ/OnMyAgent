@@ -79,9 +79,11 @@ Tailwind / TypeScript / React / shadcn+BaseUI / TanStack Query / Zustand / Zod(v
 ### UI 与文案
 
 - 最小 diff，更简单方案优先。
-- 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（tokens、components、flags）+ § 4 组件契约 + § 7 Do's/Don'ts。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
-- UI token 或 design contract 变更后（`DESIGN.md`、`apps/app/src/app/index.css`、`apps/app/tailwind.config.ts`），运行 `pnpm task check design` 确认无漂移；添加 `-- --strict` 让漂移直接失败（未来 CI seam）。
+- 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（`colors` / `typography` / `rounded` / `spacing` / `buttons` / `iconography` / `z-layers` / `motion` / `focus` / `state-timings` / `notifications` / `kbd` / `message-roles` / `streaming` / `presence` / `tool-approval` / `artifact-hue` / `components`（含 `components.contracts` 组件级 `{token.ref}` 契约） / `flags`）+ § 4 组件契约（含 Signature Components）+ § 4a State Machines + § 4b Notifications + § 4c Message Roles + § 4d Streaming Presentation + § 4e Presence & Activity + § 4f Tool Approval + § 4g Code & Diff + § 4h Session & Artifact Variants + § 5a Keyboard Contract + § 7 Shapes + § 8 Do's/Don'ts + § 10 Internationalization Space Budget + § 11 Intentional Exceptions（含 `artifact-hue.*` 隔离条款）。图标尺寸、z-index、状态时序、toast 时长、键位显示必须来自对应 YAML 块，不要臆造。键盘快捷键按 § 5a 用 `⌘K` 声明式书写，跨平台在运行时替换，不要作者层 fork。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
+- UI token 或 design contract 变更后（`DESIGN.md`、`apps/app/src/app/index.css`、`apps/app/tailwind.config.ts`），运行 `pnpm task check design` 确认无漂移；`-- --strict --baseline scripts/checks/baselines/design-drift.json` 是 CI 使用的门禁形态（只允许下降，不允许新增签名），必要时可用 `node scripts/design/codemod/fix-tokens.mjs`（默认 dry-run，`--write` 生效）批量修 mechanical drift。
 - UI 组件用 `@/components`，新组件优先 shadcn/ui with Base UI。
+- **Tab bar / segmented control**：多组 tab 切换必须用 `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`（rounded-lg 10 + text-sm）；禁止手写 `inline-flex rounded-lg border p-1` 包 `NavTabButton` 默认 pill——那是历史漂移形状。
+- **`rounded-full` 仅限**：avatar（`AgentAvatarMesh` / `size-N rounded-full` 头像）、`NavTabButton shape="pill"`（compact filter chips）、`SendButton`（signature 圆形送出）、`architecture-mismatch-gate.tsx`（pre-app boot）。其它普通 CTA 用 `rounded-full` 必须拒绝，参见 `DESIGN.md` § 8 Don'ts 与 § 11 Intentional Exceptions。
 - 假设最终用户非技术用户。
 - 后续新增的用户可见功能必须接入现有中英文国际化体系，避免写死单一语言文案。
 - Electron macOS 顶部导航栏、标题栏、侧栏 header 内的所有交互按钮必须避开原生拖拽区域：优先使用共享 `Button`，自定义交互控件或容器必须加 `mac:titlebar-no-drag`，避免点击图标位置被窗口拖拽/双击事件吞掉。

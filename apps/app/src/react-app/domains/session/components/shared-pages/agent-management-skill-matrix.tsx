@@ -158,7 +158,7 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
   const ringTone = props.skill.readonly
     ? "ring-dls-border-strong"
     : props.skill.managedByStudioSwitch
-      ? "ring-dls-accent/40"
+      ? "ring-dls-accent/30"
       : "ring-dls-border-strong";
   return (
     <Tooltip>

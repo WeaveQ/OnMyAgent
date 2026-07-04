@@ -321,7 +321,7 @@ function ProviderActionIconButton(props: {
             onClick={props.onClick}
             className={cn(
               "bg-dls-surface text-dls-secondary ring-1 ring-dls-border-strong hover:bg-dls-hover",
-              props.danger && "text-dls-status-danger-fg ring-dls-status-danger/25 hover:bg-dls-status-danger-soft",
+              props.danger && "text-dls-status-danger-fg ring-dls-status-danger/25 hover:bg-dls-status-danger/10",
             )}
             aria-label={props.label}
           >
@@ -653,7 +653,7 @@ export function AgentManagementProviderModal(props: {
                               <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => removeCodexCatalogRow(row.rowId)}
-                                className="text-dls-secondary hover:bg-dls-status-danger-soft hover:text-dls-status-danger-fg"
+                                className="text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger-fg"
                                 aria-label={t("agent_manager.provider_modal.delete_model")}
                               >
                                 <Trash2 className="size-3.5" />
@@ -723,7 +723,7 @@ export function AgentManagementProviderModal(props: {
                         <Tooltip>
                           <TooltipTrigger
                             render={
-                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeModelRow(row.rowId)} className="text-dls-secondary hover:bg-dls-status-danger-soft hover:text-dls-status-danger-fg" aria-label={t("agent_manager.provider_modal.delete_model")}>
+                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeModelRow(row.rowId)} className="text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger-fg" aria-label={t("agent_manager.provider_modal.delete_model")}>
                                 <Trash2 className="size-3.5" />
                               </Button>
                             }
@@ -899,11 +899,11 @@ export function AgentManagementProviderPanel(props: {
                       onClick={() => props.onSelectApp(app)}
                       active={selected} className={cn("gap-2 rounded-lg px-2.5 py-2", selected && "bg-dls-accent text-white")}
                     >
-                      <span className={cn("flex h-7 w-7 items-center justify-center rounded-lg", selected ? "bg-dls-surface/15" : "bg-dls-hover")}>
+                      <span className={cn("flex h-7 w-7 items-center justify-center rounded-lg", selected ? "bg-dls-surface" : "bg-dls-hover")}>
                         <ProviderBrandIcon appType={app} />
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{SKILL_AGENT_LABELS[app]}</span>
-                      <CountBadge size="dot" className={selected ? "bg-dls-surface/15 text-white" : "bg-dls-hover text-dls-secondary"}>{count}</CountBadge>
+                      <CountBadge size="dot" className={selected ? "bg-dls-surface text-white" : "bg-dls-hover text-dls-secondary"}>{count}</CountBadge>
                     </MenuRowButton>
                   }
                 />

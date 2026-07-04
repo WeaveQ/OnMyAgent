@@ -305,7 +305,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
               {connected ? (
                 <div className={extensionDetailLayoutClass.connectedDot}>
                   <CheckCircle2
-                    size={11}
+                    size={12}
                     className="text-white"
                     strokeWidth={3}
                   />
@@ -408,7 +408,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                       <span className="flex items-center gap-1.5 truncate font-mono text-xs text-card-foreground">
                         {url.replace(/^https?:\/\//, "").slice(0, 40)}
                         <ExternalLink
-                          size={10}
+                          size={12}
                           className="shrink-0 text-muted-foreground"
                         />
                       </span>

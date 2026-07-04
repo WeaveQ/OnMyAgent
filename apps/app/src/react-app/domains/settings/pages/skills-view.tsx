@@ -98,7 +98,7 @@ const skillLayoutClass = {
   heroDescription: "mt-2 max-w-2xl text-sm leading-relaxed text-dls-secondary",
   actionRow: "flex flex-wrap gap-3 lg:justify-end",
   filterRow: "flex flex-wrap items-center gap-2",
-  cardShelf: "rounded-2xl bg-dls-hover p-4",
+  cardShelf: "rounded-xl bg-dls-hover p-4",
   cardGrid: "grid grid-cols-1 gap-4 md:grid-cols-2",
   cardBody: "flex min-w-0 gap-4",
   cardMeta: "mt-3 flex flex-wrap items-center gap-2 text-xs text-dls-secondary",

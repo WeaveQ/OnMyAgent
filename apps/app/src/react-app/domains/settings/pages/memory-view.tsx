@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 import type { OnboardingProfile } from "../../../kernel/local-provider";
 import { roleOptions, industryOptions, toolOptions, taskOptions, ToggleChip, FieldLabel } from "./onboarding-profile-shared";
+import { SettingsCard, SettingsSectionHeader, SettingsSectionHeaderTitle } from "../settings-section";
 
 export type MemoryViewProps = {
   draft: OnboardingProfile;
@@ -33,8 +34,10 @@ export function MemoryView(props: MemoryViewProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <section className="grid gap-4">
-        <h2 className="text-base font-medium text-dls-text">{t("settings.memory_personal_info")}</h2>
+      <SettingsCard className="grid gap-4">
+        <SettingsSectionHeader>
+          <SettingsSectionHeaderTitle>{t("settings.memory_personal_info")}</SettingsSectionHeaderTitle>
+        </SettingsSectionHeader>
         <div className="grid gap-4 md:grid-cols-3">
           <FieldLabel>
             {t("settings.memory_user_name")}
@@ -70,11 +73,13 @@ export function MemoryView(props: MemoryViewProps) {
             />
           </FieldLabel>
         </div>
-      </section>
+      </SettingsCard>
 
-      <section className="border-t border-dls-border pt-6">
-        <h2 className="text-base font-medium text-dls-text">{t("settings.memory_work_profile")}</h2>
-        <div className="mt-4 flex flex-col gap-5">
+      <SettingsCard className="flex flex-col gap-4">
+        <SettingsSectionHeader>
+          <SettingsSectionHeaderTitle>{t("settings.memory_work_profile")}</SettingsSectionHeaderTitle>
+        </SettingsSectionHeader>
+        <div className="flex flex-col gap-5">
           <div>
             <div className="mb-2 text-xs font-medium text-dls-secondary">
               {t("settings.memory_roles")}
@@ -106,11 +111,13 @@ export function MemoryView(props: MemoryViewProps) {
             </div>
           </div>
         </div>
-      </section>
+      </SettingsCard>
 
-      <section className="border-t border-dls-border pt-6">
-        <h2 className="text-base font-medium text-dls-text">{t("settings.memory_work_habits")}</h2>
-        <div className="mt-4 flex flex-col gap-5">
+      <SettingsCard className="flex flex-col gap-4">
+        <SettingsSectionHeader>
+          <SettingsSectionHeaderTitle>{t("settings.memory_work_habits")}</SettingsSectionHeaderTitle>
+        </SettingsSectionHeader>
+        <div className="flex flex-col gap-5">
           <div>
             <div className="mb-2 text-xs font-medium text-dls-secondary">
               {t("settings.memory_tools")}
@@ -142,7 +149,7 @@ export function MemoryView(props: MemoryViewProps) {
             </div>
           </div>
         </div>
-      </section>
+      </SettingsCard>
     </div>
   );
 }

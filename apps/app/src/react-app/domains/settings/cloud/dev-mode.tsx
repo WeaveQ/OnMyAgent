@@ -52,7 +52,7 @@ export function CloudDevMode(props: CloudDevModeProps) {
         </Button>
         <Button variant="outline" size="sm" onClick={props.onOpenControlPlane}>
           {t("den.cloud_control_plane_open")}
-          <ArrowUpRight size={13} />
+          <ArrowUpRight size={12} />
         </Button>
       </div>
     </div>
