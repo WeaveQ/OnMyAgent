@@ -27,9 +27,14 @@ are driven by semantic CSS tokens.
 
 See [`DESIGN.md`](../../DESIGN.md) — sections 2 (Color Palette),
 3 (Typography), 4 (Component Stylings, includes button scale + row
-primitives + signature components), 5 (Layout), 6 (Depth incl. Z-Layer
-Stack), 7 (Shapes: border-radius + iconography + photography geometry),
-and the YAML front matter for machine-readable values.
+primitives + signature components), 4a (State Machines: loading /
+empty / error / success anatomy + perceptual timing bands), 4b
+(Notifications: toast anatomy, position, duration by severity),
+5 (Layout), 5a (Keyboard Contract: kbd chip + platform substitution),
+6 (Depth incl. Z-Layer Stack), 7 (Shapes: border-radius + iconography
++ photography geometry), 10 (Responsive & Platform incl.
+Internationalization Space Budget), and the YAML front matter for
+machine-readable values.
 
 ## Extension Workflow
 
@@ -43,8 +48,11 @@ doc under `docs/plans/` (v1 / v2 / v3 plans are worked examples).
 
 `DESIGN.md` § 14 Known Gaps is the honest list of what the contract
 does *not* cover today — data-viz, copy voice, brand assets, marketing
-surface, mono typography, CI gate, auto-fix codemod, domain composites
-v2, animation choreography, Windows/Linux titlebar drag-region.
+surface, mono typography, domain composites v2, animation
+choreography, Windows/Linux titlebar drag-region. State machines,
+notifications, keyboard contract, CJK space budget, CI gate, and the
+auto-fix codemod are v4 additions (see § 4a / § 4b / § 5a / § 10 and
+`scripts/design/codemod/`).
 Closing a gap is documented in § 13 Iteration Guide.
 
 ## Scrollbars
