@@ -1,6 +1,6 @@
 {
   "__meta": {
-    "description": "DESIGN.md v4 drift baseline. Extract-tokens compares current drift against this file when invoked with --baseline. Any new signature or growth beyond count fails --strict. Reductions are always allowed. Reseed only when a DESIGN.md contract change intentionally shifts what counts as drift; document reseed in the PR that changes DESIGN.md.",
+    "description": "DESIGN.md v4 drift baseline. Extract-tokens compares current drift against this file when invoked with --baseline. Any new signature or growth beyond count fails --strict. Reductions are always allowed. Reseed only when a DESIGN.md contract change intentionally shifts what counts as drift; document reseed in the PR that changes DESIGN.md. Extended in v5 with 5 additional bucket keys (messageRoles / streaming / presence / toolApproval / artifactHue), all seeded at count 0 because v5 is docs-only; no code-side implementation exists yet.",
     "seeded-from": "codex/design-md-v4",
     "seed-command": "pnpm task check design -- --json"
   },
@@ -118,5 +118,25 @@
       "components/ui/command.tsx:",
       "react-app/domains/session/chat/session-page.tsx:scale-90 rounded-md bg-dls-surface px-1.5 py-0.5 text-xs leading-none text-dls-secondary"
     ]
+  },
+  "messageRoles": {
+    "count": 0,
+    "signatures": []
+  },
+  "streaming": {
+    "count": 0,
+    "signatures": []
+  },
+  "presence": {
+    "count": 0,
+    "signatures": []
+  },
+  "toolApproval": {
+    "count": 0,
+    "signatures": []
+  },
+  "artifactHue": {
+    "count": 0,
+    "signatures": []
   }
 }
