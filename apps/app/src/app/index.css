@@ -350,6 +350,18 @@ select:disabled {
   --dls-leading-normal: 1.45;
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
+
+  /* Artifact hue tokens (DESIGN.md § 4h). Radix shade 9 in light for
+     full chroma against white surfaces. MUST NOT be used outside
+     ArtifactCard — see § 11 Intentional Exceptions. */
+  --dls-artifact-hue-image: var(--violet-9);
+  --dls-artifact-hue-code: var(--blue-9);
+  --dls-artifact-hue-document: var(--slate-9);
+  --dls-artifact-hue-data: var(--teal-9);
+  --dls-artifact-hue-plot: var(--grass-9);
+  --dls-artifact-hue-3d: var(--plum-9);
+  --dls-artifact-hue-audio: var(--pink-9);
+  --dls-artifact-hue-video: var(--crimson-9);
   --radius: var(--dls-radius-lg);
 
   --background: var(--dls-background);
@@ -432,6 +444,18 @@ select:disabled {
   --dls-rail-hover: #303030;
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
+
+  /* Artifact hue tokens (dark). Radix shade 4 for consistent perceived
+     chroma on dark surfaces without over-saturation. See DESIGN.md § 4h
+     and § 11 Intentional Exceptions. */
+  --dls-artifact-hue-image: var(--violet-4);
+  --dls-artifact-hue-code: var(--blue-4);
+  --dls-artifact-hue-document: var(--slate-4);
+  --dls-artifact-hue-data: var(--teal-4);
+  --dls-artifact-hue-plot: var(--grass-4);
+  --dls-artifact-hue-3d: var(--plum-4);
+  --dls-artifact-hue-audio: var(--pink-4);
+  --dls-artifact-hue-video: var(--crimson-4);
 
   --background: var(--dls-background);
   --foreground: var(--dls-text-primary);

@@ -1100,7 +1100,13 @@ function scanArtifactHue(rootDir) {
     const isArtifactSite = /artifact/i.test(rel)
     let m
     while ((m = hueClassRe.exec(src))) {
-      if (!isArtifactSite) result.candidates.push({ file: rel, hue: m[1], via: 'class' })
+      if (isArtifactSite) continue
+      // Skip matches inside --dls-artifact-hue-* variable declarations (class regex
+      // over-matches on the substring `artifact-hue-<type>` embedded in the var name).
+      const start = m.index
+      const preceding = src.slice(Math.max(0, start - 8), start)
+      if (preceding.endsWith('--dls-')) continue
+      result.candidates.push({ file: rel, hue: m[1], via: 'class' })
     }
     while ((m = hueVarRe.exec(src))) {
       if (!isArtifactSite) {
