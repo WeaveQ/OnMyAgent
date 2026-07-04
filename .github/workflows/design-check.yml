@@ -1,0 +1,65 @@
+name: OnMyAgent Design Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "DESIGN.md"
+      - "docs/design/**"
+      - "scripts/design/**"
+      - "scripts/checks/baselines/design-drift.json"
+      - "apps/app/src/app/index.css"
+      - "apps/app/tailwind.config.ts"
+      - ".github/workflows/design-check.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "DESIGN.md"
+      - "docs/design/**"
+      - "scripts/design/**"
+      - "scripts/checks/baselines/design-drift.json"
+      - "apps/app/src/app/index.css"
+      - "apps/app/tailwind.config.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  design-check:
+    name: extract-tokens --strict --baseline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.27.0
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run design token gate
+        run: pnpm task check design -- --strict --baseline scripts/checks/baselines/design-drift.json
