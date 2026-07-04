@@ -157,12 +157,12 @@ function AssistantDraftHomeMark(props: { categoryId: AssistantCategoryId }) {
 
 const sessionSurfaceStateClass = {
   todoDone: "border-dls-status-success bg-dls-status-success-soft text-dls-status-success-fg",
-  todoActive: "border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning",
+  todoActive: "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
   todoActiveDot: "size-1.5 rounded-full bg-dls-status-warning",
-  errorPanel: "rounded-2xl border border-dls-status-danger/25 bg-dls-status-danger/10 px-5 py-4",
+  errorPanel: "rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-5 py-4",
   errorText: "text-sm font-medium text-dls-status-danger",
   errorDismiss: "shrink-0 text-dls-status-danger hover:bg-dls-status-danger/10 hover:text-dls-status-danger",
-  snapshotError: "mx-auto max-w-xl rounded-3xl border border-dls-status-danger/25 bg-dls-status-danger/10 px-6 py-5 text-sm text-dls-status-danger",
+  snapshotError: "mx-auto max-w-xl rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-6 py-5 text-sm text-dls-status-danger",
 };
 
 /**
@@ -405,7 +405,7 @@ function TodoPanel(props: { todos: TodoItem[] }) {
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
       <DisclosureRowButton
         type="button"
-        className="justify-between px-4 py-3 text-xs text-dls-secondary hover:bg-dls-surface-muted/50"
+        className="justify-between px-4 py-3 text-xs text-dls-secondary hover:bg-dls-surface-muted"
         onClick={() => setExpanded((current) => !current)}
       >
         <div className="flex items-center gap-2">
@@ -440,7 +440,7 @@ function TodoPanel(props: { todos: TodoItem[] }) {
                     }`}
                   >
                     {done ? (
-                      <Check size={10} />
+                      <Check size={12} />
                     ) : active ? (
                       <span className={sessionSurfaceStateClass.todoActiveDot} />
                     ) : null}
@@ -467,7 +467,7 @@ function PersonalAssistantHero() {
       <img
         src={resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR)}
         alt=""
-        className="size-36 rounded-2xl object-cover"
+        className="size-36 rounded-xl object-cover"
         draggable={false}
       />
       <h2 className={sessionSurfaceTextClass.assistantHeroTitle}>
@@ -1942,7 +1942,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         )}
       >
         {!personalAssistantDraftHome ? (
-          <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-border/70 bg-dls-surface px-5">
+          <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5">
             <div className="flex min-w-0 items-center gap-2.5">
               <PendingAgentAvatar
                 name={chatHeaderAgent.name}
@@ -2009,7 +2009,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             <div ref={contentRef} className="w-full">
               {showDelayedLoading && pendingSessionLoad ? (
                 <div className="px-6 py-16">
-                  <div className="mx-auto max-w-sm rounded-3xl border border-dls-border bg-dls-hover/60 px-8 py-10 text-center">
+                  <div className="mx-auto max-w-sm rounded-xl border border-dls-border bg-dls-surface-muted px-8 py-10 text-center">
                     <div className={sessionSurfaceTextClass.openingSession}>
                       Opening session…
                     </div>
@@ -2122,7 +2122,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           (!sessionScroll.isAtBottom ||
             (!chatStreaming && sessionScroll.topClippedMessageId)) ? (
             <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 justify-center">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-dls-border bg-dls-surface/95 p-1 backdrop-blur-md">
+              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-dls-border bg-dls-surface p-1 backdrop-blur-md">
                 {!chatStreaming && sessionScroll.topClippedMessageId ? (
                   <Button
                     type="button"
@@ -2263,14 +2263,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 (props.personalAssistantHome || props.assistantFeatureCategoryId) && props.draftOnly ? (
                   <div className="relative inline-flex h-6 items-center gap-1 text-xs font-medium">
                     {showFolderRequiredBubble ? (
-                      <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/25 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
+                      <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
                         <div className="font-medium text-dls-accent">
                           {t("session.choose_folder_required_title")}
                         </div>
                         <div className="mt-0.5 text-dls-secondary">
                           {t("session.choose_folder_required_desc")}
                         </div>
-                        <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/25 bg-dls-surface" />
+                        <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/30 bg-dls-surface" />
                       </div>
                     ) : null}
                     <Button
@@ -2286,7 +2286,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                         props.draftWorkspaceDirectory
                           ? "text-dls-secondary"
                           : assistantFeatureCategoryId === "code"
-                            ? "animate-pulse bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/15 hover:text-dls-accent"
+                            ? "animate-pulse bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
                             : "text-dls-secondary",
                       )}
                     >

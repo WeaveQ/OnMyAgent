@@ -15,7 +15,7 @@ const configTextClass = {
   description: "text-xs text-dls-secondary",
   label: "text-xs font-medium text-dls-secondary",
   code: "text-xs font-mono text-dls-secondary truncate",
-  pre: "text-xs text-dls-text whitespace-pre-wrap break-words max-h-64 overflow-auto bg-dls-surface/20 border border-dls-border rounded-xl p-3",
+  pre: "text-xs text-dls-text whitespace-pre-wrap break-words max-h-64 overflow-auto bg-dls-surface border border-dls-border rounded-xl p-3",
   status: "text-xs",
 };
 

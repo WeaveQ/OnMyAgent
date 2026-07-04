@@ -199,7 +199,7 @@ export function PluginsView(props: PluginsViewProps) {
                             {step.description}
                           </div>
                           {step.command ? (
-                            <CodeToken tone="surface" size="lg" display="block" className="border-dls-border/70 bg-dls-surface-muted/60 text-dls-text">
+                            <CodeToken tone="surface" size="lg" display="block" className="border-dls-mist bg-dls-surface-muted text-dls-text">
                               {step.command}
                             </CodeToken>
                           ) : null}

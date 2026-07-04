@@ -1797,7 +1797,7 @@ export function SessionArchivePage(props: {
     <Dialog open={Boolean(confirmAction)} onOpenChange={(open) => {
       if (!open) setConfirmAction(null);
     }}>
-      <DialogContent className="rounded-2xl bg-dls-surface text-dls-text" showCloseButton={false}>
+      <DialogContent className="rounded-xl bg-dls-surface text-dls-text" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{confirmTitle}</DialogTitle>
           <DialogDescription className="space-y-2 text-dls-secondary">
@@ -1805,7 +1805,7 @@ export function SessionArchivePage(props: {
             <span className="block">{confirmDescription}</span>
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="rounded-b-2xl">
+        <DialogFooter className="rounded-b-xl">
           <Button type="button" variant="outline" onClick={() => setConfirmAction(null)}>
             {t("common.cancel")}
           </Button>

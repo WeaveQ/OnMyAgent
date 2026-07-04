@@ -67,14 +67,14 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
         type="button"
         variant="ghost"
         size="sm"
-        className="max-h-9 max-w-44 shrink min-w-0 rounded-md px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
+        className="max-h-9 max-w-44 shrink min-w-0 px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
         onClick={() => setOpen((value) => !value)}
         disabled={props.disabled}
         aria-expanded={open}
         aria-haspopup="menu"
         title={selected.label}
       >
-        <Shield size={15} className="shrink-0" />
+        <Shield size={14} className="shrink-0" />
         <span className="min-w-0 truncate">{selected.label}</span>
         <ChevronDown size={14} className="shrink-0" />
       </Button>

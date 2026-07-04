@@ -133,7 +133,7 @@ export function CreateWorkspaceSharedPanel(
                 title={activeOrg?.name ?? undefined}
               >
                 <RefreshCcw
-                  size={13}
+                  size={12}
                   className={props.workersBusy ? "animate-spin" : ""}
                 />
                 Refresh
@@ -144,7 +144,7 @@ export function CreateWorkspaceSharedPanel(
           <div className="mt-4">
             <InputGroup controlSize="xl" radius="xl" tone="surface">
               <InputGroupAddon align="inline-start" inset="comfortable">
-                <Search size={15} />
+                <Search size={14} />
               </InputGroupAddon>
               <InputGroupInput
                 type="text"
@@ -191,7 +191,7 @@ export function CreateWorkspaceSharedPanel(
               >
                 <div className="flex items-center gap-4">
                   <div className={iconTileClass}>
-                    <Boxes size={18} />
+                    <Boxes size={16} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -221,7 +221,7 @@ export function CreateWorkspaceSharedPanel(
                   >
                     {isConnecting ? (
                       <span className="inline-flex items-center gap-2">
-                        <Loader2 size={13} className="animate-spin" />
+                        <Loader2 size={12} className="animate-spin" />
                         Connecting
                       </span>
                     ) : (

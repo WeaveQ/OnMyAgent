@@ -23,11 +23,85 @@ are driven by semantic CSS tokens.
 - **Three-tier surface hierarchy.** Rail → background → surface. Rail is
   cold and quiet, background is neutral, surface is where content lives.
 
+## Component Contracts
+
+Signature and primitive component shapes (`SettingsCard`, `RailButton`,
+`SendButton`, `SegmentedTabGroup`, `Dialog`, `Input`, `ToggleChip`, …)
+are now bound to token references inside `DESIGN.md`'s YAML front
+matter under `components.contracts`. That block is the machine-readable
+target — radius, height, surface, padding — for the 20 most-drifted
+primitives. When adding or refactoring a signature component, edit
+that block in the same PR.
+
+Cross-cutting rules that surface most often in review:
+
+- **Tab bars.** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`. Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view.
+- **`rounded-full` is a whitelist.** Only avatars, `NavTabButton shape="pill"` (compact filter chips), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11.
+- **Radius scale is flat.** `xs=3 sm=6 md=8 lg=10 xl=14 pill=999`. `2xl/3xl/4xl` are legacy aliases mapped to `xl=14` in Tailwind config so migration is safe, but new code must pick a named tier — not a legacy alias.
+
 ## Palette, Semantic Tokens, Type Scale, Radius, Buttons, Rows
 
 See [`DESIGN.md`](../../DESIGN.md) — sections 2 (Color Palette),
 3 (Typography), 4 (Component Stylings, includes button scale + row
-primitives), and the YAML front matter for machine-readable values.
+primitives + signature components), 4a (State Machines: loading /
+empty / error / success anatomy + perceptual timing bands), 4b
+(Notifications: toast anatomy, position, duration by severity),
+5 (Layout), 5a (Keyboard Contract: kbd chip + platform substitution),
+6 (Depth incl. Z-Layer Stack), 7 (Shapes: border-radius + iconography
++ photography geometry), 10 (Responsive & Platform incl.
+Internationalization Space Budget), and the YAML front matter for
+machine-readable values.
+
+## Agent-Native Identity
+
+`DESIGN.md` §§ 4c–4h capture what makes OnMyAgent read as an
+agent workbench rather than a generic chat surface. Read them
+before designing any transcript, activity, or artifact affordance:
+
+- § 4c **Message roles** — seven roles (user, assistant, tool-call,
+  tool-output, thinking, system, error) each with a fixed
+  surface + border-left + prefix icon + prefix color. Roles are
+  the seven that ship; never invent an eighth.
+- § 4d **Streaming presentation** — 6 × 12 block cursor blinks at
+  320 ms; after 1 s idle, swap to the pause glyph. Runtime primitive
+  `StreamingCursor` lands in a follow-up PR; today's markup must
+  still track the same tokens.
+- § 4e **Presence & activity** — seven agent presence states with
+  their own color + motion + icon. Contrast with human presence
+  (online only) is intentional.
+- § 4f **Tool approval** — three risk tiers (safe / careful /
+  destructive) with 0 / 2 / 4 px left border and matching primary
+  button variant. Destructive defaults keyboard focus to Deny.
+- § 4g **Code & diff** — inline vs full-screen thresholds and the
+  contract between diff surfaces and message-role backgrounds.
+- § 4h **Session & Artifact variants** — SessionCard lifecycles
+  and the isolated `artifact-hue.*` palette (see § 11 Intentional
+  Exceptions). Hues MUST NOT be used outside `ArtifactCard`.
+
+## Extension Workflow
+
+When you need to extend the visual contract — a new token, a new
+signature component, a Windows/Linux titlebar rule — do not edit code
+first. Read `DESIGN.md` § 13 Iteration Guide for the ownership boundary
+between this narrative and DESIGN.md's tokens/rules, then write a plan
+doc under `docs/plans/` (v1 / v2 / v3 plans are worked examples).
+
+## Known Gaps
+
+`DESIGN.md` § 14 Known Gaps is the honest list of what the contract
+does *not* cover today — data-viz, copy voice, brand assets, marketing
+surface, mono typography, domain composites v2, animation
+choreography, Windows/Linux titlebar drag-region. State machines,
+notifications, keyboard contract, CJK space budget, CI gate, and the
+auto-fix codemod are v4 additions (see § 4a / § 4b / § 5a / § 10 and
+`scripts/design/codemod/`).
+Message roles, streaming cursor, presence, tool approval, code
++ diff, and session/artifact variants are v5 additions (see § 4c /
+§ 4d / § 4e / § 4f / § 4g / § 4h and the `message-roles:` /
+`streaming:` / `presence:` / `tool-approval:` / `artifact-hue:`
+YAML blocks). Runtime primitives `StreamingCursor` and
+`ToolApprovalCard` are tracked in Known Gaps until they ship.
+Closing a gap is documented in § 13 Iteration Guide.
 
 ## Scrollbars
 

@@ -157,13 +157,13 @@ const agentsLayoutClass = {
   compactFieldStack: "space-y-2.5",
   promptTextarea: "min-h-[140px] rounded-xl px-4 py-3 text-sm",
   deleteButton: "absolute right-3 top-3 text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger",
-  card: "relative flex min-h-[276px] flex-col rounded-2xl border border-dls-border bg-dls-surface p-5",
+  card: "relative flex min-h-[276px] flex-col rounded-xl border border-dls-border bg-dls-surface p-5",
   cardInteractive: "cursor-pointer transition-colors hover:border-dls-border-strong",
   primaryCardAction: "w-full gap-1.5 bg-dls-decision-soft text-dls-accent hover:bg-dls-accent hover:text-white",
   secondaryCardAction: "w-full gap-1.5 text-xs text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-  emptyHint: "flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-dls-border bg-dls-surface px-6 text-center",
+  emptyHint: "flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-dls-border bg-dls-surface px-6 text-center",
   wizardOverlay: "fixed inset-0 z-[60] bg-black/32 supports-backdrop-filter:backdrop-blur-[10px]",
-  wizardDialog: "flex max-h-[78vh] w-[calc(100vw-120px)] max-w-[840px] flex-col gap-0 overflow-hidden rounded-2xl p-0 !z-[70] sm:max-w-[840px]",
+  wizardDialog: "flex max-h-[78vh] w-[calc(100vw-120px)] max-w-[840px] flex-col gap-0 overflow-hidden rounded-xl p-0 !z-[70] sm:max-w-[840px]",
   editGrid: "min-h-0 flex-1 grid-cols-[160px_1fr] overflow-hidden md:grid",
   editNavButton: "h-auto rounded-none px-4 py-2.5 text-sm data-[active=true]:bg-dls-decision-soft data-[active=true]:text-dls-accent",
   pageContainer: "mx-auto flex w-full max-w-[1520px] flex-col",
@@ -265,7 +265,7 @@ function EmptyHint(props: {
 }) {
   return (
     <div className={agentsLayoutClass.emptyHint}>
-      <div className="flex size-16 items-center justify-center rounded-2xl bg-dls-hover text-dls-secondary">
+      <div className="flex size-16 items-center justify-center rounded-xl bg-dls-hover text-dls-secondary">
         {props.icon}
       </div>
       <div className={agentsTextClass.emptyTitle}>
@@ -296,8 +296,8 @@ function AgentPreviewCard(props: {
         <span className="size-2 rounded-full bg-dls-secondary/50" />
         {t("agents.preview")}
       </div>
-      <div className="rounded-2xl bg-dls-hover/70 p-5">
-        <div className="rounded-2xl bg-dls-surface px-5 pb-6 pt-9 text-center">
+      <div className="rounded-xl bg-dls-surface-muted p-5">
+        <div className="rounded-xl bg-dls-surface px-5 pb-6 pt-9 text-center">
           <div className="-mt-14 flex justify-center">
             {hasAvatarSelection ? (
               renderAvatar(
@@ -1027,7 +1027,7 @@ export function CreateAgentWizard(props: {
           </div>
         ) : null}
       </div>
-      <div className="border-l border-dls-border bg-dls-hover/40 px-5 py-6">
+      <div className="border-l border-dls-border bg-dls-surface-muted px-5 py-6">
         <AgentPreviewCard registry={props.registry} draft={draft} />
       </div>
     </div>
@@ -1065,7 +1065,7 @@ export function CreateAgentWizard(props: {
           <Button
             type="button"
             variant="outline"
-            className="size-11 rounded-2xl"
+            className="size-11 rounded-xl"
             onClick={() => void chooseWorkspace()}
           >
             <FolderOpen className="size-4" />
@@ -1329,7 +1329,7 @@ export function CreateAgentWizard(props: {
         {props.editingAgent ? (
           <>
             <div className={agentsLayoutClass.editGrid}>
-              <div className="border-r border-dls-border bg-dls-hover/30 py-4">
+              <div className="border-r border-dls-border bg-dls-surface-muted py-4">
                 {[
                   { id: 1 as const, label: t("agents.step_identity") },
                   { id: 2 as const, label: t("agents.step_tools") },
@@ -1374,7 +1374,7 @@ export function CreateAgentWizard(props: {
           <div className="flex items-center justify-between border-t border-dls-border px-7 py-4">
             <Button
               variant="ghost"
-              className="h-10 rounded-2xl px-2 text-sm"
+              className="h-10 rounded-xl px-2 text-sm"
               onClick={stepBackward}
             >
               {t("common.back")}
@@ -1970,7 +1970,7 @@ export function AgentsPage(props: AgentsPageProps) {
                     density="addCard"
                     type="button"
                     onClick={() => setWizardOpen(true)}
-                    className="rounded-2xl border-dashed bg-dls-background transition-colors"
+                    className="rounded-xl border-dashed bg-dls-background transition-colors"
                   >
                     <IconTile size="lg" shape="circle" tone="surface" border className="size-14">
                       <Plus className="size-7" />

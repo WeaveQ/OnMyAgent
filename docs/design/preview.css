@@ -6,10 +6,10 @@
   --pv-primary: #005DFF;
   --pv-primary-hover: #004ED6;
   --pv-primary-soft: #EAF2FF;
-  --pv-signal: #03FFDE;
+  --pv-signal: #00B39B;
   --pv-ink: #0F172A;
   --pv-slate: #64748B;
-  --pv-mist: #E5E7EB;
+  --pv-mist: #EEF0F3;
   --pv-surface: #FFFFFF;
   --pv-surface-muted: #F8FAFC;
   --pv-background: #FAFAFA;
@@ -29,6 +29,30 @@
   --pv-icon-bg: #EEF4FF;
   --pv-icon-fg: #005DFF;
   --pv-code-bg: #F1F5F9;
+  /* Artifact hue palette (DESIGN.md § 4h). Radix shade 9. */
+  --pv-hue-image: #6e56cf;
+  --pv-hue-code: #0090ff;
+  --pv-hue-document: #8b8d98;
+  --pv-hue-data: #12a594;
+  --pv-hue-plot: #46a758;
+  --pv-hue-3d: #ab4aba;
+  --pv-hue-audio: #d6409f;
+  --pv-hue-video: #e93d82;
+  /* DLS aliases so section 10–14 markup using var(--dls-*) resolves against this preview stylesheet. */
+  --dls-primary: var(--pv-primary);
+  --dls-surface: var(--pv-surface);
+  --dls-surface-muted: var(--pv-surface-muted);
+  --dls-app-bg: var(--pv-background);
+  --dls-border: var(--pv-border);
+  --dls-border-strong: var(--pv-border-strong);
+  --dls-text-primary: var(--pv-ink);
+  --dls-text-secondary: var(--pv-slate);
+  --dls-text-tertiary: #94A3B8;
+  --dls-danger: var(--pv-danger);
+  --dls-warning: var(--pv-warning);
+  --dls-success-fg: var(--pv-success-fg);
+  --dls-signal: var(--pv-signal);
+  --dls-online: var(--pv-online);
 }
 
 [data-theme="dark"] {
@@ -38,7 +62,7 @@
   --pv-signal: #03FFDE;
   --pv-ink: #F8FAFC;
   --pv-slate: #94A3B8;
-  --pv-mist: #3A3A3A;
+  --pv-mist: #2E2E2E;
   --pv-surface: #1E1E1E;
   --pv-surface-muted: #2A2A2A;
   --pv-background: #262626;
@@ -58,6 +82,30 @@
   --pv-icon-bg: #102A5C;
   --pv-icon-fg: #7FB0FF;
   --pv-code-bg: #2A2A2A;
+  /* Artifact hue palette (DESIGN.md § 4h). Radix shade 4 for dark mode chroma. */
+  --pv-hue-image: #33255b;
+  --pv-hue-code: #003362;
+  --pv-hue-document: #272a2d;
+  --pv-hue-data: #023b37;
+  --pv-hue-plot: #1d3a24;
+  --pv-hue-3d: #451d47;
+  --pv-hue-audio: #4b143d;
+  --pv-hue-video: #4d122f;
+  /* DLS aliases so section 10–14 markup using var(--dls-*) resolves against this preview stylesheet. */
+  --dls-primary: var(--pv-primary);
+  --dls-surface: var(--pv-surface);
+  --dls-surface-muted: var(--pv-surface-muted);
+  --dls-app-bg: var(--pv-background);
+  --dls-border: var(--pv-border);
+  --dls-border-strong: var(--pv-border-strong);
+  --dls-text-primary: var(--pv-ink);
+  --dls-text-secondary: var(--pv-slate);
+  --dls-text-tertiary: #64748B;
+  --dls-danger: var(--pv-danger);
+  --dls-warning: var(--pv-warning);
+  --dls-success-fg: var(--pv-success-fg);
+  --dls-signal: var(--pv-signal);
+  --dls-online: var(--pv-online);
 }
 
 html, body {
@@ -65,14 +113,14 @@ html, body {
   padding: 0;
   background: var(--pv-background);
   color: var(--pv-ink);
-  font-family: "IBM Plex Sans", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "IBM Plex Sans", "Geist Variable", Geist, "Avenir Next", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 
 code {
-  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace;
   font-size: 12px;
   background: var(--pv-code-bg);
   color: var(--pv-ink);
@@ -103,7 +151,7 @@ code {
 }
 .pv-nav a {
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--pv-slate);
   text-decoration: none;
   font-size: 12px;
@@ -159,7 +207,7 @@ code {
 }
 .pv-swatch-label { display: flex; flex-direction: column; min-width: 0; }
 .pv-swatch-label strong { font-size: 13px; font-weight: 500; color: var(--pv-ink); }
-.pv-swatch-label span { font-size: 11px; color: var(--pv-slate); font-family: ui-monospace, monospace; }
+.pv-swatch-label span { font-size: 11px; color: var(--pv-slate); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace; }
 
 .pv-type-list {
   display: flex;
@@ -177,10 +225,10 @@ code {
 }
 .pv-type-tag {
   flex-shrink: 0;
-  min-width: 130px;
+  min-width: 100px;
   font-size: 12px;
   color: var(--pv-slate);
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace;
 }
 
 .pv-radii {
@@ -197,10 +245,10 @@ code {
 .pv-radius-box {
   width: 48px;
   height: 48px;
-  background: var(--pv-primary-soft);
-  border: 1px solid var(--pv-primary);
+  background: var(--pv-surface-muted);
+  border: 1px solid var(--pv-border-strong);
 }
-.pv-radius span { font-size: 12px; color: var(--pv-slate); font-family: ui-monospace, monospace; }
+.pv-radius span { font-size: 12px; color: var(--pv-slate); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace; }
 
 .pv-row {
   display: flex;
@@ -221,10 +269,11 @@ code {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.pv-btn-xs { height: 24px; padding: 0 8px; border-radius: 10px; font-size: 12px; }
+.pv-btn-xs { height: 24px; padding: 0 8px; border-radius: 10px; font-size: 12px; font-weight: 500; }
 .pv-btn-sm { height: 32px; padding: 0 12px; border-radius: 10px; }
 .pv-btn-default { height: 36px; padding: 0 12px; border-radius: 10px; }
-.pv-btn-lg { height: 40px; padding: 0 24px; border-radius: 14px; font-weight: 600; }
+.pv-btn-lg { height: 40px; padding: 0 24px; border-radius: 14px; }
+.pv-btn-chrome { height: 48px; padding: 0 20px; border-radius: 8px; font-size: 14px; font-weight: 500; }
 
 .pv-btn-primary {
   background: var(--pv-primary);
@@ -271,6 +320,23 @@ code {
 .pv-btn-icon-default { width: 36px; height: 36px; font-size: 16px; }
 .pv-btn-icon-lg { width: 40px; height: 40px; font-size: 18px; }
 
+.pv-btn-family {
+  padding: 14px 16px;
+  border: 1px dashed var(--pv-border);
+  border-radius: 10px;
+  background: var(--pv-surface);
+  margin-bottom: 12px;
+}
+.pv-btn-family-cta {
+  background: var(--pv-primary-soft);
+  border-color: transparent;
+}
+.pv-btn-family-chrome {
+  background: var(--pv-surface-muted);
+  border-color: transparent;
+}
+.pv-btn-family .pv-eyebrow { margin-bottom: 12px; }
+
 .pv-row-primitives {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -290,7 +356,7 @@ code {
   background: var(--pv-surface);
   border: 1px solid var(--pv-border);
   border-radius: 14px;
-  padding: 6px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -310,7 +376,7 @@ code {
   cursor: pointer;
 }
 .pv-menu-row:hover { background: var(--pv-hover); }
-.pv-menu-row:first-child { background: var(--pv-primary-soft); color: var(--pv-primary); }
+.pv-menu-row-active, .pv-menu-row-active:hover { background: var(--pv-primary-soft); color: var(--pv-primary); }
 .pv-menu-icon {
   width: 20px;
   height: 20px;
@@ -325,7 +391,7 @@ code {
 .pv-menu-shortcut {
   margin-left: 8px;
   color: var(--pv-slate);
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace;
   font-size: 11px;
 }
 
@@ -364,7 +430,7 @@ code {
   padding: 14px 16px;
   border: 1px solid var(--pv-border);
   background: var(--pv-surface);
-  border-radius: 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: border-color 120ms, background 120ms;
 }
@@ -387,7 +453,7 @@ code {
   padding: 16px;
   background: var(--pv-surface);
   border: 1px solid var(--pv-border);
-  border-radius: 14px;
+  border-radius: 10px;
 }
 .pv-card-header {
   display: flex;
@@ -417,7 +483,7 @@ code {
   margin-left: auto;
   background: var(--pv-mist);
 }
-.pv-status-dot-online { background: var(--pv-online); box-shadow: 0 0 0 3px rgba(40, 178, 118, 0.15); }
+.pv-status-dot-online { background: var(--pv-online); box-shadow: none; }
 
 .pv-field {
   display: flex;
@@ -451,31 +517,46 @@ code {
   border: 1px solid transparent;
 }
 .pv-badge-primary { background: var(--pv-primary-soft); color: var(--pv-primary); }
-.pv-badge-success { background: var(--pv-success-soft); color: var(--pv-success-fg); border-color: var(--pv-success-fg); }
+.pv-badge-success { background: var(--pv-success-soft); color: var(--pv-success-fg); }
 .pv-badge-warning { background: var(--pv-warning-soft); color: var(--pv-warning); }
 .pv-badge-danger  { background: var(--pv-danger-soft);  color: var(--pv-danger-fg); }
 .pv-badge-muted   { background: var(--pv-surface-muted); color: var(--pv-slate); border-color: var(--pv-border); }
-.pv-badge-signal {
-  background: transparent;
-  color: var(--pv-ink);
-  border-color: var(--pv-signal);
-}
+.pv-badge-signal  { background: var(--pv-surface-muted); color: var(--pv-ink); border-color: var(--pv-border); }
 .pv-badge-signal::before {
   content: "";
   width: 6px;
   height: 6px;
   border-radius: 999px;
   background: var(--pv-signal);
-  box-shadow: 0 0 0 3px rgba(3, 255, 222, 0.25);
 }
 
 .pv-list {
+  list-style: none;
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
   font-size: 13px;
   color: var(--pv-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.pv-list li { margin: 4px 0; }
+.pv-list li {
+  position: relative;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+.pv-list li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pv-border-strong);
+}
+.pv-card:has(> .pv-eyebrow-good) .pv-list li::before { background: var(--pv-success-fg); }
+.pv-card:has(> .pv-eyebrow-bad) .pv-list li::before { background: var(--pv-danger-fg); }
 
 .pv-footer {
   border-top: 1px solid var(--pv-border);
@@ -511,7 +592,7 @@ code {
   padding: 12px;
   background: var(--pv-surface);
   border: 1px solid var(--pv-border);
-  border-radius: 14px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -519,7 +600,7 @@ code {
 .pv-motion-label {
   font-size: 12px;
   color: var(--pv-slate);
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace;
 }
 .pv-motion-stage {
   height: 56px;
@@ -542,7 +623,6 @@ code {
 .pv-motion-obj.pv-motion-pulse {
   border-radius: 999px;
   background: var(--pv-signal);
-  box-shadow: 0 0 0 6px rgba(3, 255, 222, 0.2);
 }
 .pv-motion-tile.pv-motion-run .pv-motion-obj[data-motion="fade"] {
   animation: pv-fade var(--pv-motion-duration, 200ms) var(--pv-motion-ease, cubic-bezier(0.2, 0, 0, 1));
@@ -562,8 +642,8 @@ code {
   to { transform: translateX(0); opacity: 1; }
 }
 @keyframes pv-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 6px rgba(3, 255, 222, 0.2); }
-  50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(3, 255, 222, 0.05); }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.55; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pv-motion-tile.pv-motion-run .pv-motion-obj[data-motion="slide"],
@@ -586,20 +666,60 @@ code {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
-  color: var(--pv-ink);
+  color: var(--pv-slate);
+}
+.pv-kbd-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pv-kbd-desc {
+  margin-left: 6px;
+  color: var(--pv-slate);
+  font-size: 12px;
 }
 .pv-kbd {
   display: inline-flex;
   align-items: center;
-  padding: 2px 6px;
-  border: 1px solid var(--pv-border-strong);
-  border-bottom-width: 2px;
+  padding: 2px 4px;
+  border: 1px solid var(--pv-border);
   border-radius: 6px;
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace;
   font-size: 11px;
   background: var(--pv-surface-muted);
   color: var(--pv-ink);
-  margin-right: 4px;
+}
+
+/* ---------- Agent-native (§ 11 preview) ---------- */
+
+.pv-stream-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 12px;
+  margin-left: 2px;
+  background: var(--pv-signal);
+  vertical-align: text-bottom;
+  animation: pv-blink 320ms steps(2, end) infinite;
+}
+@keyframes pv-blink {
+  50% { opacity: 0; }
+}
+.pv-pulse {
+  animation: pv-presence-pulse 1200ms ease-in-out infinite;
+}
+.pv-pulse-fast {
+  animation: pv-presence-pulse 600ms ease-in-out infinite;
+}
+@keyframes pv-presence-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-stream-cursor,
+  .pv-pulse,
+  .pv-pulse-fast {
+    animation: none;
+  }
 }

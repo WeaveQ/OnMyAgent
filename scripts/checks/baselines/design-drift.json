@@ -1,0 +1,76 @@
+{
+  "__meta": {
+    "description": "DESIGN.md v4 drift baseline. Extract-tokens compares current drift against this file when invoked with --baseline. Any new signature or growth beyond count fails --strict. Reductions are always allowed. Reseed only when a DESIGN.md contract change intentionally shifts what counts as drift; document reseed in the PR that changes DESIGN.md. Extended in v5 with 5 additional bucket keys (messageRoles / streaming / presence / toolApproval / artifactHue), all seeded at count 0 because v5 is docs-only; no code-side implementation exists yet.",
+    "seeded-from": "codex/design-md-v4",
+    "seed-command": "pnpm task check design -- --json"
+  },
+  "iconography": {
+    "count": 14,
+    "signatures": [
+      "react-app/design-system/extension-card.tsx:size=18",
+      "react-app/domains/cloud/den-signin-surface.tsx:size=18",
+      "react-app/domains/session/components/permission-modal/index.tsx:size=23",
+      "react-app/domains/session/modals/model-picker-modal.tsx:size=18",
+      "react-app/domains/session/surface/composer/access-permission-select.tsx:size=18",
+      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
+      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
+      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=18",
+      "react-app/domains/settings/pages/mcp-view.tsx:size=15",
+      "react-app/domains/settings/pages/messaging-view.tsx:size=28",
+      "react-app/domains/settings/pages/messaging-view.tsx:size=28",
+      "react-app/domains/shared/provider-auth-modal.tsx:size=18",
+      "react-app/domains/shared/status-toast.tsx:size=18",
+      "react-app/domains/shared/workspace-option-card.tsx:size=18"
+    ]
+  },
+  "zLayers": {
+    "count": 0,
+    "signatures": []
+  },
+  "stateTimings": {
+    "count": 13,
+    "signatures": [
+      "react-app/domains/connections/mcp-auth-modal.tsx:ms=500",
+      "react-app/domains/session/components/shared-pages/automation-page.tsx:ms=300",
+      "react-app/domains/session/components/shared-pages/feishu-channel-panel.tsx:ms=500",
+      "react-app/domains/session/components/shared-pages/weixin-channel-panel.tsx:ms=500",
+      "react-app/domains/session/surface/message-list.tsx:ms=1200",
+      "react-app/domains/session/surface/session-surface.tsx:ms=1200",
+      "react-app/domains/settings/pages/system-authorizations-view.tsx:ms=300",
+      "react-app/domains/shared/onmyagent-server-store.ts:ms=250",
+      "react-app/shell/app-root.tsx:ms=500",
+      "react-app/shell/app-root.tsx:ms=500",
+      "react-app/shell/app-root.tsx:ms=900",
+      "react-app/shell/boot-state.tsx:ms=160",
+      "react-app/shell/debug-logger.ts:ms=500"
+    ]
+  },
+  "notifications": {
+    "count": 0,
+    "signatures": []
+  },
+  "kbd": {
+    "count": 0,
+    "signatures": []
+  },
+  "messageRoles": {
+    "count": 0,
+    "signatures": []
+  },
+  "streaming": {
+    "count": 0,
+    "signatures": []
+  },
+  "presence": {
+    "count": 0,
+    "signatures": []
+  },
+  "toolApproval": {
+    "count": 0,
+    "signatures": []
+  },
+  "artifactHue": {
+    "count": 0,
+    "signatures": []
+  }
+}

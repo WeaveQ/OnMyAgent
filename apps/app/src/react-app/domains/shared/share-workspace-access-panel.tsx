@@ -244,7 +244,7 @@ export function ShareWorkspaceAccessPanel(
           >
             <span>{t("workspace.share_optional_collaborator_access")}</span>
             <ChevronDown
-              size={13}
+              size={12}
               className={`shrink-0 transition-transform ${
                 props.collaboratorExpanded ? "rotate-180" : ""
               }`}

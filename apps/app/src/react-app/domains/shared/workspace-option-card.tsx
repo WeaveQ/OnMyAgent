@@ -42,7 +42,7 @@ export function WorkspaceOptionCard({
       </div>
       {endAdornment ?? (
         <ChevronRight
-          size={18}
+          size={16}
           className="shrink-0 text-dls-secondary transition-transform group-hover:translate-x-0.5"
         />
       )}

@@ -295,7 +295,7 @@ export function VirtualSessionList(props: {
               data-index={item.index}
             >
               {row.kind === "group" ? (
-                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-dls-border/60 bg-dls-surface px-3 py-1.5 text-xs text-dls-secondary">
+                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-dls-mist bg-dls-surface px-3 py-1.5 text-xs text-dls-secondary">
                   <span className="font-medium uppercase text-dls-text">{row.label}</span>
                   <span>{t("session_archive.agent_group_count", { count: row.count })}</span>
                 </div>
@@ -307,7 +307,7 @@ export function VirtualSessionList(props: {
                   data-session-archive-session-id={row.item.session.id}
                   className={cn(
                     "cursor-pointer",
-                    "flex w-full flex-col gap-1 border-b border-dls-border/60 px-3 py-2 text-left text-sm hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                    "flex w-full flex-col gap-1 border-b border-dls-mist px-3 py-2 text-left text-sm hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
                     props.selectedSessionId === row.item.session.id && "bg-dls-list-selected border-l-2 border-l-dls-accent pl-2.5",
                   )}
                   style={{ paddingLeft: `${12 + row.item.depth * 16}px` }}
@@ -426,7 +426,7 @@ export function TrashSessionList(props: {
       <div className="space-y-2">
         {props.visibleGroups.map((group) => (
             <div key={group.label} className="space-y-2">
-              <div className="flex items-center justify-between border-b border-dls-border/60 px-1 py-1 text-xs text-dls-secondary">
+              <div className="flex items-center justify-between border-b border-dls-mist px-1 py-1 text-xs text-dls-secondary">
               <span className="font-medium uppercase text-dls-text">{group.label}</span>
               <span>{t("session_archive.trash_count", { count: group.sessions.length })}</span>
             </div>
@@ -548,7 +548,7 @@ function highlightMessageContent(content: string, query: string): ReactNode {
   while (index >= 0) {
     if (index > cursor) parts.push(content.slice(cursor, index));
     const end = index + trimmed.length;
-    parts.push(<mark key={`${index}:${end}`} className="rounded bg-dls-status-warning/12 px-0.5 text-dls-text">{content.slice(index, end)}</mark>);
+    parts.push(<mark key={`${index}:${end}`} className="rounded bg-dls-status-warning-soft px-0.5 text-dls-text">{content.slice(index, end)}</mark>);
     cursor = end;
     index = lowerContent.indexOf(lowerQuery, Math.max(end, index + 1));
   }
