@@ -179,8 +179,85 @@
   </div>
 </section>
 
+<section class="pv-section" id="motion">
+  <h2>7 · Motion</h2>
+  <p class="pv-desc">Durations &amp; easings from <code>DESIGN.md</code> § 6 / YAML <code>motion:</code>. Click Replay to retrigger.</p>
+  <div class="pv-motion-grid">
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">standard · fade · 120ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="fade" data-easing="standard" data-duration="120"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">standard · slide · 200ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="slide" data-easing="standard" data-duration="200"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">decisive · fade · 200ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="fade" data-easing="decisive" data-duration="200"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">decisive · slide · 320ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="slide" data-easing="decisive" data-duration="320"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">signal · pulse · 200ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj pv-motion-pulse" data-motion="pulse" data-easing="signal" data-duration="200"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">signal · pulse · 320ms slow</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj pv-motion-pulse" data-motion="pulse" data-easing="signal" data-duration="320"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+  </div>
+  <p class="pv-desc" style="margin-top:12px">
+    Respects <code>prefers-reduced-motion</code>: when set, translate motion is disabled and only opacity fades at <code>duration.fast</code> remain.
+  </p>
+</section>
+
+<section class="pv-section" id="focus-a11y">
+  <h2>8 · Focus &amp; Accessibility</h2>
+  <p class="pv-desc">Focus ring token (<code>focus.ring-color</code>, width 2px, offset 2px) + keyboard-navigation cheat sheet. Tab through the controls below to see the ring.</p>
+  <div class="pv-grid-2">
+    <div class="pv-card">
+      <div class="pv-eyebrow">Focus ring on primitives</div>
+      <div class="pv-row" style="margin-top:8px;flex-wrap:wrap">
+        <button class="pv-btn pv-btn-primary pv-btn-default pv-focus-demo">Primary CTA</button>
+        <button class="pv-btn pv-btn-ghost pv-btn-default pv-focus-demo">Ghost</button>
+        <button class="pv-btn pv-btn-icon pv-btn-icon-default pv-focus-demo" aria-label="settings">⚙</button>
+      </div>
+      <label class="pv-field" style="margin-top:12px">
+        <span class="pv-field-label">Input</span>
+        <input class="pv-input pv-focus-demo" value="Tab to focus" />
+      </label>
+      <div class="pv-menu pv-focus-demo-menu" style="margin-top:8px">
+        <button class="pv-menu-row pv-focus-demo"><span class="pv-menu-icon">→</span><span>Menu row · Tab me</span></button>
+        <button class="pv-menu-row pv-focus-demo"><span class="pv-menu-icon">→</span><span>Menu row 2</span></button>
+      </div>
+    </div>
+    <div class="pv-card">
+      <div class="pv-eyebrow">Keyboard cheat sheet</div>
+      <ul class="pv-kbd-list">
+        <li><kbd class="pv-kbd">Tab</kbd> <kbd class="pv-kbd">⇧ Tab</kbd> — move focus in DOM order</li>
+        <li><kbd class="pv-kbd">Enter</kbd> <kbd class="pv-kbd">Space</kbd> — activate</li>
+        <li><kbd class="pv-kbd">Esc</kbd> — close dialog / popover / dropdown</li>
+        <li><kbd class="pv-kbd">↑</kbd> <kbd class="pv-kbd">↓</kbd> — navigate menu / listbox / tabs</li>
+        <li><kbd class="pv-kbd">⌘K</kbd> — open command palette</li>
+        <li><kbd class="pv-kbd">Home</kbd> <kbd class="pv-kbd">End</kbd> — first / last in list</li>
+      </ul>
+      <p class="pv-desc" style="margin-top:12px">
+        All icon-only buttons must carry <code>aria-label</code>. Loading rows announce via <code>aria-busy="true"</code> on the parent, not per-icon labels.
+      </p>
+    </div>
+  </div>
+</section>
+
 <section class="pv-section">
-  <h2>7 · Do's &amp; Don'ts (quick reference)</h2>
+  <h2>9 · Do's &amp; Don'ts (quick reference)</h2>
   <div class="pv-grid-2">
     <div class="pv-card">
       <div class="pv-eyebrow pv-eyebrow-good">Do</div>
@@ -210,5 +287,32 @@
 <footer class="pv-footer">
   Rendered from <code>/DESIGN.md</code> · This preview is a fixed HTML snapshot; if it drifts from DESIGN.md, DESIGN.md wins.
 </footer>
+<script>
+(function () {
+  const EASINGS = {
+    standard: 'cubic-bezier(0.2, 0, 0, 1)',
+    decisive: 'cubic-bezier(0.3, 0, 0.2, 1)',
+    signal: 'cubic-bezier(0.4, 0, 0.6, 1)',
+  };
+  function trigger(tile) {
+    const obj = tile.querySelector('.pv-motion-obj');
+    if (!obj) return;
+    const easing = EASINGS[obj.dataset.easing] || EASINGS.standard;
+    const duration = obj.dataset.duration || 200;
+    tile.style.setProperty('--pv-motion-duration', duration + 'ms');
+    tile.style.setProperty('--pv-motion-ease', easing);
+    tile.classList.remove('pv-motion-run');
+    // Force reflow so animation restarts.
+    void obj.offsetWidth;
+    tile.classList.add('pv-motion-run');
+  }
+  const tiles = document.querySelectorAll('.pv-motion-tile');
+  tiles.forEach((tile) => {
+    trigger(tile);
+    const btn = tile.querySelector('.pv-motion-replay');
+    if (btn) btn.addEventListener('click', () => trigger(tile));
+  });
+})();
+</script>
 </body>
 </html>

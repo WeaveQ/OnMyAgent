@@ -45,6 +45,7 @@ pnpm task check app       # 低频专项检查入口：app renderer 类型检查
 pnpm task check server    # 低频专项检查入口：server 类型检查
 pnpm task check desktop   # 低频专项检查入口：desktop Electron 类型检查
 pnpm task check orchestrator # 低频专项检查入口：orchestrator 类型检查
+pnpm task check design    # 低频专项检查入口：DESIGN.md YAML 与代码 token 漂移检测
 pnpm check:boundaries     # 架构边界 + shell-import-depth 门禁
 pnpm check:forbidden-types # any / as any / as unknown as 类型逃逸门禁
 pnpm test:unit            # server + orchestrator 单元/集成测试
@@ -79,6 +80,7 @@ Tailwind / TypeScript / React / shadcn+BaseUI / TanStack Query / Zustand / Zod(v
 
 - 最小 diff，更简单方案优先。
 - 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（tokens、components、flags）+ § 4 组件契约 + § 7 Do's/Don'ts。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
+- UI token 或 design contract 变更后（`DESIGN.md`、`apps/app/src/app/index.css`、`apps/app/tailwind.config.ts`），运行 `pnpm task check design` 确认无漂移；添加 `-- --strict` 让漂移直接失败（未来 CI seam）。
 - UI 组件用 `@/components`，新组件优先 shadcn/ui with Base UI。
 - 假设最终用户非技术用户。
 - 后续新增的用户可见功能必须接入现有中英文国际化体系，避免写死单一语言文案。
@@ -145,6 +147,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 | `docs/loop-rules.md` | Loop 细则：durable ledger、Reference Parity、Kill Switch、graphify |
 | `docs/design/theme-system.md` | 设计哲学叙事（Flat first / Decision first / Blunt geometry / Signal cyan / Exceptions）；具体 token 表见 `DESIGN.md`。 |
 | `docs/design/ui-primitive-refactor-best-practices.md` | UI primitive 复用、尺寸统一、design token 防偏移最佳实践 |
+| `scripts/design/extract-tokens.mjs` | 本地脚本：diff `DESIGN.md` YAML 与 `apps/app/src/app/index.css`。用 `pnpm task check design` 触发。 |
 | `BUILD.md` | 桌面端打包流程 |
 | `SECURITY.md` | 安全边界、漏洞报告和 safe harbor |
 | `CODE_OF_CONDUCT.md` | 开源社区行为准则和反馈入口 |
