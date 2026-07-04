@@ -283,10 +283,10 @@ Extends § 11 Intentional Exceptions with an explicit enumeration. Introduces on
 
 Once owner reviews Q1–Q4, replace the placeholders below and hand this file to `ce-plan`.
 
-- **Q1 chosen:** _[A / B / C / custom]_ — Option A (Minimal chrome) proposed as default.
-- **Q2 chosen:** _[A / B / C / custom]_ — Option A (Inline block cursor) proposed as default.
-- **Q3 chosen:** _[A / B / C / custom]_ — Option A (Reuse semantic tokens) proposed as default.
-- **Q4 chosen:** _[A / B / C / custom]_ — Option A (3-tier risk, mono param, always-diff-when-writing) proposed as default.
+- **Q1 chosen:** **A** (Minimal chrome) — locked by owner 2026-07-04.
+- **Q2 chosen:** **A** (Inline block cursor + ellipsis fallback) — locked by owner 2026-07-04.
+- **Q3 chosen:** **A** (Reuse semantic tokens; StatusDot unchanged) — locked by owner 2026-07-04.
+- **Q4 chosen:** **A** (3-tier risk, mono param truncated at 80 chars, inline diff for write tools) — locked by owner 2026-07-04.
 
 ### Custom-alternative slot
 
