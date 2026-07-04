@@ -2,6 +2,8 @@
 
 This document defines how AI agents should change OnMyAgent UI without drifting from the design system.
 
+> **Read [`DESIGN.md`](../../DESIGN.md) first.** It is the authoritative visual contract (tokens, components, Do's / Don'ts). This file explains the *refactor workflow* that keeps code aligned with `DESIGN.md`.
+
 ## Intent
 
 OnMyAgent UI work should improve consistency without turning pages into one-off Tailwind compositions. AI agents must reuse existing primitives, align same-type component sizes, classify special visuals before editing, and provide validation evidence.
