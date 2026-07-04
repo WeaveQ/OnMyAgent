@@ -11,7 +11,7 @@ import {
   permissionKey,
   questionKey,
   todoKey,
-} from "../domains/session/sync/session-sync";
+} from "../domains/session";
 import { getReactQueryClient } from "../infra/query-client";
 
 export const emptyPendingPermissions: PendingPermission[] = [];

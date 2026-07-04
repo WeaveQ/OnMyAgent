@@ -42,7 +42,7 @@ import {
   ToggleChip,
   FieldLabel,
   normalizeProfileOptionValues,
-} from "../domains/settings/pages/onboarding-profile-shared";
+} from "../domains/settings";
 import { t } from "../../i18n";
 import {
   pickDirectory,
