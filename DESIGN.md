@@ -133,6 +133,122 @@ kbd:
   chip-radius: sm
   platform-substitution: runtime
 
+message-roles:
+  user:
+    surface: dls-surface
+    type: text-sm
+    border-left: none
+    prefix-icon: none
+    prefix-color: none
+  assistant:
+    surface: dls-surface
+    type: text-sm
+    border-left: none
+    prefix-icon: none
+    prefix-color: none
+  tool-call:
+    surface: dls-surface-muted
+    type: text-xs-font-mono
+    border-left: 2px-dls-primary
+    prefix-icon: wrench
+    prefix-color: dls-primary
+  tool-output:
+    surface: dls-surface-muted
+    type: text-xs-font-mono
+    border-left: 2px-dls-slate
+    prefix-icon: terminal
+    prefix-color: dls-slate
+  thinking:
+    surface: dls-surface
+    type: text-xs-italic
+    border-left: 2px-dls-signal
+    prefix-icon: sparkles
+    prefix-color: dls-signal
+  system:
+    surface: dls-app-bg
+    type: text-xs
+    border-left: none
+    prefix-icon: info
+    prefix-color: dls-text-secondary
+  error:
+    surface: dls-surface
+    type: text-sm
+    border-left: 2px-dls-danger
+    prefix-icon: alert-circle
+    prefix-color: dls-danger
+
+streaming:
+  cursor-shape: block
+  cursor-width-px: 6
+  cursor-height-px: 12
+  cursor-color: dls-signal
+  blink-duration-ms: 320
+  blink-easing: signal
+  pause-threshold-ms: 1000
+  pause-glyph: horizontal-ellipsis
+  pause-color: dls-text-tertiary
+  reduced-motion: cursor-hold-no-blink
+
+presence:
+  online:
+    color: dls-online
+    motion: none
+    icon: circle-filled
+  idle:
+    color: dls-text-tertiary
+    motion: none
+    icon: circle
+  typing:
+    color: dls-signal
+    motion: pulse-fast
+    icon: pencil
+  running:
+    color: dls-primary
+    motion: pulse-normal
+    icon: play
+  paused:
+    color: dls-warning
+    motion: none
+    icon: pause
+  disconnected:
+    color: dls-slate
+    motion: none
+    icon: cloud-off
+  errored:
+    color: dls-danger
+    motion: shake-once
+    icon: alert-circle
+
+tool-approval:
+  risk-tiers:
+    safe:
+      border-width-px: 0
+      border-color: none
+      primary-button-variant: primary
+    careful:
+      border-width-px: 2
+      border-color: dls-warning
+      primary-button-variant: primary
+    destructive:
+      border-width-px: 4
+      border-color: dls-danger
+      primary-button-variant: danger
+  param-summary-max-chars: 80
+  param-summary-full-max-lines: 200
+  diff-inline-line-threshold: 20
+  focus-default-safe: primary
+  focus-default-destructive: deny
+
+artifact-hue:
+  image: radix-violet-9
+  code: radix-blue-9
+  document: radix-slate-9
+  data: radix-teal-9
+  plot: radix-grass-9
+  3d: radix-plum-9
+  audio: radix-pink-9
+  video: radix-crimson-9
+
 iconography:
   size:
     xs: 12
@@ -244,6 +360,11 @@ flags:
   notifications-tokenized: required
   kbd-tokenized: required
   kbd-platform-substitution: runtime
+  message-roles-tokenized: required
+  streaming-tokenized: required
+  presence-tokenized: required
+  tool-approval-tokenized: required
+  artifact-hue-scoped-to-artifact-cards: required
 ---
 
 # OnMyAgent — Visual Design Contract
@@ -608,6 +729,241 @@ justification (e.g. a copy that requires reading a long path).
 
 Persistent error toasts survive route transitions. If the same error
 recurs, dedupe by key rather than restacking.
+
+## 4c. Message Roles
+
+The chat transcript is OnMyAgent's identity surface. Seven roles carry
+distinct visual weight while sharing the same base row anatomy — no
+role introduces new base colors; identity is encoded via **left-border
+accent** + **prefix icon**, not surface fills. Rows separated by
+hairlines only (see § 4 `ChatMessage row`).
+
+| Role | Surface | Type | Border-left | Prefix (14 px Lucide) |
+| --- | --- | --- | --- | --- |
+| `user` | `dls-surface` | `text-sm` | none | avatar 32 px (right-aligned row) |
+| `assistant` | `dls-surface` | `text-sm` | none | `AgentAvatarMesh` 32 px |
+| `tool-call` | `dls-surface-muted` | `text-xs font-mono` | 2 px `dls-primary` | `wrench` in `dls-primary` |
+| `tool-output` | `dls-surface-muted` | `text-xs font-mono` | 2 px `dls-slate` | `terminal` in `dls-slate` |
+| `thinking` | `dls-surface` | `text-xs italic` | 2 px `dls-signal` | `sparkles` in `dls-signal` |
+| `system` | `dls-app-bg` | `text-xs` | none | `info` in `dls-text-secondary` |
+| `error` | `dls-surface` | `text-sm` | 2 px `dls-danger` | `alert-circle` in `dls-danger` |
+
+### Rationale
+
+Every role must be expressible using tokens shipped in v3/v4. Surface
+tinting was considered (see brainstorm 006 Option B) and rejected —
+adding 14 tint tokens fights § 6 Depth's flatness stance and pushes
+long conversations into visual noise. Border-left is the cheapest
+identity signal that still scans at a glance.
+
+Monospace typography for `tool-call` / `tool-output` uses the system
+mono fallback declared in § 3 Note on Font Substitutes. Mono font
+family remains a Known Gap; v5 does not resolve the mono contract,
+only its usage sites.
+
+Prefix icons come from `iconography.size.sm` (14 px). Icon paint is
+`currentColor` — the role's `border-left` color is the intended tint,
+inherited via the row-scoped text-color rule.
+
+## 4d. Streaming Presentation
+
+The streaming state must feel like words landing right now without
+adding chrome. One primitive shape, one motion, one fallback.
+
+- **Cursor glyph.** A 6 × 12 px block (`▮`-shaped), filled with
+  `dls-signal`, inline at the current caret position of the streaming
+  assistant response. No box-shadow, no glow, no gradient — a solid
+  rectangle that inherits the row's text color when `dls-signal` is
+  unavailable.
+- **Blink cadence.** `motion.duration.slow` (320 ms) using
+  `motion.easing.signal` (`cubic-bezier(0.4, 0, 0.6, 1)`), 50 % duty
+  cycle. Reuses the motion tokens shipped in v2 — do not invent a
+  new duration.
+- **Pause fallback.** When no token arrives for `state-timings.short-ms`
+  (1 s), swap the cursor for an inline horizontal ellipsis `…` in
+  `dls-text-tertiary`. Do NOT stack a spinner or progress bar on top;
+  the ellipsis alone reads as "still working" and avoids the two-signal
+  problem (see § 4a Perceptual Timing).
+- **Reduced-motion.** When `prefers-reduced-motion: reduce` is set,
+  the cursor stays visible but stops blinking. The ellipsis fallback
+  still applies at the same 1 s threshold.
+- **No cursor after completion.** The cursor vanishes on the last
+  token; it does NOT linger, morph into a period, or fade. The
+  message row transitions to its non-streaming state immediately.
+
+Streaming state is a `data-streaming="true"` attribute on the message
+row; the cursor + fallback logic is a shared primitive
+(`StreamingCursor`, out of v5 scope but pre-declared here so agents
+consume the primitive instead of drawing their own indicator).
+
+## 4e. Presence & Activity
+
+`StatusDot` and `StatusBadge` primitives (see § 4 Status) carry a
+`state=` enum. Six states beyond `online` cover the workbench
+operator's need to see whether an agent is idle, thinking, blocked,
+or broken. Every state reuses tokens shipped in v3 — no new palette.
+
+| State | Color | Micro-motion | Tooltip icon |
+| --- | --- | --- | --- |
+| `online` | `dls-online` | none | `circle` filled |
+| `idle` | `dls-text-tertiary` | none | `circle` outline |
+| `typing` | `dls-signal` | pulse `duration.fast` (120 ms) | `pencil` |
+| `running` | `dls-primary` | pulse `duration.normal` (200 ms) | `play` |
+| `paused` | `dls-warning` | none | `pause` |
+| `disconnected` | `dls-slate` | none | `cloud-off` |
+| `errored` | `dls-danger` | shake once on entry | `alert-circle` |
+
+- **StatusDot primitive stays unchanged.** State is a prop enum — do
+  not fork the primitive per state. The primitive reads `state` and
+  applies the token + motion locally.
+- **Micro-motion is optional decoration, not identity.** The state
+  reads correctly without motion (color + shape carry meaning). When
+  `prefers-reduced-motion: reduce` is set, all pulses and shakes are
+  suppressed.
+- **Tooltip icon** appears in the on-hover tooltip label, not on the
+  dot itself. The dot stays a solid disc; the icon disambiguates on
+  hover for accessibility.
+- **Presence lives on rows, not inline in body copy.** A message row
+  may show a `typing` badge on the sender's avatar; body copy that
+  describes state uses text ("the agent is running"), not a dot.
+
+## 4f. Tool Approval
+
+Tool-approval cards gate any assistant-initiated write. Three risk
+tiers carry different friction: safe tools approve with one click, a
+destructive tool requires a red button and an inline diff. Risk tier
+is metadata on the tool definition, not a per-call decision.
+
+### Risk Tiers
+
+| Tier | Border-left | Primary button | Diff preview |
+| --- | --- | --- | --- |
+| `safe` | none | `variant="primary"` (`dls-primary`) | none |
+| `careful` | 2 px `dls-warning` | `variant="primary"` (`dls-primary`) | inline when writing files |
+| `destructive` | 4 px `dls-danger` | `variant="danger"` (`dls-danger`) | always inline for writes; secondary "Show diff" for reads |
+
+- `safe` — read-only tools (list_files, get_workspace, search).
+- `careful` — writes local state (edit_file, create_file, run_command
+  without network side effects).
+- `destructive` — deletes files, force-pushes, deploys, network calls
+  with external side effects.
+
+### Anatomy
+
+- **Header.** Tool name in `text-sm font-medium`, tier chip
+  (`StatusBadge` variant) right-aligned.
+- **Param summary.** First line only, `text-xs font-mono`, truncate
+  at `tool-approval.param-summary-max-chars` (80). Overflow shows an
+  ellipsis and a "Show all" toggle.
+- **Expanded params.** When expanded, render params in a `<pre>`
+  block, `text-xs font-mono`, capped at `tool-approval.param-summary-full-max-lines`
+  (200). Adds a "Copy" button (`Button size="xs" variant="ghost"`).
+- **Diff preview.** For `careful` and `destructive` tools that write
+  files: inline diff auto-expanded when ≤ `tool-approval.diff-inline-line-threshold`
+  (20 lines); auto-collapsed with a "Show diff (N lines)" summary
+  above the threshold. Diff renders per § 4g Code & Diff.
+- **Action row.** `Deny` (`variant="ghost"`) + primary approve
+  button, right-aligned, `gap-2`. `Enter` submits primary; `Esc`
+  submits deny. Focus lands on the primary button after mount for
+  `safe`, on `Deny` for `destructive` (friction by focus placement).
+
+### Motion
+
+Cards do NOT animate the danger band. Friction is the point, not
+motion. The card slides in with the parent transcript row, no
+per-tier flourish.
+
+## 4g. Code & Diff
+
+Inline code and diff blocks appear inside message rows and tool cards.
+No new tokens — reuses `dls-*` semantic colors at low alpha for
+addition/removal bands. Mono font remains a Known Gap; use the system
+mono fallback declared in § 3 Note on Font Substitutes.
+
+### Inline code
+
+- Text: `text-xs font-mono` in `dls-text-primary`.
+- Background: `dls-surface-muted` at 100 % opacity.
+- Padding: `px-1 py-0.5`.
+- Radius: `rounded-xs` (3).
+- Do not add borders; the surface tint carries the boundary.
+
+### Fenced code block
+
+- Container: `bg-dls-surface-muted`, `rounded-md` (8), `p-3`,
+  `overflow-x-auto`.
+- Text: `text-xs font-mono` in `dls-text-primary`.
+- Line-height: 1.5 (Latin default from § 3); CJK-mixed lines inherit
+  the 1.6 bump from § 10 Internationalization Space Budget.
+- Optional filename header: `text-xs text-dls-text-tertiary`,
+  `border-b border-dls-border`, `pb-2 mb-2`.
+
+### Diff
+
+- Line prefixes `+` / `−` in the gutter, `text-xs font-mono`,
+  `text-dls-text-tertiary`, `w-4` fixed-width.
+- Addition background: `hsl(var(--dls-success-fg) / 0.08)`. Text
+  color unchanged.
+- Removal background: `hsl(var(--dls-danger) / 0.08)`. Text color
+  unchanged.
+- Line numbers optional. When present: `text-2xs
+  text-dls-text-tertiary`, right-aligned, `pr-2`, `w-8` fixed-width,
+  separated from content by a `border-r border-dls-border`.
+- Collapsible chunks: any contiguous run of unchanged context lines
+  larger than 6 collapses behind a `text-xs text-dls-text-tertiary`
+  "Show N more lines" affordance.
+- Do not use `dls-primary` or `dls-signal` in diff surfaces; those
+  colors already carry meaning elsewhere (identity accent + streaming
+  cursor).
+
+## 4h. Session & Artifact Variants
+
+Extends the v3 Signature Components (`SessionCard`, `ArtifactCard`)
+with lifecycle and type variants. All variants reuse existing tokens
+except `ArtifactCard`, which introduces the `artifact-hue.*`
+sub-palette (see § 11 Intentional Exceptions expansion).
+
+### SessionCard variants
+
+| Variant | Surface | Text | Accent | Right slot |
+| --- | --- | --- | --- | --- |
+| `active` (default) | `dls-surface` | `dls-text-primary` | none | unread signal dot |
+| `archived` | `dls-surface` at `opacity-60` | `dls-text-secondary` | none | none |
+| `shared` | `dls-surface` | `dls-text-primary` | 2 px `dls-signal` left | `link` 12 px |
+| `read-only` | `dls-surface-muted` | `dls-text-primary` | none | `lock` 12 px |
+
+- `archived` disables hover state (no `dls-hover` background).
+- `read-only` disables hover state and pointer cursor.
+- `shared` retains hover; active state (selected) uses `dls-active`
+  as v3 shipped.
+- The variant is a `variant=` prop on the primitive; do not compose
+  variants inline in JSX.
+
+### ArtifactCard variants
+
+Each artifact type carries a 2 px left border in its matching
+`artifact-hue.<type>` token. The type badge is a `StatusBadge` in
+the same hue at 20 % alpha background + full-chroma text.
+
+| Type | `artifact-hue.<type>` | Example |
+| --- | --- | --- |
+| `image` | `--dls-artifact-hue-image` | screenshots, generated art |
+| `code` | `--dls-artifact-hue-code` | code files, snippets |
+| `document` | `--dls-artifact-hue-document` | markdown, PDFs |
+| `data` | `--dls-artifact-hue-data` | CSV, JSON, tables |
+| `plot` | `--dls-artifact-hue-plot` | charts, graphs |
+| `3d` | `--dls-artifact-hue-3d` | GLTF, USDZ, meshes |
+| `audio` | `--dls-artifact-hue-audio` | WAV, MP3 |
+| `video` | `--dls-artifact-hue-video` | MP4, MOV, screen recordings |
+
+Hues are pulled from the Radix palette at shade 9 (light) / shade 4
+(dark) for consistent chroma across themes. The concrete CSS
+variables are declared in `apps/app/src/app/index.css`; DESIGN.md
+declares only the mapping.
+
+**Isolation from semantic use.** `artifact-hue.*` MUST NOT be used
+on toasts, buttons, status dots, tool cards, or any surface outside
+`ArtifactCard`. See § 11 Intentional Exceptions.
 
 ## 5. Layout
 
@@ -1096,6 +1452,12 @@ in dedicated registry files, not in ordinary JSX:
   Source data for the skill matrix.
 - **Artifact file-type icons** — `artifact-icon.tsx`. Familiar file-type
   colors aid recognition.
+- **`artifact-hue.*` sub-palette** — `ArtifactCard` type accents only
+  (see § 4h). The 8 hues (image / code / document / data / plot / 3d
+  / audio / video) map to Radix palette shades exposed as
+  `--dls-artifact-hue-<type>` CSS custom properties. These MUST NOT
+  leak into semantic surfaces (toasts, buttons, status dots, tool
+  cards) — the `diffArtifactHue` extractor gates this.
 - **Provider brand colors** — `mcp-view.tsx` and provider icons. Linear,
   Sentry, Stripe, Telegram, Slack, and similar vendors keep brand
   identity.
@@ -1198,14 +1560,19 @@ duplicate content between them — link.
 
 ## 14. Known Gaps
 
-v3 does **not** cover the following. Agents needing these should
 v4 shipped: state machines (§ 4a), notifications (§ 4b), keyboard
 contract (§ 5a), CJK space budget (§ 10 Internationalization Space
 Budget), CI gate for `pnpm task check design` (governed by the
 `design-check` workflow), auto-fix codemod at `scripts/design/codemod/`,
 and drift baseline at `scripts/checks/baselines/design-drift.json`.
 
-v4 still does **not** cover the following. Agents needing these
+v5 shipped: message roles (§ 4c), streaming presentation (§ 4d),
+presence & activity 6-state (§ 4e), tool approval 3-tier (§ 4f),
+code & diff inline styles (§ 4g), SessionCard + ArtifactCard
+variants (§ 4h), and the `artifact-hue.*` sub-palette (§ 11
+Intentional Exceptions).
+
+v5 still does **not** cover the following. Agents needing these
 should surface a proposal rather than invent silently.
 
 - **Data-viz / chart palette.** No chart surface ships today; when it
@@ -1232,6 +1599,11 @@ should surface a proposal rather than invent silently.
   variants in § 10 for future-proofing; not currently enforced by a
   hard flag because system-frame titlebars on non-macOS do not steal
   clicks the way `hiddenInset` does.
+- **Runtime helper implementations.** DESIGN.md declares contracts,
+  not React primitives. `StreamingCursor` (§ 4d), `ToolApprovalCard`
+  (§ 4f), `formatShortcut()` platform substitution helper (§ 5a),
+  and tool-risk classifier metadata plumbing are runtime alignment
+  work that consumes v5 tokens but is not authored here.
 
 Closing a gap is documented in § 13 Iteration Guide — plan doc,
 YAML + narrative update, extractor extension, preview HTML, cross-doc
