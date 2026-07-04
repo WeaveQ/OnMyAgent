@@ -34,6 +34,15 @@ const flags = {
   json: argv.includes('--json'),
   help: argv.includes('--help') || argv.includes('-h'),
   includeExceptions: argv.includes('--include-exceptions'),
+  baseline: parseFlagValue(argv, '--baseline'),
+}
+
+function parseFlagValue(args, name) {
+  const eqIdx = args.findIndex((a) => a.startsWith(name + '='))
+  if (eqIdx !== -1) return args[eqIdx].slice(name.length + 1)
+  const idx = args.indexOf(name)
+  if (idx !== -1 && idx + 1 < args.length) return args[idx + 1]
+  return null
 }
 
 if (flags.help) {
@@ -51,6 +60,9 @@ Flags:
   --json                Emit raw diff object as JSON.
   --include-exceptions  Include intentional-exception tokens (brand palette,
                         raw Radix scale) in the missing-in-yaml bucket.
+  --baseline <path>     Compare current drift against a JSON baseline;
+                        --strict fails only on new signatures or growth,
+                        never on drift already recorded in the baseline.
   --help, -h            Show this message.
 
 Report categories:
@@ -64,6 +76,13 @@ Report categories:
   - z-layer-drift      --dls-z-* CSS variables that disagree with the
                        DESIGN.md z-layers block, or z-layers tokens with no
                        matching CSS variable declared yet.
+  - state-timings      setTimeout() literals in TS/TSX that fall in the
+                       200..1200 ms band but do not match a DESIGN.md
+                       state-timings.* token.
+  - notifications      toast.<severity>() call sites whose duration prop
+                       diverges from the DESIGN.md notifications.* budget.
+  - kbd                <kbd> render sites missing the § 5a chip anatomy
+                       (border + text-xs).
 
 DESIGN.md is authoritative. When drift is reported, default remediation is to
 fix code, unless the contract itself is demonstrably outdated.`)
@@ -556,6 +575,306 @@ function diffZLayers(yaml, css) {
   return report
 }
 
+
+// ---------- v4 extractors: state-timings, notifications, kbd ----------
+
+/**
+ * Scan for suspicious literal timings in TS/TSX under APP_SRC.
+ * Reports numeric literals in `setTimeout(..., N)` and
+ * `new Promise(r => setTimeout(r, N))` calls where N is inside the
+ * plausible UX-timing band (150..1200) but not one of the tokenized
+ * DESIGN.md `state-timings.*` values. Report-only.
+ */
+function scanStateTimings(rootDir) {
+  const result = { candidates: [] }
+  if (!existsSync(rootDir)) return result
+  const stack = [rootDir]
+  while (stack.length) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name === 'node_modules' || name.startsWith('.')) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        stack.push(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(name)) continue
+      let src
+      try {
+        src = readFileSync(full, 'utf8')
+      } catch {
+        continue
+      }
+      const rel = full.slice(rootDir.length + 1)
+      const re = /setTimeout\s*\([^,]+,\s*(\d+)\s*\)/g
+      let m
+      while ((m = re.exec(src))) {
+        result.candidates.push({ file: rel, ms: Number(m[1]) })
+      }
+    }
+  }
+  return result
+}
+
+function diffStateTimings(yaml, scan) {
+  const report = { matched: [], unknown: [] }
+  const y = yaml['state-timings']
+  if (!y) return report
+  const allowed = new Set(
+    Object.values(y)
+      .filter((v) => typeof v === 'number')
+      .map((v) => Number(v)),
+  )
+  for (const hit of scan.candidates) {
+    if (hit.ms < 150 || hit.ms > 1200) continue
+    if (allowed.has(hit.ms)) {
+      report.matched.push(hit)
+    } else {
+      report.unknown.push(hit)
+    }
+  }
+  return report
+}
+
+/**
+ * Scan for direct sonner / toast() call sites and check whether they
+ * carry a `duration:` prop matching the DESIGN.md `notifications.*`
+ * durations. Report-only.
+ */
+function scanNotifications(rootDir) {
+  const result = { candidates: [] }
+  if (!existsSync(rootDir)) return result
+  const stack = [rootDir]
+  while (stack.length) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name === 'node_modules' || name.startsWith('.')) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        stack.push(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(name)) continue
+      let src
+      try {
+        src = readFileSync(full, 'utf8')
+      } catch {
+        continue
+      }
+      const rel = full.slice(rootDir.length + 1)
+      const callRe = /\btoast\.(info|success|warning|error)\s*\(([\s\S]{0,400}?)\)/g
+      let m
+      while ((m = callRe.exec(src))) {
+        const severity = m[1]
+        const argBlob = m[2]
+        const durMatch = argBlob.match(/duration\s*:\s*(\d+)/)
+        result.candidates.push({
+          file: rel,
+          severity,
+          duration: durMatch ? Number(durMatch[1]) : null,
+        })
+      }
+    }
+  }
+  return result
+}
+
+function diffNotifications(yaml, scan) {
+  const report = { matched: [], mismatched: [] }
+  const y = yaml.notifications
+  if (!y) return report
+  const map = {
+    info: y['duration-info-ms'],
+    success: y['duration-success-ms'],
+    warning: y['duration-warn-ms'],
+    error: y['duration-error'],
+  }
+  for (const hit of scan.candidates) {
+    const expected = map[hit.severity]
+    if (hit.duration === null) {
+      if (expected === 'persistent' || typeof expected !== 'number') {
+        report.matched.push({ ...hit, expected })
+      } else {
+        report.mismatched.push({ ...hit, expected })
+      }
+      continue
+    }
+    if (typeof expected === 'number' && hit.duration === expected) {
+      report.matched.push({ ...hit, expected })
+    } else {
+      report.mismatched.push({ ...hit, expected })
+    }
+  }
+  return report
+}
+
+/**
+ * Scan for keyboard shortcut display sites and confirm they route
+ * through a chip anatomy. Report-only.
+ *
+ * Heuristic: <kbd> elements or Tailwind class strings containing
+ * `kbd` that are missing the documented chip classes (border + text-xs).
+ */
+function scanKbd(rootDir) {
+  const result = { candidates: [] }
+  if (!existsSync(rootDir)) return result
+  const stack = [rootDir]
+  while (stack.length) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name === 'node_modules' || name.startsWith('.')) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        stack.push(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(name)) continue
+      let src
+      try {
+        src = readFileSync(full, 'utf8')
+      } catch {
+        continue
+      }
+      const rel = full.slice(rootDir.length + 1)
+      const re = /<kbd\b([^>]{0,200})>/g
+      let m
+      while ((m = re.exec(src))) {
+        const attrs = m[1] || ''
+        const clsMatch = attrs.match(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/)
+        const classes = clsMatch ? clsMatch[1] || clsMatch[2] || clsMatch[3] : ''
+        result.candidates.push({ file: rel, classes })
+      }
+    }
+  }
+  return result
+}
+
+function diffKbd(scan) {
+  const report = { matched: [], drift: [] }
+  for (const hit of scan.candidates) {
+    const cls = hit.classes || ''
+    const hasBorder = /\bborder(-|\b)/.test(cls)
+    const hasSize = /\btext-xs\b/.test(cls)
+    if (hasBorder && hasSize) {
+      report.matched.push(hit)
+    } else {
+      report.drift.push(hit)
+    }
+  }
+  return report
+}
+
+// ---------- baseline support ----------
+
+function loadBaseline(pathArg) {
+  if (!pathArg) return null
+  const absPath = pathArg.startsWith('/') ? pathArg : join(repoRoot, pathArg)
+  if (!existsSync(absPath)) {
+    throw new Error(`baseline file not found: ${pathArg}`)
+  }
+  try {
+    return JSON.parse(readFileSync(absPath, 'utf8'))
+  } catch (err) {
+    throw new Error(`baseline JSON parse error at ${pathArg}: ${err.message}`)
+  }
+}
+
+/**
+ * Compare current drift signatures against baseline. Returns
+ * { newSignatures, growth } where each entry describes a regression
+ * that should fail --strict runs.
+ */
+function enforceBaseline(baseline, report) {
+  const violations = { newSignatures: [], growth: [] }
+  if (!baseline) return violations
+
+  const buckets = {
+    iconography: (report.iconography?.unknownSize || []).map(
+      (h) => `${h.file}:size=${h.size}`,
+    ),
+    zLayers: (report.zLayers?.missingInCode || []).map((h) => `${h.key}`),
+    stateTimings: (report.stateTimings?.unknown || []).map(
+      (h) => `${h.file}:ms=${h.ms}`,
+    ),
+    notifications: (report.notifications?.mismatched || []).map(
+      (h) => `${h.file}:${h.severity}:${h.duration ?? 'null'}`,
+    ),
+    kbd: (report.kbd?.drift || []).map((h) => `${h.file}:${h.classes || ''}`),
+  }
+
+  for (const [name, current] of Object.entries(buckets)) {
+    const b = baseline[name]
+    if (!b) {
+      if (current.length > 0) {
+        for (const sig of current) {
+          violations.newSignatures.push({ bucket: name, signature: sig })
+        }
+      }
+      continue
+    }
+    const allowed = new Set(b.signatures || [])
+    const seen = new Map()
+    for (const sig of current) {
+      seen.set(sig, (seen.get(sig) || 0) + 1)
+    }
+    for (const [sig, count] of seen.entries()) {
+      const allowedCount = allowed.has(sig) ? Number.MAX_SAFE_INTEGER : 0
+      if (allowedCount === 0) {
+        violations.newSignatures.push({ bucket: name, signature: sig })
+      } else if (count > (b.count ?? Number.MAX_SAFE_INTEGER)) {
+        violations.growth.push({ bucket: name, signature: sig, count })
+      }
+    }
+    if (
+      typeof b.count === 'number' &&
+      current.length > b.count
+    ) {
+      violations.growth.push({
+        bucket: name,
+        signature: '__total__',
+        count: current.length,
+        allowed: b.count,
+      })
+    }
+  }
+  return violations
+}
 // ---------- Renderer ----------
 
 function renderReport(report) {
@@ -563,7 +882,7 @@ function renderReport(report) {
   const total = report.colors.matched.length + report.typography.matched.length + report.radii.matched.length + (report.iconography?.matched.length || 0) + (report.zLayers?.matched.length || 0)
   lines.push(`Design token drift report — DESIGN.md ↔ code`)
   lines.push('')
-  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers)`)
+  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers, ${report.stateTimings?.matched.length || 0} state-timings, ${report.notifications?.matched.length || 0} notifications, ${report.kbd?.matched.length || 0} kbd)`)
 
   emit('missing in code', report.colors.missingInCode.map((x) => `[${x.theme}] ${x.yamlKey} (expected ${x.expected}) — tried: ${x.tried.join(', ')}`))
   emit('mismatched color values', report.colors.mismatched.map((x) => `[${x.theme}] ${x.yamlKey} via ${x.cssName}: DESIGN.md says ${x.expected}, code has ${x.actual}`))
@@ -576,6 +895,9 @@ function renderReport(report) {
   emit('iconography — forbidden library import', (report.iconography?.forbiddenLibrary || []).map((x) => `${x.file}: imports forbidden icon library ${x.name}`))
   emit('z-layers missing in code (declare --dls-z-* in apps/app/src/app/index.css)', (report.zLayers?.missingInCode || []).map((x) => `${x.key} (expected ${x.expected}) — CSS var ${x.cssName} not found`))
   emit('z-layers mismatched', (report.zLayers?.mismatched || []).map((x) => `${x.key} via ${x.cssName}: DESIGN.md ${x.expected}, code ${x.actual}`))
+  emit('state-timings — literal not in tokenized set', (report.stateTimings?.unknown || []).map((x) => `${x.file}: setTimeout(..., ${x.ms}) — not in state-timings.*`))
+  emit('notifications — duration mismatched', (report.notifications?.mismatched || []).map((x) => `${x.file}: toast.${x.severity}(duration=${x.duration}) — expected ${x.expected}`))
+  emit('kbd — chip missing border+text-xs anatomy', (report.kbd?.drift || []).map((x) => `${x.file}: <kbd className="${x.classes || ''}">`))
 
   lines.push('')
   lines.push(`DESIGN.md is authoritative. Fix code to match, unless the contract itself is outdated.`)
@@ -601,8 +923,30 @@ function totalDrift(report) {
     (report.iconography?.unknownSize.length || 0) +
     (report.iconography?.forbiddenLibrary.length || 0) +
     (report.zLayers?.missingInCode.length || 0) +
-    (report.zLayers?.mismatched.length || 0)
+    (report.zLayers?.mismatched.length || 0) +
+    (report.stateTimings?.unknown.length || 0) +
+    (report.notifications?.mismatched.length || 0) +
+    (report.kbd?.drift.length || 0)
   )
+}
+
+function renderBaselineViolations(violations, baselinePath) {
+  const total = violations.newSignatures.length + violations.growth.length
+  if (total === 0) {
+    console.log('')
+    console.log(`Baseline OK — no regressions vs ${baselinePath}.`)
+    return
+  }
+  console.log('')
+  console.log(`Baseline violations vs ${baselinePath} (${total}):`)
+  for (const v of violations.newSignatures) {
+    console.log(`  + [new]     ${v.bucket}: ${v.signature}`)
+  }
+  for (const v of violations.growth) {
+    const suffix =
+      typeof v.allowed === 'number' ? ` (${v.count} > ${v.allowed})` : ''
+    console.log(`  + [growth]  ${v.bucket}: ${v.signature}${suffix}`)
+  }
 }
 
 // ---------- main ----------
@@ -615,24 +959,44 @@ try {
   // helper for future use.
 
   const iconScan = scanIconUsage(APP_SRC)
+  const stateTimingsScan = scanStateTimings(APP_SRC)
+  const notificationsScan = scanNotifications(APP_SRC)
+  const kbdScan = scanKbd(APP_SRC)
   const report = {
     colors: diffColors(yaml, css),
     typography: diffTypography(yaml, css),
     radii: diffRadii(yaml, css),
     iconography: diffIconography(yaml, iconScan),
     zLayers: diffZLayers(yaml, css),
+    stateTimings: diffStateTimings(yaml, stateTimingsScan),
+    notifications: diffNotifications(yaml, notificationsScan),
+    kbd: diffKbd(kbdScan),
   }
 
+  const baseline = loadBaseline(flags.baseline)
+  const violations = enforceBaseline(baseline, report)
+
   if (flags.json) {
-    console.log(JSON.stringify(report, null, 2))
+    console.log(JSON.stringify({ report, baseline: { path: flags.baseline, violations } }, null, 2))
   } else {
     console.log(renderReport(report))
+    if (baseline) {
+      renderBaselineViolations(violations, flags.baseline)
+    }
   }
 
   const drift = totalDrift(report)
-  if (flags.strict && drift > 0) {
-    if (!flags.json) console.log(`\nStrict mode: exiting 1 (${drift} drift entries).`)
-    process.exit(1)
+  if (flags.strict) {
+    if (baseline) {
+      const failCount = violations.newSignatures.length + violations.growth.length
+      if (failCount > 0) {
+        if (!flags.json) console.log(`\nStrict mode with baseline: exiting 1 (${failCount} baseline violations).`)
+        process.exit(1)
+      }
+    } else if (drift > 0) {
+      if (!flags.json) console.log(`\nStrict mode: exiting 1 (${drift} drift entries).`)
+      process.exit(1)
+    }
   }
   process.exit(0)
 } catch (err) {
