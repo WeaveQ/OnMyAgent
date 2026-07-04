@@ -110,6 +110,29 @@ focus:
   ring-style: solid
   keyboard-required: true
 
+state-timings:
+  instant-ms: 200
+  short-ms: 1000
+  long-ms: 10000
+
+notifications:
+  stack-cap: 5
+  position: top-right
+  duration-info-ms: 4000
+  duration-success-ms: 4000
+  duration-warn-ms: 6000
+  duration-error: persistent
+  motion: slide-in-from-right-fade-out
+  reduced-motion: fade-only
+
+kbd:
+  separator: " + "
+  separator-uses-hair-space: true
+  chip-padding-x-px: 4
+  chip-padding-y-px: 2
+  chip-radius: sm
+  platform-substitution: runtime
+
 iconography:
   size:
     xs: 12
@@ -217,6 +240,10 @@ flags:
   reduced-motion-respected: required
   icon-library: lucide-only
   z-layers-tokenized: required
+  state-timings-tokenized: required
+  notifications-tokenized: required
+  kbd-tokenized: required
+  kbd-platform-substitution: runtime
 ---
 
 # OnMyAgent — Visual Design Contract
@@ -472,6 +499,116 @@ requires updating this section in the same PR.
 Non-signature atoms remain governed by the primitive rules above —
 extend a variant before adding a page-level override.
 
+## 4a. State Machines
+
+Every screen has four canonical states: **Loading**, **Empty**, **Error**,
+**Success**. Draw them from the same anatomy so users learn one shape
+and agents don't reinvent per-screen scaffolds.
+
+### Anatomy
+
+Each state carries five slots. Missing slots collapse; do not fill with
+filler content.
+
+- **Icon or illustration slot** — `Empty` uses an illustration or a
+  Lucide glyph at `iconography.size.xl`; `Error` uses `danger`-colored
+  glyph at `iconography.size.lg`; `Loading` and `Success` are usually
+  chrome-free (`Loading` uses a spinner or skeleton; `Success` an
+  inline check glyph in the confirmation surface).
+- **Heading** — `text-lg font-medium` in `dls-text-primary`. Present
+  in Empty and Error. Omitted for Loading and Success unless the
+  container demands one.
+- **Body** — `text-sm text-dls-text-secondary`. One or two sentences
+  max; long copy belongs in help documentation.
+- **Primary CTA** — `Button size="default"` (or `size="lg"` when the
+  state occupies the full main panel). Empty and Error should always
+  offer one; Loading offers `Cancel` when the operation is
+  interruptible; Success offers `Dismiss` when persistent.
+- **Secondary action** — text link or `variant="ghost"` button, right
+  of primary or beneath it in narrow containers.
+
+### Perceptual Timing
+
+Async work resolves in three visual bands driven by the YAML
+`state-timings:` block. Do not pick timings by taste; pick by band.
+
+| Band | Duration | Presentation |
+| --- | --- | --- |
+| Instant | `< instant-ms` (200 ms) | Render nothing. No spinner flash. |
+| Short indeterminate | `instant-ms` – `short-ms` (200 ms – 1 s) | `LoadingSpinner`, no layout reservation. |
+| Long indeterminate | `> short-ms` (1 s) | `Skeleton` with shape parity to the final content. |
+| Long known-progress | Any duration ≥ `instant-ms` where progress is measurable | `Progress` primitive (`<progress>` semantics). |
+
+The `long-ms` (10 s) mark is the escalation threshold: past 10 s a
+loading state should offer a secondary action (Cancel, Retry, Report)
+because the user has moved on and needs a way back.
+
+### Skeleton vs Spinner vs Progress vs Direct Content
+
+Pick from the shortest form that still gives feedback.
+
+- **Direct content** — the operation resolves synchronously or under
+  `instant-ms`. Do not render a placeholder.
+- **Spinner** — resolves in `instant-ms` – `short-ms` and there is no
+  layout to preserve. Use `LoadingSpinner` centered in the container.
+- **Skeleton** — resolves after `short-ms` **or** the layout is
+  visible before data arrives. Shape-match the eventual content
+  (row heights, column count, avatar circles) so the transition is a
+  fade, not a reflow.
+- **Progress** — the operation exposes a determinate percentage or
+  step count (upload, install, migration). Use the `Progress` primitive;
+  update at least every `short-ms` interval.
+
+## 4b. Notifications
+
+Toasts are ephemeral, non-modal feedback. Everything that needs a
+decision belongs in a `Dialog` or `Sheet`; toasts confirm, warn, or
+report and then leave.
+
+### Toast Anatomy
+
+Reuse the `sonner`-backed toast primitive. Each toast carries:
+
+- **Severity icon** — Lucide glyph at `iconography.size.sm`, painted
+  with the matching semantic color (`success-fg` / `warning` /
+  `danger` / `dls-text-secondary` for info).
+- **Title** — `text-sm font-medium`, single line, truncates with
+  ellipsis at container edge.
+- **Body** — optional, `text-xs text-dls-text-secondary`, up to two
+  lines. Wrap i18n keys, don't concatenate raw strings.
+- **Action** — optional inline text button (`variant="ghost"`,
+  `size="xs"`). One action max; multiple actions belong in a Dialog.
+- **Dismiss glyph** — `X` icon at `iconography.size.xs`, right-aligned.
+  All toasts are dismissible; error toasts require explicit dismiss.
+
+### Position & Stacking
+
+- **Position** — `top-right` on desktop. Matches macOS notification
+  convention and stays clear of the composer at the bottom of the
+  primary chat surface.
+- **Stack cap** — `notifications.stack-cap` (5). When a sixth toast
+  arrives, the oldest non-error toast drops silently. Error toasts are
+  preserved unless dismissed.
+- **Motion** — slide-in from the right, fade-out on dismiss. When
+  `prefers-reduced-motion: reduce` is set (see § 9), degrade to
+  fade-only with no slide.
+
+### Duration by Severity
+
+Duration is fixed per severity from the YAML `notifications:` block.
+Do not override per call unless the call carries an explicit user
+justification (e.g. a copy that requires reading a long path).
+
+| Severity | Token | Duration |
+| --- | --- | --- |
+| Info | `duration-info-ms` | 4000 ms |
+| Success | `duration-success-ms` | 4000 ms |
+| Warning | `duration-warn-ms` | 6000 ms |
+| Error | `duration-error` | `persistent` — until user dismiss |
+
+Persistent error toasts survive route transitions. If the same error
+recurs, dedupe by key rather than restacking.
+
 ## 5. Layout
 
 ### Shell Composition
@@ -540,6 +677,60 @@ a panel with `gap-8` (32) between cards; the panel itself has 24–32px
 top-of-content padding beneath the titlebar. The rail is quiet-cold with
 minimal padding (`px-2 py-1`) — it should not compete with content for
 visual real estate. When in doubt, tighten interiors, widen sections.
+
+## 5a. Keyboard Contract
+
+Keyboard shortcuts are first-class affordances in an agent workbench.
+Render them consistently in command palettes, menus, tooltips, and
+help surfaces so users learn one shape.
+
+### `kbd` Chip Visual
+
+- **Container** — inline element, `border-dls-border` hairline,
+  `rounded-sm` (matches `kbd.chip-radius`), `bg-dls-surface-muted`,
+  padding `px-1 py-0.5` (matches `kbd.chip-padding-*`).
+- **Typography** — `text-xs` (12 px) in `dls-text-secondary`; use the
+  monospace fallback stack from § 3 Note on Font Substitutes when a
+  mono glyph is required for parity (`⌘`, `⌥`, `⇧`, `⌃`).
+- **Spacing** — chips in a row use `gap-1`; do not lean on adjacency.
+
+### Platform Mapping
+
+Author declaratively with the mac glyphs (`⌘`, `⌥`, `⇧`, `⌃`,
+`⌫`, `↩`, `⎋`). At render time, a small helper substitutes the
+platform-native form:
+
+- **macOS** — glyphs render as authored (`⌘K`).
+- **Windows / Linux** — substitute to spelled form (`Ctrl+K`,
+  `Alt+K`, `Shift+K`). The helper's intended signature is
+  `formatShortcut(key: string, platform?: Platform): string`; the
+  runtime helper implementation lives outside v4 scope but the
+  contract locks the authoring shape today.
+
+Never fork the author-side string per platform. `⌘K` in source →
+platform substitution in render is the only sanctioned flow.
+
+### Where Allowed
+
+- **Command palette** — required for every command that carries a
+  shortcut. Chips align right of the label.
+- **Menus** — allowed. `DropdownMenu.Item` and `ContextMenu.Item`
+  render the chip inside the trailing slot.
+- **Tooltips** — allowed. Chip renders in the tooltip body under the
+  human label.
+- **Inline body copy** — discouraged. Prose that describes a
+  shortcut ("press ⌘K") should still wrap the glyph in a chip.
+
+### Chord Notation
+
+- Separator — ` + ` (space + `+` + space; `kbd.separator`). The
+  space uses a hair space (`kbd.separator-uses-hair-space`) so long
+  chords do not break awkwardly on wrap.
+- Order — modifier keys first (`⌘`, `⌥`, `⇧`, `⌃`), then the
+  activation key. `⌘ + ⇧ + P`, not `P + ⌘ + ⇧`.
+- Sequences (press-then-press, e.g. Emacs-style `⌃X ⌃S`) render as
+  two adjacent chip groups with a single space between; do not join
+  with `+`.
 
 ## 6. Depth
 
@@ -864,6 +1055,35 @@ If we later adopt a custom titlebar on Windows or Linux (for a unified
 look), the corresponding `*-titlebar-no-drag` utility becomes required
 and the YAML `flags:` block should grow a matching rule.
 
+### Internationalization Space Budget
+
+The i18n system is enforced (see YAML `flags: i18n`), but rendered
+width is not. Chinese glyphs occupy ~70 % of the width of the
+corresponding English string at the same visual rhythm; without a
+budget, buttons look under-filled or menus mis-align when the locale
+switches.
+
+- **Design at English width.** Sketch buttons, menu labels, tabs, and
+  toast titles against the English string. Chinese naturally shrinks
+  into that budget; the reverse (design at Chinese width) causes
+  English overflow at runtime.
+- **Truncation rules.** Menu labels, session titles, and tag chips
+  truncate with an ellipsis at the container edge. Body copy and
+  dialog descriptions never truncate — they wrap. Button labels
+  neither truncate nor wrap; if a button label overflows in any
+  locale, tighten the copy, do not add ellipsis.
+- **CJK line-height.** Lines containing any CJK glyph use
+  `leading-relaxed` (line-height ≈ 1.6) — the base body leading is
+  1.45 (see § 3), which is too tight for CJK stroke density. Apply
+  via the `[lang="zh"] &`, `[lang="ja"] &`, `[lang="ko"] &` selectors
+  where present, or attach the `cjk` class to the surrounding block.
+- **Chip and badge width.** `StatusBadge` and tag chips render
+  variable-width; do not pin them to fixed widths that assume Latin
+  content.
+- **RTL.** Not on the roadmap; Hebrew / Arabic locales are not
+  currently supported. When they land, mirror layout via CSS
+  `direction: rtl` and the design tokens do not need re-authoring.
+
 ## 11. Intentional Exceptions
 
 These categories are allowed to use raw palette classes or explicit hex
@@ -979,7 +1199,14 @@ duplicate content between them — link.
 ## 14. Known Gaps
 
 v3 does **not** cover the following. Agents needing these should
-surface a proposal rather than invent silently.
+v4 shipped: state machines (§ 4a), notifications (§ 4b), keyboard
+contract (§ 5a), CJK space budget (§ 10 Internationalization Space
+Budget), CI gate for `pnpm task check design` (governed by the
+`design-check` workflow), auto-fix codemod at `scripts/design/codemod/`,
+and drift baseline at `scripts/checks/baselines/design-drift.json`.
+
+v4 still does **not** cover the following. Agents needing these
+should surface a proposal rather than invent silently.
 
 - **Data-viz / chart palette.** No chart surface ships today; when it
   does, the palette needs a dedicated pass with product signoff.
@@ -995,9 +1222,6 @@ surface a proposal rather than invent silently.
   in the shipped UI. When one lands, mono needs its own scale + face
   contract; the § 3 Note on Font Substitutes documents the current
   stack.
-- **CI gate.** `pnpm task check design` is a local check;
-  `.github/workflows/**` wire-up is human-gated per `AGENTS.md`.
-- **Auto-fix codemod.** The drift detector reports; it does not fix.
 - **Domain composites v2 catalog.** Expansion beyond the 5 existing
   composites is a `frontend-primitive-refactor` skill task, not a
   DESIGN.md task.
