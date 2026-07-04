@@ -20,7 +20,7 @@ type TabsGroupProps = {
 
 export function TabsGroup(props: TabsGroupProps) {
   return (
-    <div className={cn("rounded-2xl border border-dls-border bg-dls-sidebar p-3")}>
+    <div className={cn("rounded-xl border border-dls-border bg-dls-sidebar p-3")}>
       {props.children}
     </div>
   );
@@ -61,7 +61,7 @@ export function TabsTrigger(props: TabsTriggerProps) {
         "justify-between rounded-xl px-3 py-2.5",
         props.active
           ? "bg-dls-surface text-dls-text hover:bg-dls-surface hover:text-dls-text"
-          : "text-dls-secondary hover:bg-dls-surface/50 hover:text-dls-text",
+          : "text-dls-secondary hover:bg-dls-surface hover:text-dls-text",
       )}
       onClick={props.onSelect}
     >

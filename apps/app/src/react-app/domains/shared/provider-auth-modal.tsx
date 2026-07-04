@@ -50,7 +50,7 @@ type ProviderOAuthSession = ProviderOAuthStartResult & {
 
 function ProviderAuthPanel(props: { children: React.ReactNode }) {
   return (
-    <div className="space-y-4 rounded-xl border border-dls-border/40 bg-dls-surface-muted/50 p-5">
+    <div className="space-y-4 rounded-xl border border-dls-mist bg-dls-surface-muted p-5">
       {props.children}
     </div>
   );
@@ -72,13 +72,13 @@ const providerAuthTextClass = {
 };
 
 const providerAuthStateClass = {
-  oauthChip: "bg-dls-accent/10 text-dls-accent border-dls-accent/25",
-  cloudChip: "bg-dls-accent/10 text-dls-accent border-dls-accent/25",
-  neutralChip: "bg-dls-hover/40 text-dls-secondary border-dls-border/40",
-  oauthMethod: "border-dls-accent/30 bg-dls-accent/10 hover:bg-dls-accent/15",
-  neutralMethod: "border-dls-border/50 bg-dls-surface-muted hover:bg-dls-hover/50",
+  oauthChip: "bg-dls-accent/10 text-dls-accent border-dls-accent/30",
+  cloudChip: "bg-dls-accent/10 text-dls-accent border-dls-accent/30",
+  neutralChip: "bg-dls-surface-muted text-dls-secondary border-dls-mist",
+  oauthMethod: "border-dls-accent/30 bg-dls-accent/10 hover:bg-dls-accent/10",
+  neutralMethod: "border-dls-mist bg-dls-surface-muted hover:bg-dls-surface-muted",
   accentLink: "h-auto p-0 text-dls-accent hover:text-dls-accent hover:opacity-80",
-  subscribePanel: "rounded-xl border border-dls-accent/25 bg-dls-accent/10 p-5 space-y-4",
+  subscribePanel: "rounded-xl border border-dls-accent/30 bg-dls-accent/10 p-5 space-y-4",
 };
 
 export type ProviderAuthModalProps = {
@@ -877,14 +877,14 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         density="row"
                         className={`group gap-3.5 transition-all duration-200 ${
                           index === activeEntryIndex
-                            ? "bg-dls-hover/60"
-                            : "hover:bg-dls-hover/30"
+                            ? "bg-dls-surface-muted"
+                            : "hover:bg-dls-surface-muted"
                         }`}
                         disabled={actionDisabled}
                         onMouseEnter={() => setActiveEntryIndex(index)}
                         onClick={() => handleEntrySelect(entry)}
                       >
-                        <IconTile size="sm" shape="circle" tone="surface" border className="overflow-hidden border-dls-border/60 bg-dls-surface-muted">
+                        <IconTile size="sm" shape="circle" tone="surface" border className="overflow-hidden border-dls-mist bg-dls-surface-muted">
                           <ProviderIcon
                             providerId={entry.id}
                             size={18}
@@ -1190,7 +1190,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     {t("provider_auth.complete_sign_in_paste_code")}
                   </div>
                   {oauthInstructions ? (
-                    <CodeToken tone="surface" size="lg" display="block" className="break-all border-dls-border/60 bg-dls-surface/60">
+                    <CodeToken tone="surface" size="lg" display="block" className="break-all border-dls-mist bg-dls-surface">
                       {oauthInstructions}
                     </CodeToken>
                   ) : null}
@@ -1281,7 +1281,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                   )}
                   {oauthDisplayCode ? (
-                    <div className="rounded-xl border border-dls-border/70 bg-dls-surface-muted/40 p-3 flex items-center gap-3">
+                    <div className="rounded-xl border border-dls-mist bg-dls-surface-muted p-3 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className={providerAuthTextClass.fieldLabel}>
                           Confirmation code

@@ -73,7 +73,7 @@ export function renderAvatar(
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-full bg-dls-surface-muted00 text-dls-secondary00",
+          "flex items-center justify-center rounded-full bg-dls-surface-muted text-dls-secondary",
           className,
         )}
       >

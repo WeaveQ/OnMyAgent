@@ -139,7 +139,7 @@ const statusDotTone = (status: ReactMcpStatus) => {
 };
 
 const mcpViewTextClass = {
-  pageTitle: "text-2xl font-medium text-dls-text",
+  pageTitle: "text-lg font-medium leading-6 text-dls-text",
   pageDescription: "mt-1.5 text-sm text-dls-secondary",
   cardTitle: "text-sm font-medium text-dls-text",
   cardDescription: "text-sm text-dls-secondary",
@@ -153,11 +153,11 @@ const mcpViewTextClass = {
 };
 
 const mcpViewStateClass = {
-  warningBadge: "bg-dls-status-warning/12 text-dls-status-warning",
+  warningBadge: "bg-dls-status-warning-soft text-dls-status-warning-fg",
   dangerBadge: "bg-dls-status-danger-soft text-dls-status-danger-fg",
   devtoolsIcon: "text-dls-status-warning",
-  devtoolsIconBg: "bg-dls-status-warning/12 border-dls-status-warning/25",
-  customAppCard: "rounded-2xl border border-dls-accent/25 bg-dls-accent/10 p-5 sm:px-6",
+  devtoolsIconBg: "bg-dls-status-warning-soft border-dls-status-warning-border",
+  customAppCard: "rounded-xl border border-dls-accent/30 bg-dls-accent/10 p-5 sm:px-6",
 };
 
 const mcpViewLayoutClass = {
@@ -170,7 +170,7 @@ const mcpViewLayoutClass = {
   rowMain: "flex items-center gap-3",
   rowStatus: "flex shrink-0 items-center gap-2",
   serverIcon: "flex size-8 shrink-0 items-center justify-center rounded-lg border",
-  detailsPanel: "animate-in fade-in slide-in-from-top-1 space-y-3 border-t border-dls-accent/20 px-4 py-3 duration-200",
+  detailsPanel: "animate-in fade-in slide-in-from-top-1 space-y-3 border-t border-dls-accent/30 px-4 py-3 duration-200",
   detailsMeta: "flex items-center gap-4 text-xs",
   badgeRow: "flex items-center gap-2",
   detailsActions: "flex justify-end gap-2 pt-1",
@@ -1112,9 +1112,9 @@ function McpConfiguredServerDetails(props: Parameters<typeof McpConfiguredServer
       {props.errorInfo ? <SettingsNotice tone="error" className="rounded-lg">{props.errorInfo}</SettingsNotice> : null}
       <details className="group">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-dls-secondary transition-colors hover:text-dls-text">
-          <Code2 size={11} />
+          <Code2 size={12} />
           {t("mcp.technical_details")}
-          <ChevronDown size={10} className="transition-transform group-open:rotate-180" />
+          <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
         </summary>
         <CodeToken tone="soft" size="lg" display="block" className="mt-1.5 break-all">
           {props.entry.config.type === "remote" ? props.entry.config.url : props.entry.config.command?.join(" ")}
@@ -1135,7 +1135,7 @@ function McpConfiguredServerDetails(props: Parameters<typeof McpConfiguredServer
               void Promise.resolve(props.onToggleEnabled?.(props.entry.name, next)).finally(() => props.onToggleBusy(null));
             }}
           >
-            <Power size={13} />
+            <Power size={12} />
             {props.entry.config.enabled === false ? t("mcp.enable_app") : t("mcp.disable_app")}
           </Button>
         ) : null}
@@ -1247,7 +1247,7 @@ function McpAdvancedConfigSection(props: {
                 className={buttonVariants({ variant: "ghost", size: "xs", className: "text-dls-secondary hover:text-dls-text" })}
               >
                 {t("mcp.docs_link")}
-                <ExternalLink size={11} />
+                <ExternalLink size={12} />
               </a>
             </div>
             {props.activeConfig && props.activeConfig.exists === false ? <div className={mcpViewTextClass.sectionMeta}>{t("mcp.file_not_found")}</div> : null}

@@ -28,7 +28,7 @@ export function WebUnavailableSurface(props: WebUnavailableSurfaceProps) {
   return (
     <div className={props.className}>
       {props.unavailable ? (
-        <NoticeBox className={props.compact ? "mb-3" : "mb-4 rounded-2xl"} size={props.compact ? "default" : "comfortable"} tone="warning">
+        <NoticeBox className={props.compact ? "mb-3" : "mb-4 rounded-xl"} size={props.compact ? "default" : "comfortable"} tone="warning">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{MESSAGE}</span>
             <a

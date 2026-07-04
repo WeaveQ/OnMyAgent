@@ -5,90 +5,27 @@
     "seed-command": "pnpm task check design -- --json"
   },
   "iconography": {
-    "count": 69,
+    "count": 14,
     "signatures": [
       "react-app/design-system/extension-card.tsx:size=18",
-      "react-app/design-system/extension-card.tsx:size=18",
-      "react-app/design-system/extension-card.tsx:size=9",
-      "react-app/design-system/extension-card.tsx:size=9",
-      "react-app/design-system/extension-detail-modal.tsx:size=10",
-      "react-app/design-system/extension-detail-modal.tsx:size=11",
-      "react-app/design-system/select-menu.tsx:size=18",
-      "react-app/domains/cloud/den-signin-surface.tsx:size=13",
-      "react-app/domains/cloud/den-signin-surface.tsx:size=13",
-      "react-app/domains/cloud/den-signin-surface.tsx:size=13",
-      "react-app/domains/cloud/den-signin-surface.tsx:size=13",
-      "react-app/domains/cloud/den-signin-surface.tsx:size=15",
       "react-app/domains/cloud/den-signin-surface.tsx:size=18",
-      "react-app/domains/connections/mcp-auth-modal.tsx:size=32",
-      "react-app/domains/connections/mcp-auth-modal.tsx:size=32",
-      "react-app/domains/session/chat/session-page.tsx:size=17",
-      "react-app/domains/session/chat/session-page.tsx:size=17",
-      "react-app/domains/session/components/permission-modal/index.tsx:size=13",
-      "react-app/domains/session/components/permission-modal/index.tsx:size=15",
       "react-app/domains/session/components/permission-modal/index.tsx:size=23",
       "react-app/domains/session/modals/model-picker-modal.tsx:size=18",
-      "react-app/domains/session/surface/composer/access-permission-select.tsx:size=15",
       "react-app/domains/session/surface/composer/access-permission-select.tsx:size=18",
-      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=13",
-      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
       "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
       "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
       "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=18",
-      "react-app/domains/session/surface/message-list.tsx:size=15",
-      "react-app/domains/session/surface/message-list.tsx:size=15",
-      "react-app/domains/session/surface/session-surface.tsx:size=10",
-      "react-app/domains/settings/cloud/dev-mode.tsx:size=13",
-      "react-app/domains/settings/pages/advanced-view-sections.tsx:size=18",
-      "react-app/domains/settings/pages/advanced-view-sections.tsx:size=18",
-      "react-app/domains/settings/pages/cloud-account-view.tsx:size=13",
-      "react-app/domains/settings/pages/cloud-account-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=13",
-      "react-app/domains/settings/pages/debug-view.tsx:size=18",
-      "react-app/domains/settings/pages/debug-view.tsx:size=18",
-      "react-app/domains/settings/pages/general-view.tsx:size=11",
-      "react-app/domains/settings/pages/general-view.tsx:size=11",
-      "react-app/domains/settings/pages/mcp-view.tsx:size=10",
-      "react-app/domains/settings/pages/mcp-view.tsx:size=11",
-      "react-app/domains/settings/pages/mcp-view.tsx:size=11",
-      "react-app/domains/settings/pages/mcp-view.tsx:size=13",
       "react-app/domains/settings/pages/mcp-view.tsx:size=15",
-      "react-app/domains/settings/pages/messaging-view.tsx:size=15",
-      "react-app/domains/settings/pages/messaging-view.tsx:size=15",
-      "react-app/domains/settings/pages/messaging-view.tsx:size=15",
       "react-app/domains/settings/pages/messaging-view.tsx:size=28",
       "react-app/domains/settings/pages/messaging-view.tsx:size=28",
-      "react-app/domains/settings/shell/settings-shell.tsx:size=17",
-      "react-app/domains/settings/shell/settings-shell.tsx:size=18",
       "react-app/domains/shared/provider-auth-modal.tsx:size=18",
-      "react-app/domains/shared/share-workspace-access-panel.tsx:size=13",
       "react-app/domains/shared/status-toast.tsx:size=18",
-      "react-app/domains/shared/workspace-option-card.tsx:size=18",
-      "react-app/domains/shared/workspace-option-card.tsx:size=18",
-      "react-app/domains/workspace/create-workspace-shared-panel.tsx:size=13",
-      "react-app/domains/workspace/create-workspace-shared-panel.tsx:size=13",
-      "react-app/domains/workspace/create-workspace-shared-panel.tsx:size=15",
-      "react-app/domains/workspace/create-workspace-shared-panel.tsx:size=18",
-      "react-app/domains/workspace/remote-workspace-fields.tsx:size=17"
+      "react-app/domains/shared/workspace-option-card.tsx:size=18"
     ]
   },
   "zLayers": {
-    "count": 7,
-    "signatures": [
-      "base",
-      "dialog",
-      "dropdown",
-      "overlay-max",
-      "popover",
-      "sticky",
-      "toast"
-    ]
+    "count": 0,
+    "signatures": []
   },
   "stateTimings": {
     "count": 13,
@@ -113,11 +50,8 @@
     "signatures": []
   },
   "kbd": {
-    "count": 2,
-    "signatures": [
-      "components/ui/command.tsx:",
-      "react-app/domains/session/chat/session-page.tsx:scale-90 rounded-md bg-dls-surface px-1.5 py-0.5 text-xs leading-none text-dls-secondary"
-    ]
+    "count": 0,
+    "signatures": []
   },
   "messageRoles": {
     "count": 0,

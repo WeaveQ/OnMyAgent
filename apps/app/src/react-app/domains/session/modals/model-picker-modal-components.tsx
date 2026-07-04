@@ -282,7 +282,7 @@ function ModelOptionRow(props: {
           ? ""
           : isKeyboardActive
             ? "bg-dls-surface-muted text-dls-text"
-            : "hover:bg-dls-surface/70 hover:text-dls-secondary",
+            : "hover:bg-dls-surface hover:text-dls-secondary",
       ].join(" ")}
       onMouseEnter={() => props.onSetActiveIndex(props.index)}
       onClick={selectOption}
@@ -388,7 +388,7 @@ function ProviderLinkRow(props: {
       tabIndex={0}
       ref={props.registerOptionRef(props.provider.index)}
       active={isKeyboardActive}
-      className="group cursor-pointer hover:bg-dls-surface/70 hover:text-dls-secondary"
+      className="group cursor-pointer hover:bg-dls-surface hover:text-dls-secondary"
       onMouseEnter={() => props.onSetActiveIndex(props.provider.index)}
       onClick={openProviderSettings}
       onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => {

@@ -108,7 +108,6 @@ export function ToggleChip(props: { label: string; selected: boolean; onClick: (
       tone="chip"
       size="chip"
       width="hug"
-      className="h-10 rounded-md px-4"
     >
       {props.label}
     </SegmentedTabButton>

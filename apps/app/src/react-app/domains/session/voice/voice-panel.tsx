@@ -325,7 +325,7 @@ function VoiceTimelineRow(props: {
 
   if (entry.role === "user") {
     return (
-      <article className="ml-8 rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground">
+      <article className="ml-8 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground">
         {entry.text}
       </article>
     );
@@ -333,7 +333,7 @@ function VoiceTimelineRow(props: {
 
   if (entry.role === "assistant") {
     return (
-      <article className="mr-8 rounded-2xl border border-border bg-card px-3 py-2 text-sm leading-relaxed text-card-foreground">
+      <article className="mr-8 rounded-xl border border-border bg-card px-3 py-2 text-sm leading-relaxed text-card-foreground">
         {entry.error ? (
           <div className={voiceTextClass.errorLabel}>
             Error

@@ -72,12 +72,12 @@ const messageTextClass = {
 };
 
 const messageStateClass = {
-  pastedTextChip: "inline-flex rounded-full border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning hover:bg-dls-status-warning/20",
-  skillReferenceChip: "inline-flex items-center gap-1 rounded-full border border-dls-accent/25 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
-  toolError: "overflow-x-auto rounded-xl border border-dls-status-danger/25 bg-dls-status-danger/10 px-4 py-3 text-xs leading-6 text-dls-status-danger",
+  pastedTextChip: "inline-flex rounded-full border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg hover:bg-dls-status-warning/10",
+  skillReferenceChip: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
+  toolError: "overflow-x-auto rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-4 py-3 text-xs leading-6 text-dls-status-danger",
   sheetBadge: "min-w-5 border border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-  activeSearchOutline: "outline outline-2 outline-amber-8/70 outline-offset-2 rounded-2xl",
-  searchOutline: "outline outline-1 outline-amber-7/50 outline-offset-1 rounded-2xl",
+  activeSearchOutline: "outline outline-2 outline-amber-8/70 outline-offset-2 rounded-xl",
+  searchOutline: "outline outline-1 outline-amber-7/50 outline-offset-1 rounded-xl",
 };
 
 const MESSAGE_BLOCK_CONTAIN_STYLE = { contain: "layout style paint" } satisfies CSSProperties;
@@ -885,21 +885,21 @@ function FileCard(props: {
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors",
+        "group relative flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
         props.tone === "user"
-          ? "border-dls-border/60 bg-dls-surface-muted/40 hover:bg-dls-surface-muted/60"
-          : "border-dls-border/40 bg-dls-surface/40 hover:bg-dls-surface-muted/30",
+          ? "border-dls-mist bg-dls-surface-muted hover:bg-dls-surface-muted"
+          : "border-dls-mist bg-dls-surface hover:bg-dls-surface-muted",
       )}
     >
       {isImage && props.part.url ? (
-        <div className="size-11 shrink-0 overflow-hidden rounded-xl border border-dls-border/60 bg-dls-surface">
+        <div className="size-11 shrink-0 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface">
           <img src={props.part.url} alt={title} loading="lazy" decoding="async" className="size-full object-cover" />
         </div>
       ) : (
         <div
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-xl",
-            props.tone === "user" ? "bg-dls-hover/60 text-foreground" : "bg-dls-surface-muted/60 text-muted-foreground",
+            props.tone === "user" ? "bg-dls-surface-muted text-foreground" : "bg-dls-surface-muted text-muted-foreground",
           )}
         >
           <FileIcon size={20} />
@@ -920,7 +920,7 @@ function FileCard(props: {
             variant="ghost"
             size="icon-sm"
             type="button"
-            className="text-muted-foreground opacity-0 hover:bg-dls-hover/60 hover:text-foreground group-hover:opacity-100"
+            className="text-muted-foreground opacity-0 hover:bg-dls-surface-muted hover:text-foreground group-hover:opacity-100"
             onClick={() => setMenuOpen((value) => !value)}
             title={t("message.file_actions")}
           >
@@ -929,10 +929,10 @@ function FileCard(props: {
           {menuOpen ? (
             <>
               <button type="button" className="fixed inset-0 z-30 cursor-default border-0 bg-transparent p-0" aria-label={t("message.close_file_actions")} onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full z-40 mt-1 w-48 rounded-2xl border border-dls-border bg-dls-surface p-1.5">
+              <div className="absolute right-0 top-full z-40 mt-1 w-48 rounded-xl border border-dls-border bg-dls-surface p-1.5">
                 <MenuRowButton align="center"
                   type="button"
-                  className="gap-2.5 py-2 text-foreground hover:bg-dls-hover/60"
+                  className="gap-2.5 py-2 text-foreground hover:bg-dls-surface-muted"
                   onClick={() => {
                     void openFileWithOS(props.part.url);
                     setMenuOpen(false);
@@ -942,7 +942,7 @@ function FileCard(props: {
                 </MenuRowButton>
                 <MenuRowButton align="center"
                   type="button"
-                  className="gap-2.5 py-2 text-foreground hover:bg-dls-hover/60"
+                  className="gap-2.5 py-2 text-foreground hover:bg-dls-surface-muted"
                   onClick={() => {
                     void revealFileInFinder(props.part.url);
                     setMenuOpen(false);
@@ -952,7 +952,7 @@ function FileCard(props: {
                 </MenuRowButton>
                 <MenuRowButton align="center"
                   type="button"
-                  className="gap-2.5 py-2 text-foreground hover:bg-dls-hover/60"
+                  className="gap-2.5 py-2 text-foreground hover:bg-dls-surface-muted"
                   onClick={() => {
                     void navigator.clipboard.writeText(props.part.url);
                     setMenuOpen(false);
@@ -1029,7 +1029,7 @@ function StepRow(props: {
           <span className="min-w-0 wrap-break-word">{headline}</span>
           {expandable ? (
             <ChevronDown
-              size={15}
+              size={14}
               className={cn(
                 "shrink-0 text-muted-foreground transition-transform",
                 !props.expanded && "-rotate-90",
@@ -1044,7 +1044,7 @@ function StepRow(props: {
           {hasStructuredValue(toolInput) ? (
             <div>
               <div className={messageTextClass.toolLabel}>Request</div>
-              <pre className="overflow-x-auto rounded-xl border border-dls-border/70 bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
+              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
                 {formatStructuredValue(toolInput)}
               </pre>
             </div>
@@ -1052,7 +1052,7 @@ function StepRow(props: {
           {hasStructuredValue(toolOutput) ? (
             <div>
               <div className={messageTextClass.toolLabel}>Result</div>
-              <pre className="overflow-x-auto rounded-xl border border-dls-border/70 bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
+              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
                 {formatStructuredValue(toolOutput)}
               </pre>
             </div>
@@ -1106,15 +1106,15 @@ function StepsContainer(props: {
   const previewItems = stepSummaries.slice(0, 2);
 
   return (
-    <div className="max-w-[760px] rounded-xl border border-dls-border/60 bg-dls-surface-muted/35">
+    <div className="max-w-[760px] rounded-xl border border-dls-mist bg-dls-surface-muted">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-hover/60 hover:text-dls-text"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-surface-muted hover:text-dls-text"
         aria-expanded={containerExpanded}
         onClick={() => setContainerExpanded((value) => !value)}
       >
         <ChevronDown
-          size={15}
+          size={14}
           className={cn(
             "shrink-0 text-muted-foreground transition-transform",
             !containerExpanded && "-rotate-90",
@@ -1129,7 +1129,7 @@ function StepsContainer(props: {
         ) : null}
       </button>
       {!containerExpanded && previewItems.length > 0 ? (
-        <div className="border-t border-dls-border/50 px-3 py-2 text-xs leading-5 text-dls-secondary">
+        <div className="border-t border-dls-mist px-3 py-2 text-xs leading-5 text-dls-secondary">
           {previewItems.map((item) => (
             <div key={item} className="truncate">
               {item}
@@ -1141,7 +1141,7 @@ function StepsContainer(props: {
         <div
           data-scrollable={!props.isNestedVariant ? "true" : undefined}
           className={cn(
-            "border-t border-dls-border/50 px-3 py-3",
+            "border-t border-dls-mist px-3 py-3",
             !props.isNestedVariant && "max-h-[520px] overflow-y-auto pr-3",
           )}
         >

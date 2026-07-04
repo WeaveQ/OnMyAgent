@@ -61,7 +61,7 @@ const settingsShellClass = {
   compactHeader: "flex h-11 shrink-0 items-center justify-between gap-2 border-b border-dls-border px-3 mac:titlebar-drag",
   compactMenuGroup: "flex min-w-0 items-center gap-2 mac:titlebar-no-drag",
   titlebarActions: "flex shrink-0 items-center gap-2 mac:titlebar-no-drag",
-  closeButton: "shrink-0 rounded-md text-dls-secondary hover:bg-dls-surface-muted/70 hover:text-dls-text",
+  closeButton: "shrink-0 rounded-md text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text",
   main: "flex min-h-0 flex-1 flex-col overflow-hidden",
   errorCompact: "mx-auto w-full max-w-3xl px-4 pb-6",
   errorFull: "mx-auto max-w-5xl px-6 pb-24 md:px-10 md:pb-10",
@@ -72,10 +72,10 @@ const settingsShellClass = {
   contentMain: "flex min-w-0 flex-1 flex-col overflow-hidden",
   header: "flex min-h-16 shrink-0 items-center justify-between gap-4 px-4 py-3 md:px-10 mac:titlebar-drag",
   headerTitleGroup: "flex min-w-0 flex-1 items-center gap-3",
-  title: "truncate text-base font-medium leading-5 text-dls-text",
+  title: "truncate text-xl font-medium leading-7 text-dls-text",
   subtitle: "mt-0.5 truncate text-sm leading-5 text-dls-secondary",
   headerMeta: "hidden text-xs text-dls-secondary lg:inline",
-  mobileCloseButton: "flex size-9 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-surface-muted/70 hover:text-dls-text md:hidden",
+  mobileCloseButton: "flex size-9 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-surface-muted hover:text-dls-text md:hidden",
   sectionTrigger: "min-w-0 max-w-46 justify-start gap-2",
   workspaceTrigger: "min-w-0 max-w-36 justify-start gap-2 text-dls-secondary",
 };
@@ -112,7 +112,7 @@ export function SettingsShell(props: SettingsShellProps) {
               title={t("dashboard.close_settings")}
               aria-label={t("dashboard.close_settings")}
             >
-              <X size={17} />
+              <X size={16} />
             </Button>
           </div>
         </header>
@@ -187,7 +187,7 @@ export function SettingsShell(props: SettingsShellProps) {
                   title={t("dashboard.close_settings")}
                   aria-label={t("dashboard.close_settings")}
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </Button>
               </div>
             </header>

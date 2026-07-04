@@ -341,11 +341,35 @@ const INTENTIONAL_EXCEPTIONS = [
   // Typography and radii are diffed in dedicated report categories.
   /^--dls-text-/,
   /^--dls-radius-/,
+  // Z-layers are diffed in their own bucket (diffZLayers). Skip from
+  // the color diff to avoid double-counting them as missing-in-YAML.
+  /^--dls-z-/,
   // Aliases that resolve to a diffed token — filter to avoid dupe.
   /^--dls-accent(-hover|-rgb)?$/,
   /^--dls-signal$/,
   /^--dls-text-primary$/,
   /^--dls-text-secondary$/,
+  // DESIGN.md v5 § 2 public semantic aliases. Each CSS var is a
+  // pure indirection onto an already-diffed token (dls-primary →
+  // dls-accent, dls-danger → dls-status-danger, dls-slate → ow-slate,
+  // dls-text-tertiary is a v5 addition documented in § 2 Text tier).
+  // Filtering them here avoids reporting the alias as an independent
+  // "missing in YAML" entry. `--dls-mist` is NOT filtered here — v6
+  // made it a distinct hairline tier that lives in its own YAML slot
+  // (colors.light.mist / colors.dark.mist) and is diffed like any
+  // other color.
+  /^--dls-primary(-hover|-soft)?$/,
+  /^--dls-danger(-soft|-fg)?$/,
+  /^--dls-warning$/,
+  /^--dls-success-fg$/,
+  /^--dls-success-soft$/,
+  /^--dls-slate$/,
+  /^--dls-text-tertiary$/,
+  // `--ow-mist` is the concrete hex that feeds `--dls-border`. Now
+  // that v6 lifted `--dls-mist` into its own YAML slot, `--ow-mist`
+  // is a low-level primitive with no direct YAML counterpart — it
+  // is diffed indirectly via the `border` key (see COLOR_NAME_ALIASES).
+  /^--ow-mist$/,
 ]
 
 function isException(cssName) {
@@ -386,7 +410,10 @@ const COLOR_NAME_ALIASES = {
   signal: ['--ow-signal', '--dls-signal'],
   ink: ['--ow-ink', '--dls-text-primary'],
   slate: ['--ow-slate', '--dls-text-secondary'],
-  mist: ['--ow-mist', '--dls-border'],
+  // Mist is a distinct hairline tier from `border` (DESIGN.md § 2
+  // three-tier ladder). Prefer the dedicated `--dls-mist` variable;
+  // fall back to the legacy `--ow-mist` alias only if it exists.
+  mist: ['--dls-mist', '--ow-mist'],
   surface: ['--dls-surface'],
   'surface-muted': ['--dls-surface-muted'],
   background: ['--dls-background'],
@@ -570,12 +597,12 @@ function diffZLayers(yaml, css) {
   if (!zYaml) return report
   for (const [key, expected] of Object.entries(zYaml)) {
     const cssName = `--dls-z-${key}`
-    const scope = css.light || css.root || {}
-    const hit = resolveVarValue(scope[cssName], scope) ?? (css.dark && css.dark[cssName])
-    if (hit === undefined || hit === null) {
+    const scope = css.light || css.dark
+    if (!scope || !scope.has(cssName)) {
       report.missingInCode.push({ key, cssName, expected })
       continue
     }
+    const hit = resolveVarValue(scope.get(cssName), scope, new Set([cssName]))
     if (String(hit).trim() === String(expected).trim()) {
       report.matched.push({ key, cssName, value: expected })
     } else {

@@ -36,7 +36,7 @@ function ExpertAvatar(props: {
     <span
       className={cn(
         sizeClass,
-        "inline-flex shrink-0 items-center justify-center bg-dls-accent/10 text-sm font-semibold text-dls-accent ring-1 ring-dls-accent/20",
+        "inline-flex shrink-0 items-center justify-center bg-dls-accent/10 text-sm font-semibold text-dls-accent ring-1 ring-dls-accent/30",
       )}
     >
       {agentFallbackInitial(props.name)}
@@ -54,8 +54,8 @@ function ExpertCard(props: {
       role="button"
       tabIndex={0}
       className={cn(
-        "min-h-28 cursor-pointer rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3 text-left transition-colors hover:border-dls-accent/40 hover:bg-dls-hover focus-visible:border-dls-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/20 mac:titlebar-no-drag",
-        props.active && "border-dls-accent/60 bg-dls-accent/5",
+        "min-h-28 cursor-pointer rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3 text-left transition-colors hover:border-dls-accent/30 hover:bg-dls-hover focus-visible:border-dls-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
+        props.active && "border-dls-accent/30 bg-dls-accent/10",
       )}
       onClick={() => props.onOpen(props.expert)}
       onKeyDown={(event) => {
@@ -168,10 +168,10 @@ export function ExpertMarketplacePage(props: {
             <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               <button
                 type="button"
-                className="min-h-28 rounded-xl border border-dashed border-dls-border-strong bg-dls-surface px-3.5 py-3 text-left transition-colors hover:border-dls-accent/40 hover:bg-dls-hover mac:titlebar-no-drag"
+                className="min-h-28 rounded-xl border border-dashed border-dls-border-strong bg-dls-surface px-3.5 py-3 text-left transition-colors hover:border-dls-accent/30 hover:bg-dls-hover mac:titlebar-no-drag"
                 onClick={props.onCreateExpert}
               >
-                <span className="inline-flex size-9 items-center justify-center rounded-full bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/20">
+                <span className="inline-flex size-9 items-center justify-center rounded-full bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30">
                   <Plus className="size-4" />
                 </span>
                 <div className="mt-3 text-sm font-semibold text-dls-text">
@@ -200,7 +200,7 @@ export function ExpertMarketplacePage(props: {
           if (!open) setSelectedExpert(null);
         }}
       >
-        <DialogContent className="!max-w-[520px] rounded-3xl bg-dls-surface p-5">
+        <DialogContent className="!max-w-[520px] rounded-xl bg-dls-surface p-5">
           {selectedExpert ? (
             <div>
               <div className="flex items-start gap-4 pr-8">
@@ -293,7 +293,7 @@ export function ExpertMarketplaceDialog(props: {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent
-        className="flex h-[min(820px,calc(100vh-72px))] !w-[min(1180px,calc(100vw-96px))] !max-w-[min(1180px,calc(100vw-96px))] flex-col gap-0 overflow-hidden rounded-3xl bg-dls-background p-0 sm:!max-w-[min(1180px,calc(100vw-96px))]"
+        className="flex h-[min(820px,calc(100vh-72px))] !w-[min(1180px,calc(100vw-96px))] !max-w-[min(1180px,calc(100vw-96px))] flex-col gap-0 overflow-hidden rounded-xl bg-dls-background p-0 sm:!max-w-[min(1180px,calc(100vw-96px))]"
         showCloseButton={false}
       >
         <ExpertMarketplacePage

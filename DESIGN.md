@@ -11,10 +11,17 @@ colors:
     primary: "#005DFF"
     primary-hover: "#004ED6"
     primary-soft: "#EAF2FF"
-    signal: "#03FFDE"
+    # signal (light) — migrated from #03FFDE (1.35:1 on white,
+    # fails WCAG SC 1.4.11) to #00B39B (3.36:1 AA pass) while
+    # preserving the cyan/teal semantic. Dark mode retains #03FFDE
+    # where its contrast against near-black is AA.
+    signal: "#00B39B"
     ink: "#0F172A"
     slate: "#64748B"
-    mist: "#E5E7EB"
+    # mist is the softest hairline tier — a step lighter than
+    # `border` so `mist < border < border-strong` scans as three
+    # levels. Distinct hex, not aliased to `border`.
+    mist: "#EEF0F3"
     surface: "#FFFFFF"
     surface-muted: "#F8FAFC"
     background: "#FAFAFA"
@@ -31,6 +38,20 @@ colors:
     warning: "#D19A2A"
     success-fg: "#047857"
     online: "#28B276"
+    # Artifact hue palette — Radix shade 9 in light for full chroma
+    # against white surfaces. Values are indirected through Radix
+    # `--<hue>-9` CSS variables so light/dark and P3 wide-gamut
+    # fallbacks stay in sync with `apps/app/src/styles/colors.css`.
+    # MUST NOT be used outside ArtifactCard — see § 11 Intentional
+    # Exceptions.
+    artifact-hue-image: "var(--violet-9)"
+    artifact-hue-code: "var(--blue-9)"
+    artifact-hue-document: "var(--slate-9)"
+    artifact-hue-data: "var(--teal-9)"
+    artifact-hue-plot: "var(--grass-9)"
+    artifact-hue-3d: "var(--plum-9)"
+    artifact-hue-audio: "var(--pink-9)"
+    artifact-hue-video: "var(--crimson-9)"
   dark:
     primary: "#2F7BFF"
     primary-hover: "#5B96FF"
@@ -38,7 +59,9 @@ colors:
     signal: "#03FFDE"
     ink: "#F8FAFC"
     slate: "#94A3B8"
-    mist: "#3A3A3A"
+    # mist (dark) — one step darker than `border` so the ladder
+    # stays visible on dark surfaces.
+    mist: "#2E2E2E"
     surface: "#1E1E1E"
     surface-muted: "#2A2A2A"
     background: "#262626"
@@ -55,10 +78,26 @@ colors:
     warning: "#FBBF24"
     success-fg: "#6EE7B7"
     online: "#28B276"
+    # Artifact hue palette — Radix shade 4 in dark for perceptually
+    # even chroma against dark surfaces without over-saturation.
+    artifact-hue-image: "var(--violet-4)"
+    artifact-hue-code: "var(--blue-4)"
+    artifact-hue-document: "var(--slate-4)"
+    artifact-hue-data: "var(--teal-4)"
+    artifact-hue-plot: "var(--grass-4)"
+    artifact-hue-3d: "var(--plum-4)"
+    artifact-hue-audio: "var(--pink-4)"
+    artifact-hue-video: "var(--crimson-4)"
 
 typography:
   font-body: "Geist Variable"
   font-heading: "IBM Plex Sans Variable"
+  # Monospace stack for code surfaces (§4c tool-call / tool-output,
+  # §4g inline code + fenced code + diff, §5a kbd glyph parity). No
+  # licensed face — system stack picks the platform-native mono. See
+  # § 14 Known Gaps: v6 lowers this from "known gap" to "declared
+  # fallback contract".
+  font-mono: "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Cascadia Code', 'Roboto Mono', monospace"
   scale:
     2xs: 10
     xs: 12
@@ -85,9 +124,71 @@ rounded:
 
 spacing:
   base: 4
-  row-padding: "px-3 py-2.5"
-  menu-row-padding: "px-3 py-2"
-  dialog-footer-gap: "gap-2"
+  # OnMyAgent runs on a hybrid 2/4/7 pixel-cluster grid because dense
+  # agent UI (row buttons, menu items, badges, kbd chips) needs 6 / 10
+  # / 14 / 28 / 40 / 56 px rhythms that a strict multiple-of-4 scale
+  # can't express. The scale is layered so codemods know which slot
+  # each value belongs to.
+  #
+  # `scale` = macro section rhythm (multiples of 4)
+  # `micro-scale` = row/chip rhythm (multiples of 2, whitelisted)
+  # `button-heights` = row/button vertical scale (24 28 32 36 40 44 56)
+  # `hero-scale` = empty-state / marketing padding (28 40 56 80 96)
+  #
+  # Anything outside these three lists is an orphan and gets flagged
+  # by `scripts/design/codemod/snap-spacing.mjs`.
+  scale:
+    2xs: 4     # gap-1  / p-1
+    xs: 8      # gap-2  / p-2
+    sm: 12     # gap-3  / p-3
+    base: 16   # gap-4  / p-4
+    md: 20     # gap-5  / p-5 (dense card headers)
+    lg: 24     # gap-6  / p-6 (card body / section divider)
+    xl: 32     # gap-8  / p-8 (page section rhythm)
+    2xl: 48    # gap-12 / p-12 (empty-state hero, marketing block)
+    3xl: 64    # gap-16 / p-16 (top-level marketing rhythm)
+  micro-scale:
+    # Allowed .5-step Tailwind classes for dense-UI slots only.
+    # Never use these for page-level padding or section rhythm.
+    2xs: 2     # gap-0.5 / p-0.5 — chip inner padding
+    xs: 6      # gap-1.5 / p-1.5 — MenuRow gap / dropdown vertical
+    sm: 10     # gap-2.5 / p-2.5 — SessionCard hairline padding / send-button padding
+    md: 14     # px-3.5 / size-3.5 — Icon xs / status-dot / kbd chip
+    lg: 18     # px-4.5 / size-4.5 — Icon between sm(14) and base(16)
+    xl: 22     # px-5.5 / size-5.5 — reserved
+  button-heights:
+    # Canonical h/size values usable for row-level UI. Buttons uses
+    # xs/sm/default/lg from this list; sidebar-row / status-badge /
+    # input-group xs use 28; large rows use 56; chrome tier (48) is
+    # for shell chrome only — rail items, top titlebar/header bars,
+    # composer footer rows, workspace-switcher rows — not for
+    # in-content buttons.
+    xs: 24     # h-6  — chip / status-badge
+    sm-plus: 28  # h-7 — sidebar row, status-badge default, input-group xs
+    sm: 32     # h-8  — compact toolbar
+    default: 36 # h-9 — default in-page action
+    lg: 40     # h-10 — primary CTA
+    xl: 44     # h-11 — touch-target-safe CTA (also used for mobile)
+    chrome: 48 # h-12 / min-h-12 — RailButton top / panel titlebar / composer footer chrome
+    2xl: 56    # h-14 — "large row" (Level-3 nav, IconTile lg, avatar-lg)
+  hero-scale:
+    # Padding values for empty-state hero / marketing / plugin index
+    # sections. NEVER use for row-level UI.
+    2xs: 36    # p-9 / pl-9 / ml-9 — padding aligned to h-9 button icon slot
+    xs: 28     # p-7 — small hero
+    sm: 40     # p-10 — plugin page container padding
+    md: 56     # p-14 — full-page empty state
+    lg: 80     # p-20 — section pt/pb
+    xl: 96     # p-24 — top-level marketing block
+  # Slot presets — canonical strings for the 3 most reused density
+  # regions. These are the only Tailwind strings the contract locks;
+  # everything else picks from scale/micro-scale/button-heights/hero.
+  row-padding: "px-3 py-2.5"           # ActionRow default row
+  menu-row-padding: "px-3 py-2"        # MenuRowButton
+  dialog-footer-gap: "gap-2"            # Dialog / AlertDialog footers
+  # Codemod: `scripts/design/codemod/snap-spacing.mjs` flags anything
+  # not in the four lists above (scale ∪ micro-scale ∪ button-heights
+  # ∪ hero-scale). Dry-run by default; pass `--write` to apply.
 
 motion:
   duration:
@@ -274,14 +375,20 @@ z-layers:
   overlay-max: 999
 
 buttons:
-  xs: { height: 24, padding: "px-2", radius: lg, text: sm }
-  sm: { height: 32, padding: "px-3", radius: lg, text: sm }
-  default: { height: 36, padding: "px-3", radius: lg, text: sm }
-  lg: { height: 40, padding: "px-6", radius: xl, text: sm, use: "primary CTA / dialog footer" }
-  icon-xs: { size: 24, radius: lg }
-  icon-sm: { size: 32, radius: lg }
-  icon: { size: 36, radius: lg }
-  icon-lg: { size: 40, radius: lg }
+  # Two families. `xs/sm/default` are inline UI buttons that live inside
+  # rows, cards, and dense panels — they share `radius: lg` on purpose so
+  # they align vertically with adjacent inputs and dropdowns. `lg` steps
+  # up to `radius: xl` because it's the CTA family, meant to visually
+  # separate from surrounding controls (dialog footers, hero CTAs).
+  # Never mix the two families inside the same container.
+  xs:      { family: inline, height: 24, padding: "px-2", radius: lg, text: xs, use: "chip-scale action inside dense rows" }
+  sm:      { family: inline, height: 32, padding: "px-3", radius: lg, text: sm, use: "compact action inside cards / toolbars" }
+  default: { family: inline, height: 36, padding: "px-3", radius: lg, text: sm, use: "default in-page action" }
+  lg:      { family: cta,    height: 40, padding: "px-6", radius: xl, text: sm, use: "primary CTA / dialog footer" }
+  icon-xs: { family: inline, size: 24, radius: lg }
+  icon-sm: { family: inline, size: 32, radius: lg }
+  icon:    { family: inline, size: 36, radius: lg }
+  icon-lg: { family: cta,    size: 40, radius: lg }
   width-policy: "auto by default; w-full only for form submits / mobile / full-row decisions"
 
 components:
@@ -343,6 +450,143 @@ components:
       - MenuRowButton
       - NavTabButton
       - ActionRowButton
+  # Component contracts — Cursor-style {token.ref} bindings for the
+  # 20 signature/primitive shapes agents reach for most. Each entry is
+  # the enforceable target: radius, height (or padding), surface, text,
+  # border. Agents modifying these components MUST update this block in
+  # the same PR. Codemod: `scripts/design/codemod/fix-tokens.mjs`
+  # promotes contract-mismatched Tailwind strings to the target token.
+  contracts:
+    # --- Inline buttons (family: inline, radius: lg) -----------------
+    button-xs:
+      height: "{spacing.button-heights.xs}"          # 24
+      radius: "{rounded.lg}"                          # 10
+      text: "{typography.scale.xs}"                   # 12
+      padding-x: "{spacing.scale.xs}"                 # 8 (px-2)
+    button-sm:
+      height: "{spacing.button-heights.sm}"          # 32
+      radius: "{rounded.lg}"                          # 10
+      text: "{typography.scale.sm}"                   # 14
+      padding-x: "{spacing.scale.sm}"                 # 12 (px-3)
+    button-default:
+      height: "{spacing.button-heights.default}"     # 36
+      radius: "{rounded.lg}"                          # 10
+      text: "{typography.scale.sm}"                   # 14
+      padding-x: "{spacing.scale.sm}"                 # 12 (px-3)
+    # --- CTA buttons (family: cta, radius: xl) -----------------------
+    button-lg:
+      height: "{spacing.button-heights.lg}"          # 40
+      radius: "{rounded.xl}"                          # 14
+      text: "{typography.scale.sm}"                   # 14
+      padding-x: "{spacing.scale.lg}"                 # 24 (px-6)
+    # --- Chrome tier (family: chrome) --------------------------------
+    rail-button:
+      height: "{spacing.button-heights.chrome}"      # 48
+      radius: "{rounded.md}"                          # 8
+      surface: "{colors.rail-bg}"
+      surface-active: "{colors.rail-active}"
+    # --- Inputs (all share radius: lg for vertical alignment) --------
+    input:
+      height: "{spacing.button-heights.lg}"          # 40
+      radius: "{rounded.lg}"                          # 10
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      text: "{typography.scale.sm}"                   # 14
+      padding: "px-3 py-1"
+    textarea:
+      radius: "{rounded.lg}"                          # 10
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      text: "{typography.scale.sm}"                   # 14
+      min-height: 80
+    select-menu:
+      height: "{spacing.button-heights.lg}"          # 40
+      radius: "{rounded.lg}"                          # 10
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+    # --- Cards (radius: xl for outer, lg for inner nested rows) ------
+    settings-card:
+      radius: "{rounded.xl}"                          # 14
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      padding: "{spacing.scale.lg}"                   # 24
+      section-title: "{typography.scale.lg}/600"      # 18
+    layout-section:
+      radius: "{rounded.xl}"                          # 14
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      padding: "{spacing.scale.lg}"                   # 24
+    settings-inset:
+      # inner card nested inside settings-card — one radius tier down
+      radius: "{rounded.lg}"                          # 10
+      surface: "{colors.surface-muted}"
+      border: "{colors.border}"
+    action-row-button:
+      radius: "{rounded.xl}"                          # 14
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      padding: "p-3.5"
+    session-card:
+      radius: "{rounded.md}"                          # 8 (signature — see § 4)
+      surface: "{colors.surface}"
+      padding: "{spacing.row-padding}"
+      title: "{typography.scale.sm}/500"
+    artifact-card:
+      radius: "{rounded.md}"                          # 8 (signature — see § 4)
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      padding: "{spacing.scale.sm}"                   # 12
+    skill-card:
+      radius: "{rounded.xl}"                          # 14
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      padding: "{spacing.scale.lg}"                   # 24
+    # --- Overlays ----------------------------------------------------
+    dialog:
+      radius: "{rounded.xl}"                          # 14
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      title: "{typography.scale.lg}/600"              # 18
+      footer-gap: "{spacing.dialog-footer-gap}"       # 8 (gap-2)
+    popover:
+      radius: "{rounded.lg}"                          # 10
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      padding: "{spacing.scale.sm}"                   # 12
+    dropdown-menu:
+      radius: "{rounded.lg}"                          # 10
+      surface: "{colors.surface}"
+      border: "{colors.border}"
+      row-padding: "{spacing.menu-row-padding}"       # px-3 py-2
+    tooltip:
+      radius: "{rounded.sm}"                          # 6
+      surface: "{colors.ink}"
+      text: "{typography.scale.xs}"                   # 12
+      padding: "px-2 py-1"
+    # --- Chips / pills -----------------------------------------------
+    status-badge:
+      height: "{spacing.button-heights.sm-plus}"     # 28
+      radius: "{rounded.sm}"                          # 6
+      text: "{typography.scale.xs}"                   # 12
+    toggle-chip:
+      # chip-family segmented button (SegmentedTabButton size=chip)
+      height: "{spacing.button-heights.sm}"          # 32 (min-h-8)
+      radius: "{rounded.lg}"                          # 10
+      text: "{typography.scale.xs}"                   # 12
+      padding-x: "{spacing.scale.sm}"                 # 12 (px-3)
+    kbd-chip:
+      radius: "{rounded.sm}"                          # 6
+      family: "{typography.font-mono}"
+      text: "{typography.scale.xs}"                   # 12
+    # --- Notice / empty ---------------------------------------------
+    notice-box:
+      radius: "{rounded.xl}"                          # 14
+      surface: "{colors.surface-muted}"
+      border: "{colors.border}"
+      padding-lg: "{spacing.hero-scale.md}"           # 56
+      padding-md: "{spacing.hero-scale.sm}"           # 40
+      padding-sm: "{spacing.hero-scale.xs}"           # 28
+
 
 flags:
   shadows: forbidden
@@ -520,11 +764,16 @@ not reach for a new size just to soften emphasis — reach for weight and
 color inside the current step. This keeps the effective vocabulary small
 without letting hierarchy collapse.
 
-Two typefaces are enough. **Geist Variable** is the body voice — every
-paragraph, every label, every button, every row. **IBM Plex Sans
-Variable** carries headings and page titles because it reads calmer at
-larger sizes. Introducing a third face (monospaced, condensed, display)
-is a distinct DESIGN.md change, not a per-page choice.
+Two typefaces plus a system monospace stack carry the workbench.
+**Geist Variable** is the body voice — every paragraph, every label,
+every button, every row. **IBM Plex Sans Variable** carries headings
+and page titles because it reads calmer at larger sizes. The
+monospace stack (declared in `typography.font-mono`) is the code
+voice — tool-call / tool-output rows, inline + fenced code, diff
+bodies, and `<kbd>` glyph parity — and is a **system fallback stack
+only**, no licensed face. Introducing a fourth face (condensed,
+display, alt-mono) is a distinct DESIGN.md change, not a per-page
+choice.
 
 ### Note on Font Substitutes
 
@@ -533,13 +782,18 @@ on every rendering surface. Fallback order:
 
 - **Body** — `Geist Variable, Geist, Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`. Inter is the closest metric match at 14px body; system-ui keeps the fallback native on non-Inter systems.
 - **Headings** — `IBM Plex Sans Variable, "IBM Plex Sans", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`. Inter is the calmest substitute at 18–32px; Segoe/Roboto keep the fallback native on Windows/Android surfaces respectively.
-- **Monospace** — not part of the v3 contract. When a code block or terminal-style label needs mono, use the system stack (`ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace`) and note the gap in § 14 Known Gaps.
+- **Monospace** — declared in v6 as `typography.font-mono` (see YAML front matter). System stack only: `ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", "Roboto Mono", monospace`. Rendered as `font-mono` (Tailwind) or `var(--dls-font-mono)` (CSS). Guarantees identical glyph metrics across tool-call, code, diff, and `<kbd>` surfaces on any single OS — different OSes still substitute the platform-native face (SF Mono / Cascadia / DejaVu Sans Mono).
 
 Do not fall back to Arial, Helvetica, or Times without going through the
 system-ui slot first — direct-named legacy faces are inconsistent across
 Windows and Linux distros and break the visual voice.
 
 ## 4. Component Stylings
+
+> Machine-readable target shapes live in the YAML front matter under
+> `components.contracts`. When adding or refactoring a signature
+> component, edit that block in the same PR so `pnpm task check design`
+> can enforce the target radius / height / surface tokens.
 
 **Buttons** (`apps/app/src/components/ui/button.tsx`)
 
@@ -756,10 +1010,12 @@ adding 14 tint tokens fights § 6 Depth's flatness stance and pushes
 long conversations into visual noise. Border-left is the cheapest
 identity signal that still scans at a glance.
 
-Monospace typography for `tool-call` / `tool-output` uses the system
-mono fallback declared in § 3 Note on Font Substitutes. Mono font
-family remains a Known Gap; v5 does not resolve the mono contract,
-only its usage sites.
+Monospace typography for `tool-call` / `tool-output` resolves to
+`typography.font-mono` (`ui-monospace, SFMono-Regular, Menlo, ...`)
+via the `font-mono` Tailwind utility. See § 3 Note on Font
+Substitutes for the full stack; the v6 mono contract closes the
+earlier "known gap" and ensures tool-call, tool-output, code, diff,
+and `<kbd>` surfaces share one font family per OS.
 
 Prefix icons come from `iconography.size.sm` (14 px). Icon paint is
 `currentColor` — the role's `border-left` color is the intended tint,
@@ -877,8 +1133,9 @@ per-tier flourish.
 
 Inline code and diff blocks appear inside message rows and tool cards.
 No new tokens — reuses `dls-*` semantic colors at low alpha for
-addition/removal bands. Mono font remains a Known Gap; use the system
-mono fallback declared in § 3 Note on Font Substitutes.
+addition/removal bands. Mono font resolves to `typography.font-mono`
+via the `font-mono` Tailwind utility; see § 3 Note on Font
+Substitutes for the full system stack.
 
 ### Inline code
 
@@ -1469,6 +1726,19 @@ in dedicated registry files, not in ordinary JSX:
   measured runtime geometry.
 - **Performance containment** — large message lists, composer surfaces:
   `contain`, `content-visibility`, virtualizer transforms.
+- **Pre-app boot / gate screens** — `architecture-mismatch-gate.tsx`.
+  Full-screen dark hero shown before the app can launch. Its CTAs
+  intentionally use `rounded-full` and a self-contained palette because
+  the gate cannot render inside the workbench chrome; it uses its own
+  landing-page dialect. Do not copy `rounded-full` CTAs into any surface
+  that mounts after the gate.
+- **`SendButton`** — the composer send affordance
+  (`apps/app/src/components/ui/send-button.tsx`). Signature circular
+  primitive at `size="icon-lg"` (40 px), `rounded-full`, brand-blue
+  filled. It is a designed identity moment for message send — the
+  only `rounded-full` allowed inside the workbench chrome. Do not
+  extract this shape into a generic `Button` variant, and do not
+  re-derive circular CTAs elsewhere.
 
 If a scan hit does not match one of these, prefer moving it to a `dls-*`
 token, a shared variant, or a named local class map before leaving it in
@@ -1572,6 +1842,15 @@ code & diff inline styles (§ 4g), SessionCard + ArtifactCard
 variants (§ 4h), and the `artifact-hue.*` sub-palette (§ 11
 Intentional Exceptions).
 
+v6 shipped: z-layer CSS variables (§ 6), semantic Tailwind aliases
+for `dls-primary` / `dls-danger` / `dls-warning` / `dls-mist` /
+`dls-slate` / `dls-app-bg` / `dls-rail-bg` / `dls-text-tertiary` /
+`dls-artifact-hue-*` so the § 2 contract renders as authored,
+monospace stack contract (§ 3 `typography.font-mono` + `font-mono`
+Tailwind utility → `--dls-font-mono` CSS variable), and the
+`snap-icon-sizes` codemod that pins Lucide `size={N}` to the
+§ 7 iconography scale.
+
 v5 still does **not** cover the following. Agents needing these
 should surface a proposal rather than invent silently.
 
@@ -1585,10 +1864,6 @@ should surface a proposal rather than invent silently.
 - **Marketing / landing surface.** No marketing surface exists in
   scope; `apps/web/*` and any future landing pages are out of this
   contract.
-- **Monospace typography.** No terminal / code-block component exists
-  in the shipped UI. When one lands, mono needs its own scale + face
-  contract; the § 3 Note on Font Substitutes documents the current
-  stack.
 - **Domain composites v2 catalog.** Expansion beyond the 5 existing
   composites is a `frontend-primitive-refactor` skill task, not a
   DESIGN.md task.

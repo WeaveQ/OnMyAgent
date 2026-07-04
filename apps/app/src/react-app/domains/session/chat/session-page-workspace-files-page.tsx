@@ -286,7 +286,7 @@ export function WorkspaceFilesPage(props: {
                   <TreeRowButton
                     type="button"
                     onClick={() => toggleAgent(group.agentName)}
-                    className="px-6 text-foreground hover:bg-muted/50"
+                    className="px-6 text-foreground hover:bg-dls-hover"
                   >
                     <ChevronRight
                       className={cn(
@@ -315,7 +315,7 @@ export function WorkspaceFilesPage(props: {
                         type="button"
                         depth="child"
                         onClick={() => toggleTask(taskKey)}
-                        className="px-10 text-foreground hover:bg-muted/50"
+                        className="px-10 text-foreground hover:bg-dls-hover"
                       >
                         <ChevronRight
                           className={cn(
@@ -335,7 +335,7 @@ export function WorkspaceFilesPage(props: {
                           {group.files.map((file) => (
                             <div
                               key={file.path}
-                              className="group relative flex items-center px-14 py-1.5 text-sm hover:bg-muted/50"
+                              className="group relative flex items-center px-14 py-1.5 text-sm hover:bg-dls-hover"
                             >
                               <FileText className="size-3.5 shrink-0 text-dls-secondary" />
                               <span className="ml-2 truncate">{file.name}</span>

@@ -216,8 +216,8 @@ export function ConfigView(props: ConfigViewProps) {
       ? t("config.host_remote_enabled")
       : t("config.host_local_only");
   const hostStatusStyle = !hostInfo?.running
-    ? "bg-dls-active/60 text-dls-secondary border-dls-border/50"
-    : "bg-dls-accent/10 text-dls-accent border-dls-accent/20";
+    ? "bg-dls-active text-dls-secondary border-dls-mist"
+    : "bg-dls-accent/10 text-dls-accent border-dls-accent/30";
   const hostConnectUrl =
     hostInfo?.connectUrl ??
     hostInfo?.mdnsUrl ??

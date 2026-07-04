@@ -10,7 +10,7 @@ export type TextInputProps = ComponentProps<"input"> & {
 const textInputClass = {
   wrapper: "block",
   label: "mb-1 text-xs font-medium text-dls-secondary",
-  input: "w-full rounded-lg border border-dls-border bg-dls-surface px-3 py-2 text-sm text-dls-text placeholder:text-dls-secondary focus:outline-none focus:ring-2 focus:ring-dls-accent/20",
+  input: "w-full rounded-lg border border-dls-border bg-dls-surface px-3 py-2 text-sm text-dls-text placeholder:text-dls-secondary focus:outline-none focus:ring-2 focus:ring-dls-accent/30",
   hint: "mt-1 text-xs text-dls-secondary",
 };
 

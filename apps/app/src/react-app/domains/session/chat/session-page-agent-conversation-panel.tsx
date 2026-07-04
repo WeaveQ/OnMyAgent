@@ -116,7 +116,7 @@ export function AgentConversationPanel(props: {
       <div className={agentConversationPanelClass.toolbar}>
         <InputGroup controlSize="lg" radius="xl" tone="surface" className="flex-1">
           <InputGroupAddon align="inline-start">
-            <Search className="size-[18px]" />
+            <Search className="size-5" />
           </InputGroupAddon>
           <InputGroupInput
             value={props.query}
@@ -133,7 +133,7 @@ export function AgentConversationPanel(props: {
           title={t("nav.agents")}
           aria-label="打开智能体"
         >
-          <Bot className="size-[18px]" />
+          <Bot className="size-5" />
           <Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} />
         </Button>
       </div>

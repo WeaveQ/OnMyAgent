@@ -128,12 +128,12 @@ const appSidebarTextClass = {
 };
 
 const appSidebarStateClass = {
-  issueCard: "w-full rounded-lg border border-dls-status-danger/25 bg-dls-status-danger-soft px-3 py-3 text-left",
-  issueCardOffline: "border-dls-status-warning/25 bg-dls-status-warning/12",
+  issueCard: "w-full rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-3 py-3 text-left",
+  issueCardOffline: "border-dls-status-warning-border bg-dls-status-warning-soft",
   issueIcon: "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dls-status-danger-soft text-dls-status-danger-fg",
-  issueIconOffline: "bg-dls-status-warning/12 text-dls-status-warning",
-  issueMessage: "mt-2 rounded-lg border border-dls-status-danger/25 bg-dls-status-danger-soft px-2 py-1.5 text-xs leading-4 text-dls-status-danger-fg whitespace-pre-wrap wrap-anywhere",
-  issueMessageOffline: "border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning",
+  issueIconOffline: "bg-dls-status-warning-soft text-dls-status-warning-fg",
+  issueMessage: "mt-2 rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-2 py-1.5 text-xs leading-4 text-dls-status-danger-fg whitespace-pre-wrap wrap-anywhere",
+  issueMessageOffline: "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
   waiting: "bg-dls-signal",
   waitingText: "text-dls-accent",
   error: "bg-dls-status-danger",
@@ -774,7 +774,7 @@ export function AppSidebar(props: AppSidebarProps) {
                 className={cn(
                   "shrink-0 border-sidebar-border/70 bg-dls-rail-hover text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                   props.activeView === "devices" &&
-                    "border-dls-accent/25 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/15 hover:text-dls-accent",
+                    "border-dls-accent/30 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent",
                 )}
                 onClick={() => props.onOpenPrimaryView("devices")}
                 title={t("nav.devices")}
@@ -1177,7 +1177,7 @@ function SidebarSectionTrigger(props: {
         {showCount ? ` (${props.count})` : null}
       </span>
       {props.badge ? (
-        <StatusBadge size="tiny" className="bg-dls-surface/70 text-sidebar-foreground/55 dark:bg-dls-surface/10">
+        <StatusBadge size="tiny" className="bg-dls-surface text-sidebar-foreground/55 dark:bg-dls-surface">
           {props.badge}
         </StatusBadge>
       ) : null}

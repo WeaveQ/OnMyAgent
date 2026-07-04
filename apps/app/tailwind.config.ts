@@ -19,6 +19,11 @@ safelist: [
     fontFamily: {
       sans: ["var(--dls-font-sans)"],
       heading: ["var(--dls-font-heading)"],
+      // DESIGN.md § 3 typography.font-mono. Anchors `font-mono`
+      // Tailwind utility to the `--dls-font-mono` CSS variable so
+      // tool-call / code / diff / kbd surfaces render identical
+      // fonts across macOS / Windows / Linux fallbacks.
+      mono: ["var(--dls-font-mono)"],
     },
     fontSize: {
       "2xs": ["var(--dls-text-2xs)", { lineHeight: "var(--dls-leading-normal)" }],
@@ -64,7 +69,11 @@ safelist: [
         "status-danger": "var(--dls-status-danger)",
         "status-danger-soft": "var(--dls-status-danger-soft)",
         "status-danger-fg": "var(--dls-status-danger-fg)",
+        "status-danger-border": "var(--dls-status-danger-border)",
         "status-warning": "var(--dls-status-warning)",
+        "status-warning-soft": "var(--dls-status-warning-soft)",
+        "status-warning-fg": "var(--dls-status-warning-fg)",
+        "status-warning-border": "var(--dls-status-warning-border)",
         "status-success-soft": "var(--dls-status-success-soft)",
         "status-success-fg": "var(--dls-status-success-fg)",
         "status-success-border": "var(--dls-status-success-border)",
@@ -108,6 +117,40 @@ safelist: [
         "brand-neutral-soft": "var(--dls-brand-neutral-soft)",
         "brand-faint-blue": "var(--dls-brand-faint-blue)",
         "icon-muted-fg": "var(--dls-icon-muted-fg)",
+        // DESIGN.md v5 § 2 semantic public aliases. These class names
+        // are the ones the contract exposes (see DESIGN.md § 2 Color
+        // Palette + § 4c Message Roles + § 4g Code & Diff) and mirror
+        // the shorter `--dls-*` variables declared in
+        // `apps/app/src/app/index.css`. Older aliases (dls-accent /
+        // dls-status-danger / dls-secondary etc.) stay for existing
+        // call sites; new code should prefer the semantic name below.
+        primary: "var(--dls-primary)",
+        "primary-hover": "var(--dls-primary-hover)",
+        "primary-soft": "var(--dls-primary-soft)",
+        danger: "var(--dls-danger)",
+        "danger-soft": "var(--dls-danger-soft)",
+        "danger-fg": "var(--dls-danger-fg)",
+        warning: "var(--dls-warning)",
+        "success-fg": "var(--dls-success-fg)",
+        "success-soft": "var(--dls-status-success-soft)",
+        mist: "var(--dls-mist)",
+        slate: "var(--dls-slate)",
+        "app-bg": "var(--dls-app-bg)",
+        "rail-bg": "var(--dls-rail-bg)",
+        "text-primary": "var(--dls-text-primary)",
+        "text-secondary": "var(--dls-text-secondary)",
+        "text-tertiary": "var(--dls-text-tertiary)",
+        // Artifact hue palette (DESIGN.md § 4h + § 11 Intentional
+        // Exceptions). MUST NOT be used outside `ArtifactCard`. The
+        // extract-tokens design-drift checker enforces this scope.
+        "artifact-hue-image": "var(--dls-artifact-hue-image)",
+        "artifact-hue-code": "var(--dls-artifact-hue-code)",
+        "artifact-hue-document": "var(--dls-artifact-hue-document)",
+        "artifact-hue-data": "var(--dls-artifact-hue-data)",
+        "artifact-hue-plot": "var(--dls-artifact-hue-plot)",
+        "artifact-hue-3d": "var(--dls-artifact-hue-3d)",
+        "artifact-hue-audio": "var(--dls-artifact-hue-audio)",
+        "artifact-hue-video": "var(--dls-artifact-hue-video)",
       },
       white: "#ffffff",
       black: "#000000",

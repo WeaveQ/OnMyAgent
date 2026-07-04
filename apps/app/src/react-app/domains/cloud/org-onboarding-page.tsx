@@ -393,7 +393,7 @@ export function ResourceSelectionPage() {
             <ScrollArea className="px-2.5">
               <Accordion
                 multiple
-                className="rounded-2xl border border-border bg-transparent before:hidden"
+                className="rounded-xl border border-border bg-transparent before:hidden"
               >
                 {/* AI Providers */}
                 {providers.length > 0 ? (
@@ -541,7 +541,7 @@ interface SectionProps {
 function Section({ icon, title, description, count, children }: SectionProps) {
   return (
     <AccordionItem value={title}>
-      <AccordionTrigger className="items-center px-5 py-4 gap-4.75 hover:no-underline">
+      <AccordionTrigger className="items-center px-5 py-4 gap-4.5 hover:no-underline">
         {icon}
 
         <div className="min-w-0 flex-1 flex flex-col gap-1">

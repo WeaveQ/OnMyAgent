@@ -121,8 +121,8 @@ const localAgentLayoutClass = {
   agentStatusDot: "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
   header: "shrink-0 border-b border-dls-border bg-dls-surface mac:titlebar-drag",
   pageContent: "mx-auto flex w-full max-w-[1120px] flex-col gap-5",
-  chatPanel: "mx-auto w-full max-w-[1120px] rounded-2xl border border-dls-border bg-dls-surface p-2",
-  chatMessage: "max-w-[86%] rounded-2xl border border-dls-border px-4 py-3 text-sm leading-6",
+  chatPanel: "mx-auto w-full max-w-[1120px] rounded-xl border border-dls-border bg-dls-surface p-2",
+  chatMessage: "max-w-[86%] rounded-xl border border-dls-border px-4 py-3 text-sm leading-6",
   userChatMessage: "bg-dls-chat-user-bg text-dls-text",
   assistantChatMessage: "bg-dls-surface text-dls-chat-agent-text",
   artifactPanel: "rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2",
@@ -131,20 +131,20 @@ const localAgentLayoutClass = {
 };
 
 const activeRunClass = {
-  overview: "rounded-2xl border border-dls-accent/20 bg-dls-accent/5 p-3 text-xs text-dls-text",
+  overview: "rounded-xl border border-dls-accent/30 bg-dls-accent/10 p-3 text-xs text-dls-text",
   item: "flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors",
-  itemSelected: "border-dls-accent/35 bg-dls-surface",
-  itemDefault: "border-dls-accent/15 bg-dls-surface/70 hover:bg-dls-surface",
+  itemSelected: "border-dls-accent/30 bg-dls-surface",
+  itemDefault: "border-dls-accent/30 bg-dls-surface hover:bg-dls-surface",
   runId: "font-mono text-xs text-dls-accent",
   meta: "mt-1 flex flex-wrap gap-2 text-xs text-dls-secondary",
-  cancel: "h-7 shrink-0 border-dls-accent/20 bg-dls-surface text-xs text-dls-text hover:bg-dls-accent/5",
+  cancel: "h-7 shrink-0 border-dls-accent/30 bg-dls-surface text-xs text-dls-text hover:bg-dls-accent/10",
 };
 
 const approvalClass = {
-  panel: "space-y-2 rounded-xl border border-dls-status-warning/25 bg-dls-status-warning/12 px-3 py-2 text-dls-status-warning",
-  item: "rounded-lg border border-dls-status-warning/25 bg-dls-surface/75 p-2",
+  panel: "space-y-2 rounded-xl border border-dls-status-warning-border bg-dls-status-warning-soft px-3 py-2 text-dls-status-warning",
+  item: "rounded-lg border border-dls-status-warning-border bg-dls-surface p-2",
   meta: "mt-0.5 text-xs leading-4 text-dls-status-warning/80",
-  command: "mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-dls-status-warning/12 px-2 py-1 font-mono text-xs text-dls-status-warning",
+  command: "mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-dls-status-warning-soft px-2 py-1 font-mono text-xs text-dls-status-warning",
   cwd: "mt-1 truncate font-mono text-xs text-dls-status-warning/80",
 };
 
@@ -823,7 +823,7 @@ function LocalAgentToolRow(props: { message: PersonalLocalAgentConversationMessa
 
   return (
     <div className="flex min-w-0 flex-col overflow-hidden">
-      <div className="flex w-full items-center gap-3 rounded-md py-0.5 text-left text-[13px] leading-5 text-dls-secondary overflow-hidden">
+      <div className="flex w-full items-center gap-3 rounded-md py-0.5 text-left text-sm leading-5 text-dls-secondary overflow-hidden">
         <span className={cn("size-2 shrink-0 rounded-full", dotClass)} />
         <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{tool.title}</span>
       </div>
@@ -831,11 +831,11 @@ function LocalAgentToolRow(props: { message: PersonalLocalAgentConversationMessa
         <div className="ml-5 mt-1 space-y-2 overflow-hidden">
           {tool.detail.map((section) => (
             <div key={section.label} className="min-w-0">
-              <div className="text-[11px] font-medium text-dls-tertiary">
+              <div className="text-xs font-medium text-dls-tertiary">
                 {section.label}
                 {section.truncated ? ` · ${t("local_agent.timeline_tool_truncated")}` : ""}
               </div>
-              <pre className="mt-1 max-h-48 overflow-auto rounded-xl border border-dls-border/70 bg-dls-surface px-3 py-2 text-xs leading-5 whitespace-pre-wrap break-words font-sans text-dls-secondary">{section.value}</pre>
+              <pre className="mt-1 max-h-48 overflow-auto rounded-xl border border-dls-mist bg-dls-surface px-3 py-2 text-xs leading-5 whitespace-pre-wrap break-words font-sans text-dls-secondary">{section.value}</pre>
             </div>
           ))}
         </div>
@@ -849,8 +849,8 @@ function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConvers
   const hasRunning = tools.some((tool) => tool.status === "running");
 
   return (
-    <div className="max-w-full rounded-2xl border border-dls-border/60 aionui-tool-container">
-      <div className="flex w-full items-center gap-2 rounded-2xl px-3.5 py-2.5 text-left text-[13px] text-dls-secondary">
+    <div className="max-w-full rounded-xl border border-dls-mist aionui-tool-container">
+      <div className="flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-left text-sm text-dls-secondary">
         {hasRunning ? <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
         <span className="min-w-0 flex-1 font-medium text-dls-text">{t("local_agent.timeline_tool_group_title", { count: props.messages.length })}</span>
       </div>
@@ -1980,7 +1980,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5"
         style={{ width: agentListWidth }}
       >
-        <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-border/70 px-4">
+        <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4">
           <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1">
             <InputGroupAddon align="inline-start" inset="tight">
               <Search className="size-4.5" />
@@ -1996,7 +1996,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             type="button"
             size="icon-sm"
             onClick={() => setShowAddForm((value) => !value)}
-            className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+            className="relative shrink-0 border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
             title={t("local_agent.add")}
             aria-label={t("local_agent.add")}
           >
@@ -2161,7 +2161,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
               {props.headerActions ? <div className="ml-1 flex items-center border-l border-dls-border pl-2">{props.headerActions}</div> : null}
             </div>
           </div>
-          <div className="flex min-h-12 flex-wrap items-center gap-2 border-t border-dls-border/70 bg-dls-surface-muted/35 px-6 py-2 mac:titlebar-no-drag">
+          <div className="flex min-h-12 flex-wrap items-center gap-2 border-t border-dls-mist bg-dls-surface-muted px-6 py-2 mac:titlebar-no-drag">
             <label className="flex min-w-[220px] flex-[1_1_280px] items-center gap-2 text-xs text-dls-secondary">
               <span className="shrink-0 whitespace-nowrap">{t("local_agent.conversation")}</span>
               <div className="min-w-0 flex-1">
@@ -2611,7 +2611,7 @@ const ChatBubble = memo(function ChatBubble(props: {
           <div className="mt-2">
             <button
               type="button"
-              className="inline-flex select-none items-center gap-1.5 text-[13px] leading-none text-dls-accent transition-colors hover:text-dls-accent-strong"
+              className="inline-flex select-none items-center gap-1.5 text-sm leading-none text-dls-accent transition-colors hover:text-dls-accent-strong"
               onClick={() => setTimelineExpanded((value) => !value)}
               aria-expanded={timelineExpanded}
             >
@@ -2625,7 +2625,7 @@ const ChatBubble = memo(function ChatBubble(props: {
                   {item.kind === "tool_group" ? (
                     <LocalAgentToolGroupSummary messages={item.messages} />
                   ) : item.message.role === "assistant" ? (
-                    <div className="text-[13px] leading-6 text-dls-text">
+                    <div className="text-sm leading-6 text-dls-text">
                       <MarkdownBlock text={item.message.text} streaming={run?.status === "running" && item.message.type !== "finish"} />
                     </div>
                   ) : item.message.type === "permission" || item.message.type === "error" ? (

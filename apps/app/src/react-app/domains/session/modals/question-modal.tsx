@@ -183,7 +183,7 @@ export function QuestionPanel(props: QuestionPanelProps) {
                             ? "border-dls-accent/30 bg-dls-decision-soft text-dls-text"
                             : "text-dls-secondary hover:border-dls-border-strong hover:text-dls-text"
                         }
-                        ${isFocused ? "border-dls-accent/40 bg-dls-hover ring-2 ring-dls-accent/20" : ""}
+                        ${isFocused ? "border-dls-accent/30 bg-dls-hover ring-2 ring-dls-accent/30" : ""}
                       `}
                   onClick={() => {
                     dispatch({ type: "setFocusedOptionIndex", value: idx });
@@ -221,7 +221,7 @@ export function QuestionPanel(props: QuestionPanelProps) {
                     value: event.currentTarget.value,
                   })
                 }
-                className="h-11 rounded-xl bg-dls-surface px-4 text-sm text-dls-text placeholder:text-dls-secondary focus-visible:ring-4 focus-visible:ring-dls-accent/20"
+                className="h-11 rounded-xl bg-dls-surface px-4 text-sm text-dls-text placeholder:text-dls-secondary focus-visible:ring-4 focus-visible:ring-dls-accent/30"
                 placeholder={t("question_modal.custom_answer_placeholder")}
                 disabled={props.busy}
                 onKeyDown={(event) => {

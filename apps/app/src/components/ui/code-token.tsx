@@ -10,7 +10,7 @@ const codeTokenVariants = cva("font-mono leading-none", {
       muted: "bg-dls-surface-muted/50 text-dls-secondary",
       soft: "bg-dls-hover text-dls-secondary",
       surface: "border border-dls-border bg-dls-surface-muted/50 text-dls-secondary",
-      info: "border border-dls-accent/20 bg-dls-decision-soft text-dls-accent",
+      info: "border border-dls-accent/30 bg-dls-decision-soft text-dls-accent",
       infoSoft: "bg-dls-accent/10 text-dls-accent",
     },
     size: {
