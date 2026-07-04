@@ -230,7 +230,7 @@ For the full contribution guide, see `CONTRIBUTING.md`.
 
 Before opening a PR:
 
-1. Read `AGENTS.md` and `docs/Architecture.md`.
+1. Read `AGENTS.md`, `docs/Architecture.md`, and — for any UI change — `DESIGN.md` (the visual contract at the repo root).
 2. Keep changes small and focused.
 3. Add or update tests when behavior changes.
 4. For cross-module or architecture changes, use Graphify to inspect impact:
