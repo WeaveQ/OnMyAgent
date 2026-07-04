@@ -23,6 +23,22 @@ are driven by semantic CSS tokens.
 - **Three-tier surface hierarchy.** Rail → background → surface. Rail is
   cold and quiet, background is neutral, surface is where content lives.
 
+## Component Contracts
+
+Signature and primitive component shapes (`SettingsCard`, `RailButton`,
+`SendButton`, `SegmentedTabGroup`, `Dialog`, `Input`, `ToggleChip`, …)
+are now bound to token references inside `DESIGN.md`'s YAML front
+matter under `components.contracts`. That block is the machine-readable
+target — radius, height, surface, padding — for the 20 most-drifted
+primitives. When adding or refactoring a signature component, edit
+that block in the same PR.
+
+Cross-cutting rules that surface most often in review:
+
+- **Tab bars.** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`. Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view.
+- **`rounded-full` is a whitelist.** Only avatars, `NavTabButton shape="pill"` (compact filter chips), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11.
+- **Radius scale is flat.** `xs=3 sm=6 md=8 lg=10 xl=14 pill=999`. `2xl/3xl/4xl` are legacy aliases mapped to `xl=14` in Tailwind config so migration is safe, but new code must pick a named tier — not a legacy alias.
+
 ## Palette, Semantic Tokens, Type Scale, Radius, Buttons, Rows
 
 See [`DESIGN.md`](../../DESIGN.md) — sections 2 (Color Palette),
