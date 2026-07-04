@@ -66,6 +66,14 @@ const OAUTH_OPENCODE_REQUEST_TIMEOUT_MS = 5 * 60_000;
 const MCP_AUTH_OPENCODE_REQUEST_TIMEOUT_MS = 90_000;
 const SESSION_LONG_RUNNING_URL_RE = /\/session\/[^/?#]+\/(?:command|prompt_async|summarize)(?:[?#]|$)/;
 
+function readErrorName(error: unknown): string {
+  if (error && typeof error === "object" && "name" in error) {
+    const value = (error as { name?: unknown }).name;
+    return typeof value === "string" ? value : "";
+  }
+  return "";
+}
+
 function getRequestUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -219,7 +227,7 @@ async function fetchWithTimeout(
   try {
     return await Promise.race([fetchImpl(input, initWithSignal), timeoutPromise]);
   } catch (error) {
-    const name = (error && typeof error === "object" && "name" in error ? (error as any).name : "") as string;
+    const name = readErrorName(error);
     if (name === "AbortError") {
       throw new Error("Request timed out.");
     }

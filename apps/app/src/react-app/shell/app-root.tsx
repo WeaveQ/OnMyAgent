@@ -5,9 +5,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 
 import { readDenBootstrapConfig, readDenSettings } from "../../app/lib/den";
 import { denSettingsChangedEvent, denSessionUpdatedEvent } from "../../app/lib/den-session-events";
-import { useDenAuth } from "../domains/cloud/den-auth-provider";
-import { ForcedSigninPage } from "../domains/cloud/forced-signin-page";
-import { OrgOnboardingPage } from "../domains/cloud/org-onboarding-page";
+import { useDenAuth, ForcedSigninPage, OrgOnboardingPage } from "../domains/cloud";
 import { NewProvidersToast } from "./new-providers-toast";
 import { useDesktopFontZoomBehavior } from "./font-zoom";
 import { LoadingOverlay } from "./loading-overlay";

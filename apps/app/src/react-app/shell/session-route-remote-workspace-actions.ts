@@ -2,7 +2,7 @@ import {
   getRemoteWorkspaceConnectionKey,
   testRemoteWorkspaceConnection,
   type RemoteWorkspaceConnectionResult,
-} from "../domains/workspace/remote-workspace-diagnostics";
+} from "../domains/workspace";
 import { t } from "../../i18n";
 import type { RouteWorkspace } from "./session-route-model";
 import {

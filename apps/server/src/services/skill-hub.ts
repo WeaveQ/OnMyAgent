@@ -31,7 +31,7 @@ function hubRawBase(repo: HubRepo) {
   return `https://raw.githubusercontent.com/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.repo)}/${encodeURIComponent(repo.ref)}`;
 }
 
-async function fetchJson(url: string): Promise<any> {
+async function fetchJson<T = any>(url: string): Promise<T> {
   const res = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -42,7 +42,7 @@ async function fetchJson(url: string): Promise<any> {
     const text = await res.text().catch(() => "");
     throw new ApiError(502, "hub_fetch_failed", `Failed to fetch hub data (${res.status}): ${text || url}`);
   }
-  return res.json();
+  return (await res.json()) as T;
 }
 
 async function fetchText(url: string): Promise<string> {
