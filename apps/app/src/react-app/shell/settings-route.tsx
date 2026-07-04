@@ -24,50 +24,50 @@ import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../app/
 import { t } from "../../i18n";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createConnectionsStore, useConnectionsStoreSnapshot } from "../domains/connections/store";
-import { createOpenworkServerStore, useOpenworkServerStoreSnapshot } from "../domains/shared/onmyagent-server-store";
-import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections/provider-auth/store";
-import ProviderAuthModal from "../domains/shared/provider-auth-modal";
-import ConnectionsModals from "../domains/connections/modals";
+import { createConnectionsStore, useConnectionsStoreSnapshot } from "../domains/connections";
+import { createOpenworkServerStore, useOpenworkServerStoreSnapshot } from "../domains/shared";
+import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections";
+import { ProviderAuthModal } from "../domains/shared";
+import { ConnectionsModals } from "../domains/connections";
 import {
   AiSettingsView,
   type AiSettingsConnectedProvider,
-} from "../domains/settings/pages/ai-view";
-import { OpenCodeProviderConfigDialog } from "../domains/session/components/shared-pages/agent-management-providers";
-// Side-effect imports: register extension config components into the registry.
-import "../domains/settings/openai-image-gen-config";
-import "../domains/settings/ollama-config";
-import "../domains/settings/computer-use-config";
-import "../domains/settings/browser-extension-config";
-import "../domains/settings/onmyagent-voice-config";
-import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../domains/settings/extension-registry";
-import { isOnMyAgentExtensionEnabled } from "../domains/shared/extension-state";
-import { PreferencesView } from "../domains/settings/pages/preferences-view";
-import { MemoryView } from "../domains/settings/pages/memory-view";
-import { GeneralSettingsView } from "../domains/settings/pages/general-view";
-import { AuthorizedFoldersPanel } from "../domains/settings/panels/authorized-folders-panel";
-import { SystemAuthorizationsView } from "../domains/settings/pages/system-authorizations-view";
-import { SettingsStack } from "../domains/settings/settings-section";
-import { AdvancedView } from "../domains/settings/pages/advanced-view";
-import { CloudMarketplacesView } from "../domains/settings/pages/cloud-marketplaces-view";
-import { CloudProvidersView } from "../domains/settings/pages/cloud-providers-view";
-import { CloudWorkersView } from "../domains/settings/pages/cloud-workers-view";
-import { DebugView } from "../domains/settings/pages/debug-view";
-import { EnvironmentView } from "../domains/settings/pages/environment-view";
-import { ExtensionsView } from "../domains/settings/pages/extensions-view";
-import { McpView } from "../domains/settings/pages/mcp-view";
-import { RecoveryView } from "../domains/settings/pages/recovery-view";
-import { MessagingView } from "../domains/settings/pages/messaging-view";
-import { SkillsView } from "../domains/settings/pages/skills-view";
-import { UpdatesView } from "../domains/settings/pages/updates-view";
-import { useDebugViewModel } from "../domains/settings/state/debug-view-model";
-import { useMessagingViewProps } from "../domains/settings/state/messaging-view-state";
-import { useElectronUpdaterState } from "../domains/settings/state/electron-updater-state";
-import { CloudSessionProvider, useCloudSession } from "../domains/settings/cloud/cloud-session-provider";
-import { useDenSession } from "../domains/settings/cloud/use-den-session";
+} from "../domains/settings";
+import { OpenCodeProviderConfigDialog } from "../domains/session";
+import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../domains/settings";
+import { isOnMyAgentExtensionEnabled } from "../domains/shared";
+import {
+  AdvancedView,
+  AuthorizedFoldersPanel,
+  CloudMarketplacesView,
+  CloudProvidersView,
+  CloudSessionProvider,
+  CloudWorkersView,
+  DebugView,
+  EnvironmentView,
+  ExtensionsView,
+  GeneralSettingsView,
+  McpView,
+  MemoryView,
+  MessagingView,
+  PreferencesView,
+  RecoveryView,
+  SettingsStack,
+  SkillsView,
+  SystemAuthorizationsView,
+  UpdatesView,
+  useCloudSession,
+  useDebugViewModel,
+  useDenSession,
+  useElectronUpdaterState,
+  useMessagingViewProps,
+} from "../domains/settings";
 import { useBootState } from "./boot-state";
-import { SettingsShell } from "../domains/settings/shell/settings-shell";
-import { createExtensionsStore, useExtensionsStoreSnapshot } from "../domains/settings/state/extensions-store";
+import {
+  SettingsShell,
+  createExtensionsStore,
+  useExtensionsStoreSnapshot,
+} from "../domains/settings";
 import { usePlatform } from "../kernel/platform";
 import { useLocal } from "../kernel/local-provider";
 import type { OnboardingProfile } from "../kernel/local-provider";
@@ -81,9 +81,12 @@ import {
 } from "../../app/lib/desktop";
 import { isBlockedProvider } from "../../app/cloud/blocked-providers";
 import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
-import { useCheckDesktopRestriction, useDesktopConfig } from "../domains/cloud/desktop-config-provider";
-import { useRestrictionNotice } from "../domains/cloud/restriction-notice-provider";
-import { useCloudProviderAutoSync } from "../domains/cloud/use-cloud-provider-auto-sync";
+import {
+  useCheckDesktopRestriction,
+  useDesktopConfig,
+  useRestrictionNotice,
+  useCloudProviderAutoSync,
+} from "../domains/cloud";
 import {
   isDesktopRuntime,
   isElectronRuntime,
@@ -92,18 +95,17 @@ import {
   resolveProviderDisplayName,
   safeStringify,
 } from "../../app/utils";
-import { CreateRemoteWorkspaceModal } from "../domains/workspace/create-remote-workspace-modal";
-import { CreateWorkspaceModal } from "../domains/workspace/create-workspace-modal";
-import { RenameWorkspaceModal } from "../domains/workspace/rename-workspace-modal";
-import { ShareWorkspaceModal } from "../domains/shared/share-workspace-modal";
-import { useShareWorkspaceState } from "../domains/workspace/share-workspace-state";
-import { useRemoteWorkspaceConnectionEditor } from "../domains/workspace/use-remote-workspace-connection-editor";
 import {
+  CreateRemoteWorkspaceModal,
+  CreateWorkspaceModal,
+  RenameWorkspaceModal,
   diagnoseRemoteWorkspaceTaskLoadFailure,
-} from "../domains/workspace/remote-workspace-diagnostics";
-import { ModelPickerModal } from "../domains/session/modals/model-picker-modal";
+  useRemoteWorkspaceConnectionEditor,
+  useShareWorkspaceState,
+} from "../domains/workspace";
+import { ShareWorkspaceModal } from "../domains/shared";
+import { ModelPickerModal, workspaceSwatchColor } from "../domains/session";
 import type { ModelOption, ModelRef } from "../../app/types";
-import { workspaceSwatchColor } from "../domains/session/sidebar/utils";
 import { recordInspectorEvent } from "./app-inspector";
 import {
   describeRouteError,
@@ -175,7 +177,7 @@ import {
 } from "./settings-route-storage";
 import { workspaceSessionRoute, workspaceSettingsRoute } from "./workspace-routes";
 import { getReactQueryClient } from "../infra/query-client";
-import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../domains/shared/provider-list-query";
+import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../domains/shared";
 import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "./new-providers-toast";
 import {
   OPENAI_API_KEY_ENV_KEY,
@@ -185,8 +187,9 @@ import {
   openAiImageResponseToArrayBuffer,
   requestOpenAiImage,
   slugifyImageArtifactName,
-} from "../domains/settings/openai-image-extension";
-import { OLLAMA_PROVIDER_CONFIG, type LocalProviderInstallInput } from "../domains/settings/openai-image-extension";
+  OLLAMA_PROVIDER_CONFIG,
+  type LocalProviderInstallInput,
+} from "../domains/settings";
 
 const ROUTE_ONMYAGENT_CAPABILITIES: OpenworkServerCapabilities = {
   skills: { read: true, write: true, source: "onmyagent" },
