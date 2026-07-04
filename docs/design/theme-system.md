@@ -53,6 +53,12 @@ Use motion sparingly to clarify state changes, not to add decoration. The
 app already depends on `motion`; do not add another animation library for
 ordinary UI transitions.
 
+**Concrete tokens live in [`DESIGN.md`](../../DESIGN.md) YAML `motion:`
+block and § 6 Depth → Motion.** Durations: `instant` / `fast` (120ms) /
+`normal` (200ms) / `slow` (320ms). Easings: `standard` / `decisive` /
+`signal`. The narrative below explains **which library to use for which
+kind of motion**; DESIGN.md defines **what values to use**.
+
 - **Reorder, drag, layout transition** — `motion/react`. Use shared
   motion helpers or local variants; always respect reduced motion.
 - **Simple enter/exit reveal** — `tw-animate-css` Tailwind classes
@@ -62,6 +68,13 @@ ordinary UI transitions.
   keyframe. Keep local, semantic, and short; avoid page-specific global
   utilities.
 - **Hover / focus feedback** — CSS transitions.
+
+## Focus & Accessibility
+
+Focus ring token, WCAG AA contrast targets, keyboard-navigation
+contracts, screen-reader label mandates, and reduced-motion behavior
+live in [`DESIGN.md`](../../DESIGN.md) § 8. This file does not duplicate
+those rules; treat DESIGN.md as authoritative.
 
 ## Intentional Exceptions
 
@@ -111,6 +124,10 @@ map before leaving it in page JSX.
 Current source-level targets for page styling (run these `rg` checks as
 part of a `frontend-primitive-refactor` audit; see
 [`.codex/skills/frontend-primitive-refactor/SKILL.md`](../../.codex/skills/frontend-primitive-refactor/SKILL.md)):
+
+For token-level drift between `DESIGN.md` YAML and the code-side sources
+(colors / typography / radii), run `pnpm task check design`. Add `-- --strict`
+to make drift fail the check (future CI seam).
 
 | Check | Target | Command |
 | --- | --- | --- |
