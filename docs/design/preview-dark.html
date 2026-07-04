@@ -471,6 +471,104 @@
   <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">On Windows / Linux, <code>⌘K</code> renders as <code>Ctrl+K</code>. Author declaratively; substitute at render.</p>
 </section>
 
+<section class="pv-section" id="agent-native">
+  <h2>11 · Agent-Native Signatures</h2>
+  <p class="pv-body">v5 additions from DESIGN.md §§ 4c–4h. Seven message roles, streaming cursor, seven presence states, three tool-approval risk tiers, four session variants, and eight artifact hues. These carry OnMyAgent's identity and MUST NOT drift.</p>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Message roles (§ 4c)</h3>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;">
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;font-size:13px;">You: ship the v5 preview panel today.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;font-size:13px;">Assistant: on it — writing the section now.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface-muted);border-left:2px solid var(--pv-primary);border-radius:0 6px 6px 0;font-family:ui-monospace,monospace;font-size:12px;color:var(--pv-primary);">🔧 tool-call — bash({"cmd":"pnpm task check design"})</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface-muted);border-left:2px solid var(--pv-slate);border-radius:0 6px 6px 0;font-family:ui-monospace,monospace;font-size:12px;color:var(--pv-slate);">▸ tool-output — Baseline OK — no regressions.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-signal);border-radius:0 6px 6px 0;font-style:italic;font-size:12px;color:var(--pv-slate);">✧ thinking — the class regex over-matches; add --dls- prefix guard.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-background);font-size:12px;color:var(--pv-slate);">ⓘ system — session started at 15:24.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-danger);border-radius:0 6px 6px 0;font-size:13px;color:var(--pv-danger);">⚠ error — push failed: not authenticated.</div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Streaming cursor (§ 4d)</h3>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">6×12 block, blinks at 320 ms; after 1 s idle, swaps to <code>…</code>. Under <code>prefers-reduced-motion</code>, cursor holds without blinking.</p>
+  <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;">
+    <div style="font-size:13px;">Assistant is typing<span class="pv-stream-cursor" aria-hidden="true"></span></div>
+    <div style="font-size:13px;color:var(--pv-slate);">Waiting for tool <span style="color:var(--pv-slate);">…</span></div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Presence states (§ 4e)</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-top:0.5rem;">
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-online);"></span>online</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;border:1px solid var(--pv-slate);"></span>idle</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-signal);" class="pv-pulse-fast"></span>typing</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-primary);" class="pv-pulse"></span>running</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-warning);"></span>paused</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-slate);"></span>disconnected</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-danger);"></span>errored</div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Tool approval tiers (§ 4f)</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;margin-top:0.5rem;">
+    <div style="padding:0.75rem;border:1px solid var(--pv-border);border-radius:8px;background:var(--pv-surface);">
+      <div style="font-size:12px;color:var(--pv-slate);" class="pv-mono">safe · no border</div>
+      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">read_file</div>
+      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="DESIGN.md"</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+        <button style="background:var(--pv-primary);color:#fff;border:0;border-radius:4px;padding:2px 10px;font-size:12px;">Approve</button>
+        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:4px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Deny</button>
+      </div>
+    </div>
+    <div style="padding:0.75rem;border-left:2px solid var(--pv-warning);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 8px 8px 0;background:var(--pv-surface);">
+      <div style="font-size:12px;color:var(--pv-warning);" class="pv-mono">careful · 2 px warning</div>
+      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">write_file</div>
+      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="apps/app/src/app/index.css"</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+        <button style="background:var(--pv-primary);color:#fff;border:0;border-radius:4px;padding:2px 10px;font-size:12px;">Approve</button>
+        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:4px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Deny</button>
+      </div>
+    </div>
+    <div style="padding:0.75rem;border-left:4px solid var(--pv-danger);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 8px 8px 0;background:var(--pv-surface);">
+      <div style="font-size:12px;color:var(--pv-danger);" class="pv-mono">destructive · 4 px danger, defaults Deny</div>
+      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">rm_rf</div>
+      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="node_modules"</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:4px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Approve</button>
+        <button style="background:var(--pv-danger);color:#fff;border:0;border-radius:4px;padding:2px 10px;font-size:12px;">Deny</button>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">SessionCard variants (§ 4h)</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.5rem;margin-top:0.5rem;">
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:13px;font-weight:500;">Design v5 review</div><div style="font-size:11px;color:var(--pv-slate);">active · 2 min ago</div></div>
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--pv-primary);"></span>
+    </div>
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;opacity:0.6;">
+      <div style="font-size:13px;color:var(--pv-slate);">Q2 planning</div><div style="font-size:11px;color:var(--pv-slate);">archived</div>
+    </div>
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-signal);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:13px;font-weight:500;">Handoff to Alex</div><div style="font-size:11px;color:var(--pv-slate);">shared</div></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--pv-signal);"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    </div>
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface-muted);border:1px solid var(--pv-border);border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:13px;font-weight:500;">Onboarding walkthrough</div><div style="font-size:11px;color:var(--pv-slate);">read-only</div></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--pv-slate);"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">ArtifactCard hues (§ 4h · isolated palette)</h3>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">Radix shade 9 (light) / shade 4 (dark). Used only on <code>ArtifactCard</code>; leakage flagged by <code>pnpm task check design</code>.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-top:0.5rem;">
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-image);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">image<div style="font-size:11px;color:var(--pv-slate);">screenshot.png</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-code);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">code<div style="font-size:11px;color:var(--pv-slate);">DESIGN.md</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-document);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">document<div style="font-size:11px;color:var(--pv-slate);">plan.pdf</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-data);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">data<div style="font-size:11px;color:var(--pv-slate);">sessions.csv</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-plot);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">plot<div style="font-size:11px;color:var(--pv-slate);">latency.svg</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-3d);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">3d<div style="font-size:11px;color:var(--pv-slate);">model.gltf</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-audio);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">audio<div style="font-size:11px;color:var(--pv-slate);">clip.wav</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-video);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">video<div style="font-size:11px;color:var(--pv-slate);">demo.mp4</div></div>
+  </div>
+</section>
+
+
 </main>
 
 <footer class="pv-footer">
