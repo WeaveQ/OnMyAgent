@@ -18,7 +18,7 @@
  * current flat / one-level-nested shape, adopt a real parser.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,6 +26,7 @@ const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 const DESIGN_MD = join(repoRoot, 'DESIGN.md')
 const APP_INDEX_CSS = join(repoRoot, 'apps/app/src/app/index.css')
 const TAILWIND_CONFIG = join(repoRoot, 'apps/app/tailwind.config.ts')
+const APP_SRC = join(repoRoot, 'apps/app/src')
 
 const argv = process.argv.slice(2)
 const flags = {
@@ -58,6 +59,11 @@ Report categories:
   - missing-in-yaml    Token declared in code but not in DESIGN.md YAML
                        (intentional-exception categories filtered by default).
   - mismatched-value   Token in both but values differ.
+  - iconography-drift  Icon size= usages on lucide-react imports that do not
+                       resolve to a DESIGN.md iconography.size.* token.
+  - z-layer-drift      --dls-z-* CSS variables that disagree with the
+                       DESIGN.md z-layers block, or z-layers tokens with no
+                       matching CSS variable declared yet.
 
 DESIGN.md is authoritative. When drift is reported, default remediation is to
 fix code, unless the contract itself is demonstrably outdated.`)
@@ -450,14 +456,114 @@ function diffRadii(yaml, css) {
   return report
 }
 
+function diffIconography(yaml, iconScan) {
+  const report = { matched: [], unknownSize: [], forbiddenLibrary: [] }
+  const iconYaml = yaml.iconography
+  if (!iconYaml || !iconYaml.size) return report
+  const allowed = new Set(
+    Object.values(iconYaml.size).map((v) => String(v).replace('px', '')),
+  )
+  const forbidden = new Set(
+    Array.isArray(iconYaml.forbidden) ? iconYaml.forbidden : [],
+  )
+  for (const hit of iconScan.iconSizes) {
+    if (!allowed.has(String(hit.size))) {
+      report.unknownSize.push(hit)
+    } else {
+      report.matched.push(hit)
+    }
+  }
+  for (const lib of iconScan.libraries) {
+    if (forbidden.has(lib.name)) {
+      report.forbiddenLibrary.push(lib)
+    }
+  }
+  return report
+}
+
+function scanIconUsage(rootDir) {
+  const result = { iconSizes: [], libraries: [] }
+  if (!existsSync(rootDir)) return result
+  const forbiddenLibs = ['@heroicons/react', 'phosphor-icons', '@radix-ui/react-icons']
+  const stack = [rootDir]
+  while (stack.length) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name === 'node_modules' || name.startsWith('.')) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        stack.push(full)
+      } else if (/\.tsx?$/.test(name)) {
+        let src
+        try {
+          src = readFileSync(full, 'utf8')
+        } catch {
+          continue
+        }
+        const rel = full.slice(rootDir.length + 1)
+        // Track imports from known icon libraries.
+        const importMatch = src.match(/from ['"]lucide-react['"]/)
+        if (importMatch) {
+          // Scan size={N} and size="N" occurrences in the same file.
+          const sizeRegex = /\bsize=(?:\{(\d+)\}|['"](\d+)['"])/g
+          let m
+          while ((m = sizeRegex.exec(src))) {
+            const val = m[1] || m[2]
+            result.iconSizes.push({ file: rel, size: Number(val) })
+          }
+        }
+        for (const lib of forbiddenLibs) {
+          if (src.includes(`from '${lib}'`) || src.includes(`from "${lib}"`)) {
+            result.libraries.push({ file: rel, name: lib })
+          }
+        }
+      }
+    }
+  }
+  return result
+}
+
+function diffZLayers(yaml, css) {
+  const report = { matched: [], missingInCode: [], mismatched: [] }
+  const zYaml = yaml['z-layers']
+  if (!zYaml) return report
+  for (const [key, expected] of Object.entries(zYaml)) {
+    const cssName = `--dls-z-${key}`
+    const scope = css.light || css.root || {}
+    const hit = resolveVarValue(scope[cssName], scope) ?? (css.dark && css.dark[cssName])
+    if (hit === undefined || hit === null) {
+      report.missingInCode.push({ key, cssName, expected })
+      continue
+    }
+    if (String(hit).trim() === String(expected).trim()) {
+      report.matched.push({ key, cssName, value: expected })
+    } else {
+      report.mismatched.push({ key, cssName, expected, actual: hit })
+    }
+  }
+  return report
+}
+
 // ---------- Renderer ----------
 
 function renderReport(report) {
   const lines = []
-  const total = report.colors.matched.length + report.typography.matched.length + report.radii.matched.length
+  const total = report.colors.matched.length + report.typography.matched.length + report.radii.matched.length + (report.iconography?.matched.length || 0) + (report.zLayers?.matched.length || 0)
   lines.push(`Design token drift report — DESIGN.md ↔ code`)
   lines.push('')
-  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii)`)
+  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers)`)
 
   emit('missing in code', report.colors.missingInCode.map((x) => `[${x.theme}] ${x.yamlKey} (expected ${x.expected}) — tried: ${x.tried.join(', ')}`))
   emit('mismatched color values', report.colors.mismatched.map((x) => `[${x.theme}] ${x.yamlKey} via ${x.cssName}: DESIGN.md says ${x.expected}, code has ${x.actual}`))
@@ -466,6 +572,10 @@ function renderReport(report) {
   emit('typography mismatched', report.typography.mismatched.map((x) => `text-${x.key}: DESIGN.md ${x.expected}px, tailwind ${x.actual}`))
   emit('radii missing in code', report.radii.missingInCode.map((x) => `rounded-${x.key} (expected ${x.expected}px)`))
   emit('radii mismatched', report.radii.mismatched.map((x) => `rounded-${x.key}: DESIGN.md ${x.expected}px, tailwind ${x.actual}`))
+  emit('iconography — unknown icon size', (report.iconography?.unknownSize || []).map((x) => `${x.file}: size=${x.size} does not match any iconography.size.* token`))
+  emit('iconography — forbidden library import', (report.iconography?.forbiddenLibrary || []).map((x) => `${x.file}: imports forbidden icon library ${x.name}`))
+  emit('z-layers missing in code (declare --dls-z-* in apps/app/src/app/index.css)', (report.zLayers?.missingInCode || []).map((x) => `${x.key} (expected ${x.expected}) — CSS var ${x.cssName} not found`))
+  emit('z-layers mismatched', (report.zLayers?.mismatched || []).map((x) => `${x.key} via ${x.cssName}: DESIGN.md ${x.expected}, code ${x.actual}`))
 
   lines.push('')
   lines.push(`DESIGN.md is authoritative. Fix code to match, unless the contract itself is outdated.`)
@@ -487,7 +597,11 @@ function totalDrift(report) {
     report.typography.missingInCode.length +
     report.typography.mismatched.length +
     report.radii.missingInCode.length +
-    report.radii.mismatched.length
+    report.radii.mismatched.length +
+    (report.iconography?.unknownSize.length || 0) +
+    (report.iconography?.forbiddenLibrary.length || 0) +
+    (report.zLayers?.missingInCode.length || 0) +
+    (report.zLayers?.mismatched.length || 0)
   )
 }
 
@@ -500,10 +614,13 @@ try {
   // authoritative code-side source. parseTailwindTokens() is retained as a
   // helper for future use.
 
+  const iconScan = scanIconUsage(APP_SRC)
   const report = {
     colors: diffColors(yaml, css),
     typography: diffTypography(yaml, css),
     radii: diffRadii(yaml, css),
+    iconography: diffIconography(yaml, iconScan),
+    zLayers: diffZLayers(yaml, css),
   }
 
   if (flags.json) {
