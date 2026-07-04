@@ -61,7 +61,7 @@ const kindStyle: Record<ExtensionKind, string> = {
 const extensionCardClass = {
   row: "group transition-all",
   connected: "border-dls-status-success-border bg-dls-status-success-soft",
-  partial: "border-dls-status-warning bg-dls-status-warning/12",
+  partial: "border-dls-status-warning bg-dls-status-warning-soft",
   idle: "hover:bg-dls-hover",
   hidden: "border-dashed opacity-70",
   body: "flex items-start gap-3",
@@ -139,7 +139,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
             }
           >
             {connecting ? (
-              <Loader2 size={18} className="animate-spin text-dls-secondary" />
+              <Loader2 size={16} className="animate-spin text-dls-secondary" />
             ) : resolvedIconSrc ? (
               <img
                 src={resolvedIconSrc}
@@ -169,11 +169,11 @@ export function ExtensionCard(props: ExtensionCardProps) {
           </IconTile>
           {connected ? (
             <div className={`${extensionCardClass.statusDot} bg-dls-status-success-fg`}>
-              <CheckCircle2 size={9} className="text-white" strokeWidth={3} />
+              <CheckCircle2 size={12} className="text-white" strokeWidth={3} />
             </div>
           ) : someMet ? (
             <div className={`${extensionCardClass.statusDot} bg-dls-status-warning`}>
-              <AlertCircle size={9} className="text-white" strokeWidth={3} />
+              <AlertCircle size={12} className="text-white" strokeWidth={3} />
             </div>
           ) : null}
         </div>

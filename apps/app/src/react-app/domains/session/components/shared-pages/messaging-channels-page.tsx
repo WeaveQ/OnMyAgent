@@ -127,7 +127,7 @@ function MessagingChannelCard(props: { channel: MessagingChannel; active: boolea
           </div>
         ))}
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-dls-border/60 pt-2">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-dls-mist pt-2">
         <div className="min-w-0 text-xs text-dls-secondary">
           {t("messaging.channel_panel_config_hint")}
         </div>

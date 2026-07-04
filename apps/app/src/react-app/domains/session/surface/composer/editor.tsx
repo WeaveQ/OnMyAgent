@@ -53,12 +53,12 @@ type EditorProps = {
 
 const composerEditorTokenClass = {
   fileMention: "inline-flex items-center rounded-full border border-dls-border bg-dls-hover px-2.5 py-1 text-xs font-medium text-dls-secondary",
-  agentMention: "inline-flex items-center rounded-full border border-dls-accent/25 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  slashCommand: "inline-flex items-center rounded-full border border-dls-accent/25 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  scenario: "inline-flex items-center gap-1 rounded-full border border-dls-accent/25 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  scenarioButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/20 hover:text-dls-accent",
-  pastedText: "inline-flex items-center gap-1 rounded-full border border-dls-status-warning/25 bg-dls-status-warning/12 px-2.5 py-1 text-xs font-medium text-dls-status-warning",
-  pastedTextButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-status-warning transition-colors hover:bg-dls-status-warning/20 hover:text-dls-status-warning",
+  agentMention: "inline-flex items-center rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  slashCommand: "inline-flex items-center rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  scenario: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  scenarioButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/10 hover:text-dls-accent",
+  pastedText: "inline-flex items-center gap-1 rounded-full border border-dls-status-warning-border bg-dls-status-warning-soft px-2.5 py-1 text-xs font-medium text-dls-status-warning",
+  pastedTextButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-status-warning transition-colors hover:bg-dls-status-warning/10 hover:text-dls-status-warning",
 };
 
 type SerializedComposerMentionNode = Spread<

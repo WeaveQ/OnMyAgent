@@ -10,7 +10,7 @@ const statusBadgeVariants = cva(
       tone: {
         neutral: "bg-dls-icon-muted-bg text-dls-secondary ring-1 ring-dls-border",
         surface: "bg-dls-surface text-dls-secondary ring-1 ring-dls-border",
-        accent: "bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/20",
+        accent: "bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30",
         success: "bg-dls-status-success-soft text-dls-status-success-fg ring-1 ring-dls-status-success-border",
         warning: "bg-dls-status-warning/12 text-dls-status-warning ring-1 ring-dls-status-warning/25",
         danger: "bg-dls-status-danger-soft text-dls-status-danger-fg ring-1 ring-dls-status-danger/30",

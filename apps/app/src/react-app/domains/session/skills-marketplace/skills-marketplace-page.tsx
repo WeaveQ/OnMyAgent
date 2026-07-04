@@ -229,7 +229,7 @@ function SkillCard(props: {
   onInstall: (skill: SkillMarketplaceEntry) => void;
 }) {
   return (
-    <div className="flex min-h-24 items-center gap-3 rounded-md border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
+    <div className="flex min-h-24 items-center gap-3 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
       <SkillIcon skill={props.skill} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold leading-5 text-dls-text">
@@ -256,7 +256,7 @@ function SkillCard(props: {
                 variant="ghost"
                 size="icon-xs"
                 disabled={props.installing}
-                className="shrink-0 rounded-md bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
                 aria-label={t("skills_marketplace.install_skill", {
                   name: props.skill.displayName,
                 })}
@@ -286,7 +286,7 @@ function InstalledSkillCard(props: {
 }) {
   const description = skillDescription(props.skill);
   return (
-    <div className="flex min-h-24 items-start gap-3 rounded-md border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
+    <div className="flex min-h-24 items-start gap-3 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
       <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
         {skillFallbackInitial(skillDisplayName(props.skill))}
       </span>
@@ -308,7 +308,7 @@ function InstalledSkillCard(props: {
               variant="ghost"
               size="icon-xs"
               disabled={props.opening || !isDesktopRuntime()}
-              className="shrink-0 rounded-md bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+              className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
               aria-label={t("skills_marketplace.open_skill_folder", {
                 name: skillDisplayName(props.skill),
               })}
@@ -347,7 +347,7 @@ function ImportSkillDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-xl gap-4 rounded-2xl bg-dls-surface p-6 text-dls-text sm:max-w-xl">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-xl gap-4 rounded-xl bg-dls-surface p-6 text-dls-text sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("skills_marketplace.import_title")}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -389,7 +389,7 @@ function ImportSkillDialog(props: {
             });
           }}
           className={cn(
-            "flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-dls-border bg-dls-background text-center transition-colors mac:titlebar-no-drag",
+            "flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-dls-border bg-dls-background text-center transition-colors mac:titlebar-no-drag",
             dragActive ? "border-dls-accent bg-dls-hover" : "hover:border-dls-border-strong hover:bg-dls-hover",
             props.importing && "cursor-wait opacity-70",
           )}

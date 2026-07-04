@@ -86,7 +86,7 @@ interface SettingsInsetProps {
 
 export function SettingsInset({ children, className }: SettingsInsetProps) {
   return (
-    <div className={cn("border border-dls-border rounded-2xl p-4", className)}>
+    <div className={cn("rounded-lg border border-dls-border p-4", className)}>
       {children}
     </div>
   );
@@ -101,8 +101,8 @@ export function SettingsCard({ children, className, size = "default", tone = "mu
   return (
     <div
       className={cn(
-        "rounded-2xl border",
-        tone === "muted" ? "border-dls-border/50 bg-dls-surface-muted/30" : "border-dls-border/60 bg-dls-surface/40",
+        "rounded-xl border border-dls-border",
+        tone === "muted" ? "bg-dls-surface-muted" : "bg-dls-surface",
         size === "default" ? "p-5" : "p-4",
         className,
       )}
@@ -119,16 +119,13 @@ export interface SettingsPanelProps extends SettingsLayoutProps {
 
 export function SettingsPanel({ children, className, size = "default", tone = "surface" }: SettingsPanelProps) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border",
-        tone === "surface" ? "border-dls-border bg-dls-surface" : "border-dls-border/70 bg-dls-surface/60",
-        size === "default" ? "p-4" : "p-5",
-        className,
-      )}
+    <SettingsCard
+      className={className}
+      size={size === "default" ? "compact" : "default"}
+      tone={tone === "surface" ? "surface" : "muted"}
     >
       {children}
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -228,7 +225,7 @@ interface SettingsItemHeaderTitleProps {
 
 export function SettingsSectionHeaderTitle({ children, className }: SettingsItemHeaderTitleProps) {
   return (
-    <div className={cn("flex items-center gap-2 text-base font-medium text-dls-text", className)}>
+    <div className={cn("flex items-center gap-2 text-lg font-medium text-dls-text", className)}>
       {children}
     </div>
   );

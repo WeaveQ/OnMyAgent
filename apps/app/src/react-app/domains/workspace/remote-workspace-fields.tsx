@@ -53,7 +53,7 @@ export function RemoteWorkspaceFields({
     <div className={surfaceCardClass}>
       <div className="flex items-start gap-3">
         <div className={iconTileClass}>
-          <Globe size={17} />
+          <Globe size={16} />
         </div>
         <div className="min-w-0">
           <div className="text-base font-medium text-dls-text">

@@ -47,17 +47,17 @@ const permissionTextClass = {
 
 const permissionLayoutClass = {
   body: "space-y-3 px-6 py-5",
-  softCard: "rounded-xl border border-dls-border bg-dls-hover/45 p-4",
+  softCard: "rounded-xl border border-dls-border bg-dls-surface-muted p-4",
   surfaceCard: "rounded-xl border border-dls-border bg-dls-surface p-4",
   permissionValue: "mt-2 font-mono text-sm leading-6 text-dls-text",
   note: "mt-2 text-sm leading-5 text-dls-secondary",
-  scopeValue: "mt-3 rounded-2xl border border-dls-border bg-dls-hover/55 px-3.5 py-3 font-mono text-sm leading-6 text-dls-text",
+  scopeValue: "mt-3 rounded-xl border border-dls-border bg-dls-surface-muted px-3.5 py-3 font-mono text-sm leading-6 text-dls-text",
   detailList: "mt-3 space-y-3",
   detailLabel: "text-xs font-medium text-dls-secondary",
-  detailValue: "mt-1 rounded-xl border border-dls-border bg-dls-hover/55 px-3 py-2 font-mono text-xs leading-5 text-dls-text",
+  detailValue: "mt-1 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2 font-mono text-xs leading-5 text-dls-text",
   details: "group rounded-xl border border-dls-border bg-dls-surface px-4 py-3",
   summary: "flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-dls-text",
-  metadataPre: "mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-border bg-dls-hover/45 px-3 py-2.5 text-xs leading-5 text-dls-secondary",
+  metadataPre: "mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5 text-xs leading-5 text-dls-secondary",
   panelShell: "overflow-hidden border-b border-dls-border bg-transparent",
   panelHeader: "flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
   panelTitleWrap: "flex min-w-0 items-start gap-3",
@@ -69,10 +69,10 @@ const permissionLayoutClass = {
   footer: "border-t border-dls-border px-4 py-3",
   footerGrid: "grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]",
   footerValue: "mt-1 font-mono text-xs leading-5 text-dls-text",
-  footerScope: "mt-1 truncate rounded-lg border border-dls-border bg-dls-hover/55 px-2.5 py-1.5 font-mono text-xs leading-5 text-dls-text",
+  footerScope: "mt-1 truncate rounded-lg border border-dls-border bg-dls-surface-muted px-2.5 py-1.5 font-mono text-xs leading-5 text-dls-text",
   footerDetails: "group mt-3 rounded-xl border border-dls-border bg-dls-surface px-3 py-2",
   footerSummary: "flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium text-dls-text",
-  footerPre: "mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-dls-hover/45 px-3 py-2 text-xs leading-5 text-dls-secondary",
+  footerPre: "mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-dls-surface-muted px-3 py-2 text-xs leading-5 text-dls-secondary",
 };
 
 const metadataDetailKeys: Array<{ key: string; labelKey: string; multiline?: boolean }> = [
@@ -242,7 +242,7 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
   const detailRows = permissionDetailRows(metadata);
   const Icon = presentation.isDoomLoop ? RefreshCcw : ShieldCheck;
   const iconClass = presentation.isDoomLoop
-    ? "bg-dls-status-warning/10 text-dls-status-warning"
+    ? "bg-dls-status-warning-soft text-dls-status-warning-fg"
     : "bg-dls-accent/10 text-dls-accent";
 
   useEffect(() => {
@@ -296,7 +296,7 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
       >
         <AlertDialogHeader>
           <div className="flex items-start gap-4 text-left">
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${iconClass}`}>
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
               <Icon size={23} strokeWidth={1.9} />
             </div>
             <div className="min-w-0 flex-1">
@@ -327,7 +327,7 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
 
           <div className={permissionLayoutClass.surfaceCard}>
             <div className={permissionTextClass.inlineLabel}>
-              <HardDrive size={13} />
+              <HardDrive size={12} />
               {presentation.scopeLabel}
             </div>
             <div className={permissionLayoutClass.scopeValue}>
@@ -361,7 +361,7 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
             <details className={permissionLayoutClass.details}>
               <summary className={permissionLayoutClass.summary}>
                 <span>{t("session.details_label")}</span>
-                <ChevronRight size={15} className="text-dls-secondary transition-transform group-open:rotate-90" />
+                <ChevronRight size={14} className="text-dls-secondary transition-transform group-open:rotate-90" />
               </summary>
               <pre className={permissionLayoutClass.metadataPre}>
                 {stringifyMetadata(metadata, props.safeStringify)}

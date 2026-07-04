@@ -35,7 +35,7 @@ const subSectionTitleClass = "text-sm font-medium leading-5 text-dls-text";
 const debugSummaryClass = "cursor-pointer select-none text-sm font-medium text-dls-secondary";
 const debugFieldLabelClass = "mb-1 text-xs font-medium text-dls-secondary";
 const cardClass =
-  "rounded-2xl border border-dls-border bg-dls-surface/95 p-5 space-y-4";
+  "rounded-xl border border-dls-border bg-dls-surface p-5 space-y-4";
 const subCardClass = "rounded-xl border border-dls-border bg-dls-sidebar/40 p-4 space-y-3";
 const monoPreClass =
   "max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-dls-border bg-dls-sidebar/40 p-3 text-xs font-mono text-dls-text";
@@ -44,9 +44,9 @@ const miniPreClass =
 const electronMigrationBackupName = "OnMyAgent.app.migrate-bak";
 const debugStateClass = {
   errorText: "text-dls-status-danger-fg",
-  localPreferenceIcon: "bg-dls-status-warning/12 text-dls-status-warning",
+  localPreferenceIcon: "bg-dls-status-warning-soft text-dls-status-warning-fg",
   cloudPreferenceIcon: "bg-dls-accent/10 text-dls-accent",
-  dangerPanel: "space-y-3 rounded-2xl border border-dls-status-danger/25 bg-dls-status-danger-soft p-5",
+  dangerPanel: "space-y-3 rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft p-5",
   dangerTitle: "text-base font-medium text-dls-status-danger-fg",
   dangerButton: "rounded-xl border-dls-status-danger/40 bg-dls-status-danger text-white hover:bg-dls-status-danger/90 disabled:cursor-not-allowed disabled:opacity-60",
 };
@@ -58,7 +58,7 @@ const debugLayoutClass = {
   metaGrid: "grid gap-2 text-xs text-dls-secondary md:grid-cols-2",
   twoColumnGrid: "grid gap-3 grid-cols-1 lg:grid-cols-2",
   compactStack: "space-y-1",
-  dividerStack: "space-y-1 border-t border-dls-border/60 pt-1",
+  dividerStack: "space-y-1 border-t border-dls-mist pt-1",
   mutedText: "text-xs text-dls-secondary",
   monoLine: "truncate text-xs font-mono text-dls-secondary",
   subCardGrid: "grid gap-3 md:grid-cols-2",
@@ -275,7 +275,7 @@ function ServiceCard(props: ServiceCardProps) {
           onClick={() => void props.onCopyLogs()}
           size="sm"
         >
-          <Copy size={13} className="mr-1.5" />
+          <Copy size={12} className="mr-1.5" />
           {t("settings.copy_logs")}
         </Button>
         <Button
@@ -283,7 +283,7 @@ function ServiceCard(props: ServiceCardProps) {
           onClick={() => void props.onExportLogs()}
           size="sm"
         >
-          <Download size={13} className="mr-1.5" />
+          <Download size={12} className="mr-1.5" />
           {t("settings.export_log_button")}
         </Button>
       </div>
@@ -351,7 +351,7 @@ export function DebugView(props: DebugViewProps) {
               size="sm"
               onClick={() => void props.onCopyRuntimeDebugReport()}
             >
-              <Copy size={13} className="mr-1.5" />
+              <Copy size={12} className="mr-1.5" />
               {t("settings.copy_json")}
             </Button>
             <Button
@@ -359,7 +359,7 @@ export function DebugView(props: DebugViewProps) {
               size="sm"
               onClick={() => void props.onExportRuntimeDebugReport()}
             >
-              <Download size={13} className="mr-1.5" />
+              <Download size={12} className="mr-1.5" />
               {t("settings.export")}
             </Button>
           </div>
@@ -665,11 +665,11 @@ export function DebugView(props: DebugViewProps) {
               {t("settings.clear_button")}
             </Button>
             <Button variant="outline" size="sm" onClick={() => void props.onCopyDeveloperLog()}>
-              <Copy size={13} className="mr-1.5" />
+              <Copy size={12} className="mr-1.5" />
               {t("settings.copy_log_button")}
             </Button>
             <Button variant="outline" size="sm" onClick={() => void props.onExportDeveloperLog()}>
-              <Download size={13} className="mr-1.5" />
+              <Download size={12} className="mr-1.5" />
               {t("settings.export_log_button")}
             </Button>
           </div>
@@ -809,7 +809,7 @@ export function DebugView(props: DebugViewProps) {
                   isLocalPreference ? debugStateClass.localPreferenceIcon : debugStateClass.cloudPreferenceIcon
                 }`}
               >
-                {isLocalPreference ? <HardDrive size={18} /> : <Smartphone size={18} />}
+                {isLocalPreference ? <HardDrive size={16} /> : <Smartphone size={16} />}
               </div>
               <span className="text-sm font-medium text-dls-text">{props.startupLabel}</span>
             </div>
@@ -896,7 +896,7 @@ export function DebugView(props: DebugViewProps) {
               size="sm" className="shrink-0"
               onClick={() => void props.onOpenElectronPreviewRelease()}
             >
-              <ExternalLink size={13} className="mr-1.5" />
+              <ExternalLink size={12} className="mr-1.5" />
               Alpha release
             </Button>
           </div>

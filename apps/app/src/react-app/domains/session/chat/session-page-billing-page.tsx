@@ -139,7 +139,7 @@ function BillingUsagePanel() {
           {BILLING_USAGE_RECORDS.map((record) => (
             <div
               key={`${record.time}-${record.session}`}
-              className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-border/70 py-4 text-sm last:border-b-0"
+              className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-mist py-4 text-sm last:border-b-0"
             >
               <div className="text-dls-secondary">{record.time}</div>
               <div className="text-dls-secondary">{record.scene}</div>

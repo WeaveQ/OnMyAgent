@@ -64,7 +64,7 @@ export function SettingsListItem({ children, className }: SettingsListItemProps)
   return (
     <div
       className={cn(
-        "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-muted/10 hover:border-border border border-transparent",
+        "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-dls-hover hover:border-border border border-transparent",
         className,
       )}
     >

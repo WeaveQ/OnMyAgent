@@ -31,10 +31,10 @@ const mcpAuthTextClass = {
 };
 
 const mcpAuthStateClass = {
-  waitingPanel: "space-y-4 rounded-xl border border-dls-status-warning/25 bg-dls-status-warning/12 px-5 py-6 text-center",
+  waitingPanel: "space-y-4 rounded-xl border border-dls-status-warning-border bg-dls-status-warning-soft px-5 py-6 text-center",
   waitingIcon: "animate-spin text-dls-status-warning",
   warningLink: "h-auto p-0 text-xs text-dls-status-warning hover:text-dls-status-warning hover:opacity-80",
-  errorPanel: "space-y-3 rounded-xl border border-dls-status-danger/25 bg-dls-status-danger-soft p-4",
+  errorPanel: "space-y-3 rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft p-4",
   errorText: "whitespace-pre-wrap text-sm text-dls-status-danger-fg",
   errorHint: "text-xs text-dls-status-danger-fg",
 };
@@ -629,9 +629,9 @@ export function McpAuthModal(props: McpAuthModalProps) {
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto">
           {isBusy ? (
-            <div className="space-y-4 rounded-xl border border-dls-border/60 bg-dls-surface/40 px-5 py-6 text-center">
+            <div className="space-y-4 rounded-xl border border-dls-mist bg-dls-surface px-5 py-6 text-center">
               <div className="flex items-center justify-center">
-                <Loader2 size={32} className="animate-spin text-dls-secondary" />
+                <Loader2 size={24} className="animate-spin text-dls-secondary" />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-dls-text">{t("mcp.auth.waiting_authorization")}</p>
@@ -651,7 +651,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
           {!isBusy && isPreparingReload ? (
             <div className={mcpAuthStateClass.waitingPanel}>
               <div className="flex items-center justify-center">
-                <Loader2 size={32} className={mcpAuthStateClass.waitingIcon} />
+                <Loader2 size={24} className={mcpAuthStateClass.waitingIcon} />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-dls-text">
@@ -691,9 +691,9 @@ export function McpAuthModal(props: McpAuthModalProps) {
           ) : null}
 
           {!isBusy && alreadyConnected ? (
-            <div className="space-y-4 rounded-xl border border-dls-accent/20 bg-dls-accent/10 p-5">
+            <div className="space-y-4 rounded-xl border border-dls-accent/30 bg-dls-accent/10 p-5">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-dls-accent/15">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-dls-accent/10">
                   <CheckCircle2 size={24} className="text-dls-accent" />
                 </div>
                 <div>
@@ -708,7 +708,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
           ) : null}
 
           {reloadNotice ? (
-            <div className="space-y-3 rounded-xl border border-dls-border/70 bg-dls-surface/50 p-4">
+            <div className="space-y-3 rounded-xl border border-dls-mist bg-dls-surface p-4">
               <p className="text-sm text-dls-secondary">{reloadNotice}</p>
 
               <div className="flex flex-wrap gap-2 pt-1">
@@ -783,10 +783,10 @@ export function McpAuthModal(props: McpAuthModalProps) {
           ) : null}
 
           {!isBusy && authorizationUrl && props.isRemoteWorkspace && !alreadyConnected ? (
-            <div className="space-y-3 rounded-xl border border-dls-border/60 bg-dls-surface/40 p-4">
+            <div className="space-y-3 rounded-xl border border-dls-mist bg-dls-surface p-4">
               <div className="text-xs font-medium text-dls-text">{t("mcp.auth.manual_finish_title")}</div>
               <div className="text-xs text-dls-secondary">{t("mcp.auth.manual_finish_hint")}</div>
-              <div className="flex items-center gap-3 rounded-xl border border-dls-border/70 bg-dls-surface-muted/40 px-3 py-2">
+              <div className="flex items-center gap-3 rounded-xl border border-dls-mist bg-dls-surface-muted px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <div className={mcpAuthTextClass.fieldLabel}>
                     {t("mcp.auth.authorization_link")}
