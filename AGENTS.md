@@ -79,7 +79,7 @@ Tailwind / TypeScript / React / shadcn+BaseUI / TanStack Query / Zustand / Zod(v
 ### UI 与文案
 
 - 最小 diff，更简单方案优先。
-- 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（tokens、components、flags）+ § 4 组件契约 + § 7 Do's/Don'ts。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
+- 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（`colors` / `typography` / `rounded` / `spacing` / `buttons` / `iconography` / `z-layers` / `motion` / `focus` / `components` / `flags`）+ § 4 组件契约（含 Signature Components）+ § 7 Shapes + § 8 Do's/Don'ts。图标尺寸和 z-index 必须来自 `iconography:` / `z-layers:` YAML 块，不要臆造。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
 - UI token 或 design contract 变更后（`DESIGN.md`、`apps/app/src/app/index.css`、`apps/app/tailwind.config.ts`），运行 `pnpm task check design` 确认无漂移；添加 `-- --strict` 让漂移直接失败（未来 CI seam）。
 - UI 组件用 `@/components`，新组件优先 shadcn/ui with Base UI。
 - 假设最终用户非技术用户。

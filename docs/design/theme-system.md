@@ -27,7 +27,25 @@ are driven by semantic CSS tokens.
 
 See [`DESIGN.md`](../../DESIGN.md) — sections 2 (Color Palette),
 3 (Typography), 4 (Component Stylings, includes button scale + row
-primitives), and the YAML front matter for machine-readable values.
+primitives + signature components), 5 (Layout), 6 (Depth incl. Z-Layer
+Stack), 7 (Shapes: border-radius + iconography + photography geometry),
+and the YAML front matter for machine-readable values.
+
+## Extension Workflow
+
+When you need to extend the visual contract — a new token, a new
+signature component, a Windows/Linux titlebar rule — do not edit code
+first. Read `DESIGN.md` § 13 Iteration Guide for the ownership boundary
+between this narrative and DESIGN.md's tokens/rules, then write a plan
+doc under `docs/plans/` (v1 / v2 / v3 plans are worked examples).
+
+## Known Gaps
+
+`DESIGN.md` § 14 Known Gaps is the honest list of what the contract
+does *not* cover today — data-viz, copy voice, brand assets, marketing
+surface, mono typography, CI gate, auto-fix codemod, domain composites
+v2, animation choreography, Windows/Linux titlebar drag-region.
+Closing a gap is documented in § 13 Iteration Guide.
 
 ## Scrollbars
 
