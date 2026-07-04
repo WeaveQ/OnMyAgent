@@ -452,3 +452,6 @@ When an AI agent is asked to generate or modify OnMyAgent UI, it MUST:
 - `AGENTS.md` — engineering contract for AI agents. `DESIGN.md` is the
   visual contract; `AGENTS.md` is the code / process contract.
 - `apps/app/src/react-app/ARCHITECTURE.md` — React UI domain architecture.
+- `docs/design/preview.html` / `docs/design/preview-dark.html` — static
+  visual catalog of the tokens and top components below, in light and
+  dark themes. Snapshot for reviewers; DESIGN.md is the authority.

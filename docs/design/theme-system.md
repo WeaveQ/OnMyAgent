@@ -125,3 +125,10 @@ part of a `frontend-primitive-refactor` audit; see
 
 Raw hex is allowed only in token / palette files or business registry
 data, not page-level styling.
+
+## Preview
+
+`preview.html` and `preview-dark.html` in this folder render the palette,
+typography, radii, button scale, and top components in light and dark
+themes. They are a fixed HTML snapshot for reviewers; if the preview
+drifts from `DESIGN.md`, `DESIGN.md` wins.
