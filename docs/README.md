@@ -23,6 +23,7 @@ This directory contains durable OnMyAgent project documentation. Keep transient 
 | Architecture | `Architecture.md` | Durable architecture and command-surface source of truth. |
 | Loop rules | `loop-rules.md` | Detailed operating rules loaded from `../AGENTS.md` for non-trivial loop work. |
 | Design | `../DESIGN.md`, `design/` | `../DESIGN.md` at repo root is the authoritative visual contract; `design/` holds design-philosophy narrative and UI primitive refactor best practices. |
+| Design tooling | `../scripts/design/` | Local scripts backing the design contract. `extract-tokens.mjs` diffs `DESIGN.md` YAML against code-side token sources; invoke via `pnpm task check design`. |
 | Optional tracked plans | `plans/` when present | Human-reviewable product or architecture plans only; AI execution ledgers belong in `.loop/plans/`. |
 | Local loop state | `.loop/state/`, `.loop/runs/`, `.loop/plans/` | Local-only progress, run logs, intent debt, evidence, and execution ledgers. |
 | Incident log | `loop-incidents.md` | Severe repo-wide, unsafe, production, or cost-risk incidents only. |
