@@ -36,6 +36,32 @@ empty / error / success anatomy + perceptual timing bands), 4b
 Internationalization Space Budget), and the YAML front matter for
 machine-readable values.
 
+## Agent-Native Identity
+
+`DESIGN.md` §§ 4c–4h capture what makes OnMyAgent read as an
+agent workbench rather than a generic chat surface. Read them
+before designing any transcript, activity, or artifact affordance:
+
+- § 4c **Message roles** — seven roles (user, assistant, tool-call,
+  tool-output, thinking, system, error) each with a fixed
+  surface + border-left + prefix icon + prefix color. Roles are
+  the seven that ship; never invent an eighth.
+- § 4d **Streaming presentation** — 6 × 12 block cursor blinks at
+  320 ms; after 1 s idle, swap to the pause glyph. Runtime primitive
+  `StreamingCursor` lands in a follow-up PR; today's markup must
+  still track the same tokens.
+- § 4e **Presence & activity** — seven agent presence states with
+  their own color + motion + icon. Contrast with human presence
+  (online only) is intentional.
+- § 4f **Tool approval** — three risk tiers (safe / careful /
+  destructive) with 0 / 2 / 4 px left border and matching primary
+  button variant. Destructive defaults keyboard focus to Deny.
+- § 4g **Code & diff** — inline vs full-screen thresholds and the
+  contract between diff surfaces and message-role backgrounds.
+- § 4h **Session & Artifact variants** — SessionCard lifecycles
+  and the isolated `artifact-hue.*` palette (see § 11 Intentional
+  Exceptions). Hues MUST NOT be used outside `ArtifactCard`.
+
 ## Extension Workflow
 
 When you need to extend the visual contract — a new token, a new
@@ -53,6 +79,12 @@ choreography, Windows/Linux titlebar drag-region. State machines,
 notifications, keyboard contract, CJK space budget, CI gate, and the
 auto-fix codemod are v4 additions (see § 4a / § 4b / § 5a / § 10 and
 `scripts/design/codemod/`).
+Message roles, streaming cursor, presence, tool approval, code
++ diff, and session/artifact variants are v5 additions (see § 4c /
+§ 4d / § 4e / § 4f / § 4g / § 4h and the `message-roles:` /
+`streaming:` / `presence:` / `tool-approval:` / `artifact-hue:`
+YAML blocks). Runtime primitives `StreamingCursor` and
+`ToolApprovalCard` are tracked in Known Gaps until they ship.
 Closing a gap is documented in § 13 Iteration Guide.
 
 ## Scrollbars
