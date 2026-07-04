@@ -89,6 +89,27 @@ spacing:
   menu-row-padding: "px-3 py-2"
   dialog-footer-gap: "gap-2"
 
+motion:
+  duration:
+    instant: 0
+    fast: 120
+    normal: 200
+    slow: 320
+  easing:
+    standard: "cubic-bezier(0.2, 0, 0, 1)"
+    decisive: "cubic-bezier(0.3, 0, 0.2, 1)"
+    signal: "cubic-bezier(0.4, 0, 0.6, 1)"
+  reduced-motion: respect
+
+focus:
+  ring-color:
+    light: "#005DFF"
+    dark: "#2F7BFF"
+  ring-width: 2
+  ring-offset: 2
+  ring-style: solid
+  keyboard-required: true
+
 buttons:
   xs: { height: 24, padding: "px-2", radius: lg, text: sm }
   sm: { height: 32, padding: "px-3", radius: lg, text: sm }
@@ -168,6 +189,8 @@ flags:
   any-cast: forbidden
   mac-titlebar-no-drag: required-on-titlebar-and-sidebar-header-controls
   i18n: required-for-user-visible-strings
+  focus-ring-on-interactive-elements: required
+  reduced-motion-respected: required
 ---
 
 # OnMyAgent — Visual Design Contract
@@ -212,7 +235,7 @@ Key rules:
 - Prefer `dls-*` semantic classes before raw Tailwind palette classes.
 - Never write raw hex in page JSX. Hex only lives in token files
   (`styles/colors.css`, `app/index.css`) or in explicit brand / category
-  registries (see § 8 Exceptions).
+  registries (see § 10 Exceptions).
 - Primary decisions are solid blue with white text. Secondary decisions use
   flat tinted surfaces (`dls-decision-soft`).
 - Danger, warning, and success have paired `-soft` / `-fg` / `-border`
@@ -307,14 +330,30 @@ OnMyAgent is a **rail + panel** shell.
   pointer movement or active scroll, fading back to transparent.
   Consume `--dls-scrollbar-thumb` / `--dls-scrollbar-thumb-active`; do not
   introduce component-level scrollbar colors unless the browser forces it.
-- Motion clarifies state changes; it does not decorate.
-  - Reorder / drag / layout: `motion/react`.
-  - Enter / exit reveals: `tw-animate-css` utilities
-    (`animate-in`, `fade-in`, `slide-in-*`, `duration-*`).
-  - Spinners / running indicators: named CSS keyframes, kept local and
-    short.
-  - Hover / focus: CSS transitions.
-  - Always respect reduced motion.
+
+**Motion.** Motion clarifies state changes; it does not decorate. Durations
+and easings are semantic tokens in the YAML `motion:` block above.
+
+| Duration | Value | Typical use |
+| --- | --- | --- |
+| `instant` | 0ms | State swaps that must feel synchronous (theme toggle, tab active swap) |
+| `fast` | 120ms | Hover / focus reveals, tooltip fade, small color changes |
+| `normal` | 200ms | Popover / dropdown / sheet enter, dialog fade, tab content swap |
+| `slow` | 320ms | Full-panel reveals, drag settle, empty-state hero entrance |
+
+| Easing | Curve | Typical use |
+| --- | --- | --- |
+| `standard` | `cubic-bezier(0.2, 0, 0, 1)` | Default UI motion — 90% of transitions |
+| `decisive` | `cubic-bezier(0.3, 0, 0.2, 1)` | Primary CTA commit, submit / approve, destructive confirm |
+| `signal` | `cubic-bezier(0.4, 0, 0.6, 1)` | Symmetric ambient pulses — activity, running, online dots |
+
+Library / utility mapping:
+
+- Reorder / drag / layout — `motion/react`; pass duration/easing tokens as `transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}` values, not hardcoded strings.
+- Enter / exit reveals — `tw-animate-css` (`animate-in`, `fade-in`, `slide-in-*`, `duration-*`). Prefer `duration-[120ms]` / `duration-[200ms]` / `duration-[320ms]` matching the tokens, not `duration-150` etc.
+- Spinners / running indicators — named CSS keyframes; keep local and short.
+- Hover / focus — CSS transitions on the affected property only (opacity, color, border-color, background-color); do not transition `transform` for hover feedback.
+- Always respect `prefers-reduced-motion`. When set, skip enter/exit reveals, disable transform-based motion, and fall back to instant state swaps. Opacity fades under `fast` are allowed to remain.
 
 ## 7. Do's and Don'ts
 
@@ -342,8 +381,7 @@ OnMyAgent is a **rail + panel** shell.
 - Do not use `text-[Npx]` or `rounded-[Npx]` in page JSX.
 - Do not write raw hex in page JSX. Hex belongs to token or registry files.
 - Do not use raw Tailwind palette classes (`text-blue-9`, `bg-emerald-3`)
-  in ordinary UI. They are only allowed inside the exception categories in
-  § 8.
+  in ordinary UI. They are only allowed inside the exception categories in § 10.
 - Do not add `shadow-*`, `drop-shadow`, or custom `box-shadow` for
   component hierarchy.
 - Do not use `rounded-full` on standard CTAs. Pills are for chips /
@@ -360,7 +398,72 @@ OnMyAgent is a **rail + panel** shell.
 - Do not introduce a second animation library for ordinary UI. `motion` +
   `tw-animate-css` cover the surface.
 
-## 8. Responsive & Platform
+## 8. Focus & Accessibility
+
+OnMyAgent is a **keyboard-navigable Electron app**. A11y is a hard
+requirement, not decoration.
+
+**Focus ring.**
+
+- Every interactive element (`button`, `[role="button"]`,
+  `[role="menuitem"]`, `[role="tab"]`, `[tabindex="0"]`, native form
+  controls) MUST show a visible focus ring on keyboard focus.
+- Use the `focus:` YAML tokens: `ring-color` (light `#005DFF` / dark
+  `#2F7BFF`), `ring-width` 2px, `ring-offset` 2px, `ring-style` solid.
+  The primitive's own border-radius is the ring radius — do not
+  override.
+- Prefer `focus-visible:` (keyboard focus) over `focus:` so the ring
+  does not appear on mouse click. All shadcn primitives in
+  `components/ui/` already follow this convention; extend it.
+- Do not remove the ring for aesthetic reasons. If the ring collides
+  with layout, adjust the layout, not the ring.
+
+**Contrast.**
+
+- WCAG AA minimums: 4.5:1 for body text (< 18px), 3:1 for large text
+  (≥ 18px or bold ≥ 14px), 3:1 for UI component borders / icons that
+  convey information.
+- `dls-text-secondary` on `dls-surface` is the practical floor for
+  secondary text. Do not put lighter grey text on light surfaces.
+- Signal cyan on light `dls-surface` fails AA for text; use it as an
+  indicator color (dots, borders, marks), never as body text.
+
+**Keyboard navigation.**
+
+- `Tab` / `Shift+Tab` moves focus in logical DOM order.
+- `Enter` and `Space` activate buttons and links.
+- `Escape` closes dialogs, popovers, dropdowns, sheets, and command
+  palettes. Nested overlays close one at a time.
+- Arrow keys navigate within `menu`, `listbox`, `tablist`, and
+  `radiogroup`. Home / End jump to first / last.
+- `⌘K` / `Ctrl+K` opens the command palette (product convention).
+- Focus is trapped inside modal dialogs and drawers; on close, focus
+  returns to the invoking element.
+
+**Screen readers.**
+
+- All icon-only buttons MUST carry `aria-label` (i18n-routed) or a
+  visually-hidden text child. `<Button size="icon">` variants inherit
+  no label; add one at the call site.
+- Live regions (`role="status"`, `role="alert"`) announce running /
+  error state changes; keep announcements terse.
+- Decorative icons use `aria-hidden="true"`.
+- Loading spinners inside actionable rows announce via
+  `aria-busy="true"` on the parent, not per-icon labels.
+
+**Reduced motion.**
+
+- Respect `prefers-reduced-motion: reduce`. When set:
+  - Skip enter / exit reveals (`animate-in`, `slide-in-*`).
+  - Disable transform-based motion; state swaps become instant.
+  - Opacity fades at `duration.fast` (120ms) remain — they are
+    functional feedback, not decoration.
+- Spinners and running-indicator pulses may keep animating; they
+  encode state, not motion decoration.
+
+---
+
+## 9. Responsive & Platform
 
 OnMyAgent is a **desktop-first Electron app**. Responsive rules are
 narrow:
@@ -376,7 +479,7 @@ narrow:
   cloud dashboards, and marketing web surfaces are out of scope for this
   file (see `apps/web/*` — not covered here).
 
-## 9. Intentional Exceptions
+## 10. Intentional Exceptions
 
 These categories are allowed to use raw palette classes or explicit hex
 because the color encodes **product meaning**, not page styling. They live
@@ -404,7 +507,7 @@ If a scan hit does not match one of these, prefer moving it to a `dls-*`
 token, a shared variant, or a named local class map before leaving it in
 page JSX.
 
-## 10. Agent Prompt Guide
+## 11. Agent Prompt Guide
 
 When an AI agent is asked to generate or modify OnMyAgent UI, it MUST:
 
