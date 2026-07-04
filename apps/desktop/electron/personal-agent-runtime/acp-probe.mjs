@@ -1,5 +1,20 @@
-import { spawnAcpClient } from "./acp-client.mjs";
+import { extractAcpSessionId, spawnAcpClient } from "./acp-client.mjs";
 
+const AUTH_ERROR_PATTERN = /auth|login|unauthorized|forbidden|api key|credential|sign in|not logged in|认证|登录|未授权|凭证/i;
+
+function isAuthError(message) {
+  return AUTH_ERROR_PATTERN.test(String(message ?? ""));
+}
+
+/**
+ * Two-step ACP probe:
+ *   1. spawn the CLI + run ACP `initialize`  → distinguishes fail_cli vs fail_acp
+ *   2. run `session/new`                      → distinguishes needs_auth vs online
+ *
+ * Returns a structured result:
+ *   { ok, step, status, initialized, sessionResult, error, events }
+ * where step ∈ "fail_cli" | "fail_acp" | "needs_auth" | "online".
+ */
 export async function probeAcpCommand({ command, args = [], cwd = process.cwd(), timeoutMs = 10_000 }) {
   const events = [];
   const { child, client } = spawnAcpClient({
@@ -9,15 +24,47 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
     env: process.env,
     appendEvent: (event) => events.push(event),
   });
+
+  let initialized = null;
   try {
-    const initialized = await client.request("initialize", {
-      protocolVersion: 1,
-      clientInfo: { name: "onmyagent-acp-probe", version: "0.1.0" },
-      clientCapabilities: {},
-    }, timeoutMs);
-    return { ok: true, initialized, events };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error), events };
+    // Step 1: CLI spawn + ACP initialize handshake.
+    try {
+      initialized = await client.request("initialize", {
+        protocolVersion: 1,
+        clientInfo: { name: "onmyagent-acp-probe", version: "0.1.0" },
+        clientCapabilities: {},
+      }, timeoutMs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // A process that exits or never speaks JSON-RPC failed at the CLI layer;
+      // an initialize that is answered with an error is an ACP-layer failure.
+      const step = /ACP process exited|ENOENT|command not found|not found|spawn/i.test(message) ? "fail_cli" : "fail_acp";
+      return {
+        ok: false,
+        step,
+        status: step === "fail_cli" ? "missing" : "offline",
+        initialized: null,
+        sessionResult: null,
+        error: message,
+        events,
+      };
+    }
+
+    // Step 2: session/new to detect auth-required vs a genuinely online agent.
+    try {
+      const sessionResult = await client.request("session/new", { cwd, mcpServers: [] }, timeoutMs);
+      const sessionId = extractAcpSessionId(sessionResult);
+      if (!sessionId) {
+        return { ok: false, step: "fail_acp", status: "offline", initialized, sessionResult, error: "session/new returned no sessionId", events };
+      }
+      return { ok: true, step: "online", status: "online", initialized, sessionResult, error: null, events };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isAuthError(message)) {
+        return { ok: false, step: "needs_auth", status: "needs_auth", initialized, sessionResult: null, error: message, events };
+      }
+      return { ok: false, step: "fail_acp", status: "offline", initialized, sessionResult: null, error: message, events };
+    }
   } finally {
     client.dispose();
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");

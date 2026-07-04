@@ -37,7 +37,7 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 - 用户可见反证：UI 文案、debug details、运行日志、连接模式、命令路径不能仍显示旧链路，除非该旧链路被 ledger 明确标为 required 保留或用户批准 descoped。
 - 验证证据：源码映射、自动化测试、Electron/UI smoke、必要的 live provider smoke；泛型 typecheck 或“能发消息”不能替代 parity 验证。
 
-示例：AionUI ACP 对齐不能只验证 Local Agent 能列出或能聊天；必须验证 ACP-style conversation bridge、agent metadata/handshake、normalized event stream、process registry、permission/config/session 行为，以及 UI/debug 不再把未对齐 provider 冒充为 ACP。
+示例：ACP 对齐不能只验证 Local Agent 能列出或能聊天；必须验证 ACP-style conversation bridge、agent metadata/handshake、normalized event stream、process registry、permission/config/session 行为，以及 UI/debug 不再把未对齐 provider 冒充为 ACP。
 
 ### 必须跳出问用户
 
