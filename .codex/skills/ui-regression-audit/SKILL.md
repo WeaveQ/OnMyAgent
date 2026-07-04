@@ -220,6 +220,9 @@ Do not do these:
 | Using npm/yarn | Violates project rules. | Use `pnpm`. |
 | Adding new UI primitives unnecessarily | Increases design drift. | Reuse existing components and `dls-*` tokens. |
 | Leaving validation vague | Makes regression unrepeatable. | Include exact commands and pass/fail result. |
+| Hand-writing tab bars as `inline-flex rounded-lg border p-1` around pill `NavTabButton` | Two shape families in one container (r=10 outer, r=999 inner) reads unbalanced. | Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">` (canonical since manage-page R17 fix). |
+| Using `rounded-full` for ordinary CTAs | Only avatars, `NavTabButton` pill chips, `SendButton`, and `architecture-mismatch-gate.tsx` may. | Prefer `rounded-lg` (10) or `rounded-xl` (14) per `DESIGN.md` § 11. |
+| Editing signature primitives without checking `components.contracts` | Radius/height/surface drift silently reappears. | Cross-reference the YAML `components.contracts` block in `DESIGN.md` in the same PR. |
 
 ## Runtime Neutrality
 
