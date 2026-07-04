@@ -45,6 +45,8 @@ pnpm task check app       # 低频专项检查入口：app renderer 类型检查
 pnpm task check server    # 低频专项检查入口：server 类型检查
 pnpm task check desktop   # 低频专项检查入口：desktop Electron 类型检查
 pnpm task check orchestrator # 低频专项检查入口：orchestrator 类型检查
+pnpm check:boundaries     # 架构边界 + shell-import-depth 门禁
+pnpm check:forbidden-types # any / as any / as unknown as 类型逃逸门禁
 pnpm test:unit            # server + orchestrator 单元/集成测试
 pnpm test:api             # server HTTP/API e2e 测试
 pnpm test:runtime         # Electron bridge + orchestrator runtime smoke
@@ -60,8 +62,14 @@ pnpm task build app       # UI 构建
 ### 硬性禁止
 
 - 不用 `any`、类型断言 `as`，除非 100% 必要或用户明确要求。
+  由 `pnpm check:forbidden-types` 强制（新违规立即失败）；历史违规冻结在
+  `scripts/checks/baselines/forbidden-types.json`，只能缩减、禁止手改扩增。
 - 类型或控制流已保证存在时，不写 fallback。
 - 不直接改 secrets、生产配置、真实云资源、队列 purge、外部消息发送。
+- `apps/app/src/react-app/shell/**` 只能 import 到 `domains/<domain>` 的一级 barrel，
+  不得深链 `domains/<domain>/<sub>/...`。由 `pnpm check:boundaries` 中的
+  shell-import-depth 规则强制，baseline 位于
+  `scripts/checks/baselines/shell-import-depth.json`，同样只减不增。
 
 ### 默认技术栈
 

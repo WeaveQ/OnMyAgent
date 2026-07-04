@@ -189,8 +189,7 @@ function isEnabled(): boolean {
   } catch {
     // ignore
   }
-  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
-  if (env.PROD === true) {
+  if (import.meta.env.PROD === true) {
     return window.localStorage.getItem("onmyagent.debug.enableLoggerInProd") === "1";
   }
   return true;
@@ -383,7 +382,9 @@ export function startDebugLogger(opts?: { serverUrl?: () => string | Promise<str
 
 function readMemoryUsage(): Record<string, unknown> | null {
   if (typeof performance === "undefined") return null;
-  const mem = (performance as unknown as { memory?: { totalJSHeapSize: number; usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+  const mem = (performance as Performance & {
+    memory?: { totalJSHeapSize: number; usedJSHeapSize: number; jsHeapSizeLimit: number };
+  }).memory;
   if (!mem) return null;
   return {
     usedMb: Math.round((mem.usedJSHeapSize / (1024 * 1024)) * 10) / 10,

@@ -82,6 +82,25 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 pnpm check:boundaries
 ```
 
+`check:boundaries` 目前执行两组门禁：
+
+- **Package + domain boundaries**：`packages/types`、`packages/ui`、`apps/server`、`apps/desktop`
+  不得反向依赖上层包；`apps/app/src/react-app/domains/<domain>` 之间不得直连；
+  `src/components/**` 不得反向 import `react-app`；`src/app/lib/**` 不得 import `react-app`。
+- **Shell import depth**：`apps/app/src/react-app/shell/**` 只能 import 到某个
+  `domains/<domain>` 的一级 barrel。深链违规会被冻结在
+  `scripts/checks/baselines/shell-import-depth.json` 的可缩减基线里，新增违规立即失败。
+  历史深链清理完之后运行
+  `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline`
+  刷新 baseline，`--list-shell-depth` 打印当前所有深链。
+
+`pnpm check:forbidden-types` 是配套的**类型逃逸门禁**：扫描 `apps/**/src`、
+`packages/**/src` 里的 `any` 类型注解、`as any` 断言和 `as unknown as` 双转，
+按 `file::rule::excerpt` 计数写入
+`scripts/checks/baselines/forbidden-types.json`。新增会立即失败；旧违规修完后运行
+`node scripts/checks/check-forbidden-types.mjs --write` 缩小基线，`--list` 打印全部
+发现。这条规则来自 AGENTS.md 的"不用 `any`、类型断言 `as`"硬性禁止。
+
 当前检查覆盖：
 
 - `packages/types` 不依赖 app/server/desktop/UI 业务包。

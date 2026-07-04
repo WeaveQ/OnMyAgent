@@ -446,6 +446,15 @@ export type WorkspaceDisplay = WorkspaceInfo & {
   name: string;
 };
 
+export type UpdateProgressEvent = {
+  kind?: string;
+  bytesPerSecond?: number;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  [key: string]: unknown;
+};
+
 export type UpdateHandle = {
   available: boolean;
   currentVersion: string;
@@ -454,7 +463,7 @@ export type UpdateHandle = {
   body?: string;
   rawJson: Record<string, unknown>;
   close: () => Promise<void>;
-  download: (onEvent?: (event: any) => void) => Promise<void>;
+  download: (onEvent?: (event: UpdateProgressEvent) => void) => Promise<void>;
   install: () => Promise<void>;
-  downloadAndInstall: (onEvent?: (event: any) => void) => Promise<void>;
+  downloadAndInstall: (onEvent?: (event: UpdateProgressEvent) => void) => Promise<void>;
 };

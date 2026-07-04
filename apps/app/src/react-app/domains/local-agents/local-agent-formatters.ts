@@ -22,7 +22,18 @@ export function elapsedSeconds(startedAt: number | null | undefined, finishedAt:
 }
 
 export function runStatusLabel(status: PersonalLocalAgentRunResult["status"]) {
-  return t(`local_agent.status_${status}`);
+  switch (status) {
+    case "running":
+      return t("local_agent.status_running");
+    case "completed":
+      return t("local_agent.status_completed");
+    case "failed":
+      return t("local_agent.status_failed");
+    case "cancelled":
+      return t("local_agent.status_cancelled");
+    case "missing":
+      return t("local_agent.status_missing");
+  }
 }
 
 export function runHumanSummary(run: PersonalLocalAgentRunResult) {

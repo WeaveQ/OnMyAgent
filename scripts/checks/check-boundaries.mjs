@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -52,7 +52,48 @@ const packageRules = [
 ]
 
 const allowedDomainImports = new Set([
+  // session <-> local-agents: PR #22 introduced domains/local-agents as a
+  // sibling extract of session's local-agent code. Both pages still need
+  // direct imports across the boundary until we agree whether to fold
+  // local-agents back under session/ or promote a kernel/shared contract.
+  "apps/app/src/react-app/domains/local-agents/local-agent-page-model.ts|../session/chat/personal-local-agent-scheduled-tasks",
+  "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/artifacts/open-target",
+  "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/surface/markdown",
+  "apps/app/src/react-app/domains/local-agents/messages/message-utils.ts|../../session/artifacts/open-target",
+  "apps/app/src/react-app/domains/local-agents/messages/timeline-messages.tsx|../../session/surface/markdown",
+  "apps/app/src/react-app/domains/local-agents/side-question.tsx|../session/surface/markdown",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-initial-message",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-model-info",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-conversation-history-hydration",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-draft-composer",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-formatters",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-management-panel",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-model",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-types",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-repair-panel",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/chat-bubble",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-types",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-utils",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/timeline-messages",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/side-question",
 ])
+
+// Domain barrels the shell may import from with a shallow path (`../domains/<domain>`
+// or `@/react-app/domains/<domain>`). Anything deeper counts as a shell-import-depth
+// violation that must be listed in the shell-import-depth baseline (below) until it
+// is refactored behind a barrel.
+const shellRelativeRoot = 'apps/app/src/react-app/shell'
+const shellDepthBaselinePath = join(
+  repoRoot,
+  'scripts/checks/baselines/shell-import-depth.json',
+)
+const shellDepthArgs = new Set(process.argv.slice(2))
+const shellDepthMode = shellDepthArgs.has('--write-shell-depth-baseline')
+  ? 'write'
+  : shellDepthArgs.has('--list-shell-depth')
+    ? 'list'
+    : 'enforce'
+const shellDepthFindings = []
 
 const domainRoot = join(repoRoot, 'apps/app/src/react-app/domains')
 const violations = []
@@ -61,12 +102,21 @@ for (const dir of packageDirs) {
   scanDirectory(join(repoRoot, dir), (filePath) => checkFile(filePath))
 }
 
+const shellDepthResult = evaluateShellDepth()
+
+if (shellDepthMode === 'write' || shellDepthMode === 'list') {
+  process.exit(0)
+}
+
 if (violations.length) {
   console.error('Architecture boundary violations found:\n')
   for (const violation of violations) {
     console.error(`- ${violation.file}:${violation.line} ${violation.message}`)
     console.error(`  import: ${violation.importPath}`)
   }
+}
+
+if (violations.length || shellDepthResult.failed) {
   process.exit(1)
 }
 
@@ -80,6 +130,7 @@ function checkFile(filePath) {
   for (const item of imports) {
     checkPackageRules(relativePath, item)
     checkReactAppRules(filePath, relativePath, item)
+    checkShellImportDepth(filePath, relativePath, item)
   }
 }
 
@@ -128,6 +179,148 @@ function checkReactAppRules(filePath, relativePath, item) {
     importPath: item.importPath,
     message: `domain '${fromDomain}' must not import domain '${toDomain}' directly; use kernel/shared contracts`,
   })
+}
+
+function checkShellImportDepth(filePath, relativePath, item) {
+  if (!relativePath.startsWith(`${shellRelativeRoot}/`)) return
+  const targetPath = resolveDomainTarget(filePath, item.importPath)
+  if (!targetPath) return
+  const domainRelative = relative(domainRoot, targetPath)
+  if (domainRelative.startsWith('..') || domainRelative === '') return
+  const segments = domainRelative.split(sep)
+  if (segments.length <= 1) return
+  const domainName = segments[0]
+  const remainder = segments.slice(1).join('/')
+  shellDepthFindings.push({
+    file: relativePath,
+    line: item.line,
+    domain: domainName,
+    importPath: item.importPath,
+    subPath: remainder,
+  })
+}
+
+function resolveDomainTarget(filePath, importPath) {
+  if (importPath.startsWith('@/react-app/domains/')) {
+    const parts = importPath.split('/')
+    const domain = parts[3]
+    const remainder = parts.slice(4).join('/')
+    const base = join(domainRoot, domain, remainder)
+    return resolveIndexFallback(base)
+  }
+  if (!importPath.startsWith('.')) return null
+  const resolved = resolveRelativeSource(filePath, importPath)
+  if (!resolved) return null
+  const relativeResolved = relative(domainRoot, resolved)
+  if (relativeResolved.startsWith('..') || relativeResolved === '') return null
+  return resolved
+}
+
+function resolveIndexFallback(base) {
+  const candidates = [
+    ...[...sourceExtensions].map((extension) => `${base}${extension}`),
+    ...[...sourceExtensions].map((extension) => join(base, `index${extension}`)),
+    base,
+  ]
+  return candidates.find((candidate) => existsSync(candidate)) ?? base
+}
+
+function shellDepthKey(finding) {
+  return `${finding.file}::${finding.domain}::${finding.subPath}`
+}
+
+function readShellDepthBaseline() {
+  if (!existsSync(shellDepthBaselinePath)) return { entries: {} }
+  const raw = JSON.parse(readFileSync(shellDepthBaselinePath, 'utf8'))
+  const entries =
+    raw && typeof raw.entries === 'object' && !Array.isArray(raw.entries) ? raw.entries : {}
+  return { entries }
+}
+
+function evaluateShellDepth() {
+  const counts = new Map()
+  for (const finding of shellDepthFindings) {
+    const key = shellDepthKey(finding)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
+  if (shellDepthMode === 'list') {
+    const sorted = [...shellDepthFindings].sort((a, b) => {
+      if (a.file !== b.file) return a.file < b.file ? -1 : 1
+      return a.line - b.line
+    })
+    for (const finding of sorted) {
+      console.log(
+        `${finding.file}:${finding.line} deep-import '${finding.domain}/${finding.subPath}' (${finding.importPath})`,
+      )
+    }
+    console.log(`\n${shellDepthFindings.length} deep import(s)`)
+    process.exit(0)
+  }
+
+  if (shellDepthMode === 'write') {
+    const sortedEntries = Object.fromEntries(
+      [...counts.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    )
+    const payload = {
+      $schema: './shell-import-depth.schema.json',
+      description:
+        'Frozen shell -> domain deep imports, keyed by shellFile::domain::subPath with an occurrence count. Only shrink this list. Regenerate with `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline` only after refactoring shells to use domain barrels.',
+      generatedAt: new Date().toISOString(),
+      entries: sortedEntries,
+    }
+    writeFileSync(shellDepthBaselinePath, `${JSON.stringify(payload, null, 2)}\n`)
+    const total = [...counts.values()].reduce((sum, count) => sum + count, 0)
+    console.log(
+      `Wrote shell-import-depth baseline with ${counts.size} key(s) / ${total} occurrence(s) -> ${relative(repoRoot, shellDepthBaselinePath)}`,
+    )
+    return { failed: false }
+  }
+
+  const baseline = readShellDepthBaseline()
+  const baselineCounts = new Map(Object.entries(baseline.entries))
+  const overages = []
+  for (const [key, count] of counts) {
+    const allowed = baselineCounts.get(key) ?? 0
+    if (count > allowed) overages.push({ key, count, allowed })
+  }
+  const stale = []
+  for (const [key, allowed] of baselineCounts) {
+    const count = counts.get(key) ?? 0
+    if (count < allowed) stale.push({ key, count, allowed })
+  }
+  if (overages.length === 0 && stale.length === 0) return { failed: false, counts }
+
+  if (overages.length > 0) {
+    console.error('New shell-import-depth violations:\n')
+    for (const overage of overages) {
+      console.error(`- ${overage.key}`)
+      console.error(`  now ${overage.count} occurrence(s), baseline allows ${overage.allowed}`)
+      const examples = shellDepthFindings
+        .filter((finding) => shellDepthKey(finding) === overage.key)
+        .slice(0, 3)
+      for (const example of examples) {
+        console.error(
+          `    ${example.file}:${example.line} ${example.importPath}`,
+        )
+      }
+    }
+    console.error(
+      '\nShell files may only import a domain via its barrel (e.g. `../domains/<domain>`).',
+    )
+    console.error('Refactor the domain to expose the API it needs, or discuss before')
+    console.error('adding an allowance. Use the shared/kernel layer for cross-cutting state.')
+  }
+
+  if (stale.length > 0) {
+    console.error('\nShell-import-depth baseline is stale:')
+    for (const entry of stale) {
+      console.error(`- ${entry.key}: baseline ${entry.allowed} -> now ${entry.count}`)
+    }
+    console.error('Run `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline` to shrink it.')
+  }
+
+  return { failed: true }
 }
 
 function importedReactApp(filePath, importPath) {
