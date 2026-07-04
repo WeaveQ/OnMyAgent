@@ -1,4 +1,4 @@
-import type { Part, Session } from "@opencode-ai/sdk/v2/client";
+import type { Part, Session, ToolState } from "@opencode-ai/sdk/v2/client";
 import { t } from "../../i18n";
 import type {
   ArtifactItem,
@@ -174,9 +174,10 @@ export function isWindowsPlatform() {
   if (typeof navigator === "undefined") return false;
 
   const ua = typeof navigator.userAgent === "string" ? navigator.userAgent : "";
+  const uaDataPlatform = navigator.userAgentData?.platform;
   const platform =
-    typeof (navigator as any).userAgentData?.platform === "string"
-      ? (navigator as any).userAgentData.platform
+    typeof uaDataPlatform === "string"
+      ? uaDataPlatform
       : typeof navigator.platform === "string"
         ? navigator.platform
         : "";
@@ -188,9 +189,10 @@ export function isMacPlatform() {
   if (typeof navigator === "undefined") return false;
 
   const ua = typeof navigator.userAgent === "string" ? navigator.userAgent : "";
+  const uaDataPlatform = navigator.userAgentData?.platform;
   const platform =
-    typeof (navigator as any).userAgentData?.platform === "string"
-      ? (navigator as any).userAgentData.platform
+    typeof uaDataPlatform === "string"
+      ? uaDataPlatform
       : typeof navigator.platform === "string"
         ? navigator.platform
         : "";
@@ -555,15 +557,9 @@ export function normalizeSessionStatus(status: unknown) {
 }
 
 export function modelFromUserMessage(info: MessageInfo): ModelRef | null {
-  if (!info || typeof info !== "object") return null;
-  if ((info as any).role !== "user") return null;
-
-  const model = (info as any).model as unknown;
-  if (!model || typeof model !== "object") return null;
-
-  const providerID = (model as any).providerID;
-  const modelID = (model as any).modelID;
-
+  if (!info || typeof info !== "object" || info.role !== "user") return null;
+  const providerID = "model" in info ? info.model.providerID : info.providerID;
+  const modelID = "model" in info ? info.model.modelID : info.modelID;
   if (typeof providerID !== "string" || typeof modelID !== "string") return null;
   return { providerID, modelID };
 }
@@ -594,8 +590,7 @@ const EXPLORATION_TOOL_NAMES = new Set(["read", "glob", "grep", "search", "list"
 
 function isExplorationToolPart(part: Part) {
   if (part.type !== "tool") return false;
-  const tool = typeof (part as any).tool === "string" ? String((part as any).tool).toLowerCase() : "";
-  return EXPLORATION_TOOL_NAMES.has(tool);
+  return EXPLORATION_TOOL_NAMES.has(part.tool.toLowerCase());
 }
 
 export function groupMessageParts(parts: Part[], messageId: string): MessageGroup[] {
@@ -742,8 +737,30 @@ function formatAgentLabel(value: string): string {
     .join(" ");
 }
 
-function getToolInput(state: any): Record<string, unknown> {
-  const input = state?.input;
+type ToolStateView = ToolState & {
+  readonly title?: unknown;
+  readonly output?: unknown;
+  readonly path?: unknown;
+  readonly file?: unknown;
+  readonly files?: unknown;
+  readonly command?: unknown;
+  readonly cmd?: unknown;
+  readonly pattern?: unknown;
+  readonly query?: unknown;
+  readonly subtitle?: unknown;
+  readonly detail?: unknown;
+  readonly summary?: unknown;
+  readonly size?: unknown;
+  readonly status?: unknown;
+  readonly metadata?: { readonly [key: string]: unknown };
+};
+
+function toToolStateView(state: unknown): ToolStateView {
+  return (state ?? {}) as ToolStateView;
+}
+
+function getToolInput(state: ToolStateView): Record<string, unknown> {
+  const input = "input" in state ? state.input : undefined;
   if (input && typeof input === "object") return input as Record<string, unknown>;
   return {};
 }
@@ -757,7 +774,7 @@ function pickInputText(input: Record<string, unknown>, keys: string[]): string {
   return "";
 }
 
-function buildToolTitle(state: any, toolName: string): string {
+function buildToolTitle(state: ToolStateView, toolName: string): string {
   const lower = toolName.toLowerCase();
   const input = getToolInput(state);
   const pick = (...keys: string[]) => pickInputText(input, keys);
@@ -852,7 +869,7 @@ function buildToolTitle(state: any, toolName: string): string {
 }
 
 /** Build a concise detail line for a tool call — avoids dumping raw output */
-function buildToolDetail(state: any, toolName: string): string | undefined {
+function buildToolDetail(state: ToolStateView, toolName: string): string | undefined {
   const lower = toolName.toLowerCase();
   const input = getToolInput(state);
   const pick = (...keys: string[]) => pickInputText(input, keys);
@@ -886,11 +903,14 @@ function buildToolDetail(state: any, toolName: string): string | undefined {
 
   if (lower === "question") {
     const questions = Array.isArray(input.questions) ? input.questions.length : 0;
-    const answers = Array.isArray(state?.output)
-      ? state.output
-      : state?.output && typeof state.output === "object" && Array.isArray(state.output.answers)
-        ? state.output.answers
-        : null;
+    const rawOutput = state.output;
+    let answers: unknown = null;
+    if (Array.isArray(rawOutput)) {
+      answers = rawOutput;
+    } else if (rawOutput && typeof rawOutput === "object") {
+      const record = rawOutput as { readonly answers?: unknown };
+      if (Array.isArray(record.answers)) answers = record.answers;
+    }
     if (answers) return "Answered";
     if (questions > 1) return `${questions} questions`;
     return undefined;
@@ -906,20 +926,18 @@ function buildToolDetail(state: any, toolName: string): string | undefined {
   }
 
   // For file operations, show the filename
-  const filePath = state?.path ?? state?.file;
+  const filePath = state.path ?? state.file;
   if (typeof filePath === "string" && filePath.trim()) {
     const name = extractFilename(filePath.trim());
-    const status = state?.status;
-    if (status === "completed" || status === "done") {
-      return name;
-    }
+    // Both completed and in-progress reads render the same shorthand today; if
+    // that changes, branch here on `state.status`.
     return name;
   }
 
   // For edits that report updated files, show filename(s)
   const files = state?.files;
   if (Array.isArray(files) && files.length > 0) {
-    const names = files.flatMap((f: any) => typeof f === "string" ? [extractFilename(f)] : []);
+    const names = files.flatMap((f: unknown) => typeof f === "string" ? [extractFilename(f)] : []);
     if (names.length === 1) return names[0];
     if (names.length > 1) return `${names[0]} +${names.length - 1} more`;
   }
@@ -1029,28 +1047,29 @@ type DeriveArtifactsOptions = {
 
 export function summarizeStep(part: Part): { title: string; detail?: string; isSkill?: boolean; skillName?: string; toolCategory?: string; status?: string } {
   if (part.type === "tool") {
-    const record = part as any;
-    const toolName = record.tool ? String(record.tool) : "Tool";
-    const state = record.state ?? {};
+    const toolName = part.tool ? String(part.tool) : "Tool";
+    const state = toToolStateView(part.state);
     const title = buildToolTitle(state, toolName);
     const category = classifyTool(toolName);
-    const status = state.status ? String(state.status) : undefined;
+    const status = "status" in state ? String(state.status) : undefined;
     const detail = buildToolDetail(state, toolName);
     const normalizedTitle = normalizeStepText(title).toLowerCase();
     const finalDetail = detail && normalizeStepText(detail).toLowerCase() !== normalizedTitle ? detail : undefined;
-    
+
     // Detect skill trigger
     if (category === "skill") {
-      const skillName = state.metadata?.name || title.replace(/^(Loaded skill:\s*|Load skill\s+)/i, "");
+      const skillNameRaw = state.metadata?.name;
+      const skillName =
+        (typeof skillNameRaw === "string" && skillNameRaw) ||
+        title.replace(/^(Loaded skill:\s*|Load skill\s+)/i, "");
       return { title, isSkill: true, skillName, detail: finalDetail, toolCategory: category, status };
     }
-    
+
     return { title, detail: finalDetail, toolCategory: category, status };
   }
 
   if (part.type === "reasoning") {
-    const record = part as any;
-    const text = typeof record.text === "string" ? cleanReasoningText(record.text) : "";
+    const text = typeof part.text === "string" ? cleanReasoningText(part.text) : "";
     if (!text) return { title: t("session.reasoning"), toolCategory: "tool" };
 
     const lines = text
@@ -1086,7 +1105,7 @@ export function summarizeStep(part: Part): { title: string; detail?: string; isS
   }
 
   if (part.type === "step-start" || part.type === "step-finish") {
-    const reason = (part as any).reason;
+    const reason = part.type === "step-finish" ? part.reason : undefined;
     return {
       title: part.type === "step-start" ? "Step started" : "Step finished",
       detail: reason ? String(reason) : undefined,
@@ -1106,12 +1125,11 @@ export function deriveArtifacts(list: MessageWithParts[], options: DeriveArtifac
   const source = maxMessages && list.length > maxMessages ? list.slice(list.length - maxMessages) : list;
 
   source.forEach((message) => {
-    const messageId = String((message.info as any)?.id ?? "");
+    const messageId = String(message.info?.id ?? "");
 
     message.parts.forEach((part) => {
       if (part.type !== "tool") return;
-      const record = part as any;
-      const state = record.state ?? {};
+      const state = toToolStateView(part.state);
       const matches = new Set<string>();
 
       const explicit = [
@@ -1134,10 +1152,7 @@ export function deriveArtifacts(list: MessageWithParts[], options: DeriveArtifac
         }
       });
 
-      const toolName =
-        typeof record.tool === "string" && record.tool.trim()
-          ? record.tool.trim().toLowerCase()
-          : "";
+      const toolName = part.tool && part.tool.trim() ? part.tool.trim().toLowerCase() : "";
       const titleText = typeof state.title === "string" ? state.title : "";
       const outputText =
         typeof state.output === "string" && !ARTIFACT_OUTPUT_SKIP_TOOLS.has(toolName)
