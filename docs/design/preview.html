@@ -341,6 +341,136 @@
   <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);"><code>overlay-max</code> (999) is reserved as an emergency ceiling — drag-preview ghosts and system-level overlays only.</p>
 </section>
 
+
+<section class="pv-section" id="state-machines">
+  <h2>8 · State Machines</h2>
+  <p class="pv-body">Every async surface picks from four canonical states — Loading / Empty / Error / Success — with the same anatomy slots so agents don't reinvent per-screen scaffolds.</p>
+  <div class="pv-state-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:0.75rem;">
+    <div style="padding:1rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-text-tertiary);">LOADING · &gt; short-ms</span>
+      <div style="height:12px;background:var(--dls-surface-muted);border-radius:4px;width:60%;"></div>
+      <div style="height:12px;background:var(--dls-surface-muted);border-radius:4px;width:85%;"></div>
+      <div style="height:12px;background:var(--dls-surface-muted);border-radius:4px;width:45%;"></div>
+      <div style="margin-top:auto;font-size:11px;color:var(--dls-text-tertiary);">Skeleton, shape-matched.</div>
+    </div>
+    <div style="padding:1rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;text-align:center;align-items:center;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-text-tertiary);align-self:flex-start;">EMPTY</span>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-text-tertiary);margin-top:0.5rem;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+      <div style="font-size:14px;font-weight:500;">No sessions yet</div>
+      <div style="font-size:12px;color:var(--dls-text-secondary);">Start a chat to see it here.</div>
+      <button style="margin-top:auto;padding:6px 12px;border-radius:10px;background:var(--dls-primary);color:#fff;font-size:12px;border:none;">New session</button>
+    </div>
+    <div style="padding:1rem;border:1px solid var(--dls-danger);border-radius:8px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-danger);">ERROR</span>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-danger);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:14px;font-weight:500;">Sync failed</div>
+      </div>
+      <div style="font-size:12px;color:var(--dls-text-secondary);">Check your connection and try again.</div>
+      <div style="margin-top:auto;display:flex;gap:0.5rem;">
+        <button style="padding:6px 12px;border-radius:10px;background:var(--dls-primary);color:#fff;font-size:12px;border:none;">Retry</button>
+        <button style="padding:6px 12px;border-radius:10px;background:transparent;color:var(--dls-text-secondary);font-size:12px;border:1px solid var(--dls-border);">Details</button>
+      </div>
+    </div>
+    <div style="padding:1rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-success-fg);">SUCCESS</span>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-success-fg);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div style="font-size:14px;font-weight:500;">Saved</div>
+      </div>
+      <div style="font-size:12px;color:var(--dls-text-secondary);">Changes synced across devices.</div>
+      <button style="margin-top:auto;padding:6px 12px;border-radius:10px;background:transparent;color:var(--dls-text-secondary);font-size:12px;border:1px solid var(--dls-border);align-self:flex-start;">Dismiss</button>
+    </div>
+  </div>
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Perceptual timing bands</h3>
+  <table class="pv-table" style="width:100%;border-collapse:collapse;margin-top:0.5rem;font-size:12px;">
+    <thead><tr style="text-align:left;color:var(--dls-text-tertiary);"><th style="padding:0.35rem 0.5rem;">Band</th><th style="padding:0.35rem 0.5rem;">Threshold</th><th style="padding:0.35rem 0.5rem;">Presentation</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>instant</code></td><td style="padding:0.35rem 0.5rem;">&lt; 200 ms</td><td style="padding:0.35rem 0.5rem;">Render nothing</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>short</code></td><td style="padding:0.35rem 0.5rem;">200 ms – 1 s</td><td style="padding:0.35rem 0.5rem;">Spinner</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>long</code></td><td style="padding:0.35rem 0.5rem;">&gt; 1 s</td><td style="padding:0.35rem 0.5rem;">Skeleton with shape parity</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>known-progress</code></td><td style="padding:0.35rem 0.5rem;">any</td><td style="padding:0.35rem 0.5rem;">&lt;progress&gt; primitive</td></tr>
+    </tbody>
+  </table>
+</section>
+
+
+<section class="pv-section" id="notifications">
+  <h2>9 · Notifications</h2>
+  <p class="pv-body">Toasts confirm, warn, and report — never decide. Position <code>top-right</code>, stack cap 5, duration by severity from the YAML <code>notifications:</code> block.</p>
+  <div class="pv-toast-window" style="position:relative;height:280px;margin-top:0.75rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-app-bg);overflow:hidden;">
+    <div style="position:absolute;top:10px;left:10px;font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">mocked app window</div>
+    <div style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:0.5rem;width:280px;">
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-text-secondary);flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Update available</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">4 s · info</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-success-fg);flex-shrink:0;margin-top:2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Session shared</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">4 s · success</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:8px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-warning);flex-shrink:0;margin-top:2px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Sync slow</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">6 s · warning</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-danger);border-radius:8px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-danger);flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Push failed</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">persistent · error</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">Motion: slide-in from right, fade-out on dismiss. Under <code>prefers-reduced-motion</code>, degrade to fade-only.</p>
+</section>
+
+<section class="pv-section" id="kbd">
+  <h2>10 · Keyboard chips</h2>
+  <p class="pv-body">Author with mac glyphs; runtime substitutes on Windows / Linux. Chips: hairline border, <code>text-xs</code>, muted surface, <code>rounded-sm</code>.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:1.5rem;margin-top:0.75rem;align-items:flex-start;">
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">single glyph</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Open command palette <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⌘K</kbd></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">chord</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Toggle theme
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⌘</kbd>
+        <span style="color:var(--dls-text-tertiary);"> + </span>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⇧</kbd>
+        <span style="color:var(--dls-text-tertiary);"> + </span>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">P</kbd>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">alt + digit</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Focus rail
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⌥</kbd>
+        <span style="color:var(--dls-text-tertiary);"> + </span>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">1</kbd>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">arrows</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Navigate list
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">↑</kbd>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">↓</kbd>
+      </div>
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">On Windows / Linux, <code>⌘K</code> renders as <code>Ctrl+K</code>. Author declaratively; substitute at render.</p>
+</section>
+
 </main>
 
 <footer class="pv-footer">
