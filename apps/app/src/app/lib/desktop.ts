@@ -64,13 +64,22 @@ import type {
   AgentManagementSkillActionResult,
   AgentManagementSnapshot,
   PersonalLocalAgent,
+  PersonalLocalAgentAcpConfigOptionInput,
+  PersonalLocalAgentAcpConfigOptionResult,
   PersonalLocalAgentApprovalDecision,
+  PersonalLocalAgentApprovalMode,
   PersonalLocalAgentApprovalInput,
   PersonalLocalAgentConversationCreateResult,
+  PersonalLocalAgentCustomAgentInput,
+  PersonalLocalAgentCustomAgentResult,
+  PersonalLocalAgentDeleteCustomAgentResult,
+  PersonalLocalAgentOverridesResult,
   PersonalLocalAgentConversationConfirmationsResult,
   PersonalLocalAgentConversationGetResult,
   PersonalLocalAgentConversationInput,
   PersonalLocalAgentConversationStatusResult,
+  PersonalLocalAgentConversationWarmupResult,
+  PersonalLocalAgentSideQuestionResult,
   PersonalLocalAgentConversationTranscriptInput,
   PersonalLocalAgentConversationTranscriptResult,
   PersonalLocalAgentConversationsListResult,
@@ -88,8 +97,13 @@ import type {
   PersonalLocalAgentHeartbeatUpdateResult,
   PersonalLocalAgentMetadataListResult,
   PersonalLocalAgentNativeSessionsListResult,
+  PersonalLocalAgentProviderSessionsListResult,
+  PersonalLocalAgentProviderSessionLoadResult,
+  PersonalLocalAgentProviderSessionCloseResult,
+  PersonalLocalAgentProviderSessionForkResult,
   PersonalLocalAgentProcessRecord,
   PersonalLocalAgentProvider,
+  PersonalLocalAgentStatus,
   PersonalLocalAgentResetConversationInput,
   PersonalLocalAgentResetConversationResult,
   PersonalLocalAgentRunInput,
@@ -949,6 +963,49 @@ export function personalLocalAgentAcpConfigOptions(input?: {
   );
 }
 
+export function personalLocalAgentSetAcpConfigOption(
+  input: PersonalLocalAgentAcpConfigOptionInput,
+): Promise<PersonalLocalAgentAcpConfigOptionResult> {
+  return invokeElectronHelper<PersonalLocalAgentAcpConfigOptionResult>(
+    "personalLocalAgentSetAcpConfigOption",
+    input,
+  );
+}
+
+export function personalLocalAgentCreateCustomAgent(
+  input: PersonalLocalAgentCustomAgentInput,
+): Promise<PersonalLocalAgentCustomAgentResult> {
+  return invokeElectronHelper<PersonalLocalAgentCustomAgentResult>("personalLocalAgentCreateCustomAgent", input);
+}
+
+export function personalLocalAgentUpdateCustomAgent(
+  input: PersonalLocalAgentCustomAgentInput,
+): Promise<PersonalLocalAgentCustomAgentResult> {
+  return invokeElectronHelper<PersonalLocalAgentCustomAgentResult>("personalLocalAgentUpdateCustomAgent", input);
+}
+
+export function personalLocalAgentDeleteCustomAgent(input: {
+  workspaceRoot: string;
+  id: string;
+}): Promise<PersonalLocalAgentDeleteCustomAgentResult> {
+  return invokeElectronHelper<PersonalLocalAgentDeleteCustomAgentResult>("personalLocalAgentDeleteCustomAgent", input);
+}
+
+export function personalLocalAgentGetAgentOverrides(input: {
+  workspaceRoot: string;
+  id: string;
+}): Promise<PersonalLocalAgentOverridesResult> {
+  return invokeElectronHelper<PersonalLocalAgentOverridesResult>("personalLocalAgentGetAgentOverrides", input);
+}
+
+export function personalLocalAgentSetAgentOverrides(input: {
+  workspaceRoot: string;
+  id: string;
+  overrides: Record<string, unknown>;
+}): Promise<PersonalLocalAgentOverridesResult> {
+  return invokeElectronHelper<PersonalLocalAgentOverridesResult>("personalLocalAgentSetAgentOverrides", input);
+}
+
 export function personalLocalAgentAcpProcessesList(input?: {
   provider?: string;
   conversationId?: string;
@@ -957,6 +1014,51 @@ export function personalLocalAgentAcpProcessesList(input?: {
     "personalLocalAgentAcpProcessesList",
     input ?? {},
   );
+}
+
+export type PersonalLocalAgentTestConnectionResult = {
+  ok: boolean;
+  status: PersonalLocalAgentStatus;
+  step: "fail_cli" | "fail_acp" | "needs_auth" | "online" | string;
+  error: string | null;
+  capabilities: Record<string, unknown> | null;
+  models: Array<{ id: string; label: string }>;
+  configOptions: unknown[];
+  checkedAt: number;
+};
+
+export type PersonalLocalAgentProviderHealthResult = PersonalLocalAgentTestConnectionResult & {
+  healthy: boolean;
+  reason: string | null;
+};
+
+export function personalLocalAgentTestConnection(input: {
+  agent: Partial<PersonalLocalAgent>;
+  workspaceRoot?: string;
+  timeoutMs?: number;
+}): Promise<PersonalLocalAgentTestConnectionResult> {
+  return invokeElectronHelper<PersonalLocalAgentTestConnectionResult>(
+    "personalLocalAgentTestConnection",
+    input,
+  );
+}
+
+export function personalLocalAgentCheckProviderHealth(input: {
+  agent: Partial<PersonalLocalAgent>;
+  workspaceRoot?: string;
+  timeoutMs?: number;
+}): Promise<PersonalLocalAgentProviderHealthResult> {
+  return invokeElectronHelper<PersonalLocalAgentProviderHealthResult>("personalLocalAgentCheckProviderHealth", input);
+}
+
+export function personalLocalAgentCheckManagedAgentHealthById(input: {
+  id?: string;
+  agentId?: string;
+  provider?: string;
+  workspaceRoot?: string;
+  timeoutMs?: number;
+}): Promise<PersonalLocalAgentProviderHealthResult> {
+  return invokeElectronHelper<PersonalLocalAgentProviderHealthResult>("personalLocalAgentCheckManagedAgentHealthById", input);
 }
 
 export function personalLocalAgentValidate(
@@ -1050,10 +1152,61 @@ export function personalLocalAgentConversationGet(
 }
 
 export function personalLocalAgentConversationStatus(
-  input: PersonalLocalAgentConversationInput,
+  input: PersonalLocalAgentConversationInput & { conversationId?: string | null },
 ): Promise<PersonalLocalAgentConversationStatusResult> {
   return invokeElectronHelper<PersonalLocalAgentConversationStatusResult>(
     "personalLocalAgentConversationStatus",
+    input,
+  );
+}
+
+export function personalLocalAgentConversationWarmup(
+  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; approvalMode?: PersonalLocalAgentApprovalMode; model?: string | null },
+): Promise<PersonalLocalAgentConversationWarmupResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationWarmupResult>(
+    "personalLocalAgentConversationWarmup",
+    input,
+  );
+}
+
+export function personalLocalAgentSideQuestion(
+  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; prompt: string; approvalMode?: PersonalLocalAgentApprovalMode; model?: string | null },
+): Promise<PersonalLocalAgentSideQuestionResult> {
+  return invokeElectronHelper<PersonalLocalAgentSideQuestionResult>("personalLocalAgentSideQuestion", input);
+}
+
+export function personalLocalAgentProviderSessionsList(
+  input: PersonalLocalAgentConversationInput,
+): Promise<PersonalLocalAgentProviderSessionsListResult> {
+  return invokeElectronHelper<PersonalLocalAgentProviderSessionsListResult>(
+    "personalLocalAgentProviderSessionsList",
+    input,
+  );
+}
+
+export function personalLocalAgentProviderSessionLoad(
+  input: PersonalLocalAgentConversationInput & { sessionId: string; title?: string },
+): Promise<PersonalLocalAgentProviderSessionLoadResult> {
+  return invokeElectronHelper<PersonalLocalAgentProviderSessionLoadResult>(
+    "personalLocalAgentProviderSessionLoad",
+    input,
+  );
+}
+
+export function personalLocalAgentProviderSessionClose(
+  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; sessionId: string },
+): Promise<PersonalLocalAgentProviderSessionCloseResult> {
+  return invokeElectronHelper<PersonalLocalAgentProviderSessionCloseResult>(
+    "personalLocalAgentProviderSessionClose",
+    input,
+  );
+}
+
+export function personalLocalAgentProviderSessionFork(
+  input: PersonalLocalAgentConversationInput & { sessionId: string; title?: string; messageId?: string },
+): Promise<PersonalLocalAgentProviderSessionForkResult> {
+  return invokeElectronHelper<PersonalLocalAgentProviderSessionForkResult>(
+    "personalLocalAgentProviderSessionFork",
     input,
   );
 }
@@ -1073,6 +1226,7 @@ export function personalLocalAgentConversationConfirmationConfirm(
     approvalId?: string | null;
     id?: string | null;
     decision: PersonalLocalAgentApprovalDecision;
+    alwaysAllow?: boolean;
   },
 ): Promise<{ ok: boolean; error?: string }> {
   return invokeElectronHelper<{ ok: boolean; error?: string }>(
@@ -1231,7 +1385,7 @@ export function feishuProbeAccessibleRoot(input: { root: string } | { folderPath
 }
 
 // --- Channel Infrastructure API ---
-// Wrappers for AionUi-style channel pairing, session, and event APIs
+// Wrappers for channel pairing, session, and event APIs
 
 export interface ChannelPairingRequest {
   code: string;

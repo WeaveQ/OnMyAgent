@@ -3,16 +3,19 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import http from "node:http";
+import crypto from "node:crypto";
 
 import { injectPersonalAgentContext } from "./context-injection.mjs";
 import { extractAcpSessionId, normalizeAcpUpdate, spawnAcpClient, textFromAcpContent } from "./acp-client.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
-import { MANAGED_ACP_TOOLS, managedAcpBinPath, managedAcpToolRoot } from "./managed-acp-tools.mjs";
-import { personalAgentAvailableMetadataList, personalAgentMetadataFromAgent, personalAgentMetadataList } from "./agent-metadata.mjs";
-import { runEventsToConversationMessages } from "./contract.mjs";
+import { MANAGED_ACP_TOOLS, managedAcpBinPath, managedAcpToolRoot, validateManagedAcpTool } from "./managed-acp-tools.mjs";
+import { personalAgentAvailableMetadataList, personalAgentMetadataFromAgent, personalAgentMetadataList, normalizeAgentStatus } from "./agent-metadata.mjs";
+import { appendContractEvent, runEventsToConversationMessages } from "./contract.mjs";
 import { createConversation, getConversation, getOrCreateConversation, listConversations, readConversationEvents, updateConversation } from "./conversation-store.mjs";
 import { createPersonalAgentRuntime } from "./index.mjs";
-import { clearAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess } from "./process-registry.mjs";
+import { AcpE2EStreamInjector } from "./acp-e2e-stream-injector.mjs";
+import { clearAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess, recordAgentCrash, crashRestartBackoffMs, clearAgentCrashHistory } from "./process-registry.mjs";
 import {
   sessionArchiveDbFile,
   sessionArchiveLogRoot,
@@ -47,6 +50,54 @@ async function cleanup(workspaceRoot) {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
+}
+
+async function withTinyWebSocketServer(handler) {
+  const server = http.createServer();
+  const sockets = new Set();
+  server.on("upgrade", (req, socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+    const key = req.headers["sec-websocket-key"];
+    const accept = crypto.createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+    let pendingBuffer = Buffer.alloc(0);
+    socket.on("data", (buffer) => {
+      pendingBuffer = Buffer.concat([pendingBuffer, buffer]);
+      if (pendingBuffer.length < 6) return;
+      const opcode = pendingBuffer[0] & 0x0f;
+      let offset = 2;
+      let length = pendingBuffer[1] & 127;
+      if (length === 126) {
+        if (pendingBuffer.length < 8) return;
+        length = pendingBuffer.readUInt16BE(offset);
+        offset += 2;
+      }
+      if (pendingBuffer.length < offset + 4 + length) return;
+      const mask = pendingBuffer.subarray(offset, offset + 4);
+      offset += 4;
+      const payload = pendingBuffer.subarray(offset, offset + length);
+      pendingBuffer = pendingBuffer.subarray(offset + length);
+      if (opcode !== 1 || payload.length === 0) return;
+      const text = Buffer.from(payload.map((byte, index) => byte ^ mask[index % 4])).toString("utf8");
+      const message = JSON.parse(text);
+      const result = handler(message);
+      const response = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }), "utf8");
+      socket.write(Buffer.concat([Buffer.from([0x81, response.length]), response]));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind test websocket server");
+  }
+  return {
+    url: `ws://127.0.0.1:${address.port}`,
+    close: () => new Promise((resolve) => {
+      for (const socket of sockets) socket.destroy();
+      server.close(resolve);
+    }),
+  };
 }
 
 describe("personal agent runtime storage", () => {
@@ -214,6 +265,88 @@ describe("personal agent runtime storage", () => {
     }
   });
 
+  it("warms up a conversation by creating a provider session before the first message", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      let warmed = 0;
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          listAgents: async () => ({ agents: [] }),
+          normalizeAgent: async (input) => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", ...input }),
+          detectAgent: async (agent) => ({ ...agent, id: "codex", provider: "codex", status: "online" }),
+          start: async () => ({}),
+          run: async () => ({}),
+          status: () => ({}),
+          cancel: () => ({}),
+        },
+        adapters: {
+          codex: () => ({
+            warmupConversation: async () => {
+              warmed += 1;
+              return { ok: true, sessionId: "warm-provider-session", providerSessionId: "warm-provider-session", resumeKey: "warm-provider-session", workdir: "/tmp/warm" };
+            },
+            sendMessage: async (ctx) => ({
+              output: `session=${ctx.providerSessionId}`,
+              command: "fake codex",
+              connectionMode: "Codex ACP session",
+              providerSessionId: ctx.providerSessionId,
+              resumeKey: ctx.resumeKey,
+            }),
+          }),
+        },
+      });
+
+      const created = await runtime.createConversation({ workspaceRoot, agent: { provider: "codex" }, title: "Warm" });
+      const warm = await runtime.warmupConversation({ workspaceRoot, agent: { provider: "codex" }, conversationId: created.conversation.id });
+      assert.equal(warm.ok, true);
+      assert.equal(warm.providerSessionId, "warm-provider-session");
+      assert.equal(warmed, 1);
+
+      const started = await runtime.startMessage({ workspaceRoot, agent: { provider: "codex" }, conversationId: created.conversation.id, prompt: "hello" });
+      const final = await waitForConversationFacadeRun(runtime, workspaceRoot, started.runId);
+      assert.equal(final.output, "session=warm-provider-session");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("runs side questions in the same conversation without interrupting the main run", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          listAgents: async () => ({ agents: [] }),
+          normalizeAgent: async (input) => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", ...input }),
+          detectAgent: async (agent) => ({ ...agent, id: "codex", provider: "codex", status: "online" }),
+          start: async () => ({}),
+          run: async () => ({}),
+          status: () => ({}),
+          cancel: () => ({}),
+        },
+        adapters: {
+          codex: () => ({
+            sendMessage: async (ctx) => {
+              if (ctx.prompt === "main") await new Promise((resolve) => setTimeout(resolve, 80));
+              return { output: `reply:${ctx.prompt}`, command: "fake", connectionMode: "Codex ACP session", providerSessionId: ctx.providerSessionId ?? "shared-session", resumeKey: ctx.resumeKey ?? "shared-session" };
+            },
+          }),
+        },
+      });
+      const conversation = await runtime.createConversation({ workspaceRoot, agent: { provider: "codex" }, title: "Side" });
+      const main = await runtime.startMessage({ workspaceRoot, agent: { provider: "codex" }, conversationId: conversation.conversation.id, prompt: "main" });
+      const side = await runtime.sideQuestion({ workspaceRoot, agent: { provider: "codex" }, conversationId: conversation.conversation.id, prompt: "btw" });
+      assert.equal(side.ok, true);
+      assert.equal(side.run.output, "reply:btw");
+      assert.notEqual(side.run.runId, main.runId);
+      const mainFinal = await waitForRun(runtime, main.runId);
+      assert.equal(mainFinal.output, "reply:main");
+      assert.equal(side.run.conversationId, conversation.conversation.id);
+      assert.equal(side.run.providerSessionId, mainFinal.providerSessionId);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
   it("persists streaming conversation events outside the transient run object", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
@@ -264,7 +397,7 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-describe("personal agent AionUI-style metadata", () => {
+describe("personal agent metadata", () => {
   it("maps detected local agents to metadata without inventing unsupported capabilities", () => {
     const metadata = personalAgentMetadataFromAgent({
       id: "openclaw",
@@ -305,7 +438,7 @@ describe("personal agent AionUI-style metadata", () => {
     assert.equal(metadata.agent_source_info.hub_package_id, "openclaw-acp");
     assert.deepEqual(metadata.env, [{ name: "OPENCLAW_ENV", value: "1", description: "test env" }]);
     assert.deepEqual(metadata.native_skills_dirs, ["/tmp/openclaw/skills"]);
-    assert.deepEqual(metadata.behavior_policy, { permission_mode: "read-only-auto", yolo_mode_id: "ask", auto_approve_readonly: true });
+    assert.deepEqual(metadata.behavior_policy, { permission_mode: "read-only-auto", yolo_mode_id: "ask", auto_approve_readonly: true, supports_side_question: false });
     assert.equal(metadata.handshake.agent_capabilities.loadSession, true);
     assert.equal(metadata.handshake.agent_capabilities._meta.supportsApproval, false);
     assert.equal(metadata.handshake.available_models[0].id, "stable");
@@ -360,6 +493,58 @@ describe("personal agent AionUI-style metadata", () => {
     assert.equal(listed.metadata.length, 1);
     assert.equal(listed.metadata[0].agent_type, "acp");
     assert.equal(listed.metadata[0].handshake.agent_capabilities.sessionCapabilities.resume, null);
+  });
+
+  it("maps agent status onto the 5-state model", () => {
+    assert.equal(normalizeAgentStatus({ status: "online" }), "online");
+    assert.equal(normalizeAgentStatus({ status: "needs_auth" }), "needs_auth");
+    assert.equal(normalizeAgentStatus({ status: "offline", errorInfo: { code: "missing_binary" } }), "missing");
+    assert.equal(normalizeAgentStatus({ status: "offline", errorInfo: { code: "auth_required" } }), "needs_auth");
+    assert.equal(normalizeAgentStatus({ status: "error", error: "command not found" }), "missing");
+    assert.equal(normalizeAgentStatus({ status: "error", error: "login required" }), "needs_auth");
+    assert.equal(normalizeAgentStatus({ status: "error" }), "offline");
+    assert.equal(normalizeAgentStatus({ status: "offline" }), "offline");
+    assert.equal(normalizeAgentStatus({ status: "" }), "unknown");
+    assert.equal(normalizeAgentStatus({ capability: { installed: false } }), "missing");
+    assert.equal(normalizeAgentStatus({ status: "offline", capability: { installed: true, authenticated: false } }), "needs_auth");
+  });
+
+  it("only marks a 5-state online agent as available", () => {
+    const agents = [
+      { id: "codex", name: "Codex", provider: "codex", executablePath: "codex", status: "online", enabled: true },
+      { id: "claude", name: "Claude", provider: "claude", executablePath: "claude", status: "needs_auth", enabled: true, error: "login required" },
+      { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode", status: "missing", enabled: true },
+    ];
+    const management = personalAgentMetadataList(agents);
+    assert.equal(management[0].status, "online");
+    assert.equal(management[0].available, true);
+    assert.equal(management[1].status, "needs_auth");
+    assert.equal(management[1].available, false);
+    assert.equal(management[2].status, "missing");
+    assert.equal(management[2].available, false);
+  });
+
+  it("persists ACP session/new metadata into agent handshake", () => {
+    const metadata = personalAgentMetadataFromAgent({
+      id: "codex",
+      name: "Codex",
+      provider: "codex",
+      executablePath: "codex",
+      status: "online",
+      capability: { supportsAcp: true, supportsModelOverride: true },
+      sessionMetadata: {
+        availableModels: [{ id: "gpt-5.5", name: "GPT 5.5" }],
+        currentModelId: "gpt-5.5",
+        configOptions: [{ id: "mode", label: "Mode" }],
+        modes: [{ id: "agent", label: "Agent" }],
+        availableCommands: [{ name: "/help" }],
+      },
+    });
+    assert.deepEqual(metadata.handshake.available_models, [{ id: "gpt-5.5", label: "GPT 5.5" }]);
+    assert.deepEqual(metadata.handshake.config_options, [{ id: "mode", label: "Mode" }]);
+    assert.deepEqual(metadata.handshake.available_modes, [{ id: "agent", label: "Agent" }]);
+    assert.deepEqual(metadata.handshake.available_commands, [{ name: "/help" }]);
+    assert.equal(metadata.handshake.session_metadata.currentModelId, "gpt-5.5");
   });
 
   it("separates management metadata from picker-safe available metadata", () => {
@@ -490,6 +675,22 @@ describe("personal agent ACP JSON-RPC client", () => {
     assert.match(managedAcpBinPath("claude"), /managed-resources\/acp\/claude-agent-acp\/0\.52\.0\/.*\/node_modules\/\.bin\/claude-agent-acp/);
   });
 
+  it("validates managed ACP tool version, reporting not_installed for missing tools", async () => {
+    const unknown = await validateManagedAcpTool("nonexistent");
+    assert.equal(unknown.reason, "unknown_provider");
+    assert.equal(unknown.match, false);
+    // Real providers that aren't actually installed should report not_installed.
+    const codex = await validateManagedAcpTool("codex");
+    if (!codex.installed) {
+      assert.equal(codex.reason, "not_installed");
+      assert.equal(codex.match, false);
+    } else {
+      assert.equal(codex.installed, true);
+      assert.equal(codex.match, true);
+      assert.equal(codex.installedVersion, codex.expected);
+    }
+  });
+
   it("runs initialize, session/new, and streaming session/prompt against a fake ACP CLI", async () => {
     const events = [];
     const chunks = [];
@@ -535,7 +736,28 @@ describe("personal agent ACP JSON-RPC client", () => {
       timeoutMs: 500,
     });
     assert.equal(result.ok, false);
+    assert.equal(result.step, "fail_cli");
+    assert.equal(result.status, "missing");
     assert.match(result.error, /ACP process exited: 1|initialize timed out/);
+  });
+
+  it("two-step probe returns online when session/new succeeds", async () => {
+    const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+    const result = await probeAcpCommand({ command: process.execPath, args: [fixture], timeoutMs: 4_000 });
+    assert.equal(result.ok, true);
+    assert.equal(result.step, "online");
+    assert.equal(result.status, "online");
+    assert.equal(result.initialized.agentInfo.name, "fake-acp-cli");
+    assert.match(String(result.sessionResult.sessionId), /^fake-session-/);
+  });
+
+  it("two-step probe returns needs_auth when session/new reports authentication", async () => {
+    const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+    const result = await probeAcpCommand({ command: process.execPath, args: [fixture, "--auth-required"], timeoutMs: 4_000 });
+    assert.equal(result.ok, false);
+    assert.equal(result.step, "needs_auth");
+    assert.equal(result.status, "needs_auth");
+    assert.match(result.error, /Authentication required/i);
   });
 
   it("handles ACP permission requests and continues the prompt stream", async () => {
@@ -578,7 +800,7 @@ describe("personal agent ACP JSON-RPC client", () => {
 });
 
 describe("personal agent normalized conversation message stream", () => {
-  it("maps ACP-style run events into AionUI-style conversation messages", () => {
+  it("maps ACP run events into conversation messages", () => {
     const messages = runEventsToConversationMessages([
       { type: "status", text: "codex ACP flow started", at: 1 },
       { type: "assistant_chunk", text: "Hello", at: 2 },
@@ -702,6 +924,34 @@ describe("personal agent normalized conversation message stream", () => {
     assert.equal(messages[0].category, "auth");
     assert.equal(messages[1].category, "provider");
   });
+
+  it("maps rich ACP updates into dedicated conversation message types", () => {
+    const messages = runEventsToConversationMessages([
+      { type: "plan", at: 1, plan: { entries: [{ id: "p1", title: "Inspect", status: "completed", priority: "high" }] } },
+      { type: "thinking", at: 2, text: "Reasoning", status: "thinking", msgId: "m1" },
+      { type: "acp_tool_call", at: 3, msgId: "m1", update: { tool_call_id: "t1", title: "Read", kind: "read", status: "in_progress", raw_input: { path: "README.md" } } },
+      { type: "acp_tool_call", at: 4, msgId: "m1", update: { tool_call_id: "t2", title: "Edit", kind: "edit", status: "completed", content: [{ type: "text", text: "patched" }] } },
+      { type: "tips", at: 5, text: "Provider timeout", category: "error", ownership: "provider", resolution: { target: "provider", kind: "retry", message: "Retry later" } },
+    ]);
+
+    assert.deepEqual(messages.map((message) => message.type), ["plan", "thinking", "tool_group", "tips"]);
+    assert.equal(messages[0].entries[0].status, "completed");
+    assert.equal(messages[1].status, "thinking");
+    assert.equal(messages[2].toolCalls.length, 2);
+    assert.equal(messages[2].toolCalls[0].update.kind, "read");
+    assert.equal(messages[3].ownership, "provider");
+    assert.equal(messages[3].resolution.kind, "retry");
+  });
+
+  it("maps ACP context usage updates into structured conversation messages", () => {
+    const messages = runEventsToConversationMessages([
+      { type: "status", text: 'acp_context_usage> {"used":10,"total":100}', at: 1 },
+    ]);
+
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0].type, "context_usage");
+    assert.deepEqual(messages[0].contextUsage, { used: 10, total: 100, label: null });
+  });
 });
 
 describe("personal agent process registry", () => {
@@ -770,6 +1020,48 @@ describe("personal agent process registry", () => {
       await cleanup(workspaceRoot);
     }
   });
+
+  it("records crashes and implements exponential backoff restart policy", () => {
+    clearAgentProcesses();
+    clearAgentCrashHistory(undefined);
+    const runId = "crash-test-run";
+    registerAgentProcess({ runId, provider: "codex", conversationId: "crash-conv", pid: 1111, command: "codex-acp", startedAt: Date.now() });
+
+    const r1 = recordAgentCrash(runId);
+    assert.equal(r1.shouldRestart, true);
+    assert.equal(r1.attempt, 1);
+    assert.equal(r1.backoffMs, 1000);
+    assert.equal(getAgentProcess(runId)?.status, "restarting");
+    assert.equal(getAgentProcess(runId)?.staleReason, "crash_restart_1");
+
+    const r2 = recordAgentCrash(runId);
+    assert.equal(r2.shouldRestart, true);
+    assert.equal(r2.backoffMs, 2000);
+
+    const r3 = recordAgentCrash(runId);
+    assert.equal(r3.shouldRestart, true);
+    assert.equal(r3.backoffMs, 4000);
+
+    const r4 = recordAgentCrash(runId);
+    assert.equal(r4.shouldRestart, false);
+    assert.equal(r4.attempt, 4);
+    assert.equal(r4.backoffMs, 0);
+    assert.equal(getAgentProcess(runId)?.status, "error");
+    assert.equal(getAgentProcess(runId)?.staleReason, "crash_restart_exhausted");
+
+    const r5 = recordAgentCrash("other-run");
+    assert.equal(r5.shouldRestart, true);
+    assert.equal(r5.attempt, 1);
+
+    clearAgentProcesses();
+    clearAgentCrashHistory(undefined);
+  });
+
+  it("computes exponential backoff for crash restarts", () => {
+    assert.equal(crashRestartBackoffMs(1), 1000);
+    assert.equal(crashRestartBackoffMs(2), 2000);
+    assert.equal(crashRestartBackoffMs(3), 4000);
+  });
 });
 
 describe("personal agent context injection", () => {
@@ -809,6 +1101,25 @@ describe("personal agent context injection", () => {
       assert.match(raw, /Additional accessible roots:/);
       assert.match(raw, /docs/);
       assert.equal((raw.match(/docs/g) ?? []).length, 1);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("appends codex plan-first behavior block to AGENTS.md for codex only", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const codexDir = path.join(workspaceRoot, "codex-workdir");
+      const opencodeDir = path.join(workspaceRoot, "opencode-workdir");
+      await mkdir(codexDir, { recursive: true });
+      await mkdir(opencodeDir, { recursive: true });
+      const codexPath = await injectPersonalAgentContext({ workdir: codexDir, provider: "codex", workspaceRoot });
+      const opencodePath = await injectPersonalAgentContext({ workdir: opencodeDir, provider: "opencode", workspaceRoot });
+      const codexText = await readFile(codexPath, "utf8");
+      const opencodeText = await readFile(opencodePath, "utf8");
+      assert.match(codexText, /Plan-first behavior/);
+      assert.match(codexText, /update_plan/);
+      assert.equal(/Plan-first behavior/.test(opencodeText), false);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -945,6 +1256,222 @@ describe("personal agent runtime facade", () => {
       const listed = await listConversations(workspaceRoot, "codex", "codex");
       assert.equal(listed.conversations.find((item) => item.id === first.id)?.providerSessionId, "thread-a-next");
       assert.equal(listed.conversations.find((item) => item.id === second.id)?.providerSessionId, "thread-b-next");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("clears local conversation pointers when closing a provider session", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const conversation = await createConversation(workspaceRoot, "codex", "codex", {
+        title: "Closable",
+        providerSessionId: "provider-session-close",
+        resumeKey: "provider-session-close",
+      });
+      const closed = [];
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          normalizeAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [] }),
+          detectAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [], status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({ status: "legacy-start" }),
+          run: async () => ({ status: "legacy-run" }),
+          status: () => ({ status: "missing" }),
+          cancel: async () => ({ ok: true }),
+        },
+        adapters: {
+          codex: () => ({
+            closeSession: async (ctx) => {
+              closed.push(ctx.sessionId);
+              return { ok: true, sessionId: ctx.sessionId };
+            },
+          }),
+        },
+      });
+
+      const result = await runtime.closeProviderSession({ workspaceRoot, conversationId: conversation.id, sessionId: "provider-session-close", agent: { provider: "codex", id: "codex" } });
+      const updated = await getConversation(workspaceRoot, "codex", "codex", conversation.id);
+
+      assert.deepEqual(closed, ["provider-session-close"]);
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.closedConversationIds, [conversation.id]);
+      assert.equal(updated.providerSessionId, null);
+      assert.equal(updated.resumeKey, null);
+      assert.equal(updated.lastStatus, "closed");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("lists, loads, and forks provider sessions through the runtime facade", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const calls = [];
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          normalizeAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [] }),
+          detectAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [], status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({ status: "legacy-start" }),
+          run: async () => ({ status: "legacy-run" }),
+          status: () => ({ status: "missing" }),
+          cancel: async () => ({ ok: true }),
+        },
+        adapters: {
+          codex: () => ({
+            listSessions: async () => ({ sessions: [{ id: "provider-session-a", sessionId: "provider-session-a", title: "A" }] }),
+            loadSession: async (ctx) => {
+              calls.push(["load", ctx.sessionId]);
+              return {
+                sessionId: ctx.sessionId,
+                providerSessionId: ctx.sessionId,
+                conversationMessages: [{ id: "loaded-1", type: "text", role: "assistant", text: "loaded", createdAt: 1 }],
+                raw: { sessionId: ctx.sessionId },
+              };
+            },
+            forkSession: async (ctx) => {
+              calls.push(["fork", ctx.sessionId]);
+              return { sessionId: `${ctx.sessionId}-fork`, providerSessionId: `${ctx.sessionId}-fork`, raw: { sessionId: `${ctx.sessionId}-fork` } };
+            },
+            closeSession: async (ctx) => {
+              calls.push(["close", ctx.sessionId]);
+              return { ok: true, sessionId: ctx.sessionId, raw: { closed: true } };
+            },
+          }),
+        },
+      });
+
+      const listed = await runtime.listProviderSessions({ workspaceRoot, agent: { provider: "codex", id: "codex" } });
+      const loaded = await runtime.loadProviderSession({ workspaceRoot, sessionId: "provider-session-a", agent: { provider: "codex", id: "codex" } });
+      const forked = await runtime.forkProviderSession({ workspaceRoot, sessionId: "provider-session-a", agent: { provider: "codex", id: "codex" } });
+      const closed = await runtime.closeProviderSession({ workspaceRoot, sessionId: "provider-session-a", conversationId: loaded.conversation.id, agent: { provider: "codex", id: "codex" } });
+      const loadedEvents = await readConversationEvents(workspaceRoot, "codex", "codex", loaded.conversation.id);
+      const closedConversation = await getConversation(workspaceRoot, "codex", "codex", loaded.conversation.id);
+
+      assert.equal(listed.sessions[0].sessionId, "provider-session-a");
+      assert.equal(loaded.conversation.providerSessionId, "provider-session-a");
+      assert.equal(loadedEvents.messages[0].text, "loaded");
+      assert.equal(forked.conversation.providerSessionId, "provider-session-a-fork");
+      assert.equal(closed.ok, true);
+      assert.deepEqual(closed.closedConversationIds, [loaded.conversation.id]);
+      assert.equal(closedConversation.providerSessionId, null);
+      assert.equal(closedConversation.resumeKey, null);
+      assert.deepEqual(calls, [["load", "provider-session-a"], ["fork", "provider-session-a"], ["close", "provider-session-a"]]);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("sets ACP config options through the runtime facade", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const calls = [];
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          normalizeAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [] }),
+          detectAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [], status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({ status: "legacy-start" }),
+          run: async () => ({ status: "legacy-run" }),
+          status: () => ({ status: "missing" }),
+          cancel: async () => ({ ok: true }),
+        },
+        adapters: {
+          codex: () => ({
+            setConfigOption: async (ctx) => {
+              calls.push({ sessionId: ctx.sessionId, optionId: ctx.optionId, value: ctx.value });
+              return {
+                ok: true,
+                sessionId: ctx.sessionId,
+                optionId: ctx.optionId,
+                value: ctx.value,
+                confirmation: "Mode updated",
+                configOptions: [{ id: "mode", value: ctx.value }],
+              };
+            },
+          }),
+        },
+      });
+
+      const result = await runtime.setConfigOption({ workspaceRoot, sessionId: "provider-session-a", optionId: "mode", value: "plan", agent: { provider: "codex", id: "codex" } });
+
+      assert.equal(result.ok, true);
+      assert.equal(result.confirmation, "Mode updated");
+      assert.deepEqual(result.configOptions, [{ id: "mode", value: "plan" }]);
+      assert.deepEqual(calls, [{ sessionId: "provider-session-a", optionId: "mode", value: "plan" }]);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("persists custom agent CRUD and overrides through the runtime facade", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          normalizeAgent: async (input) => ({ id: input.id ?? "custom", name: input.name ?? "Custom", provider: input.provider ?? "custom", executablePath: input.executablePath ?? "custom", customArgs: input.customArgs ?? [] }),
+          detectAgent: async (agent) => ({ ...agent, status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({ status: "legacy-start" }),
+          run: async () => ({ status: "legacy-run" }),
+          status: () => ({ status: "missing" }),
+          cancel: async () => ({ ok: true }),
+        },
+      });
+
+      const created = await runtime.createCustomAgent({ workspaceRoot, agent: { id: "custom-reviewer", name: "Reviewer", command: "reviewer", args: ["--json"], env: { TOKEN: "redacted" } } });
+      const listed = await runtime.listAgents({ workspaceRoot });
+      const updated = await runtime.updateCustomAgent({ workspaceRoot, id: "custom-reviewer", agent: { name: "Reviewer 2", command: "reviewer", args: ["--stream"] } });
+      const overrides = await runtime.setAgentOverrides({ workspaceRoot, id: "custom-reviewer", overrides: { command: "reviewer", env: { TOKEN: "redacted" } } });
+      const readOverrides = await runtime.getAgentOverrides({ workspaceRoot, id: "custom-reviewer" });
+      const deleted = await runtime.deleteCustomAgent({ workspaceRoot, id: "custom-reviewer" });
+      const listedAfterDelete = await runtime.listAgents({ workspaceRoot });
+
+      assert.equal(created.agent.id, "custom-reviewer");
+      assert.equal(listed.agents.some((agent) => agent.id === "custom-reviewer"), true);
+      assert.equal(updated.agent.name, "Reviewer 2");
+      assert.deepEqual(overrides.overrides, { command: "reviewer", env: { TOKEN: "redacted" } });
+      assert.deepEqual(readOverrides.overrides, overrides.overrides);
+      assert.equal(deleted.deleted, true);
+      assert.equal(listedAfterDelete.agents.some((agent) => agent.id === "custom-reviewer"), false);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("emits structured tips with ownership and resolution when a provider send fails", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          normalizeAgent: async () => ({ id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode", customArgs: [] }),
+          detectAgent: async () => ({ id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode", customArgs: [], status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({ status: "legacy-start" }),
+          run: async () => ({ status: "legacy-run" }),
+          status: () => ({ status: "missing" }),
+          cancel: async () => ({ ok: true }),
+        },
+        adapters: {
+          opencode: () => ({
+            sendMessage: async () => {
+              throw new Error("provider 500 timeout");
+            },
+            cancel: async () => undefined,
+          }),
+        },
+      });
+
+      const started = await runtime.startMessage({ workspaceRoot, prompt: "fail", agent: { provider: "opencode", id: "opencode" } });
+      const failed = await waitForRun(runtime, started.runId);
+      const tip = failed.conversationMessages.find((message) => message.type === "tips");
+
+      assert.equal(failed.status, "failed");
+      assert.equal(failed.errorInfo.code, "timeout");
+      assert.equal(tip?.ownership, "unknown");
+      assert.equal(tip?.resolution?.target, "details");
+      assert.equal(tip?.resolution?.kind, "retry");
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -1109,9 +1636,10 @@ describe("personal agent runtime facade", () => {
       assert.deepEqual(completed.metadata, { resumeSupported: true });
       assert.match(completed.debugSummary, /providerSessionId=provider-session-1/);
       assert.equal(completed.events.filter((event) => event.type === "assistant_chunk").length, 1);
-      const finalEvents = completed.events.filter((event) => event.type === "assistant");
+      const finalEvents = completed.events.filter((event) => event.type === "finish");
       assert.equal(finalEvents.length, 1);
       assert.equal(finalEvents[0]?.text, "final answer");
+      assert.equal(completed.events.filter((event) => event.type === "assistant").length, 0);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -1384,7 +1912,7 @@ describe("personal agent runtime facade", () => {
       });
 
       const started = await runtime.startMessage({ workspaceRoot, prompt: "联网", agent: { provider: "codex" }, approvalMode: "ask" });
-      const waiting = runtime.getRun({ runId: started.runId, workspaceRoot });
+      const waiting = await waitForPendingApproval(runtime, { runId: started.runId, workspaceRoot });
       assert.equal(waiting.status, "running");
       assert.equal(waiting.approvalMode, "ask");
       assert.equal(waiting.pendingApprovals.length, 1);
@@ -1396,6 +1924,63 @@ describe("personal agent runtime facade", () => {
       assert.equal(receivedDecision, "accept");
       assert.equal(completed.pendingApprovals.length, 0);
       assert.match(completed.output, /decision=accept/);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("persists always-allow approval decisions across runtime restarts", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const decisions = [];
+      const legacy = {
+        normalizeAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [] }),
+        detectAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [], status: "online" }),
+        listAgents: async () => ({ agents: [] }),
+        start: async () => ({ status: "legacy-start" }),
+        run: async () => ({ status: "legacy-run" }),
+        status: () => ({ status: "missing" }),
+        cancel: async () => ({ ok: false }),
+      };
+      const makeRuntime = () => createPersonalAgentRuntime({
+        legacy,
+        adapters: {
+          codex: ({ requestApproval }) => ({
+            sendMessage: async () => {
+              const result = await requestApproval({
+                id: `approval-${decisions.length + 1}`,
+                method: "session/request_permission",
+                kind: "command",
+                title: "Run command",
+                summary: "Run harmless command",
+                command: "touch /tmp/onmyagent-approval-store-smoke",
+                readonly: false,
+              });
+              decisions.push(result);
+              return { output: `decision=${result.decision}`, command: "fake-codex-session" };
+            },
+          }),
+        },
+      });
+
+      const firstRuntime = makeRuntime();
+      const first = await firstRuntime.startMessage({ workspaceRoot, prompt: "needs approval", agent: { provider: "codex" }, approvalMode: "ask" });
+      const waiting = await waitForPendingApproval(firstRuntime, { runId: first.runId, workspaceRoot });
+      assert.equal(waiting.pendingApprovals.length, 1);
+      assert.deepEqual(await firstRuntime.resolveApproval({ runId: first.runId, approvalId: waiting.pendingApprovals[0].id, decision: "acceptForSession", alwaysAllow: true }), { ok: true });
+      const firstCompleted = await waitForRun(firstRuntime, first.runId);
+      assert.equal(firstCompleted.status, "completed");
+      assert.equal(decisions[0].decision, "acceptForSession");
+
+      const secondRuntime = makeRuntime();
+      const second = await secondRuntime.startMessage({ workspaceRoot, prompt: "same approval", agent: { provider: "codex" }, approvalMode: "ask" });
+      const secondCompleted = await waitForRun(secondRuntime, second.runId);
+      assert.equal(secondCompleted.status, "completed");
+      assert.equal(secondCompleted.pendingApprovals.length, 0);
+      assert.equal(decisions[1].decision, "acceptForSession");
+      assert.equal(decisions[1].stored, true);
+      assert.equal(secondCompleted.events.some((event) => event.type === "approval_request"), false);
+      assert.equal(secondCompleted.events.some((event) => /stored/.test(String(event.text ?? ""))), true);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -2129,9 +2714,9 @@ describe("Codex app-server adapter approvals", () => {
 describe("personal agent runtime timeout & artifacts", () => {
   function makeFakeLegacy(provider) {
     return {
-      normalizeAgent: async () => ({ id: provider, name: provider, provider, executablePath: provider, customArgs: [] }),
-      detectAgent: async () => ({ id: provider, name: provider, provider, status: "online", executablePath: provider, customArgs: [] }),
-      listAgents: async () => ({ agents: [] }),
+      normalizeAgent: async (agent = {}) => ({ id: provider, name: provider, provider, executablePath: provider, customArgs: [], ...agent }),
+      detectAgent: async (agent = {}) => ({ id: provider, name: provider, provider, status: "online", executablePath: provider, customArgs: [], ...agent }),
+      listAgents: async () => ({ agents: [{ id: provider, name: provider, provider, status: "online", executablePath: provider, customArgs: [] }] }),
       start: async () => ({ status: "legacy-start" }),
       run: async () => ({ status: "legacy-run" }),
       status: () => ({ status: "missing" }),
@@ -2291,7 +2876,7 @@ describe("personal agent runtime timeout & artifacts", () => {
       });
       const started = await runtime.startMessage({ workspaceRoot, prompt: "inspect", agent: { provider: "codex" } });
       const final = await waitForRun(runtime, started.runId);
-      assert.equal(final.status, "completed");
+      assert.equal(final.status, "completed", final.error ?? "remote run should complete");
       assert.equal(final.ok, true);
       assert.equal(final.errorInfo, null);
       assert.match(final.output, /已经完成主要检查/);
@@ -2299,6 +2884,71 @@ describe("personal agent runtime timeout & artifacts", () => {
     } finally {
       await cleanup(workspaceRoot);
     }
+  });
+
+  it("splits reasoning content out of agent_message_chunk", () => {
+    const roleReasoning = acpGenericTest.extractReasoningFromMessageChunk({ role: "reasoning" });
+    assert.equal(roleReasoning.thought, "");
+    assert.equal(roleReasoning.reasoningRole, true);
+    const inline = acpGenericTest.extractReasoningFromMessageChunk({
+      content: [
+        { type: "thought", text: "step 1 " },
+        { type: "text", text: "hello" },
+      ],
+    });
+    assert.equal(inline.thought, "step 1 ");
+    assert.deepEqual(inline.messageData.content, [{ type: "text", text: "hello" }]);
+    const passthrough = acpGenericTest.extractReasoningFromMessageChunk({ content: [{ type: "text", text: "plain" }] });
+    assert.equal(passthrough.thought, "");
+    assert.equal(passthrough.messageData.content[0].text, "plain");
+  });
+
+  it("thinking tracker merges chunks by msgId and emits done boundary", async () => {
+    const events = [];
+    const tracker = acpGenericTest.createThinkingTracker((event) => events.push(event));
+    tracker.push({ text: "step a ", data: {}, msgId: "m1", status: "thinking" });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    tracker.push({ text: "step b", data: {}, msgId: "m1", status: "thinking" });
+    tracker.finishOnAssistant();
+    // Two chunk events plus one done boundary.
+    assert.equal(events.length, 3);
+    assert.equal(events[0].type, "thinking");
+    assert.equal(events[0].msgId, "m1");
+    assert.equal(events[0].text, "step a ");
+    assert.equal(events[1].text, "step b");
+    assert.ok(events[1].durationMs >= events[0].durationMs);
+    assert.equal(events[2].status, "done");
+    assert.equal(events[2].msgId, "m1");
+    assert.ok(events[2].durationMs >= events[1].durationMs);
+    // Subsequent finishOnAssistant should be a no-op.
+    tracker.finishOnAssistant();
+    assert.equal(events.length, 3);
+  });
+
+  it("thinking tracker finishes on non-thinking boundary events", async () => {
+    const events = [];
+    const tracker = acpGenericTest.createThinkingTracker((event) => events.push(event));
+    tracker.push({ text: "reason ", data: {}, msgId: "m1", status: "thinking" });
+    assert.equal(tracker.hasActive(), true);
+    tracker.finishOnBoundary("tool_call");
+    assert.equal(tracker.hasActive(), false);
+    const done = events.at(-1);
+    assert.equal(done.status, "done");
+    assert.equal(done.data.reason, "tool_call");
+    // Second finishOnBoundary is a no-op.
+    tracker.finishOnBoundary("tool_call");
+    assert.equal(events.length, 2);
+  });
+
+  it("deriveThoughtHint splits subject/description", () => {
+    assert.deepEqual(acpGenericTest.deriveThoughtHint("Analyzing repo"), { subject: "Analyzing repo", description: "" });
+    assert.deepEqual(acpGenericTest.deriveThoughtHint("Step one\nlook up files"), { subject: "Step one", description: "look up files" });
+    assert.equal(acpGenericTest.deriveThoughtHint(""), null);
+    assert.equal(acpGenericTest.deriveThoughtHint("   "), null);
+    const long = "x".repeat(120);
+    const hint = acpGenericTest.deriveThoughtHint(long);
+    assert.equal(hint.subject.length, 80);
+    assert.equal(hint.description.length, 40);
   });
 
   it("normalizes Codex ACP model ids to modelId effort syntax", () => {
@@ -2311,6 +2961,68 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(acpGenericTest.supportsSessionSetModel("codex"), true);
     assert.equal(acpGenericTest.supportsSessionSetModel("hermes"), true);
     assert.equal(acpGenericTest.supportsSessionSetModel("claude"), false);
+  });
+
+  it("normalizes Codex thought stream + inline reasoning + plan into merged UI messages", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const events = [];
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: (event) => events.push(event), registerCancel: () => undefined });
+      const result = await adapter.sendMessage({
+        workspaceRoot,
+        prompt: "plan-and-think",
+        approvalMode: "ask",
+        agent: {
+          id: "codex",
+          name: "Codex CLI",
+          provider: "codex",
+          executablePath: process.execPath,
+          customArgs: [fixture, "--emit-thought-stream", "--emit-reasoning-inline", "--emit-plan-update"],
+          managedAcpTool: { id: "codex-cli-test" },
+        },
+      });
+      assert.match(result.output, /Fake response to: plan-and-think/);
+      // Assistant text must not carry the inline "inline-thought" reasoning fragment.
+      assert.equal(result.output.includes("inline-thought"), false);
+
+      const thinkingEvents = events.filter((event) => event.type === "thinking");
+      // 2 thought chunks (step-a, step-b) + inline reasoning (inline-thought) + done boundary(ies).
+      assert.ok(thinkingEvents.length >= 3, `expected >=3 thinking events, got ${thinkingEvents.length}`);
+      assert.ok(thinkingEvents.some((event) => event.text.trim() === "step-a"));
+      assert.ok(thinkingEvents.some((event) => event.text === "step-b"));
+      assert.ok(thinkingEvents.some((event) => event.text.trim() === "inline-thought"));
+      assert.ok(thinkingEvents.some((event) => event.status === "done"));
+      // All thinking chunk events carry durationMs (>= 0) and startedAt.
+      for (const event of thinkingEvents) {
+        assert.equal(typeof event.durationMs, "number");
+        assert.equal(typeof event.startedAt, "number");
+      }
+
+      const planEvents = events.filter((event) => event.type === "plan");
+      assert.equal(planEvents.length, 1);
+
+      const messages = runEventsToConversationMessages(events);
+      const thinkingMessages = messages.filter((m) => m.type === "thinking");
+      // Renderer/backend converter must merge chunks by msgId. Two distinct
+      // msgIds (thought-1 for the streamed thought pair, m-inline for the
+      // inline reasoning) means at most 2 cards, plus optionally one for the
+      // unnamed done-boundary if it lands separately.
+      const uniqueMsgIds = new Set(thinkingMessages.map((m) => m.msgId || "__none__"));
+      assert.ok(uniqueMsgIds.size <= 3, `expected <=3 unique msgId groups, got ${uniqueMsgIds.size}`);
+      const merged = thinkingMessages.find((m) => m.msgId === "thought-1");
+      assert.ok(merged, "expected merged thinking message for msgId=thought-1");
+
+      assert.match(merged.text, /step-astep-b|step-a step-b/);
+      assert.equal(merged.status, "done");
+      assert.equal(typeof merged.durationMs, "number");
+
+      const planMessages = messages.filter((m) => m.type === "plan");
+      assert.equal(planMessages.length, 1);
+      assert.equal(planMessages[0].entries.length, 2);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
   });
 
   it("does not call session/set_model for Claude ACP providers", async () => {
@@ -2353,6 +3065,57 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.equal(result.output, "Fake response to: hello-after-refusal");
       assert.equal(events.some((event) => event.type === "tool" && /User refused permission to run tool/.test(String(event.text ?? ""))), true);
       assert.equal(events.some((event) => event.type === "status" && /preserving the assistant response/.test(String(event.text ?? ""))), true);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("marks Codex ACP runs with non-clean stop reasons as incomplete warning (not failure)", () => {
+    assert.equal(acpGenericTest.acpPromptStopReason({ stopReason: "max_tokens" }), "max_tokens");
+    const result = acpGenericTest.assertAcpPromptCompleted("codex", { stopReason: "max_tokens" });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, "acp_incomplete_output");
+    assert.match(result.message, /stopReason=max_tokens/);
+  });
+
+  it("does not guess truncation from Markdown shape when the ACP stop reason is clean", () => {
+    // A clean stopReason means
+    // complete, even if the assistant text ends on a bold heading.
+    const result = acpGenericTest.assertAcpPromptCompleted("codex", { stopReason: "end_turn" });
+    assert.equal(result.ok, true);
+    assert.equal(result.stopReason, "end_turn");
+  });
+
+  it("reports non-clean stop reasons as incomplete regardless of text shape", () => {
+    const complete = acpGenericTest.assertAcpPromptCompleted("codex", { stopReason: "max_tokens" });
+    assert.equal(complete.ok, false);
+    assert.equal(complete.code, "acp_incomplete_output");
+    assert.equal(complete.stopReason, "max_tokens");
+  });
+
+  it("does not auto-continue a truncated Codex ACP turn; shows it as-is with a warning", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const events = [];
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: (event) => events.push(event), registerCancel: () => undefined });
+      const result = await adapter.sendMessage({
+        workspaceRoot,
+        prompt: "research-ai-hotspots",
+        model: "gpt-test[medium]",
+        approvalMode: "ask",
+        agent: { id: "codex", name: "Codex", provider: "codex", executablePath: process.execPath, customArgs: [fixture, "--truncated-reply", "--max-tokens-stop"], managedAcpTool: { id: "codex-acp-test" } },
+      });
+
+      // The single truncated turn is preserved verbatim — no continuation prompt.
+      assert.equal(result.output, "**3. AI 对就业影响成为主流议题**");
+      assert.equal(result.truncated, true);
+      assert.equal(result.stopReason, "max_tokens");
+      assert.equal(result.metadata.truncated, true);
+      // Exactly one turn (two chunks from the fake CLI), no continuation turn.
+      assert.equal(events.filter((event) => event.type === "assistant_chunk").length, 2);
+      assert.equal(events.some((event) => event.type === "status" && /requesting continuation/.test(String(event.text ?? ""))), false);
+      assert.equal(events.some((event) => event.type === "status" && /did not finish cleanly/.test(String(event.text ?? ""))), true);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -2437,6 +3200,112 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(runtime.classifyErrorForTest(new Error("codex ACP set_mode failed: modeId invalid")).code, "codex_acp_mode_failed");
     assert.equal(runtime.classifyErrorForTest(new Error("acp_bridge_interrupted_after_retry")).code, "acp_bridge_interrupted_after_retry");
     assert.equal(runtime.classifyErrorForTest(new Error("curl: (6) Could not resolve host: example.com")).code, "sandbox_or_network_refusal");
+  });
+
+  it("classifies send failures with ownership and resolution diagnostics", () => {
+    const runtime = createPersonalAgentRuntime({ legacy: makeFakeLegacy("opencode") });
+    const missing = runtime.classifyErrorForTest(new Error("spawn opencode ENOENT command not found"));
+    assert.equal(missing.code, "missing_binary");
+    assert.equal(runtime.buildErrorTipForTest(missing).ownership, "agent");
+    const auth = runtime.classifyErrorForTest(new Error("401 unauthorized api key login required"));
+    assert.equal(auth.code, "auth_required");
+    assert.equal(runtime.buildErrorTipForTest(auth).resolution.kind, "authenticate");
+    const provider = runtime.classifyErrorForTest(new Error("provider returned 502 Bad Gateway"));
+    assert.equal(provider.code, "provider_failed");
+    assert.equal(runtime.buildErrorTipForTest(provider).ownership, "provider");
+    const timeout = runtime.classifyErrorForTest(new Error("request timed out after 30000ms"));
+    assert.equal(timeout.code, "timeout");
+    assert.equal(runtime.buildErrorTipForTest(timeout).resolution.kind, "retry");
+  });
+
+  it("runs remote ACP agents over WebSocket", async () => {
+    const workspaceRoot = await tempWorkspace();
+    const server = await withTinyWebSocketServer((message) => {
+      if (message.method === "initialize") return { capabilities: { remote: true } };
+      if (message.method === "session/new") return { sessionId: "remote-session" };
+      if (message.method === "session/prompt") return { sessionId: "remote-session", output: "remote:" + message.params.prompt };
+      return {};
+    });
+    try {
+      const runtime = createPersonalAgentRuntime({ legacy: makeFakeLegacy("remote") });
+      const started = await runtime.startMessage({ workspaceRoot, prompt: "ping", agent: { provider: "remote", remote: { url: server.url } } });
+      const final = await waitForRun(runtime, started.runId);
+      assert.equal(final.status, "completed");
+      assert.equal(final.output, "remote:ping");
+      assert.equal(final.connectionMode, "Remote ACP WebSocket session");
+    } finally {
+      await server.close();
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("checks provider health and managed agent health by id", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runtime = createPersonalAgentRuntime({
+        legacy: makeFakeLegacy("opencode"),
+        adapters: { opencode: () => ({ sendMessage: async () => ({ output: "ok", command: "opencode acp", connectionMode: "OpenCode ACP session" }) }) },
+      });
+      const direct = await runtime.checkProviderHealth({ workspaceRoot, agent: { provider: "opencode" } });
+      assert.equal(direct.healthy, true);
+      const managed = await runtime.checkManagedAgentHealthById({ workspaceRoot, id: "opencode" });
+      assert.equal(managed.healthy, true);
+      const missing = await runtime.checkManagedAgentHealthById({ workspaceRoot, id: "missing" });
+      assert.equal(missing.healthy, false);
+      assert.equal(missing.status, "missing");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("injects all ACP E2E stream update kinds", () => {
+    const events = [];
+    const injector = new AcpE2EStreamInjector({ appendEvent: (event) => appendContractEvent(events, event) });
+    injector.emitAll();
+    const messages = runEventsToConversationMessages(events);
+    const types = new Set(messages.map((message) => message.type));
+    assert.equal(types.has("plan"), true);
+    assert.equal(types.has("thinking"), true);
+    assert.equal(types.has("tool_group"), true);
+    assert.equal(types.has("tips"), true);
+    assert.equal(types.has("context_usage"), true);
+    assert.equal(types.has("available_commands"), true);
+  });
+
+  it("bounds large ACP terminal deltas before persisting run events", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runtime = createPersonalAgentRuntime({
+        legacy: makeFakeLegacy("codex"),
+        adapters: {
+          codex: ({ appendEvent }) => ({
+            sendMessage: async () => {
+              appendEvent({
+                type: "acp_tool_call",
+                text: "x".repeat(12_000),
+                update: {
+                  tool_call_id: "tool-large-output",
+                  status: "in_progress",
+                  title: "Bash",
+                  _meta: { terminal_output_delta: { data: "y".repeat(12_000), terminal_id: "tool-large-output" } },
+                },
+              });
+              return { output: "done", command: "codex acp", connectionMode: "Codex ACP session" };
+            },
+          }),
+        },
+      });
+      const final = await runtime.runMessage({ workspaceRoot, prompt: "large terminal output", agent: { provider: "codex", id: "codex" } });
+      const event = final.events.find((item) => item.type === "acp_tool_call");
+      assert.ok(event);
+      assert.equal(Object.prototype.hasOwnProperty.call(event, "data"), false);
+      assert.equal(event.truncated, true);
+      assert.ok(event.text.length < 4_100);
+      assert.equal(event.update._meta.terminal_output_delta.truncated, true);
+      assert.ok(event.update._meta.terminal_output_delta.data.length < 4_100);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
   });
 });
 

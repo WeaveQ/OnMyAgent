@@ -36,6 +36,13 @@ function buildContextBlock({ provider, workspaceRoot, accessibleWorkspaceRoots =
     `Workspace root: ${workspaceRoot}`,
     extraRoots.length ? `Additional accessible roots:\n${extraRoots.map((root) => `- ${root}`).join("\n")}` : "Additional accessible roots: none",
     `Provider: ${provider}`,
+    ...(provider === "codex"
+      ? [
+          "",
+          "## Plan-first behavior",
+          "When the user asks you to plan, outline steps, list todos, or work step-by-step, you MUST call your `update_plan` tool with a structured entries array before executing. Do not respond with a markdown-only plan.",
+        ]
+      : []),
   ].join("\n");
 }
 

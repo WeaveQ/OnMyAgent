@@ -2,6 +2,30 @@ import { PERSONAL_LOCAL_AGENT_PROVIDERS, personalLocalAgentConnectionMode } from
 
 const ACP_SESSION_CAPABILITY = Object.freeze({});
 
+// Stable Local Agent status model used by the management UI.
+const FIVE_STATE_STATUSES = new Set(["online", "needs_auth", "offline", "missing", "unknown"]);
+
+export function normalizeAgentStatus(agent) {
+  const raw = String(agent?.status ?? "").trim();
+  // Authoritative explicit states pass straight through.
+  if (raw === "online" || raw === "needs_auth" || raw === "missing") return raw;
+  const code = String(agent?.errorInfo?.code ?? "").trim();
+  const capability = agent?.capability && typeof agent.capability === "object" ? agent.capability : null;
+  const errorText = String(agent?.error ?? agent?.errorInfo?.message ?? "").toLowerCase();
+  // Missing binary / not installed wins over a generic offline/error status.
+  if (code === "missing_binary" || capability?.installed === false || /not found|no such file|command not found|未配置|命令不可用|not installed/.test(errorText)) {
+    return "missing";
+  }
+  // Authentication / login required.
+  if (code === "auth_required" || capability?.authenticated === false || /auth|login|unauthorized|forbidden|api key|credential|认证|登录|未授权/.test(errorText)) {
+    return "needs_auth";
+  }
+  if (raw === "offline" || raw === "error") return "offline";
+  if (raw === "unknown") return "unknown";
+  if (!raw) return "unknown";
+  return "offline";
+}
+
 function stringList(value) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item ?? "").trim()).filter(Boolean);
@@ -78,7 +102,8 @@ export function personalAgentMetadataFromAgent(agent) {
   const env = envList(agent?.env);
   const connectionMode = agent?.connectionMode ?? personalLocalAgentConnectionMode(provider);
   const enabled = agent?.enabled !== false;
-  const available = enabled && agent?.status === "online";
+  const status = normalizeAgentStatus(agent);
+  const available = enabled && status === "online";
   const sourceInfo = agent?.agent_source_info && typeof agent.agent_source_info === "object" ? agent.agent_source_info : {};
   const managedAcpTool = agent?.managedAcpTool && typeof agent.managedAcpTool === "object" ? agent.managedAcpTool : null;
   const agentCapabilities = {
@@ -122,18 +147,37 @@ export function personalAgentMetadataFromAgent(agent) {
       permission_mode: agent?.behaviorPolicy?.permissionMode ?? agent?.behavior_policy?.permission_mode ?? "ask",
       yolo_mode_id: agent?.behaviorPolicy?.yoloModeId ?? agent?.behavior_policy?.yolo_mode_id ?? null,
       auto_approve_readonly: Boolean(agent?.behaviorPolicy?.autoApproveReadonly ?? agent?.behavior_policy?.auto_approve_readonly),
+      supports_side_question: (() => { const explicit = agent?.behaviorPolicy?.supportsSideQuestion ?? agent?.behavior_policy?.supports_side_question; if (typeof explicit === "boolean") return explicit; return Boolean(capability?.supportsAcp); })(),
     },
     connectionMode,
-    status: agent?.status ?? "offline",
+    status,
     error: agent?.error ?? null,
-    handshake: {
-      agent_capabilities: agentCapabilities,
-      auth_methods: [],
-      config_options: [],
-      available_modes: null,
-      available_models: models,
-      available_commands: commands,
-    },
+    handshake: (() => {
+      const meta = agent?.handshake && typeof agent.handshake === "object" ? agent.handshake : {};
+      const configOptions = Array.isArray(meta.config_options) ? meta.config_options : [];
+      const sessionMeta = agent?.sessionMetadata && typeof agent.sessionMetadata === "object" ? agent.sessionMetadata : null;
+      // Prefer live ACP session metadata when the bridge exposes models,
+      // config options, modes, or commands.
+      const mergedConfigOptions = sessionMeta?.configOptions && Array.isArray(sessionMeta.configOptions)
+        ? sessionMeta.configOptions
+        : configOptions;
+      const mergedModels = sessionMeta?.availableModels && Array.isArray(sessionMeta.availableModels)
+        ? sessionMeta.availableModels.map((m) => ({ id: m.id, label: m.name ?? m.id }))
+        : models;
+      const mergedModes = sessionMeta?.modes ?? meta.available_modes ?? null;
+      const mergedCommands = sessionMeta?.availableCommands && Array.isArray(sessionMeta.availableCommands)
+        ? sessionMeta.availableCommands
+        : commands;
+      return {
+        agent_capabilities: agentCapabilities,
+        auth_methods: [],
+        config_options: mergedConfigOptions,
+        available_modes: mergedModes,
+        available_models: mergedModels,
+        available_commands: mergedCommands,
+        session_metadata: sessionMeta ?? null,
+      };
+    })(),
     capability,
   };
 }

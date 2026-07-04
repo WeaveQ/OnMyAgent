@@ -60,7 +60,7 @@ export const PERSONAL_LOCAL_AGENT_CAPABILITIES = {
     supportsPermissionAutoApprove: true,
     targetKind: "model",
     smokePrompt: "OpenCode 本地 Agent 健康检查：请只回复 OPENCODE_LOCAL_AGENT_OK。",
-    warning: "OpenCode exposes `opencode acp`; ACP parity requires the ACP adapter path, not the SDK session path.",
+    warning: "OpenCode exposes `opencode acp`; use the ACP adapter path for Local Agent sessions, not the SDK session path.",
   },
   codex: {
     supportsAcp: true,
@@ -71,7 +71,7 @@ export const PERSONAL_LOCAL_AGENT_CAPABILITIES = {
     supportsPermissionAutoApprove: true,
     targetKind: "model",
     smokePrompt: "Codex 本地 Agent 健康检查：请只回复 CODEX_LOCAL_AGENT_OK。",
-    warning: "Codex uses the managed @agentclientprotocol/codex-acp bridge for ACP parity; direct app-server is a fallback only.",
+    warning: "Codex uses the managed @agentclientprotocol/codex-acp bridge for Local Agent sessions; direct app-server is a fallback only.",
   },
   claude: {
     supportsAcp: true,
@@ -82,7 +82,7 @@ export const PERSONAL_LOCAL_AGENT_CAPABILITIES = {
     supportsPermissionAutoApprove: true,
     targetKind: "model",
     smokePrompt: "Claude Code 本地 Agent 健康检查：请只回复 CLAUDE_LOCAL_AGENT_OK。",
-    warning: "Claude Code uses the managed @agentclientprotocol/claude-agent-acp bridge for ACP parity; direct stream-json is a fallback only.",
+    warning: "Claude Code uses the managed @agentclientprotocol/claude-agent-acp bridge for Local Agent sessions; direct stream-json is a fallback only.",
   },
   openclaw: {
     supportsAcp: true,
@@ -93,7 +93,7 @@ export const PERSONAL_LOCAL_AGENT_CAPABILITIES = {
     supportsPermissionAutoApprove: true,
     targetKind: "agent",
     smokePrompt: "OpenClaw 本地 Agent 健康检查：请只回复 OPENCLAW_AGENT_OK。",
-    warning: "OpenClaw exposes `openclaw acp`; ACP parity requires the ACP bridge path, not the Gateway JSON agent path.",
+    warning: "OpenClaw exposes `openclaw acp`; use the ACP bridge path for Local Agent sessions, not the Gateway JSON agent path.",
   },
   hermes: {
     supportsAcp: true,
