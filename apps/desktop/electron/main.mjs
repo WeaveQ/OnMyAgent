@@ -5572,6 +5572,75 @@ function applyNativeTheme(mode) {
   return true;
 }
 
+const LOCAL_AGENT_MENTION_IGNORE = new Set([
+  "node_modules", ".git", ".turbo", ".next", ".cache", "dist", "build",
+  ".venv", "venv", "__pycache__", ".pnpm-store", ".output", "out",
+  ".DS_Store", ".idea", ".vscode",
+]);
+async function localAgentComposerListFiles(input = {}) {
+  const root = String(input.workspaceRoot ?? "").trim();
+  if (!root) return { files: [] };
+  const query = String(input.query ?? "").toLowerCase();
+  const limit = Math.max(1, Math.min(Number(input.limit ?? 200), 500));
+  const files = [];
+  async function walk(dir, depth) {
+    if (files.length >= limit || depth > 6) return;
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (files.length >= limit) return;
+      if (entry.name.startsWith(".") && entry.name !== ".env.example") {
+        if (LOCAL_AGENT_MENTION_IGNORE.has(entry.name)) continue;
+      }
+      if (LOCAL_AGENT_MENTION_IGNORE.has(entry.name)) continue;
+      const abs = path.join(dir, entry.name);
+      const rel = path.relative(root, abs);
+      if (entry.isDirectory()) {
+        if (!query || entry.name.toLowerCase().includes(query) || rel.toLowerCase().includes(query)) {
+          files.push({ path: abs, relativePath: rel, name: entry.name, isDirectory: true });
+        }
+        await walk(abs, depth + 1);
+      } else if (entry.isFile()) {
+        if (!query || entry.name.toLowerCase().includes(query) || rel.toLowerCase().includes(query)) {
+          files.push({ path: abs, relativePath: rel, name: entry.name, isDirectory: false });
+        }
+      }
+    }
+  }
+  await walk(root, 0);
+  files.sort((a, b) => {
+    if (query) {
+      const aScore = a.name.toLowerCase().startsWith(query) ? 0 : 1;
+      const bScore = b.name.toLowerCase().startsWith(query) ? 0 : 1;
+      if (aScore !== bScore) return aScore - bScore;
+    }
+    return a.relativePath.localeCompare(b.relativePath);
+  });
+  return { files: files.slice(0, limit) };
+}
+
+function localAgentAttachmentsDir(workspaceRoot) {
+  const root = String(workspaceRoot ?? "").trim();
+  const hash = createHash("sha1").update(root || "default").digest("hex").slice(0, 12);
+  return path.join(app.getPath("userData"), "local-agent-attachments", hash);
+}
+
+async function localAgentComposerSaveAttachment(input = {}) {
+  const root = String(input.workspaceRoot ?? "").trim();
+  if (!root) throw new Error("workspaceRoot is required");
+  const name = String(input.name ?? "attachment").replace(/[^\w.\-]+/g, "_") || "attachment";
+  const dataUrl = String(input.dataUrl ?? "");
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) throw new Error("dataUrl must be base64 encoded");
+  const buffer = Buffer.from(match[2], "base64");
+  const dir = localAgentAttachmentsDir(root);
+  await mkdir(dir, { recursive: true });
+  const stamp = Date.now().toString(36) + randomBytes(3).toString("hex");
+  const finalName = `${stamp}-${name}`;
+  const absolute = path.join(dir, finalName);
+  await writeFile(absolute, buffer);
+  return { path: absolute, relativePath: absolute, name: finalName, size: buffer.length };
+}
+
 async function handleDesktopInvoke(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
@@ -5668,6 +5737,10 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentHeartbeatScheduler.runNow(args[0] ?? {});
     case "personalLocalAgentHeartbeatRuns":
       return personalAgentHeartbeatScheduler.runs(args[0] ?? {});
+    case "localAgentComposerListFiles":
+      return localAgentComposerListFiles(args[0] ?? {});
+    case "localAgentComposerSaveAttachment":
+      return localAgentComposerSaveAttachment(args[0] ?? {});
     case "weixinLoginStart":
       return weixinService.loginStart(args[0] ?? {});
     case "weixinLoginPoll":
