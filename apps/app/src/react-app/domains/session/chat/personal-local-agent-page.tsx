@@ -58,7 +58,7 @@ import {
   type HeartbeatDraft,
 } from "./personal-local-agent-scheduled-tasks";
 import { LocalAgentManagementPanel } from "../../local-agents/local-agent-management-panel";
-import { LocalAgentDraftComposer, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
+import { LocalAgentDraftComposer, buildLocalAgentPrompt, type LocalAgentComposerSubmit, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
 import { elapsedSeconds, shortTime } from "../../local-agents/local-agent-formatters";
 import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
 import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
@@ -102,7 +102,7 @@ const localAgentLayoutClass = {
   agentStatusDot: "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
   header: "shrink-0 border-b border-dls-border bg-dls-surface mac:titlebar-drag",
   pageContent: "mx-auto flex w-full max-w-[1120px] flex-col gap-5",
-  chatPanel: "mx-auto w-full max-w-[1120px] rounded-2xl border border-dls-border bg-dls-surface p-2",
+  chatPanel: "mx-auto w-full max-w-[1120px]",
   chatMessage: "max-w-[86%] rounded-2xl border border-dls-border px-4 py-3 text-sm leading-6",
   userChatMessage: "bg-dls-chat-user-bg text-dls-text",
   assistantChatMessage: "bg-dls-surface text-dls-chat-agent-text",
@@ -1044,22 +1044,27 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (messagesByAgent[key]?.length) return;
     void loadConversationTranscript(selectedAgent, selectedConversation);
   }, [loadConversationTranscript, messagesByAgent, selectedAgent, selectedConversation]);
-  const submitComposerValue = useCallback(async (value: string) => {
-    const prompt = value.trim();
-    if (prompt.startsWith("/")) {
-      if (prompt === "/new") {
+  const submitComposerPayload = useCallback(async (payload: LocalAgentComposerSubmit) => {
+    const trimmed = payload.text.trim();
+    if (trimmed.startsWith("/") && payload.attachments.length === 0 && payload.quotes.length === 0) {
+      if (trimmed === "/new") {
         await createNewConversation();
         return;
       }
-      if (prompt === "/clear") {
+      if (trimmed === "/clear") {
         await clearCurrentAgentChat();
         return;
       }
-      setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_unknown", { command: prompt }) }));
+      setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_unknown", { command: trimmed }) }));
       return;
     }
-    await startAgentRun(prompt);
+    const augmented = buildLocalAgentPrompt(payload);
+    if (!augmented) return;
+    await startAgentRun(augmented);
   }, [clearCurrentAgentChat, createNewConversation, selectedAgentId, startAgentRun]);
+  const submitComposerValue = useCallback(async (value: string) => {
+    await submitComposerPayload({ text: value, attachments: [], mentions: {}, quotes: [] });
+  }, [submitComposerPayload]);
   const handleSlashCommandExecute = useCallback((command: LocalAgentSlashCommand) => { void submitComposerValue(command.name); }, [submitComposerValue]);
   const cancelAgentRun = useCallback(async (runId: string, chatKey: string) => {
     if (!runId || !chatKey) return;
@@ -1237,6 +1242,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         <div className={localAgentLayoutClass.chatPanel}>
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
+            workspaceRoot={props.workspaceRoot}
             initialDraft={draft}
             disabled={!selectedAgent || selectedAgent.status !== "online"}
             submitting={running}
@@ -1244,7 +1250,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             slashCommands={selectedSlashCommands}
             onDraftCommit={updateDraftForChat}
             onSlashCommandExecute={handleSlashCommandExecute}
-            onSubmit={(value) => { updateDraftForChat(selectedChatKey, value); void submitComposerValue(value); }}
+            onSubmit={(payload) => { updateDraftForChat(selectedChatKey, ""); void submitComposerPayload(payload); }}
             toolbarLeft={
               <div className="min-w-[136px]">
                 <SelectMenu

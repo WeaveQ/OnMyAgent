@@ -926,6 +926,35 @@ export function personalLocalAgentAcpHealth(input?: {
   );
 }
 
+export type LocalAgentComposerFileEntry = {
+  path: string;
+  relativePath: string;
+  name: string;
+  isDirectory: boolean;
+};
+
+export function localAgentComposerListFiles(input: {
+  workspaceRoot: string;
+  query?: string;
+  limit?: number;
+}): Promise<{ files: LocalAgentComposerFileEntry[] }> {
+  return invokeElectronHelper<{ files: LocalAgentComposerFileEntry[] }>(
+    "localAgentComposerListFiles",
+    input,
+  );
+}
+
+export function localAgentComposerSaveAttachment(input: {
+  workspaceRoot: string;
+  name: string;
+  dataUrl: string;
+}): Promise<{ path: string; relativePath: string; name: string; size: number }> {
+  return invokeElectronHelper<{ path: string; relativePath: string; name: string; size: number }>(
+    "localAgentComposerSaveAttachment",
+    input,
+  );
+}
+
 export function personalLocalAgentAcpSend(
   input: PersonalLocalAgentRunInput,
 ): Promise<PersonalLocalAgentRunResult> {
