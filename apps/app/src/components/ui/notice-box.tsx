@@ -9,7 +9,7 @@ const noticeBoxVariants = cva("rounded-xl border px-3 py-2 text-xs", {
       neutral: "border-dls-border bg-dls-hover text-muted-foreground",
       error: "border-dls-status-danger/30 bg-dls-status-danger-soft text-dls-status-danger-fg",
       warning: "border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning",
-      info: "border-dls-accent/25 bg-dls-accent/10 text-dls-accent",
+      info: "border-dls-accent/30 bg-dls-accent/10 text-dls-accent",
     },
     size: {
       default: "px-3 py-2 text-xs",
@@ -28,10 +28,10 @@ const emptyStateBoxVariants = cva(
   {
     variants: {
       size: {
-        default: "px-4 py-8 text-sm",
+        default: "px-4 py-10 text-sm",
         compact: "px-3 py-2 text-xs",
-        comfortable: "px-4 py-6 text-sm",
-        spacious: "px-6 py-16 text-sm",
+        comfortable: "px-4 py-7 text-sm",
+        spacious: "px-6 py-14 text-sm",
       },
       tone: {
         muted: "bg-dls-surface-muted",

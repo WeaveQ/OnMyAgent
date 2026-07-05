@@ -1,21 +1,7 @@
 import type {
   GrainGradientParams,
   GrainGradientShape,
-  MeshGradientParams,
 } from "@paper-design/shaders";
-
-export type PaperMeshGradientConfig = Required<
-  Pick<
-    MeshGradientParams,
-    | "colors"
-    | "distortion"
-    | "swirl"
-    | "grainMixer"
-    | "grainOverlay"
-    | "speed"
-    | "frame"
-  >
->;
 
 export type PaperGrainGradientConfig = Required<
   Pick<
@@ -33,16 +19,6 @@ export type PaperGrainGradientConfig = Required<
 
 export type SeededPaperOption = {
   seed?: string;
-};
-
-export const paperMeshGradientDefaults: PaperMeshGradientConfig = {
-  colors: ["#e0eaff", "#241d9a", "#f75092", "#9f50d3"],
-  distortion: 0.8,
-  swirl: 0.1,
-  grainMixer: 0,
-  grainOverlay: 0,
-  speed: 0.1,
-  frame: 0,
 };
 
 export const paperGrainGradientDefaults: PaperGrainGradientConfig = {
@@ -64,17 +40,6 @@ const grainShapes: GrainGradientShape[] = [
   "ripple",
   "blob",
   "sphere",
-];
-
-const meshPaletteFamilies = [
-  ["#e0eaff", "#241d9a", "#f75092", "#9f50d3"],
-  ["#ddfff5", "#006c67", "#35d8c0", "#8cff7a"],
-  ["#ffe5c2", "#8a2500", "#ff7b39", "#ffd166"],
-  ["#f5f7ff", "#0d1b52", "#3f8cff", "#00c2ff"],
-  ["#fff2f2", "#6f1237", "#ff4d6d", "#ffb703"],
-  ["#f0ffe1", "#254d00", "#8cc63f", "#00a76f"],
-  ["#f5edff", "#44206b", "#b5179e", "#7209b7"],
-  ["#f4f1ea", "#3a2f1f", "#927c55", "#d0c2a8"],
 ];
 
 const grainPaletteFamilies = [
@@ -121,37 +86,8 @@ const paletteModes = [
   },
 ];
 
-type MeshGradientOverrides = SeededPaperOption &
-  Partial<PaperMeshGradientConfig>;
 type GrainGradientOverrides = SeededPaperOption &
   Partial<PaperGrainGradientConfig>;
-
-export function getSeededPaperMeshGradientConfig(
-  seed: string,
-): PaperMeshGradientConfig {
-  const random = createRandom(seed, "mesh");
-
-  return {
-    colors: createSeededPalette(
-      paperMeshGradientDefaults.colors,
-      seed,
-      "mesh-colors",
-      {
-        families: meshPaletteFamilies,
-        hueShift: 42,
-        saturationShift: 0.18,
-        lightnessShift: 0.14,
-        baseBlend: [0.08, 0.2],
-      },
-    ),
-    distortion: roundTo(clamp(0.58 + random() * 0.32, 0, 1), 3),
-    swirl: roundTo(clamp(0.03 + random() * 0.28, 0, 1), 3),
-    grainMixer: roundTo(clamp(random() * 0.18, 0, 1), 3),
-    grainOverlay: roundTo(clamp(random() * 0.12, 0, 1), 3),
-    speed: 0.5,
-    frame: Math.round(random() * 240000),
-  };
-}
 
 export function getSeededPaperGrainGradientConfig(
   seed: string,
@@ -182,24 +118,6 @@ export function getSeededPaperGrainGradientConfig(
       paperGrainGradientDefaults.shape,
     speed: roundTo(0.2 + random() * 0.6, 3),
     frame: Math.round(random() * 320000),
-  };
-}
-
-export function resolvePaperMeshGradientConfig(
-  options: MeshGradientOverrides = {},
-): PaperMeshGradientConfig {
-  const seeded = options.seed
-    ? getSeededPaperMeshGradientConfig(options.seed)
-    : paperMeshGradientDefaults;
-
-  return {
-    colors: options.colors ?? seeded.colors,
-    distortion: options.distortion ?? seeded.distortion,
-    swirl: options.swirl ?? seeded.swirl,
-    grainMixer: options.grainMixer ?? seeded.grainMixer,
-    grainOverlay: options.grainOverlay ?? seeded.grainOverlay,
-    speed: options.speed ?? seeded.speed,
-    frame: options.frame ?? seeded.frame,
   };
 }
 

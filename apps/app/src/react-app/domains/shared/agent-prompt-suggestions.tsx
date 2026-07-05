@@ -245,7 +245,7 @@ export function AgentPromptSuggestions(props: {
               density="card"
               type="button"
               onClick={() => props.onSelect(p.prompt)}
-              className="group relative overflow-hidden rounded-2xl border-dls-border/60 transition-all duration-200 hover:-translate-y-0.5 hover:border-dls-border-strong"
+              className="group relative overflow-hidden rounded-xl border-dls-mist transition-all duration-200 hover:-translate-y-0.5 hover:border-dls-border-strong"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-dls-brand-faint-blue via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               <div className="relative flex items-start gap-3">
@@ -260,7 +260,7 @@ export function AgentPromptSuggestions(props: {
                     {p.title}
                   </div>
                   {p.description ? (
-                    <div className="mt-0.5 line-clamp-2 text-xs leading-[1.4] text-dls-secondary">
+                    <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-dls-secondary">
                       {p.description}
                     </div>
                   ) : null}

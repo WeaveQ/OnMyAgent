@@ -54,8 +54,8 @@ const composerMenuClass = {
   itemIcon: "mt-0.5 shrink-0 text-dls-secondary",
   itemTitle: "truncate text-xs font-medium",
   itemMeta: "truncate text-xs text-dls-secondary",
-  toolButton: "rounded-md text-dls-secondary hover:bg-dls-hover",
-  activeToolButton: "rounded-md bg-dls-hover text-dls-text",
+  toolButton: "text-dls-secondary hover:bg-dls-hover",
+  activeToolButton: "bg-dls-hover text-dls-text",
 };
 
 function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
@@ -1021,7 +1021,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel */}
         <div
-          className={`relative overflow-visible rounded-2xl border border-dls-border bg-dls-surface transition-all ${panelRoundedClass}`}
+          className={`relative overflow-visible rounded-xl border border-dls-border bg-dls-surface transition-all ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
@@ -1032,7 +1032,7 @@ export function ReactSessionComposer(props: ComposerProps) {
           {props.attachments.length > 0 ? (
             <div className="mx-5 mt-5 flex flex-wrap gap-2 md:mx-6">
               {props.attachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center gap-2 rounded-2xl border border-dls-border bg-dls-surface-muted px-3 py-2 text-xs text-dls-secondary">
+                <div key={attachment.id} className="flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2 text-xs text-dls-secondary">
                   {isImageAttachment(attachment) && attachment.previewUrl ? (
                     <div className="h-10 w-10 overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
                       <img src={attachment.previewUrl} alt={attachment.name} decoding="async" className="h-full w-full object-cover" />
@@ -1073,7 +1073,7 @@ export function ReactSessionComposer(props: ComposerProps) {
 
           {dropzoneActive ? (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-dls-accent bg-dls-accent-mix-10">
-              <div className="rounded-2xl border border-dls-border bg-dls-surface/95 px-5 py-4 text-center backdrop-blur-sm">
+              <div className="rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-center backdrop-blur-sm">
                 <div className="text-sm font-medium text-dls-text">{t("composer.attach_files")}</div>
                 <div className="mt-1 text-xs text-dls-secondary">{t("composer.any_file_type_supported")}</div>
               </div>
@@ -1222,9 +1222,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                     <Plug size={16} />
                   </Button>
                   {toolMenuOpen ? (
-                    <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),34rem)] overflow-hidden rounded-2xl border border-dls-border bg-dls-surface">
+                    <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),34rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
                       <div className="grid grid-cols-[152px_minmax(0,1fr)] sm:grid-cols-[176px_minmax(0,1fr)]">
-                        <div className="border-r border-dls-border bg-dls-surface-muted/30 p-2">
+                        <div className="border-r border-dls-border bg-dls-surface-muted p-2">
                           {([
                             ["commands", t("dashboard.commands")],
                             ["skills", t("dashboard.skills")],
@@ -1456,7 +1456,7 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           </div>
           {props.bottomAccessory ? (
-            <div className="relative z-10  rounded-b-2xl bg-dls-background px-4 py-1.5">
+            <div className="relative z-10  rounded-b-xl bg-dls-background px-4 py-1.5">
               {props.bottomAccessory}
             </div>
           ) : null}

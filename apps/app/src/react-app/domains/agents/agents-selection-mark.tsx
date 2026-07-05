@@ -12,7 +12,7 @@ export function SelectionMark(props: {
       className={cn(
         "flex size-5 shrink-0 items-center justify-center rounded-md border text-xs",
         props.checked
-          ? "border-dls-accent/40 bg-dls-accent text-white"
+          ? "border-dls-accent/30 bg-dls-accent text-white"
           : "border-dls-border bg-dls-hover text-transparent",
         props.className,
       )}

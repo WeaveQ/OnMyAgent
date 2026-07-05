@@ -124,7 +124,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
         </LayoutSectionItem>
 
         {/* {props.showOnMyAgentModelsSubscribe ? (
-          <LayoutSectionItem className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl border border-dls-accent/25 bg-dls-decision-soft px-4 py-3">
+          <LayoutSectionItem className="flex-row flex-wrap items-center justify-between gap-3 rounded-lg border border-dls-accent/30 bg-dls-decision-soft px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <ProviderIcon
                 providerId="onmyagent"
@@ -155,7 +155,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
             {props.connectedProviders.map((provider) => (
               <LayoutSectionItem
                 key={provider.id}
-                className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl border border-dls-border px-4 py-3"
+                className="flex-row flex-wrap items-center justify-between gap-3 rounded-lg border border-dls-border px-4 py-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <ProviderIcon

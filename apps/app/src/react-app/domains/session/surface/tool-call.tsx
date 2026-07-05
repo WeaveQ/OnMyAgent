@@ -165,7 +165,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
       {expanded ? (
         <div className="space-y-3 pl-[22px]">
           {Boolean(diff) ? (
-            <div className="rounded-lg border bg-dls-surface-muted/30 p-2">
+            <div className="rounded-lg border bg-dls-surface-muted p-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs font-medium text-dls-secondary">Diff</div>
                 <Button
@@ -205,7 +205,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
                   Copy
                 </Button>
               </div>
-              <pre className="overflow-x-auto rounded-xl border border-dls-border/70 bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
+              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
                 {formatStructuredValue(input)}
               </pre>
             </div>
@@ -225,7 +225,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
                   Copy
                 </Button>
               </div>
-              <pre className="overflow-x-auto rounded-xl border border-dls-border/70 bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
+              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
                 {formatStructuredValue(output)}
               </pre>
             </div>
@@ -234,7 +234,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
           {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
 
           {props.developerMode && !expandable ? (
-            <pre className="overflow-x-auto rounded-xl border border-dls-border/70 bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
+            <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
               {safeStringify({ input, output, error, state: props.part.state })}
             </pre>
           ) : null}

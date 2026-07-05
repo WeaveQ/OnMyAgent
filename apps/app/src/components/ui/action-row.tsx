@@ -111,7 +111,7 @@ const segmentedTabButtonVariants = cva(
       {
         tone: "chip",
         active: false,
-        className: "border-dls-border bg-dls-surface text-dls-secondary hover:border-dls-accent/50 hover:text-dls-text",
+        className: "border-dls-border bg-dls-surface text-dls-secondary hover:border-dls-accent/30 hover:text-dls-text",
       },
     ],
     defaultVariants: {

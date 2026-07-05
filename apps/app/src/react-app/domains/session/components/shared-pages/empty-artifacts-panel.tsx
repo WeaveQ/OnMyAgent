@@ -15,7 +15,7 @@ export function EmptyArtifactsPanel(props: { onClose: () => void }) {
         <Button
           variant="ghost"
           size="icon-sm"
-          className="rounded-md text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground"
           onClick={props.onClose}
           aria-label={t("session.close_artifacts_panel")}
           title={t("common.close")}

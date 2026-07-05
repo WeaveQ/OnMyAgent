@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<title>OnMyAgent DESIGN.md — Dark Preview</title>
+<meta name="description" content="Visual catalog rendering DESIGN.md tokens and top components in dark theme.">
+<link rel="stylesheet" href="./preview.css" />
+</head>
+<body>
+<header class="pv-header">
+  <div class="pv-header-inner">
+    <div>
+      <h1>OnMyAgent — Visual Contract Preview</h1>
+      <p>Renders <code>/DESIGN.md</code> tokens and top components. This file is <strong>dark theme</strong>. Light theme lives in <a href="./preview.html">preview.html</a>.</p>
+    </div>
+    <nav class="pv-nav">
+      <a href="./preview.html">Light</a>
+      <a href="./preview-dark.html" class="pv-nav-active">Dark</a>
+      <a href="../../DESIGN.md">DESIGN.md</a>
+    </nav>
+  </div>
+</header>
+
+<main class="pv-main">
+
+<section class="pv-section">
+  <h2>1 · Color Palette</h2>
+  <p class="pv-desc">Semantic <code>dls-*</code> / <code>ow-*</code> tokens. See <code>DESIGN.md</code> § 2 and YAML <code>colors</code>.</p>
+  <div class="pv-swatch-grid">
+    <div class="pv-swatch"><div class="pv-chip" style="background:#2F7BFF"></div><div class="pv-swatch-label"><strong>primary</strong><span>#2F7BFF</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#5B96FF"></div><div class="pv-swatch-label"><strong>primary-hover</strong><span>#5B96FF</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#102A5C"></div><div class="pv-swatch-label"><strong>primary-soft</strong><span>#102A5C</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#03FFDE"></div><div class="pv-swatch-label"><strong>signal</strong><span>#03FFDE</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#F8FAFC"></div><div class="pv-swatch-label"><strong>ink</strong><span>#F8FAFC</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#94A3B8"></div><div class="pv-swatch-label"><strong>slate</strong><span>#94A3B8</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#2E2E2E"></div><div class="pv-swatch-label"><strong>mist</strong><span>#2E2E2E</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#1E1E1E;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>surface</strong><span>#1E1E1E</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#2A2A2A;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>surface-muted</strong><span>#2A2A2A</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#262626;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>background</strong><span>#262626</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#171717"></div><div class="pv-swatch-label"><strong>rail-bg</strong><span>#171717</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#F87171"></div><div class="pv-swatch-label"><strong>danger</strong><span>#F87171</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#FBBF24"></div><div class="pv-swatch-label"><strong>warning</strong><span>#FBBF24</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#6EE7B7"></div><div class="pv-swatch-label"><strong>success-fg</strong><span>#6EE7B7</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:#28B276"></div><div class="pv-swatch-label"><strong>online</strong><span>#28B276</span></div></div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>2 · Typography</h2>
+  <p class="pv-desc">Even-scale only. See <code>DESIGN.md</code> § 3.</p>
+  <div class="pv-type-list">
+    <div class="pv-type"><span class="pv-type-tag">text-2xs · 10</span><span style="font-size:10px">Badges &amp; counters</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-xs · 12</span><span style="font-size:12px">Secondary labels &amp; helper text</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-sm · 14</span><span style="font-size:14px">Standard dense UI text — body baseline</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-base · 16</span><span style="font-size:16px">Body &amp; emphasized UI text</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-lg · 18</span><span style="font-size:18px">Section titles</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-xl · 20</span><span style="font-size:20px">Page titles</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-2xl · 24</span><span style="font-size:24px">Hero and page emphasis</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-3xl · 28</span><span style="font-size:28px">Display headings</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-4xl · 32</span><span style="font-size:32px">Empty-state hero</span></div>
+    <div class="pv-type"><span class="pv-type-tag">text-5xl · 48</span><span style="font-size:48px">Marketing hero</span></div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>3 · Radii</h2>
+  <p class="pv-desc">See <code>DESIGN.md</code> § YAML <code>rounded</code>. Pills reserved for status/filter/chips only.</p>
+  <div class="pv-radii">
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:3px"></div><span>xs · 3</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:6px"></div><span>sm · 6</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:8px"></div><span>md · 8</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:10px"></div><span>lg · 10</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:14px"></div><span>xl · 14</span></div>
+    <div class="pv-radius"><div class="pv-radius-box" style="border-radius:999px"></div><span>pill · 999</span></div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>4 · Buttons</h2>
+  <p class="pv-desc">Two families — <strong>inline</strong> (xs/sm/default, <code>rounded-lg</code>) live inside rows, cards, and toolbars; <strong>CTA</strong> (lg, <code>rounded-xl</code>) is reserved for primary decisions and dialog footers. Never mix families in the same container. See <code>DESIGN.md</code> § 4 and YAML <code>buttons</code>.</p>
+  <div class="pv-btn-family">
+    <div class="pv-eyebrow">Inline family · <code>rounded-lg</code></div>
+    <div class="pv-row">
+      <button class="pv-btn pv-btn-primary pv-btn-xs">xs 24</button>
+      <button class="pv-btn pv-btn-primary pv-btn-sm">sm 32</button>
+      <button class="pv-btn pv-btn-primary pv-btn-default">default 36</button>
+    </div>
+    <div class="pv-row" style="margin-top:12px">
+      <button class="pv-btn pv-btn-secondary pv-btn-default">Secondary</button>
+      <button class="pv-btn pv-btn-ghost pv-btn-default">Ghost</button>
+      <button class="pv-btn pv-btn-outline pv-btn-default">Outline</button>
+      <button class="pv-btn pv-btn-danger pv-btn-default">Destructive</button>
+    </div>
+    <div class="pv-row" style="margin-top:12px">
+      <button class="pv-btn pv-btn-icon pv-btn-icon-xs" aria-label="icon-xs">＋</button>
+      <button class="pv-btn pv-btn-icon pv-btn-icon-sm" aria-label="icon-sm">＋</button>
+      <button class="pv-btn pv-btn-icon pv-btn-icon-default" aria-label="icon">＋</button>
+    </div>
+  </div>
+  <div class="pv-btn-family pv-btn-family-cta">
+    <div class="pv-eyebrow">CTA family · <code>rounded-xl</code></div>
+    <div class="pv-row">
+      <button class="pv-btn pv-btn-primary pv-btn-lg">Primary CTA · lg 40</button>
+      <button class="pv-btn pv-btn-outline pv-btn-lg">Secondary CTA</button>
+      <button class="pv-btn pv-btn-icon pv-btn-icon-lg" aria-label="icon-lg">＋</button>
+    </div>
+  </div>
+  <div class="pv-btn-family pv-btn-family-chrome">
+    <div class="pv-eyebrow">Chrome tier · <code>h-12 / min-h-12</code> · rail buttons, panel titlebars, composer footer</div>
+    <div class="pv-row">
+      <button class="pv-btn pv-btn-ghost pv-btn-chrome">Rail button 48</button>
+      <button class="pv-btn pv-btn-secondary pv-btn-chrome">Panel titlebar 48</button>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>5 · Row Primitives</h2>
+  <p class="pv-desc">MenuRowButton / NavTabButton / ActionRowButton. Never swap for standard <code>Button</code>.</p>
+  <div class="pv-row-primitives">
+    <div>
+      <div class="pv-eyebrow">MenuRowButton — <code>rounded-xl px-3 py-2.5</code></div>
+      <div class="pv-menu">
+        <button class="pv-menu-row pv-menu-row-active"><span class="pv-menu-icon">⌘</span><span>Open command palette<span class="pv-menu-shortcut">⌘K</span></span></button>
+        <button class="pv-menu-row"><span class="pv-menu-icon">＋</span><span>New session</span></button>
+        <button class="pv-menu-row"><span class="pv-menu-icon">☰</span><span>Toggle side panel</span></button>
+      </div>
+    </div>
+    <div>
+      <div class="pv-eyebrow">NavTabButton — <code>rounded-full</code> compact</div>
+      <div class="pv-nav-tabs">
+        <button class="pv-nav-tab pv-nav-tab-active">All</button>
+        <button class="pv-nav-tab">Active</button>
+        <button class="pv-nav-tab">Archived</button>
+        <button class="pv-nav-tab">Shared</button>
+      </div>
+    </div>
+    <div>
+      <div class="pv-eyebrow">ActionRowButton — bordered row/card</div>
+      <div class="pv-action-rows">
+        <button class="pv-action-row">
+          <div class="pv-action-title">Start with an assistant</div>
+          <div class="pv-action-desc">Pick a preset agent to begin a new session.</div>
+        </button>
+        <button class="pv-action-row">
+          <div class="pv-action-title">Import an existing workspace</div>
+          <div class="pv-action-desc">Bring your Obsidian vault, code repo, or Notion export.</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>6 · Cards, Inputs, Status</h2>
+  <div class="pv-grid-2">
+    <div class="pv-card">
+      <div class="pv-card-header">
+        <div class="pv-icon-tile"><span>A</span></div>
+        <div>
+          <div class="pv-card-title">Assistant</div>
+          <div class="pv-card-sub">Local model · GPT-oss 20B</div>
+        </div>
+        <span class="pv-status-dot pv-status-dot-online" title="Running"></span>
+      </div>
+      <p class="pv-card-body">Answers scoped to the current workspace. Uses the flat surface style — no shadows.</p>
+      <div class="pv-row" style="margin-top:8px">
+        <button class="pv-btn pv-btn-primary pv-btn-sm">Open</button>
+        <button class="pv-btn pv-btn-ghost pv-btn-sm">Configure</button>
+      </div>
+    </div>
+    <div class="pv-card">
+      <div class="pv-eyebrow">Text input</div>
+      <label class="pv-field">
+        <span class="pv-field-label">Workspace name</span>
+        <input class="pv-input" value="onmyagent" />
+      </label>
+      <label class="pv-field">
+        <span class="pv-field-label">Description</span>
+        <textarea class="pv-input" rows="2">Local-first agent console.</textarea>
+      </label>
+      <div class="pv-row" style="justify-content:flex-end">
+        <button class="pv-btn pv-btn-ghost pv-btn-default">Cancel</button>
+        <button class="pv-btn pv-btn-primary pv-btn-lg">Save</button>
+      </div>
+    </div>
+  </div>
+  <div class="pv-grid-3" style="margin-top:16px">
+    <span class="pv-badge pv-badge-primary">Primary</span>
+    <span class="pv-badge pv-badge-success">Success</span>
+    <span class="pv-badge pv-badge-warning">Warning</span>
+    <span class="pv-badge pv-badge-danger">Danger</span>
+    <span class="pv-badge pv-badge-muted">Muted</span>
+    <span class="pv-badge pv-badge-signal">Signal · Running</span>
+  </div>
+</section>
+
+<section class="pv-section" id="motion">
+  <h2>7 · Motion</h2>
+  <p class="pv-desc">Durations &amp; easings from <code>DESIGN.md</code> § 6 / YAML <code>motion:</code>. Click Replay to retrigger.</p>
+  <div class="pv-motion-grid">
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">standard · fade · 120ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="fade" data-easing="standard" data-duration="120"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">standard · slide · 200ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="slide" data-easing="standard" data-duration="200"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">decisive · fade · 200ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="fade" data-easing="decisive" data-duration="200"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">decisive · slide · 320ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj" data-motion="slide" data-easing="decisive" data-duration="320"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">signal · pulse · 200ms</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj pv-motion-pulse" data-motion="pulse" data-easing="signal" data-duration="200"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+    <div class="pv-motion-tile">
+      <div class="pv-motion-label">signal · pulse · 320ms slow</div>
+      <div class="pv-motion-stage"><div class="pv-motion-obj pv-motion-pulse" data-motion="pulse" data-easing="signal" data-duration="320"></div></div>
+      <button class="pv-btn pv-btn-secondary pv-btn-xs pv-motion-replay">Replay</button>
+    </div>
+  </div>
+  <p class="pv-desc" style="margin-top:12px">
+    Respects <code>prefers-reduced-motion</code>: when set, translate motion is disabled and only opacity fades at <code>duration.fast</code> remain.
+  </p>
+</section>
+
+<section class="pv-section" id="focus-a11y">
+  <h2>8 · Focus &amp; Accessibility</h2>
+  <p class="pv-desc">Focus ring token (<code>focus.ring-color</code>, width 2px, offset 2px) + keyboard-navigation cheat sheet. Tab through the controls below to see the ring.</p>
+  <div class="pv-grid-2">
+    <div class="pv-card">
+      <div class="pv-eyebrow">Focus ring on primitives</div>
+      <div class="pv-row" style="margin-top:8px;flex-wrap:wrap">
+        <button class="pv-btn pv-btn-primary pv-btn-default pv-focus-demo">Primary CTA</button>
+        <button class="pv-btn pv-btn-ghost pv-btn-default pv-focus-demo">Ghost</button>
+        <button class="pv-btn pv-btn-icon pv-btn-icon-default pv-focus-demo" aria-label="settings">⚙</button>
+      </div>
+      <label class="pv-field" style="margin-top:12px">
+        <span class="pv-field-label">Input</span>
+        <input class="pv-input pv-focus-demo" value="Tab to focus" />
+      </label>
+      <div class="pv-menu pv-focus-demo-menu" style="margin-top:8px">
+        <button class="pv-menu-row pv-focus-demo"><span class="pv-menu-icon">→</span><span>Menu row · Tab me</span></button>
+        <button class="pv-menu-row pv-focus-demo"><span class="pv-menu-icon">→</span><span>Menu row 2</span></button>
+      </div>
+    </div>
+    <div class="pv-card">
+      <div class="pv-eyebrow">Keyboard cheat sheet</div>
+      <ul class="pv-kbd-list">
+        <li><kbd class="pv-kbd">Tab</kbd> <kbd class="pv-kbd">⇧ Tab</kbd><span class="pv-kbd-desc">move focus in DOM order</span></li>
+        <li><kbd class="pv-kbd">Enter</kbd> <kbd class="pv-kbd">Space</kbd><span class="pv-kbd-desc">activate</span></li>
+        <li><kbd class="pv-kbd">Esc</kbd><span class="pv-kbd-desc">close dialog / popover / dropdown</span></li>
+        <li><kbd class="pv-kbd">↑</kbd> <kbd class="pv-kbd">↓</kbd><span class="pv-kbd-desc">navigate menu / listbox / tabs</span></li>
+        <li><kbd class="pv-kbd">⌘K</kbd><span class="pv-kbd-desc">open command palette</span></li>
+        <li><kbd class="pv-kbd">Home</kbd> <kbd class="pv-kbd">End</kbd><span class="pv-kbd-desc">first / last in list</span></li>
+      </ul>
+      <p class="pv-desc" style="margin-top:12px">
+        All icon-only buttons must carry <code>aria-label</code>. Loading rows announce via <code>aria-busy="true"</code> on the parent, not per-icon labels.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section">
+  <h2>9 · Do's &amp; Don'ts (quick reference)</h2>
+  <div class="pv-grid-2">
+    <div class="pv-card">
+      <div class="pv-eyebrow pv-eyebrow-good">Do</div>
+      <ul class="pv-list">
+        <li>Use <code>dls-*</code> semantic tokens.</li>
+        <li>Reach for atoms → composites → row primitives.</li>
+        <li>Even-scale typography only.</li>
+        <li>Add <code>mac:titlebar-no-drag</code> to titlebar / sidebar-header controls.</li>
+        <li>Route all user-visible strings through i18n.</li>
+      </ul>
+    </div>
+    <div class="pv-card">
+      <div class="pv-eyebrow pv-eyebrow-bad">Don't</div>
+      <ul class="pv-list">
+        <li>No <code>text-[Npx]</code>, <code>rounded-[Npx]</code>, arbitrary hex in page JSX.</li>
+        <li>No <code>shadow-*</code> for component hierarchy.</li>
+        <li>No <code>rounded-full</code> on standard CTAs.</li>
+        <li>No <code>any</code> / <code>as any</code> / <code>as unknown as</code>.</li>
+        <li>No raw <code>h-N w-N</code> for icon buttons<span class="pv-kbd-desc">use <code>size="icon-*"</code>.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section" id="iconography">
+  <h2>10 · Iconography &amp; Z-Layer Stack</h2>
+  <p class="pv-body">Icon sizes come from the YAML <code>iconography:</code> block; stroke width 1.5, paint <code>currentColor</code>, library <code>lucide-react</code> only. The z-layer stack is a fixed 6-level ladder every overlay must pick from.</p>
+
+  <h3 class="pv-h3">Icon size grid</h3>
+  <div class="pv-icon-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1rem;margin-top:0.75rem;">
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <code class="pv-mono" style="font-size:11px;">xs · 12</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">inline hint</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <code class="pv-mono" style="font-size:11px;">sm · 14</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">in-row action</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <code class="pv-mono" style="font-size:11px;">base · 16</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">menu &amp; button</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg>
+      <code class="pv-mono" style="font-size:11px;">lg · 20</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">primary CTA</span>
+    </div>
+    <div class="pv-icon-cell" style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      <code class="pv-mono" style="font-size:11px;">xl · 24</code>
+      <span style="font-size:11px;color:var(--dls-text-tertiary);">empty-state hero</span>
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">Stroke width 1.5 uniformly. Icons render at intrinsic <code>currentColor</code>; test that a color change on the parent propagates without an explicit <code>color</code> prop.</p>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Z-layer stack</h3>
+  <p class="pv-body">Overlays compose against a fixed 6-level ladder. The demo below stacks each layer visually — <code>toast</code> sits above <code>dialog</code>, which sits above <code>popover</code>, and so on.</p>
+  <div class="pv-z-demo" style="position:relative;height:260px;margin-top:0.75rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-app-bg);">
+    <div style="position:absolute;top:24px;left:24px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:10px;">
+      <span class="pv-mono" style="font-size:11px;">base · 0</span> — content
+    </div>
+    <div style="position:absolute;top:52px;left:56px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:10px;z-index:10;">
+      <span class="pv-mono" style="font-size:11px;">sticky · 10</span> — sticky header
+    </div>
+    <div style="position:absolute;top:80px;left:88px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:10px;z-index:100;">
+      <span class="pv-mono" style="font-size:11px;">dropdown · 100</span> — DropdownMenu
+    </div>
+    <div style="position:absolute;top:108px;left:120px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border);border-radius:10px;z-index:200;">
+      <span class="pv-mono" style="font-size:11px;">popover · 200</span> — Popover / Tooltip
+    </div>
+    <div style="position:absolute;top:136px;left:152px;padding:10px 14px;background:var(--dls-surface);border:1px solid var(--dls-border-strong);border-radius:10px;z-index:300;">
+      <span class="pv-mono" style="font-size:11px;">dialog · 300</span> — Dialog / Sheet
+    </div>
+    <div style="position:absolute;top:164px;left:184px;padding:10px 14px;background:var(--dls-primary);color:#fff;border-radius:8px;z-index:400;">
+      <span class="pv-mono" style="font-size:11px;color:#fff;">toast · 400</span> — always on top
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);"><code>overlay-max</code> (999) is reserved as an emergency ceiling — drag-preview ghosts and system-level overlays only.</p>
+</section>
+
+
+<section class="pv-section" id="state-machines">
+  <h2>11 · State Machines</h2>
+  <p class="pv-body">Every async surface picks from four canonical states — Loading / Empty / Error / Success — with the same anatomy slots so agents don't reinvent per-screen scaffolds.</p>
+  <div class="pv-state-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:0.75rem;">
+    <div style="padding:1rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-text-tertiary);">LOADING · &gt; short-ms</span>
+      <div style="height:12px;background:var(--dls-surface-muted);border-radius:3px;width:60%;"></div>
+      <div style="height:12px;background:var(--dls-surface-muted);border-radius:3px;width:85%;"></div>
+      <div style="height:12px;background:var(--dls-surface-muted);border-radius:3px;width:45%;"></div>
+      <div style="margin-top:auto;font-size:11px;color:var(--dls-text-tertiary);">Skeleton, shape-matched.</div>
+    </div>
+    <div style="padding:1rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;text-align:center;align-items:center;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-text-tertiary);align-self:flex-start;">EMPTY</span>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-text-tertiary);margin-top:0.5rem;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+      <div style="font-size:14px;font-weight:500;">No sessions yet</div>
+      <div style="font-size:12px;color:var(--dls-text-secondary);">Start a chat to see it here.</div>
+      <button style="margin-top:auto;padding:6px 12px;border-radius:10px;background:var(--dls-primary);color:#fff;font-size:12px;border:none;">New session</button>
+    </div>
+    <div style="padding:1rem;border:1px solid var(--dls-danger);border-radius:10px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-danger);">ERROR</span>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-danger);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:14px;font-weight:500;">Sync failed</div>
+      </div>
+      <div style="font-size:12px;color:var(--dls-text-secondary);">Check your connection and try again.</div>
+      <div style="margin-top:auto;display:flex;gap:0.5rem;">
+        <button style="padding:6px 12px;border-radius:10px;background:var(--dls-primary);color:#fff;font-size:12px;border:none;">Retry</button>
+        <button style="padding:6px 12px;border-radius:10px;background:transparent;color:var(--dls-text-secondary);font-size:12px;border:1px solid var(--dls-border);">Details</button>
+      </div>
+    </div>
+    <div style="padding:1rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-surface);min-height:180px;display:flex;flex-direction:column;gap:0.5rem;">
+      <span class="pv-mono" style="font-size:11px;color:var(--dls-success-fg);">SUCCESS</span>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-success-fg);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div style="font-size:14px;font-weight:500;">Saved</div>
+      </div>
+      <div style="font-size:12px;color:var(--dls-text-secondary);">Changes synced across devices.</div>
+      <button style="margin-top:auto;padding:6px 12px;border-radius:10px;background:transparent;color:var(--dls-text-secondary);font-size:12px;border:1px solid var(--dls-border);align-self:flex-start;">Dismiss</button>
+    </div>
+  </div>
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Perceptual timing bands</h3>
+  <table class="pv-table" style="width:100%;border-collapse:collapse;margin-top:0.5rem;font-size:12px;">
+    <thead><tr style="text-align:left;color:var(--dls-text-tertiary);"><th style="padding:0.35rem 0.5rem;">Band</th><th style="padding:0.35rem 0.5rem;">Threshold</th><th style="padding:0.35rem 0.5rem;">Presentation</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>instant</code></td><td style="padding:0.35rem 0.5rem;">&lt; 200 ms</td><td style="padding:0.35rem 0.5rem;">Render nothing</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>short</code></td><td style="padding:0.35rem 0.5rem;">200 ms – 1 s</td><td style="padding:0.35rem 0.5rem;">Spinner</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>long</code></td><td style="padding:0.35rem 0.5rem;">&gt; 1 s</td><td style="padding:0.35rem 0.5rem;">Skeleton with shape parity</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;"><code>known-progress</code></td><td style="padding:0.35rem 0.5rem;">any</td><td style="padding:0.35rem 0.5rem;">&lt;progress&gt; primitive</td></tr>
+    </tbody>
+  </table>
+</section>
+
+
+<section class="pv-section" id="notifications">
+  <h2>12 · Notifications</h2>
+  <p class="pv-body">Toasts confirm, warn, and report — never decide. Position <code>top-right</code>, stack cap 5, duration by severity from the YAML <code>notifications:</code> block.</p>
+  <div class="pv-toast-window" style="position:relative;height:280px;margin-top:0.75rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-app-bg);overflow:hidden;">
+    <div style="position:absolute;top:10px;left:10px;font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">mocked app window</div>
+    <div style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:0.5rem;width:280px;">
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-text-secondary);flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Update available</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">4 s · info</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-success-fg);flex-shrink:0;margin-top:2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Session shared</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">4 s · success</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-border);border-radius:10px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-warning);flex-shrink:0;margin-top:2px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Sync slow</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">6 s · warning</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;padding:0.75rem;border:1px solid var(--dls-danger);border-radius:10px;background:var(--dls-surface);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dls-danger);flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">Push failed</div>
+          <div style="font-size:12px;color:var(--dls-text-secondary);">persistent · error</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">Motion: slide-in from right, fade-out on dismiss. Under <code>prefers-reduced-motion</code>, degrade to fade-only.</p>
+</section>
+
+<section class="pv-section" id="kbd">
+  <h2>13 · Keyboard chips</h2>
+  <p class="pv-body">Author with mac glyphs; runtime substitutes on Windows / Linux. Chips: hairline border, <code>text-xs</code>, muted surface, <code>rounded-sm</code>.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:1.5rem;margin-top:0.75rem;align-items:flex-start;">
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">single glyph</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Open command palette <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⌘K</kbd></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">chord</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Toggle theme
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⌘</kbd>
+        <span style="color:var(--dls-text-tertiary);"> + </span>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⇧</kbd>
+        <span style="color:var(--dls-text-tertiary);"> + </span>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">P</kbd>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">alt + digit</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Focus rail
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">⌥</kbd>
+        <span style="color:var(--dls-text-tertiary);"> + </span>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">1</kbd>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="font-size:11px;color:var(--dls-text-tertiary);" class="pv-mono">arrows</div>
+      <div style="display:inline-flex;gap:0.25rem;align-items:center;font-size:13px;">Navigate list
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">↑</kbd>
+        <kbd style="border:1px solid var(--dls-border);background:var(--dls-surface-muted);border-radius:3px;padding:2px 4px;font-size:12px;color:var(--dls-text-secondary);">↓</kbd>
+      </div>
+    </div>
+  </div>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">On Windows / Linux, <code>⌘K</code> renders as <code>Ctrl+K</code>. Author declaratively; substitute at render.</p>
+</section>
+
+<section class="pv-section" id="agent-native">
+  <h2>14 · Agent-Native Signatures</h2>
+  <p class="pv-body">v5 additions from DESIGN.md §§ 4c–4h. Seven message roles, streaming cursor, seven presence states, three tool-approval risk tiers, four session variants, and eight artifact hues. These carry OnMyAgent's identity and MUST NOT drift.</p>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Message roles (§ 4c)</h3>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;">
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;font-size:13px;">You: ship the v5 preview panel today.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;font-size:13px;">Assistant: on it — writing the section now.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface-muted);border-left:2px solid var(--pv-primary);border-radius:0 6px 6px 0;font-family:ui-monospace,monospace;font-size:12px;color:var(--pv-primary);display:flex;gap:6px;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> tool-call — bash({"cmd":"pnpm task check design"})</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface-muted);border-left:2px solid var(--pv-slate);border-radius:0 6px 6px 0;font-family:ui-monospace,monospace;font-size:12px;color:var(--pv-slate);display:flex;gap:6px;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> tool-output — Baseline OK — no regressions.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-signal);border-radius:0 6px 6px 0;font-style:italic;font-size:12px;color:var(--pv-slate);display:flex;gap:6px;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg> thinking — the class regex over-matches; add --dls- prefix guard.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-background);font-size:12px;color:var(--pv-slate);display:flex;gap:6px;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> system — session started at 15:24.</div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-danger);border-radius:0 6px 6px 0;font-size:13px;color:var(--pv-danger);display:flex;gap:6px;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> error — push failed: not authenticated.</div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Streaming cursor (§ 4d)</h3>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">6×12 block, blinks at 320 ms; after 1 s idle, swaps to <code>…</code>. Under <code>prefers-reduced-motion</code>, cursor holds without blinking.</p>
+  <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;">
+    <div style="font-size:13px;">Assistant is typing<span class="pv-stream-cursor" aria-hidden="true"></span></div>
+    <div style="font-size:13px;color:var(--pv-slate);">Waiting for tool <span style="color:var(--pv-slate);">…</span></div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Presence states (§ 4e)</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-top:0.5rem;">
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-online);"></span>online</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;border:1px solid var(--pv-slate);"></span>idle</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-signal);" class="pv-pulse-fast"></span>typing</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-primary);" class="pv-pulse"></span>running</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-warning);"></span>paused</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-slate);"></span>disconnected</div>
+    <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-danger);"></span>errored</div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Tool approval tiers (§ 4f)</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;margin-top:0.5rem;">
+    <div style="padding:0.75rem;border:1px solid var(--pv-border);border-radius:8px;background:var(--pv-surface);">
+      <div style="font-size:12px;color:var(--pv-slate);" class="pv-mono">safe · no border</div>
+      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">read_file</div>
+      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="DESIGN.md"</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+        <button style="background:var(--pv-primary);color:#fff;border:0;border-radius:3px;padding:2px 10px;font-size:12px;">Approve</button>
+        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:3px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Deny</button>
+      </div>
+    </div>
+    <div style="padding:0.75rem;border-left:2px solid var(--pv-warning);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 8px 8px 0;background:var(--pv-surface);">
+      <div style="font-size:12px;color:var(--pv-warning);" class="pv-mono">careful · 2 px warning</div>
+      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">write_file</div>
+      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="apps/app/src/app/index.css"</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+        <button style="background:var(--pv-primary);color:#fff;border:0;border-radius:3px;padding:2px 10px;font-size:12px;">Approve</button>
+        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:3px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Deny</button>
+      </div>
+    </div>
+    <div style="padding:0.75rem;border-left:4px solid var(--pv-danger);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 8px 8px 0;background:var(--pv-surface);">
+      <div style="font-size:12px;color:var(--pv-danger);" class="pv-mono">destructive · 4 px danger, defaults Deny</div>
+      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">rm_rf</div>
+      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="node_modules"</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:3px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Approve</button>
+        <button style="background:var(--pv-danger);color:#fff;border:0;border-radius:3px;padding:2px 10px;font-size:12px;">Deny</button>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">SessionCard variants (§ 4h)</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.5rem;margin-top:0.5rem;">
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:13px;font-weight:500;">Design v5 review</div><div style="font-size:11px;color:var(--pv-slate);">active · 2 min ago</div></div>
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--pv-primary);"></span>
+    </div>
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;opacity:0.6;">
+      <div style="font-size:13px;color:var(--pv-slate);">Q2 planning</div><div style="font-size:11px;color:var(--pv-slate);">archived</div>
+    </div>
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-signal);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:13px;font-weight:500;">Handoff to Alex</div><div style="font-size:11px;color:var(--pv-slate);">shared</div></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--pv-signal);"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    </div>
+    <div style="padding:0.6rem 0.75rem;background:var(--pv-surface-muted);border:1px solid var(--pv-border);border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:13px;font-weight:500;">Onboarding walkthrough</div><div style="font-size:11px;color:var(--pv-slate);">read-only</div></div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--pv-slate);"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+  </div>
+
+  <h3 class="pv-h3" style="margin-top:1.5rem;">ArtifactCard hues (§ 4h · isolated palette)</h3>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">Radix shade 9 (light) / shade 4 (dark). Used only on <code>ArtifactCard</code>; leakage flagged by <code>pnpm task check design</code>.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-top:0.5rem;">
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-image);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">image<div style="font-size:11px;color:var(--pv-slate);">screenshot.png</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-code);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">code<div style="font-size:11px;color:var(--pv-slate);">DESIGN.md</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-document);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">document<div style="font-size:11px;color:var(--pv-slate);">plan.pdf</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-data);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">data<div style="font-size:11px;color:var(--pv-slate);">sessions.csv</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-plot);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">plot<div style="font-size:11px;color:var(--pv-slate);">latency.svg</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-3d);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">3d<div style="font-size:11px;color:var(--pv-slate);">model.gltf</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-audio);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">audio<div style="font-size:11px;color:var(--pv-slate);">clip.wav</div></div>
+    <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-video);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">video<div style="font-size:11px;color:var(--pv-slate);">demo.mp4</div></div>
+  </div>
+</section>
+
+
+</main>
+
+<footer class="pv-footer">
+  Rendered from <code>/DESIGN.md</code> · This preview is a fixed HTML snapshot; if it drifts from DESIGN.md, DESIGN.md wins.
+</footer>
+<script>
+(function () {
+  const EASINGS = {
+    standard: 'cubic-bezier(0.2, 0, 0, 1)',
+    decisive: 'cubic-bezier(0.3, 0, 0.2, 1)',
+    signal: 'cubic-bezier(0.4, 0, 0.6, 1)',
+  };
+  function trigger(tile) {
+    const obj = tile.querySelector('.pv-motion-obj');
+    if (!obj) return;
+    const easing = EASINGS[obj.dataset.easing] || EASINGS.standard;
+    const duration = obj.dataset.duration || 200;
+    tile.style.setProperty('--pv-motion-duration', duration + 'ms');
+    tile.style.setProperty('--pv-motion-ease', easing);
+    tile.classList.remove('pv-motion-run');
+    // Force reflow so animation restarts.
+    void obj.offsetWidth;
+    tile.classList.add('pv-motion-run');
+  }
+  const tiles = document.querySelectorAll('.pv-motion-tile');
+  tiles.forEach((tile) => {
+    trigger(tile);
+    const btn = tile.querySelector('.pv-motion-replay');
+    if (btn) btn.addEventListener('click', () => trigger(tile));
+  });
+})();
+</script>
+</body>
+</html>

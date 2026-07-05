@@ -961,7 +961,7 @@ function AutomationRiskDialog(props: {
     <AlertDialog open={props.open} onOpenChange={props.onOpenChange}>
       <AlertDialogContent className="max-w-xl rounded-xl">
         <AlertDialogHeader>
-          <AlertDialogMedia className="size-12 rounded-xl bg-dls-status-warning/10 text-dls-status-warning">
+          <AlertDialogMedia className="size-12 rounded-xl bg-dls-status-warning-soft text-dls-status-warning-fg">
             <ShieldAlert className="size-6" />
           </AlertDialogMedia>
           <AlertDialogTitle>{t("automation.risk_title")}</AlertDialogTitle>

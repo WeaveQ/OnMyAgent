@@ -1356,10 +1356,10 @@ export function ExpertPage(props: ExpertPageProps) {
         variant="ghost"
         size="icon-sm"
         className={cn(
-          "rounded-md transition-colors hover:bg-muted hover:text-foreground",
+          "transition-colors hover:bg-muted hover:text-foreground",
           sidePanelOpen &&
             activeSidePanel !== "canvas" &&
-            "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+            "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
         )}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
@@ -1457,7 +1457,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   onClick={() => setAgentPanelCollapsed(false)}
                   variant="ghost"
                   size="icon-xs"
-                  className="shrink-0 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                   title={t("session.expand_session_list")}
                   aria-label={t("session.expand_session_list")}
                 >
@@ -1595,23 +1595,23 @@ export function ExpertPage(props: ExpertPageProps) {
                         >
                           <div className="mx-auto max-w-2xl space-y-6">
                             <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-hover/80" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-hover/60" />
+                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
+                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
                             </div>
                             <div className="space-y-3">
                               {STARTUP_SKELETON_ROWS.map((row) => (
                                 <div
                                   key={row.id}
-                                  className="rounded-2xl border border-dls-border bg-dls-hover/40 p-4"
+                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
                                 >
                                   <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-hover/80"
+                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
                                     style={{ width: row.titleWidth }}
                                   />
                                   <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-hover/70" />
+                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
                                     <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-hover/60"
+                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
                                       style={{ width: row.bodyWidth }}
                                     />
                                   </div>
@@ -1708,7 +1708,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         >
                           {props.notFoundMessage ? (
                             <div className="px-6 py-16 text-center">
-                              <div className="mx-auto max-w-md rounded-2xl border border-dls-border bg-dls-card px-5 py-6">
+                              <div className="mx-auto max-w-md rounded-xl border border-dls-border bg-dls-card px-5 py-6">
                                 <h3 className="text-base font-medium text-dls-text">
                                   Workspace or session not found
                                 </h3>
@@ -1719,7 +1719,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             </div>
                           ) : showWorkspaceSetupEmptyState ? (
                             <div className="space-y-6 px-6 text-center">
-                              <IconTile size="2xl" shape="xl" border className="mx-auto rounded-3xl">
+                              <IconTile size="2xl" shape="xl" border className="mx-auto rounded-xl">
                                 <Zap className="text-dls-secondary" />
                               </IconTile>
                               <div className="space-y-2">

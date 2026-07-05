@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { t } from "../../i18n";
 import { ProviderIcon } from "../design-system/provider-icon";
-import { FloatingToastFrame } from "../domains/shell-feedback/floating-toast-frame";
+import { FloatingToastFrame } from "../domains/shell-feedback";
 import { orgOnboardingVisibilityEvent } from "./reload-coordinator";
 
 const SEEN_KEY = "onmyagent.seenProviderIds";

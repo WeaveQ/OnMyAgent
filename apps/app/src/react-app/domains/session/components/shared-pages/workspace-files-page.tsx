@@ -465,7 +465,7 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex h-14 shrink-0 items-center border-b border-dls-border bg-dls-surface/80 px-6">
+      <div className="flex h-14 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
         <SegmentedTabGroup>
           <NavTabButton
             active={activeTab === "task"}

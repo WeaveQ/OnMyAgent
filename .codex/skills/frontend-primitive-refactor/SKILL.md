@@ -90,6 +90,8 @@ Do not add page-specific arbitrary sizes to solve a local alignment issue. If a 
 | Loading rings | `LoadingSpinner` |
 | Inline/block command or code chips | `CodeToken` |
 | Notice/help surfaces | `NoticeBox` |
+| Multi-tab / segmented panel | `SegmentedTabGroup` + `NavTabButton size="tab" shape="tab"` |
+| Composer send affordance | `SendButton` (only `rounded-full` CTA allowed in workbench) |
 | Dialog/dropdown/select/tooltip/switch/checkbox | Existing `@/components/ui/*` wrappers |
 
 ## Hard Rules
@@ -101,6 +103,9 @@ Do not add page-specific arbitrary sizes to solve a local alignment issue. If a 
 - Do not mix unrelated goals in one round. One round should target one component family or one small UI surface.
 - Do not claim global completion from a narrow scan; report scope and remaining debt.
 - Do not import `@/react-app/*` or relative `react-app/*` modules from `apps/app/src/components/**`; split into a pure view plus a `react-app/**` container instead.
+- Do not hand-write `inline-flex rounded-lg border p-1` wrapping default (pill) `NavTabButton` — that was the manage-page shape clash. Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">` instead.
+- Do not introduce `rounded-full` on ordinary CTAs. The whitelist is: avatars, `NavTabButton shape="pill"` chip filters, `SendButton`, and the pre-app `architecture-mismatch-gate.tsx`. See `DESIGN.md` § 11.
+- When editing a signature primitive (`SettingsCard`, `RailButton`, `SendButton`, `Dialog`, `Input`, `SessionCard`, `ArtifactCard`, `SkillCard`, `ToggleChip`, …), cross-check against `DESIGN.md`'s YAML `components.contracts` block in the same PR.
 
 ## Scan Commands
 

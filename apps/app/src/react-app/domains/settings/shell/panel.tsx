@@ -127,7 +127,7 @@ export function SettingsPanelToolbarStatus(
     <div
       className={cn(
         "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
-        props.tone ?? "bg-dls-active/60 text-dls-secondary border-dls-border/50",
+        props.tone ?? "bg-dls-active text-dls-secondary border-dls-mist",
       )}
       title={props.title}
     >

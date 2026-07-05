@@ -159,13 +159,13 @@ function CodeSidePanelMenu(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-side-panel-menu="true">
       <header className="flex h-10 shrink-0 items-center justify-end gap-1 px-3 text-dls-secondary">
-        <Button type="button" variant="ghost" size="icon-xs" className="rounded-md hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
+        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
           <Expand className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="rounded-md hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
+        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
           <RectangleHorizontal className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="rounded-md hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
+        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
           <PanelRight className="size-3.5" />
         </Button>
       </header>
@@ -181,7 +181,7 @@ function CodeSidePanelMenu(props: {
                 type="button"
                 data-code-side-panel-menu-item={item.id}
                 className={cn(
-                  "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-hover/70 px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                  "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
                   selected && "bg-dls-hover text-dls-accent",
                 )}
                 onClick={() => props.onSelect(item.id)}
@@ -189,7 +189,13 @@ function CodeSidePanelMenu(props: {
               >
                 <Icon className="size-4 text-dls-secondary" />
                 <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
-                {shortcut ? <kbd className="scale-90 rounded-md bg-dls-surface px-1.5 py-0.5 text-xs leading-none text-dls-secondary">{shortcut}</kbd> : null}
+                {shortcut ? (
+                  <kbd
+                    className="inline-flex items-center rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs leading-none text-dls-text-secondary"
+                  >
+                    {shortcut}
+                  </kbd>
+                ) : null}
               </button>
             );
           })}
@@ -217,7 +223,7 @@ function CodeSidePanelPlaceholder(props: {
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="rounded-md text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground"
           onClick={props.onClose}
           aria-label={t("session.code_side_panel_close")}
           title={t("common.close")}
@@ -610,8 +616,8 @@ export function SessionPage(props: SessionPageProps) {
               variant="ghost"
               size="icon-sm"
               className={cn(
-                "rounded-md transition-colors hover:bg-muted hover:text-foreground",
-                sidePanelOpen && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                "transition-colors hover:bg-muted hover:text-foreground",
+                sidePanelOpen && "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
               )}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -636,9 +642,9 @@ export function SessionPage(props: SessionPageProps) {
                   variant="ghost"
                   size="icon-sm"
                   className={cn(
-                    "rounded-md transition-colors hover:bg-muted hover:text-foreground",
+                    "transition-colors hover:bg-muted hover:text-foreground",
                     browserRailActive &&
-                      "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                      "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
                   )}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={openBrowserRailPane}
@@ -646,7 +652,7 @@ export function SessionPage(props: SessionPageProps) {
                   aria-label="Browser"
                   aria-pressed={browserRailActive}
                 >
-                  <Globe size={17} />
+                  <Globe size={16} />
                 </Button>
               ) : null}
               <Button
@@ -654,9 +660,9 @@ export function SessionPage(props: SessionPageProps) {
                 variant="ghost"
                 size="icon-sm"
                 className={cn(
-                  "relative rounded-md transition-colors hover:bg-muted hover:text-foreground",
+                  "relative transition-colors hover:bg-muted hover:text-foreground",
                   artifactRailActive &&
-                    "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                    "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
                 )}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={openArtifactRailPane}
@@ -664,7 +670,7 @@ export function SessionPage(props: SessionPageProps) {
                 aria-label={hasArtifactTargets ? `Artifacts (${artifactTargetCount})` : "No artifacts yet"}
                 aria-pressed={artifactRailActive}
               >
-                <PanelRight size={17} />
+                <PanelRight size={16} />
                 {artifactTargetCount > 0 ? (
                   <CountBadge size="dot" className="absolute right-0 top-0 translate-x-1 -translate-y-1 bg-primary text-primary-foreground">
                     {artifactTargetCount > 9 ? "9+" : artifactTargetCount}
@@ -838,23 +844,23 @@ export function SessionPage(props: SessionPageProps) {
                         >
                           <div className="mx-auto max-w-2xl space-y-6">
                             <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-hover/80" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-hover/60" />
+                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
+                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
                             </div>
                             <div className="space-y-3">
                               {STARTUP_SKELETON_ROWS.map((row) => (
                                 <div
                                   key={row.id}
-                                  className="rounded-2xl border border-dls-border bg-dls-hover/40 p-4"
+                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
                                 >
                                   <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-hover/80"
+                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
                                     style={{ width: row.titleWidth }}
                                   />
                                   <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-hover/70" />
+                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
                                     <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-hover/60"
+                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
                                       style={{ width: row.bodyWidth }}
                                     />
                                   </div>
@@ -933,7 +939,7 @@ export function SessionPage(props: SessionPageProps) {
                         >
                           {props.notFoundMessage ? (
                             <div className="px-6 py-16 text-center">
-                              <div className="mx-auto max-w-md rounded-2xl border border-dls-border bg-dls-card px-5 py-6">
+                              <div className="mx-auto max-w-md rounded-xl border border-dls-border bg-dls-card px-5 py-6">
                                 <h3 className="text-base font-medium text-dls-text">
                                   Workspace or session not found
                                 </h3>
@@ -944,7 +950,7 @@ export function SessionPage(props: SessionPageProps) {
                             </div>
                           ) : pageView.showWorkspaceSetupEmptyState ? (
                             <div className="space-y-6 px-6 text-center">
-                              <IconTile size="2xl" shape="xl" border className="mx-auto rounded-3xl">
+                              <IconTile size="2xl" shape="xl" border className="mx-auto rounded-xl">
                                 <Zap className="text-dls-secondary" />
                               </IconTile>
                               <div className="space-y-2">
@@ -1219,7 +1225,7 @@ export function SessionPage(props: SessionPageProps) {
       </div>
 
       <Dialog open={agentPanel.agentsDialogOpen} onOpenChange={agentPanel.setAgentsDialogOpen}>
-        <DialogContent className="flex h-[min(820px,calc(100vh-72px))] !w-[min(1280px,calc(100vw-96px))] !max-w-[min(1280px,calc(100vw-96px))] flex-col overflow-hidden rounded-3xl bg-dls-background p-0 sm:!max-w-[min(1280px,calc(100vw-96px))]">
+        <DialogContent className="flex h-[min(820px,calc(100vh-72px))] !w-[min(1280px,calc(100vw-96px))] !max-w-[min(1280px,calc(100vw-96px))] flex-col overflow-hidden rounded-xl bg-dls-background p-0 sm:!max-w-[min(1280px,calc(100vw-96px))]">
           <props.renderAgentsPage
             workspaceId={props.selectedWorkspaceId}
             workspaceRoot={props.selectedWorkspaceRoot}

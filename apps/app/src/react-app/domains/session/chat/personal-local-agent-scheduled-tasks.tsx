@@ -30,7 +30,7 @@ export const heartbeatClass = {
   grid: "grid gap-3 md:grid-cols-2 xl:grid-cols-4",
   item: "rounded-lg border border-dls-border bg-dls-card px-3 py-2.5",
   meta: "mt-1 flex flex-wrap gap-2 text-xs text-dls-secondary",
-  runs: "mt-2 w-full rounded-lg border border-dls-border bg-dls-surface-muted/60 p-2",
+  runs: "mt-2 w-full rounded-lg border border-dls-border bg-dls-surface-muted p-2",
   runItem: "rounded-md border border-dls-border bg-dls-surface px-2 py-1.5",
 };
 

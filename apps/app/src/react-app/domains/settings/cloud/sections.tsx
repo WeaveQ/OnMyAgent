@@ -93,9 +93,9 @@ const statusBadgeVariants = cva("", {
   variants: {
     tone: {
       ready: "border-dls-accent/30 bg-dls-accent/10 text-dls-accent",
-      warning: "border-dls-status-warning/30 bg-dls-status-warning/10 text-dls-status-warning",
+      warning: "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
       error: "border-dls-status-danger-border bg-dls-status-danger-soft text-dls-status-danger-fg",
-      neutral: "border-dls-border/60 bg-dls-hover/20 text-dls-secondary",
+      neutral: "border-dls-mist bg-dls-surface-muted text-dls-secondary",
     },
   },
 });

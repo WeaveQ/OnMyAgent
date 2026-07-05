@@ -2,10 +2,7 @@
 import { useEffect } from "react";
 
 import { usePlatform } from "../kernel/platform";
-import {
-  useCloudSession,
-} from "../domains/settings/cloud/cloud-session-provider";
-import { useDenSession } from "../domains/settings/cloud/use-den-session";
+import { useCloudSession, useDenSession } from "../domains/settings";
 import type { SessionSidebarAccount } from "./session-route-model";
 
 export function SessionCloudAccountBridge(props: {

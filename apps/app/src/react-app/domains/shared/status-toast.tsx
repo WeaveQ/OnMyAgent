@@ -16,15 +16,15 @@ export type StatusToastProps = {
 
 const statusToastToneClass = {
   success: "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-  warning: "border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning",
-  error: "border-dls-status-danger/30 bg-dls-status-danger-soft text-dls-status-danger-fg",
-  info: "border-dls-accent/25 bg-dls-accent/10 text-dls-accent",
+  warning: "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
+  error: "border-dls-status-danger-border bg-dls-status-danger-soft text-dls-status-danger-fg",
+  info: "border-dls-accent/30 bg-dls-accent/10 text-dls-accent",
 };
 
 const statusToastLayoutClass = {
-  shell: "w-full max-w-[24rem] overflow-hidden rounded-2xl border border-dls-border bg-dls-surface backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300",
+  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300",
   body: "flex items-start gap-3 p-4",
-  iconTile: "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border",
+  iconTile: "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",
   content: "min-w-0 flex-1",
   header: "flex items-start justify-between gap-3",
   title: "text-sm font-medium text-dls-text",

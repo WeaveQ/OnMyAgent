@@ -103,11 +103,11 @@ function DenSignedOutPanel({
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => onOpenBrowserAuth("sign-in")}>
             {t("den.signin_button")}
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={12} />
           </Button>
           <Button variant="outline" onClick={() => onOpenBrowserAuth("sign-up")}>
             {t("den.create_account")}
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={12} />
           </Button>
         </div>
 

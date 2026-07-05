@@ -86,9 +86,13 @@ async function withTinyWebSocketServer(handler) {
       socket.write(Buffer.concat([Buffer.from([0x81, response.length]), response]));
     });
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind test websocket server");
+  }
   return {
-    url: `ws://127.0.0.1:${server.address().port}`,
+    url: `ws://127.0.0.1:${address.port}`,
     close: () => new Promise((resolve) => {
       for (const socket of sockets) socket.destroy();
       server.close(resolve);

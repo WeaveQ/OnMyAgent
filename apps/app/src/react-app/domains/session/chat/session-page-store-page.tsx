@@ -25,7 +25,7 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className="flex h-14 shrink-0 items-center border-b border-dls-border bg-dls-surface/80 px-6">
+      <div className="flex h-14 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
         <SegmentedTabGroup>
           {tabs.map(([tab, label]) => (
             <NavTabButton

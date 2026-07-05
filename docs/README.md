@@ -9,6 +9,7 @@ This directory contains durable OnMyAgent project documentation. Keep transient 
 | `../README.md` | Public project overview, quick start, architecture summary, and contribution guide. |
 | `../README-zh.md` | Simplified Chinese project overview, quick start, architecture summary, and contribution guide. |
 | `../AGENTS.md` | Agent/Loop operating manual and repository rules. |
+| `../DESIGN.md` | Authoritative visual contract for tokens, components, Do's / Don'ts. Machine-readable YAML front matter for AI agents plus narrative for humans. |
 | `Architecture.md` | System architecture, package boundaries, command surface, data flow, and test gates. |
 | `loop-rules.md` | Detailed Loop, durable ledger, kill switch, Reference Parity, and graphify rules. |
 | `../BUILD.md` | Desktop packaging and release build runbook. |
@@ -21,7 +22,8 @@ This directory contains durable OnMyAgent project documentation. Keep transient 
 | --- | --- | --- |
 | Architecture | `Architecture.md` | Durable architecture and command-surface source of truth. |
 | Loop rules | `loop-rules.md` | Detailed operating rules loaded from `../AGENTS.md` for non-trivial loop work. |
-| Design | `design/` | Theme, visual system, UI primitive contracts, and token guardrails. |
+| Design | `../DESIGN.md`, `design/` | `../DESIGN.md` at repo root is the authoritative visual contract; `design/` holds design-philosophy narrative and UI primitive refactor best practices. |
+| Design tooling | `../scripts/design/` | Local scripts backing the design contract. `extract-tokens.mjs` diffs `DESIGN.md` YAML against code-side token sources; invoke via `pnpm task check design`. |
 | Optional tracked plans | `plans/` when present | Human-reviewable product or architecture plans only; AI execution ledgers belong in `.loop/plans/`. |
 | Local loop state | `.loop/state/`, `.loop/runs/`, `.loop/plans/` | Local-only progress, run logs, intent debt, evidence, and execution ledgers. |
 | Incident log | `loop-incidents.md` | Severe repo-wide, unsafe, production, or cost-risk incidents only. |

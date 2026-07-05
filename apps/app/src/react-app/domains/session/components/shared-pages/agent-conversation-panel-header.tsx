@@ -63,10 +63,10 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="flex min-h-12 shrink-0 items-start gap-2.5 border-b border-dls-border/70 px-4 py-2">
+    <div className="flex min-h-12 shrink-0 items-start gap-2.5 border-b border-dls-mist px-4 py-2">
       <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1">
         <InputGroupAddon align="inline-start" inset="tight">
-          <Search className="size-[18px]" />
+          <Search className="size-5" />
         </InputGroupAddon>
         <InputGroupInput
           value={props.query}
@@ -80,16 +80,16 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           type="button"
           size="icon-sm"
           onClick={props.onOpenAgents}
-          className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          className="relative shrink-0 border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
           title={t("session.choose_expert_agent")}
           aria-label={t("session.choose_expert_agent")}
         >
-          <Bot className="size-[18px]" />
+          <Bot className="size-5" />
           <Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} />
         </Button>
         {props.showAgentSelectionTip ? (
-          <div className="absolute left-1/2 top-10 z-30 w-60 rounded-lg border border-dls-accent/25 bg-dls-surface p-3">
-            <span className="absolute -top-1.5 left-3 size-3 rotate-45 border-l border-t border-dls-accent/25 bg-dls-surface" aria-hidden="true" />
+          <div className="absolute left-1/2 top-10 z-30 w-60 rounded-lg border border-dls-accent/30 bg-dls-surface p-3">
+            <span className="absolute -top-1.5 left-3 size-3 rotate-45 border-l border-t border-dls-accent/30 bg-dls-surface" aria-hidden="true" />
             <div className="text-xs font-medium leading-5 text-dls-accent">
               {t("session.choose_expert_agent_tip_title")}
             </div>
@@ -101,7 +101,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
               variant="ghost"
               size="xs"
               onClick={props.onOpenAgents}
-              className="mt-2 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/15 hover:text-dls-accent"
+              className="mt-2 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
             >
               <Bot className="size-3" />
               {t("session.choose_expert_agent_tip_action")}

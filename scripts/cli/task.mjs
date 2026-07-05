@@ -15,8 +15,10 @@ const checkTargets = new Map([
   ['orchestrator', { command: 'pnpm', args: ['exec', 'turbo', 'run', 'typecheck', '--filter', 'onmyagent-orchestrator'] }],
   ['i18n', { command: 'pnpm', args: ['check:i18n'] }],
   ['i18n:hardcoded', { command: 'pnpm', args: ['check:i18n:hardcoded'] }],
+  ['i18n:cjk', { command: 'pnpm', args: ['check:i18n:cjk'] }],
   ['security', { command: 'pnpm', args: ['check:security'] }],
   ['boundaries', { command: 'pnpm', args: ['check:boundaries'] }],
+  ['design', { command: 'node', args: ['scripts/design/extract-tokens.mjs'] }],
 ])
 
 const testTargets = new Map([
@@ -153,7 +155,7 @@ function printUsage() {
   console.log(`Usage: pnpm task GROUP TARGET
 
 Groups:
-  check    types|app|desktop|server|orchestrator|i18n|i18n:hardcoded|security|boundaries
+  check    types|app|desktop|server|orchestrator|i18n|i18n:hardcoded|i18n:cjk|security|boundaries|design
   test     unit|api|runtime|release-smoke|ui|health|sessions|refactor|events|todos|permissions|automation-model|extensions-store|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|personal-local-agent-codex-acp-tool-smoke|remote-diagnostics|open-target|session-sync|session-render-state|session-process-summary|assistant-selection-memory|session-shared-pages-layout|session-route-workspace-actions|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|orchestrator:cli-args|orchestrator:cli-entry|orchestrator:runtime-auth|orchestrator:runtime-health|orchestrator:runtime-sandbox|orchestrator:runtime-services|orchestrator:sidecar-config|e2e|version-gate|orchestrator|server:archive|server:automation|server:routes|server:workspace
   build    app|web|desktop
   bump     patch|minor|major|set
@@ -174,4 +176,8 @@ if (!targets || !commandConfig) {
   process.exit(1)
 }
 
-runCommand(commandConfig)
+const forwardedArgs = rest.length
+  ? { ...commandConfig, args: [...commandConfig.args, ...rest] }
+  : commandConfig
+
+runCommand(forwardedArgs)

@@ -12,8 +12,8 @@ import {
 
 import type { ReloadReason, ReloadTrigger } from "../../app/types";
 import { t } from "../../i18n";
-import { ReloadWorkspaceToast } from "../domains/shell-feedback/reload-workspace-toast";
-import { StatusToastsViewport } from "../domains/shared/status-toasts";
+import { ReloadWorkspaceToast } from "../domains/shell-feedback";
+import { StatusToastsViewport } from "../domains/shared";
 import { useSystemState } from "../kernel/system-state";
 
 type ReloadSession = { id: string; title: string };
