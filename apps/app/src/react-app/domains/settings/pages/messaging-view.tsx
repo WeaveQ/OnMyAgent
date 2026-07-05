@@ -26,7 +26,7 @@ import { SettingsActionRow, SettingsNotice, SettingsPanel } from "../settings-se
 
 const agentFilePath = ".opencode/agents/opencode-router.md";
 const messagingTextClass = {
-  pageTitle: "text-base font-medium text-dls-text",
+  pageTitle: "text-lg font-medium leading-6 text-dls-text",
   sectionTitle: "mb-2 text-sm font-medium leading-5 text-dls-text",
   panelTitle: "text-sm font-medium leading-5 text-dls-text",
   panelDescription: "mt-0.5 text-xs leading-5 text-dls-secondary",
@@ -67,13 +67,13 @@ const messagingLayoutClass = {
   agentHeader: "flex items-center justify-between gap-2",
   actionRow: "flex flex-wrap items-center gap-2",
   routingRow: "flex items-center gap-2 pl-6",
-  resultPanel: "space-y-1 rounded-lg border border-dls-border bg-dls-surface-muted/40 px-3 py-2 font-mono text-xs text-dls-secondary",
+  resultPanel: "space-y-1 rounded-lg border border-dls-border bg-dls-surface-muted px-3 py-2 font-mono text-xs text-dls-secondary",
 };
 
 const messagingStateClass = {
   errorText: "text-xs text-dls-status-danger-fg",
   failureText: "text-dls-status-danger-fg",
-  pairingPanel: "space-y-2 rounded-xl border border-dls-accent/25 bg-dls-accent/10 px-3.5 py-3",
+  pairingPanel: "space-y-2 rounded-xl border border-dls-accent/30 bg-dls-accent/10 px-3.5 py-3",
   pairingTitle: "text-xs font-medium text-dls-accent",
   pairingDescription: "text-xs leading-relaxed text-dls-accent/90",
 };
@@ -219,7 +219,7 @@ function MessagingMetricTile(props: { label: string; children: ReactNode; tone?:
   return (
     <div className={cn(
       "flex-1 rounded-lg border border-dls-border px-3 py-2.5",
-      props.tone === "surface" ? "bg-dls-surface" : "bg-dls-surface-muted/50",
+      props.tone === "surface" ? "bg-dls-surface" : "bg-dls-surface-muted",
     )}>
       <div className="mb-0.5 text-xs text-dls-secondary">{props.label}</div>
       {props.children}
@@ -604,7 +604,7 @@ export function MessagingView(props: MessagingViewProps) {
                               {props.telegram.saving ? (
                                 <LoadingSpinner size="sm" tone="inverse" />
                               ) : (
-                                <Link size={15} />
+                                <Link size={14} />
                               )}
                               {props.telegram.saving ? t("identities.connecting") : t("identities.create_public_bot")}
                             </Button>
@@ -620,7 +620,7 @@ export function MessagingView(props: MessagingViewProps) {
                               {props.telegram.saving ? (
                                 <LoadingSpinner size="sm" tone="inverse" />
                               ) : (
-                                <Shield size={15} />
+                                <Shield size={14} />
                               )}
                               {props.telegram.saving ? t("identities.connecting") : t("identities.create_private_bot")}
                             </Button>
@@ -819,7 +819,7 @@ export function MessagingView(props: MessagingViewProps) {
                             {props.slack.saving ? (
                               <LoadingSpinner size="sm" tone="inverse" />
                             ) : (
-                              <Link size={15} />
+                              <Link size={14} />
                             )}
                             {props.slack.saving ? t("identities.connecting") : t("identities.connect_slack")}
                           </Button>

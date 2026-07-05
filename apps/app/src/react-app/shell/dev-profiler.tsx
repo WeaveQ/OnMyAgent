@@ -91,8 +91,7 @@ const devProfilerOverlayClass = {
 const PROFILER_ENABLED = (() => {
   if (typeof window === "undefined") return false;
   try {
-    const env = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
-    const flag = env.VITE_ONMYAGENT_PROFILER;
+    const flag = import.meta.env.VITE_ONMYAGENT_PROFILER;
     if (flag === "1" || flag === "true" || flag === true) return true;
   } catch {
     // ignore
@@ -394,7 +393,7 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
                     <tr
                       key={zone.id}
                       className={`border-t border-dls-border transition-colors ${
-                        isFlashing ? "bg-dls-accent/15" : ""
+                        isFlashing ? "bg-dls-accent/10" : ""
                       }`}
                     >
                       <td className="px-2 py-1 font-mono text-xs text-dls-text">

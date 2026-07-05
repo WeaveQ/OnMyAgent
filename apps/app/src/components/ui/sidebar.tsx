@@ -341,7 +341,11 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-header"
       data-sidebar="header"
       className={cn(
-        "flex flex-col gap-2 p-2 [--radius:var(--radius-xl)]",
+        // DESIGN.md § 7 — rely on the flat radius scale wired in
+        // `apps/app/src/app/index.css`. Do not override `--radius`
+        // here; it used to inflate every `rounded-*` utility inside
+        // the sidebar by ~1.4×.
+        "flex flex-col gap-2 p-2",
         className
       )}
       {...props}
@@ -380,7 +384,10 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-px overflow-auto [--radius:var(--radius-xl)] group-data-[collapsible=icon]:overflow-hidden",
+        // DESIGN.md § 7 — see SidebarHeader note above. Local
+        // `--radius` override removed to keep `rounded-md` = 8px
+        // and `rounded-xl` = 14px inside the sidebar surface.
+        "flex min-h-0 flex-1 flex-col gap-px overflow-auto group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -484,7 +491,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden relative rounded-md px-3 py-2 text-start text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pe-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-dls-rail-hover hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-dls-rail-hover active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-dls-rail-hover data-open:hover:text-sidebar-accent-foreground data-active:bg-dls-rail-hover data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate mac:hover:bg-black/5 mac:active:bg-black/5 mac:data-active:bg-black/5 dark:mac:hover:bg-dls-surface/10 dark:mac:active:bg-dls-surface/10 dark:mac:data-active:bg-dls-surface/10 ",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden relative rounded-lg px-3 py-2 text-start text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pe-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-dls-rail-hover hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-dls-rail-hover active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-dls-rail-hover data-open:hover:text-sidebar-accent-foreground data-active:bg-dls-rail-active data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate mac:hover:bg-black/5 mac:active:bg-black/5 mac:data-active:bg-dls-rail-active dark:mac:hover:bg-dls-surface/10 dark:mac:active:bg-dls-surface/10 dark:mac:data-active:bg-dls-rail-active ",
   {
     variants: {
       variant: {
@@ -689,7 +696,7 @@ function SidebarMenuSubButton({
     props: mergeProps<"a">(
       {
         className: cn(
-          "flex h-7 ps-9 min-w-0 -translate-x-px rtl:translate-x-px items-center gap-2 overflow-hidden relative rounded-md px-3 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-dls-rail-hover hover:text-sidebar-accent-foreground group-hover/menu-sub-item:bg-dls-rail-hover group-hover/menu-sub-item:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-dls-rail-hover active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-dls-rail-hover data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground mac:hover:bg-black/5 mac:group-hover/menu-sub-item:bg-black/5 mac:active:bg-black/5 mac:data-active:bg-black/5 dark:mac:hover:bg-dls-surface/10 dark:mac:group-hover/menu-sub-item:bg-dls-surface/10 dark:mac:active:bg-dls-surface/10 dark:mac:data-active:bg-dls-surface/10",
+          "flex h-7 ps-9 min-w-0 -translate-x-px rtl:translate-x-px items-center gap-2 overflow-hidden relative rounded-md px-3 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-dls-rail-hover hover:text-sidebar-accent-foreground group-hover/menu-sub-item:bg-dls-rail-hover group-hover/menu-sub-item:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-dls-rail-hover active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-dls-rail-active ring-1 ring-dls-border/60 data-active:shadow-none data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground mac:hover:bg-black/5 mac:group-hover/menu-sub-item:bg-black/5 mac:active:bg-black/5 mac:data-active:bg-white/70 dark:mac:data-active:bg-dls-surface/40 dark:mac:hover:bg-dls-surface/10 dark:mac:group-hover/menu-sub-item:bg-dls-surface/10 dark:mac:active:bg-dls-surface/10 dark:mac:data-active:bg-dls-surface/10",
           className
         ),
       },

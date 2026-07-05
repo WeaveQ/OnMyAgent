@@ -42,7 +42,7 @@ import {
   ToggleChip,
   FieldLabel,
   normalizeProfileOptionValues,
-} from "../domains/settings/pages/onboarding-profile-shared";
+} from "../domains/settings";
 import { t } from "../../i18n";
 import {
   pickDirectory,
@@ -127,7 +127,7 @@ const welcomeLayoutClass = {
   progressWrap: "min-w-0 flex-1",
   body: "relative z-10 min-h-0 flex-1",
   footer: "relative z-10 mx-auto w-full max-w-5xl px-8 pb-8 pt-3",
-  logoTile: "flex size-28 items-center justify-center rounded-2xl border border-dls-accent/20 bg-dls-surface p-5",
+  logoTile: "flex size-28 items-center justify-center rounded-xl border border-dls-accent/30 bg-dls-surface p-5",
   selectedWorkspace: "mx-auto mt-8 flex w-full max-w-3xl items-center gap-2 rounded-lg border border-dls-accent/30 bg-dls-decision-soft px-4 py-3",
   refreshButton: "shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-accent",
   profileFooter: "flex items-center justify-between gap-3",
@@ -205,7 +205,7 @@ function AccessCard(props: {
           ? "bg-dls-active opacity-55"
           : props.selected
             ? "border-dls-accent bg-dls-accent/10"
-            : "hover:border-dls-accent/50",
+            : "hover:border-dls-accent/30",
       )}
     >
       <IconTile

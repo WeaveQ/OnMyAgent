@@ -71,7 +71,7 @@ export function ToolCategoryCard(props: {
     <div className="rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3.5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-4">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-dls-accent text-white">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-dls-accent text-white">
             <BriefcaseBusiness className="size-4" />
           </div>
           <div>

@@ -233,13 +233,19 @@ select:disabled {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* DESIGN.md § 7 Shapes — radius scale must stay flat 3-tier
+     (6 / 8 / 10 / 14). Bind each tailwind radius token directly to
+     its `--dls-radius-*` source so component-scoped overrides of
+     `--radius` (e.g. shadcn sidebar) cannot bend the scale through
+     the previous multiplicative `calc(var(--radius) * N)` chain. */
+  --radius-xs: var(--dls-radius-xs);
+  --radius-sm: var(--dls-radius-sm);
+  --radius-md: var(--dls-radius-md);
+  --radius-lg: var(--dls-radius-lg);
+  --radius-xl: var(--dls-radius-xl);
+  --radius-2xl: var(--dls-radius-xl);
+  --radius-3xl: var(--dls-radius-xl);
+  --radius-4xl: var(--dls-radius-xl);
 }
 
 :root {
@@ -248,7 +254,11 @@ select:disabled {
   --ow-primary-hover: #004ED6;
   --ow-primary-rgb: 0 93 255;
   --ow-primary-light: #EAF2FF;
-  --ow-signal: #03FFDE;
+  /* Signal cyan (light). Migrated from #03FFDE (1.35:1 on white,
+     fails WCAG SC 1.4.11 for non-text UI) to #00B39B (3.36:1 AA
+     pass) while retaining the cyan/teal semantic. Dark mode keeps
+     the original #03FFDE where contrast against near-black is AA. */
+  --ow-signal: #00B39B;
   --ow-ink: #0F172A;
   --ow-slate: #64748B;
   --ow-mist: #E5E7EB;
@@ -281,7 +291,11 @@ select:disabled {
   --dls-status-danger: #EF4444;
   --dls-status-danger-soft: #FEE2E2;
   --dls-status-danger-fg: #B91C1C;
+  --dls-status-danger-border: #FCA5A5;
   --dls-status-warning: #D19A2A;
+  --dls-status-warning-soft: #FEF3C7;
+  --dls-status-warning-fg: #92400E;
+  --dls-status-warning-border: #FDE68A;
   --dls-status-success-soft: #ECFDF5;
   --dls-status-success-fg: #047857;
   --dls-status-success-border: #A7F3D0;
@@ -328,6 +342,42 @@ select:disabled {
   --dls-rail-bg: #F3F6FB;
   --dls-rail-active: #FFFFFF;
   --dls-rail-hover: #E8EFFA;
+  /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
+     public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
+     dls-text-tertiary / dls-app-bg / dls-slate / dls-success-fg) and
+     resolve to the underlying `--dls-*` primitives already declared
+     above. Kept as CSS aliases so Tailwind can register short semantic
+     class names (see apps/app/tailwind.config.ts) without introducing
+     new hex values. */
+  --dls-primary: var(--dls-accent);
+  --dls-primary-hover: var(--dls-accent-hover);
+  --dls-primary-soft: var(--dls-decision-soft);
+  --dls-danger: var(--dls-status-danger);
+  --dls-danger-soft: var(--dls-status-danger-soft);
+  --dls-danger-fg: var(--dls-status-danger-fg);
+  --dls-warning: var(--dls-status-warning);
+  --dls-success-fg: var(--dls-status-success-fg);
+  --dls-success-soft: var(--dls-status-success-soft);
+  /* Mist — softest hairline tier (DESIGN.md § 2). One perceptual
+     step lighter than `--dls-border` (== --ow-mist Slate-200) so the
+     three-tier border ladder (mist < border < border-strong) is
+     actually distinguishable. Overridden in the dark block below. */
+  --dls-mist: #EEF0F3;
+  --dls-slate: var(--ow-slate);
+  /* Tertiary text — one perceptual step lighter than secondary
+     (DESIGN.md § 2 Text tier + § 4c row anatomy). Overridden per
+     theme in the dark block below. */
+  --dls-text-tertiary: #94A3B8;
+  /* Z-layer stack (DESIGN.md § 6 Z-Layer Stack). Fixed 7-level ladder;
+     new floating surfaces MUST pick from this table rather than
+     inventing raw z-index numbers. Dark inherits via CSS cascade. */
+  --dls-z-base: 0;
+  --dls-z-sticky: 10;
+  --dls-z-dropdown: 100;
+  --dls-z-popover: 200;
+  --dls-z-dialog: 300;
+  --dls-z-toast: 400;
+  --dls-z-overlay-max: 999;
   --dls-radius-xs: 3px;
   --dls-radius-sm: 6px;
   --dls-radius-md: 8px;
@@ -336,6 +386,11 @@ select:disabled {
   --dls-radius-pill: 999px;
   --dls-font-sans: 'Geist Variable', sans-serif;
   --dls-font-heading: 'IBM Plex Sans Variable', sans-serif;
+  /* Monospace stack (DESIGN.md § 3 typography.font-mono). Used by
+     tool-call / tool-output rows, inline+fenced code, diff bodies,
+     and `<kbd>` glyph parity. System fallback only — no licensed
+     face is bundled. */
+  --dls-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
   --dls-text-2xs: 10px;
   --dls-text-xs: 12px;
   --dls-text-sm: 14px;
@@ -350,6 +405,18 @@ select:disabled {
   --dls-leading-normal: 1.45;
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
+
+  /* Artifact hue tokens (DESIGN.md § 4h). Radix shade 9 in light for
+     full chroma against white surfaces. MUST NOT be used outside
+     ArtifactCard — see § 11 Intentional Exceptions. */
+  --dls-artifact-hue-image: var(--violet-9);
+  --dls-artifact-hue-code: var(--blue-9);
+  --dls-artifact-hue-document: var(--slate-9);
+  --dls-artifact-hue-data: var(--teal-9);
+  --dls-artifact-hue-plot: var(--grass-9);
+  --dls-artifact-hue-3d: var(--plum-9);
+  --dls-artifact-hue-audio: var(--pink-9);
+  --dls-artifact-hue-video: var(--crimson-9);
   --radius: var(--dls-radius-lg);
 
   --background: var(--dls-background);
@@ -416,7 +483,11 @@ select:disabled {
   --dls-status-danger: #F87171;
   --dls-status-danger-soft: #3F1518;
   --dls-status-danger-fg: #FCA5A5;
+  --dls-status-danger-border: #7F1D1D;
   --dls-status-warning: #FBBF24;
+  --dls-status-warning-soft: #3A2E12;
+  --dls-status-warning-fg: #FCD34D;
+  --dls-status-warning-border: #78350F;
   --dls-status-success-soft: #0F2F24;
   --dls-status-success-fg: #6EE7B7;
   --dls-status-success-border: #14532D;
@@ -430,8 +501,34 @@ select:disabled {
   --dls-rail-bg: #171717;
   --dls-rail-active: #333333;
   --dls-rail-hover: #303030;
+  /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most
+     dls-* semantic aliases (dls-primary / dls-danger / dls-warning /
+     dls-success-fg / dls-slate) inherit through the
+     `var(--dls-status-*)` / `var(--ow-*)` chain declared in the light
+     block; CSS cascade resolves them against the dark values of those
+     primitives. `dls-text-tertiary` and `dls-mist` are declared as
+     literal hex (independent of the border ladder) and must therefore
+     be overridden here per theme. */
+  --dls-text-tertiary: #64748B;
+  /* Mist (dark) — one perceptual step darker than `--dls-border`
+     (#3A3A3A) so the three-tier hairline ladder (mist < border <
+     border-strong) stays visible on dark surfaces (#1E1E1E surface,
+     #262626 background). */
+  --dls-mist: #2E2E2E;
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
+
+  /* Artifact hue tokens (dark). Radix shade 4 for consistent perceived
+     chroma on dark surfaces without over-saturation. See DESIGN.md § 4h
+     and § 11 Intentional Exceptions. */
+  --dls-artifact-hue-image: var(--violet-4);
+  --dls-artifact-hue-code: var(--blue-4);
+  --dls-artifact-hue-document: var(--slate-4);
+  --dls-artifact-hue-data: var(--teal-4);
+  --dls-artifact-hue-plot: var(--grass-4);
+  --dls-artifact-hue-3d: var(--plum-4);
+  --dls-artifact-hue-audio: var(--pink-4);
+  --dls-artifact-hue-video: var(--crimson-4);
 
   --background: var(--dls-background);
   --foreground: var(--dls-text-primary);

@@ -3288,19 +3288,22 @@ async function runSandboxChecks(input: {
   }
 }
 
-async function fetchJson(url: string, init?: RequestInit): Promise<any> {
+async function fetchJson<T = any>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
-  let payload: any = null;
+  let payload: unknown = null;
   try {
     payload = await response.json();
   } catch {
     payload = null;
   }
   if (!response.ok) {
-    const message = payload?.message ? ` ${payload.message}` : "";
+    const message =
+      payload && typeof payload === "object" && "message" in payload && typeof (payload as { message?: unknown }).message === "string"
+        ? ` ${(payload as { message: string }).message}`
+        : "";
     throw new Error(`HTTP ${response.status}${message}`);
   }
-  return payload;
+  return payload as T;
 }
 
 async function issueOpenworkOwnerToken(

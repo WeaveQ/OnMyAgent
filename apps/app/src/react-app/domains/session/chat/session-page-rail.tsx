@@ -102,7 +102,7 @@ function TopRailButton(props: {
       data-view-id={props.item.id}
       size="bottom"
       active={props.active}
-      className="size-[38px] hover:bg-dls-surface/45"
+      className="size-[38px] hover:bg-dls-surface"
       title={props.item.label}
       aria-label={props.item.label}
       aria-pressed={props.active}
@@ -128,7 +128,7 @@ function BottomRailButton(props: {
       data-view-id={props.item.id}
       size="bottom"
       active={props.active}
-      className="size-7 rounded-xl hover:bg-dls-surface/45"
+      className="size-7 rounded-xl hover:bg-dls-surface"
       title={props.item.label}
       aria-label={props.item.label}
       aria-pressed={props.active}

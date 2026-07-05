@@ -16,7 +16,7 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className={cn("size-full rounded-inherit transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-1",             "dls-scroll-fade-mask",
+        className={cn("size-full rounded-inherit transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-1",             "dls-scroll-fade-mask",
         )}
       >
         {children}

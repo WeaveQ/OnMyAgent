@@ -236,6 +236,14 @@ export type OpenworkWorkspaceFileWriteResult = {
   revision?: string;
 };
 
+function readErrorName(error: unknown): string {
+  if (error && typeof error === "object" && "name" in error) {
+    const value = (error as { name?: unknown }).name;
+    return typeof value === "string" ? value : "";
+  }
+  return "";
+}
+
 function arrayBufferToBase64(data: ArrayBuffer): string {
   const bytes = new Uint8Array(data);
   let binary = "";
@@ -895,7 +903,7 @@ async function fetchWithTimeout(
   try {
     return await Promise.race([fetchImpl(url, initWithSignal), timeoutPromise]);
   } catch (error) {
-    const name = (error && typeof error === "object" && "name" in error ? (error as any).name : "") as string;
+    const name = readErrorName(error);
     if (name === "AbortError") {
       throw new Error("Request timed out.");
     }
@@ -999,15 +1007,16 @@ async function requestBinary(
 
   if (!response.ok) {
     const text = await response.text();
-    let json: any = null;
+    let json: unknown = null;
     try {
       json = text ? JSON.parse(text) : null;
     } catch {
       json = null;
     }
-    const code = typeof json?.code === "string" ? json.code : "request_failed";
-    const message = typeof json?.message === "string" ? json.message : response.statusText;
-    throw new OpenworkServerError(response.status, code, message, json?.details);
+    const jsonObject = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
+    const code = typeof jsonObject?.code === "string" ? jsonObject.code : "request_failed";
+    const message = typeof jsonObject?.message === "string" ? jsonObject.message : response.statusText;
+    throw new OpenworkServerError(response.status, code, message, jsonObject?.details);
   }
 
   const contentType = response.headers.get("content-type");

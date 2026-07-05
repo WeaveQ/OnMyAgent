@@ -80,7 +80,7 @@ export function SidebarFeaturePlaceholder(props: {
   return (
     <div className="flex h-full min-h-0 items-center justify-center px-6 py-16">
       <div className="flex max-w-sm flex-col items-center text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover text-dls-secondary">
+        <div className="flex size-14 items-center justify-center rounded-xl border border-dls-border bg-dls-hover text-dls-secondary">
           <Icon className="size-6" />
         </div>
         <h2 className={sidePanelTextClass.emptyTitle}>{label}</h2>
@@ -233,7 +233,7 @@ function BillingUsagePanel() {
           {BILLING_USAGE_RECORDS.map((record) => (
             <div
               key={`${record.time}-${record.session}`}
-              className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-border/70 py-4 text-sm last:border-b-0"
+              className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-mist py-4 text-sm last:border-b-0"
             >
               <div className="text-dls-secondary">{record.time}</div>
               <div className="text-dls-secondary">{record.scene}</div>
@@ -400,7 +400,7 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-dls-border bg-dls-surface/80 px-6 mac:titlebar-drag">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-dls-border bg-dls-surface px-6 mac:titlebar-drag">
         {activeTab === "experts" && expertView === "mine" ? (
           <Button
             type="button"
@@ -446,7 +446,7 @@ export function StorePage(props: {
               variant="outline"
               size="sm"
               onClick={() => setExpertView("mine")}
-              className="rounded-md mac:titlebar-no-drag"
+              className="mac:titlebar-no-drag"
             >
               {t("session.my_experts")}
             </Button>
@@ -455,7 +455,7 @@ export function StorePage(props: {
               type="button"
               size="sm"
               onClick={() => setSkillImportOpen(true)}
-              className="rounded-md mac:titlebar-no-drag"
+              className="mac:titlebar-no-drag"
             >
               <Plus data-icon="inline-start" className="size-4" />
               {t("store.add_skill")}

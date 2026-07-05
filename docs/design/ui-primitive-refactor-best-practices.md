@@ -2,6 +2,8 @@
 
 This document defines how AI agents should change OnMyAgent UI without drifting from the design system.
 
+> **Read [`DESIGN.md`](../../DESIGN.md) first.** It is the authoritative visual contract (tokens, components, Do's / Don'ts). This file explains the *refactor workflow* that keeps code aligned with `DESIGN.md`.
+
 ## Intent
 
 OnMyAgent UI work should improve consistency without turning pages into one-off Tailwind compositions. AI agents must reuse existing primitives, align same-type component sizes, classify special visuals before editing, and provide validation evidence.
@@ -24,12 +26,22 @@ OnMyAgent UI work should improve consistency without turning pages into one-off 
 | Button or icon button | `Button` |
 | Text input | `Input`, `Textarea`, `InputGroup` |
 | Action tab/list row | `ActionRowButton`, `SessionRowButton`, related row primitives |
+| Multi-tab / segmented panel | `SegmentedTabGroup` + `NavTabButton size="tab" shape="tab"` — never hand-write `inline-flex rounded-lg border p-1` around default (pill) `NavTabButton` |
+| Composer send affordance | `SendButton` — the only `rounded-full` CTA allowed inside workbench chrome |
 | Icon/avatar tile | `IconTile` |
 | Status/count badge | `StatusBadge`, `CountBadge`, `StepMarker` |
 | Status dot/ping/loading | `StatusDot`, `StatusPing`, `LoadingSpinner` |
 | Command/path/code chip | `CodeToken` |
 | Notice/help/warning surface | `NoticeBox` |
 | Dialog/dropdown/select/tooltip/switch/checkbox | Existing `@/components/ui/*` wrappers |
+
+## Component Contracts (machine-readable)
+
+For every signature/primitive edited, cross-check the target shape
+against `DESIGN.md`'s YAML `components.contracts` block. Radius,
+height, surface, and padding must match the `{token.ref}` values there
+before the PR merges. Repeated mismatches earn a codemod rule in
+`scripts/design/codemod/`.
 
 ## Refactor Decision Order
 

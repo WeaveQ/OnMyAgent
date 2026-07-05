@@ -187,7 +187,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <div className={headerBadgeClass}>
-            <Cloud size={13} className="text-dls-secondary" />
+            <Cloud size={12} className="text-dls-secondary" />
             {t("den.cloud_section_title")}
           </div>
           <div>
@@ -236,7 +236,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
               onClick={props.onOpenControlPlane}
             >
               {t("den.cloud_control_plane_open")}
-              <ArrowUpRight size={13} />
+              <ArrowUpRight size={12} />
             </Button>
           </div>
         </div>
@@ -257,7 +257,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => props.onOpenBrowserAuth("sign-in")}>
           {t("den.signin_button")}
-          <ArrowUpRight size={13} />
+          <ArrowUpRight size={12} />
         </Button>
         <Button
           variant="outline"
@@ -265,7 +265,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
           onClick={() => props.onOpenBrowserAuth("sign-up")}
         >
           {t("den.create_account")}
-          <ArrowUpRight size={13} />
+          <ArrowUpRight size={12} />
         </Button>
         <Button
           variant="outline"
@@ -352,7 +352,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                 disabled={props.authBusy || props.sessionBusy}
               >
                 Sign in with {APP_NAME} Cloud
-                <ArrowUpRight size={15} />
+                <ArrowUpRight size={14} />
               </Button>
 
               {props.statusMessage && !props.authError ? (
@@ -367,7 +367,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="w-full justify-start rounded-xl bg-dls-surface/60 text-left text-xs text-dls-secondary hover:bg-dls-surface"
+                  className="w-full justify-start rounded-xl bg-dls-surface text-left text-xs text-dls-secondary hover:bg-dls-surface"
                   onClick={props.onToggleManualAuth}
                   disabled={props.authBusy || props.sessionBusy}
                 >
@@ -458,7 +458,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
           {/* ---- Right: shader outer card > white inner card ---- */}
           <div className="hidden lg:flex lg:w-[55%] lg:items-center lg:justify-center lg:p-6">
             {/* Outer: shader card */}
-            <div className="relative w-full max-w-xl overflow-hidden rounded-3xl">
+            <div className="relative w-full max-w-xl overflow-hidden rounded-xl">
               {/* Shader background */}
               <div className="absolute inset-0 z-0">
                 <PaperGrainGradient
@@ -483,7 +483,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
               </div>
 
               {/* Inner: card with capabilities */}
-              <div className="relative z-10 m-3 rounded-2xl bg-dls-surface p-7">
+              <div className="relative z-10 m-3 rounded-xl bg-dls-surface p-7">
                 <ShowcasePanel />
               </div>
             </div>

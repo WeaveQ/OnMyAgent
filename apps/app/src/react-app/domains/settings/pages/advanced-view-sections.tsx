@@ -45,7 +45,7 @@ function RuntimeStatusCard(props: RuntimeStatusCardProps) {
   return (
     <SettingsInset className="space-y-3">
       <div className="flex items-start gap-3">
-        <IconTile size="md" tone="surface" shape="xl" border className="border-dls-border/60 bg-dls-surface/70 text-dls-text">
+        <IconTile size="md" tone="surface" shape="xl" border className="border-dls-mist bg-dls-surface text-dls-text">
           {props.icon}
         </IconTile>
         <div>
@@ -55,7 +55,7 @@ function RuntimeStatusCard(props: RuntimeStatusCardProps) {
       </div>
       <SettingsStatusBadge className="inline-flex min-h-0 justify-start px-0 py-0" tone={props.tone} label={props.statusLabel} />
       {props.detailLines?.length ? (
-        <div className="space-y-1 border-t border-dls-border/50 pt-2 text-xs text-dls-secondary">
+        <div className="space-y-1 border-t border-dls-mist pt-2 text-xs text-dls-secondary">
           {props.detailLines.map((line) => (
             <div key={line} className="truncate" title={line}>
               {line}
@@ -92,7 +92,7 @@ export function AdvancedRuntimeSection(props: AdvancedRuntimeSectionProps) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <RuntimeStatusCard
-          icon={<Cpu size={18} />}
+          icon={<Cpu size={16} />}
           title={t("settings.opencode_engine_label")}
           description={t("settings.opencode_engine_desc")}
           statusLabel={props.clientStatusLabel}
@@ -104,7 +104,7 @@ export function AdvancedRuntimeSection(props: AdvancedRuntimeSectionProps) {
           ]}
         />
         <RuntimeStatusCard
-          icon={<Server size={18} />}
+          icon={<Server size={16} />}
           title={t("settings.onmyagent_server_label")}
           description={t("settings.onmyagent_server_desc")}
           statusLabel={props.onmyagentStatusLabel}

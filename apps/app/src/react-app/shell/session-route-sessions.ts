@@ -3,7 +3,7 @@ import type { SidebarSessionItem } from "../../app/types";
 import type { OpenworkServerClient } from "../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../app/lib/workspace-endpoint";
 import { t } from "../../i18n";
-import { isExpertSession } from "../domains/shared/agent-session-state";
+import { isExpertSession } from "../domains/shared";
 import type { RouteWorkspace } from "./session-route-model";
 import { getSessionStatus, isActiveSessionStatus } from "./session-route-state";
 import type { SessionOption as PaletteSessionOption } from "./command-palette";

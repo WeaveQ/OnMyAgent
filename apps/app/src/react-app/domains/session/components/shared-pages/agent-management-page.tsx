@@ -446,7 +446,7 @@ export function AgentManagementPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-surface/80 px-6">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-surface px-6">
         <div className="min-w-0">
           <h2 className="truncate text-base font-medium">
             {t("agent_manager.title")}
@@ -472,11 +472,12 @@ export function AgentManagementPage(props: {
           </section>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dls-border pb-3">
-            <div className="inline-flex rounded-lg border border-dls-border bg-dls-surface p-1">
+            <SegmentedTabGroup>
               <NavTabButton
                 active={activePanel === "providers"}
                 onClick={() => setActivePanel("providers")}
-                className="px-3 py-2 text-sm font-medium"
+                size="tab"
+                shape="tab"
               >
                 <ShoppingBag className="size-4" />
                 {t("agent_manager.providers")}
@@ -484,7 +485,8 @@ export function AgentManagementPage(props: {
               <NavTabButton
                 active={activePanel === "agents"}
                 onClick={() => setActivePanel("agents")}
-                className="px-3 py-2 text-sm font-medium"
+                size="tab"
+                shape="tab"
               >
                 <Cpu className="size-4" />
                 {t("agent_manager.agent_check")}
@@ -492,7 +494,8 @@ export function AgentManagementPage(props: {
               <NavTabButton
                 active={activePanel === "skills"}
                 onClick={() => setActivePanel("skills")}
-                className="px-3 py-2 text-sm font-medium"
+                size="tab"
+                shape="tab"
               >
                 <FileText className="size-4" />
                 {t("agent_manager.skill_management")}
@@ -500,7 +503,8 @@ export function AgentManagementPage(props: {
               <NavTabButton
                 active={activePanel === "mcp"}
                 onClick={() => setActivePanel("mcp")}
-                className="px-3 py-2 text-sm font-medium"
+                size="tab"
+                shape="tab"
               >
                 <Plug className="size-4" />
                 {t("agent_manager.mcp.tab")}
@@ -509,7 +513,8 @@ export function AgentManagementPage(props: {
                 <NavTabButton
                   active={activePanel === "archive"}
                   onClick={() => setActivePanel("archive")}
-                  className="px-3 py-2 text-sm font-medium"
+                  size="tab"
+                  shape="tab"
                 >
                   <Archive className="size-4" />
                   {t("nav.session_archive")}
@@ -518,12 +523,13 @@ export function AgentManagementPage(props: {
               <NavTabButton
                 active={activePanel === "proxy"}
                 onClick={() => setActivePanel("proxy")}
-                className="px-3 py-2 text-sm font-medium"
+                size="tab"
+                shape="tab"
               >
                 <Zap className="size-4" />
                 {t("agent_manager.proxy_control")}
               </NavTabButton>
-            </div>
+            </SegmentedTabGroup>
             <div className="text-xs text-dls-secondary">
               {activePanel === "proxy"
                 ? t("agent_manager.proxy_desc")

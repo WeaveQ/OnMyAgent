@@ -139,7 +139,16 @@ export const DEFAULT_HEARTBEAT_PROMPT =
   "Run this scheduled task. Describe the goal, expected output, and whether file changes are allowed.";
 
 export function targetKindLabel(targetKind: "model" | "agent" | "profile" | "command") {
-  return t(`local_agent.target_${targetKind}`);
+  switch (targetKind) {
+    case "model":
+      return t("local_agent.target_model");
+    case "agent":
+      return t("local_agent.target_agent");
+    case "profile":
+      return t("local_agent.target_profile");
+    case "command":
+      return t("local_agent.target_command");
+  }
 }
 
 export const APPROVAL_MODE_OPTIONS: Array<{ id: PersonalLocalAgentApprovalMode; label: string; description: string }> = [

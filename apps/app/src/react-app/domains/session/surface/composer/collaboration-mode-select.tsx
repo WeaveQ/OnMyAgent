@@ -114,7 +114,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
           type="button"
           variant="ghost"
           size="sm"
-          className={cn("max-w-40 shrink min-w-0 rounded-md px-2 disabled:cursor-not-allowed disabled:opacity-60",
+          className={cn("max-w-40 shrink min-w-0 px-2 disabled:cursor-not-allowed disabled:opacity-60",
             enabledCount > 0
               ? "bg-dls-hover text-dls-text hover:bg-dls-active"
               : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
@@ -125,7 +125,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
           aria-haspopup="dialog"
           title={t("composer.collaboration_mode")}
         >
-          <Users size={15} className="shrink-0" />
+          <Users size={14} className="shrink-0" />
           <span className="min-w-0 truncate">{t("composer.collaboration_mode")}</span>
           <ChevronDown size={14} className="shrink-0" />
         </Button>
@@ -144,7 +144,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
               return (
                 <div
                   key={option.key}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-surface-muted/70"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-surface-muted"
                 >
                   <Icon size={18} className="shrink-0 text-dls-secondary" />
                   <div className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
         type="button"
         variant="ghost"
         size="sm"
-        className="max-w-40 shrink min-w-0 rounded-md px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
+        className="max-w-40 shrink min-w-0 px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
         onClick={() => setOpen((value) => !value)}
         disabled={props.disabled}
         aria-expanded={open}
@@ -228,7 +228,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
                       onClick={(event) => event.stopPropagation()}
                       aria-label={t("composer.collaboration_mode_info", { mode: option.label })}
                     >
-                      <CircleHelp size={13} />
+                      <CircleHelp size={12} />
                     </TooltipTrigger>
                     <TooltipContent
                       side="right"

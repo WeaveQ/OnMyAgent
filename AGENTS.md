@@ -45,6 +45,10 @@ pnpm task check app       # 低频专项检查入口：app renderer 类型检查
 pnpm task check server    # 低频专项检查入口：server 类型检查
 pnpm task check desktop   # 低频专项检查入口：desktop Electron 类型检查
 pnpm task check orchestrator # 低频专项检查入口：orchestrator 类型检查
+pnpm task check design    # 低频专项检查入口：DESIGN.md YAML 与代码 token 漂移检测
+pnpm check:boundaries     # 架构边界 + shell-import-depth 门禁
+pnpm check:forbidden-types # any / as any / as unknown as 类型逃逸门禁
+pnpm check:i18n:cjk       # renderer 层中日韩硬编码字符串门禁
 pnpm test:unit            # server + orchestrator 单元/集成测试
 pnpm test:api             # server HTTP/API e2e 测试
 pnpm test:runtime         # Electron bridge + orchestrator runtime smoke
@@ -60,8 +64,18 @@ pnpm task build app       # UI 构建
 ### 硬性禁止
 
 - 不用 `any`、类型断言 `as`，除非 100% 必要或用户明确要求。
+  由 `pnpm check:forbidden-types` 强制（新违规立即失败）；历史违规冻结在
+  `scripts/checks/baselines/forbidden-types.json`，只能缩减、禁止手改扩增。
 - 类型或控制流已保证存在时，不写 fallback。
 - 不直接改 secrets、生产配置、真实云资源、队列 purge、外部消息发送。
+- `apps/app/src/react-app/shell/**` 只能 import 到 `domains/<domain>` 的一级 barrel，
+  不得深链 `domains/<domain>/<sub>/...`。由 `pnpm check:boundaries` 中的
+  shell-import-depth 规则强制，baseline 位于
+  `scripts/checks/baselines/shell-import-depth.json`，同样只减不增。
+- `apps/app/src` renderer 层不新增硬编码 CJK（中/日/韩）字符串：
+  用户可见文案必须走 `apps/app/src/i18n/locales/{en,zh,zh-TW}/*.ts` 的 `t()`。
+  由 `pnpm check:i18n:cjk` 强制，历史违规冻结在
+  `scripts/checks/baselines/i18n-cjk-hardcoded.json`，只能缩减、禁止手改扩增。
 
 ### 默认技术栈
 
@@ -70,7 +84,11 @@ Tailwind / TypeScript / React / shadcn+BaseUI / TanStack Query / Zustand / Zod(v
 ### UI 与文案
 
 - 最小 diff，更简单方案优先。
+- 修改或生成 UI 前，必须先读根目录 `DESIGN.md`：YAML front matter（`colors` / `typography` / `rounded` / `spacing` / `buttons` / `iconography` / `z-layers` / `motion` / `focus` / `state-timings` / `notifications` / `kbd` / `message-roles` / `streaming` / `presence` / `tool-approval` / `artifact-hue` / `components`（含 `components.contracts` 组件级 `{token.ref}` 契约） / `flags`）+ § 4 组件契约（含 Signature Components）+ § 4a State Machines + § 4b Notifications + § 4c Message Roles + § 4d Streaming Presentation + § 4e Presence & Activity + § 4f Tool Approval + § 4g Code & Diff + § 4h Session & Artifact Variants + § 5a Keyboard Contract + § 7 Shapes + § 8 Do's/Don'ts + § 10 Internationalization Space Budget + § 11 Intentional Exceptions（含 `artifact-hue.*` 隔离条款）。图标尺寸、z-index、状态时序、toast 时长、键位显示必须来自对应 YAML 块，不要臆造。键盘快捷键按 § 5a 用 `⌘K` 声明式书写，跨平台在运行时替换，不要作者层 fork。代码与 `DESIGN.md` 冲突时以 `DESIGN.md` 为准。
+- UI token 或 design contract 变更后（`DESIGN.md`、`apps/app/src/app/index.css`、`apps/app/tailwind.config.ts`），运行 `pnpm task check design` 确认无漂移；`-- --strict --baseline scripts/checks/baselines/design-drift.json` 是 CI 使用的门禁形态（只允许下降，不允许新增签名），必要时可用 `node scripts/design/codemod/fix-tokens.mjs`（默认 dry-run，`--write` 生效）批量修 mechanical drift。
 - UI 组件用 `@/components`，新组件优先 shadcn/ui with Base UI。
+- **Tab bar / segmented control**：多组 tab 切换必须用 `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`（rounded-lg 10 + text-sm）；禁止手写 `inline-flex rounded-lg border p-1` 包 `NavTabButton` 默认 pill——那是历史漂移形状。
+- **`rounded-full` 仅限**：avatar（`AgentAvatarMesh` / `size-N rounded-full` 头像）、`NavTabButton shape="pill"`（compact filter chips）、`SendButton`（signature 圆形送出）、`architecture-mismatch-gate.tsx`（pre-app boot）。其它普通 CTA 用 `rounded-full` 必须拒绝，参见 `DESIGN.md` § 8 Don'ts 与 § 11 Intentional Exceptions。
 - 假设最终用户非技术用户。
 - 后续新增的用户可见功能必须接入现有中英文国际化体系，避免写死单一语言文案。
 - Electron macOS 顶部导航栏、标题栏、侧栏 header 内的所有交互按钮必须避开原生拖拽区域：优先使用共享 `Button`，自定义交互控件或容器必须加 `mac:titlebar-no-drag`，避免点击图标位置被窗口拖拽/双击事件吞掉。
@@ -130,10 +148,13 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 |------|------|
 | `README.md` | 人类入口、快速启动、项目说明 |
 | `README-zh.md` | 中文人类入口、快速启动、项目说明 |
+| `DESIGN.md` | 视觉契约唯一事实来源：tokens、组件、Do's/Don'ts。含机器可读 YAML front matter，供 AI agent 生成/修改 UI 时读取。 |
 | `docs/README.md` | 文档索引，按类型说明 docs 目录组织 |
 | `docs/Architecture.md` | 架构、数据流、目录边界、核心契约唯一事实来源 |
 | `docs/loop-rules.md` | Loop 细则：durable ledger、Reference Parity、Kill Switch、graphify |
+| `docs/design/theme-system.md` | 设计哲学叙事（Flat first / Decision first / Blunt geometry / Signal cyan / Exceptions）；具体 token 表见 `DESIGN.md`。 |
 | `docs/design/ui-primitive-refactor-best-practices.md` | UI primitive 复用、尺寸统一、design token 防偏移最佳实践 |
+| `scripts/design/extract-tokens.mjs` | 本地脚本：diff `DESIGN.md` YAML 与 `apps/app/src/app/index.css`。用 `pnpm task check design` 触发。 |
 | `BUILD.md` | 桌面端打包流程 |
 | `SECURITY.md` | 安全边界、漏洞报告和 safe harbor |
 | `CODE_OF_CONDUCT.md` | 开源社区行为准则和反馈入口 |

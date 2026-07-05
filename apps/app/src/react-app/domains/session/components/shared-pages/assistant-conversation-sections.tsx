@@ -264,7 +264,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
           event.preventDefault();
           setExpanded((value) => !value);
         }}
-        className="flex h-8 w-full cursor-pointer items-center justify-between rounded-lg px-2 text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/40"
+        className="flex h-8 w-full cursor-pointer items-center justify-between rounded-lg px-2 text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
         aria-expanded={expanded}
         title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
       >
@@ -291,7 +291,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   variant="ghost"
                   size="icon-xs"
                   onClick={(event) => event.stopPropagation()}
-                  className="shrink-0 rounded-md text-dls-secondary hover:bg-dls-active hover:text-dls-text data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
+                  className="shrink-0 text-dls-secondary hover:bg-dls-active hover:text-dls-text data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
                   title={t("session.filter_tasks")}
                   aria-label={t("session.filter_tasks")}
                 >

@@ -17,11 +17,11 @@ type FeaturePreviewPlaceholderProps = {
 
 function ScheduledTasksIllustration() {
   return (
-    <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-2xl border border-dls-status-warning/20 bg-gradient-to-br from-dls-status-warning/10 via-dls-accent/5 to-dls-surface">
-      <div className="absolute -left-8 top-5 size-28 rounded-full bg-dls-status-warning/20 blur-2xl" />
+    <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-xl border border-dls-status-warning-border bg-gradient-to-br from-dls-status-warning/10 via-dls-accent/5 to-dls-surface">
+      <div className="absolute -left-8 top-5 size-28 rounded-full bg-dls-status-warning-soft blur-2xl" />
       <div className="absolute -right-4 bottom-0 size-32 rounded-full bg-dls-accent/10 blur-2xl" />
-      <div className="relative flex w-[250px] items-center gap-4 rounded-2xl border border-dls-surface/90 bg-dls-surface/90 p-4">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-dls-status-warning/12 text-dls-status-warning">
+      <div className="relative flex w-[250px] items-center gap-4 rounded-xl border border-dls-surface/90 bg-dls-surface p-4">
+        <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-dls-status-warning-soft text-dls-status-warning-fg">
           <Clock3 className="size-7" />
         </div>
         <div className="min-w-0 flex-1 space-y-2.5">
@@ -45,11 +45,11 @@ function ScheduledTasksIllustration() {
 
 function DevicesIllustration() {
   return (
-    <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-2xl border border-dls-accent/20 bg-gradient-to-br from-dls-accent/10 via-dls-signal/10 to-dls-surface">
-      <div className="absolute -left-5 bottom-0 size-32 rounded-full bg-dls-accent/15 blur-2xl" />
+    <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-xl border border-dls-accent/30 bg-gradient-to-br from-dls-accent/10 via-dls-signal/10 to-dls-surface">
+      <div className="absolute -left-5 bottom-0 size-32 rounded-full bg-dls-accent/10 blur-2xl" />
       <div className="absolute -right-6 top-0 size-28 rounded-full bg-dls-signal/15 blur-2xl" />
       <div className="relative flex items-center gap-8">
-        <div className="flex h-28 w-44 flex-col rounded-2xl border border-dls-surface bg-dls-surface/90 p-3">
+        <div className="flex h-28 w-44 flex-col rounded-xl border border-dls-surface bg-dls-surface p-3">
           <div className="flex flex-1 items-center justify-center rounded-xl bg-dls-canvas text-white">
             <MonitorSmartphone className="size-9" />
           </div>
