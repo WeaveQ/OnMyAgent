@@ -74,6 +74,7 @@ import {
   type SessionSidebarAccount,
 } from "./session-route-model";
 import {
+  buildAccessModeSystemPrompt,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
   applySessionAccessMode,
@@ -2358,6 +2359,7 @@ export function SessionRoute() {
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
             undefined,
+          buildAccessModeSystemPrompt(draft.accessMode) || undefined,
         ]);
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({

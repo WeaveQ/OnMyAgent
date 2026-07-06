@@ -593,6 +593,12 @@ export type PersonalLocalAgentConversationMessage = {
 };
 
 export type PersonalLocalAgentApprovalMode = "auto" | "ask" | "read-only-auto";
+export type PersonalLocalAgentAccessMode = "default" | "full";
+export type PersonalLocalAgentCollaborationMode = {
+  kind?: "craft" | "ask" | "plan" | null;
+  planning?: boolean | null;
+  pursueGoal?: boolean | null;
+};
 
 export type PersonalLocalAgentApprovalRequest = {
   id: string;
@@ -635,6 +641,7 @@ export type PersonalLocalAgentRunResult = {
   resumeKey?: string | null;
   metadata?: Record<string, string | number | boolean | null> | null;
   approvalMode?: PersonalLocalAgentApprovalMode | null;
+  collaborationMode?: PersonalLocalAgentCollaborationMode | null;
   pendingApprovals?: PersonalLocalAgentApprovalRequest[];
   /**
    * Files / artifacts the runtime believes were produced or referenced by this run.
@@ -678,6 +685,8 @@ export type PersonalLocalAgentRunInput = {
   workspaceRoot: string;
   prompt: string;
   approvalMode?: PersonalLocalAgentApprovalMode;
+  accessMode?: PersonalLocalAgentAccessMode;
+  collaborationMode?: PersonalLocalAgentCollaborationMode | null;
   /**
    * Wall-clock timeout for the run in milliseconds. The runtime will
    * auto-cancel the run with `errorInfo.code = "timeout"` once exceeded.
@@ -717,6 +726,8 @@ export type PersonalLocalAgentConversationInput = {
   workdir?: string | null;
   source?: string;
   metadata?: Record<string, unknown> | null;
+  accessMode?: PersonalLocalAgentAccessMode;
+  collaborationMode?: PersonalLocalAgentCollaborationMode | null;
   agent?: Partial<PersonalLocalAgent> & {
     provider?: PersonalLocalAgentProvider;
     customArgs?: string[];

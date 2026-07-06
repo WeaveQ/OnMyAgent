@@ -159,6 +159,21 @@ export function buildCollaborationModeSystemPrompt(
   return `协作模式系统提示词：\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`;
 }
 
+export function buildAccessModeSystemPrompt(
+  mode: ComposerDraft["accessMode"],
+) {
+  if (mode === "full") {
+    return [
+      "Access mode: full access.",
+      "The user has selected a high-trust mode. You may proceed with file edits, local commands, and network access when needed for the task, while still obeying the host runtime safety boundaries and asking before destructive or irreversible operations.",
+    ].join("\n");
+  }
+  return [
+    "Access mode: default.",
+    "Treat file writes, local commands, network access, and external state changes as actions that may require host approval. Explain the need before taking high-risk or irreversible actions.",
+  ].join("\n");
+}
+
 export async function draftToParts(
   draft: ComposerDraft,
   workspaceRoot: string,

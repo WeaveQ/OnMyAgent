@@ -27,15 +27,48 @@ function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
   return roots;
 }
 
-function buildDeveloperInstructions(workspaceRoot, accessibleWorkspaceRoots = []) {
+function normalizeCollaborationMode(value) {
+  if (!value || typeof value !== "object") {
+    return { kind: null, planning: false, pursueGoal: false };
+  }
+  const rawKind = String(value.kind ?? "").trim();
+  const kind = rawKind === "craft" || rawKind === "ask" || rawKind === "plan" ? rawKind : null;
+  return {
+    kind,
+    planning: Boolean(value.planning) || kind === "plan",
+    pursueGoal: Boolean(value.pursueGoal),
+  };
+}
+
+function buildCollaborationInstructions(collaborationMode) {
+  const mode = normalizeCollaborationMode(collaborationMode);
+  const instructions = [];
+  if (mode.kind === "ask") {
+    instructions.push("Ask mode: answer questions and inspect context by default. Do not edit files, run side-effecting commands, or change external state unless the user explicitly asks you to proceed.");
+  }
+  if (mode.kind === "craft") {
+    instructions.push("Craft mode: work end to end toward the user's requested deliverable. Read files, make scoped edits, run relevant checks, and report the result.");
+  }
+  if (mode.planning) {
+    instructions.push("Plan mode: first provide a concrete plan with scope, risks, and verification. Do not perform file edits or side-effecting commands until the user asks you to execute the plan.");
+  }
+  if (mode.pursueGoal || mode.kind === "craft") {
+    instructions.push("Goal pursuit: keep the user's objective active, track progress, continue with reasonable next steps, and only stop when the objective is complete or genuinely blocked.");
+  }
+  return instructions;
+}
+
+function buildDeveloperInstructions(workspaceRoot, accessibleWorkspaceRoots = [], collaborationMode = null) {
   const extraRoots = normalizeAccessibleWorkspaceRoots(accessibleWorkspaceRoots, workspaceRoot);
+  const collaborationInstructions = buildCollaborationInstructions(collaborationMode);
   return [
     "你正在作为 OnMyAgent 的个人助理通过本机 Codex app-server 执行用户请求。",
     "必须输出一段可以直接展示给用户的最终回复。",
     "如果创建、修改或读取了文件，请在回复里列出相对当前工作区的文件路径。",
     `当前工作区根目录：${workspaceRoot}`,
     extraRoots.length ? `额外可访问目录：\n${extraRoots.map((root) => `- ${root}`).join("\n")}` : "额外可访问目录：无",
-  ].join("\n");
+    collaborationInstructions.length ? `Codex collaboration mode:\n${collaborationInstructions.map((instruction) => `- ${instruction}`).join("\n")}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 function codexRunPolicyForApprovalMode(approvalMode) {
@@ -441,7 +474,7 @@ export function createCodexAdapter({ appendEvent, registerCancel, requestApprova
 
         const stored = await readSession(ctx.workspaceRoot, ctx.agent.provider, ctx.agent.id);
         const priorThreadId = String(ctx.resumeKey ?? ctx.providerSessionId ?? stored.sessionId ?? stored.threadId ?? "").trim();
-        const developerInstructions = buildDeveloperInstructions(ctx.workspaceRoot, ctx.accessibleWorkspaceRoots);
+        const developerInstructions = buildDeveloperInstructions(ctx.workspaceRoot, ctx.accessibleWorkspaceRoots, ctx.collaborationMode);
         let threadId = "";
         if (priorThreadId) {
           try {
@@ -531,5 +564,6 @@ export function createCodexAdapter({ appendEvent, registerCancel, requestApprova
 export const __test__ = {
   codexApprovalResponseForRequest,
   codexRunPolicyForApprovalMode,
+  buildCollaborationInstructions,
   buildDeveloperInstructions,
 };
