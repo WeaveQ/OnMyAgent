@@ -159,6 +159,43 @@ export function buildCollaborationModeSystemPrompt(
   return `协作模式系统提示词：\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`;
 }
 
+export function isComposerPlanningMode(
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!mode) return false;
+  return mode.kind === "plan" || Boolean(mode.planning);
+}
+
+const PLAN_MODE_DISABLED_TOOLS = [
+  "apply_patch",
+  "bash",
+  "create_file",
+  "delete_file",
+  "edit",
+  "edit_file",
+  "multi_edit",
+  "multiedit",
+  "move_file",
+  "patch",
+  "shell",
+  "str_replace_editor",
+  "terminal",
+  "write",
+  "write_file",
+] as const;
+
+export function resolveComposerRuntimeTools(
+  tools: Record<string, boolean> | undefined,
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!isComposerPlanningMode(mode)) return tools;
+  const next: Record<string, boolean> = { ...(tools ?? {}) };
+  for (const toolName of PLAN_MODE_DISABLED_TOOLS) {
+    next[toolName] = false;
+  }
+  return next;
+}
+
 export function buildAccessModeSystemPrompt(
   mode: ComposerDraft["accessMode"],
 ) {
