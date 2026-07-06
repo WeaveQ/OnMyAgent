@@ -9,29 +9,35 @@ interface ArtifactIconProps {
   className?: string;
 }
 
+// DESIGN.md § 4h Session & Artifact Variants. Artifact icons are the
+// canonical `artifact-hue.*` consumer; each preview type maps to its
+// semantic hue token so light/dark inversion follows the design
+// contract (see § 11 Intentional Exceptions — `artifact-hue.*` is
+// scoped to ArtifactCard surfaces). `browser` has no artifact-hue
+// slot (URLs are not artifacts), so it stays on the semantic accent.
 export function ArtifactIcon({ type, className }: ArtifactIconProps) {
   if (type === "browser") {
-    return <Globe className={cn("size-3.5 shrink-0 text-sky-9", className)} />;
+    return <Globe className={cn("size-3.5 shrink-0 text-dls-accent", className)} />;
   }
 
   if (type === "markdown") {
-    return <FileText className={cn("size-3.5 shrink-0 text-blue-9", className)} />;
+    return <FileText className={cn("size-3.5 shrink-0 text-dls-artifact-hue-document", className)} />;
   }
 
   if (type === "sheet") {
-    return <FileSpreadsheet className={cn("size-3.5 shrink-0 text-green-9", className)} />;
+    return <FileSpreadsheet className={cn("size-3.5 shrink-0 text-dls-artifact-hue-data", className)} />;
   }
 
   if (type === "image") {
-    return <FileImage className={cn("size-3.5 shrink-0 text-violet-9", className)} />;
+    return <FileImage className={cn("size-3.5 shrink-0 text-dls-artifact-hue-image", className)} />;
   }
 
   if (type === "pdf") {
-    return <FileText className={cn("size-3.5 shrink-0 text-red-9", className)} />;
+    return <FileText className={cn("size-3.5 shrink-0 text-dls-artifact-hue-document", className)} />;
   }
 
   if (type === "html") {
-    return <FileCode className={cn("size-3.5 shrink-0 text-orange-9", className)} />;
+    return <FileCode className={cn("size-3.5 shrink-0 text-dls-artifact-hue-code", className)} />;
   }
 
   if (type === "text") {

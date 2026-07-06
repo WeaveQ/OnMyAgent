@@ -12,36 +12,46 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
 
 export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "hermes", "openclaw", "onmyagent"];
 
+// Tailwind theme in this project overrides all built-in palettes with Radix
+// steps 1-12 (see apps/app/tailwind.config.ts + styles/tailwind-colors.ts).
+// The previous `blue-50 / emerald-50 / orange-50 / sky-50 / rose-50` classes
+// silently resolved to nothing, so agent hues never rendered. Radix mapping:
+//   step 3  = subtle bg      (equivalent to Tailwind ~50)
+//   step 4  = subtle hover   (~100)
+//   step 6  = subtle border  (~200 ring)
+//   step 9  = solid brand    (~500 dot)
+//   step 11 = accessible fg  (~700 text)
+// Semantic hue mapping: emerald→jade, rose→ruby; blue/orange/sky exist as-is.
 export const SKILL_AGENT_TONES: Record<string, { active: string; badge: string; iconActive: string; dot: string }> = {
   opencode: {
-    active: "bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100",
-    badge: "bg-blue-50 text-blue-700",
-    iconActive: "bg-blue-50 hover:bg-blue-100",
-    dot: "bg-blue-500",
+    active: "bg-blue-3 text-blue-11 ring-1 ring-blue-6 hover:bg-blue-4",
+    badge: "bg-blue-3 text-blue-11",
+    iconActive: "bg-blue-3 hover:bg-blue-4",
+    dot: "bg-blue-9",
   },
   codex: {
-    active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100",
-    badge: "bg-emerald-50 text-emerald-700",
-    iconActive: "bg-emerald-50 hover:bg-emerald-100",
-    dot: "bg-emerald-500",
+    active: "bg-jade-3 text-jade-11 ring-1 ring-jade-6 hover:bg-jade-4",
+    badge: "bg-jade-3 text-jade-11",
+    iconActive: "bg-jade-3 hover:bg-jade-4",
+    dot: "bg-jade-9",
   },
   claude: {
-    active: "bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100",
-    badge: "bg-orange-50 text-orange-700",
-    iconActive: "bg-orange-50 hover:bg-orange-100",
-    dot: "bg-orange-500",
+    active: "bg-orange-3 text-orange-11 ring-1 ring-orange-6 hover:bg-orange-4",
+    badge: "bg-orange-3 text-orange-11",
+    iconActive: "bg-orange-3 hover:bg-orange-4",
+    dot: "bg-orange-9",
   },
   hermes: {
-    active: "bg-sky-50 text-sky-700 ring-1 ring-sky-200 hover:bg-sky-100",
-    badge: "bg-sky-50 text-sky-700",
-    iconActive: "bg-sky-50 hover:bg-sky-100",
-    dot: "bg-sky-500",
+    active: "bg-sky-3 text-sky-11 ring-1 ring-sky-6 hover:bg-sky-4",
+    badge: "bg-sky-3 text-sky-11",
+    iconActive: "bg-sky-3 hover:bg-sky-4",
+    dot: "bg-sky-9",
   },
   openclaw: {
-    active: "bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100",
-    badge: "bg-rose-50 text-rose-700",
-    iconActive: "bg-rose-50 hover:bg-rose-100",
-    dot: "bg-rose-500",
+    active: "bg-ruby-3 text-ruby-11 ring-1 ring-ruby-6 hover:bg-ruby-4",
+    badge: "bg-ruby-3 text-ruby-11",
+    iconActive: "bg-ruby-3 hover:bg-ruby-4",
+    dot: "bg-ruby-9",
   },
   onmyagent: {
     active: "bg-dls-icon-muted-bg text-dls-secondary ring-1 ring-dls-border hover:bg-dls-active",

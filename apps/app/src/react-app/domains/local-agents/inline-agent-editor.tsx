@@ -2,6 +2,8 @@
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { t } from "@/i18n";
 import type { PersonalLocalAgent } from "../../../app/lib/desktop";
@@ -106,33 +108,33 @@ export function InlineAgentEditor(props: {
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_id")}</span>
-          <input data-testid="local-agent-editor-id" className="min-h-9 w-full rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text" value={id} disabled={props.busy || Boolean(props.agent)} onChange={(event) => setId(event.target.value)} />
+          <Input data-testid="local-agent-editor-id" variant="dls" value={id} disabled={props.busy || Boolean(props.agent)} onChange={(event) => setId(event.target.value)} />
         </label>
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_name")}</span>
-          <input data-testid="local-agent-editor-name" className="min-h-9 w-full rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text" value={name} disabled={props.busy} onChange={(event) => setName(event.target.value)} />
+          <Input data-testid="local-agent-editor-name" variant="dls" value={name} disabled={props.busy} onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_command")}</span>
-          <input data-testid="local-agent-editor-command" className="min-h-9 w-full rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text" value={command} disabled={props.busy} onChange={(event) => setCommand(event.target.value)} />
+          <Input data-testid="local-agent-editor-command" variant="dls" value={command} disabled={props.busy} onChange={(event) => setCommand(event.target.value)} />
         </label>
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_args")}</span>
-          <input data-testid="local-agent-editor-args" className="min-h-9 w-full rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text" value={args} disabled={props.busy} onChange={(event) => setArgs(event.target.value)} />
+          <Input data-testid="local-agent-editor-args" variant="dls" value={args} disabled={props.busy} onChange={(event) => setArgs(event.target.value)} />
         </label>
       </div>
       <label className="block space-y-1 text-xs text-dls-secondary">
         <span>{t("local_agent.editor_description")}</span>
-        <textarea data-testid="local-agent-editor-description" className="min-h-20 w-full resize-y rounded-lg border border-dls-border bg-dls-surface px-2 py-2 text-sm text-dls-text" value={description} disabled={props.busy} onChange={(event) => setDescription(event.target.value)} />
+        <Textarea data-testid="local-agent-editor-description" className="min-h-20 resize-y bg-dls-surface" value={description} disabled={props.busy} onChange={(event) => setDescription(event.target.value)} />
       </label>
       <EnvVarEditor rows={env} disabled={props.busy} onChange={setEnv} />
       <label className="block space-y-1 text-xs text-dls-secondary">
         <span>{t("local_agent.editor_native_skills_dirs")}</span>
-        <textarea data-testid="local-agent-editor-native-skills" className="min-h-20 w-full resize-y rounded-lg border border-dls-border bg-dls-surface px-2 py-2 font-mono text-xs text-dls-text" value={nativeSkillsDirs} disabled={props.busy} onChange={(event) => setNativeSkillsDirs(event.target.value)} />
+        <Textarea data-testid="local-agent-editor-native-skills" variant="dlsMono" className="min-h-20 resize-y text-xs" value={nativeSkillsDirs} disabled={props.busy} onChange={(event) => setNativeSkillsDirs(event.target.value)} />
       </label>
       <label className="block space-y-1 text-xs text-dls-secondary">
         <span>{t("local_agent.editor_behavior_policy")}</span>
-        <textarea data-testid="local-agent-editor-behavior-policy" className="min-h-20 w-full resize-y rounded-lg border border-dls-border bg-dls-surface px-2 py-2 font-mono text-xs text-dls-text" value={behaviorPolicy} disabled={props.busy} onChange={(event) => setBehaviorPolicy(event.target.value)} />
+        <Textarea data-testid="local-agent-editor-behavior-policy" variant="dlsMono" className="min-h-20 resize-y text-xs" value={behaviorPolicy} disabled={props.busy} onChange={(event) => setBehaviorPolicy(event.target.value)} />
       </label>
       {validation || props.error ? <NoticeBox tone="error">{validation || props.error}</NoticeBox> : null}
       <div className="flex justify-end gap-2">
