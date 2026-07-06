@@ -34,6 +34,7 @@ import type {
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import type { OpenTarget } from "../artifacts/open-target";
+import { workspaceFileOpenTarget } from "../artifacts/workspace-file-open-target";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ import {
   filterHiddenFromTree,
   type WorkspaceFileTreeNode,
 } from "../chat/session-page-files-model";
-import { BrowserPanel } from "../browser/browser-panel";
+import { BrowserPanel, EmbeddedBrowserViewport } from "../browser/browser-panel";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
 
 type ToolKind = "review" | "terminal" | "browser" | "files";
@@ -170,6 +171,7 @@ function WorkspaceFilesPanel(props: {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [browserPreviewUrl, setBrowserPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
     new Set(),
@@ -269,6 +271,21 @@ function WorkspaceFilesPanel(props: {
 
   const selectFile = useCallback(
     async (path: string) => {
+      const browserFileRoot = fileRoot || props.workspacePath;
+      const target = workspaceFileOpenTarget({
+        fileRoot: browserFileRoot,
+        path,
+        name: path.split("/").filter(Boolean).at(-1) ?? path,
+        size: 0,
+        mtimeMs: 0,
+      });
+      if (isElectronRuntime() && browserFileRoot && target.kind === "url") {
+        setSelectedPath(path);
+        setError(null);
+        setContent("");
+        setBrowserPreviewUrl(target.value);
+        return;
+      }
       if (
         (!isElectronRuntime() || !fileRoot) &&
         (!props.client || !props.workspaceId)
@@ -277,6 +294,7 @@ function WorkspaceFilesPanel(props: {
       }
       setSelectedPath(path);
       setError(null);
+      setBrowserPreviewUrl(null);
       try {
         let result;
         if (isElectronRuntime() && fileRoot) {
@@ -299,7 +317,7 @@ function WorkspaceFilesPanel(props: {
         setError(nextError instanceof Error ? nextError.message : String(nextError));
       }
     },
-    [fileRoot, rootRelativePrefix, props.client, props.workspaceId],
+    [fileRoot, rootRelativePrefix, props.client, props.workspaceId, props.workspacePath],
   );
 
   const toggleDirectory = useCallback(
@@ -363,9 +381,21 @@ function WorkspaceFilesPanel(props: {
         <div className="h-9 shrink-0 truncate border-b border-dls-border px-3 py-2 text-xs text-dls-secondary">
           {selectedPath ?? t("session.code_side_panel_files")}
         </div>
-        <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
-          {error ?? content}
-        </pre>
+        {error ? (
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
+            {error}
+          </pre>
+        ) : browserPreviewUrl ? (
+          <EmbeddedBrowserViewport
+            url={browserPreviewUrl}
+            announcePanelOpen={false}
+            className="min-h-0 flex-1 overflow-hidden bg-dls-surface"
+          />
+        ) : (
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
+            {content}
+          </pre>
+        )}
       </div>
     </div>
   );
