@@ -172,7 +172,6 @@ export function createPersonalAgentRuntime(options) {
       debugSummary: state.debugSummary,
       errorInfo: state.errorInfo,
       approvalMode: state.approvalMode,
-      collaborationMode: state.collaborationMode,
       pendingApprovals: state.pendingApprovals,
       artifacts: state.artifacts ?? [],
     };
@@ -217,7 +216,6 @@ export function createPersonalAgentRuntime(options) {
       debugSummary: state.debugSummary,
       errorInfo: state.errorInfo,
       approvalMode: state.approvalMode,
-      collaborationMode: state.collaborationMode,
       pendingApprovals: [...(state.pendingApprovals ?? [])],
       artifacts: [...(state.artifacts ?? [])],
     };
@@ -227,30 +225,6 @@ export function createPersonalAgentRuntime(options) {
     const mode = String(value ?? "ask").trim();
     if (mode === "auto" || mode === "ask" || mode === "read-only-auto") return mode;
     return "ask";
-  }
-
-  function normalizeAccessMode(value) {
-    return String(value ?? "").trim() === "full" ? "full" : "default";
-  }
-
-  function approvalModeForInput(input = {}) {
-    if (input.approvalMode !== undefined && input.approvalMode !== null) {
-      return normalizeApprovalMode(input.approvalMode);
-    }
-    return normalizeAccessMode(input.accessMode) === "full" ? "auto" : "ask";
-  }
-
-  function normalizeCollaborationMode(value) {
-    if (!value || typeof value !== "object") {
-      return { kind: null, planning: false, pursueGoal: false };
-    }
-    const rawKind = String(value.kind ?? "").trim();
-    const kind = rawKind === "craft" || rawKind === "ask" || rawKind === "plan" ? rawKind : null;
-    return {
-      kind,
-      planning: Boolean(value.planning) || kind === "plan",
-      pursueGoal: Boolean(value.pursueGoal),
-    };
   }
 
   function parseStatusInput(input) {
@@ -336,7 +310,6 @@ export function createPersonalAgentRuntime(options) {
       debugSummary: staleRunning ? errorInfo.debug : (meta.debugSummary ?? null),
       errorInfo,
       approvalMode: meta.approvalMode ?? "ask",
-      collaborationMode: normalizeCollaborationMode(meta.collaborationMode),
       pendingApprovals: staleRunning ? [] : (Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : []),
       artifacts: Array.isArray(meta.artifacts) ? meta.artifacts : [],
     };
@@ -487,8 +460,7 @@ export function createPersonalAgentRuntime(options) {
       debugSummary: null,
       errorInfo: null,
       cancelHandler: null,
-      approvalMode: approvalModeForInput(input),
-      collaborationMode: normalizeCollaborationMode(input.collaborationMode),
+      approvalMode: normalizeApprovalMode(input.approvalMode),
       pendingApprovals: [],
       approvalResolvers: new Map(),
       timeoutMs: normalizeRunTimeoutMs(input.timeoutMs),
@@ -602,7 +574,6 @@ export function createPersonalAgentRuntime(options) {
           prompt,
           rawPrompt: prompt,
           approvalMode: state.approvalMode,
-          collaborationMode: state.collaborationMode,
           requestApproval: (request) => requestRunApproval(state, request),
         };
         let sendPromise = adapter.sendMessage(sendContext);
@@ -924,8 +895,7 @@ export function createPersonalAgentRuntime(options) {
         conversationWorkdir: conversation.workdir,
         agent: detected,
         model: input.model ?? detected.model,
-        approvalMode: approvalModeForInput(input),
-        collaborationMode: normalizeCollaborationMode(input.collaborationMode),
+        approvalMode: normalizeApprovalMode(input.approvalMode),
       });
       const updated = await updateConversation(workspaceRoot, provider, agentId, conversation.id, {
         providerSessionId: warmed.providerSessionId ?? warmed.sessionId ?? conversation.providerSessionId,
@@ -983,7 +953,7 @@ export function createPersonalAgentRuntime(options) {
         appendEvent: () => undefined,
         registerCancel: () => undefined,
         requestApproval: () => ({ decision: "decline" }),
-        approvalMode: approvalModeForInput(input),
+        approvalMode: normalizeApprovalMode(input.approvalMode),
       });
       const result = normalizeAdapterResult(await adapter.sendMessage({
         runId: `side-${activeRun.runId}-${Date.now()}`,
@@ -996,8 +966,7 @@ export function createPersonalAgentRuntime(options) {
         agent: detected,
         model: input.model ?? detected.model,
         prompt,
-        approvalMode: approvalModeForInput(input),
-        collaborationMode: normalizeCollaborationMode(input.collaborationMode ?? activeRun.collaborationMode),
+        approvalMode: normalizeApprovalMode(input.approvalMode),
       }));
       const sideRun = {
         ...snapshot(activeRun),

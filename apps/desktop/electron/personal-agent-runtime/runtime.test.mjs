@@ -1204,57 +1204,6 @@ describe("personal agent runtime facade", () => {
     }
   });
 
-  it("maps access and collaboration modes into adapter context", async () => {
-    const workspaceRoot = await tempWorkspace();
-    try {
-      const calls = [];
-      const legacy = {
-        normalizeAgent: async () => ({ id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode", customArgs: [] }),
-        detectAgent: async () => ({
-          id: "opencode",
-          name: "OpenCode",
-          provider: "opencode",
-          executablePath: "opencode",
-          model: null,
-          customArgs: [],
-          status: "online",
-        }),
-        listAgents: async () => ({ agents: [] }),
-        start: async () => ({ status: "legacy-start" }),
-        run: async () => ({ status: "legacy-run" }),
-        status: () => ({ status: "missing" }),
-        cancel: async () => ({ ok: false }),
-      };
-      const runtime = createPersonalAgentRuntime({
-        legacy,
-        adapters: {
-          opencode: () => ({
-            sendMessage: async (ctx) => {
-              calls.push(ctx);
-              return { output: "done", command: "fake-opencode-session" };
-            },
-            cancel: async () => undefined,
-          }),
-        },
-      });
-
-      const started = await runtime.startMessage({
-        workspaceRoot,
-        prompt: "do work",
-        accessMode: "full",
-        collaborationMode: { kind: "plan", planning: true, pursueGoal: true },
-        agent: { provider: "opencode" },
-      });
-      const completed = await waitForRun(runtime, started.runId);
-      assert.equal(completed.status, "completed");
-      assert.equal(calls[0].approvalMode, "auto");
-      assert.deepEqual(calls[0].collaborationMode, { kind: "plan", planning: true, pursueGoal: true });
-      assert.deepEqual(completed.collaborationMode, { kind: "plan", planning: true, pursueGoal: true });
-    } finally {
-      await cleanup(workspaceRoot);
-    }
-  });
-
   it("passes the selected Studio conversation resume key to the adapter", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
@@ -2725,16 +2674,6 @@ describe("Codex app-server adapter approvals", () => {
     assert.doesNotMatch(text, /- \/tmp\/workspace/);
   });
 
-  it("adds Codex collaboration instructions for plan and goal modes", () => {
-    const text = codexTest.buildDeveloperInstructions("/tmp/workspace", [], {
-      kind: "plan",
-      planning: true,
-      pursueGoal: true,
-    });
-    assert.match(text, /Plan mode:/);
-    assert.match(text, /Goal pursuit:/);
-  });
-
   it("maps Studio approval modes to explicit Codex approval and sandbox policy", () => {
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("ask"), {
       approvalPolicy: "on-request",
@@ -3019,7 +2958,6 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(acpGenericTest.codexModeForApprovalMode("ask"), "agent");
     assert.equal(acpGenericTest.codexModeForApprovalMode("auto"), "agent-full-access");
     assert.equal(acpGenericTest.codexModeForApprovalMode("read-only-auto"), "read-only");
-    assert.equal(acpGenericTest.codexModeForApprovalMode("auto", { kind: "plan" }), "plan");
     assert.equal(acpGenericTest.supportsSessionSetModel("codex"), true);
     assert.equal(acpGenericTest.supportsSessionSetModel("hermes"), true);
     assert.equal(acpGenericTest.supportsSessionSetModel("claude"), false);

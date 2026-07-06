@@ -80,7 +80,9 @@ import {
   applySessionAccessMode,
   draftHasSendableContent,
   draftToParts,
+  isComposerPlanningMode,
   joinSystemParts,
+  resolveComposerRuntimeTools,
   resolveDraftSendPlan,
   resolveDraftText,
   routeForSettingsSection,
@@ -2100,6 +2102,7 @@ export function SessionRoute() {
           throw new Error(
             "Selected model is unavailable. Choose another model before sending.",
           );
+        const planningMode = isComposerPlanningMode(draft.collaborationMode);
 
         // Honor the "click +新会话 then send" flow: if the user activated
         // draft mode in `SessionPage`, `forceNewSessionOnNextSendRef` is
@@ -2256,6 +2259,11 @@ export function SessionRoute() {
         };
 
         if (draft.mode === "shell") {
+          if (planningMode) {
+            throw new Error(
+              "Plan mode cannot run shell commands. Send a normal prompt to draft the plan first.",
+            );
+          }
           await runWithCreatedSessionRuntimeSync(async () => {
             await shellInSession(opencodeClient, sessionId, text, {
               directory: taskWorkspaceRoot || undefined,
@@ -2268,6 +2276,11 @@ export function SessionRoute() {
         }
 
         if (draft.command && !skillCommandPrompt) {
+          if (planningMode) {
+            throw new Error(
+              "Plan mode cannot run slash commands directly. Send a normal prompt to draft the plan first.",
+            );
+          }
           const command = draft.command;
           const result = await runWithCreatedSessionRuntimeSync(() =>
             opencodeClient.session.command({
@@ -2332,6 +2345,10 @@ export function SessionRoute() {
             createdSession: Boolean(createdSession),
             sessionId,
           });
+        const runtimeToolAccess = resolveComposerRuntimeTools(
+          agentToolAccess,
+          draft.collaborationMode,
+        );
         // Bind the pending agent to the session we just created so the
         // avatar/system prompt don't bleed into unrelated sessions the
         // user may navigate to later.
@@ -2375,7 +2392,7 @@ export function SessionRoute() {
               undefined,
             agent: selectedAgent ?? undefined,
             ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-            ...(agentToolAccess ? { tools: agentToolAccess } : {}),
+            ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
             ...(combinedSystem ? { system: combinedSystem } : {}),
             directory: taskWorkspaceRoot || undefined,
           }),
