@@ -210,6 +210,7 @@ import {
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import type {
+  CollaborationPlanRuntime,
   ComposerDraft,
   ComposerPart,
   ModelOption,
@@ -605,6 +606,9 @@ export function SessionRoute() {
   >({});
   const [sessionCollaborationModeById, setSessionCollaborationModeById] =
     useState<Record<string, ComposerDraft["collaborationMode"]>>({});
+  const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
+    Record<string, CollaborationPlanRuntime>
+  >({});
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
   // Subscribe to pending agent so the composer's model selection reflects
@@ -2074,6 +2078,7 @@ export function SessionRoute() {
       (pageMode === "assistant"
         ? { kind: "craft", planning: false, pursueGoal: true }
         : { planning: false, pursueGoal: false });
+    const planRuntime = sessionPlanRuntimeById[composerModeSessionId] ?? null;
 
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
@@ -2107,6 +2112,18 @@ export function SessionRoute() {
           ...current,
           [composerModeSessionId]: mode,
         }));
+      },
+      planRuntime,
+      onPlanRuntimeChange: (runtime: CollaborationPlanRuntime | null) => {
+        setSessionPlanRuntimeById((current) => {
+          const next = { ...current };
+          if (!runtime) {
+            delete next[composerModeSessionId];
+          } else {
+            next[composerModeSessionId] = runtime;
+          }
+          return next;
+        });
       },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
@@ -2264,6 +2281,20 @@ export function SessionRoute() {
           ...current,
           [sessionId]: draft.collaborationMode,
         }));
+        const planningIntent = draft.planningIntent;
+        if (planningIntent) {
+          setSessionPlanRuntimeById((current) => {
+            const next = { ...current };
+            delete next[composerModeSessionId];
+            next[sessionId] = {
+              status: "drafting",
+              originalPrompt: planningIntent.originalPrompt,
+              messageBaseline: planningIntent.messageBaseline,
+              createdAt: Date.now(),
+            };
+            return next;
+          });
+        }
 
         const runWithCreatedSessionRuntimeSync = async <T,>(
           action: () => Promise<T>,
@@ -2571,6 +2602,7 @@ export function SessionRoute() {
     selectedWorkspaceId,
     sessionAccessModeById,
     sessionCollaborationModeById,
+    sessionPlanRuntimeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
     token,

@@ -33,6 +33,7 @@ import type {
   ComposerCollaborationMode,
   ComposerDraft,
   ComposerPart,
+  CollaborationPlanRuntime,
   McpServerEntry,
   McpStatusMap,
   ModelRef,
@@ -119,6 +120,7 @@ import {
   controlTextArgument,
   DEFAULT_COMPOSER_CONTROL_TEXT,
   latestMessageControlResult,
+  messageToReadableText,
   messageHasVisibleAssistantOutput,
   transcriptControlResult,
   transcriptToText,
@@ -252,6 +254,8 @@ export type SessionSurfaceProps = {
   onSessionAccessModeChange?: (mode: ComposerAccessMode) => void;
   sessionCollaborationMode?: ComposerCollaborationMode;
   onSessionCollaborationModeChange?: (mode: ComposerCollaborationMode) => void;
+  planRuntime?: CollaborationPlanRuntime | null;
+  onPlanRuntimeChange?: (runtime: CollaborationPlanRuntime | null) => void;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   modelVariantLabel: string;
@@ -311,6 +315,16 @@ export type SessionSurfaceProps = {
 
 const waitForControl = (ms: number) =>
   new Promise((resolve) => window.setTimeout(resolve, ms));
+
+function planTextFromMessages(messages: UIMessage[]) {
+  return messages
+    .filter((message) => message.role === "assistant")
+    .map(messageToReadableText)
+    .map((text) => text.replace(/^OnMyAgent\s*/i, "").trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
 
 function useSharedQueryState<T>(queryKey: readonly unknown[], fallback: T) {
   const query = useQuery<T, Error, T, readonly unknown[]>({
@@ -461,6 +475,59 @@ function TodoPanel(props: { todos: TodoItem[] }) {
           })}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function PlanApprovalPanel(props: {
+  runtime: CollaborationPlanRuntime;
+  busy: boolean;
+  onExecute: () => void;
+  onCancel: () => void;
+}) {
+  const isDrafting = props.runtime.status === "drafting";
+  const planText = props.runtime.planText?.trim() || "";
+
+  return (
+    <div className="overflow-hidden border-b border-dls-border bg-transparent">
+      <div className="px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-dls-text">
+                {t("session.plan_runtime_title")}
+              </span>
+              <StatusBadge tone={isDrafting ? "warning" : "success"} size="tiny">
+                {isDrafting
+                  ? t("session.plan_runtime_drafting")
+                  : t("session.plan_runtime_ready")}
+              </StatusBadge>
+            </div>
+            <div className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-xs leading-5 text-dls-secondary">
+              {planText || t("session.plan_runtime_empty")}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={props.onCancel}
+              disabled={props.busy}
+            >
+              {t("session.plan_runtime_cancel")}
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              onClick={props.onExecute}
+              disabled={props.busy || isDrafting}
+            >
+              {t("session.plan_runtime_execute")}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1012,6 +1079,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  useEffect(() => {
+    const runtime = props.planRuntime;
+    if (!runtime || runtime.status !== "drafting" || chatStreaming) return;
+    const planText = planTextFromMessages(
+      renderedMessages.slice(runtime.messageBaseline),
+    );
+    if (!planText) return;
+    props.onPlanRuntimeChange?.({
+      ...runtime,
+      status: "awaiting_approval",
+      planText,
+    });
+  }, [
+    chatStreaming,
+    props.onPlanRuntimeChange,
+    props.planRuntime,
+    renderedMessages,
+  ]);
   const snapshotSessionError = useMemo(
     () => readSnapshotSessionError(snapshot),
     [snapshot],
@@ -1348,6 +1433,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setNoVisibleAssistantOutputBaseline(null);
     try {
       const nextDraft = buildDraft(text, attachments);
+      if (
+        effectiveCollaborationMode.kind === "plan" ||
+        effectiveCollaborationMode.planning
+      ) {
+        nextDraft.planningIntent = {
+          originalPrompt: text,
+          messageBaseline: renderedMessages.length,
+        };
+      }
       await props.onSendDraft(nextDraft);
       attachments.forEach(revokeAttachmentPreview);
       clearComposerSession(props.sessionId);
@@ -1374,6 +1468,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     buildDraft,
     clearComposerSession,
     draft,
+    effectiveCollaborationMode.kind,
+    effectiveCollaborationMode.planning,
     props.onDraftChange,
     props.onSendDraft,
     props.draftOnly,
@@ -1382,6 +1478,78 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.workspaceId,
     renderedMessages.length,
     setComposerDraft,
+  ]);
+
+  const executeApprovedPlan = useCallback(async () => {
+    const runtime = props.planRuntime;
+    if (!runtime || runtime.status !== "awaiting_approval") return;
+    const executionMode: ComposerCollaborationMode = {
+      kind: "craft",
+      planning: false,
+      pursueGoal: effectiveCollaborationMode.pursueGoal,
+    };
+    const executionPrompt = [
+      "Execute the approved plan for the original request now.",
+      "The user has approved execution, so any previous plan-mode text-only or no-tool restriction inside the approved plan is no longer active.",
+      "Use the available execution tools as needed to make the requested changes and verify the result.",
+      "",
+      "Original request:",
+      runtime.originalPrompt,
+      "",
+      "Approved plan:",
+      runtime.planText?.trim() || t("session.plan_runtime_empty"),
+    ].join("\n");
+
+    setError(null);
+    setDismissedErrorMessage(null);
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+    }
+    setSending(true);
+    setAwaitingAssistantBaseline(renderedMessages.length);
+    setNoVisibleAssistantOutputBaseline(null);
+    updateCollaborationMode(executionMode);
+    props.onPlanRuntimeChange?.({
+      ...runtime,
+      status: "executing",
+      approvedAt: Date.now(),
+    });
+    try {
+      await props.onSendDraft({
+        ...buildDraft(executionPrompt, []),
+        collaborationMode: executionMode,
+      });
+      props.onPlanRuntimeChange?.(null);
+      props.onDraftChange(buildDraft("", []));
+      setSending(false);
+    } catch (nextError) {
+      const parsed = parseSessionError(nextError);
+      setError(parsed);
+      setDismissedErrorMessage(null);
+      if (!props.draftOnly) {
+        useSessionActivityStore
+          .getState()
+          .setError(props.workspaceId, props.sessionId, parsed.message);
+      }
+      props.onPlanRuntimeChange?.(runtime);
+      setAwaitingAssistantBaseline(null);
+      setNoVisibleAssistantOutputBaseline(null);
+      setSending(false);
+    }
+  }, [
+    buildDraft,
+    effectiveCollaborationMode.pursueGoal,
+    props.draftOnly,
+    props.onDraftChange,
+    props.onPlanRuntimeChange,
+    props.onSendDraft,
+    props.planRuntime,
+    props.sessionId,
+    props.workspaceId,
+    renderedMessages.length,
+    updateCollaborationMode,
   ]);
 
   const handleAbort = useCallback(async () => {
@@ -1894,12 +2062,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
       />
     ) : null;
 
+  const visiblePlanRuntime =
+    props.planRuntime && props.planRuntime.status !== "executing"
+      ? props.planRuntime
+      : null;
   const sessionComposerAccessory =
+    visiblePlanRuntime ||
     props.activeQuestion ||
     (props.todos ?? []).some((todo) => todo.content.trim()) ||
     props.activePermission ? (
       <div>
-        {props.activeQuestion ? (
+        {visiblePlanRuntime ? (
+          <PlanApprovalPanel
+            runtime={visiblePlanRuntime}
+            busy={sending || chatStreaming}
+            onExecute={executeApprovedPlan}
+            onCancel={() => props.onPlanRuntimeChange?.(null)}
+          />
+        ) : props.activeQuestion ? (
           <QuestionPanel
             questions={props.activeQuestion.questions}
             busy={props.questionReplyBusy ?? false}
