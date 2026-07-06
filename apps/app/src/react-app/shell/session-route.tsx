@@ -2378,7 +2378,6 @@ export function SessionRoute() {
         const runtimeToolAccess = resolveComposerRuntimeTools(
           agentToolAccess,
           draft.collaborationMode,
-          draft.accessMode,
         );
         // Bind the pending agent to the session we just created so the
         // avatar/system prompt don't bleed into unrelated sessions the
