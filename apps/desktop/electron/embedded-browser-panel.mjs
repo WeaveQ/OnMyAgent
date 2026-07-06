@@ -9,6 +9,7 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
   let browserViewVisible = false;
   let lastBrowserBounds = null;
   let browserTabCounter = 0;
+  let suppressNextPanelOpen = false;
   const BROWSER_DEFAULT_URL = "https://www.google.com";
   const MENU_OVERLAY_HTML = "overlay.html";
   const MENU_OVERLAY_WIDTH = 196;
@@ -75,7 +76,7 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
   function normalizeBrowserUrl(url, fallback = BROWSER_DEFAULT_URL) {
     const target = typeof url === "string" && url.trim() ? url.trim() : fallback;
     if (!target || target === "about:blank") return "about:blank";
-    return /^https?:\/\//i.test(target) ? target : `https://${target}`;
+    return /^(?:https?|file):\/\//i.test(target) ? target : `https://${target}`;
   }
 
   function isExternalOpenUrlAllowed(url) {
@@ -420,6 +421,10 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
       "did-start-navigation",
       (_event, targetUrl, isInPlace, isMainFrame) => {
         if (isMainFrame && !isInPlace && targetUrl !== "about:blank") {
+          if (suppressNextPanelOpen) {
+            suppressNextPanelOpen = false;
+            return;
+          }
           sendToRenderer("onmyagent:browser:panel-opened");
         }
       },
@@ -660,10 +665,11 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
     hideMenuOverlay();
   }
 
-  function navigate(url) {
+  function navigate(url, { announcePanelOpen = true } = {}) {
     const view =
       getActiveBrowserView() ??
       createBrowserTab("about:blank", { select: true }).view;
+    suppressNextPanelOpen = !announcePanelOpen;
     view.webContents.loadURL(normalizeBrowserUrl(url));
   }
   function goBack() {
