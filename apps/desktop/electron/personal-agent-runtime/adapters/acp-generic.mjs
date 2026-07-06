@@ -364,7 +364,14 @@ async function ensureOpenClawGateway({ executablePath, workdir, env, appendEvent
   return child;
 }
 
-function codexModeForApprovalMode(approvalMode) {
+function isPlanningMode(collaborationMode) {
+  if (!collaborationMode || typeof collaborationMode !== "object") return false;
+  if (collaborationMode.kind === "plan") return true;
+  return Boolean(collaborationMode.planning);
+}
+
+function codexModeForApprovalMode(approvalMode, collaborationMode = null) {
+  if (isPlanningMode(collaborationMode)) return "plan";
   if (approvalMode === "auto") return "agent-full-access";
   if (approvalMode === "read-only-auto") return "read-only";
   return "agent";
@@ -541,7 +548,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
     }
     if (sessionMetadata) appendEvent({ type: "status", text: `acp_session_metadata> ${JSON.stringify(sessionMetadata)}` });
     if (provider === "codex") {
-      const modeId = codexModeForApprovalMode(ctx.approvalMode);
+      const modeId = codexModeForApprovalMode(ctx.approvalMode, ctx.collaborationMode);
       await client.request("session/set_mode", { sessionId, modeId }).catch((error) => {
         const message = `${provider} ACP set_mode failed: ${error.message}`;
         appendEvent({ type: "error", text: message });
@@ -876,6 +883,7 @@ export const __test__ = {
   normalizeExplicitSessionId,
   acpFailureCode,
   codexModeForApprovalMode,
+  isPlanningMode,
   supportsSessionSetModel,
   acpPromptStopReason,
   assertAcpPromptCompleted,
