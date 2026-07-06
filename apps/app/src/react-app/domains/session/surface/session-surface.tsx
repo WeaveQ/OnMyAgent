@@ -248,6 +248,10 @@ export type SessionSurfaceProps = {
   onModelChange: (model: ModelRef) => void;
   onSendDraft: (draft: ComposerDraft) => void;
   onDraftChange: (draft: ComposerDraft) => void;
+  sessionAccessMode?: ComposerAccessMode;
+  onSessionAccessModeChange?: (mode: ComposerAccessMode) => void;
+  sessionCollaborationMode?: ComposerCollaborationMode;
+  onSessionCollaborationModeChange?: (mode: ComposerCollaborationMode) => void;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   modelVariantLabel: string;
@@ -682,6 +686,35 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: true,
     });
+  const effectiveAccessMode = props.sessionAccessMode ?? accessMode;
+  const baseCollaborationMode =
+    assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
+      ? officeCollaborationMode
+      : collaborationMode;
+  const effectiveCollaborationMode =
+    props.sessionCollaborationMode ?? baseCollaborationMode;
+  const updateAccessMode = useCallback(
+    (nextMode: ComposerAccessMode) => {
+      setAccessMode(nextMode);
+      props.onSessionAccessModeChange?.(nextMode);
+    },
+    [props.onSessionAccessModeChange],
+  );
+  const updateCollaborationMode = useCallback(
+    (nextMode: ComposerCollaborationMode) => {
+      if (assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office") {
+        setOfficeCollaborationMode(nextMode);
+      } else {
+        setCollaborationMode(nextMode);
+      }
+      props.onSessionCollaborationModeChange?.(nextMode);
+    },
+    [
+      assistantFeatureCategoryId,
+      assistantOfficeFeaturesActive,
+      props.onSessionCollaborationModeChange,
+    ],
+  );
   const attachments = useComposerStateStore((state) =>
     getComposerAttachments(state, props.sessionId),
   );
@@ -1246,16 +1279,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
         );
       }
       const resolvedSlashMatch = resolved.trim().match(/^\/([^\s]+)\s*(.*)$/);
-      const officeCollaborationActive =
-        assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office";
       return {
         mode: "prompt",
         parts,
         attachments: nextAttachments,
-        accessMode,
-        collaborationMode: officeCollaborationActive
-          ? officeCollaborationMode
-          : collaborationMode,
+        accessMode: effectiveAccessMode,
+        collaborationMode: effectiveCollaborationMode,
         text,
         resolvedText: resolved,
         command: resolvedSlashMatch
@@ -1266,7 +1295,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           : undefined,
       };
     },
-    [accessMode, assistantFeatureCategoryId, assistantOfficeFeaturesActive, collaborationMode, mentions, officeCollaborationMode, pasteParts],
+    [assistantFeatureCategoryId, assistantOfficeFeaturesActive, effectiveAccessMode, effectiveCollaborationMode, mentions, pasteParts],
   );
 
   const handleComposerDraftChange = useCallback(
@@ -2197,18 +2226,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 Boolean(props.modelUnavailable)
               }
               modelUnavailable={Boolean(props.modelUnavailable)}
-              accessMode={accessMode}
-              onAccessModeChange={setAccessMode}
-              collaborationMode={
-                assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
-                  ? officeCollaborationMode
-                  : collaborationMode
-              }
-              onCollaborationModeChange={
-                assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
-                  ? setOfficeCollaborationMode
-                  : setCollaborationMode
-              }
+              accessMode={effectiveAccessMode}
+              onAccessModeChange={updateAccessMode}
+              collaborationMode={effectiveCollaborationMode}
+              onCollaborationModeChange={updateCollaborationMode}
               collaborationModeVariant={
                 assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
                   ? "office"

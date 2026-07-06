@@ -603,6 +603,8 @@ export function SessionRoute() {
   const [sessionAccessModeById, setSessionAccessModeById] = useState<
     Record<string, ComposerDraft["accessMode"]>
   >({});
+  const [sessionCollaborationModeById, setSessionCollaborationModeById] =
+    useState<Record<string, ComposerDraft["collaborationMode"]>>({});
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
   // Subscribe to pending agent so the composer's model selection reflects
@@ -2064,6 +2066,15 @@ export function SessionRoute() {
       return null;
     }
 
+    const composerModeSessionId = selectedSessionId ?? `draft:${selectedWorkspaceId}`;
+    const sessionAccessMode =
+      sessionAccessModeById[composerModeSessionId] ?? "default";
+    const sessionCollaborationMode =
+      sessionCollaborationModeById[composerModeSessionId] ??
+      (pageMode === "assistant"
+        ? { kind: "craft", planning: false, pursueGoal: true }
+        : { planning: false, pursueGoal: false });
+
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
     // explicitly to SessionSurface from the per-workspace endpoint resolved
@@ -2082,6 +2093,21 @@ export function SessionRoute() {
       modelPickerOpen: compactModelPickerOpen,
       modelUnavailable: modelAvailabilityBlocksTask,
       selectedModel: effectiveModelRef ?? { providerID: "", modelID: "" },
+      sessionAccessMode,
+      onSessionAccessModeChange: (mode: ComposerDraft["accessMode"]) => {
+        setSessionAccessModeById((current) =>
+          applySessionAccessMode(current, composerModeSessionId, mode),
+        );
+      },
+      sessionCollaborationMode,
+      onSessionCollaborationModeChange: (
+        mode: ComposerDraft["collaborationMode"],
+      ) => {
+        setSessionCollaborationModeById((current) => ({
+          ...current,
+          [composerModeSessionId]: mode,
+        }));
+      },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
         local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
@@ -2234,6 +2260,10 @@ export function SessionRoute() {
         setSessionAccessModeById((current) =>
           applySessionAccessMode(current, sessionId, draft.accessMode),
         );
+        setSessionCollaborationModeById((current) => ({
+          ...current,
+          [sessionId]: draft.collaborationMode,
+        }));
 
         const runWithCreatedSessionRuntimeSync = async <T,>(
           action: () => Promise<T>,
@@ -2348,6 +2378,7 @@ export function SessionRoute() {
         const runtimeToolAccess = resolveComposerRuntimeTools(
           agentToolAccess,
           draft.collaborationMode,
+          draft.accessMode,
         );
         // Bind the pending agent to the session we just created so the
         // avatar/system prompt don't bleed into unrelated sessions the
@@ -2532,12 +2563,15 @@ export function SessionRoute() {
     navigate,
     opencodeBaseUrl,
     opencodeClient,
+    pageMode,
     refreshCreatedSessionSnapshot,
     selectedAgent,
     selectedSessionId,
     selectedWorkspace,
     selectedWorkspaceEndpoint,
     selectedWorkspaceId,
+    sessionAccessModeById,
+    sessionCollaborationModeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
     token,

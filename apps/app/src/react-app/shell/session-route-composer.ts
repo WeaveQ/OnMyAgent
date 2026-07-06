@@ -167,6 +167,13 @@ export function isComposerPlanningMode(
 }
 
 const PLAN_MODE_DISABLED_TOOLS = [
+  "Bash",
+  "Edit",
+  "MultiEdit",
+  "NotebookEdit",
+  "Shell",
+  "Terminal",
+  "Write",
   "apply_patch",
   "bash",
   "create_file",
@@ -187,8 +194,9 @@ const PLAN_MODE_DISABLED_TOOLS = [
 export function resolveComposerRuntimeTools(
   tools: Record<string, boolean> | undefined,
   mode: ComposerDraft["collaborationMode"],
+  accessMode: ComposerDraft["accessMode"],
 ) {
-  if (!isComposerPlanningMode(mode)) return tools;
+  if (!isComposerPlanningMode(mode) && accessMode === "full") return tools;
   const next: Record<string, boolean> = { ...(tools ?? {}) };
   for (const toolName of PLAN_MODE_DISABLED_TOOLS) {
     next[toolName] = false;
