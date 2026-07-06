@@ -2,6 +2,7 @@
 import { Loader2 } from "lucide-react";
 
 import { StatusDot } from "@/components/ui/status-dot";
+import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../design-system/select-menu";
@@ -45,7 +46,7 @@ export function AcpConfigOptionEditor(props: {
   return (
     <label className="flex min-w-[220px] flex-[1_1_260px] items-center gap-2 text-xs text-dls-secondary">
       <span className="shrink-0 whitespace-nowrap">{props.option.label}</span>
-      <input className="min-h-9 min-w-0 flex-1 rounded-lg border border-dls-border bg-dls-surface px-2 text-xs text-dls-text outline-none transition-colors focus:border-dls-accent/60 focus:ring-2 focus:ring-dls-accent/15 disabled:cursor-not-allowed disabled:opacity-60" value={String(currentValue ?? "")} disabled={props.disabled || props.busy} onChange={(event) => props.onChange(event.target.value)} />
+      <Input variant="dls" className="min-w-0 flex-1 text-xs" value={String(currentValue ?? "")} disabled={props.disabled || props.busy} onChange={(event) => props.onChange(event.target.value)} />
     </label>
   );
 }
