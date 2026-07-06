@@ -1,13 +1,15 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, FolderOpen, Loader2, Play, QrCode, RefreshCw, Save, Send, Square, X } from "lucide-react";
+import { ExternalLink, FolderOpen, Loader2, Play, QrCode, RefreshCw, Save, Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MonoLogBox } from "@/components/ui/mono-log-box";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SelectMenu } from "../../../../design-system/select-menu";
+import { AccessibleRootRow } from "./accessible-root-row";
 import { t } from "../../../../../i18n";
 import {
   openDesktopUrl,
@@ -590,18 +592,19 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           {effectiveAccessibleRoots.length ? (
             <div className="mt-2 flex flex-col gap-2">
               {effectiveAccessibleRoots.map((root) => (
-                <div key={root} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-dls-border bg-dls-surface-muted px-2 py-1.5">
-                  <span className="min-w-0 truncate font-mono text-xs text-dls-text">{root}</span>
-                  <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAccessibleWorkspaceRoot(root)} disabled={running || Boolean(busy)} aria-label={t("messaging.weixin_access_workspace_extra_remove")}>
-                    <X className="size-4" />
-                  </Button>
-                </div>
+                <AccessibleRootRow
+                  key={root}
+                  root={root}
+                  onRemove={removeAccessibleWorkspaceRoot}
+                  disabled={running || Boolean(busy)}
+                  removeLabel={t("messaging.weixin_access_workspace_extra_remove")}
+                />
               ))}
             </div>
           ) : (
-            <div className="mt-2 rounded-md bg-dls-surface-muted px-2 py-1.5 text-xs text-dls-secondary">
+            <NoticeBox tone="neutral" className="mt-2">
               {t("messaging.weixin_access_workspace_extra_empty")}
-            </div>
+            </NoticeBox>
           )}
         </div>
       </PanelSection>
@@ -713,16 +716,14 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
               </div>
             ) : null}
             <div className="min-w-0">
-              <div className="break-all rounded-md bg-dls-surface-muted p-2 font-mono text-xs text-dls-secondary">
-                {qrScanValue}
-              </div>
-              <div className="mt-2 space-y-1 rounded-md bg-dls-surface-muted p-2 font-mono text-xs leading-4 text-dls-secondary">
+              <MonoLogBox>{qrScanValue}</MonoLogBox>
+              <MonoLogBox density="stacked" className="mt-2">
                 <div>{t("messaging.weixin_qr_poll_count", { count: qrPollCount })}</div>
                 <div>{t("messaging.weixin_qr_last_poll", { time: shortTime(qrLastPollAt) })}</div>
                 <div className="break-all">baseUrl: {qrLastPollBaseUrl || qrPollBaseUrl || baseUrl}</div>
                 {qrRedirectHost ? <div className="break-all">redirectHost: {qrRedirectHost}</div> : null}
                 {qrPollDetail ? <div className="break-all">{qrPollDetail}</div> : null}
-              </div>
+              </MonoLogBox>
               {qrImageUrl || qrCodeUrl ? (
                 <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => void openDesktopUrl(qrImageUrl || qrCodeUrl)}>
                   <ExternalLink className="size-4" />

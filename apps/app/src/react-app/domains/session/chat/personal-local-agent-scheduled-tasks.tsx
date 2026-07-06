@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { NoticeBox } from "@/components/ui/notice-box";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge, StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
@@ -376,9 +376,9 @@ export function ScheduledTaskRunHistory(props: { job: PersonalLocalAgentHeartbea
           ))}
         </div>
       ) : expanded ? (
-        <div className="rounded-md border border-dashed border-dls-border px-2 py-2 text-center text-xs text-dls-secondary">
+        <EmptyStateBox size="compact">
           {t("local_agent.heartbeat_runs_empty")}
-        </div>
+        </EmptyStateBox>
       ) : null}
     </div>
   );

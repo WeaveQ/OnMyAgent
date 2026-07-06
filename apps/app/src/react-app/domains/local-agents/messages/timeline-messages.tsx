@@ -276,7 +276,7 @@ function LocalAgentToolRow(props: { message: PersonalLocalAgentConversationMessa
 
   return (
     <div className="flex min-w-0 flex-col overflow-hidden">
-      <div className="flex w-full items-center gap-3 rounded-md py-0.5 text-left text-[13px] leading-5 text-dls-secondary overflow-hidden">
+      <div className="flex w-full items-center gap-3 rounded-md py-0.5 text-left text-sm leading-5 text-dls-secondary overflow-hidden">
         <span className={cn("size-2 shrink-0 rounded-full", dotClass)} />
         <span className="min-w-0 flex-1 truncate">
           <span className="font-medium text-dls-text">{tool.title}</span>
@@ -287,7 +287,7 @@ function LocalAgentToolRow(props: { message: PersonalLocalAgentConversationMessa
         <div className="ml-5 mt-1 space-y-2 overflow-hidden">
           {tool.detail.map((section) => (
             <div key={section.label} className="min-w-0">
-              <div className="text-[11px] font-medium text-dls-tertiary">
+              <div className="text-2xs font-medium text-dls-tertiary">
                 {section.label}
                 {section.truncated ? ` · ${t("local_agent.timeline_tool_truncated")}` : ""}
               </div>
@@ -306,7 +306,7 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
 
   return (
     <div className="max-w-full">
-      <div className="inline-flex w-auto max-w-full cursor-default items-center gap-1.5 text-[13px] leading-none text-dls-accent">
+      <div className="inline-flex w-auto max-w-full cursor-default items-center gap-1.5 text-sm leading-none text-dls-accent">
         {hasRunning ? <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
         <span className="truncate">{t("local_agent.timeline_tool_group_title", { count: props.messages.length })}</span>
       </div>
@@ -330,7 +330,7 @@ function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationM
       <button
         type="button"
         data-testid="local-agent-plan-header"
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] leading-5 text-dls-secondary transition-colors hover:bg-dls-hover/40"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm leading-5 text-dls-secondary transition-colors hover:bg-dls-hover/40"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
       >
@@ -340,7 +340,7 @@ function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationM
         <ChevronRight className={cn("size-3 shrink-0 text-dls-tertiary transition-transform", expanded && "rotate-90")} />
       </button>
       {expanded ? (
-        <div className="space-y-1.5 border-t border-dls-border/50 px-3 py-2 text-[13px] leading-5" data-testid="local-agent-plan-body">
+        <div className="space-y-1.5 border-t border-dls-border/50 px-3 py-2 text-sm leading-5" data-testid="local-agent-plan-body">
           {entries.map((entry) => {
             const completed = entry.status === "completed";
             const running = props.streaming && (entry.status === "in_progress" || entry.status === "running");
@@ -381,7 +381,7 @@ function LocalAgentThinkingMessage(props: { message: PersonalLocalAgentConversat
       <button
         type="button"
         data-testid="local-agent-thinking-header"
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] leading-5 text-dls-secondary transition-colors hover:bg-dls-hover/40"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm leading-5 text-dls-secondary transition-colors hover:bg-dls-hover/40"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
         data-status={done ? "done" : "running"}
@@ -405,7 +405,7 @@ export function LocalAgentTimelineMessage(props: { message: PersonalLocalAgentCo
   if (props.message.type === "tips") return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
   if (props.message.role === "assistant") {
     return (
-      <div className="text-[13px] leading-6 text-dls-text">
+      <div className="text-sm leading-6 text-dls-text">
         <MarkdownBlock text={props.message.text} streaming={props.streaming && props.message.type !== "finish"} />
       </div>
     );
