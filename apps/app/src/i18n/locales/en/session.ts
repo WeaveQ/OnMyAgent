@@ -352,6 +352,9 @@ export default {
   "session.todo_label": "Tasks",
   "session.todo_progress": "{completed} out of {total} tasks completed",
   "session.todo_progress_label": "Progress",
+  "session.todo_code_changes": "Code change info",
+  "session.todo_code_changes_detail":
+    "Detected {count} code change actions. Details are available in the conversation timeline.",
   "session.plan_runtime_title": "Plan awaiting approval",
   "session.plan_runtime_drafting": "Drafting plan",
   "session.plan_runtime_ready": "Plan generated. Confirm before execution.",
