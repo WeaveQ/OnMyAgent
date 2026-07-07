@@ -57,19 +57,19 @@ import {
   scheduledTaskSessionContext,
   type HeartbeatDraft,
 } from "./personal-local-agent-scheduled-tasks";
-import { LocalAgentManagementPanel } from "../../local-agents/local-agent-management-panel";
+import { LocalAgentStatusRail } from "../../local-agents/local-agent-status-rail";
 import { LocalAgentDraftComposer, buildLocalAgentPrompt, type LocalAgentComposerSubmit, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
 import { elapsedSeconds, shortTime } from "../../local-agents/local-agent-formatters";
-import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
+import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, normalizeAcpSlashCommandList, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
 import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
 import { ChatBubble } from "../../local-agents/messages/chat-bubble";
+import { latestContextUsage } from "../../local-agents/context-usage-indicator";
 import type { ChatMessage } from "../../local-agents/messages/message-types";
 import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/message-utils";
 import { lastEventTime } from "../../local-agents/messages/timeline-messages";
 import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
 import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
 import { BtwOverlay, agentSupportsSideQuestion } from "../../local-agents/side-question";
-import type { LocalAgentRepairAction } from "../../local-agents/local-agent-repair-panel";
 type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
   workspaceName?: string | null;
@@ -82,6 +82,8 @@ type PersonalLocalAgentPageProps = {
   onOpenTargetsChange?: (targets: OpenTarget[]) => void;
   /** Right-aligned controls injected by the host page (Browser/Workspace toggles). */
   headerActions?: ReactNode;
+  /** Navigate to the Agent Management tab (skills panel by default). */
+  onOpenAgentManagement?: (panel?: "skills" | "mcp" | "providers" | "agents") => void;
 };
 const localAgentTextClass = {
   panelTitle: "text-sm font-medium leading-5 text-dls-text",
@@ -252,7 +254,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [heartbeatBusy, setHeartbeatBusy] = useState<string | null>(null);
   const [heartbeatError, setHeartbeatError] = useState<string | null>(null);
   const [showScheduledTasks, setShowScheduledTasks] = useState(false);
-  const [showManagement, setShowManagement] = useState(false);
   const [selectedConversationIdByAgent, setSelectedConversationIdByAgent] = useState<Record<string, string>>(persistedState.selectedConversationIdByAgent ?? {});
   const [loadingConversationsByAgent, setLoadingConversationsByAgent] = useState<Record<string, boolean>>({});
   const [approvalMode, setApprovalMode] = useState<PersonalLocalAgentApprovalMode>(() => safeReadApprovalMode(props.workspaceRoot));
@@ -276,10 +277,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const selectedConversationId = selectedAgent ? selectedConversationIdByAgent[selectedAgent.id] ?? selectedConversations[0]?.id ?? null : null;
   const selectedConversation = selectedConversations.find((item) => item.id === selectedConversationId) ?? selectedConversations[0] ?? null;
   const selectedAcpModelInfo = useAcpModelInfo(selectedAgent);
-  const selectedSlashCommands = useMemo(
-    () => mergeSlashCommands([...builtinSlashCommands(selectedAgent), ...normalizeAcpSlashCommands(selectedAgent)]),
-    [selectedAgent],
-  );
   const selectedHeartbeatJobs = selectedAgent ? heartbeatJobs.filter((job) => job.agent?.id === selectedAgent.id) : [];
   const selectedChatKey = selectedAgent ? localAgentChatKey(selectedAgent.id, selectedConversationId) : "";
   const handleWarmupResult = useCallback((result: { ok: boolean; providerSessionId?: string | null }) => {
@@ -332,6 +329,26 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (!selectedAgent) return [];
     return messagesByAgent[selectedChatKey] ?? messagesByAgent[selectedAgent.id] ?? [welcomeMessageForAgent(selectedAgent)];
   }, [messagesByAgent, selectedAgent, selectedChatKey]);
+  const selectedSlashCommands = useMemo(() => {
+    // Fold live `available_commands` events (last one wins) on top of the
+    // handshake snapshot so slash suggestions stay in sync when the CLI adds
+    // or removes commands mid-session — this matches AionUi's behavior.
+    let liveCommands: unknown = null;
+    for (let index = selectedMessages.length - 1; index >= 0 && !liveCommands; index -= 1) {
+      const runMessages = selectedMessages[index]?.run?.conversationMessages;
+      if (!runMessages?.length) continue;
+      for (let inner = runMessages.length - 1; inner >= 0; inner -= 1) {
+        const candidate = runMessages[inner];
+        if (candidate?.type === "available_commands" && Array.isArray(candidate.commands)) {
+          liveCommands = candidate.commands;
+          break;
+        }
+      }
+    }
+    const hasConversation = Boolean(selectedConversation);
+    const acp = liveCommands ? normalizeAcpSlashCommandList(liveCommands) : normalizeAcpSlashCommands(selectedAgent);
+    return mergeSlashCommands([...builtinSlashCommands(selectedAgent, { hasConversation }), ...acp]);
+  }, [selectedAgent, selectedConversation, selectedMessages]);
   const draft = selectedAgent ? draftsByAgent[selectedChatKey] ?? "" : "";
   const activeRunId = selectedAgent ? activeRunIdByAgent[selectedChatKey] ?? null : null;
   const activeRun = useMemo(
@@ -344,6 +361,14 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const selectedError = selectedAgent ? errorsByAgent[selectedAgent.id] ?? null : null;
   const selectedCapability = selectedAgent?.capability ?? null;
   const selectedAgentIconUrl = selectedAgent ? providerIconUrl(selectedAgent.provider) : null;
+  const composerContextUsage = useMemo(() => {
+    for (let index = selectedMessages.length - 1; index >= 0; index -= 1) {
+      const message = selectedMessages[index];
+      const usage = latestContextUsage(message?.run?.conversationMessages ?? []);
+      if (usage) return usage;
+    }
+    return null;
+  }, [selectedMessages]);
   const activePendingApprovals = activeRun?.pendingApprovals ?? [];
   const updateDraftForChat = useCallback((chatKey: string, value: string) => {
     setDraftsByAgent((current) => current[chatKey] === value ? current : { ...current, [chatKey]: value });
@@ -1047,15 +1072,56 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const submitComposerPayload = useCallback(async (payload: LocalAgentComposerSubmit) => {
     const trimmed = payload.text.trim();
     if (trimmed.startsWith("/") && payload.attachments.length === 0 && payload.quotes.length === 0) {
-      if (trimmed === "/new") {
+      const acpMatch = selectedSlashCommands.find((command) => command.source === "acp" && command.name.toLowerCase() === trimmed.toLowerCase());
+      if (acpMatch) {
+        // ACP-provided commands (including /compact) are transparently forwarded
+        // to the CLI as a normal prompt. AionUi does the same: the CLI itself
+        // owns the compaction/summarization semantics.
+      } else if (trimmed === "/new") {
         await createNewConversation();
         return;
-      }
-      if (trimmed === "/clear") {
+      } else if (trimmed === "/clear") {
         await clearCurrentAgentChat();
         return;
+      } else if (trimmed === "/sessions") {
+        await refreshAgents();
+        return;
+      } else if (trimmed === "/open") {
+        const key = selectedChatKey;
+        if (key) document.getElementById(`local-agent-file-input-${key}`)?.click();
+        return;
+      } else if (trimmed === "/copy") {
+        const messages = selectedMessages;
+        const text = messages
+          .map((message) => {
+            if (!message.text) return "";
+            const role = message.role === "user" ? "User" : "Agent";
+            return `${role}: ${message.text}`;
+          })
+          .filter(Boolean)
+          .join("\n\n")
+          .trim();
+        if (!text) {
+          setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_copy_empty") }));
+        } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(text);
+            setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_copy_success") }));
+          } catch {
+            setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_unknown", { command: trimmed }) }));
+          }
+        }
+        return;
+      } else {
+        setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_unknown", { command: trimmed }) }));
+        return;
       }
-      setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: t("local_agent.slash_unknown", { command: trimmed }) }));
+    }
+    if (payload.unresolvedMentions.length) {
+      setErrorsByAgent((current) => ({
+        ...current,
+        [selectedAgentId]: t("local_agent.composer_unresolved_mentions", { tokens: payload.unresolvedMentions.join(", ") }),
+      }));
       return;
     }
     const augmented = buildLocalAgentPrompt(payload);
@@ -1063,7 +1129,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     await startAgentRun(augmented);
   }, [clearCurrentAgentChat, createNewConversation, selectedAgentId, startAgentRun]);
   const submitComposerValue = useCallback(async (value: string) => {
-    await submitComposerPayload({ text: value, attachments: [], mentions: {}, quotes: [] });
+    await submitComposerPayload({ text: value, attachments: [], mentions: {}, quotes: [], unresolvedMentions: [] });
   }, [submitComposerPayload]);
   const handleSlashCommandExecute = useCallback((command: LocalAgentSlashCommand) => { void submitComposerValue(command.name); }, [submitComposerValue]);
   const cancelAgentRun = useCallback(async (runId: string, chatKey: string) => {
@@ -1238,7 +1304,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       />
     </div>
   ) : null}
-</header><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {showManagement ? ( <LocalAgentManagementPanel agents={agents} workspaceRoot={props.workspaceRoot} selectedAgentId={selectedAgentId} refreshing={refreshing} providerLabel={(agent) => PROVIDER_LABELS[agent.provider] ?? agent.provider} providerIconUrl={(agent) => providerIconUrl(agent.provider)} onSelectAgent={(agentId) => setSelectedAgentId(agentId)} onAgentsChange={setAgents} onRefresh={() => void refreshAgents()} onConfigure={() => setShowManagement(false)} onRepairAction={(action: LocalAgentRepairAction) => { if (action === "recheck") void refreshAgents(); }} supportedRepairActions={["recheck"]} /> ) : null} {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => setShowManagement(true)} onSideQuestion={(value) => void sendSideQuestion(value)} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
+</header><LocalAgentStatusRail workspaceRoot={props.workspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} onSideQuestion={(value) => void sendSideQuestion(value)} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
         <div className={localAgentLayoutClass.chatPanel}>
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
@@ -1250,6 +1316,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             slashCommands={selectedSlashCommands}
             onDraftCommit={updateDraftForChat}
             onSlashCommandExecute={handleSlashCommandExecute}
+            contextUsage={composerContextUsage}
             onSubmit={(payload) => { updateDraftForChat(selectedChatKey, ""); void submitComposerPayload(payload); }}
             toolbarLeft={
               <div className="min-w-[136px]">

@@ -11,8 +11,8 @@ import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type 
 import type { OpenTarget } from "../../session/artifacts/open-target";
 import { MarkdownBlock } from "../../session/surface/markdown";
 import { shortTime } from "../local-agent-formatters";
-import { ContextUsageIndicator, latestContextUsage } from "../context-usage-indicator";
 import { BtwOverlay, agentSupportsSideQuestion } from "../side-question";
+import { MessageFileChanges } from "./message-file-changes";
 import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
 import { approvalClass, localAgentLayoutClass, localAgentTextClass } from "./message-style";
@@ -31,7 +31,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
 }) {
   const isUser = props.message.role === "user";
   const run = props.message.run;
-  const contextUsage = latestContextUsage(run?.conversationMessages ?? []);
   const runWorkdir = run?.workdir ?? null;
   const showRunDiagnostics = isRunFinal(run?.status);
   const [actionFeedback, setActionFeedback] = useState<{ id: string; tone: "ok" | "error"; text: string } | null>(null);
@@ -77,42 +76,41 @@ export const ChatBubble = memo(function ChatBubble(props: {
     }
   }, [props.workspaceRoot, run?.logPath, showFeedback]);
   const handleOpenArtifact = useCallback(async (target: OpenTarget) => {
-    // Prefer the host's openTarget (used by expert/assistant/session pages).
-    // It routes URLs into the in-app Browser tab and files into the
-    // Workspace/Artifacts side panel, matching the rest of the product.
+    // Align with AionUi behavior: file artifacts always open via the OS
+    // (shell.openPath), regardless of whether the path lives inside the
+    // current workspace root. This matches user expectations for local CLI
+    // agents (Codex/Claude/Gemini) which frequently emit absolute paths on the
+    // user's machine that the workspace-scoped ArtifactPanel cannot resolve.
+    if (target.kind === "file") {
+      const absolute = resolveDesktopPath(target.value, props.workspaceRoot);
+      if (!absolute) {
+        showFeedback(`artifact-${target.id}`, "error", t("local_agent.unknown_file_path"));
+        return;
+      }
+      try {
+        await openDesktopPath(absolute);
+        showFeedback(`artifact-${target.id}`, "ok", t("local_agent.opened_name", { name: target.name }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        showFeedback(`artifact-${target.id}`, "error", t("local_agent.open_failed", { message }));
+      }
+      return;
+    }
+    // URLs: prefer the host's openTarget (routes to the in-app Browser tab).
     if (props.onOpenArtifact) {
       try {
         await props.onOpenArtifact(target);
-        showFeedback(
-          `artifact-${target.id}`,
-          "ok",
-          target.kind === "url" ? t("local_agent.artifact_opened_browser", { name: target.name }) : t("local_agent.artifact_opened", { name: target.name }),
-        );
+        showFeedback(`artifact-${target.id}`, "ok", t("local_agent.artifact_opened_browser", { name: target.name }));
         return;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         showFeedback(`artifact-${target.id}`, "error", t("local_agent.open_failed", { message }));
         return;
       }
-    }
-    if (target.kind === "url") {
-      try {
-        window.open(target.value, "_blank", "noopener,noreferrer");
-        showFeedback(`artifact-${target.id}`, "ok", t("local_agent.artifact_opened_system_browser", { name: target.name }));
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        showFeedback(`artifact-${target.id}`, "error", t("local_agent.open_failed", { message }));
-      }
-      return;
-    }
-    const absolute = resolveDesktopPath(target.value, props.workspaceRoot);
-    if (!absolute) {
-      showFeedback(`artifact-${target.id}`, "error", t("local_agent.unknown_file_path"));
-      return;
     }
     try {
-      await openDesktopPath(absolute);
-      showFeedback(`artifact-${target.id}`, "ok", t("local_agent.opened_name", { name: target.name }));
+      window.open(target.value, "_blank", "noopener,noreferrer");
+      showFeedback(`artifact-${target.id}`, "ok", t("local_agent.artifact_opened_system_browser", { name: target.name }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       showFeedback(`artifact-${target.id}`, "error", t("local_agent.open_failed", { message }));
@@ -258,7 +256,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
 
         {run ? (
           <div className="mt-3 space-y-2 text-xs text-dls-secondary">
-            <ContextUsageIndicator usage={contextUsage} />
             {agentSupportsSideQuestion(props.agent) ? <BtwOverlay disabled={run?.status === "running"} submitting={false} onSubmit={(value) => props.onSideQuestion?.(value)} /> : null}
             {run.errorInfo ? <NoticeBox tone="error">{classifiedRunFailureMessage(run)}<span className={`ml-2 ${localAgentTextClass.debugMeta}`}>{run.errorInfo.code}</span></NoticeBox> : run.error ? <NoticeBox tone="error">{run.error}</NoticeBox> : null}
             {run.pendingApprovals?.length ? (
@@ -283,6 +280,12 @@ export const ChatBubble = memo(function ChatBubble(props: {
                   </div>
                 ))}
               </div>
+            ) : null}
+            {run?.fileChanges?.length ? (
+              <MessageFileChanges
+                fileChanges={run.fileChanges}
+                onFeedback={(id, tone, text) => showFeedback(`file-change-${id}`, tone, text)}
+              />
             ) : null}
             {artifactTargets.length ? (
               <div className={localAgentLayoutClass.artifactPanel}>

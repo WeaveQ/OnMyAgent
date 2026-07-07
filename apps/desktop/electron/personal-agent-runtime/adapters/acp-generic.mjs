@@ -6,6 +6,7 @@ import { extractAcpSessionId, normalizeAcpSessionList, normalizeAcpUpdate, spawn
 import { readSession, writeSession } from "../session-store.mjs";
 import { createExecHelpers, stringifyAgentCommand } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
+import { extractPromptUsageTotals, lookupModelContextLimit } from "../context-usage.mjs";
 
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
 const DEFAULT_CODEX_REASONING_EFFORT = "medium";
@@ -453,16 +454,46 @@ function isReadOnlyPermission(params = {}) {
 function permissionDecisionPayload(params, decision) {
   const options = Array.isArray(params?.options) ? params.options : [];
   const normalized = String(decision ?? "decline");
-  const patterns = normalized === "acceptForSession"
-    ? [/session/i, /always/i, /approve.*session/i]
-    : normalized === "accept"
-      ? [/approve/i, /allow/i, /accept/i]
-      : [/reject/i, /deny/i, /decline/i];
-  for (const pattern of patterns) {
-    const found = options.find((option) => pattern.test(String(option?.optionId ?? option?.id ?? option?.label ?? "")));
-    if (found) return { optionId: found.optionId ?? found.id ?? found.label };
+  // ACP RequestPermissionResponse schema: { outcome: { outcome: "cancelled" }
+  // | { outcome: "selected", optionId } }. Legacy callers still receive the
+  // top-level `optionId` / `decision` fields for backwards compatibility.
+  const isAccept = normalized === "accept" || normalized === "acceptForSession";
+  const kindPatterns = isAccept
+    ? (normalized === "acceptForSession"
+        ? [/allow_always/i, /accept.*session/i, /always/i, /session/i]
+        : [/allow_once/i, /allow$/i, /accept/i, /approve/i])
+    : [/reject_once/i, /reject/i, /deny/i, /decline/i];
+  const idPatterns = isAccept
+    ? (normalized === "acceptForSession"
+        ? [/allow_always/i, /always/i, /session/i, /^auto$/i, /acceptedits/i]
+        : [/^allow$/i, /^allow_once$/i, /^accept$/i, /^default$/i, /^approve$/i])
+    : [/^reject/i, /^deny/i, /^decline/i];
+  const findByKind = (patterns) =>
+    options.find((option) => patterns.some((pattern) => pattern.test(String(option?.kind ?? ""))));
+  const findById = (patterns) =>
+    options.find((option) => patterns.some((pattern) => pattern.test(String(option?.optionId ?? option?.id ?? option?.label ?? ""))));
+  const found = findByKind(kindPatterns) || findById(idPatterns);
+  const optionId = found ? (found.optionId ?? found.id ?? found.label) : null;
+  if (isAccept) {
+    if (!optionId) {
+      // Nothing to select but we still want to signal acceptance in older
+      // adapters; fall back to legacy top-level fields only.
+      return { decision: normalized === "acceptForSession" ? "accept" : "accept" };
+    }
+    return {
+      outcome: { outcome: "selected", optionId },
+      optionId,
+      decision: normalized === "acceptForSession" ? "accept" : "accept",
+    };
   }
-  return { decision: normalized === "acceptForSession" ? "accept" : normalized };
+  if (optionId) {
+    return {
+      outcome: { outcome: "selected", optionId },
+      optionId,
+      decision: normalized,
+    };
+  }
+  return { outcome: { outcome: "cancelled" }, decision: normalized };
 }
 
 async function withAcpSessionClient(ctx, appendEvent, operation) {
@@ -558,7 +589,18 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
     } else if (modelId) {
       appendEvent({ type: "status", text: `${provider} ACP set_model skipped: model is passed during session create/resume` });
     }
-    await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, { sessionId, workdir, health: "healthy", updatedAt: Date.now() });
+    // Preserve prior sessionMetadata (handshake commands, models, config
+    // options captured during warmup) so the UI keeps the live snapshot
+    // across normal messages — subsequent writes here must merge, not clobber.
+    const priorSessionForWrite = await readSession(ctx.workspaceRoot, provider, ctx.agent.id).catch(() => ({}));
+    await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, {
+      ...(priorSessionForWrite && typeof priorSessionForWrite === "object" ? priorSessionForWrite : {}),
+      sessionId,
+      workdir,
+      health: "healthy",
+      updatedAt: Date.now(),
+      ...(sessionMetadata ? { sessionMetadata } : {}),
+    });
     return { sessionId, sessionMetadata, modelId };
   }
 
@@ -571,11 +613,47 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       await injectPersonalAgentContext({ workdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
       const args = acpArgsForProvider(provider, ctx, workdir);
       const env = execHelpers.processEnv({ PWD: workdir });
-      const { child, client } = spawnAcpClient({ command: executablePath, args, cwd: workdir, env, detached: true, appendEvent });
+      // codex-acp fires publishAvailableCommandsAsync() from newSession as
+      // fire-and-forget: newSession resolves before the wrapper actually sends
+      // the `available_commands_update` session update. Capture it here so the
+      // handshake exposes /compact, /review, etc. immediately after warmup —
+      // otherwise slash suggestions appear only after the user sends a message.
+      let liveAvailableCommands = null;
+      const { child, client } = spawnAcpClient({
+        command: executablePath,
+        args,
+        cwd: workdir,
+        env,
+        detached: true,
+        appendEvent,
+        onNotification: (params) => {
+          const { type, data } = normalizeAcpUpdate(params.update ?? params);
+          if (type === "available_commands") {
+            const commands = Array.isArray(data?.commands)
+              ? data.commands
+              : Array.isArray(data?.availableCommands)
+                ? data.availableCommands
+                : null;
+            if (commands && commands.length) liveAvailableCommands = commands;
+          }
+        },
+      });
       child.unref?.();
       try {
         const { sessionId, sessionMetadata } = await createOrResumeSession(ctx, client, workdir, provider);
-        return { ok: true, sessionId, providerSessionId: sessionId, resumeKey: sessionId, workdir, sessionMetadata };
+        // Give the wrapper a short window to flush its async available_commands
+        // publish. 800ms is enough in practice for codex-acp / claude-agent-acp
+        // and does not meaningfully affect warmup latency.
+        if (!liveAvailableCommands) {
+          const deadline = Date.now() + 1500;
+          while (!liveAvailableCommands && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+        }
+        const mergedMetadata = liveAvailableCommands
+          ? { ...(sessionMetadata ?? {}), availableCommands: liveAvailableCommands }
+          : sessionMetadata;
+        return { ok: true, sessionId, providerSessionId: sessionId, resumeKey: sessionId, workdir, sessionMetadata: mergedMetadata };
       } finally {
         client.dispose();
         await terminateProcessTree(child);
@@ -667,6 +745,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         if (gateway) ownedProcesses.push(gateway);
       }
       const thinking = createThinkingTracker(appendEvent);
+      let sawContextUsage = false;
       const { child, client } = spawnAcpClient({
         command: executablePath,
         args,
@@ -692,6 +771,19 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             const messageData = reasoning.reasoningRole ? null : reasoning.messageData ?? data;
             const text = messageData ? textFromAcpContent(messageData) : "";
             if (text) {
+              // AionUi-style compaction status chunks (claude-agent-acp emits
+              // "Compacting..." then "Compacting completed."; codex-acp emits
+              // "Context compacted.") should render as a transient status, not
+              // as a permanent assistant bubble that keeps the "…ing" text.
+              const compactionStatus = text.trim();
+              // Suppress the transient "Compacting..." progress chunk so it
+              // doesn't linger inside the assistant bubble. Keep the terminal
+              // "Compacting completed." / "Context compacted." / failure line
+              // so users still see the outcome.
+              if (/^Compacting\.\.\.$/i.test(compactionStatus)) {
+                appendEvent({ type: "status", text: `acp_compaction> ${compactionStatus}` });
+                return;
+              }
               // Real assistant text begins: close any pending thinking streams.
               thinking.finishOnAssistant();
               outputParts.push(text);
@@ -755,7 +847,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             }
           }
           if (type === "available_commands") appendEvent({ type: "status", text: `acp_available_commands> ${JSON.stringify(data?.commands ?? data?.availableCommands ?? data ?? [])}` });
-          if (type === "context_usage" || type === "usage_update") appendEvent({ type: "status", text: `acp_${type}> ${JSON.stringify(data ?? {})}` });
+          if (type === "context_usage" || type === "usage_update") { sawContextUsage = true; appendEvent({ type: "status", text: `acp_${type}> ${JSON.stringify(data ?? {})}` }); }
           if (type === "error") { thinking.finishOnBoundary("error"); appendEvent({ type: "error", text: textFromAcpContent(data) || JSON.stringify(data ?? {}) }); }
         },
         onRequest: async (message, client) => {
@@ -802,6 +894,13 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         // `stopReason` and never guess truncation from text or auto-continue.
         const promptResult = await client.request("session/prompt", { sessionId, prompt: [{ type: "text", text: ctx.prompt }] }, DEFAULT_TURN_TIMEOUT_MS);
         thinking.finishAll("turn_end");
+        if (!sawContextUsage) {
+          const fallbackUsage = extractPromptUsageTotals(promptResult);
+          if (fallbackUsage) {
+            const total = lookupModelContextLimit(modelId);
+            appendEvent({ type: "status", text: `acp_context_usage> ${JSON.stringify({ used: fallbackUsage.used, total })}` });
+          }
+        }
         const output = outputParts.join("").trim();
         const completion = assertAcpPromptCompleted(provider, promptResult);
         if (/\*?conversation interrupted\*?/i.test(output)) {
@@ -880,5 +979,6 @@ export const __test__ = {
   acpPromptStopReason,
   assertAcpPromptCompleted,
   extractAcpSessionMetadata,
+  permissionDecisionPayload,
   createGenericAcpAdapterForTest: createGenericAcpAdapter,
 };

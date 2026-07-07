@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -140,7 +140,11 @@ export async function readJsonLikeFile(targetPath) {
 
 export async function writeJsonFile(targetPath, data) {
   await mkdir(path.dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  // Atomic write: tmp+rename so a crash mid-serialize cannot leave a partial
+  // JSON file on disk that would break the next boot's parse.
+  const tmpPath = `${targetPath}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  await rename(tmpPath, targetPath);
 }
 
 export function uniqueModelOptions(options) {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { createOpenClawAdapter } from "./adapters/openclaw.mjs";
 import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
-import { personalAgentAvailableMetadataList, personalAgentMetadataList } from "./agent-metadata.mjs";
+import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
@@ -21,7 +22,7 @@ import {
   updateConversation,
   writeConversationEvents,
 } from "./conversation-store.mjs";
-import { clearSession } from "./session-store.mjs";
+import { clearSession, readSession, writeSession } from "./session-store.mjs";
 import { runId } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState } from "./runtime-state.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
@@ -31,13 +32,14 @@ import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./nat
 import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
 import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
-import { getStoredApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
+import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
+import { buildMcpStatus, buildPermissionStatus, buildSkillStatus } from "./host-status.mjs";
+import { readNativeMcpConfig, resolveNativeSkillRoots } from "./host-status-sources.mjs";
 
 const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 const MIN_RUN_TIMEOUT_MS = 30_000;
 const MAX_RUN_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
-const ARTIFACT_PATTERN = /(?:产物文件\s*[:：]\s*|^|[\s"'`([{])((?:\.{1,2}[/\\]|~[/\\]|[/\\])?[\w.\-]+(?:[/\\][\w.\-]+)*\.(?:md|markdown|mdx|txt|log|json|csv|tsv|xlsx|html|pdf|png|jpg|jpeg|webp|svg))/gim;
 
 function probeArtifactExists(absolutePath) {
   if (!absolutePath) return false;
@@ -69,34 +71,213 @@ function resolveArtifactPath(rawPath, workspaceRoot, workdir) {
   return value;
 }
 
+function visibleArtifacts(entries) {
+  if (!Array.isArray(entries)) return [];
+  return entries.filter((entry) => entry && entry.exists !== false);
+}
+
+
+const FILE_CHANGE_TOOL_NAMES = new Set([
+  "apply_patch",
+  "edit",
+  "edit_file",
+  "write",
+  "write_file",
+  "create_file",
+  "str_replace",
+  "str_replace_editor",
+  "str_replace_based_edit_tool",
+  "multi_edit",
+  "patch",
+]);
+
+function extractFilePathFromToolCall(toolCall) {
+  if (!toolCall) return null;
+  const input = String(toolCall.input ?? "").trim();
+  if (input) {
+    // Try JSON input first (Codex/Hermes structured inputs).
+    if (input.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(input);
+        const candidate = parsed?.file_path ?? parsed?.path ?? parsed?.filename ?? parsed?.file ?? parsed?.target_file;
+        if (candidate && typeof candidate === "string") return candidate.trim();
+      } catch {
+        // fall through to regex
+      }
+    }
+    const m = input.match(/(?:file_path|path|filename|file|target_file)\s*[:=]\s*["']?([^"'\n,}]+)/i);
+    if (m) return m[1].trim();
+  }
+  const desc = String(toolCall.description ?? "").trim();
+  if (desc) {
+    const m = desc.match(/["'`]([^"'`\n]+\.[A-Za-z0-9]+)["'`]/);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+function recordFileChangeFromToolCall(state, toolCall) {
+  if (!toolCall || typeof toolCall !== "object") return;
+  const name = String(toolCall.name ?? "").toLowerCase();
+  if (!FILE_CHANGE_TOOL_NAMES.has(name)) return;
+  const status = String(toolCall.status ?? "").toLowerCase();
+  // Only record on completed changes; running is still in-flight.
+  if (status && status !== "completed" && status !== "success" && status !== "done") return;
+  const rawPath = extractFilePathFromToolCall(toolCall);
+  if (!rawPath) return;
+  const absolute = resolveArtifactPath(rawPath, state.workspaceRoot, state.workdir);
+  if (!absolute) return;
+  if (!probeArtifactExists(absolute)) return;
+  if (!state.fileChanges) state.fileChanges = [];
+  const id = createHash("sha1").update(`file-change|${toolCall.id ?? name}|${absolute}`).digest("hex").slice(0, 12);
+  if (state.fileChanges.some((entry) => entry.id === id)) return;
+  state.fileChanges.push({
+    id,
+    filePath: absolute,
+    fileName: path.basename(absolute),
+    tool: name,
+    toolCallId: String(toolCall.id ?? ""),
+    diff: String(toolCall.output ?? "").slice(0, 8000) || null,
+    at: Date.now(),
+  });
+}
+
+function collectAcpUpdatePaths(update) {
+  const paths = new Set();
+  const rawInput = update.rawInput ?? update.raw_input ?? update.input ?? null;
+  if (rawInput && typeof rawInput === "object") {
+    for (const key of ["file_path", "path", "filename", "file", "target_file"]) {
+      const v = rawInput[key];
+      if (typeof v === "string" && v.trim()) paths.add(v.trim());
+    }
+  }
+  const locations = Array.isArray(update.locations) ? update.locations : [];
+  for (const loc of locations) {
+    const p = typeof loc?.path === "string" ? loc.path.trim() : "";
+    if (p) paths.add(p);
+  }
+  const content = Array.isArray(update.content) ? update.content : [];
+  for (const item of content) {
+    const p = typeof item?.path === "string" ? item.path.trim() : "";
+    if (p) paths.add(p);
+    const diffPath = typeof item?.diff?.path === "string" ? item.diff.path.trim() : "";
+    if (diffPath) paths.add(diffPath);
+  }
+  // Claude Code embeds the resolved response under `_meta.claudeCode.toolResponse`.
+  const toolResponse = update._meta?.claudeCode?.toolResponse ?? update._meta?.toolResponse;
+  if (toolResponse && typeof toolResponse === "object") {
+    for (const key of ["filePath", "file_path", "path"]) {
+      const v = toolResponse[key];
+      if (typeof v === "string" && v.trim()) paths.add(v.trim());
+    }
+  }
+  const title = String(update.title ?? "").trim();
+  if (!paths.size && title) {
+    const m = title.match(/(\/[^\s]+)/);
+    if (m) paths.add(m[1]);
+  }
+  return paths;
+}
+
+function collectAcpUpdateDiff(update) {
+  const content = Array.isArray(update.content) ? update.content : [];
+  for (const item of content) {
+    if (item?.type === "diff" && typeof item?.diff === "string") return item.diff;
+    if (typeof item?.content?.text === "string") return item.content.text;
+  }
+  if (typeof update.rawOutput === "string") return update.rawOutput;
+  const structured = update._meta?.claudeCode?.toolResponse?.structuredPatch;
+  if (Array.isArray(structured) && structured.length) {
+    try { return JSON.stringify(structured); } catch { return ""; }
+  }
+  return "";
+}
+
+function looksLikeEditToolCall(update) {
+  const kind = String(update.kind ?? "").toLowerCase();
+  if (kind === "edit" || kind === "write") return true;
+  const toolMeta = update._meta?.claudeCode?.toolName ?? update._meta?.toolName ?? "";
+  const title = String(update.title ?? "");
+  const nameGuess = String(toolMeta || title).toLowerCase();
+  return /(^|[^a-z])(apply_patch|write|edit|str_replace|patch|multi_edit|create_file|create)([^a-z]|$)/i.test(nameGuess);
+}
+
+function recordFileChangeFromAcpUpdate(state, update) {
+  if (!update || typeof update !== "object") return;
+  const toolCallId = String(update.toolCallId ?? update.tool_call_id ?? update.id ?? "").trim();
+  if (!toolCallId) return;
+  if (!state.pendingFileChanges) state.pendingFileChanges = new Map();
+  const pending = state.pendingFileChanges.get(toolCallId) ?? {
+    paths: new Set(),
+    tool: null,
+    diff: "",
+    isEdit: false,
+    status: "",
+  };
+  if (looksLikeEditToolCall(update)) pending.isEdit = true;
+  for (const p of collectAcpUpdatePaths(update)) pending.paths.add(p);
+  const toolName = update._meta?.claudeCode?.toolName ?? update._meta?.toolName ?? update.kind ?? update.title;
+  if (typeof toolName === "string" && toolName.trim() && !pending.tool) {
+    pending.tool = toolName.trim().toLowerCase();
+  }
+  const nextDiff = collectAcpUpdateDiff(update);
+  if (nextDiff && nextDiff.length > pending.diff.length) pending.diff = nextDiff;
+  const status = String(update.status ?? "").toLowerCase();
+  if (status) pending.status = status;
+  state.pendingFileChanges.set(toolCallId, pending);
+  if (!pending.isEdit) return;
+  if (!/(complete|success|done)/.test(pending.status)) return;
+  if (!pending.paths.size) return;
+  for (const rawPath of pending.paths) {
+    const absolute = resolveArtifactPath(rawPath, state.workspaceRoot, state.workdir);
+    if (!absolute) continue;
+    if (!probeArtifactExists(absolute)) continue;
+    if (!state.fileChanges) state.fileChanges = [];
+    const id = createHash("sha1").update(`file-change|${toolCallId}|${absolute}`).digest("hex").slice(0, 12);
+    if (state.fileChanges.some((entry) => entry.id === id)) continue;
+    state.fileChanges.push({
+      id,
+      filePath: absolute,
+      fileName: path.basename(absolute),
+      tool: pending.tool || "edit",
+      toolCallId,
+      diff: pending.diff ? pending.diff.slice(0, 8000) : null,
+      at: Date.now(),
+    });
+  }
+}
+
 function recordArtifact(state, payload, source) {
   if (!payload) return;
   const rawPath = typeof payload === "string" ? payload : (payload.path ?? payload.value ?? "");
-  const cleaned = String(rawPath ?? "").trim().replace(/[.,;:]+$/, "").replace(/^["'\`]/, "").replace(/["'\`]$/, "");
+  const cleaned = String(rawPath ?? "").trim().replace(/[.,;:]+$/, "").replace(/^["'`]/, "").replace(/["'`]$/, "");
   if (!cleaned) return;
   if (cleaned.startsWith("..")) return;
   const absolute = resolveArtifactPath(cleaned, state.workspaceRoot, state.workdir);
   const key = absolute || cleaned;
+  const exists = probeArtifactExists(absolute);
+  // HR2-A-05: drop non-existent artifacts at ingest. AionUi never surfaces
+  // artifacts that do not resolve to a real file. Prior read-time filter
+  // via visibleArtifacts is retained for hydration of historical runs only.
+  if (!exists) return;
   if (!state.artifacts) state.artifacts = [];
   if (state.artifacts.some((entry) => entry.path === key || entry.relPath === cleaned)) return;
+  const kind = typeof payload === "object" && payload?.kind ? String(payload.kind) : "file";
+  const resolvedSource = typeof payload === "object" && payload?.source ? String(payload.source) : source;
+  const id = createHash("sha1").update(`${resolvedSource}|${kind}|${key}`).digest("hex").slice(0, 12);
   state.artifacts.push({
+    id,
+    kind,
     path: key,
     relPath: cleaned,
     name: path.basename(cleaned),
-    source: typeof payload === "object" && payload?.source ? String(payload.source) : source,
-    exists: probeArtifactExists(absolute),
+    source: resolvedSource,
+    exists: true,
+    createdAt: Date.now(),
     addedAt: Date.now(),
   });
 }
 
-function harvestArtifactsFromText(state, text, source) {
-  if (!text) return;
-  const value = String(text);
-  for (const match of value.matchAll(ARTIFACT_PATTERN)) {
-    const candidate = match[1];
-    if (candidate) recordArtifact(state, candidate, source);
-  }
-}
 
 function normalizeRunTimeoutMs(value) {
   const n = Number(value);
@@ -173,7 +354,8 @@ export function createPersonalAgentRuntime(options) {
       errorInfo: state.errorInfo,
       approvalMode: state.approvalMode,
       pendingApprovals: state.pendingApprovals,
-      artifacts: state.artifacts ?? [],
+      artifacts: visibleArtifacts(state.artifacts),
+      fileChanges: [...(state.fileChanges ?? [])],
     };
     const lines = [meta, ...state.events].map((entry) => JSON.stringify(entry)).join("\n");
     if (!state.logPath) return;
@@ -217,7 +399,8 @@ export function createPersonalAgentRuntime(options) {
       errorInfo: state.errorInfo,
       approvalMode: state.approvalMode,
       pendingApprovals: [...(state.pendingApprovals ?? [])],
-      artifacts: [...(state.artifacts ?? [])],
+      artifacts: visibleArtifacts(state.artifacts),
+      fileChanges: [...(state.fileChanges ?? [])],
     };
   }
 
@@ -311,7 +494,8 @@ export function createPersonalAgentRuntime(options) {
       errorInfo,
       approvalMode: meta.approvalMode ?? "ask",
       pendingApprovals: staleRunning ? [] : (Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : []),
-      artifacts: Array.isArray(meta.artifacts) ? meta.artifacts : [],
+      artifacts: visibleArtifacts(meta.artifacts),
+      fileChanges: Array.isArray(meta.fileChanges) ? [...meta.fileChanges] : [],
     };
   }
 
@@ -468,6 +652,7 @@ export function createPersonalAgentRuntime(options) {
       timedOut: false,
       cancelRequested: null,
       artifacts: [],
+      fileChanges: [],
     };
     runs.set(id, state);
     appendContractEvent(events, { type: "status", text: `${provider} ACP flow started` });
@@ -550,6 +735,14 @@ export function createPersonalAgentRuntime(options) {
             if (normalized?.type === "artifact") {
               const payload = /** @type {any} */ (normalized).artifact ?? normalized.text ?? normalized;
               recordArtifact(state, payload, "adapter");
+            }
+            if (normalized?.type === "tool") {
+              const toolCall = /** @type {any} */ (normalized).toolCall ?? null;
+              recordFileChangeFromToolCall(state, toolCall);
+            }
+            if (normalized?.type === "acp_tool_call") {
+              const update = /** @type {any} */ (normalized).update ?? null;
+              recordFileChangeFromAcpUpdate(state, update);
             }
             markBootReady();
             void persistRun(state);
@@ -676,7 +869,6 @@ export function createPersonalAgentRuntime(options) {
           stopReason: result.metadata?.stopReason ?? null,
           truncated: Boolean(result.metadata?.truncated),
         });
-        harvestArtifactsFromText(state, result.output, "assistant");
         state.updatedAt = Date.now();
         state.status = "completed";
         state.error = null;
@@ -897,11 +1089,35 @@ export function createPersonalAgentRuntime(options) {
         model: input.model ?? detected.model,
         approvalMode: normalizeApprovalMode(input.approvalMode),
       });
+      // Persist warmup-derived ACP session metadata (available_commands,
+      // available models, config options) so listAgents can hydrate the
+      // handshake before the user sends a message. codex-acp publishes
+      // available_commands asynchronously after newSession returns; without
+      // this the slash-menu is empty on cold agent switches and only
+      // populated after the first message triggers a live event stream.
+      const warmSessionMetadata = warmed.sessionMetadata && typeof warmed.sessionMetadata === "object"
+        ? warmed.sessionMetadata
+        : null;
+      if (warmSessionMetadata) {
+        try {
+          const priorSession = await readSession(workspaceRoot, provider, agentId).catch(() => ({}));
+          await writeSession(workspaceRoot, provider, agentId, {
+            ...(priorSession && typeof priorSession === "object" ? priorSession : {}),
+            sessionId: warmed.sessionId ?? warmed.providerSessionId ?? priorSession?.sessionId ?? "",
+            workdir: warmed.workdir ?? priorSession?.workdir ?? conversation.workdir ?? null,
+            sessionMetadata: warmSessionMetadata,
+            handshakeAt: Date.now(),
+          });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.warn(`[personal-agent-runtime] warmup session-store write failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       const updated = await updateConversation(workspaceRoot, provider, agentId, conversation.id, {
         providerSessionId: warmed.providerSessionId ?? warmed.sessionId ?? conversation.providerSessionId,
         resumeKey: warmed.resumeKey ?? warmed.providerSessionId ?? warmed.sessionId ?? conversation.resumeKey,
         workdir: warmed.workdir ?? conversation.workdir,
-        metadata: { ...(conversation.metadata ?? {}), warmupAt: Date.now(), warmupStatus: "ready" },
+        metadata: { ...(conversation.metadata ?? {}), warmupAt: Date.now(), warmupStatus: "ready", sessionMetadata: warmSessionMetadata },
       });
       return { ok: true, conversation: updated, providerSessionId: updated.providerSessionId, resumeKey: updated.resumeKey };
     } catch (error) {
@@ -1110,7 +1326,10 @@ export function createPersonalAgentRuntime(options) {
       running: Boolean(activeRun),
       status: activeRun?.status ?? conversation?.lastStatus ?? "idle",
       events: activeRun ? activeRun.events : persisted.events,
-      conversationMessages: activeRun ? runEventsToConversationMessages(activeRun.events) : persisted.messages,
+      // Always re-derive from events so contract.mjs updates (e.g. approval_decision merging) apply to historical conversations without a rewrite.
+      conversationMessages: activeRun
+        ? runEventsToConversationMessages(activeRun.events)
+        : (Array.isArray(persisted.events) && persisted.events.length ? runEventsToConversationMessages(persisted.events) : persisted.messages),
     };
   }
 
@@ -1140,10 +1359,32 @@ export function createPersonalAgentRuntime(options) {
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     const customAgents = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
     const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents];
+    // Hydrate ACP session metadata cached from the last warmup so the
+    // handshake exposes available_commands / config options / models before
+    // the user sends a message. Falls back to the raw agent when the
+    // session-store has nothing for that provider/agent yet.
+    const hydratedAgents = workspaceRoot
+      ? await Promise.all(agents.map(async (agent) => {
+          const provider = String(agent?.provider ?? "").trim();
+          const agentId = String(agent?.id ?? provider).trim();
+          if (!provider || !agentId) return agent;
+          try {
+            const stored = await readSession(workspaceRoot, provider, agentId);
+            const meta = stored?.sessionMetadata;
+            if (!meta || typeof meta !== "object") return agent;
+            const nextAvailableCommands = Array.isArray(meta.availableCommands) && meta.availableCommands.length
+              ? meta.availableCommands
+              : (Array.isArray(agent?.availableCommands) ? agent.availableCommands : []);
+            return { ...agent, sessionMetadata: meta, availableCommands: nextAvailableCommands };
+          } catch {
+            return agent;
+          }
+        }))
+      : agents;
     return {
       ...result,
-      agents,
-      metadata: personalAgentMetadataList(agents),
+      agents: hydratedAgents,
+      metadata: personalAgentMetadataList(hydratedAgents),
     };
   }
 
@@ -1175,7 +1416,12 @@ export function createPersonalAgentRuntime(options) {
   }
 
   async function listAvailableAgentMetadata(input = {}) {
-    const result = await legacy.listAgents(input);
+    // Reuse the hydrated listAgents pipeline so ACP handshake commands /
+    // models / config options captured during warmup are exposed to the
+    // renderer via handshake.available_commands. Directly calling
+    // `legacy.listAgents` would return raw agent objects and drop the
+    // session-store hydration.
+    const result = await listAgents(input);
     const agents = Array.isArray(result?.agents) ? result.agents : [];
     return { agents: personalAgentAvailableMetadataList(agents) };
   }
@@ -1403,6 +1649,91 @@ export function createPersonalAgentRuntime(options) {
     return { models: [], configOptions: [] };
   }
 
+  async function getHostStatus(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const agent = input.agent ? await legacy.normalizeAgent(input.agent).catch(() => null) : null;
+    // Skill roots come from three sources (HR2-B):
+    // 1. per-provider defaults resolved against workspace + $HOME
+    //    (~/.codex/skills, ~/.claude/skills, ~/.opencode/skills, ~/.gemini)
+    // 2. explicit overrides on the agent metadata (native_skills_dirs)
+    // 3. additionalSkillRoots the caller wants scanned
+    const overrides = [];
+    if (agent) {
+      const metadata = personalAgentMetadataFromAgent(agent);
+      if (Array.isArray(metadata.native_skills_dirs)) overrides.push(...metadata.native_skills_dirs);
+    }
+    if (Array.isArray(input.additionalSkillRoots)) {
+      for (const root of input.additionalSkillRoots) {
+        if (typeof root === "string" && root.trim().length) overrides.push(root);
+      }
+    }
+    const nativeSkillsDirs = agent
+      ? await resolveNativeSkillRoots(agent, workspaceRoot, overrides)
+      : [];
+    // Live event stream + handshake commands feed the MCP view-model.
+    const status = agent && input.conversationId
+      ? await getConversationStatus({ workspaceRoot, agent, conversationId: input.conversationId }).catch(() => null)
+      : null;
+    const conversationMessages = status?.conversationMessages ?? [];
+    const availableCommands = (() => {
+      if (!agent) return [];
+      const metadata = personalAgentMetadataFromAgent(agent);
+      return Array.isArray(metadata.handshake?.available_commands) ? metadata.handshake.available_commands : [];
+    })();
+    const remembered = workspaceRoot ? await listRememberedApprovalDecisions(workspaceRoot) : [];
+    const nativeMcp = agent
+      ? await readNativeMcpConfig(agent, workspaceRoot).catch((error) => ({ servers: [], errors: [{ file: "<readNativeMcpConfig>", message: String(error?.message || error) }] }))
+      : { servers: [], errors: [] };
+    const [skill, liveMcp, permission] = await Promise.all([
+      buildSkillStatus({ nativeSkillsDirs }),
+      Promise.resolve(buildMcpStatus({ conversationMessages, availableCommands })),
+      Promise.resolve(buildPermissionStatus({
+        pendingApprovals: status?.activeRun?.pendingApprovals ?? [],
+        conversationMessages,
+        rememberedDecisions: remembered,
+      })),
+    ]);
+    // Merge config-file MCP servers with live tool-call observations.
+    // Config wins on transport; live wins on toolCount + connected.
+    const mergedByName = new Map();
+    for (const s of nativeMcp.servers) {
+      const key = String(s.name || "").toLowerCase();
+      if (!key) continue;
+      mergedByName.set(key, {
+        name: s.name,
+        transport: s.transport || s.type || null,
+        connected: false,
+        toolCount: 0,
+        source: s.source,
+        sourceFile: s.sourceFile,
+      });
+    }
+    for (const s of liveMcp.servers) {
+      const key = String(s.name || "").toLowerCase();
+      if (!key) continue;
+      const prev = mergedByName.get(key) || { name: s.name, transport: null, connected: true, toolCount: 0 };
+      mergedByName.set(key, {
+        ...prev,
+        transport: prev.transport || s.transport || null,
+        connected: true,
+        toolCount: (prev.toolCount || 0) + (s.toolCount || 0),
+      });
+    }
+    const mcp = {
+      servers: [...mergedByName.values()],
+      error: liveMcp.error || null,
+      sourceErrors: nativeMcp.errors,
+    };
+    return {
+      workspaceRoot,
+      agentId: agent?.id ?? null,
+      conversationId: status?.conversation?.id ?? input.conversationId ?? null,
+      skill,
+      mcp,
+      permission,
+    };
+  }
+
   return {
     listAgents,
     listAgentMetadata,
@@ -1442,6 +1773,7 @@ export function createPersonalAgentRuntime(options) {
     getConversationStatus,
     listConversationConfirmations,
     confirmConversationConfirmation,
+    getHostStatus,
     classifyErrorForTest: classifyErrorInfo,
     buildErrorTipForTest: buildErrorTip,
   };

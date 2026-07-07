@@ -1,5 +1,7 @@
 /** @jsxImportSource react */
-import { Loader2, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Globe, Loader2, Zap } from "lucide-react";
+import { t } from "../../../../../i18n";
 
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -67,6 +69,7 @@ export function AgentManagementProxyPanel(props: {
   const agentByProvider = new Map((props.snapshot?.agents ?? []).map((agent) => [agent.provider, agent]));
   return (
     <section className={proxyPanelLayoutClass.section}>
+      <HttpProxyConfigCard proxy={proxy} onApply={(url) => props.onProxyAction({ workspaceRoot: props.snapshot?.workspaceRoot ?? "", action: "httpProxyUrl", proxyUrl: url }, "proxy:httpProxyUrl")} busy={props.busyKey === "proxy:httpProxyUrl"} />
       <div className={proxyPanelLayoutClass.card}>
         <div className={proxyPanelLayoutClass.header}>
           <div className="min-w-0">
@@ -181,5 +184,49 @@ export function AgentManagementProxyPanel(props: {
         </div>
       </div>
     </section>
+  );
+}
+
+function HttpProxyConfigCard(props: {
+  proxy: AgentManagementSnapshot["proxy"] | undefined;
+  onApply: (url: string) => void;
+  busy: boolean;
+}) {
+  const current = props.proxy?.httpProxyUrl ?? "";
+  const [value, setValue] = useState(current);
+  useEffect(() => { setValue(current); }, [current]);
+  return (
+    <div className={proxyPanelLayoutClass.card}>
+      <div className={proxyPanelLayoutClass.header}>
+        <div className="min-w-0">
+          <div className={proxyPanelLayoutClass.titleWrap}>
+            <Globe className="size-4 text-dls-accent" />
+            <h3 className={proxyPanelTextClass.sectionTitle}>{t("agent_manager.proxy_panel.http_proxy_title")}</h3>
+            <StatusBadge tone={current ? "success" : "neutral"}>
+              {current ? `${t("agent_manager.proxy_panel.http_proxy_current")}: ${current}` : t("agent_manager.proxy_panel.http_proxy_direct")}
+            </StatusBadge>
+          </div>
+          <p className={proxyPanelLayoutClass.address}>{t("agent_manager.proxy_panel.http_proxy_desc")}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => setValue(event.currentTarget.value)}
+          placeholder={t("agent_manager.proxy_panel.http_proxy_placeholder")}
+          className="h-8 min-w-0 flex-1 rounded-lg border border-dls-border bg-dls-surface px-2 text-xs outline-none focus:border-dls-accent"
+          disabled={props.busy}
+          spellCheck={false}
+        />
+        <Button size="sm" variant="outline" disabled={props.busy} onClick={() => props.onApply(value.trim())}>
+          {props.busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+          {t("agent_manager.proxy_panel.http_proxy_apply")}
+        </Button>
+        <Button size="sm" variant="ghost" disabled={props.busy || !current} onClick={() => { setValue(""); props.onApply(""); }}>
+          {t("agent_manager.proxy_panel.http_proxy_clear")}
+        </Button>
+      </div>
+    </div>
   );
 }

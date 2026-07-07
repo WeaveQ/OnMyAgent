@@ -1043,6 +1043,14 @@ export function AssistantPage(props: AssistantPageProps) {
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                           headerActions={headerPanelControls}
+                          onOpenAgentManagement={(panel) => {
+                            setAgentManagementPageIntent({
+                              key: `open-panel-${Date.now()}`,
+                              action: "openPanel",
+                              panel: panel ?? "skills",
+                            });
+                            setActiveSidebarView("agentManagement");
+                          }}
                         />
                       ) : null}
 

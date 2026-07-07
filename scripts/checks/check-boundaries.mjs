@@ -76,6 +76,8 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-utils",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/timeline-messages",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/side-question",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-status-rail",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/context-usage-indicator",
 ])
 
 // Domain barrels the shell may import from with a shallow path (`../domains/<domain>`

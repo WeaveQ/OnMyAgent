@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
-import { HeartPulse, Loader2 } from "lucide-react";
+import { ArrowUpCircle, HeartPulse, Loader2, RefreshCw } from "lucide-react";
 
+import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -33,6 +34,10 @@ export function AgentManagementAgentCard(props: {
   checking: boolean;
   onSwitch: (agent: AgentManagementAgent, model: string) => void;
   onHealthCheck: (agent: AgentManagementAgent) => void;
+  onRecheckVersion?: (agent: AgentManagementAgent) => void;
+  onOpenUpdateDialog?: (agent: AgentManagementAgent) => void;
+  versionChecking?: boolean;
+  updateDismissed?: boolean;
 }) {
   const [selectedModel, setSelectedModel] = useState(props.agent.model || props.agent.defaultModel || "");
 
@@ -57,7 +62,51 @@ export function AgentManagementAgentCard(props: {
               {agentManagerHealthLabel(props.agent, props.health)}
             </StatusBadge>
           </div>
-          <p className="mt-1 truncate text-xs text-dls-secondary">{AGENT_MANAGER_PROVIDER_LABELS[props.agent.provider] ?? props.agent.provider} · {props.agent.version || props.agent.executablePath}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dls-secondary">
+            <span className="truncate">{AGENT_MANAGER_PROVIDER_LABELS[props.agent.provider] ?? props.agent.provider}</span>
+            {props.agent.version ? (
+              <span>{t("agent_manager.update.local_version", { version: props.agent.version })}</span>
+            ) : (
+              <span className="truncate">{props.agent.executablePath}</span>
+            )}
+            {props.agent.latestVersion ? (
+              <span>{t("agent_manager.update.latest_version", { version: props.agent.latestVersion })}</span>
+            ) : null}
+            {props.agent.updateAvailable && !props.updateDismissed ? (
+              <StatusBadge tone="warning" data-testid={`agent-manager-card-update-badge-${props.agent.provider}`}>
+                {t("agent_manager.update.available", { version: props.agent.latestVersion ?? "" })}
+              </StatusBadge>
+            ) : null}
+            {props.agent.versionCheckError ? (
+              <StatusBadge tone="danger" title={props.agent.versionCheckError}>{t("agent_manager.update.error_registry_failed")}</StatusBadge>
+            ) : null}
+            {props.onRecheckVersion ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mac:titlebar-no-drag h-6 px-1.5"
+                title={t("agent_manager.update.check")}
+                aria-label={t("agent_manager.update.check")}
+                disabled={props.versionChecking}
+                onClick={() => props.onRecheckVersion?.(props.agent)}
+                data-testid={`agent-manager-card-recheck-btn-${props.agent.provider}`}
+              >
+                {props.versionChecking ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+              </Button>
+            ) : null}
+            {props.agent.updateAvailable && !props.updateDismissed && props.onOpenUpdateDialog ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mac:titlebar-no-drag h-6 px-2"
+                onClick={() => props.onOpenUpdateDialog?.(props.agent)}
+                data-testid={`agent-manager-card-update-btn-${props.agent.provider}`}
+              >
+                <ArrowUpCircle className="mr-1 size-3.5" />
+                {t("agent_manager.update.update_now")}
+              </Button>
+            ) : null}
+          </div>
         </div>
         <HeartPulse className="size-4 shrink-0 text-dls-secondary" />
       </div>

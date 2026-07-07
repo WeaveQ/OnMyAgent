@@ -4,24 +4,33 @@ import { readdir, stat } from "node:fs/promises";
 import { createFeishuService } from "./feishu/service.mjs";
 import { createWeixinService } from "./weixin/service.mjs";
 
-// Import new channel infrastructure
 import {
   channelEventBus,
   CHANNEL_EVENTS,
   ChannelPairingService,
   ChannelSessionStore,
   channelMessageAdapter,
+  ChannelPluginRegistry,
+  createLegacyServicePlugin,
+  createStubPlugin,
+  ChannelAssistantBindingStore,
 } from "./channels/index.mjs";
 
 /**
- * Create unified messaging channel infrastructure
+ * Messaging channel runtime.
  *
- * Phase 1 - Core infrastructure: Base infrastructure is created here
- * Phase 2-5 - Platform services will migrate to use BaseChannelPlugin
+ * Owns:
+ * - shared infrastructure (event bus, pairing, sessions, message adapter,
+ *   assistant binding store);
+ * - a ChannelPluginRegistry that hosts every messaging platform plugin.
  *
- * Current status: Hybrid mode. New infrastructure is available alongside
- * the existing weixin/feishu services. Platform services will be migrated
- * incrementally in later phases.
+ * Built-in platforms this build ships:
+ *   weixin, feishu       -> legacy service adapter (transport ready)
+ *   lark, wecom,
+ *   dingtalk, telegram   -> stub plugin (transport lands in Phase C)
+ *
+ * Extension-contributed plugins can be registered later via
+ * `services.registry.register(...)` at boot time.
  */
 export function createMessagingChannelServices(options = {}) {
   const userDataDir = options.userDataDir;
@@ -36,6 +45,23 @@ export function createMessagingChannelServices(options = {}) {
   const weixinService = createWeixinService(platformServiceOptions.weixin);
   const feishuService = createFeishuService(platformServiceOptions.feishu);
 
+  const registry = new ChannelPluginRegistry();
+  registry.register(createLegacyServicePlugin({
+    id: "weixin",
+    type: "weixin",
+    name: "微信",
+    service: weixinService,
+  }));
+  registry.register(createLegacyServicePlugin({
+    id: "feishu",
+    type: "feishu",
+    name: "飞书",
+    service: feishuService,
+  }));
+  for (const stub of BUILT_IN_STUB_PLUGINS) {
+    registry.register(createStubPlugin(stub));
+  }
+
   const services = {
     weixinService,
     feishuService,
@@ -43,44 +69,59 @@ export function createMessagingChannelServices(options = {}) {
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
     messageAdapter: infrastructure.messageAdapter,
+    assistantBindingStore: infrastructure.assistantBindingStore,
+    registry,
   };
 
-  // Create public API wrapper
   const channelInfrastructureApi = createChannelInfrastructureApi(services);
 
   return {
-    // Platform channel services (existing)
+    // Platform channel services (legacy accessors kept for main.mjs).
     weixinService,
     feishuService,
 
-    // Shared channel infrastructure
+    // Shared infrastructure.
     channelEventBus: infrastructure.eventBus,
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
     messageAdapter: infrastructure.messageAdapter,
+    assistantBindingStore: infrastructure.assistantBindingStore,
 
-    // Public API for IPC exposure
+    // Plugin registry (new source of truth).
+    registry,
+
+    // Public API for IPC / HTTP exposure.
     channelInfrastructureApi,
 
-    // Lifecycle management
     async initialize() {
       await Promise.all([
         infrastructure.pairingService.initialize(),
         infrastructure.sessionStore.initialize(),
+        infrastructure.assistantBindingStore.initialize(),
       ]);
-      console.log("[channel-runtime] All channel infrastructure initialized");
+      await registry.initializeAll();
+      console.log("[channel-runtime] channel infrastructure initialized (plugins=" + registry.size() + ")");
     },
 
     async dispose() {
+      await registry.disposeAll();
       await Promise.all([
         infrastructure.pairingService.dispose(),
         infrastructure.sessionStore.dispose(),
         infrastructure.messageAdapter.dispose(),
+        infrastructure.assistantBindingStore.dispose(),
       ]);
-      console.log("[channel-runtime] All channel infrastructure disposed");
+      console.log("[channel-runtime] channel infrastructure disposed");
     },
   };
 }
+
+const BUILT_IN_STUB_PLUGINS = [
+  { id: "lark", type: "lark", name: "Lark" },
+  { id: "wecom", type: "wecom", name: "企业微信" },
+  { id: "dingtalk", type: "dingtalk", name: "钉钉" },
+  { id: "telegram", type: "telegram", name: "Telegram" },
+];
 
 function createChannelInfrastructure({ userDataDir }) {
   return {
@@ -88,6 +129,7 @@ function createChannelInfrastructure({ userDataDir }) {
     pairingService: new ChannelPairingService({ userDataDir }),
     sessionStore: new ChannelSessionStore({ userDataDir }),
     messageAdapter: channelMessageAdapter,
+    assistantBindingStore: new ChannelAssistantBindingStore({ userDataDir }),
   };
 }
 
@@ -99,6 +141,7 @@ function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, infra
     channelMessageAdapter: infrastructure.messageAdapter,
     channelPairingService: infrastructure.pairingService,
     channelSessionStore: infrastructure.sessionStore,
+    channelAssistantBindingStore: infrastructure.assistantBindingStore,
   };
 
   return {
@@ -128,17 +171,9 @@ export async function probeAccessibleRoot(input = {}) {
   }
 }
 
-// Export events for external listeners
 export { CHANNEL_EVENTS };
-
-
-/**
- * Channel Infrastructure Public API
- * These methods are exposed via IPC to the renderer process
- * All security-sensitive operations (approve/deny) can only be called locally
- */
 export function createChannelInfrastructureApi(services) {
-  const { pairingService, sessionStore, channelEventBus } = services;
+  const { pairingService, sessionStore, channelEventBus, registry, assistantBindingStore } = services;
 
   return {
     // --- Pairing Service API ---
@@ -287,6 +322,84 @@ export function createChannelInfrastructureApi(services) {
      */
     async getChannelEventHistory(limit, filterEvent) {
       return channelEventBus.getHistory(limit, filterEvent);
+    },
+
+    // --- Plugin Registry API (Phase A2/B) ---
+
+    async listChannelPlugins() {
+      if (!registry) return [];
+      return registry.getPluginStatuses();
+    },
+
+    async getChannelPlugin(pluginId) {
+      if (!registry) return null;
+      const record = registry.get(pluginId);
+      if (!record) return null;
+      const [status] = await registry.getPluginStatuses();
+      return status ?? null;
+    },
+
+    async enableChannelPlugin(pluginId /*, config */) {
+      const record = registry?.get(pluginId);
+      if (!record) return { ok: false, error: `Unknown plugin: ${pluginId}` };
+      const service = record.instance?.service ?? record.instance;
+      try {
+        if (typeof service?.start === "function") {
+          await service.start({});
+        }
+        return { ok: true, pluginId };
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
+    },
+
+    async disableChannelPlugin(pluginId) {
+      const record = registry?.get(pluginId);
+      if (!record) return { ok: false, error: `Unknown plugin: ${pluginId}` };
+      const service = record.instance?.service ?? record.instance;
+      try {
+        if (typeof service?.stop === "function") await service.stop();
+        return { ok: true, pluginId };
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
+    },
+
+    // --- Assistant Binding API (Phase A3) ---
+
+    async getPlatformSettings(platform) {
+      if (!assistantBindingStore) return null;
+      return assistantBindingStore.getPlatformSettings(platform);
+    },
+
+    async setPlatformAssistant(platform, write) {
+      if (!assistantBindingStore) return { ok: false, error: "binding store unavailable" };
+      try {
+        const settings = await assistantBindingStore.setAssistant(platform, write);
+        return { ok: true, settings };
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
+    },
+
+    async clearPlatformAssistant(platform) {
+      if (!assistantBindingStore) return { ok: false };
+      try {
+        const settings = await assistantBindingStore.clearAssistant(platform);
+        return { ok: true, settings };
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
+    },
+
+    async setPlatformDefaultModel(platform, setting) {
+      if (!assistantBindingStore) return { ok: false };
+      try {
+        const settings = await assistantBindingStore.setDefaultModel(platform, setting);
+        return { ok: true, settings };
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
     },
   };
 }
