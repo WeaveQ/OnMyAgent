@@ -1,3 +1,5 @@
+import type { CollaborationGoalRuntime } from "../../app/types";
+
 /**
  * Thin localStorage wrapper for the React shell's "remember what the user had
  * open" behavior. Keys mirror those the Solid app used so users don't lose
@@ -7,6 +9,7 @@
 const ACTIVE_WORKSPACE_KEY = "onmyagent.react.activeWorkspace";
 const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
+const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 
 function safeGet(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -103,6 +106,113 @@ export function writeLastSessionFor(workspaceId: string, sessionId: string | nul
     map[wsId] = normalized;
   }
   safeSet(SESSION_BY_WORKSPACE_KEY, Object.keys(map).length ? JSON.stringify(map) : null);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readStringField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "string" ? value : "";
+}
+
+function readNumberField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readGoalStatus(
+  record: Record<string, unknown>,
+): CollaborationGoalRuntime["status"] | null {
+  const status = record.status;
+  if (
+    status === "running" ||
+    status === "waiting" ||
+    status === "paused" ||
+    status === "completed"
+  ) {
+    return status;
+  }
+  return null;
+}
+
+function parseGoalRuntime(value: unknown): CollaborationGoalRuntime | null {
+  if (!isRecord(value)) return null;
+  const status = readGoalStatus(value);
+  const objective = readStringField(value, "objective").trim();
+  const messageBaseline = readNumberField(value, "messageBaseline");
+  const startedAt = readNumberField(value, "startedAt");
+  const updatedAt = readNumberField(value, "updatedAt");
+  const totalPausedMs = readNumberField(value, "totalPausedMs");
+  if (
+    !status ||
+    !objective ||
+    messageBaseline === undefined ||
+    startedAt === undefined ||
+    updatedAt === undefined ||
+    totalPausedMs === undefined
+  ) {
+    return null;
+  }
+  const restoredStatus = status === "running" ? "waiting" : status;
+  const runtime: CollaborationGoalRuntime = {
+    status: restoredStatus,
+    objective,
+    messageBaseline,
+    startedAt,
+    updatedAt,
+    totalPausedMs,
+  };
+  const lastRunMessageBaseline = readNumberField(value, "lastRunMessageBaseline");
+  if (lastRunMessageBaseline !== undefined) {
+    runtime.lastRunMessageBaseline = lastRunMessageBaseline;
+  }
+  const pauseStartedAt = readNumberField(value, "pauseStartedAt");
+  if (pauseStartedAt !== undefined && restoredStatus === "paused") {
+    runtime.pauseStartedAt = pauseStartedAt;
+  }
+  const lastRunStartedAt = readNumberField(value, "lastRunStartedAt");
+  if (lastRunStartedAt !== undefined) {
+    runtime.lastRunStartedAt = lastRunStartedAt;
+  }
+  const completedAt = readNumberField(value, "completedAt");
+  if (completedAt !== undefined && restoredStatus === "completed") {
+    runtime.completedAt = completedAt;
+  }
+  return runtime;
+}
+
+export function readSessionGoalRuntimes(): Record<string, CollaborationGoalRuntime> {
+  const raw = safeGet(GOAL_RUNTIME_BY_SESSION_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+    const result: Record<string, CollaborationGoalRuntime> = {};
+    for (const [sessionId, value] of Object.entries(parsed)) {
+      const normalizedSessionId = sessionId.trim();
+      if (!normalizedSessionId) continue;
+      const runtime = parseGoalRuntime(value);
+      if (runtime) result[normalizedSessionId] = runtime;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export function writeSessionGoalRuntimes(
+  runtimes: Record<string, CollaborationGoalRuntime>,
+): void {
+  const entries = Object.entries(runtimes).filter(
+    ([sessionId, runtime]) => sessionId.trim() && runtime.objective.trim(),
+  );
+  if (!entries.length) {
+    safeSet(GOAL_RUNTIME_BY_SESSION_KEY, null);
+    return;
+  }
+  safeSet(GOAL_RUNTIME_BY_SESSION_KEY, JSON.stringify(Object.fromEntries(entries)));
 }
 
 export function forgetWorkspaceMemory(workspaceId: string): void {

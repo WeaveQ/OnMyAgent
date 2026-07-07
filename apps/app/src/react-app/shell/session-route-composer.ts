@@ -355,6 +355,8 @@ export function buildGoalRuntimeSystemPrompt(
     `- Objective: ${objective}`,
     "- Treat the objective as the persistent success criterion for this conversation.",
     "- Keep working toward that objective across turns until it is complete, paused, blocked, or the user clears the goal.",
+    "- At the start of each run, decide the next concrete step based on what has already happened in the conversation.",
+    "- Do not stop after partial progress when another safe, relevant step remains available.",
     "- Track what remains, verify results against the objective, and report concrete progress.",
     "- If you cannot continue without user input or an external change, say what is blocking the goal and what is needed next.",
   ].join("\n");

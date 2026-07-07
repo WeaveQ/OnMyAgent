@@ -850,6 +850,8 @@ function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
     runtime.objective,
     "",
     "Treat this objective as the persistent success criterion for this conversation.",
+    "Decide the next concrete step from the existing transcript before acting.",
+    "Do not stop after partial progress when another safe, relevant step remains available.",
     "Track remaining work, verify results against the objective, and report concrete progress.",
     "If blocked, explain the blocker and the next concrete unblock step.",
   ].join("\n");
