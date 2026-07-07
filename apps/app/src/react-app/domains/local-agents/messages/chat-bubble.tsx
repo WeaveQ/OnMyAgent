@@ -11,7 +11,6 @@ import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type 
 import type { OpenTarget } from "../../session/artifacts/open-target";
 import { MarkdownBlock } from "../../session/surface/markdown";
 import { shortTime } from "../local-agent-formatters";
-import { BtwOverlay, agentSupportsSideQuestion } from "../side-question";
 import { MessageFileChanges } from "./message-file-changes";
 import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
@@ -27,7 +26,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onResolveApproval?: (approval: PersonalLocalAgentApprovalRequest, decision: PersonalLocalAgentApprovalDecision, options?: { alwaysAllow?: boolean }) => void;
   onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
-  onSideQuestion?: (prompt: string) => void;
 }) {
   const isUser = props.message.role === "user";
   const run = props.message.run;
@@ -256,7 +254,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
 
         {run ? (
           <div className="mt-3 space-y-2 text-xs text-dls-secondary">
-            {agentSupportsSideQuestion(props.agent) ? <BtwOverlay disabled={run?.status === "running"} submitting={false} onSubmit={(value) => props.onSideQuestion?.(value)} /> : null}
             {run.errorInfo ? <NoticeBox tone="error">{classifiedRunFailureMessage(run)}<span className={`ml-2 ${localAgentTextClass.debugMeta}`}>{run.errorInfo.code}</span></NoticeBox> : run.error ? <NoticeBox tone="error">{run.error}</NoticeBox> : null}
             {run.pendingApprovals?.length ? (
               <div className={approvalClass.panel}>

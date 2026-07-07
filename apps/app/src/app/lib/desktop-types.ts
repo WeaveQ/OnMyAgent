@@ -442,16 +442,6 @@ export type PersonalLocalAgent = {
   handshake?: PersonalLocalAgentMetadata["handshake"];
   behavior_policy?: PersonalLocalAgentMetadata["behavior_policy"];
   lastCheckedAt: number | null;
-  /** cc-switch parity: latest version reported by npm/GitHub/PyPI. `null` when never checked or check failed. */
-  latestVersion?: string | null;
-  /** True when `latestVersion` is strictly newer than `version` per compareSemver. */
-  updateAvailable?: boolean;
-  /** Which registry channel produced `latestVersion`. */
-  latestChannel?: "latest" | "next" | "github" | "pypi" | null;
-  /** Epoch ms of the last successful or failed registry probe. */
-  versionCheckedAt?: number | null;
-  /** Non-null when the last registry probe errored (offline, 404, timeout). */
-  versionCheckError?: string | null;
 };
 
 export type PersonalLocalAgentMetadata = {
@@ -478,7 +468,6 @@ export type PersonalLocalAgentMetadata = {
     permission_mode?: string | null;
     yolo_mode_id?: string | null;
     auto_approve_readonly?: boolean;
-    supports_side_question?: boolean;
   } | null;
   connectionMode?: string | null;
   status?: PersonalLocalAgentStatus;
@@ -836,12 +825,6 @@ export type PersonalLocalAgentConversationWarmupResult = {
   error?: string | null;
 };
 
-export type PersonalLocalAgentSideQuestionResult = {
-  ok: boolean;
-  run?: PersonalLocalAgentRunResult | null;
-  runId?: string | null;
-  error?: string | null;
-};
 
 export type PersonalLocalAgentConversationConfirmationsResult = {
   conversation: PersonalLocalAgentConversation | null;
@@ -1200,12 +1183,6 @@ export type FeishuAccountStatus = {
   error?: string;
 };
 
-export type AgentManagementProviderOption = {
-  id: string;
-  label: string;
-  source: string;
-  active: boolean;
-};
 
 export type AgentManagementManagedProviderModel = {
   id: string;
@@ -1316,6 +1293,7 @@ export type AgentManagementSkillAgent =
   | "openclaw"
   | "hermes"
   | "codex"
+  | "gemini"
   | "onmyagent"
   | "unknown";
 
@@ -1356,59 +1334,9 @@ export type AgentManagementSkill = LocalSkillCard & {
   lastSeenAt?: number | null;
 };
 
-export type AgentManagementInstallationEntry = {
-  path: string;
-  version: string | null;
-  runnable: boolean;
-  error: string | null;
-  /** Where this install came from: `path`, `npm-global`, `homebrew`, `pipx`, `nvm`, `volta`, `bundled`, `github`, `custom`. */
-  source: string;
-  /** True when this install is the one PATH resolution picks. */
-  isPathDefault: boolean;
-  /** True when this install is bundled by OnMyAgent itself and must not be upgraded via npm/pip. */
-  bundled: boolean;
-};
-
-export type AgentManagementInstallationReport = {
-  provider: PersonalLocalAgentProvider | string;
-  installs: AgentManagementInstallationEntry[];
-  isConflict: boolean;
-  needsConfirmation: boolean;
-  /** Anchored install/update command to run in the terminal. */
-  command: string;
-  anchored: boolean;
-  envType: "macos" | "windows" | "linux" | "unknown";
-};
-
-export type AgentManagementUpdateCheckResult = {
-  provider: PersonalLocalAgentProvider | string;
-  version: string | null;
-  latestVersion: string | null;
-  updateAvailable: boolean;
-  latestChannel: "latest" | "next" | "github" | "pypi" | null;
-  versionCheckedAt: number;
-  versionCheckError: string | null;
-};
-
-export type AgentManagementRunLifecycleInput = {
-  provider: PersonalLocalAgentProvider | string;
-  action: "install" | "update";
-  installPath?: string;
-};
-
-export type AgentManagementRunLifecycleResult = {
-  ok: boolean;
-  terminalLaunched: boolean;
-  command: string;
-  error?: string;
-};
-
 export type AgentManagementAgent = PersonalLocalAgent & {
-  providerOptions: AgentManagementProviderOption[];
   usage: AgentManagementUsageSummary;
   skillCount: number;
-  /** Optional installation report; populated by agentManagementProbeInstallations. */
-  installations?: AgentManagementInstallationReport;
 };
 
 export type AgentManagementSnapshot = {
@@ -1416,165 +1344,10 @@ export type AgentManagementSnapshot = {
   workspaceRoot: string;
   agents: AgentManagementAgent[];
   skills: AgentManagementSkill[];
-  proxy: AgentManagementProxyStatus;
   providers: AgentManagementProvidersSnapshot;
   mcp: AgentManagementMcpSnapshot;
-  claudeDesktop?: AgentManagementClaudeDesktopStatus;
 };
 
-export type AgentProxyBreakerState = "closed" | "open" | "half_open";
-
-export type AgentProxyBreakerSnapshot = {
-  key: string;
-  appType: string;
-  providerId: string;
-  state: AgentProxyBreakerState;
-  consecutiveFailures: number;
-  totalRequests: number;
-  failedRequests: number;
-  openedAt: number | null;
-  lastEventAt: number | null;
-};
-
-export type AgentProxyFailoverChainEntry = {
-  providerId: string;
-  providerName: string;
-  ok: boolean;
-  error?: string;
-};
-
-export type AgentProxyRecentRequest = {
-  at: number;
-  appType: string;
-  endpoint: string;
-  ok: boolean;
-  status?: number;
-  durationMs?: number;
-  providerId?: string;
-  providerName?: string;
-  model?: string | null;
-  error?: string;
-  failoverChain?: AgentProxyFailoverChainEntry[];
-};
-
-export type AgentProxyFailoverSnapshot = {
-  claude: { lastChain: AgentProxyFailoverChainEntry[]; lastError: string | null };
-  codex: { lastChain: AgentProxyFailoverChainEntry[]; lastError: string | null };
-  breakers: AgentProxyBreakerSnapshot[];
-  recentRequests: AgentProxyRecentRequest[];
-};
-
-export type AgentProxyUsageDailyRow = {
-  day: string;
-  app_type: string;
-  provider_id: string;
-  requests: number;
-  successes: number;
-  failures: number;
-  total_duration_ms: number;
-};
-
-export type AgentManagementProxyUsageInput = {
-  limit?: number;
-  appType?: string;
-  days?: number;
-};
-
-export type AgentManagementProxyUsageResult = {
-  recentRequests: AgentProxyRecentRequest[];
-  usageDaily: AgentProxyUsageDailyRow[];
-  failover: AgentProxyFailoverSnapshot;
-};
-
-export type AgentManagementProxyStatus = {
-  enabled: boolean;
-  address: string;
-  port: number;
-  serviceReachable: boolean;
-  takeover: Record<"opencode" | "codex" | "claude" | "hermes" | "openclaw", boolean>;
-  targets: Record<"opencode" | "codex" | "claude" | "hermes" | "openclaw", string | null>;
-  httpProxyUrl?: string;
-  updatedAt: number | null;
-  studio: {
-    running: boolean;
-    address: string | null;
-    port: number | null;
-    startedAt: number | null;
-    totalRequests: number;
-    successRequests: number;
-    failedRequests: number;
-    lastError: string | null;
-    activeTargets: Record<string, { providerId: string; providerName: string; model?: string | null }>;
-    supportedApps: string[];
-    failover?: AgentProxyFailoverSnapshot;
-  };
-  studioSwitch: {
-    databasePath: string;
-    address: string;
-    port: number;
-    serviceReachable: boolean;
-    enableLogging: boolean;
-    takeover: Record<"claude" | "codex" | "gemini", boolean>;
-  };
-};
-
-export type AgentManagementClaudeDesktopStatus = {
-  installed: boolean;
-  supported: boolean;
-  configPath: string | null;
-  threepConfigPath?: string | null;
-  profilePath?: string | null;
-  metaPath?: string | null;
-  normalDeploymentMode?: string | null;
-  threepDeploymentMode?: string | null;
-  profileExists?: boolean;
-  appliedId?: string | null;
-  studioApplied?: boolean;
-  studioProfileId?: string;
-  reason: string;
-};
-
-export type AgentManagementSetClaudeDesktopInput =
-  | { action: "apply" }
-  | { action: "restore" }
-  | { action: "detect" };
-
-export type AgentManagementSetClaudeDesktopResult = {
-  ok: boolean;
-  applied?: boolean;
-  baseUrl?: string;
-  profileId?: string;
-  profilePath?: string;
-  detect: AgentManagementClaudeDesktopStatus;
-};
-
-export type AgentManagementSetProviderInput = {
-  workspaceRoot: string;
-  provider: PersonalLocalAgentProvider;
-  model: string;
-};
-
-export type AgentManagementSetProviderResult = {
-  ok: boolean;
-  preferencePath: string;
-  provider: PersonalLocalAgentProvider;
-  model: string;
-};
-
-export type AgentManagementSetProxyInput = {
-  workspaceRoot: string;
-} & (
-  | { action: "service"; enabled: boolean; address?: string; port?: number }
-  | { action: "takeover"; agent: AgentManagementSkillAgent; enabled: boolean }
-  | { action: "target"; agent: AgentManagementSkillAgent; target: string }
-  | { action: "httpProxyUrl"; proxyUrl: string }
-);
-
-export type AgentManagementSetProxyResult = {
-  ok: boolean;
-  preferencePath: string;
-  proxy: AgentManagementProxyStatus;
-};
 
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }

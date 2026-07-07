@@ -311,42 +311,6 @@ describe("personal agent runtime storage", () => {
     }
   });
 
-  it("runs side questions in the same conversation without interrupting the main run", async () => {
-    const workspaceRoot = await tempWorkspace();
-    try {
-      const runtime = createPersonalAgentRuntime({
-        legacy: {
-          listAgents: async () => ({ agents: [] }),
-          normalizeAgent: async (input) => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", ...input }),
-          detectAgent: async (agent) => ({ ...agent, id: "codex", provider: "codex", status: "online" }),
-          start: async () => ({}),
-          run: async () => ({}),
-          status: () => ({}),
-          cancel: () => ({}),
-        },
-        adapters: {
-          codex: () => ({
-            sendMessage: async (ctx) => {
-              if (ctx.prompt === "main") await new Promise((resolve) => setTimeout(resolve, 80));
-              return { output: `reply:${ctx.prompt}`, command: "fake", connectionMode: "Codex ACP session", providerSessionId: ctx.providerSessionId ?? "shared-session", resumeKey: ctx.resumeKey ?? "shared-session" };
-            },
-          }),
-        },
-      });
-      const conversation = await runtime.createConversation({ workspaceRoot, agent: { provider: "codex" }, title: "Side" });
-      const main = await runtime.startMessage({ workspaceRoot, agent: { provider: "codex" }, conversationId: conversation.conversation.id, prompt: "main" });
-      const side = await runtime.sideQuestion({ workspaceRoot, agent: { provider: "codex" }, conversationId: conversation.conversation.id, prompt: "btw" });
-      assert.equal(side.ok, true);
-      assert.equal(side.run.output, "reply:btw");
-      assert.notEqual(side.run.runId, main.runId);
-      const mainFinal = await waitForRun(runtime, main.runId);
-      assert.equal(mainFinal.output, "reply:main");
-      assert.equal(side.run.conversationId, conversation.conversation.id);
-      assert.equal(side.run.providerSessionId, mainFinal.providerSessionId);
-    } finally {
-      await cleanup(workspaceRoot);
-    }
-  });
 
   it("persists streaming conversation events outside the transient run object", async () => {
     const workspaceRoot = await tempWorkspace();
@@ -439,7 +403,7 @@ describe("personal agent metadata", () => {
     assert.equal(metadata.agent_source_info.hub_package_id, "openclaw-acp");
     assert.deepEqual(metadata.env, [{ name: "OPENCLAW_ENV", value: "1", description: "test env" }]);
     assert.deepEqual(metadata.native_skills_dirs, ["/tmp/openclaw/skills"]);
-    assert.deepEqual(metadata.behavior_policy, { permission_mode: "read-only-auto", yolo_mode_id: "ask", auto_approve_readonly: true, supports_side_question: false });
+    assert.deepEqual(metadata.behavior_policy, { permission_mode: "read-only-auto", yolo_mode_id: "ask", auto_approve_readonly: true });
     assert.equal(metadata.handshake.agent_capabilities.loadSession, true);
     assert.equal(metadata.handshake.agent_capabilities._meta.supportsApproval, false);
     assert.equal(metadata.handshake.available_models[0].id, "stable");

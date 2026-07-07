@@ -1183,78 +1183,6 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  async function sideQuestion(input = {}) {
-    const prompt = String(input.prompt ?? "").trim();
-    if (!prompt) return { ok: false, error: "prompt is required" };
-
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const conversationId = String(input.conversationId ?? "").trim();
-    if (!workspaceRoot) return { ok: false, error: "workspaceRoot is required" };
-
-    // Find the active or most-recent main run for this conversation so the side
-    // question is sent to the same provider session, not an independent run/session.
-    let activeRun = null;
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline) {
-      const candidates = [...runs.values()].filter((state) => (
-        state.workspaceRoot === workspaceRoot
-        && state.agentProvider === agent.provider
-        && state.agentId === agent.id
-        && state.conversationId === conversationId
-        && state.providerSessionId
-      ));
-      activeRun = candidates.find((state) => state.status === "running")
-        || candidates.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0];
-      if (activeRun) break;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    if (!activeRun) {
-      return { ok: false, error: "no active run session to attach side question to" };
-    }
-
-    const detected = await legacy.detectAgent(agent, workspaceRoot);
-    if (detected.status !== "online") {
-      return { ok: false, error: detected.error || `${detected.name ?? agent.provider} is not online` };
-    }
-
-    try {
-      const ctx = await runtimeContext();
-      const adapterFactory = adapterFactoryForProvider(agent.provider);
-      if (!adapterFactory) return { ok: false, error: `No adapter for ${agent.provider}` };
-      const adapter = adapterFactory({
-        ...ctx,
-        appendEvent: () => undefined,
-        registerCancel: () => undefined,
-        requestApproval: () => ({ decision: "decline" }),
-        approvalMode: normalizeApprovalMode(input.approvalMode),
-      });
-      const result = normalizeAdapterResult(await adapter.sendMessage({
-        runId: `side-${activeRun.runId}-${Date.now()}`,
-        workspaceRoot,
-        accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(input.accessibleWorkspaceRoots, workspaceRoot),
-        conversationId,
-        providerSessionId: activeRun.providerSessionId,
-        resumeKey: activeRun.resumeKey,
-        conversationWorkdir: activeRun.workdir,
-        agent: detected,
-        model: input.model ?? detected.model,
-        prompt,
-        approvalMode: normalizeApprovalMode(input.approvalMode),
-      }));
-      const sideRun = {
-        ...snapshot(activeRun),
-        runId: `side-${activeRun.runId}`,
-        output: result.output,
-        status: "completed",
-        finishedAt: Date.now(),
-        metadata: { ...(activeRun.metadata ?? {}), sideQuestion: true },
-      };
-      return { ok: true, run: sideRun, runId: sideRun.runId };
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) };
-    }
-  }
 
   async function listAgentProviderSessions(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
@@ -1823,7 +1751,6 @@ export function createPersonalAgentRuntime(options) {
     createConversation: createAgentConversation,
     getConversation: getAgentConversation,
     warmupConversation,
-    sideQuestion,
     listProviderSessions: listAgentProviderSessions,
     loadProviderSession: loadAgentProviderSession,
     closeProviderSession: closeAgentProviderSession,

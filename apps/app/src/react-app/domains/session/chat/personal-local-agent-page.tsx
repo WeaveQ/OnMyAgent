@@ -35,7 +35,6 @@ import {
   personalLocalAgentHeartbeatsList,
   personalLocalAgentHeartbeatUpdate,
   personalLocalAgentResetConversation,
-  personalLocalAgentSideQuestion,
   personalLocalAgentValidate,
   personalLocalAgentStatus,
   type PersonalLocalAgent,
@@ -68,8 +67,8 @@ import type { ChatMessage } from "../../local-agents/messages/message-types";
 import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/message-utils";
 import { lastEventTime } from "../../local-agents/messages/timeline-messages";
 import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
+import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
 import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
-import { BtwOverlay, agentSupportsSideQuestion } from "../../local-agents/side-question";
 type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
   workspaceName?: string | null;
@@ -84,6 +83,8 @@ type PersonalLocalAgentPageProps = {
   headerActions?: ReactNode;
   /** Navigate to the Agent Management tab (skills panel by default). */
   onOpenAgentManagement?: (panel?: "skills" | "mcp" | "providers" | "agents") => void;
+  resumeRequest?: SessionArchiveResumeRequest | null;
+  onResumeConsumed?: () => void;
 };
 const localAgentTextClass = {
   panelTitle: "text-sm font-medium leading-5 text-dls-text",
@@ -479,6 +480,56 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (conversationsByAgent[selectedAgent.id]) return;
     void loadConversationsForAgent(selectedAgent);
   }, [conversationsByAgent, loadConversationsForAgent, selectedAgent]);
+  const consumedResumeKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const request = props.resumeRequest;
+    if (!request) return;
+    const marker = `${request.agent}:${request.providerSessionId}`;
+    if (consumedResumeKeyRef.current === marker) return;
+    consumedResumeKeyRef.current = marker;
+    const providerMap: Record<string, string> = {
+      opencode: "opencode",
+      codex: "codex",
+      claude: "claude",
+      openclaw: "openclaw",
+      hermes: "hermes",
+    };
+    const provider = providerMap[request.agent];
+    if (!provider) return;
+    setSelectedAgentId(provider);
+    const targetAgent = agents.find((item) => item.id === provider) ?? agents.find((item) => item.provider === provider) ?? null;
+    (async () => {
+      try {
+        const existing = conversationsByAgent[provider] ?? (await personalLocalAgentConversationsList({ workspaceRoot: props.workspaceRoot, agent: targetAgent ?? undefined })).conversations;
+        const match = existing.find((item) => (item.providerSessionId ?? item.resumeKey) === request.providerSessionId);
+        if (match) {
+          setConversationsByAgent((current) => ({ ...current, [provider]: existing }));
+          setSelectedConversationIdByAgent((current) => ({ ...current, [provider]: match.id }));
+        } else {
+          const result = await personalLocalAgentConversationCreate({
+            workspaceRoot: props.workspaceRoot,
+            title: request.title,
+            providerSessionId: request.providerSessionId,
+            resumeKey: request.providerSessionId,
+            source: "session-archive-resume",
+            agent: targetAgent ?? undefined,
+          });
+          setConversationsByAgent((current) => ({
+            ...current,
+            [provider]: [result.conversation, ...(current[provider] ?? existing)],
+          }));
+          setSelectedConversationIdByAgent((current) => ({ ...current, [provider]: result.conversation.id }));
+        }
+      } catch (error) {
+        setErrorsByAgent((current) => ({
+          ...current,
+          [provider]: error instanceof Error ? error.message : String(error),
+        }));
+      } finally {
+        props.onResumeConsumed?.();
+      }
+    })();
+  }, [props.resumeRequest, agents, conversationsByAgent, props.workspaceRoot, props.onResumeConsumed]);
   const loadHeartbeats = useCallback(async () => {
     try {
       const result = await personalLocalAgentHeartbeatsList({ workspaceRoot: props.workspaceRoot });
@@ -849,52 +900,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setStartingByAgent((current) => ({ ...current, [runChatKey]: false }));
     }
   }, [approvalMode, props.workspaceRoot, rememberRunResult, running, selectedAgent, selectedConversationId, selectedModel]);
-  const sendSideQuestion = useCallback(async (prompt: string) => {
-    if (!prompt || !selectedAgent) return;
-    const runAgent = selectedAgent;
-    const runConversationId = selectedConversationId;
-    const runChatKey = localAgentChatKey(runAgent.id, runConversationId);
-    setErrorsByAgent((current) => ({ ...current, [runAgent.id]: null }));
-    const userMessage: ChatMessage = { id: nowId("side-user"), role: "user", text: prompt, createdAt: Date.now() };
-    const assistantMessageId = nowId("side-assistant");
-    setMessagesByAgent((current) => ({
-      ...current,
-      [runChatKey]: [
-        ...(current[runChatKey] ?? [welcomeMessageForAgent(runAgent)]),
-        userMessage,
-        { id: assistantMessageId, role: "assistant", text: t("local_agent.calling"), createdAt: Date.now(), run: null },
-      ],
-    }));
-    try {
-      const started = await personalLocalAgentSideQuestion({
-        workspaceRoot: props.workspaceRoot,
-        prompt,
-        approvalMode,
-        conversationId: runConversationId,
-        agent: { ...runAgent, model: selectedModel || null },
-      });
-      if (!started.ok || !started.run) throw new Error(started.error || "side question failed");
-      rememberRunResult(runAgent.id, started.run);
-      const answer = messageTextForRun(started.run, "");
-      setMessagesByAgent((current) => ({
-        ...current,
-        [runChatKey]: (current[runChatKey] ?? [welcomeMessageForAgent(runAgent)]).map((message) =>
-          message.id === assistantMessageId ? { ...message, text: messageTextForRun(started.run!, t("local_agent.running")), run: started.run } : message,
-        ),
-      }));
-      return { answer };
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : String(nextError);
-      setErrorsByAgent((current) => ({ ...current, [runAgent.id]: message }));
-      setMessagesByAgent((current) => ({
-        ...current,
-        [runChatKey]: (current[runChatKey] ?? [welcomeMessageForAgent(runAgent)]).map((item) =>
-          item.id === assistantMessageId ? { ...item, text: t("local_agent.start_failed", { message }) } : item,
-        ),
-      }));
-      return { error: message };
-    }
-  }, [approvalMode, props.workspaceRoot, rememberRunResult, selectedAgent, selectedConversationId, selectedModel]);
   const resetAgentChat = useCallback((agent: PersonalLocalAgent) => {
     const welcome = welcomeMessageForAgent(agent);
     const key = localAgentChatKey(agent.id, selectedConversationIdByAgent[agent.id]);
@@ -1304,7 +1309,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       />
     </div>
   ) : null}
-</header><LocalAgentStatusRail workspaceRoot={props.workspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} onSideQuestion={(value) => void sendSideQuestion(value)} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
+</header><LocalAgentStatusRail workspaceRoot={props.workspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
         <div className={localAgentLayoutClass.chatPanel}>
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
@@ -1333,13 +1338,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             }
             toolbarRight={
               <>
-                {selectedAgent && agentSupportsSideQuestion(selectedAgent) ? (
-                  <BtwOverlay
-                    disabled={!selectedAgent || selectedAgent.status !== "online"}
-                    submitting={false}
-                    onSubmit={(value) => void sendSideQuestion(value)}
-                  />
-                ) : null}
                 {activeRun?.status === "running" ? (
                   <Button variant="outline" size="sm" onClick={() => void cancelRun()}>
                     <CircleStop className="mr-1.5 size-3.5" />

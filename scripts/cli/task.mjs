@@ -49,7 +49,6 @@ const testTargets = new Map([
   ['infinite-canvas-ui-contract', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'infinite-canvas-ui-contract'] }],
   ['infinite-canvas-ui-smoke', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'infinite-canvas-ui-smoke'] }],
   ['personal-local-agent-acp-ui-smoke', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'personal-local-agent-acp-ui-smoke'] }],
-  ['agent-manager-cli-update-ui-smoke', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'agent-manager-cli-update-ui-smoke'] }],
   ['personal-local-agent-codex-acp-tool-smoke', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'personal-local-agent-codex-acp-tool-smoke'] }],
   ['remote-diagnostics', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'remote-diagnostics'] }],
   ['open-target', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'open-target'] }],

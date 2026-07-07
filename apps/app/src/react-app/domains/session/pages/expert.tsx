@@ -59,7 +59,7 @@ import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
-import { SessionArchivePage } from "../chat/session-page-session-archive-page";
+import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
   expertMarketplaceCategoryLabel,
@@ -233,6 +233,7 @@ export function ExpertPage(props: ExpertPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeSidebarView, setActiveSidebarView] =
     useState<OnMyAgentPrimaryView>("chat");
+  const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const [agentPanelWidth, setAgentPanelWidth] = useState(
@@ -1528,6 +1529,8 @@ export function ExpertPage(props: ExpertPageProps) {
 
                       {activeSidebarView === "localAgent" ? (
                         <PersonalLocalAgentPage
+                          resumeRequest={pendingArchiveResume}
+                          onResumeConsumed={() => setPendingArchiveResume(null)}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           workspaceName={props.selectedWorkspaceDisplay.name}
                           onOpenArtifact={openTarget}
@@ -1543,6 +1546,10 @@ export function ExpertPage(props: ExpertPageProps) {
                             <SessionArchivePage
                               client={props.onmyagentServerClient}
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                              onResume={(request) => {
+                                setPendingArchiveResume(request);
+                                setActiveSidebarView("localAgent");
+                              }}
                             />
                           )}
                         />

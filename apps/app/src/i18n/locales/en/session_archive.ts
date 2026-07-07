@@ -3,6 +3,7 @@ import { APP_NAME } from "../brand";
 export default {
   "session_archive.title": "Session archive",
   "session_archive.description": "Review local agent session history across providers.",
+  "session_archive.delete": "Delete",
   "session_archive.sync": "Sync",
   "session_archive.syncing": "Syncing...",
   "session_archive.sync_running_status": "Syncing {done}/{total}",

@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, RefreshCw, ShoppingBag, Sparkles, Zap } from "lucide-react";
+import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, RefreshCw, ShoppingBag, Sparkles } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,8 @@ import {
   agentManagementFetchModels,
   agentManagementMcpAction,
   agentManagementProviderAction,
-  agentManagementSetProvider,
-  agentManagementSetProxy,
   agentManagementSkillAction,
   agentManagementSnapshot,
-  agentManagementCheckToolVersion,
-  agentManagementProbeInstallations,
-  agentManagementRunLifecycle,
   personalLocalAgentStart,
   personalLocalAgentStatus,
   type AgentManagementAgent,
@@ -27,7 +22,6 @@ import {
   type AgentManagementSkill,
   type AgentManagementSkillAgent,
   type AgentManagementSnapshot,
-  type AgentManagementInstallationReport,
 } from "../../../../../app/lib/desktop";
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
 import {
@@ -46,14 +40,12 @@ import {
   type AgentManagementProviderApp,
   type ProviderDraft,
 } from "./agent-management-providers";
-import { AgentManagementProxyPanel } from "./agent-management-proxy-panel";
 import { AgentManagementMcpPanel } from "./agent-management-mcp-panel";
-import { AgentManagementUpdateConfirmDialog } from "./agent-management-update-confirm-dialog";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
 
 const AGENT_MANAGER_HEALTH_PROMPT = "Agent 管理健康检查：请只回复 HEALTH_CHECK_OK。";
 
-type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive" | "proxy";
+type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive";
 
 type AgentManagementUiCache = {
   activePanel: AgentManagementPanel;
@@ -73,7 +65,7 @@ function agentManagerCacheKey(workspaceRoot: string) {
 }
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
-  return value === "providers" || value === "agents" || value === "skills" || value === "mcp" || value === "archive" || value === "proxy";
+  return value === "providers" || value === "agents" || value === "skills" || value === "mcp" || value === "archive";
 }
 
 function isAgentManagementProviderApp(value: unknown): value is AgentManagementProviderApp {
@@ -163,7 +155,6 @@ export function AgentManagementPage(props: {
   const [activePanel, setActivePanel] = useState<AgentManagementPanel>(() => initialUi.activePanel);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savingProvider, setSavingProvider] = useState<string | null>(null);
   const [providerActionKey, setProviderActionKey] = useState<string | null>(null);
   const [providerApp, setProviderApp] = useState<AgentManagementProviderApp>(() => initialUi.providerApp);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>(() => defaultProviderDraft(initialUi.providerApp));
@@ -171,30 +162,10 @@ export function AgentManagementPage(props: {
   const [checkingAgentId, setCheckingAgentId] = useState<string | null>(null);
   const [skillActionKey, setSkillActionKey] = useState<string | null>(null);
   const [mcpActionKey, setMcpActionKey] = useState<string | null>(null);
-  const [proxyActionKey, setProxyActionKey] = useState<string | null>(null);
   const [healthResults, setHealthResults] = useState<Record<string, AgentManagementHealthResult>>(() => initialUi.healthResults);
   const [skillColumnFilter, setSkillColumnFilter] = useState<AgentManagementSkillAgent[]>(() => initialUi.skillColumnFilter);
   const [skillSearch, setSkillSearch] = useState(() => initialUi.skillSearch);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string | null>(() => initialUi.selectedSkillKey);
-  const [versionCheckingProvider, setVersionCheckingProvider] = useState<string | null>(null);
-  const [refreshingVersions, setRefreshingVersions] = useState(false);
-  const [updateDialogAgent, setUpdateDialogAgent] = useState<AgentManagementAgent | null>(null);
-  const [updateDialogReport, setUpdateDialogReport] = useState<AgentManagementInstallationReport | null>(null);
-  const [updateDialogLoading, setUpdateDialogLoading] = useState(false);
-  const [dismissedVersions, setDismissedVersions] = useState<Record<string, string>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const stored: Record<string, string> = {};
-      for (const p of ["claude", "codex", "opencode", "openclaw", "hermes"]) {
-        const v = window.localStorage.getItem(`onmyagent.agentManager.dismissedLatest:${p}`);
-        if (v) stored[p] = v;
-      }
-      return stored;
-    } catch {
-      return {};
-    }
-  });
-
   const refresh = useCallback(async (options?: { force?: boolean }) => {
     const cached = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
     if (cached && !options?.force) {
@@ -245,148 +216,6 @@ export function AgentManagementPage(props: {
       setActivePanel(intent.panel);
     }
   }, [props.intent]);
-
-  const switchProvider = useCallback(async (agent: AgentManagementAgent, model: string) => {
-    setSavingProvider(agent.provider);
-    setError(null);
-    try {
-      await agentManagementSetProvider({ workspaceRoot: props.workspaceRoot, provider: agent.provider, model });
-      await refresh({ force: true });
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-    } finally {
-      setSavingProvider(null);
-    }
-  }, [props.workspaceRoot, refresh]);
-
-  const applyVersionResultToSnapshot = useCallback((provider: string, patch: Partial<AgentManagementAgent>) => {
-    setSnapshot((prev) => {
-      if (!prev) return prev;
-      const next = {
-        ...prev,
-        agents: prev.agents.map((a) => (a.provider === provider ? { ...a, ...patch } : a)),
-      };
-      AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, next);
-      return next;
-    });
-  }, [cacheKey]);
-
-  const recheckVersion = useCallback(async (agent: AgentManagementAgent) => {
-    setVersionCheckingProvider(agent.provider);
-    try {
-      const result = await agentManagementCheckToolVersion({
-        provider: agent.provider,
-        localVersion: agent.version ?? null,
-        bypassCache: true,
-      });
-      applyVersionResultToSnapshot(agent.provider, {
-        latestVersion: result.latestVersion,
-        latestChannel: result.latestChannel,
-        versionCheckedAt: result.versionCheckedAt,
-        versionCheckError: result.versionCheckError,
-        updateAvailable: result.updateAvailable,
-      });
-    } catch (err) {
-      applyVersionResultToSnapshot(agent.provider, {
-        versionCheckError: err instanceof Error ? err.message : String(err),
-        updateAvailable: false,
-      });
-    } finally {
-      setVersionCheckingProvider(null);
-    }
-  }, [applyVersionResultToSnapshot]);
-
-  const refreshAllVersions = useCallback(async () => {
-    const agents = (snapshot?.agents ?? []).filter((a) => a.status === "online" || a.version);
-    if (!agents.length) return;
-    setRefreshingVersions(true);
-    try {
-      await Promise.all(agents.map((a) => recheckVersion(a)));
-    } finally {
-      setRefreshingVersions(false);
-    }
-  }, [recheckVersion, snapshot?.agents]);
-
-  const openUpdateDialog = useCallback(async (agent: AgentManagementAgent) => {
-    setUpdateDialogAgent(agent);
-    setUpdateDialogReport(null);
-    setUpdateDialogLoading(true);
-    try {
-      const report = await agentManagementProbeInstallations({ provider: agent.provider });
-      setUpdateDialogReport(report);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setUpdateDialogLoading(false);
-    }
-  }, []);
-
-  const closeUpdateDialog = useCallback((open: boolean) => {
-    if (!open) {
-      setUpdateDialogAgent(null);
-      setUpdateDialogReport(null);
-    }
-  }, []);
-
-  const confirmUpdate = useCallback(async () => {
-    const agent = updateDialogAgent;
-    if (!agent) return;
-    setUpdateDialogLoading(true);
-    try {
-      const result = await agentManagementRunLifecycle({
-        provider: agent.provider,
-        action: "update",
-      });
-      if (!result.ok) {
-        setError(result.error ?? "Terminal launch failed");
-      }
-      // Post-update re-probe polling (up to 4 attempts, 5s apart).
-      let attempts = 0;
-      const poll = async () => {
-        attempts += 1;
-        try {
-          const versionResult = await agentManagementCheckToolVersion({
-            provider: agent.provider,
-            localVersion: null,
-            bypassCache: true,
-          });
-          applyVersionResultToSnapshot(agent.provider, {
-            latestVersion: versionResult.latestVersion,
-            latestChannel: versionResult.latestChannel,
-            versionCheckedAt: versionResult.versionCheckedAt,
-            versionCheckError: versionResult.versionCheckError,
-            updateAvailable: versionResult.updateAvailable,
-          });
-          if (!versionResult.updateAvailable) return;
-        } catch {
-          // ignore, keep polling
-        }
-        if (attempts < 4) setTimeout(() => { void poll(); }, 5000);
-      };
-      setTimeout(() => { void poll(); }, 5000);
-    } finally {
-      setUpdateDialogLoading(false);
-      setUpdateDialogAgent(null);
-      setUpdateDialogReport(null);
-    }
-  }, [applyVersionResultToSnapshot, updateDialogAgent]);
-
-
-  const runProxyAction = useCallback(async (
-    input: Parameters<typeof agentManagementSetProxy>[0],
-    busyKey: string,
-  ) => {
-    setProxyActionKey(busyKey);
-    setError(null);
-    try {
-      await agentManagementSetProxy({ ...input, workspaceRoot: props.workspaceRoot });
-      await refresh({ force: true });
-    } catch (proxyError) {
-      setError(proxyError instanceof Error ? proxyError.message : String(proxyError));
-    } finally {
-      setProxyActionKey(null);
-    }
-  }, [props.workspaceRoot, refresh]);
 
   const selectProviderApp = useCallback((app: AgentManagementProviderApp) => {
     setProviderApp(app);
@@ -657,21 +486,9 @@ export function AgentManagementPage(props: {
                   <Archive className="size-4" />
                   {t("nav.session_archive")}
                 </NavTabButton>
-              ) : null}
-              <NavTabButton
-                active={activePanel === "proxy"}
-                onClick={() => setActivePanel("proxy")}
-                size="tab"
-                shape="tab"
-              >
-                <Zap className="size-4" />
-                {t("agent_manager.proxy_control")}
-              </NavTabButton>
-            </SegmentedTabGroup>
+              ) : null}            </SegmentedTabGroup>
             <div className="text-xs text-dls-secondary">
-              {activePanel === "proxy"
-                ? t("agent_manager.proxy_desc")
-                : activePanel === "archive"
+              {activePanel === "archive"
                   ? t("agent_manager.session_archive_desc")
                 : activePanel === "mcp"
                   ? t("agent_manager.mcp.desc")
@@ -687,12 +504,6 @@ export function AgentManagementPage(props: {
             <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-dls-border bg-dls-surface">
               {props.sessionArchiveSlot}
             </div>
-          ) : activePanel === "proxy" ? (
-            <AgentManagementProxyPanel
-              snapshot={snapshot}
-              busyKey={proxyActionKey}
-              onProxyAction={runProxyAction}
-            />
           ) : activePanel === "providers" ? (
             <>
               <AgentManagementProviderPanel
@@ -722,53 +533,23 @@ export function AgentManagementPage(props: {
             />
           ) : activePanel === "agents" ? (
             <section className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Cpu className="size-4 text-dls-secondary" />
-                  <h3 className="text-sm font-medium">
-                    {t("agent_manager.provider_health")}
-                  </h3>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mac:titlebar-no-drag"
-                  disabled={refreshingVersions}
-                  onClick={() => { void refreshAllVersions(); }}
-                  data-testid="agent-manager-agents-refresh-all"
-                >
-                  {refreshingVersions ? (
-                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-1.5 size-3.5" />
-                  )}
-                  {t("agent_manager.update.refresh_all")}
-                </Button>
+              <div className="flex items-center gap-2">
+                <Cpu className="size-4 text-dls-secondary" />
+                <h3 className="text-sm font-medium">
+                  {t("agent_manager.provider_health")}
+                </h3>
               </div>
               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                 {(snapshot?.agents ?? []).map((agent) => (
                   <AgentManagementAgentCard
                     key={agent.id}
                     agent={agent}
-                    busy={savingProvider === agent.provider}
                     health={healthResults[agent.id]}
                     checking={checkingAgentId === agent.id}
-                    onSwitch={switchProvider}
                     onHealthCheck={runHealthCheck}
-                    onRecheckVersion={recheckVersion}
-                    onOpenUpdateDialog={openUpdateDialog}
-                    versionChecking={versionCheckingProvider === agent.provider}
-                    updateDismissed={dismissedVersions[agent.provider] === (agent.latestVersion ?? "")}
                   />
                 ))}
               </div>
-              <AgentManagementUpdateConfirmDialog
-                agent={updateDialogAgent}
-                report={updateDialogReport}
-                loading={updateDialogLoading}
-                onOpenChange={closeUpdateDialog}
-                onConfirm={() => { void confirmUpdate(); }}
-              />
             </section>
           ) : (
             <SkillMatrixPanel

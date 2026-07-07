@@ -6,11 +6,12 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
   openclaw: "OpenClaw",
   hermes: "Hermes",
   codex: "Codex",
+  gemini: "Gemini",
   onmyagent: "OnMyAgent",
   unknown: "未识别",
 };
 
-export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "hermes", "openclaw", "onmyagent"];
+export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "onmyagent"];
 
 export const SKILL_AGENT_TONES: Record<string, { active: string; badge: string; iconActive: string; dot: string }> = {
   opencode: {
@@ -24,6 +25,12 @@ export const SKILL_AGENT_TONES: Record<string, { active: string; badge: string; 
     badge: "bg-emerald-50 text-emerald-700",
     iconActive: "bg-emerald-50 hover:bg-emerald-100",
     dot: "bg-emerald-500",
+  },
+  gemini: {
+    active: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100",
+    badge: "bg-indigo-50 text-indigo-700",
+    iconActive: "bg-indigo-50 hover:bg-indigo-100",
+    dot: "bg-indigo-500",
   },
   claude: {
     active: "bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100",

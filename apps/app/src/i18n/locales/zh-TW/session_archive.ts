@@ -3,6 +3,7 @@ import { APP_NAME } from "../brand";
 export default {
   "session_archive.title": "會話歸檔",
   "session_archive.description": "查看不同本地 Agent 的歷史會話。",
+  "session_archive.delete": "刪除",
   "session_archive.sync": "同步",
   "session_archive.syncing": "同步中…",
   "session_archive.sync_running_status": "正在同步 {done}/{total}",
