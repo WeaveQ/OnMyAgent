@@ -1585,8 +1585,36 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  const inferredGoalRuntime = useMemo<CollaborationGoalRuntime | null>(() => {
+    if (props.goalRuntime) return null;
+    if (!isCodeGoalMode(effectiveCollaborationMode)) return null;
+    if (progressDismissedForSession && !chatStreaming) return null;
+    const firstUserMessage = renderedMessages.find(
+      (message) => message.role === "user",
+    );
+    if (!firstUserMessage) return null;
+    const objective = messageToReadableText(firstUserMessage).trim();
+    if (!objective) return null;
+    const now = Date.now();
+    return {
+      status: chatStreaming ? "running" : "waiting",
+      objective,
+      messageBaseline: 0,
+      lastRunMessageBaseline: 0,
+      startedAt: now,
+      updatedAt: now,
+      totalPausedMs: 0,
+      lastRunStartedAt: chatStreaming ? now : undefined,
+    };
+  }, [
+    chatStreaming,
+    effectiveCollaborationMode,
+    progressDismissedForSession,
+    props.goalRuntime,
+    renderedMessages,
+  ]);
   useEffect(() => {
-    if (progressDismissedForSession) return;
+    if (progressDismissedForSession && !chatStreaming) return;
     if (!isCodeGoalMode(effectiveCollaborationMode) || props.goalRuntime) return;
     const firstUserMessage = renderedMessages.find(
       (message) => message.role === "user",
@@ -2740,9 +2768,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const visiblePlanRuntime = progressDismissedForSession
     ? null
     : props.planRuntime ?? null;
-  const visibleGoalRuntime = progressDismissedForSession
+  const visibleGoalRuntime = progressDismissedForSession && !chatStreaming
     ? null
-    : props.goalRuntime ?? null;
+    : props.goalRuntime ?? inferredGoalRuntime;
   const visibleTodos = incomingHasTodos
     ? incomingTodos
     : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
