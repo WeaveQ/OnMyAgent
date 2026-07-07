@@ -214,7 +214,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
         )}
 
         {!isUser && throttledThought ? (
-          <div className="mt-2 rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-[13px] leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
+          <div className="mt-2 rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
             <div className="flex items-center gap-2">
               <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" />
               <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{throttledThought.subject}</span>
@@ -230,7 +230,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
             <button
               type="button"
               data-testid="local-agent-timeline-toggle"
-              className="inline-flex select-none items-center gap-1.5 text-[13px] leading-none text-dls-accent transition-colors hover:text-dls-accent-strong"
+              className="inline-flex select-none items-center gap-1.5 text-sm leading-none text-dls-accent transition-colors hover:text-dls-accent-strong"
               onClick={() => setTimelineExpanded((value) => !value)}
               aria-expanded={timelineExpanded}
             >

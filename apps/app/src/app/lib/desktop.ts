@@ -199,7 +199,7 @@ declare global {
       browser?: {
         show?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
         hide?: () => Promise<void>;
-        navigate?: (url: string) => Promise<void>;
+        navigate?: (url: string, options?: { announcePanelOpen?: boolean }) => Promise<void>;
         back?: () => Promise<void>;
         forward?: () => Promise<void>;
         reload?: () => Promise<void>;

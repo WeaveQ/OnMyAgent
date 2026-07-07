@@ -20,6 +20,7 @@ import {
   Settings2,
   Unplug,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 
 import { isBuiltInOnMyAgentExtension, getMcpServerName, type McpDirectoryInfo } from "../../../../app/constants";
@@ -212,48 +213,74 @@ const statusBadgeStyle = (status: ReactMcpStatus) => {
   }
 };
 
-const serviceIcon = (name: string) => {
-  const lower = name.toLowerCase();
-  if (lower.includes("notion")) return BookOpen;
-  if (lower.includes("linear")) return Zap;
-  if (lower.includes("sentry")) return CircleAlert;
-  if (lower.includes("stripe")) return CreditCard;
-  if (lower.includes("context")) return Globe;
-  if (lower.includes("devtools")) {
-    return MonitorSmartphone;
-  }
-  if (lower.includes("onmyagent") && lower.includes("cloud")) return Cloud;
-  if (lower.includes("onmyagent") && lower.includes("ui")) return MonitorSmartphone;
-  return Plug2;
+// DESIGN.md § 2 + § 11 Intentional Exceptions: MCP directory service tiles
+// keep per-brand hues (Linear/Stripe blue, Sentry purple, …). Centralized
+// here to keep icon, foreground color and tile background in a single
+// profile — previously three parallel switch statements drifted apart.
+type McpServiceProfile = {
+  icon: LucideIcon;
+  iconClass: string;
+  tileClass: string;
 };
 
-const serviceColor = (name: string) => {
-  const lower = name.toLowerCase();
-  if (lower.includes("notion")) return "text-dls-text";
-  if (lower.includes("linear")) return "text-blue-11";
-  if (lower.includes("sentry")) return "text-purple-11";
-  if (lower.includes("stripe")) return "text-blue-11";
-  if (lower.includes("context")) return "text-dls-accent";
-  if (lower.includes("devtools")) {
-    return mcpViewStateClass.devtoolsIcon;
-  }
-  if (lower.includes("onmyagent")) return "text-dls-text";
-  return "text-dls-secondary";
+const mcpServiceProfiles: Array<{ match: (lower: string) => boolean; profile: McpServiceProfile }> = [
+  {
+    match: (lower) => lower.includes("notion"),
+    profile: { icon: BookOpen, iconClass: "text-dls-text", tileClass: "bg-dls-hover border-dls-border" },
+  },
+  {
+    match: (lower) => lower.includes("linear"),
+    profile: { icon: Zap, iconClass: "text-blue-11", tileClass: "bg-blue-3 border-blue-6" },
+  },
+  {
+    match: (lower) => lower.includes("sentry"),
+    profile: { icon: CircleAlert, iconClass: "text-purple-11", tileClass: "bg-purple-3 border-purple-6" },
+  },
+  {
+    match: (lower) => lower.includes("stripe"),
+    profile: { icon: CreditCard, iconClass: "text-blue-11", tileClass: "bg-blue-3 border-blue-6" },
+  },
+  {
+    match: (lower) => lower.includes("context"),
+    profile: { icon: Globe, iconClass: "text-dls-accent", tileClass: "bg-dls-accent/10 border-dls-accent/30" },
+  },
+  {
+    match: (lower) => lower.includes("devtools"),
+    profile: {
+      icon: MonitorSmartphone,
+      iconClass: mcpViewStateClass.devtoolsIcon,
+      tileClass: mcpViewStateClass.devtoolsIconBg,
+    },
+  },
+  {
+    match: (lower) => lower.includes("onmyagent") && lower.includes("cloud"),
+    profile: { icon: Cloud, iconClass: "text-dls-text", tileClass: "bg-dls-hover border-dls-border" },
+  },
+  {
+    match: (lower) => lower.includes("onmyagent") && lower.includes("ui"),
+    profile: { icon: MonitorSmartphone, iconClass: "text-dls-text", tileClass: "bg-dls-hover border-dls-border" },
+  },
+  {
+    match: (lower) => lower.includes("onmyagent"),
+    profile: { icon: Plug2, iconClass: "text-dls-text", tileClass: "bg-dls-hover border-dls-border" },
+  },
+];
+
+const defaultMcpServiceProfile: McpServiceProfile = {
+  icon: Plug2,
+  iconClass: "text-dls-secondary",
+  tileClass: "bg-dls-hover border-dls-border",
 };
 
-const serviceIconBg = (name: string) => {
+function mcpServiceProfile(name: string): McpServiceProfile {
   const lower = name.toLowerCase();
-  if (lower.includes("notion")) return "bg-dls-hover border-dls-border";
-  if (lower.includes("linear")) return "bg-blue-3 border-blue-6";
-  if (lower.includes("sentry")) return "bg-purple-3 border-purple-6";
-  if (lower.includes("stripe")) return "bg-blue-3 border-blue-6";
-  if (lower.includes("context")) return "bg-dls-accent/10 border-dls-accent/30";
-  if (lower.includes("devtools")) {
-    return mcpViewStateClass.devtoolsIconBg;
+  for (const entry of mcpServiceProfiles) {
+    if (entry.match(lower)) return entry.profile;
   }
-  if (lower.includes("onmyagent")) return "bg-dls-hover border-dls-border";
-  return "bg-dls-hover border-dls-border";
-};
+  return defaultMcpServiceProfile;
+}
+
+const serviceIcon = (name: string) => mcpServiceProfile(name).icon;
 
 function extensionResourceLabels(entry: McpDirectoryInfo) {
   return entry.extensionManifest?.resources.map((resource) => resource.label ?? resource.id) ?? [];
@@ -1066,13 +1093,14 @@ function McpConfiguredServerRow(props: {
   onToggleEnabled?: (name: string, enabled: boolean) => Promise<void> | void;
   onToggleBusy: (value: SetStateAction<string | null>) => void;
 }) {
-  const Icon = serviceIcon(props.entry.name);
+  const profile = mcpServiceProfile(props.entry.name);
+  const Icon = profile.icon;
   return (
     <div className={`${mcpViewLayoutClass.rowShell} ${props.selected ? mcpViewLayoutClass.rowSelected : mcpViewLayoutClass.rowDefault}`}>
       <DisclosureRowButton type="button" onClick={() => props.onSelect(props.selected ? null : props.entry.name)}>
         <div className={mcpViewLayoutClass.rowMain}>
-          <div className={`${mcpViewLayoutClass.serverIcon} ${props.status === "connected" ? "border-dls-accent/30 bg-dls-accent/10" : serviceIconBg(props.entry.name)}`}>
-            <Icon size={15} className={props.status === "connected" ? "text-dls-accent" : serviceColor(props.entry.name)} />
+          <div className={`${mcpViewLayoutClass.serverIcon} ${props.status === "connected" ? "border-dls-accent/30 bg-dls-accent/10" : profile.tileClass}`}>
+            <Icon size={15} className={props.status === "connected" ? "text-dls-accent" : profile.iconClass} />
           </div>
           <div className="min-w-0 flex-1">
             <div className={mcpViewTextClass.rowTitle}>{props.displayName(props.entry.name)}</div>

@@ -2,6 +2,7 @@
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 
 export type EnvVarRow = {
@@ -25,8 +26,8 @@ export function EnvVarEditor(props: {
       </div>
       {props.rows.map((row, index) => (
         <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto]">
-          <input className="min-h-9 rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text" placeholder={t("local_agent.editor_env_name")} value={row.name} disabled={props.disabled} onChange={(event) => update(index, { ...row, name: event.target.value })} />
-          <input className="min-h-9 rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text" placeholder={t("local_agent.editor_env_value")} value={row.value} disabled={props.disabled} onChange={(event) => update(index, { ...row, value: event.target.value })} />
+          <Input variant="dls" placeholder={t("local_agent.editor_env_name")} value={row.name} disabled={props.disabled} onChange={(event) => update(index, { ...row, name: event.target.value })} />
+          <Input variant="dls" placeholder={t("local_agent.editor_env_value")} value={row.value} disabled={props.disabled} onChange={(event) => update(index, { ...row, value: event.target.value })} />
           <Button type="button" variant="outline" size="icon-sm" disabled={props.disabled} aria-label={t("common.delete")} onClick={() => props.onChange(props.rows.filter((_, current) => current !== index))}>
             <X className="size-3.5" />
           </Button>

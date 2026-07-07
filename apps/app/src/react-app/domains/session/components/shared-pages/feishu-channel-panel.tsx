@@ -1,12 +1,14 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { FolderOpen, Loader2, Play, RefreshCw, Save, Send, Square, X } from "lucide-react";
+import { FolderOpen, Loader2, Play, RefreshCw, Save, Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MonoLogBox } from "@/components/ui/mono-log-box";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { AccessibleRootRow } from "./accessible-root-row";
 import { SelectMenu } from "../../../../design-system/select-menu";
 import { t } from "../../../../../i18n";
 import {
@@ -429,7 +431,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
           </div>
         ) : (
           <>
-            <div className="mt-2 break-all rounded-md bg-dls-surface-muted p-2 font-mono text-xs text-dls-secondary">{webhookUrl}</div>
+            <MonoLogBox className="mt-2">{webhookUrl}</MonoLogBox>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <Input value={webhookHost} onChange={(event) => setWebhookHost(event.currentTarget.value)} placeholder="127.0.0.1" disabled={running || Boolean(busy)} />
               <Input value={webhookPort} onChange={(event) => setWebhookPort(event.currentTarget.value)} placeholder="8765" disabled={running || Boolean(busy)} />
@@ -464,15 +466,20 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
           {effectiveAccessibleRoots.length ? (
             <div className="mt-2 flex flex-col gap-2">
               {effectiveAccessibleRoots.map((root) => (
-                <div key={root} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-dls-border bg-dls-surface-muted px-2 py-1.5">
-                  <span className="min-w-0 truncate font-mono text-xs text-dls-text">{root}</span>
-                  <Button type="button" variant="ghost" size="icon-sm" onClick={() => setAccessibleWorkspaceRoots((current) => current.filter((item) => item !== root))} disabled={running || Boolean(busy)} aria-label={t("messaging.weixin_access_workspace_extra_remove")}>
-                    <X className="size-4" />
-                  </Button>
-                </div>
+                <AccessibleRootRow
+                  key={root}
+                  root={root}
+                  onRemove={(target) => setAccessibleWorkspaceRoots((current) => current.filter((item) => item !== target))}
+                  disabled={running || Boolean(busy)}
+                  removeLabel={t("messaging.weixin_access_workspace_extra_remove")}
+                />
               ))}
             </div>
-          ) : <div className="mt-2 rounded-md bg-dls-surface-muted px-2 py-1.5 text-xs text-dls-secondary">{t("messaging.weixin_access_workspace_extra_empty")}</div>}
+          ) : (
+            <NoticeBox tone="neutral" className="mt-2">
+              {t("messaging.weixin_access_workspace_extra_empty")}
+            </NoticeBox>
+          )}
         </div>
       </PanelSection>
 

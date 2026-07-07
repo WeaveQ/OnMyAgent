@@ -20,6 +20,11 @@ import {
 } from "./use-browser-state";
 
 type BrowserPanelProps = { onClose: () => void };
+type EmbeddedBrowserViewportProps = {
+  url?: string;
+  announcePanelOpen?: boolean;
+  className?: string;
+};
 
 function getTabLabel(tab: BrowserTabInfo) {
   if (tab.title) {
@@ -182,47 +187,22 @@ function BrowserTab({ tab }: BrowserTabProps) {
   );
 }
 
-export function BrowserPanel({ onClose }: BrowserPanelProps) {
-  const [state, dispatch] = useBrowserState();
-  const urlFocusedRef = useRef(false);
+export function EmbeddedBrowserViewport({
+  url,
+  announcePanelOpen = true,
+  className,
+}: EmbeddedBrowserViewportProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const urlInputRef = useRef<HTMLInputElement>(null);
   const shownRef = useRef(false);
   const boundsFrameRef = useRef<number | null>(null);
   const lastBoundsRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  // Subscribe to state changes from the main process
   useEffect(() => {
     const browser = getElectronBrowser();
+    if (!browser || !url) return;
+    void browser.navigate?.(url, { announcePanelOpen });
+  }, [announcePanelOpen, url]);
 
-    if (!browser) {
-      return;
-    }
-
-    const unsub = browser.onStateChange?.((s: BrowserStatePayload) => {
-      dispatch({
-        type: "browserStateChanged",
-        browserState: s,
-        syncUrlInput: !urlFocusedRef.current,
-      });
-    });
-
-    browser.getState?.().then((s: BrowserStatePayload | null) => {
-      if (s) {
-        dispatch({
-          type: "browserStateChanged",
-          browserState: s,
-          syncUrlInput: true,
-        });
-      }
-    });
-
-    return unsub;
-  }, []);
-
-  // Correct stale native bounds after every render/Fast Refresh pass. The
-  // WebContentsView is owned by Electron main process, so it can keep painting
-  // at old coordinates even when React has re-rendered the pane.
   useLayoutEffect(() => {
     const browser = getElectronBrowser();
     const content = contentRef.current;
@@ -233,7 +213,6 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
     lastBoundsRef.current = bounds;
   });
 
-  // Show the browser view when the panel mounts, keep bounds in sync, hide on unmount.
   useLayoutEffect(() => {
     const browser = getElectronBrowser();
 
@@ -311,6 +290,43 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
       shownRef.current = false;
       lastBoundsRef.current = null;
     };
+  }, []);
+
+  return <div ref={contentRef} className={className ?? "min-h-0 flex-1 overflow-hidden"} />;
+}
+
+export function BrowserPanel({ onClose }: BrowserPanelProps) {
+  const [state, dispatch] = useBrowserState();
+  const urlFocusedRef = useRef(false);
+  const urlInputRef = useRef<HTMLInputElement>(null);
+
+  // Subscribe to state changes from the main process
+  useEffect(() => {
+    const browser = getElectronBrowser();
+
+    if (!browser) {
+      return;
+    }
+
+    const unsub = browser.onStateChange?.((s: BrowserStatePayload) => {
+      dispatch({
+        type: "browserStateChanged",
+        browserState: s,
+        syncUrlInput: !urlFocusedRef.current,
+      });
+    });
+
+    browser.getState?.().then((s: BrowserStatePayload | null) => {
+      if (s) {
+        dispatch({
+          type: "browserStateChanged",
+          browserState: s,
+          syncUrlInput: true,
+        });
+      }
+    });
+
+    return unsub;
   }, []);
 
   const navigate = useCallback((url?: string) => {
@@ -443,7 +459,7 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
           </div>
         </div>
         {/* WebContentsView renders in this area (managed by Electron main process) */}
-        <div ref={contentRef} className="min-h-0 flex-1 overflow-hidden" />
+        <EmbeddedBrowserViewport />
       </div>
     </TooltipProvider>
   );
