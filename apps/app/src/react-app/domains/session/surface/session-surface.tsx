@@ -861,8 +861,14 @@ function PlanApprovalPanel(props: {
 
 const GOAL_RUNTIME_TICK_MS = 1000;
 
-function isCodeGoalMode(mode: ComposerCollaborationMode) {
-  return mode.pursueGoal === true && mode.planning !== true && mode.kind !== "craft";
+function isCodeGoalMode(
+  mode: ComposerCollaborationMode,
+  categoryId: AssistantCategoryId,
+) {
+  if (mode.pursueGoal !== true || mode.planning === true || mode.kind === "plan") {
+    return false;
+  }
+  return categoryId === "code" || mode.kind !== "craft";
 }
 
 function buildLocaleRuntimeInstruction() {
@@ -1587,7 +1593,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const inferredGoalRuntime = useMemo<CollaborationGoalRuntime | null>(() => {
     if (props.goalRuntime) return null;
-    if (!isCodeGoalMode(effectiveCollaborationMode)) return null;
+    if (!isCodeGoalMode(effectiveCollaborationMode, assistantFeatureCategoryId)) {
+      return null;
+    }
     if (progressDismissedForSession && !chatStreaming) return null;
     const firstUserMessage = renderedMessages.find(
       (message) => message.role === "user",
@@ -1608,6 +1616,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     };
   }, [
     chatStreaming,
+    assistantFeatureCategoryId,
     effectiveCollaborationMode,
     progressDismissedForSession,
     props.goalRuntime,
@@ -1615,7 +1624,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
   useEffect(() => {
     if (progressDismissedForSession && !chatStreaming) return;
-    if (!isCodeGoalMode(effectiveCollaborationMode) || props.goalRuntime) return;
+    if (
+      !isCodeGoalMode(effectiveCollaborationMode, assistantFeatureCategoryId) ||
+      props.goalRuntime
+    ) {
+      return;
+    }
     const firstUserMessage = renderedMessages.find(
       (message) => message.role === "user",
     );
@@ -1635,6 +1649,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     });
   }, [
     chatStreaming,
+    assistantFeatureCategoryId,
     effectiveCollaborationMode,
     progressDismissedForSession,
     props.goalRuntime,
@@ -2033,7 +2048,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setNoVisibleAssistantOutputBaseline(null);
     try {
       const nextDraft = buildDraft(text, attachments);
-      const goalMode = isCodeGoalMode(effectiveCollaborationMode);
+      const goalMode = isCodeGoalMode(
+        effectiveCollaborationMode,
+        assistantFeatureCategoryId,
+      );
       if (
         effectiveCollaborationMode.kind === "plan" ||
         effectiveCollaborationMode.planning
