@@ -123,6 +123,7 @@ export type ComposerDraft = {
   accessMode?: ComposerAccessMode;
   collaborationMode?: ComposerCollaborationMode;
   planningIntent?: ComposerPlanningIntent;
+  goalIntent?: ComposerGoalIntent;
   hiddenSystemPrompt?: string;
   /** Editor-visible text (may include collapsed paste placeholders). */
   text: string;
@@ -149,6 +150,11 @@ export type ComposerPlanningIntent = {
   messageBaseline: number;
 };
 
+export type ComposerGoalIntent = {
+  objective: string;
+  messageBaseline: number;
+};
+
 export type CollaborationPlanRuntime = {
   status: "drafting" | "awaiting_approval" | "executing" | "completed";
   originalPrompt: string;
@@ -157,6 +163,19 @@ export type CollaborationPlanRuntime = {
   createdAt: number;
   approvedAt?: number;
   executionBaseline?: number;
+};
+
+export type CollaborationGoalRuntime = {
+  status: "running" | "waiting" | "paused" | "completed";
+  objective: string;
+  messageBaseline: number;
+  lastRunMessageBaseline?: number;
+  startedAt: number;
+  updatedAt: number;
+  totalPausedMs: number;
+  pauseStartedAt?: number;
+  lastRunStartedAt?: number;
+  completedAt?: number;
 };
 
 export type ArtifactItem = {

@@ -172,6 +172,13 @@ export function isComposerPlanningMode(
   return mode.kind === "plan" || Boolean(mode.planning);
 }
 
+export function isComposerGoalMode(
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!mode) return false;
+  return mode.kind !== "craft" && !mode.planning && mode.pursueGoal === true;
+}
+
 const PLAN_MODE_DISABLED_TOOLS = [
   "Bash",
   "BashFunc",
@@ -322,7 +329,7 @@ export function resolveComposerRuntimeTools(
   mode: ComposerDraft["collaborationMode"],
 ) {
   if (!isComposerPlanningMode(mode)) {
-    if (mode?.kind !== "craft") return tools;
+    if (mode?.kind !== "craft" && !isComposerGoalMode(mode)) return tools;
     return {
       ...DEFAULT_EXECUTION_TOOLS,
       ...(tools ?? {}),
@@ -336,6 +343,21 @@ export function resolveComposerRuntimeTools(
     next[toolName] = false;
   }
   return next;
+}
+
+export function buildGoalRuntimeSystemPrompt(
+  input: { objective: string; status?: string } | null | undefined,
+) {
+  const objective = input?.objective.trim();
+  if (!objective) return null;
+  return [
+    "Active goal mode:",
+    `- Objective: ${objective}`,
+    "- Treat the objective as the persistent success criterion for this conversation.",
+    "- Keep working toward that objective across turns until it is complete, paused, blocked, or the user clears the goal.",
+    "- Track what remains, verify results against the objective, and report concrete progress.",
+    "- If you cannot continue without user input or an external change, say what is blocking the goal and what is needed next.",
+  ].join("\n");
 }
 
 export function buildAccessModeSystemPrompt(

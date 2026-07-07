@@ -8,11 +8,15 @@ import {
   BookOpenCheck,
   Check,
   ChevronRight,
+  Clock3,
   Code2,
   Folder,
   FolderOpen,
   Minimize2,
+  Pause,
+  Play,
   Settings2,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -33,6 +37,7 @@ import type {
   ComposerCollaborationMode,
   ComposerDraft,
   ComposerPart,
+  CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   McpServerEntry,
   McpStatusMap,
@@ -256,6 +261,8 @@ export type SessionSurfaceProps = {
   onSessionCollaborationModeChange?: (mode: ComposerCollaborationMode) => void;
   planRuntime?: CollaborationPlanRuntime | null;
   onPlanRuntimeChange?: (runtime: CollaborationPlanRuntime | null) => void;
+  goalRuntime?: CollaborationGoalRuntime | null;
+  onGoalRuntimeChange?: (runtime: CollaborationGoalRuntime | null) => void;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   modelVariantLabel: string;
@@ -829,6 +836,166 @@ function PlanApprovalPanel(props: {
   );
 }
 
+const GOAL_RUNTIME_TICK_MS = 1000;
+
+function isCodeGoalMode(mode: ComposerCollaborationMode) {
+  return mode.pursueGoal === true && mode.planning !== true && mode.kind !== "craft";
+}
+
+function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
+  return [
+    "Continue working toward the active goal.",
+    "",
+    "Objective:",
+    runtime.objective,
+    "",
+    "Treat this objective as the persistent success criterion for this conversation.",
+    "Track remaining work, verify results against the objective, and report concrete progress.",
+    "If blocked, explain the blocker and the next concrete unblock step.",
+  ].join("\n");
+}
+
+function goalElapsedMs(runtime: CollaborationGoalRuntime, now: number) {
+  const endAt = runtime.completedAt ?? now;
+  const activePauseMs =
+    runtime.status === "paused" && runtime.pauseStartedAt
+      ? Math.max(0, now - runtime.pauseStartedAt)
+      : 0;
+  return Math.max(
+    0,
+    endAt - runtime.startedAt - runtime.totalPausedMs - activePauseMs,
+  );
+}
+
+function formatGoalElapsed(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const seconds = totalSeconds % 60;
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minuteText = String(minutes).padStart(2, "0");
+  const secondText = String(seconds).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${minuteText}:${secondText}`
+    : `${minutes}:${secondText}`;
+}
+
+function goalStatusLabel(status: CollaborationGoalRuntime["status"]) {
+  if (status === "running") return t("session.goal_runtime_running");
+  if (status === "paused") return t("session.goal_runtime_paused");
+  if (status === "completed") return t("session.goal_runtime_completed");
+  return t("session.goal_runtime_waiting");
+}
+
+function goalStatusTone(status: CollaborationGoalRuntime["status"]) {
+  if (status === "running") return "warning" as const;
+  if (status === "completed") return "success" as const;
+  return "neutral" as const;
+}
+
+function GoalRuntimePanel(props: {
+  runtime: CollaborationGoalRuntime;
+  busy: boolean;
+  onPause: () => void;
+  onResume: () => void;
+  onClear: () => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const [now, setNow] = useState(Date.now());
+  const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
+  const statusLabel = goalStatusLabel(props.runtime.status);
+  const canResume = props.runtime.status === "paused" || props.runtime.status === "waiting";
+  const canPause = props.runtime.status === "running" || props.runtime.status === "waiting";
+
+  useEffect(() => {
+    if (props.runtime.status === "paused" || props.runtime.status === "completed") {
+      setNow(Date.now());
+      return;
+    }
+    const id = window.setInterval(() => setNow(Date.now()), GOAL_RUNTIME_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [props.runtime.status]);
+
+  return (
+    <div className="overflow-hidden border-b border-dls-border bg-transparent">
+      <div className="flex items-center gap-2 border-b border-dls-border px-4 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <DisclosureRowButton
+            type="button"
+            density="flush"
+            className="min-w-0 justify-start gap-2 text-xs text-dls-secondary hover:bg-transparent hover:text-dls-text"
+            onClick={() => setExpanded((current) => !current)}
+          >
+            <span className="truncate font-medium text-dls-secondary">
+              {t("session.goal_runtime_title")}
+            </span>
+            <StatusBadge tone={goalStatusTone(props.runtime.status)} size="tiny">
+              {statusLabel}
+            </StatusBadge>
+            <span className="inline-flex items-center gap-1 text-xs text-dls-secondary">
+              <Clock3 size={12} />
+              {t("session.goal_runtime_elapsed", { duration: elapsed })}
+            </span>
+          </DisclosureRowButton>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {canResume ? (
+            <Button
+              type="button"
+              size="xs"
+              onClick={props.onResume}
+              disabled={props.busy}
+            >
+              <Play data-icon="inline-start" />
+              {t("session.goal_runtime_resume")}
+            </Button>
+          ) : null}
+          {canPause ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={props.onPause}
+            >
+              <Pause data-icon="inline-start" />
+              {t("session.goal_runtime_pause")}
+            </Button>
+          ) : null}
+          <Button type="button" size="xs" variant="outline" onClick={props.onClear}>
+            <Trash2 data-icon="inline-start" />
+            {t("session.goal_runtime_clear")}
+          </Button>
+        </div>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => setExpanded((current) => !current)}
+          aria-label={
+            expanded
+              ? t("session.goal_runtime_collapse")
+              : t("session.goal_runtime_expand")
+          }
+        >
+          <Minimize2
+            size={12}
+            className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
+          />
+        </Button>
+      </div>
+      {expanded ? (
+        <div className="space-y-2.5 px-4 py-3">
+          <div className="text-sm leading-relaxed text-dls-text">
+            {props.runtime.objective}
+          </div>
+          <div className="text-xs leading-5 text-dls-secondary">
+            {t("session.goal_runtime_hint")}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PersonalAssistantHero() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-6 pb-6 pt-14 text-center">
@@ -1395,6 +1562,23 @@ export function SessionSurface(props: SessionSurfaceProps) {
     renderedMessages,
   ]);
   useEffect(() => {
+    const runtime = props.goalRuntime;
+    if (!runtime || runtime.status !== "running" || chatStreaming) return;
+    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
+    const runText = planTextFromMessages(renderedMessages.slice(baseline));
+    if (!runText) return;
+    props.onGoalRuntimeChange?.({
+      ...runtime,
+      status: "waiting",
+      updatedAt: Date.now(),
+    });
+  }, [
+    chatStreaming,
+    props.goalRuntime,
+    props.onGoalRuntimeChange,
+    renderedMessages,
+  ]);
+  useEffect(() => {
     const runtime = props.planRuntime;
     if (!runtime || runtime.status !== "executing" || chatStreaming) return;
     const executionBaseline = runtime.executionBaseline ?? runtime.messageBaseline;
@@ -1748,6 +1932,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setNoVisibleAssistantOutputBaseline(null);
     try {
       const nextDraft = buildDraft(text, attachments);
+      const goalMode = isCodeGoalMode(effectiveCollaborationMode);
       if (
         effectiveCollaborationMode.kind === "plan" ||
         effectiveCollaborationMode.planning
@@ -1756,6 +1941,22 @@ export function SessionSurface(props: SessionSurfaceProps) {
           originalPrompt: text,
           messageBaseline: renderedMessages.length,
         };
+      }
+      if (goalMode && !props.goalRuntime) {
+        nextDraft.goalIntent = {
+          objective: text,
+          messageBaseline: renderedMessages.length,
+        };
+      } else if (goalMode && props.goalRuntime) {
+        nextDraft.hiddenSystemPrompt = buildGoalHiddenSystemPrompt(props.goalRuntime);
+        props.onGoalRuntimeChange?.({
+          ...props.goalRuntime,
+          status: "running",
+          updatedAt: Date.now(),
+          lastRunStartedAt: Date.now(),
+          lastRunMessageBaseline: renderedMessages.length,
+          completedAt: undefined,
+        });
       }
       await props.onSendDraft(nextDraft);
       attachments.forEach(revokeAttachmentPreview);
@@ -1785,10 +1986,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
     draft,
     effectiveCollaborationMode.kind,
     effectiveCollaborationMode.planning,
+    effectiveCollaborationMode.pursueGoal,
     props.onDraftChange,
+    props.onGoalRuntimeChange,
     props.onSendDraft,
     props.draftOnly,
     props.draftWorkspaceDirectory,
+    props.goalRuntime,
     props.sessionId,
     props.workspaceId,
     renderedMessages.length,
@@ -1863,6 +2067,76 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.onPlanRuntimeChange,
     props.onSendDraft,
     props.planRuntime,
+    props.sessionId,
+    props.workspaceId,
+    renderedMessages.length,
+    updateCollaborationMode,
+  ]);
+
+  const resumeGoalRuntime = useCallback(async () => {
+    const runtime = props.goalRuntime;
+    if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
+    const now = Date.now();
+    const totalPausedMs =
+      runtime.status === "paused" && runtime.pauseStartedAt
+        ? runtime.totalPausedMs + Math.max(0, now - runtime.pauseStartedAt)
+        : runtime.totalPausedMs;
+    const goalMode: ComposerCollaborationMode = {
+      planning: false,
+      pursueGoal: true,
+    };
+    const nextRuntime: CollaborationGoalRuntime = {
+      ...runtime,
+      status: "running",
+      updatedAt: now,
+      totalPausedMs,
+      pauseStartedAt: undefined,
+      lastRunStartedAt: now,
+      lastRunMessageBaseline: renderedMessages.length,
+      completedAt: undefined,
+    };
+
+    setError(null);
+    setDismissedErrorMessage(null);
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+    }
+    setSending(true);
+    setAwaitingAssistantBaseline(renderedMessages.length);
+    setNoVisibleAssistantOutputBaseline(null);
+    updateCollaborationMode(goalMode);
+    props.onGoalRuntimeChange?.(nextRuntime);
+    try {
+      await props.onSendDraft({
+        ...buildDraft(t("session.goal_runtime_continue_prompt"), []),
+        collaborationMode: goalMode,
+        hiddenSystemPrompt: buildGoalHiddenSystemPrompt(nextRuntime),
+      });
+      props.onDraftChange(buildDraft("", []));
+      setSending(false);
+    } catch (nextError) {
+      const parsed = parseSessionError(nextError);
+      setError(parsed);
+      setDismissedErrorMessage(null);
+      if (!props.draftOnly) {
+        useSessionActivityStore
+          .getState()
+          .setError(props.workspaceId, props.sessionId, parsed.message);
+      }
+      props.onGoalRuntimeChange?.(runtime);
+      setAwaitingAssistantBaseline(null);
+      setNoVisibleAssistantOutputBaseline(null);
+      setSending(false);
+    }
+  }, [
+    buildDraft,
+    props.draftOnly,
+    props.goalRuntime,
+    props.onDraftChange,
+    props.onGoalRuntimeChange,
+    props.onSendDraft,
     props.sessionId,
     props.workspaceId,
     renderedMessages.length,
@@ -2380,8 +2654,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     ) : null;
 
   const visiblePlanRuntime = props.planRuntime ?? null;
+  const visibleGoalRuntime = props.goalRuntime ?? null;
   const sessionComposerAccessory =
     visiblePlanRuntime ||
+    visibleGoalRuntime ||
     props.activeQuestion ||
     (props.todos ?? []).some((todo) => todo.content.trim()) ||
     props.activePermission ? (
@@ -2394,6 +2670,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
             onExecute={executeApprovedPlan}
             onCancel={() => props.onPlanRuntimeChange?.(null)}
             onConfirm={() => props.onPlanRuntimeChange?.(null)}
+          />
+        ) : visibleGoalRuntime ? (
+          <GoalRuntimePanel
+            runtime={visibleGoalRuntime}
+            busy={sending || chatStreaming}
+            onPause={() => {
+              if (visibleGoalRuntime.status === "paused") return;
+              const now = Date.now();
+              props.onGoalRuntimeChange?.({
+                ...visibleGoalRuntime,
+                status: "paused",
+                updatedAt: now,
+                pauseStartedAt: now,
+              });
+              if (chatStreaming) void handleAbort();
+            }}
+            onResume={resumeGoalRuntime}
+            onClear={() => props.onGoalRuntimeChange?.(null)}
           />
         ) : props.activeQuestion ? (
           <QuestionPanel
