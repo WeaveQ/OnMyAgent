@@ -2506,6 +2506,12 @@ export function SessionRoute() {
           isComposerGoalMode(draft.collaborationMode) &&
           !draft.goalIntent
         ) {
+          const activityStore = useSessionActivityStore.getState();
+          const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
+          activityStore.setCompacting(selectedWorkspaceId, sessionId, true);
+          if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
+            activityStore.setCompacting(runtimeWorkspaceId, sessionId, true);
+          }
           try {
             await compactSession(opencodeClient, sessionId, selectedPromptModel, {
               auto: true,
@@ -2514,6 +2520,11 @@ export function SessionRoute() {
           } catch {
             // Best-effort: if the preflight compact check fails, preserve the
             // user's send path and let the normal prompt request report errors.
+          } finally {
+            activityStore.setCompacting(selectedWorkspaceId, sessionId, false);
+            if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
+              activityStore.setCompacting(runtimeWorkspaceId, sessionId, false);
+            }
           }
         }
         const combinedSystem = joinSystemParts([
