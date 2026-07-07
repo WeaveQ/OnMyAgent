@@ -74,12 +74,15 @@ import {
   type SessionSidebarAccount,
 } from "./session-route-model";
 import {
+  buildAccessModeSystemPrompt,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
   applySessionAccessMode,
   draftHasSendableContent,
   draftToParts,
+  isComposerPlanningMode,
   joinSystemParts,
+  resolveComposerRuntimeTools,
   resolveDraftSendPlan,
   resolveDraftText,
   routeForSettingsSection,
@@ -207,6 +210,7 @@ import {
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import type {
+  CollaborationPlanRuntime,
   ComposerDraft,
   ComposerPart,
   ModelOption,
@@ -599,6 +603,11 @@ export function SessionRoute() {
   const permissionReplyBusyRef = useRef(false);
   const [sessionAccessModeById, setSessionAccessModeById] = useState<
     Record<string, ComposerDraft["accessMode"]>
+  >({});
+  const [sessionCollaborationModeById, setSessionCollaborationModeById] =
+    useState<Record<string, ComposerDraft["collaborationMode"]>>({});
+  const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
+    Record<string, CollaborationPlanRuntime>
   >({});
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
@@ -2061,6 +2070,16 @@ export function SessionRoute() {
       return null;
     }
 
+    const composerModeSessionId = selectedSessionId ?? `draft:${selectedWorkspaceId}`;
+    const sessionAccessMode =
+      sessionAccessModeById[composerModeSessionId] ?? "default";
+    const sessionCollaborationMode =
+      sessionCollaborationModeById[composerModeSessionId] ??
+      (pageMode === "assistant"
+        ? { kind: "craft", planning: false, pursueGoal: true }
+        : { planning: false, pursueGoal: false });
+    const planRuntime = sessionPlanRuntimeById[composerModeSessionId] ?? null;
+
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
     // explicitly to SessionSurface from the per-workspace endpoint resolved
@@ -2079,6 +2098,33 @@ export function SessionRoute() {
       modelPickerOpen: compactModelPickerOpen,
       modelUnavailable: modelAvailabilityBlocksTask,
       selectedModel: effectiveModelRef ?? { providerID: "", modelID: "" },
+      sessionAccessMode,
+      onSessionAccessModeChange: (mode: ComposerDraft["accessMode"]) => {
+        setSessionAccessModeById((current) =>
+          applySessionAccessMode(current, composerModeSessionId, mode),
+        );
+      },
+      sessionCollaborationMode,
+      onSessionCollaborationModeChange: (
+        mode: ComposerDraft["collaborationMode"],
+      ) => {
+        setSessionCollaborationModeById((current) => ({
+          ...current,
+          [composerModeSessionId]: mode,
+        }));
+      },
+      planRuntime,
+      onPlanRuntimeChange: (runtime: CollaborationPlanRuntime | null) => {
+        setSessionPlanRuntimeById((current) => {
+          const next = { ...current };
+          if (!runtime) {
+            delete next[composerModeSessionId];
+          } else {
+            next[composerModeSessionId] = runtime;
+          }
+          return next;
+        });
+      },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
         local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
@@ -2099,6 +2145,7 @@ export function SessionRoute() {
           throw new Error(
             "Selected model is unavailable. Choose another model before sending.",
           );
+        const planningMode = isComposerPlanningMode(draft.collaborationMode);
 
         // Honor the "click +新会话 then send" flow: if the user activated
         // draft mode in `SessionPage`, `forceNewSessionOnNextSendRef` is
@@ -2230,6 +2277,24 @@ export function SessionRoute() {
         setSessionAccessModeById((current) =>
           applySessionAccessMode(current, sessionId, draft.accessMode),
         );
+        setSessionCollaborationModeById((current) => ({
+          ...current,
+          [sessionId]: draft.collaborationMode,
+        }));
+        const planningIntent = draft.planningIntent;
+        if (planningIntent) {
+          setSessionPlanRuntimeById((current) => {
+            const next = { ...current };
+            delete next[composerModeSessionId];
+            next[sessionId] = {
+              status: "drafting",
+              originalPrompt: planningIntent.originalPrompt,
+              messageBaseline: planningIntent.messageBaseline,
+              createdAt: Date.now(),
+            };
+            return next;
+          });
+        }
 
         const runWithCreatedSessionRuntimeSync = async <T,>(
           action: () => Promise<T>,
@@ -2255,6 +2320,11 @@ export function SessionRoute() {
         };
 
         if (draft.mode === "shell") {
+          if (planningMode) {
+            throw new Error(
+              "Plan mode cannot run shell commands. Send a normal prompt to draft the plan first.",
+            );
+          }
           await runWithCreatedSessionRuntimeSync(async () => {
             await shellInSession(opencodeClient, sessionId, text, {
               directory: taskWorkspaceRoot || undefined,
@@ -2267,6 +2337,11 @@ export function SessionRoute() {
         }
 
         if (draft.command && !skillCommandPrompt) {
+          if (planningMode) {
+            throw new Error(
+              "Plan mode cannot run slash commands directly. Send a normal prompt to draft the plan first.",
+            );
+          }
           const command = draft.command;
           const result = await runWithCreatedSessionRuntimeSync(() =>
             opencodeClient.session.command({
@@ -2331,6 +2406,10 @@ export function SessionRoute() {
             createdSession: Boolean(createdSession),
             sessionId,
           });
+        const runtimeToolAccess = resolveComposerRuntimeTools(
+          agentToolAccess,
+          draft.collaborationMode,
+        );
         // Bind the pending agent to the session we just created so the
         // avatar/system prompt don't bleed into unrelated sessions the
         // user may navigate to later.
@@ -2358,6 +2437,8 @@ export function SessionRoute() {
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
             undefined,
+          buildAccessModeSystemPrompt(draft.accessMode) || undefined,
+          draft.hiddenSystemPrompt,
         ]);
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({
@@ -2373,7 +2454,7 @@ export function SessionRoute() {
               undefined,
             agent: selectedAgent ?? undefined,
             ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-            ...(agentToolAccess ? { tools: agentToolAccess } : {}),
+            ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
             ...(combinedSystem ? { system: combinedSystem } : {}),
             directory: taskWorkspaceRoot || undefined,
           }),
@@ -2513,12 +2594,16 @@ export function SessionRoute() {
     navigate,
     opencodeBaseUrl,
     opencodeClient,
+    pageMode,
     refreshCreatedSessionSnapshot,
     selectedAgent,
     selectedSessionId,
     selectedWorkspace,
     selectedWorkspaceEndpoint,
     selectedWorkspaceId,
+    sessionAccessModeById,
+    sessionCollaborationModeById,
+    sessionPlanRuntimeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
     token,

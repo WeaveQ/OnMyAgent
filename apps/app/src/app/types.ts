@@ -122,6 +122,8 @@ export type ComposerDraft = {
   attachments: ComposerAttachment[];
   accessMode?: ComposerAccessMode;
   collaborationMode?: ComposerCollaborationMode;
+  planningIntent?: ComposerPlanningIntent;
+  hiddenSystemPrompt?: string;
   /** Editor-visible text (may include collapsed paste placeholders). */
   text: string;
   /**
@@ -140,6 +142,21 @@ export type ComposerCollaborationMode = {
   kind?: "craft" | "ask" | "plan";
   planning: boolean;
   pursueGoal: boolean;
+};
+
+export type ComposerPlanningIntent = {
+  originalPrompt: string;
+  messageBaseline: number;
+};
+
+export type CollaborationPlanRuntime = {
+  status: "drafting" | "awaiting_approval" | "executing" | "completed";
+  originalPrompt: string;
+  messageBaseline: number;
+  planText?: string;
+  createdAt: number;
+  approvedAt?: number;
+  executionBaseline?: number;
 };
 
 export type ArtifactItem = {
