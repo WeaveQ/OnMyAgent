@@ -292,9 +292,11 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
+  readSessionGoalRuntimes,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
+  writeSessionGoalRuntimes,
   writeWorkspaceOrderIds,
 } from "./session-memory";
 import { recordInspectorEvent } from "./app-inspector";
@@ -614,7 +616,7 @@ export function SessionRoute() {
   >({});
   const [sessionGoalRuntimeById, setSessionGoalRuntimeById] = useState<
     Record<string, CollaborationGoalRuntime>
-  >({});
+  >(() => readSessionGoalRuntimes());
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
   // Subscribe to pending agent so the composer's model selection reflects
@@ -626,6 +628,10 @@ export function SessionRoute() {
   // The agent's configured model can only change via the agent page edit dialog.
   const [manualModelOverride, setManualModelOverride] =
     useState<ModelRef | null>(null);
+
+  useEffect(() => {
+    writeSessionGoalRuntimes(sessionGoalRuntimeById);
+  }, [sessionGoalRuntimeById]);
 
   // Clear the manual override when a fresh "conversation from agent card"
   // flow begins. We key on `conversationStartId` (a nonce set on every
