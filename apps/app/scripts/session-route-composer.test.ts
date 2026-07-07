@@ -9,6 +9,7 @@ import {
   inboxAbsolutePath,
   inboxRelativePath,
   joinSystemParts,
+  resolveComposerRuntimeTools,
   resolveDraftSendPlan,
   routeForSettingsSection,
   sanitizeUploadFilename,
@@ -142,6 +143,61 @@ describe("session route composer", () => {
     expect(buildCollaborationModeSystemPrompt({ kind: "ask", planning: false, pursueGoal: false })).toContain("Ask 协作模式");
     expect(buildCollaborationModeSystemPrompt({ kind: "plan", planning: true, pursueGoal: false })).toContain("Plan 协作模式");
     expect(buildCollaborationModeSystemPrompt({ planning: true, pursueGoal: false })).toContain("Plan 协作模式");
+  });
+
+  test("disables built-in and custom tools while drafting a plan", () => {
+    const tools = resolveComposerRuntimeTools(
+      {
+        customCalendarTool: true,
+        existingDisabledTool: false,
+      },
+      { kind: "plan", planning: true, pursueGoal: false },
+    );
+
+    expect(tools).toMatchObject({
+      BrowserNavigate: false,
+      BashFunc: false,
+      EditFileFunc: false,
+      ReadFileFunc: false,
+      Read: false,
+      Skill: false,
+      Task: false,
+      TodoWrite: false,
+      Write: false,
+      WriteFileFunc: false,
+      browser_list: false,
+      browser_navigate: false,
+      bash_func: false,
+      customCalendarTool: false,
+      existingDisabledTool: false,
+      edit_file_func: false,
+      gitnexus_cypher: false,
+      gitnexus_list_repos: false,
+      onmyagent_extension_call: false,
+      onmyagent_list_actions: false,
+      opencode_router: false,
+      opencode_router_send: false,
+      read_file_func: false,
+      task: false,
+      todowrite: false,
+      write_file_func: false,
+    });
+  });
+
+  test("enables default execution tools in craft mode while preserving overrides", () => {
+    const tools = { customCalendarTool: true, bash: false };
+    expect(resolveComposerRuntimeTools(tools, { kind: "craft", planning: false, pursueGoal: true })).toMatchObject({
+      Write: true,
+      write_file_func: true,
+      task: true,
+      customCalendarTool: true,
+      bash: false,
+    });
+  });
+
+  test("keeps ask-mode runtime tools unchanged", () => {
+    const tools = { customCalendarTool: true };
+    expect(resolveComposerRuntimeTools(tools, { kind: "ask", planning: false, pursueGoal: false })).toBe(tools);
   });
 
   test("normalizes upload and inbox paths", () => {

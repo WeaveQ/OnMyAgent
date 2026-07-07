@@ -149,6 +149,12 @@ export function buildCollaborationModeSystemPrompt(
     instructions.push(
       "Plan 协作模式：先制定清晰的多步骤计划，说明目标、范围、风险、验证方式和下一步；默认只读取必要文件与上下文。除非用户明确要求执行计划，否则不要直接修改文件或运行有副作用的命令。",
     );
+    instructions.push(
+      "Plan mode hard gate: do not call tools, do not emit tool-call markup, and do not claim side effects are complete. Return a textual plan only until the user explicitly approves execution.",
+    );
+    instructions.push(
+      "For this response, reinterpret the user's task request as a request to draft an approval plan. Start with a plan-ready heading, use future-tense action steps, and never say that files were created, commands were run, pages were opened, or work was completed.",
+    );
   }
   if (kind === "craft" || mode.pursueGoal) {
     instructions.push(
@@ -157,6 +163,194 @@ export function buildCollaborationModeSystemPrompt(
   }
   if (instructions.length === 0) return null;
   return `协作模式系统提示词：\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`;
+}
+
+export function isComposerPlanningMode(
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!mode) return false;
+  return mode.kind === "plan" || Boolean(mode.planning);
+}
+
+const PLAN_MODE_DISABLED_TOOLS = [
+  "Bash",
+  "BashFunc",
+  "Browser",
+  "BrowserEval",
+  "BrowserNavigate",
+  "BrowserScreenshot",
+  "Edit",
+  "EditFileFunc",
+  "Glob",
+  "Grep",
+  "List",
+  "ListFileFunc",
+  "MultiEdit",
+  "NotebookEdit",
+  "Read",
+  "ReadFileFunc",
+  "Shell",
+  "Skill",
+  "SkillLoad",
+  "Task",
+  "Terminal",
+  "TodoRead",
+  "TodoWrite",
+  "WebFetch",
+  "WebSearch",
+  "Write",
+  "WriteFileFunc",
+  "apply_patch",
+  "bash",
+  "bash_func",
+  "browser",
+  "browser_click",
+  "browser_eval",
+  "browser_fill",
+  "browser_list",
+  "browser_navigate",
+  "browser_select",
+  "browser_screenshot",
+  "browser_snapshot",
+  "browser_version",
+  "create_file",
+  "create_file_func",
+  "delete_file",
+  "delete_file_func",
+  "edit",
+  "edit_file",
+  "edit_file_func",
+  "extension",
+  "gitnexus",
+  "gitnexus_analyze",
+  "gitnexus_context",
+  "gitnexus_cypher",
+  "gitnexus_detect_changes",
+  "gitnexus_explain",
+  "gitnexus_impact",
+  "gitnexus_list_repos",
+  "gitnexus_path",
+  "gitnexus_paths",
+  "gitnexus_query",
+  "gitnexus_rename",
+  "gitnexus_search",
+  "gitnexus_status",
+  "gitnexus_*",
+  "glob",
+  "grep",
+  "list",
+  "list_file_func",
+  "load_skill",
+  "mcp",
+  "multi_edit",
+  "multiedit",
+  "move_file",
+  "onmyagent_extension_list_actions",
+  "onmyagent_extension_call",
+  "onmyagent_list_actions",
+  "opencode_router",
+  "opencode_router_call",
+  "opencode_router_route",
+  "opencode_router_send",
+  "opencode_router_status",
+  "patch",
+  "read",
+  "read_file_func",
+  "shell",
+  "skill",
+  "skill_load",
+  "str_replace_editor",
+  "task",
+  "terminal",
+  "todoread",
+  "todowrite",
+  "webfetch",
+  "websearch",
+  "write",
+  "write_file",
+  "write_file_func",
+] as const;
+
+const DEFAULT_EXECUTION_TOOLS: Record<string, boolean> = {
+  Bash: true,
+  BashFunc: true,
+  Edit: true,
+  EditFileFunc: true,
+  Glob: true,
+  Grep: true,
+  List: true,
+  ListFileFunc: true,
+  MultiEdit: true,
+  Read: true,
+  ReadFileFunc: true,
+  Task: true,
+  TodoRead: true,
+  TodoWrite: true,
+  WebFetch: true,
+  WebSearch: true,
+  Write: true,
+  WriteFileFunc: true,
+  apply_patch: true,
+  bash: true,
+  bash_func: true,
+  create_file: true,
+  create_file_func: true,
+  edit: true,
+  edit_file: true,
+  edit_file_func: true,
+  glob: true,
+  grep: true,
+  list: true,
+  list_file_func: true,
+  multi_edit: true,
+  multiedit: true,
+  patch: true,
+  read: true,
+  read_file_func: true,
+  task: true,
+  todoread: true,
+  todowrite: true,
+  webfetch: true,
+  websearch: true,
+  write: true,
+  write_file: true,
+  write_file_func: true,
+};
+
+export function resolveComposerRuntimeTools(
+  tools: Record<string, boolean> | undefined,
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!isComposerPlanningMode(mode)) {
+    if (mode?.kind !== "craft") return tools;
+    return {
+      ...DEFAULT_EXECUTION_TOOLS,
+      ...(tools ?? {}),
+    };
+  }
+  const next: Record<string, boolean> = {};
+  for (const toolName of PLAN_MODE_DISABLED_TOOLS) {
+    next[toolName] = false;
+  }
+  for (const toolName of Object.keys(tools ?? {})) {
+    next[toolName] = false;
+  }
+  return next;
+}
+
+export function buildAccessModeSystemPrompt(
+  mode: ComposerDraft["accessMode"],
+) {
+  if (mode === "full") {
+    return [
+      "Access mode: full access.",
+      "The user has selected a high-trust mode. You may proceed with file edits, local commands, and network access when needed for the task, while still obeying the host runtime safety boundaries and asking before destructive or irreversible operations.",
+    ].join("\n");
+  }
+  return [
+    "Access mode: default.",
+    "Treat file writes, local commands, network access, and external state changes as actions that may require host approval. Explain the need before taking high-risk or irreversible actions.",
+  ].join("\n");
 }
 
 export async function draftToParts(
