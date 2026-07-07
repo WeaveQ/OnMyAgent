@@ -2438,6 +2438,7 @@ export function SessionRoute() {
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
             undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
+          draft.hiddenSystemPrompt,
         ]);
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({
