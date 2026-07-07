@@ -335,6 +335,8 @@ export default {
   "session.support_feedback": "打开反馈",
   "session.todo_label": "任务",
   "session.todo_progress_label": "进度",
+  "session.todo_code_changes": "改动代码信息",
+  "session.todo_code_changes_detail": "已检测到 {count} 个代码改动操作，可在会话记录中查看详情。",
   "session.plan_runtime_title": "计划待确认",
   "session.plan_runtime_drafting": "正在生成计划",
   "session.plan_runtime_ready": "已生成计划，确认后再执行。",

@@ -339,6 +339,29 @@ type PlanStepItem = {
   status: "pending" | "active" | "completed";
 };
 
+const CODE_CHANGE_TOOL_RE = /(?:edit|write|patch|apply_patch|applypatch|replace)/i;
+
+function isCodeChangePart(part: UIMessage["parts"][number]) {
+  const type = part.type.toLowerCase();
+  const isToolLike = type === "dynamic-tool" || type.startsWith("tool-");
+  if (!isToolLike) return false;
+  if (CODE_CHANGE_TOOL_RE.test(type)) return true;
+  try {
+    return CODE_CHANGE_TOOL_RE.test(JSON.stringify(part));
+  } catch {
+    return false;
+  }
+}
+
+function countCodeChangeParts(messages: UIMessage[]) {
+  return messages.reduce(
+    (total, message) =>
+      total +
+      message.parts.filter((part) => isCodeChangePart(part)).length,
+    0,
+  );
+}
+
 const PLAN_SECTION_BOUNDARY_RE =
   /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
 const PLAN_STEP_SECTION_RE =
@@ -605,12 +628,43 @@ function AssistantStatusSpacer() {
   );
 }
 
-function TodoPanel(props: { todos: TodoItem[] }) {
-  const [expanded, setExpanded] = useState(false);
+function CodeChangeInfoButton(props: {
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  if (props.count <= 0) return null;
+  return (
+    <Button
+      type="button"
+      size="xs"
+      variant={props.expanded ? "secondary" : "outline"}
+      onClick={props.onToggle}
+    >
+      <Code2 data-icon="inline-start" />
+      {t("session.todo_code_changes")}
+    </Button>
+  );
+}
+
+function CodeChangeInfoNotice(props: { count: number }) {
+  if (props.count <= 0) return null;
+  return (
+    <div className="border-t border-dls-border px-4 py-2 text-xs leading-5 text-dls-secondary">
+      {t("session.todo_code_changes_detail", { count: props.count })}
+    </div>
+  );
+}
+
+function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
+  const [pinnedExpanded, setPinnedExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [showCodeInfo, setShowCodeInfo] = useState(false);
   const todos = props.todos.filter((todo) => todo.content.trim());
   const completedTodos = todos.filter(
     (todo) => todo.status === "completed",
   ).length;
+  const expanded = pinnedExpanded || hovered;
   const progressLabel = t("session.todo_progress_label");
   const label = expanded
     ? progressLabel
@@ -619,22 +673,54 @@ function TodoPanel(props: { todos: TodoItem[] }) {
   if (todos.length === 0) return null;
 
   return (
-    <div className="overflow-hidden border-b border-dls-border bg-transparent">
-      <DisclosureRowButton
-        type="button"
-        className="justify-between px-4 py-3 text-xs text-dls-secondary hover:bg-dls-surface-muted"
-        onClick={() => setExpanded((current) => !current)}
+    <div
+      className="overflow-hidden border-b border-dls-border bg-transparent"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-2 px-4 py-2",
+          expanded || showCodeInfo ? "border-b border-dls-border" : "",
+        )}
       >
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-dls-secondary">{label}</span>
-        </div>
-        <Minimize2
-          size={12}
-          className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
+        <DisclosureRowButton
+          type="button"
+          density="flush"
+          className="min-w-0 flex-1 justify-start gap-2 text-xs text-dls-secondary hover:bg-transparent hover:text-dls-text"
+          onClick={() => setPinnedExpanded((current) => !current)}
+        >
+          <span className="truncate font-medium text-dls-secondary">
+            {label}
+          </span>
+        </DisclosureRowButton>
+        <CodeChangeInfoButton
+          count={props.codeChangeCount}
+          expanded={showCodeInfo}
+          onToggle={() => {
+            setPinnedExpanded(true);
+            setShowCodeInfo((current) => !current);
+          }}
         />
-      </DisclosureRowButton>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => setPinnedExpanded((current) => !current)}
+          aria-label={
+            expanded
+              ? t("session.plan_runtime_collapse")
+              : t("session.plan_runtime_expand")
+          }
+        >
+          <Minimize2
+            size={12}
+            className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
+          />
+        </Button>
+      </div>
       {expanded ? (
-        <div className="max-h-60 space-y-2.5 overflow-auto border-t border-dls-border px-4 pb-3">
+        <div className="max-h-60 space-y-2.5 overflow-auto px-4 pb-3">
           {todos.map((todo, index) => {
             const done = todo.status === "completed";
             const cancelled = todo.status === "cancelled";
@@ -674,6 +760,9 @@ function TodoPanel(props: { todos: TodoItem[] }) {
           })}
         </div>
       ) : null}
+      {showCodeInfo ? (
+        <CodeChangeInfoNotice count={props.codeChangeCount} />
+      ) : null}
     </div>
   );
 }
@@ -685,11 +774,15 @@ function PlanApprovalPanel(props: {
   onExecute: () => void;
   onCancel: () => void;
   onConfirm: () => void;
+  codeChangeCount: number;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [hovered, setHovered] = useState(false);
+  const [showCodeInfo, setShowCodeInfo] = useState(false);
   const isDrafting = props.runtime.status === "drafting";
   const isExecuting = props.runtime.status === "executing";
   const isCompleted = props.runtime.status === "completed";
+  const detailsExpanded = expanded || hovered;
   const planText = props.runtime.planText?.trim() || "";
   const planSteps = resolvePlanStepItems({
     planText,
@@ -709,14 +802,18 @@ function PlanApprovalPanel(props: {
         ? t("session.plan_runtime_completed")
         : t("session.plan_runtime_title");
   const label =
-    expanded || planSteps.length === 0
+    detailsExpanded || planSteps.length === 0
       ? statusLabel
       : `${progressLabel} · ${completedSteps}/${planSteps.length}`;
   const showReadyBadge =
-    expanded && props.runtime.status === "awaiting_approval";
+    detailsExpanded && props.runtime.status === "awaiting_approval";
 
   return (
-    <div className="overflow-hidden border-b border-dls-border bg-transparent">
+    <div
+      className="overflow-hidden border-b border-dls-border bg-transparent"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="flex items-center gap-2 border-b border-dls-border px-4 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <DisclosureRowButton
@@ -735,6 +832,14 @@ function PlanApprovalPanel(props: {
             ) : null}
           </DisclosureRowButton>
         </div>
+        <CodeChangeInfoButton
+          count={props.codeChangeCount}
+          expanded={showCodeInfo}
+          onToggle={() => {
+            setExpanded(true);
+            setShowCodeInfo((current) => !current);
+          }}
+        />
         {isCompleted ? (
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" size="xs" onClick={props.onConfirm}>
@@ -779,7 +884,7 @@ function PlanApprovalPanel(props: {
           />
         </Button>
       </div>
-      {expanded ? (
+      {detailsExpanded ? (
         <div className="max-h-60 space-y-2.5 overflow-auto px-4 pb-3">
           {isDrafting ? (
             <div className="pt-2.5">
@@ -831,6 +936,9 @@ function PlanApprovalPanel(props: {
             </div>
           )}
         </div>
+      ) : null}
+      {showCodeInfo ? (
+        <CodeChangeInfoNotice count={props.codeChangeCount} />
       ) : null}
     </div>
   );
@@ -901,7 +1009,7 @@ function GoalRuntimePanel(props: {
   onResume: () => void;
   onClear: () => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [now, setNow] = useState(Date.now());
   const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
   const statusLabel = goalStatusLabel(props.runtime.status);
@@ -933,6 +1041,9 @@ function GoalRuntimePanel(props: {
             <StatusBadge tone={goalStatusTone(props.runtime.status)} size="tiny">
               {statusLabel}
             </StatusBadge>
+            <span className="min-w-0 truncate text-sm text-dls-text">
+              {props.runtime.objective}
+            </span>
             <span className="inline-flex items-center gap-1 text-xs text-dls-secondary">
               <Clock3 size={12} />
               {t("session.goal_runtime_elapsed", { duration: elapsed })}
@@ -986,9 +1097,6 @@ function GoalRuntimePanel(props: {
       </div>
       {expanded ? (
         <div className="space-y-2.5 px-4 py-3">
-          <div className="text-sm leading-relaxed text-dls-text">
-            {props.runtime.objective}
-          </div>
           <div className="text-xs leading-5 text-dls-secondary">
             {t("session.goal_runtime_hint")}
           </div>
@@ -2655,10 +2763,28 @@ export function SessionSurface(props: SessionSurfaceProps) {
       />
     ) : null;
 
+  const [lastTodosBySessionId, setLastTodosBySessionId] =
+    useState<Record<string, TodoItem[]>>({});
+  const incomingTodos = props.todos ?? [];
+  const incomingHasTodos = incomingTodos.some((todo) => todo.content.trim());
+  useEffect(() => {
+    if (!incomingHasTodos) return;
+    setLastTodosBySessionId((current) => ({
+      ...current,
+      [props.sessionId]: incomingTodos,
+    }));
+  }, [incomingHasTodos, incomingTodos, props.sessionId]);
+
   const visiblePlanRuntime = props.planRuntime ?? null;
   const visibleGoalRuntime = props.goalRuntime ?? null;
-  const visibleTodos = props.todos ?? [];
+  const visibleTodos = incomingHasTodos
+    ? incomingTodos
+    : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
   const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
+  const codeChangeCount = useMemo(
+    () => countCodeChangeParts(renderedMessages),
+    [renderedMessages],
+  );
   const hasSessionAccessory = Boolean(
     visiblePlanRuntime ||
       visibleGoalRuntime ||
@@ -2677,12 +2803,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
             onExecute={executeApprovedPlan}
             onCancel={() => props.onPlanRuntimeChange?.(null)}
             onConfirm={() => props.onPlanRuntimeChange?.(null)}
+            codeChangeCount={codeChangeCount}
           />
         ) : null}
         {!visiblePlanRuntime && hasVisibleTodos ? (
-          <TodoPanel todos={visibleTodos} />
+          <TodoPanel todos={visibleTodos} codeChangeCount={codeChangeCount} />
         ) : null}
-        {!visiblePlanRuntime && visibleGoalRuntime ? (
+        {visibleGoalRuntime ? (
           <GoalRuntimePanel
             runtime={visibleGoalRuntime}
             busy={sending || chatStreaming}
@@ -2701,7 +2828,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             onClear={() => props.onGoalRuntimeChange?.(null)}
           />
         ) : null}
-        {!visiblePlanRuntime && props.activeQuestion ? (
+        {props.activeQuestion ? (
           <QuestionPanel
             questions={props.activeQuestion.questions}
             busy={props.questionReplyBusy ?? false}
