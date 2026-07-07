@@ -359,6 +359,7 @@ export default {
   "session.plan_runtime_completed": "Plan completed",
   "session.plan_runtime_execute": "Execute",
   "session.plan_runtime_cancel": "Cancel",
+  "session.plan_runtime_confirm": "OK",
   "session.plan_runtime_expand": "Expand plan",
   "session.plan_runtime_collapse": "Collapse plan",
   "session.plan_runtime_empty": "A plan is ready. Confirm to continue execution.",

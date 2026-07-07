@@ -342,6 +342,7 @@ export default {
   "session.plan_runtime_completed": "计划已完成",
   "session.plan_runtime_execute": "执行",
   "session.plan_runtime_cancel": "取消",
+  "session.plan_runtime_confirm": "确定",
   "session.plan_runtime_expand": "展开计划",
   "session.plan_runtime_collapse": "收起计划",
   "session.plan_runtime_empty": "计划已生成，可确认后继续执行。",
