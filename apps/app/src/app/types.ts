@@ -123,6 +123,7 @@ export type ComposerDraft = {
   accessMode?: ComposerAccessMode;
   collaborationMode?: ComposerCollaborationMode;
   planningIntent?: ComposerPlanningIntent;
+  hiddenSystemPrompt?: string;
   /** Editor-visible text (may include collapsed paste placeholders). */
   text: string;
   /**
@@ -149,12 +150,13 @@ export type ComposerPlanningIntent = {
 };
 
 export type CollaborationPlanRuntime = {
-  status: "drafting" | "awaiting_approval" | "executing";
+  status: "drafting" | "awaiting_approval" | "executing" | "completed";
   originalPrompt: string;
   messageBaseline: number;
   planText?: string;
   createdAt: number;
   approvedAt?: number;
+  executionBaseline?: number;
 };
 
 export type ArtifactItem = {
