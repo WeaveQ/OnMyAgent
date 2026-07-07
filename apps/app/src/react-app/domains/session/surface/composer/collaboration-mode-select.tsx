@@ -6,7 +6,6 @@ import type { ComposerCollaborationMode } from "../../../../../app/types";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Switch } from "../../../../../components/ui/switch";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../../i18n";
 
@@ -83,6 +82,22 @@ function collaborationModeValue(kind: NonNullable<ComposerCollaborationMode["kin
   };
 }
 
+function legacyCollaborationModeValue(
+  key: "planning" | "pursueGoal",
+  checked: boolean,
+): ComposerCollaborationMode {
+  if (checked) {
+    return {
+      planning: false,
+      pursueGoal: false,
+    };
+  }
+  return {
+    planning: key === "planning",
+    pursueGoal: key === "pursueGoal",
+  };
+}
+
 export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -91,7 +106,9 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
   const selectedOption =
     COLLABORATION_MODE_OPTIONS.find((option) => option.kind === selectedKind) ??
     COLLABORATION_MODE_OPTIONS[0];
-  const enabledCount = LEGACY_COLLABORATION_MODE_OPTIONS.filter((option) => props.value[option.key]).length;
+  const selectedLegacyOption =
+    LEGACY_COLLABORATION_MODE_OPTIONS.find((option) => props.value[option.key]) ??
+    null;
 
   useEffect(() => {
     if (!open) return;
@@ -115,24 +132,26 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
           variant="ghost"
           size="sm"
           className={cn("max-w-40 shrink min-w-0 px-2 disabled:cursor-not-allowed disabled:opacity-60",
-            enabledCount > 0
+            selectedLegacyOption
               ? "bg-dls-hover text-dls-text hover:bg-dls-active"
               : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
           )}
           onClick={() => setOpen((value) => !value)}
           disabled={props.disabled}
           aria-expanded={open}
-          aria-haspopup="dialog"
+          aria-haspopup="menu"
           title={t("composer.collaboration_mode")}
         >
           <Users size={14} className="shrink-0" />
-          <span className="min-w-0 truncate">{t("composer.collaboration_mode")}</span>
+          <span className="min-w-0 truncate">
+            {selectedLegacyOption?.label ?? t("composer.collaboration_mode")}
+          </span>
           <ChevronDown size={14} className="shrink-0" />
         </Button>
 
         {open ? (
           <div
-            role="dialog"
+            role="menu"
             className="absolute bottom-full left-0 z-40 mb-2 w-[min(calc(100vw-2.5rem),320px)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-1.5"
           >
             <div className="px-3 py-2 text-xs font-medium text-dls-text">
@@ -142,29 +161,28 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
               const Icon = option.Icon;
               const checked = props.value[option.key];
               return (
-                <div
+                <MenuRowButton
                   key={option.key}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-surface-muted"
+                  type="button"
+                  align="center"
+                  active={checked}
+                  className="gap-3 rounded-xl px-3 py-2.5"
+                  onClick={() => {
+                    props.onChange(
+                      legacyCollaborationModeValue(option.key, checked),
+                    );
+                  }}
+                  disabled={props.disabled}
+                  role="menuitemradio"
+                  aria-checked={checked}
                 >
                   <Icon size={18} className="shrink-0 text-dls-secondary" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-dls-text">{option.label}</div>
                     <div className="mt-0.5 truncate text-xs text-dls-secondary">{option.description}</div>
                   </div>
-                  <Switch
-                    size="sm"
-                    checked={checked}
-                    onCheckedChange={(nextChecked) => {
-                      props.onChange({
-                        planning: props.value.planning,
-                        pursueGoal: props.value.pursueGoal,
-                        [option.key]: nextChecked,
-                      });
-                    }}
-                    disabled={props.disabled}
-                    aria-label={option.label}
-                  />
-                </div>
+                  {checked ? <Check size={14} className="shrink-0 text-dls-text" /> : null}
+                </MenuRowButton>
               );
             })}
           </div>
