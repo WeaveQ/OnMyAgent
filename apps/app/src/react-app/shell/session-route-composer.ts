@@ -1,6 +1,6 @@
 import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
 import type { ComposerAttachment, ComposerDraft, ModelRef } from "../../app/types";
-import type { Language } from "../../i18n";
+import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
 
@@ -31,25 +31,7 @@ export function joinSystemParts(parts: Array<string | null | undefined>) {
 }
 
 export function buildLanguageSystemPrompt(locale: Language) {
-  if (locale === "zh") {
-    return [
-      "语言偏好：当前界面语言是简体中文。",
-      "除非用户明确要求其他语言，面向用户的回答、思考过程摘要、计划、状态说明和总结都尽量使用简体中文。",
-      "代码、命令、文件名、API 名称、专有名词和引用原文可以保留原语言。",
-    ].join("\n");
-  }
-  if (locale === "zh-TW") {
-    return [
-      "語言偏好：目前介面語言是繁體中文。",
-      "除非使用者明確要求其他語言，面向使用者的回答、思考過程摘要、計劃、狀態說明和總結都盡量使用繁體中文。",
-      "程式碼、命令、檔案名稱、API 名稱、專有名詞和引用原文可以保留原語言。",
-    ].join("\n");
-  }
-  return [
-    "Language preference: the current interface language is English.",
-    "Unless the user explicitly asks for another language, write user-facing answers, reasoning/progress summaries, plans, status notes, and final summaries in English.",
-    "Code, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
-  ].join("\n");
+  return t("session.language_system_prompt", locale);
 }
 
 export function resolveDraftSendPlan(input: {

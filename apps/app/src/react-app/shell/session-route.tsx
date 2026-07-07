@@ -294,10 +294,12 @@ import {
   readActiveWorkspaceId,
   readLastSessionFor,
   readSessionGoalRuntimes,
+  readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
   writeSessionGoalRuntimes,
+  writeSessionTodos,
   writeWorkspaceOrderIds,
 } from "./session-memory";
 import { recordInspectorEvent } from "./app-inspector";
@@ -1702,7 +1704,7 @@ export function SessionRoute() {
   );
   const todos = useQueryCacheState<TodoItem[]>(todoQueryKey, emptyTodos);
   const [lastVisibleTodosBySessionId, setLastVisibleTodosBySessionId] =
-    useState<Record<string, TodoItem[]>>({});
+    useState<Record<string, TodoItem[]>>(() => readSessionTodos());
   const todosHaveContent = todos.some((todo) => todo.content.trim());
   useEffect(() => {
     if (!selectedSessionId || !todosHaveContent) return;
@@ -1711,6 +1713,9 @@ export function SessionRoute() {
       [selectedSessionId]: todos,
     }));
   }, [selectedSessionId, todos, todosHaveContent]);
+  useEffect(() => {
+    writeSessionTodos(lastVisibleTodosBySessionId);
+  }, [lastVisibleTodosBySessionId]);
   const visibleTodos = useMemo(() => {
     if (todosHaveContent) return todos;
     if (!selectedSessionId) return todos;
@@ -2098,7 +2103,8 @@ export function SessionRoute() {
       return null;
     }
 
-    const composerModeSessionId = selectedSessionId ?? `draft:${selectedWorkspaceId}`;
+    const draftComposerModeSessionId = `draft:${selectedWorkspaceId}`;
+    const composerModeSessionId = selectedSessionId ?? draftComposerModeSessionId;
     const sessionAccessMode =
       sessionAccessModeById[composerModeSessionId] ?? "default";
     const sessionCollaborationMode =
@@ -2106,8 +2112,14 @@ export function SessionRoute() {
       (pageMode === "assistant"
         ? { kind: "craft", planning: false, pursueGoal: true }
         : { planning: false, pursueGoal: false });
-    const planRuntime = sessionPlanRuntimeById[composerModeSessionId] ?? null;
-    const goalRuntime = sessionGoalRuntimeById[composerModeSessionId] ?? null;
+    const planRuntime =
+      sessionPlanRuntimeById[composerModeSessionId] ??
+      sessionPlanRuntimeById[draftComposerModeSessionId] ??
+      null;
+    const goalRuntime =
+      sessionGoalRuntimeById[composerModeSessionId] ??
+      sessionGoalRuntimeById[draftComposerModeSessionId] ??
+      null;
 
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those

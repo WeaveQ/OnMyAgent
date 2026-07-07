@@ -22,7 +22,7 @@ import {
 
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
-import { t } from "../../../../i18n";
+import { currentLocale, t } from "../../../../i18n";
 import {
   readWorkspaceCloudImports,
   type CloudImportedPlugin,
@@ -950,18 +950,40 @@ function isCodeGoalMode(mode: ComposerCollaborationMode) {
   return mode.pursueGoal === true && mode.planning !== true && mode.kind !== "craft";
 }
 
+function buildLocaleRuntimeInstruction() {
+  return t("session.runtime_language_requirement", currentLocale());
+}
+
 function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
   return [
-    "Continue working toward the active goal.",
+    buildLocaleRuntimeInstruction(),
     "",
-    "Objective:",
+    t("session.goal_hidden_continue"),
+    "",
+    t("session.goal_hidden_objective_label"),
     runtime.objective,
     "",
-    "Treat this objective as the persistent success criterion for this conversation.",
-    "Decide the next concrete step from the existing transcript before acting.",
-    "Do not stop after partial progress when another safe, relevant step remains available.",
-    "Track remaining work, verify results against the objective, and report concrete progress.",
-    "If blocked, explain the blocker and the next concrete unblock step.",
+    t("session.goal_hidden_success_criterion"),
+    t("session.goal_hidden_next_step"),
+    t("session.goal_hidden_continue_when_safe"),
+    t("session.goal_hidden_track_progress"),
+    t("session.goal_hidden_blocker"),
+  ].join("\n");
+}
+
+function buildPlanExecutionHiddenSystemPrompt(runtime: CollaborationPlanRuntime) {
+  return [
+    buildLocaleRuntimeInstruction(),
+    "",
+    t("session.plan_hidden_execute_now"),
+    t("session.plan_hidden_approval_granted"),
+    t("session.plan_hidden_use_tools"),
+    "",
+    t("session.plan_hidden_original_request_label"),
+    runtime.originalPrompt,
+    "",
+    t("session.plan_hidden_approved_plan_label"),
+    runtime.planText?.trim() || t("session.plan_runtime_empty"),
   ].join("\n");
 }
 
@@ -1654,6 +1676,32 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [snapshot, transcriptState],
   );
   useEffect(() => {
+    if (!isCodeGoalMode(effectiveCollaborationMode) || props.goalRuntime) return;
+    const firstUserMessage = renderedMessages.find(
+      (message) => message.role === "user",
+    );
+    if (!firstUserMessage) return;
+    const objective = messageToReadableText(firstUserMessage).trim();
+    if (!objective) return;
+    const now = Date.now();
+    props.onGoalRuntimeChange?.({
+      status: chatStreaming ? "running" : "waiting",
+      objective,
+      messageBaseline: 0,
+      lastRunMessageBaseline: 0,
+      startedAt: now,
+      updatedAt: now,
+      totalPausedMs: 0,
+      lastRunStartedAt: chatStreaming ? now : undefined,
+    });
+  }, [
+    chatStreaming,
+    effectiveCollaborationMode,
+    props.goalRuntime,
+    props.onGoalRuntimeChange,
+    renderedMessages,
+  ]);
+  useEffect(() => {
     const runtime = props.planRuntime;
     if (!runtime || runtime.status !== "drafting" || chatStreaming) return;
     const planText = planTextFromMessages(
@@ -2117,17 +2165,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: effectiveCollaborationMode.pursueGoal,
     };
-    const executionSystemPrompt = [
-      "Execute the approved plan for the original request now.",
-      "The user has approved execution, so any previous plan-mode text-only or no-tool restriction inside the approved plan is no longer active.",
-      "Use the available execution tools as needed to make the requested changes and verify the result.",
-      "",
-      "Original request:",
-      runtime.originalPrompt,
-      "",
-      "Approved plan:",
-      runtime.planText?.trim() || t("session.plan_runtime_empty"),
-    ].join("\n");
+    const executionSystemPrompt = buildPlanExecutionHiddenSystemPrompt(runtime);
     const executionPrompt = t("session.plan_runtime_execute");
 
     setError(null);
@@ -2785,68 +2823,64 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => countCodeChangeParts(renderedMessages),
     [renderedMessages],
   );
-  const hasSessionAccessory = Boolean(
-    visiblePlanRuntime ||
-      visibleGoalRuntime ||
-      props.activeQuestion ||
-      hasVisibleTodos ||
-      props.activePermission,
-  );
+  const planOrTodoAccessory = visiblePlanRuntime ? (
+    <PlanApprovalPanel
+      runtime={visiblePlanRuntime}
+      todos={visibleTodos}
+      busy={sending || chatStreaming}
+      onExecute={executeApprovedPlan}
+      onCancel={() => props.onPlanRuntimeChange?.(null)}
+      onConfirm={() => props.onPlanRuntimeChange?.(null)}
+      codeChangeCount={codeChangeCount}
+    />
+  ) : hasVisibleTodos ? (
+    <TodoPanel todos={visibleTodos} codeChangeCount={codeChangeCount} />
+  ) : null;
+  const goalAccessory = visibleGoalRuntime ? (
+    <GoalRuntimePanel
+      runtime={visibleGoalRuntime}
+      busy={sending || chatStreaming}
+      onPause={() => {
+        if (visibleGoalRuntime.status === "paused") return;
+        const now = Date.now();
+        props.onGoalRuntimeChange?.({
+          ...visibleGoalRuntime,
+          status: "paused",
+          updatedAt: now,
+          pauseStartedAt: now,
+        });
+        if (chatStreaming) void handleAbort();
+      }}
+      onResume={resumeGoalRuntime}
+      onClear={() => props.onGoalRuntimeChange?.(null)}
+    />
+  ) : null;
+  const questionAccessory = props.activeQuestion ? (
+    <QuestionPanel
+      questions={props.activeQuestion.questions}
+      busy={props.questionReplyBusy ?? false}
+      onReply={(answers) => {
+        if (props.activeQuestion) {
+          props.respondQuestion?.(props.activeQuestion.id, answers);
+        }
+      }}
+    />
+  ) : null;
+  const permissionAccessory = props.activePermission ? (
+    <PermissionApprovalPanel
+      permission={props.activePermission}
+      busy={props.permissionReplyBusy}
+      respondPermission={props.respondPermission}
+      safeStringify={props.safeStringify}
+    />
+  ) : null;
   const sessionComposerAccessory =
-    hasSessionAccessory ? (
+    planOrTodoAccessory || goalAccessory || questionAccessory || permissionAccessory ? (
       <div>
-        {visiblePlanRuntime ? (
-          <PlanApprovalPanel
-            runtime={visiblePlanRuntime}
-            todos={visibleTodos}
-            busy={sending || chatStreaming}
-            onExecute={executeApprovedPlan}
-            onCancel={() => props.onPlanRuntimeChange?.(null)}
-            onConfirm={() => props.onPlanRuntimeChange?.(null)}
-            codeChangeCount={codeChangeCount}
-          />
-        ) : null}
-        {!visiblePlanRuntime && hasVisibleTodos ? (
-          <TodoPanel todos={visibleTodos} codeChangeCount={codeChangeCount} />
-        ) : null}
-        {visibleGoalRuntime ? (
-          <GoalRuntimePanel
-            runtime={visibleGoalRuntime}
-            busy={sending || chatStreaming}
-            onPause={() => {
-              if (visibleGoalRuntime.status === "paused") return;
-              const now = Date.now();
-              props.onGoalRuntimeChange?.({
-                ...visibleGoalRuntime,
-                status: "paused",
-                updatedAt: now,
-                pauseStartedAt: now,
-              });
-              if (chatStreaming) void handleAbort();
-            }}
-            onResume={resumeGoalRuntime}
-            onClear={() => props.onGoalRuntimeChange?.(null)}
-          />
-        ) : null}
-        {props.activeQuestion ? (
-          <QuestionPanel
-            questions={props.activeQuestion.questions}
-            busy={props.questionReplyBusy ?? false}
-            onReply={(answers) => {
-              if (props.activeQuestion) {
-                props.respondQuestion?.(props.activeQuestion.id, answers);
-              }
-            }}
-          />
-        ) : null}
-        {props.activePermission ? (
-          <PermissionApprovalPanel
-            permission={props.activePermission}
-            busy={props.permissionReplyBusy}
-            respondPermission={props.respondPermission}
-            safeStringify={props.safeStringify}
-          />
-        ) : null}
+        {planOrTodoAccessory}
+        {goalAccessory}
+        {questionAccessory}
+        {permissionAccessory}
       </div>
     ) : null;
 
