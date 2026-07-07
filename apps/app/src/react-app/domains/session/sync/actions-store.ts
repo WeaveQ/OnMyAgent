@@ -32,6 +32,7 @@ import type {
 } from "../../../../app/types";
 import { addOpencodeCacheHint, safeStringify } from "../../../../app/utils";
 import { clearSessionDraft, saveSessionDraft } from "./draft-store";
+import { useSessionActivityStore } from "../status/session-activity-store";
 
 type SessionModelConfig = {
   applyPendingSessionChoice: (sessionId: string) => void;
@@ -665,6 +666,10 @@ export function createSessionActionsStore(options: {
       model: modelLabel,
       variant: options.sanitizeModelVariantForRef(model, options.modelVariant()) ?? null,
     });
+    const workspaceId = options.selectedWorkspaceId().trim();
+    if (workspaceId) {
+      useSessionActivityStore.getState().setCompacting(workspaceId, sessionID, true);
+    }
 
     try {
       await compactSessionTyped(c, sessionID, model, {
@@ -683,6 +688,10 @@ export function createSessionActionsStore(options: {
         error: error instanceof Error ? error.message : safeStringify(error),
       });
       throw error;
+    } finally {
+      if (workspaceId) {
+        useSessionActivityStore.getState().setCompacting(workspaceId, sessionID, false);
+      }
     }
   }
 
