@@ -326,6 +326,198 @@ function planTextFromMessages(messages: UIMessage[]) {
     .trim();
 }
 
+type PlanStepItem = {
+  id: string;
+  content: string;
+  status: "pending" | "active" | "completed";
+};
+
+const PLAN_SECTION_BOUNDARY_RE =
+  /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
+const PLAN_STEP_SECTION_RE =
+  /^(?:#{1,6}\s*)?(?:\u6267\u884c\u6b65\u9aa4|\u5b9e\u65bd\u6b65\u9aa4|\u8ba1\u5212\u6b65\u9aa4|\u6b65\u9aa4)(?:\s|$|\uff08|:|\uff1a)/;
+const PLAN_HEADING_RE =
+  /^(?:#{1,6}\s*)?(?:plan|\u8ba1\u5212)(?:\s|$|:|\uff1a)/i;
+
+function cleanPlanStepLine(line: string) {
+  return line
+    .replace(/^[-*]\s+/, "")
+    .replace(/^\d+[.)、]\s*/, "")
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isUsefulPlanStep(step: string) {
+  const lower = step.toLowerCase();
+  if (!step) return false;
+  if (lower.startsWith("#")) return false;
+  if (lower.startsWith("risk:")) return false;
+  if (lower.startsWith("reversibility:")) return false;
+  if (lower.startsWith("impact:")) return false;
+  if (lower.startsWith("verification:")) return false;
+  if (lower.startsWith("scope:")) return false;
+  if (lower.startsWith("note:")) return false;
+  if (lower.includes("reversible")) return false;
+  if (lower.startsWith("plan mode hard gate")) return false;
+  if (lower.startsWith("for this response")) return false;
+  if (lower.startsWith("file path")) return false;
+  if (lower.includes("<tool_call>")) return false;
+  if (lower.includes("file[path=")) return false;
+  if (lower.includes("tool_call")) return false;
+  if (lower.startsWith("the user wants")) return false;
+  if (lower.startsWith("user wants")) return false;
+  if (lower.startsWith("let me ")) return false;
+  if (lower.startsWith("i should ")) return false;
+  if (lower.startsWith("i will ")) return false;
+  if (lower.startsWith("i'll ")) return false;
+  if (lower.startsWith("\u7528\u6237\u8981\u6c42")) return false;
+  if (lower.startsWith("\u6211\u6765")) return false;
+  if (lower.startsWith("\u6211\u4f1a")) return false;
+  if (lower.startsWith("\u98ce\u9669")) return false;
+  if (lower.startsWith("\u8986\u76d6\u98ce\u9669")) return false;
+  if (lower.includes("\u98ce\u9669")) return false;
+  if (lower.includes("\u51b2\u7a81")) return false;
+  if (lower.includes("\u5f71\u54cd")) return false;
+  if (lower.includes("\u53ef\u9006")) return false;
+  if (lower.includes("\u540c\u540d\u6587\u4ef6")) return false;
+  if (lower.includes("\u8986\u76d6")) return false;
+  if (lower.startsWith("\u53ef\u9006\u6027")) return false;
+  if (lower.startsWith("\u9ad8\u53ef\u9006")) return false;
+  if (lower.startsWith("\u5f71\u54cd\u8303\u56f4")) return false;
+  if (lower.startsWith("\u9a8c\u8bc1")) return false;
+  if (lower.startsWith("\u521b\u5efa\u540e\u8bfb\u53d6")) return false;
+  if (lower.startsWith("\u6587\u4ef6\u8def\u5f84")) return false;
+  if (lower.startsWith("\u6d4b\u8bd5\u5185\u5bb9\u6587\u6848")) return false;
+  if (lower.startsWith("\u4e0d\u6d89\u53ca\u7f51\u7edc")) return false;
+  if (lower.startsWith("\u4e0d\u6d89\u53ca")) return false;
+  if (lower.startsWith("\u4ec5")) return false;
+  if (lower.includes("\u4e0d\u4fee\u6539")) return false;
+  if (lower.includes("\u56de\u62a5")) return false;
+  if (lower.includes("\u544a\u77e5")) return false;
+  if (lower.startsWith("\u8303\u56f4")) return false;
+  if (lower.startsWith("\u6ce8\u610f")) return false;
+  return true;
+}
+
+function uniquePlanSteps(steps: string[]) {
+  const seen = new Set<string>();
+  return steps.filter((step) => {
+    const key = step.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function extractPlanSteps(planText: string): PlanStepItem[] {
+  const lines = planText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const sectionSteps: string[] = [];
+  let readingStepSection = false;
+
+  for (const line of lines) {
+    if (PLAN_STEP_SECTION_RE.test(line)) {
+      readingStepSection = true;
+      continue;
+    }
+    if (readingStepSection && PLAN_SECTION_BOUNDARY_RE.test(line)) {
+      readingStepSection = false;
+      continue;
+    }
+    if (!readingStepSection) continue;
+    if (!/^[-*]\s+|\d+[.)、]\s*/.test(line)) continue;
+    const step = cleanPlanStepLine(line);
+    if (isUsefulPlanStep(step)) sectionSteps.push(step);
+  }
+
+  const planHeadingIndex = lines.findIndex((line) => PLAN_HEADING_RE.test(line));
+  const fallbackSource =
+    planHeadingIndex >= 0 ? lines.slice(planHeadingIndex + 1) : lines;
+  const fallbackSteps =
+    sectionSteps.length > 0
+      ? sectionSteps
+      : fallbackSource
+          .filter((line) => /^[-*]\s+|\d+[.)、]\s*/.test(line))
+          .map(cleanPlanStepLine)
+          .filter(isUsefulPlanStep);
+
+  return uniquePlanSteps(fallbackSteps).slice(0, 5).map((content, index) => ({
+    id: `plan-step-${index}-${content.slice(0, 16)}`,
+    content,
+    status: "pending",
+  }));
+}
+
+function inferPlanStepsFromPrompt(prompt: string): PlanStepItem[] {
+  const lower = prompt.toLowerCase();
+  const isFileTask =
+    lower.includes(".md") ||
+    lower.includes(".txt") ||
+    lower.includes("file") ||
+    prompt.includes("\u6587\u4ef6") ||
+    prompt.includes("\u5199\u5165") ||
+    prompt.includes("\u521b\u5efa");
+  const contents = isFileTask
+    ? [
+        "\u786e\u8ba4\u76ee\u6807\u6587\u4ef6\u8def\u5f84\u548c\u5199\u5165\u5185\u5bb9",
+        "\u521b\u5efa\u6216\u66f4\u65b0\u6587\u4ef6\u5e76\u5199\u5165\u6307\u5b9a\u5185\u5bb9",
+        "\u9a8c\u8bc1\u6587\u4ef6\u5df2\u751f\u6210\u4e14\u5185\u5bb9\u7b26\u5408\u8981\u6c42",
+      ]
+    : [
+        "\u786e\u8ba4\u4efb\u52a1\u76ee\u6807\u548c\u6267\u884c\u8303\u56f4",
+        "\u6309\u8ba1\u5212\u5b8c\u6210\u6838\u5fc3\u64cd\u4f5c",
+        "\u9a8c\u8bc1\u7ed3\u679c\u5e76\u5411\u7528\u6237\u6c47\u62a5",
+      ];
+  return contents.map((content, index) => ({
+    id: `inferred-plan-step-${index}`,
+    content,
+    status: "pending",
+  }));
+}
+
+function resolvePlanStepItems(input: {
+  planText: string;
+  originalPrompt: string;
+  runtimeStatus: CollaborationPlanRuntime["status"];
+  todos: TodoItem[];
+}) {
+  const todoSteps = input.todos
+    .filter((todo) => todo.content.trim())
+    .map((todo, index): PlanStepItem => {
+      const status =
+        todo.status === "completed"
+          ? "completed"
+          : todo.status === "in_progress"
+            ? "active"
+            : "pending";
+      return {
+        id: todo.id || `todo-plan-step-${index}`,
+        content: todo.content.trim(),
+        status,
+      };
+    });
+  if (todoSteps.length > 0) return todoSteps;
+
+  const extractedPlanSteps = extractPlanSteps(input.planText);
+  const planSteps =
+    extractedPlanSteps.length > 0
+      ? extractedPlanSteps
+      : inferPlanStepsFromPrompt(input.originalPrompt);
+  if (input.runtimeStatus === "completed") {
+    return planSteps.map((step) => ({ ...step, status: "completed" as const }));
+  }
+  if (input.runtimeStatus === "executing") {
+    return planSteps.map((step, index) => ({
+      ...step,
+      status: index === 0 ? "active" : "pending",
+    }));
+  }
+  return planSteps;
+}
+
 function useSharedQueryState<T>(queryKey: readonly unknown[], fallback: T) {
   const query = useQuery<T, Error, T, readonly unknown[]>({
     queryKey,
@@ -481,53 +673,149 @@ function TodoPanel(props: { todos: TodoItem[] }) {
 
 function PlanApprovalPanel(props: {
   runtime: CollaborationPlanRuntime;
+  todos: TodoItem[];
   busy: boolean;
   onExecute: () => void;
   onCancel: () => void;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const isDrafting = props.runtime.status === "drafting";
+  const isExecuting = props.runtime.status === "executing";
+  const isCompleted = props.runtime.status === "completed";
   const planText = props.runtime.planText?.trim() || "";
+  const planSteps = resolvePlanStepItems({
+    planText,
+    originalPrompt: props.runtime.originalPrompt,
+    runtimeStatus: props.runtime.status,
+    todos: props.todos,
+  });
+  const completedSteps = planSteps.filter(
+    (step) => step.status === "completed",
+  ).length;
+  const progressLabel = t("session.todo_progress_label");
+  const label =
+    expanded || planSteps.length === 0
+      ? t("session.plan_runtime_title")
+      : `${progressLabel} · ${completedSteps}/${planSteps.length}`;
 
   return (
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
-      <div className="px-4 py-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-dls-text">
-                {t("session.plan_runtime_title")}
-              </span>
-              <StatusBadge tone={isDrafting ? "warning" : "success"} size="tiny">
+      <div className="flex items-center gap-2 border-b border-dls-border px-4 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <DisclosureRowButton
+            type="button"
+            density="flush"
+            className="min-w-0 justify-start gap-2 text-xs text-dls-secondary hover:bg-transparent hover:text-dls-text"
+            onClick={() => setExpanded((current) => !current)}
+          >
+            <span className="truncate font-medium text-dls-secondary">
+              {label}
+            </span>
+            {expanded ? (
+              <StatusBadge
+                tone={isDrafting || isExecuting ? "warning" : "success"}
+                size="tiny"
+              >
                 {isDrafting
                   ? t("session.plan_runtime_drafting")
-                  : t("session.plan_runtime_ready")}
+                  : isExecuting
+                    ? t("session.plan_runtime_executing")
+                    : isCompleted
+                      ? t("session.plan_runtime_completed")
+                      : t("session.plan_runtime_ready")}
               </StatusBadge>
-            </div>
-            <div className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-xs leading-5 text-dls-secondary">
-              {planText || t("session.plan_runtime_empty")}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              onClick={props.onCancel}
-              disabled={props.busy}
-            >
-              {t("session.plan_runtime_cancel")}
-            </Button>
-            <Button
-              type="button"
-              size="xs"
-              onClick={props.onExecute}
-              disabled={props.busy || isDrafting}
-            >
-              {t("session.plan_runtime_execute")}
-            </Button>
-          </div>
+            ) : null}
+          </DisclosureRowButton>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={props.onCancel}
+            disabled={props.busy || isExecuting || isCompleted}
+          >
+            {t("session.plan_runtime_cancel")}
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            onClick={props.onExecute}
+            disabled={props.busy || isDrafting || isExecuting || isCompleted}
+          >
+            {t("session.plan_runtime_execute")}
+          </Button>
+        </div>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => setExpanded((current) => !current)}
+          aria-label={
+            expanded
+              ? t("session.plan_runtime_collapse")
+              : t("session.plan_runtime_expand")
+          }
+        >
+          <Minimize2
+            size={12}
+            className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
+          />
+        </Button>
       </div>
+      {expanded ? (
+        <div className="max-h-60 space-y-2.5 overflow-auto px-4 pb-3">
+          {isDrafting ? (
+            <div className="pt-2.5">
+              <AssistantWaitingCard
+                label={t("session.plan_runtime_drafting")}
+                collapseLayout
+              />
+            </div>
+          ) : planSteps.length > 0 ? (
+            planSteps.map((step, index) => {
+              const done = step.status === "completed";
+              const active = step.status === "active";
+              return (
+                <div
+                  key={step.id}
+                  className="flex items-start gap-2.5 pt-2.5 first:pt-2.5"
+                >
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <div
+                      className={`flex size-4.5 items-center justify-center rounded-full border ${
+                        done
+                          ? sessionSurfaceStateClass.todoDone
+                          : active
+                            ? sessionSurfaceStateClass.todoActive
+                            : "border-dls-border bg-dls-surface text-dls-secondary"
+                      }`}
+                    >
+                      {done ? (
+                        <Check size={12} />
+                      ) : active ? (
+                        <span
+                          className={sessionSurfaceStateClass.todoActiveDot}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex-1 text-sm leading-relaxed text-dls-text">
+                    <span className="mr-1.5 text-dls-secondary">
+                      {index + 1}.
+                    </span>
+                    {step.content}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="pt-2.5 text-sm leading-relaxed text-dls-secondary">
+              {t("session.plan_runtime_empty")}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1097,6 +1385,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.planRuntime,
     renderedMessages,
   ]);
+  useEffect(() => {
+    const runtime = props.planRuntime;
+    if (!runtime || runtime.status !== "executing" || chatStreaming) return;
+    const executionBaseline = runtime.executionBaseline ?? runtime.messageBaseline;
+    const executionText = planTextFromMessages(
+      renderedMessages.slice(executionBaseline),
+    );
+    if (!executionText) return;
+    props.onPlanRuntimeChange?.({
+      ...runtime,
+      status: "completed",
+    });
+  }, [
+    chatStreaming,
+    props.onPlanRuntimeChange,
+    props.planRuntime,
+    renderedMessages,
+  ]);
   const snapshotSessionError = useMemo(
     () => readSnapshotSessionError(snapshot),
     [snapshot],
@@ -1488,7 +1794,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: effectiveCollaborationMode.pursueGoal,
     };
-    const executionPrompt = [
+    const executionSystemPrompt = [
       "Execute the approved plan for the original request now.",
       "The user has approved execution, so any previous plan-mode text-only or no-tool restriction inside the approved plan is no longer active.",
       "Use the available execution tools as needed to make the requested changes and verify the result.",
@@ -1499,6 +1805,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       "Approved plan:",
       runtime.planText?.trim() || t("session.plan_runtime_empty"),
     ].join("\n");
+    const executionPrompt = t("session.plan_runtime_execute");
 
     setError(null);
     setDismissedErrorMessage(null);
@@ -1515,13 +1822,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
       ...runtime,
       status: "executing",
       approvedAt: Date.now(),
+      executionBaseline: renderedMessages.length,
     });
     try {
       await props.onSendDraft({
         ...buildDraft(executionPrompt, []),
         collaborationMode: executionMode,
+        hiddenSystemPrompt: executionSystemPrompt,
       });
-      props.onPlanRuntimeChange?.(null);
       props.onDraftChange(buildDraft("", []));
       setSending(false);
     } catch (nextError) {
@@ -2062,10 +2370,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       />
     ) : null;
 
-  const visiblePlanRuntime =
-    props.planRuntime && props.planRuntime.status !== "executing"
-      ? props.planRuntime
-      : null;
+  const visiblePlanRuntime = props.planRuntime ?? null;
   const sessionComposerAccessory =
     visiblePlanRuntime ||
     props.activeQuestion ||
@@ -2075,6 +2380,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         {visiblePlanRuntime ? (
           <PlanApprovalPanel
             runtime={visiblePlanRuntime}
+            todos={props.todos ?? []}
             busy={sending || chatStreaming}
             onExecute={executeApprovedPlan}
             onCancel={() => props.onPlanRuntimeChange?.(null)}
