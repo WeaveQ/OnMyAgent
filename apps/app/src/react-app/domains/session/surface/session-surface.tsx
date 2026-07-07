@@ -16,6 +16,7 @@ import {
   Pause,
   Play,
   Settings2,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -638,7 +639,7 @@ function CodeChangeInfoButton(props: {
     <Button
       type="button"
       size="xs"
-      variant={props.expanded ? "secondary" : "outline"}
+      variant={props.expanded ? "secondary" : "ghost"}
       onClick={props.onToggle}
     >
       <Code2 data-icon="inline-start" />
@@ -658,13 +659,12 @@ function CodeChangeInfoNotice(props: { count: number }) {
 
 function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
   const [pinnedExpanded, setPinnedExpanded] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [showCodeInfo, setShowCodeInfo] = useState(false);
   const todos = props.todos.filter((todo) => todo.content.trim());
   const completedTodos = todos.filter(
     (todo) => todo.status === "completed",
   ).length;
-  const expanded = pinnedExpanded || hovered;
+  const expanded = pinnedExpanded;
   const progressLabel = t("session.todo_progress_label");
   const label = expanded
     ? progressLabel
@@ -673,11 +673,7 @@ function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
   if (todos.length === 0) return null;
 
   return (
-    <div
-      className="overflow-hidden border-b border-dls-border bg-transparent"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div className="overflow-hidden border-b border-dls-border bg-transparent">
       <div
         className={cn(
           "flex items-center gap-2 px-4 py-2",
@@ -777,12 +773,11 @@ function PlanApprovalPanel(props: {
   codeChangeCount: number;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [hovered, setHovered] = useState(false);
   const [showCodeInfo, setShowCodeInfo] = useState(false);
   const isDrafting = props.runtime.status === "drafting";
   const isExecuting = props.runtime.status === "executing";
   const isCompleted = props.runtime.status === "completed";
-  const detailsExpanded = expanded || hovered;
+  const detailsExpanded = expanded;
   const planText = props.runtime.planText?.trim() || "";
   const planSteps = resolvePlanStepItems({
     planText,
@@ -809,11 +804,7 @@ function PlanApprovalPanel(props: {
     detailsExpanded && props.runtime.status === "awaiting_approval";
 
   return (
-    <div
-      className="overflow-hidden border-b border-dls-border bg-transparent"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div className="overflow-hidden border-b border-dls-border bg-transparent">
       <div className="flex items-center gap-2 border-b border-dls-border px-4 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <DisclosureRowButton
@@ -1011,17 +1002,11 @@ function formatGoalElapsed(ms: number) {
     : `${minutes}:${secondText}`;
 }
 
-function goalStatusLabel(status: CollaborationGoalRuntime["status"]) {
-  if (status === "running") return t("session.goal_runtime_running");
-  if (status === "paused") return t("session.goal_runtime_paused");
-  if (status === "completed") return t("session.goal_runtime_completed");
-  return t("session.goal_runtime_waiting");
-}
-
-function goalStatusTone(status: CollaborationGoalRuntime["status"]) {
-  if (status === "running") return "warning" as const;
-  if (status === "completed") return "success" as const;
-  return "neutral" as const;
+function goalObjectiveSummary(objective: string) {
+  return objective
+    .replace(/\[pasted text [^\]]+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function GoalRuntimePanel(props: {
@@ -1031,10 +1016,9 @@ function GoalRuntimePanel(props: {
   onResume: () => void;
   onClear: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [now, setNow] = useState(Date.now());
   const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
-  const statusLabel = goalStatusLabel(props.runtime.status);
+  const objective = goalObjectiveSummary(props.runtime.objective);
   const canResume = props.runtime.status === "paused" || props.runtime.status === "waiting";
   const canPause = props.runtime.status === "running" || props.runtime.status === "waiting";
 
@@ -1049,30 +1033,24 @@ function GoalRuntimePanel(props: {
 
   return (
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
-      <div className="flex items-center gap-2 border-b border-dls-border px-4 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <DisclosureRowButton
-            type="button"
-            density="flush"
-            className="min-w-0 justify-start gap-2 text-xs text-dls-secondary hover:bg-transparent hover:text-dls-text"
-            onClick={() => setExpanded((current) => !current)}
+      <div className="flex items-center gap-3 px-4 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <Target size={14} className="shrink-0 text-dls-secondary" />
+          <span className="shrink-0 font-medium text-dls-text">
+            {t("session.goal_runtime_active")}
+          </span>
+          <span
+            className="min-w-0 truncate text-dls-secondary"
+            title={objective}
           >
-            <span className="truncate font-medium text-dls-secondary">
-              {t("session.goal_runtime_title")}
-            </span>
-            <StatusBadge tone={goalStatusTone(props.runtime.status)} size="tiny">
-              {statusLabel}
-            </StatusBadge>
-            <span className="min-w-0 truncate text-sm text-dls-text">
-              {props.runtime.objective}
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs text-dls-secondary">
-              <Clock3 size={12} />
-              {t("session.goal_runtime_elapsed", { duration: elapsed })}
-            </span>
-          </DisclosureRowButton>
+            {objective || t("session.goal_runtime_untitled")}
+          </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-xs text-dls-secondary">
+            <Clock3 size={12} />
+            {t("session.goal_runtime_elapsed", { duration: elapsed })}
+          </span>
           {canResume ? (
             <Button
               type="button"
@@ -1095,35 +1073,17 @@ function GoalRuntimePanel(props: {
               {t("session.goal_runtime_pause")}
             </Button>
           ) : null}
-          <Button type="button" size="xs" variant="outline" onClick={props.onClear}>
-            <Trash2 data-icon="inline-start" />
-            {t("session.goal_runtime_clear")}
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            onClick={props.onClear}
+            aria-label={t("session.goal_runtime_clear")}
+          >
+            <Trash2 size={14} />
           </Button>
         </div>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          onClick={() => setExpanded((current) => !current)}
-          aria-label={
-            expanded
-              ? t("session.goal_runtime_collapse")
-              : t("session.goal_runtime_expand")
-          }
-        >
-          <Minimize2
-            size={12}
-            className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
-          />
-        </Button>
       </div>
-      {expanded ? (
-        <div className="space-y-2.5 px-4 py-3">
-          <div className="text-xs leading-5 text-dls-secondary">
-            {t("session.goal_runtime_hint")}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -1223,6 +1183,10 @@ function PersonalAssistantAccessory(props: {
   );
 }
 
+function isUserCancelledError(error: SessionError) {
+  return /\b(aborted|abort|cancelled|canceled)\b/i.test(error.message);
+}
+
 function SessionErrorCard({
   error,
   onDismiss,
@@ -1234,6 +1198,16 @@ function SessionErrorCard({
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
   onOpenModelPicker?: () => void;
 }) {
+  if (isUserCancelledError(error)) {
+    return (
+      <div className="mx-auto max-w-3xl px-3 py-2 sm:px-5">
+        <div className="text-sm text-dls-secondary">
+          {t("session.user_cancelled")}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-3 py-3 sm:px-5">
       <div className={sessionSurfaceStateClass.errorPanel}>
@@ -2102,7 +2076,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       }
       if (goalMode && !props.goalRuntime) {
         nextDraft.goalIntent = {
-          objective: text,
+          objective: nextDraft.resolvedText ?? text,
           messageBaseline: renderedMessages.length,
         };
       } else if (goalMode && props.goalRuntime) {
