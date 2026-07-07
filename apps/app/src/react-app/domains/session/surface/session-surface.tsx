@@ -340,29 +340,6 @@ type PlanStepItem = {
   status: "pending" | "active" | "completed";
 };
 
-const CODE_CHANGE_TOOL_RE = /(?:edit|write|patch|apply_patch|applypatch|replace)/i;
-
-function isCodeChangePart(part: UIMessage["parts"][number]) {
-  const type = part.type.toLowerCase();
-  const isToolLike = type === "dynamic-tool" || type.startsWith("tool-");
-  if (!isToolLike) return false;
-  if (CODE_CHANGE_TOOL_RE.test(type)) return true;
-  try {
-    return CODE_CHANGE_TOOL_RE.test(JSON.stringify(part));
-  } catch {
-    return false;
-  }
-}
-
-function countCodeChangeParts(messages: UIMessage[]) {
-  return messages.reduce(
-    (total, message) =>
-      total +
-      message.parts.filter((part) => isCodeChangePart(part)).length,
-    0,
-  );
-}
-
 const PLAN_SECTION_BOUNDARY_RE =
   /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
 const PLAN_STEP_SECTION_RE =
@@ -629,37 +606,8 @@ function AssistantStatusSpacer() {
   );
 }
 
-function CodeChangeInfoButton(props: {
-  count: number;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  if (props.count <= 0) return null;
-  return (
-    <Button
-      type="button"
-      size="xs"
-      variant={props.expanded ? "secondary" : "ghost"}
-      onClick={props.onToggle}
-    >
-      <Code2 data-icon="inline-start" />
-      {t("session.todo_code_changes")}
-    </Button>
-  );
-}
-
-function CodeChangeInfoNotice(props: { count: number }) {
-  if (props.count <= 0) return null;
-  return (
-    <div className="border-t border-dls-border px-4 py-2 text-xs leading-5 text-dls-secondary">
-      {t("session.todo_code_changes_detail", { count: props.count })}
-    </div>
-  );
-}
-
-function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
+function TodoPanel(props: { todos: TodoItem[] }) {
   const [pinnedExpanded, setPinnedExpanded] = useState(false);
-  const [showCodeInfo, setShowCodeInfo] = useState(false);
   const todos = props.todos.filter((todo) => todo.content.trim());
   const completedTodos = todos.filter(
     (todo) => todo.status === "completed",
@@ -677,7 +625,7 @@ function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
       <div
         className={cn(
           "flex items-center gap-2 px-4 py-2",
-          expanded || showCodeInfo ? "border-b border-dls-border" : "",
+          expanded ? "border-b border-dls-border" : "",
         )}
       >
         <DisclosureRowButton
@@ -690,14 +638,6 @@ function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
             {label}
           </span>
         </DisclosureRowButton>
-        <CodeChangeInfoButton
-          count={props.codeChangeCount}
-          expanded={showCodeInfo}
-          onToggle={() => {
-            setPinnedExpanded(true);
-            setShowCodeInfo((current) => !current);
-          }}
-        />
         <Button
           type="button"
           size="icon-xs"
@@ -756,9 +696,6 @@ function TodoPanel(props: { todos: TodoItem[]; codeChangeCount: number }) {
           })}
         </div>
       ) : null}
-      {showCodeInfo ? (
-        <CodeChangeInfoNotice count={props.codeChangeCount} />
-      ) : null}
     </div>
   );
 }
@@ -770,10 +707,8 @@ function PlanApprovalPanel(props: {
   onExecute: () => void;
   onCancel: () => void;
   onConfirm: () => void;
-  codeChangeCount: number;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [showCodeInfo, setShowCodeInfo] = useState(false);
   const isDrafting = props.runtime.status === "drafting";
   const isExecuting = props.runtime.status === "executing";
   const isCompleted = props.runtime.status === "completed";
@@ -823,14 +758,6 @@ function PlanApprovalPanel(props: {
             ) : null}
           </DisclosureRowButton>
         </div>
-        <CodeChangeInfoButton
-          count={props.codeChangeCount}
-          expanded={showCodeInfo}
-          onToggle={() => {
-            setExpanded(true);
-            setShowCodeInfo((current) => !current);
-          }}
-        />
         {isCompleted ? (
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" size="xs" onClick={props.onConfirm}>
@@ -928,9 +855,6 @@ function PlanApprovalPanel(props: {
           )}
         </div>
       ) : null}
-      {showCodeInfo ? (
-        <CodeChangeInfoNotice count={props.codeChangeCount} />
-      ) : null}
     </div>
   );
 }
@@ -1009,6 +933,13 @@ function goalObjectiveSummary(objective: string) {
     .trim();
 }
 
+function removeRecordKey<T>(record: Record<string, T>, key: string) {
+  if (!(key in record)) return record;
+  const next = { ...record };
+  delete next[key];
+  return next;
+}
+
 function GoalRuntimePanel(props: {
   runtime: CollaborationGoalRuntime;
   busy: boolean;
@@ -1065,12 +996,13 @@ function GoalRuntimePanel(props: {
           {canPause ? (
             <Button
               type="button"
-              size="xs"
+              size="icon-xs"
               variant="outline"
               onClick={props.onPause}
+              aria-label={t("session.goal_runtime_pause")}
+              title={t("session.goal_runtime_pause")}
             >
-              <Pause data-icon="inline-start" />
-              {t("session.goal_runtime_pause")}
+              <Pause size={14} />
             </Button>
           ) : null}
           <Button
@@ -1317,6 +1249,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: false,
     });
+  const [dismissedProgressBySessionId, setDismissedProgressBySessionId] =
+    useState<Record<string, boolean>>({});
+  const progressDismissedForSession =
+    dismissedProgressBySessionId[props.sessionId] === true;
   const [officeCollaborationMode, setOfficeCollaborationMode] =
     useState<ComposerCollaborationMode>({
       kind: "craft",
@@ -1650,6 +1586,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [snapshot, transcriptState],
   );
   useEffect(() => {
+    if (progressDismissedForSession) return;
     if (!isCodeGoalMode(effectiveCollaborationMode) || props.goalRuntime) return;
     const firstUserMessage = renderedMessages.find(
       (message) => message.role === "user",
@@ -1671,6 +1608,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [
     chatStreaming,
     effectiveCollaborationMode,
+    progressDismissedForSession,
     props.goalRuntime,
     props.onGoalRuntimeChange,
     renderedMessages,
@@ -2052,6 +1990,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
     // backend can't accept the follow-up it'll surface an error via the
     // catch below. This restores the "append a prompt while it's still
     // talking" behavior that the Solid composer had.
+    setDismissedProgressBySessionId((current) =>
+      removeRecordKey(current, props.sessionId),
+    );
     setError(null);
     setDismissedErrorMessage(null);
     if (!props.draftOnly) {
@@ -2265,22 +2206,31 @@ export function SessionSurface(props: SessionSurfaceProps) {
     updateCollaborationMode,
   ]);
 
-  const handleAbort = useCallback(async () => {
-    if (!chatStreaming) return;
+  const stopActiveRun = useCallback(async () => {
     setError(null);
     setDismissedErrorMessage(null);
-    try {
-      await abortSessionSafe(opencodeClient, props.sessionId);
-      await snapshotQuery.refetch();
-    } catch (nextError) {
-      setError({
-        message:
-          nextError instanceof Error
-            ? nextError.message
-            : t("session.stop_run_failed"),
-      });
+    setSending(false);
+    setAwaitingAssistantBaseline(null);
+    setNoVisibleAssistantOutputBaseline(null);
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .setRunStatus(props.workspaceId, props.sessionId, { type: "idle" });
     }
-  }, [chatStreaming, opencodeClient, props.sessionId, snapshotQuery.refetch]);
+    await abortSessionSafe(opencodeClient, props.sessionId);
+    await snapshotQuery.refetch();
+  }, [
+    opencodeClient,
+    props.draftOnly,
+    props.sessionId,
+    props.workspaceId,
+    snapshotQuery.refetch,
+  ]);
+
+  const handleAbort = useCallback(async () => {
+    if (!chatStreaming) return;
+    await stopActiveRun();
+  }, [chatStreaming, stopActiveRun]);
 
   const handleDismissError = useCallback(() => {
     if (visibleError?.message) {
@@ -2787,16 +2737,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }));
   }, [incomingHasTodos, incomingTodos, props.sessionId]);
 
-  const visiblePlanRuntime = props.planRuntime ?? null;
-  const visibleGoalRuntime = props.goalRuntime ?? null;
+  const visiblePlanRuntime = progressDismissedForSession
+    ? null
+    : props.planRuntime ?? null;
+  const visibleGoalRuntime = progressDismissedForSession
+    ? null
+    : props.goalRuntime ?? null;
   const visibleTodos = incomingHasTodos
     ? incomingTodos
     : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
-  const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
-  const codeChangeCount = useMemo(
-    () => countCodeChangeParts(renderedMessages),
-    [renderedMessages],
-  );
+  const hasVisibleTodos =
+    !progressDismissedForSession &&
+    visibleTodos.some((todo) => todo.content.trim());
   const planOrTodoAccessory = visiblePlanRuntime ? (
     <PlanApprovalPanel
       runtime={visiblePlanRuntime}
@@ -2805,10 +2757,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       onExecute={executeApprovedPlan}
       onCancel={() => props.onPlanRuntimeChange?.(null)}
       onConfirm={() => props.onPlanRuntimeChange?.(null)}
-      codeChangeCount={codeChangeCount}
     />
   ) : hasVisibleTodos ? (
-    <TodoPanel todos={visibleTodos} codeChangeCount={codeChangeCount} />
+    <TodoPanel todos={visibleTodos} />
   ) : null;
   const goalAccessory = visibleGoalRuntime ? (
     <GoalRuntimePanel
@@ -2823,10 +2774,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
           updatedAt: now,
           pauseStartedAt: now,
         });
-        if (chatStreaming) void handleAbort();
+        void stopActiveRun();
       }}
       onResume={resumeGoalRuntime}
-      onClear={() => props.onGoalRuntimeChange?.(null)}
+      onClear={() => {
+        setDismissedProgressBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        setLastTodosBySessionId((current) =>
+          removeRecordKey(current, props.sessionId),
+        );
+        props.onGoalRuntimeChange?.(null);
+        props.onPlanRuntimeChange?.(null);
+        void stopActiveRun();
+      }}
     />
   ) : null;
   const questionAccessory = props.activeQuestion ? (
