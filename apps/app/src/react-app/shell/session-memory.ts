@@ -1,4 +1,4 @@
-import type { CollaborationGoalRuntime } from "../../app/types";
+import type { CollaborationGoalRuntime, TodoItem } from "../../app/types";
 
 /**
  * Thin localStorage wrapper for the React shell's "remember what the user had
@@ -10,6 +10,7 @@ const ACTIVE_WORKSPACE_KEY = "onmyagent.react.activeWorkspace";
 const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
+const TODOS_BY_SESSION_KEY = "onmyagent.react.todosBySession.v1";
 
 function safeGet(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -183,6 +184,21 @@ function parseGoalRuntime(value: unknown): CollaborationGoalRuntime | null {
   return runtime;
 }
 
+function parseTodoItem(value: unknown): TodoItem | null {
+  if (!isRecord(value)) return null;
+  const id = readStringField(value, "id").trim();
+  const content = readStringField(value, "content").trim();
+  const status = readStringField(value, "status").trim();
+  const priority = readStringField(value, "priority").trim();
+  if (!id || !content) return null;
+  return {
+    id,
+    content,
+    status: status || "pending",
+    priority,
+  };
+}
+
 export function readSessionGoalRuntimes(): Record<string, CollaborationGoalRuntime> {
   const raw = safeGet(GOAL_RUNTIME_BY_SESSION_KEY);
   if (!raw) return {};
@@ -213,6 +229,43 @@ export function writeSessionGoalRuntimes(
     return;
   }
   safeSet(GOAL_RUNTIME_BY_SESSION_KEY, JSON.stringify(Object.fromEntries(entries)));
+}
+
+export function readSessionTodos(): Record<string, TodoItem[]> {
+  const raw = safeGet(TODOS_BY_SESSION_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+    const result: Record<string, TodoItem[]> = {};
+    for (const [sessionId, value] of Object.entries(parsed)) {
+      const normalizedSessionId = sessionId.trim();
+      if (!normalizedSessionId || !Array.isArray(value)) continue;
+      const todos = value.flatMap((item) => {
+        const todo = parseTodoItem(item);
+        return todo ? [todo] : [];
+      });
+      if (todos.length) result[normalizedSessionId] = todos;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export function writeSessionTodos(todosBySessionId: Record<string, TodoItem[]>): void {
+  const entries = Object.entries(todosBySessionId).flatMap(([sessionId, todos]) => {
+    const normalizedSessionId = sessionId.trim();
+    const visibleTodos = todos.filter((todo) => todo.content.trim());
+    return normalizedSessionId && visibleTodos.length
+      ? [[normalizedSessionId, visibleTodos] as const]
+      : [];
+  });
+  if (!entries.length) {
+    safeSet(TODOS_BY_SESSION_KEY, null);
+    return;
+  }
+  safeSet(TODOS_BY_SESSION_KEY, JSON.stringify(Object.fromEntries(entries)));
 }
 
 export function forgetWorkspaceMemory(workspaceId: string): void {
