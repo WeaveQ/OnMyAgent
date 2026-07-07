@@ -5224,8 +5224,8 @@ ipcMain.handle("onmyagent:browser:show", (_event, bounds) =>
 ipcMain.handle("onmyagent:browser:hide", () =>
   embeddedBrowserPanel.hideBrowserView(),
 );
-ipcMain.handle("onmyagent:browser:navigate", (_event, url) =>
-  embeddedBrowserPanel.navigate(url),
+ipcMain.handle("onmyagent:browser:navigate", (_event, url, options) =>
+  embeddedBrowserPanel.navigate(url, options),
 );
 ipcMain.handle("onmyagent:browser:back", () => embeddedBrowserPanel.goBack());
 ipcMain.handle("onmyagent:browser:forward", () =>

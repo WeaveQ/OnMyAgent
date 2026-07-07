@@ -129,7 +129,7 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
   browser: {
     show(bounds) { return ipcRenderer.invoke("onmyagent:browser:show", bounds); },
     hide() { return ipcRenderer.invoke("onmyagent:browser:hide"); },
-    navigate(url) { return ipcRenderer.invoke("onmyagent:browser:navigate", url); },
+    navigate(url, options) { return ipcRenderer.invoke("onmyagent:browser:navigate", url, options); },
     back() { return ipcRenderer.invoke("onmyagent:browser:back"); },
     forward() { return ipcRenderer.invoke("onmyagent:browser:forward"); },
     reload() { return ipcRenderer.invoke("onmyagent:browser:reload"); },
