@@ -677,6 +677,7 @@ function PlanApprovalPanel(props: {
   busy: boolean;
   onExecute: () => void;
   onCancel: () => void;
+  onConfirm: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const isDrafting = props.runtime.status === "drafting";
@@ -727,25 +728,33 @@ function PlanApprovalPanel(props: {
             ) : null}
           </DisclosureRowButton>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            onClick={props.onCancel}
-            disabled={props.busy || isExecuting || isCompleted}
-          >
-            {t("session.plan_runtime_cancel")}
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            onClick={props.onExecute}
-            disabled={props.busy || isDrafting || isExecuting || isCompleted}
-          >
-            {t("session.plan_runtime_execute")}
-          </Button>
-        </div>
+        {isCompleted ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" size="xs" onClick={props.onConfirm}>
+              {t("session.plan_runtime_confirm")}
+            </Button>
+          </div>
+        ) : isExecuting ? null : (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={props.onCancel}
+              disabled={props.busy}
+            >
+              {t("session.plan_runtime_cancel")}
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              onClick={props.onExecute}
+              disabled={props.busy || isDrafting}
+            >
+              {t("session.plan_runtime_execute")}
+            </Button>
+          </div>
+        )}
         <Button
           type="button"
           size="icon-xs"
@@ -2384,6 +2393,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             busy={sending || chatStreaming}
             onExecute={executeApprovedPlan}
             onCancel={() => props.onPlanRuntimeChange?.(null)}
+            onConfirm={() => props.onPlanRuntimeChange?.(null)}
           />
         ) : props.activeQuestion ? (
           <QuestionPanel
