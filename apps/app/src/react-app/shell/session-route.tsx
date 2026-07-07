@@ -1701,6 +1701,21 @@ export function SessionRoute() {
     [selectedSessionId, selectedWorkspaceId],
   );
   const todos = useQueryCacheState<TodoItem[]>(todoQueryKey, emptyTodos);
+  const [lastVisibleTodosBySessionId, setLastVisibleTodosBySessionId] =
+    useState<Record<string, TodoItem[]>>({});
+  const todosHaveContent = todos.some((todo) => todo.content.trim());
+  useEffect(() => {
+    if (!selectedSessionId || !todosHaveContent) return;
+    setLastVisibleTodosBySessionId((current) => ({
+      ...current,
+      [selectedSessionId]: todos,
+    }));
+  }, [selectedSessionId, todos, todosHaveContent]);
+  const visibleTodos = useMemo(() => {
+    if (todosHaveContent) return todos;
+    if (!selectedSessionId) return todos;
+    return lastVisibleTodosBySessionId[selectedSessionId] ?? todos;
+  }, [lastVisibleTodosBySessionId, selectedSessionId, todos, todosHaveContent]);
   useEffect(() => {
     if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
     let cancelled = false;
@@ -3440,7 +3455,7 @@ export function SessionRoute() {
             onUndo: () => {},
             onRedo: () => {},
           }}
-          todos={todos}
+          todos={visibleTodos}
           sessionLoadingById={(sessionId) =>
             effectiveLoading &&
             Boolean(sessionId && sessionId === selectedSessionId)

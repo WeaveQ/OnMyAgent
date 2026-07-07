@@ -2657,23 +2657,32 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const visiblePlanRuntime = props.planRuntime ?? null;
   const visibleGoalRuntime = props.goalRuntime ?? null;
-  const sessionComposerAccessory =
+  const visibleTodos = props.todos ?? [];
+  const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
+  const hasSessionAccessory = Boolean(
     visiblePlanRuntime ||
-    visibleGoalRuntime ||
-    props.activeQuestion ||
-    (props.todos ?? []).some((todo) => todo.content.trim()) ||
-    props.activePermission ? (
+      visibleGoalRuntime ||
+      props.activeQuestion ||
+      hasVisibleTodos ||
+      props.activePermission,
+  );
+  const sessionComposerAccessory =
+    hasSessionAccessory ? (
       <div>
         {visiblePlanRuntime ? (
           <PlanApprovalPanel
             runtime={visiblePlanRuntime}
-            todos={props.todos ?? []}
+            todos={visibleTodos}
             busy={sending || chatStreaming}
             onExecute={executeApprovedPlan}
             onCancel={() => props.onPlanRuntimeChange?.(null)}
             onConfirm={() => props.onPlanRuntimeChange?.(null)}
           />
-        ) : visibleGoalRuntime ? (
+        ) : null}
+        {!visiblePlanRuntime && hasVisibleTodos ? (
+          <TodoPanel todos={visibleTodos} />
+        ) : null}
+        {!visiblePlanRuntime && visibleGoalRuntime ? (
           <GoalRuntimePanel
             runtime={visibleGoalRuntime}
             busy={sending || chatStreaming}
@@ -2691,7 +2700,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
             onResume={resumeGoalRuntime}
             onClear={() => props.onGoalRuntimeChange?.(null)}
           />
-        ) : props.activeQuestion ? (
+        ) : null}
+        {!visiblePlanRuntime && props.activeQuestion ? (
           <QuestionPanel
             questions={props.activeQuestion.questions}
             busy={props.questionReplyBusy ?? false}
@@ -2701,9 +2711,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
             }}
           />
-        ) : (
-          <TodoPanel todos={props.todos ?? []} />
-        )}
+        ) : null}
         {props.activePermission ? (
           <PermissionApprovalPanel
             permission={props.activePermission}
