@@ -72,6 +72,8 @@ import type {
   PersonalLocalAgentOverridesResult,
   PersonalLocalAgentConversationConfirmationsResult,
   PersonalLocalAgentConversationGetResult,
+  PersonalLocalAgentConversationGetByIdResult,
+  PersonalLocalAgentChannelConversationsListResult,
   PersonalLocalAgentConversationInput,
   PersonalLocalAgentConversationStatusResult,
   PersonalLocalAgentConversationWarmupResult,
@@ -1173,6 +1175,42 @@ export function personalLocalAgentConversationGet(
 ): Promise<PersonalLocalAgentConversationGetResult> {
   return invokeElectronHelper<PersonalLocalAgentConversationGetResult>(
     "personalLocalAgentConversationGet",
+    input,
+  );
+}
+
+export function personalLocalAgentConversationGetById(
+  input: { workspaceRoot: string; conversationId: string },
+): Promise<PersonalLocalAgentConversationGetByIdResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationGetByIdResult>(
+    "personalLocalAgentConversationGetById",
+    input,
+  );
+}
+
+export function personalLocalAgentChannelConversationsList(
+  input: { workspaceRoot: string },
+): Promise<PersonalLocalAgentChannelConversationsListResult> {
+  return invokeElectronHelper<PersonalLocalAgentChannelConversationsListResult>(
+    "personalLocalAgentChannelConversationsList",
+    input,
+  );
+}
+
+export function personalLocalAgentConversationsListByProvider(
+  input: PersonalLocalAgentConversationInput,
+): Promise<PersonalLocalAgentConversationsListByProviderResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationsListByProviderResult>(
+    "personalLocalAgentConversationsListByProvider",
+    input,
+  );
+}
+
+export function personalLocalAgentConversationImportFromArchive(
+  input: PersonalLocalAgentConversationImportInput,
+): Promise<PersonalLocalAgentConversationImportResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationImportResult>(
+    "personalLocalAgentConversationImportFromArchive",
     input,
   );
 }

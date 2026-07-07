@@ -15,8 +15,12 @@ import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMes
 import {
   createConversation,
   getConversation,
+  getConversationById,
   getOrCreateConversation,
+  importConversationFromArchive,
+  listChannelConversations,
   listConversations,
+  listConversationsByProvider,
   readConversationEvents,
   resetConversationPointer,
   updateConversation,
@@ -1115,6 +1119,45 @@ export function createPersonalAgentRuntime(options) {
     return { conversation };
   }
 
+  // Cross-agent lookup by id (ignores the provider/agentId partition). Lets
+  // the UI open any conversation — channel-bound ones live under scoped
+  // agents not in the ACP list, and restored sessions may come from anywhere.
+  async function getAgentConversationById(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const conversationId = String(input.conversationId ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    if (!conversationId) throw new Error("conversationId is required");
+    const conversation = await getConversationById(workspaceRoot, conversationId);
+    return { conversation };
+  }
+
+  // All source:"channel" conversations across the workspace, for the Studio
+  // "Channel sessions" group.
+  async function listAgentChannelConversations(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return listChannelConversations(workspaceRoot);
+  }
+
+  // Aggregate the agent's normal sessions and its communication-channel
+  // sessions (`source:"channel"`) into a single conversation list, so the
+  // local-agent dropdown shows every session for the selected agent.
+  async function listAgentConversationsByProvider(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return listConversationsByProvider(workspaceRoot, agent.provider, agent.id);
+  }
+
+  // Import an archived session's messages as a local transcript so the local
+  // agent view can render its history (used by "resume from archive").
+  async function importAgentConversationFromArchive(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return importConversationFromArchive(workspaceRoot, agent.provider, agent.id, input);
+  }
+
   async function warmupConversation(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
@@ -1204,13 +1247,26 @@ export function createPersonalAgentRuntime(options) {
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.loadSession !== "function") throw new Error(`${agent.provider} does not support session/load`);
     const loaded = await adapter.loadSession({ ...input, workspaceRoot, agent });
-    const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
-      title: input.title ?? `Loaded ${loaded.sessionId}`,
-      providerSessionId: loaded.sessionId,
-      resumeKey: loaded.sessionId,
-      source: "provider-session-load",
-      metadata: loaded.raw ?? null,
-    });
+    const sessionId = loaded.sessionId || input.providerSessionId || input.resumeKey;
+    // Reuse an existing conversation with the same providerSessionId instead
+    // of always creating a duplicate. This preserves previously persisted
+    // events (e.g. imported from archive) so the user sees the full history.
+    let conversation = null;
+    if (sessionId) {
+      const listed = await listConversations(workspaceRoot, agent.provider, agent.id);
+      conversation = listed.conversations.find(
+        (item) => item.providerSessionId === sessionId || item.resumeKey === sessionId,
+      ) ?? null;
+    }
+    if (!conversation) {
+      conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
+        title: input.title ?? `Loaded ${loaded.sessionId}`,
+        providerSessionId: loaded.sessionId,
+        resumeKey: loaded.sessionId,
+        source: "provider-session-load",
+        metadata: loaded.raw ?? null,
+      });
+    }
     if (Array.isArray(loaded.conversationMessages) && loaded.conversationMessages.length) {
       await writeConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id, [], loaded.conversationMessages);
     }
@@ -1750,6 +1806,10 @@ export function createPersonalAgentRuntime(options) {
     listConversations: listAgentConversations,
     createConversation: createAgentConversation,
     getConversation: getAgentConversation,
+    getConversationById: getAgentConversationById,
+    listChannelConversations: listAgentChannelConversations,
+    listConversationsByProvider: listAgentConversationsByProvider,
+    importConversationFromArchive: importAgentConversationFromArchive,
     warmupConversation,
     listProviderSessions: listAgentProviderSessions,
     loadProviderSession: loadAgentProviderSession,

@@ -71,6 +71,8 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-types",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-repair-panel",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/chat-bubble",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/workspace-picker/workspace-footnote",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/workspace-picker/recent-workspaces",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-types",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-utils",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/timeline-messages",
