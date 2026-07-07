@@ -4020,12 +4020,35 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.checkManagedAgentHealthById(args[0] ?? {});
     case "personalLocalAgentValidate":
       return personalAgentRuntime.validateAgent(args[0] ?? {});
-    case "personalLocalAgentStart":
-      return personalAgentRuntime.startMessage(args[0] ?? {});
+    case "personalLocalAgentStart": {
+      // Parity S4 (reverse relay): when Studio sends a message on a
+      // conversation that is bound to an IM chat (source:"channel"), mirror
+      // the user's prompt back to that chat. relayStudioMessage only acts on
+      // conversations actually bound to a channel session, so studio-created
+      // conversations are unaffected. IM-originated messages never pass
+      // through this IPC handler (the channel service calls the runtime
+      // in-process), so there is no echo risk.
+      const result = await personalAgentRuntime.startMessage(args[0] ?? {});
+      const relayConversationId = result?.conversationId ?? null;
+      const relayPrompt = String(args[0]?.prompt ?? "").trim();
+      if (relayConversationId && relayPrompt) {
+        channelInfrastructureApi.relayStudioMessage(relayConversationId, relayPrompt);
+      }
+      return result;
+    }
     case "personalLocalAgentStatus":
       return personalAgentRuntime.getRun(args[0]);
-    case "personalLocalAgentRun":
-      return personalAgentRuntime.runMessage(args[0] ?? {});
+    case "personalLocalAgentRun": {
+      // Same reverse-relay behavior as personalLocalAgentStart for Studio
+      // clients that use the run (fire-and-poll) entry point directly.
+      const result = await personalAgentRuntime.runMessage(args[0] ?? {});
+      const relayConversationId = result?.conversationId ?? null;
+      const relayPrompt = String(args[0]?.prompt ?? "").trim();
+      if (relayConversationId && relayPrompt) {
+        channelInfrastructureApi.relayStudioMessage(relayConversationId, relayPrompt);
+      }
+      return result;
+    }
     case "personalLocalAgentCancel":
       return personalAgentRuntime.cancelRun(args[0]);
     case "personalLocalAgentResolveApproval":
@@ -4036,6 +4059,14 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.listConversations(args[0] ?? {});
     case "personalLocalAgentConversationGet":
       return personalAgentRuntime.getConversation(args[0] ?? {});
+    case "personalLocalAgentConversationGetById":
+      return personalAgentRuntime.getConversationById(args[0] ?? {});
+    case "personalLocalAgentChannelConversationsList":
+      return personalAgentRuntime.listChannelConversations(args[0] ?? {});
+    case "personalLocalAgentConversationsListByProvider":
+      return personalAgentRuntime.listConversationsByProvider(args[0] ?? {});
+    case "personalLocalAgentConversationImportFromArchive":
+      return personalAgentRuntime.importConversationFromArchive(args[0] ?? {});
     case "personalLocalAgentConversationCreate":
       return personalAgentRuntime.createConversation(args[0] ?? {});
     case "personalLocalAgentConversationStatus":
@@ -5083,6 +5114,7 @@ async function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     if (isDevMode) {
       mainWindow?.setTitle(APP_NAME);
+      mainWindow?.webContents.openDevTools({ mode: "detach" });
     }
     mainWindow?.show();
     flushPendingDeepLinks();

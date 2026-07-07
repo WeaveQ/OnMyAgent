@@ -79,6 +79,7 @@ export function createFeishuService(options = {}) {
   const appendLog = typeof options.appendLog === "function" ? options.appendLog : () => undefined;
   const channelPairingService = options.channelPairingService ?? null;
   const channelSessionStore = options.channelSessionStore ?? null;
+  const channelEventBus = options.channelEventBus ?? null;
   const dedup = new TtlSet(5 * 60_000);
   const pendingBatches = new Map();
   const activeRunPollers = new Map();
@@ -177,6 +178,7 @@ export function createFeishuService(options = {}) {
     setState(statePatchForStart(accountId, optionsValue, "running"));
     await persistServiceConfig({ ...input, accountId, autoStart: input.autoStart ?? true });
     await resumeActiveRuns(active);
+    subscribeStudioRelay();
     return { ok: true, status: snapshot(), account: sanitizeAccount(account) };
   }
 
@@ -210,6 +212,7 @@ export function createFeishuService(options = {}) {
     activeRunPollers.clear();
     current.wsClient?.stop?.();
     await closeWebhookServer(current.server);
+    unsubscribeStudioRelay();
     setState({ status: "stopped", websocketState: "closed" });
     return { ok: true, status: snapshot() };
   }
@@ -310,11 +313,22 @@ export function createFeishuService(options = {}) {
     if (event.messageId && dedup.hasOrAdd(`id:${event.messageId}`)) return null;
     const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
     if (dedup.hasOrAdd(contentKey)) return null;
-    if (!isAllowed(session.options, event, event.senderId)) return null;
-    if (!(await ensureChannelUserAuthorized(session, { platformType: "feishu", platformUserId: event.senderId, chatId: event.chatId, displayName: event.senderId }))) return null;
+    if (!isAllowed(session.options, event, event.senderId)) {
+      appendLog({ type: "warn", text: `feishu inbound dropped (policy): sender=${event.senderId} chatType=${event.chatType}` });
+      return null;
+    }
+    if (!(await ensureChannelUserAuthorized(session, { platformType: "feishu", platformUserId: event.senderId, chatId: event.chatId, displayName: event.senderId }))) {
+      appendLog({ type: "warn", text: `feishu inbound dropped (unauthorized): sender=${event.senderId} chatId=${event.chatId}` });
+      return null;
+    }
     setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
     if (await maybeHandleControlCommand(session, event)) return event;
-    void enqueueText(session, event).catch((error) => setState({ lastError: error?.message ?? String(error) }));
+    void enqueueText(session, event).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setState({ lastError: message });
+      appendLog({ type: "error", text: `feishu enqueue failed: ${message}` });
+      void sendText(session, event.chatId, `处理失败：${message}`).catch(() => undefined);
+    });
     return event;
   }
 
@@ -330,7 +344,12 @@ export function createFeishuService(options = {}) {
     const batchEvent = prior?.event ?? { ...event, agentSnapshot: agent };
     const timer = setTimeout(() => {
       pendingBatches.delete(key);
-      void dispatchToAgent(session, batchEvent).catch((error) => setState({ lastError: error?.message ?? String(error) }));
+      void dispatchToAgent(session, batchEvent).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setState({ lastError: message });
+        appendLog({ type: "error", text: `feishu dispatch failed: ${message}` });
+        void sendText(session, batchEvent.chatId, `处理失败：${message}\n\n请检查 Studio 中飞书通道的本地 Agent 配置。`).catch(() => undefined);
+      });
     }, session.options.textBatchDelayMs);
     pendingBatches.set(key, { event: batchEvent, agent, timer });
   }
@@ -719,19 +738,51 @@ export function createFeishuService(options = {}) {
     }
     const result = await channelPairingService.requestPairing(input);
     const code = result?.pairingRequest?.code;
-    if (code) await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`);
+    if (code) {
+      await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`);
+      appendLog({ type: "warn", text: `feishu pairing requested for ${input.platformUserId}, code=${code}` });
+    } else {
+      appendLog({ type: "warn", text: `feishu pairing request returned no code for ${input.platformUserId}` });
+    }
     return false;
   }
 
   async function getChannelSession(session, event, agent) {
     if (!channelSessionStore) return null;
-    return channelSessionStore.getOrCreateSession({
+    const channelSession = await channelSessionStore.getOrCreateSession({
       platformType: "feishu",
       platformUserId: event.senderId,
       agentType: `${agent.provider}/${agent.id}`,
       workspace: session.options.workspaceRoot,
       chatId: event.chatId,
     }).catch(() => null);
+    if (!channelSession) return null;
+    // Parity with AionCore create_conversation_for_session + bind_conversation:
+    // lazily create (once) a Studio conversation tagged source:"channel" and
+    // persist the mapping on the channel session so the same chat always
+    // reuses the same conversation and Studio can recognize its origin.
+    if (!channelSession.conversationId && runtime?.createConversation) {
+      try {
+        const created = await runtime.createConversation({
+          workspaceRoot: session.options.workspaceRoot,
+          agent: { provider: agent.provider, id: agent.id },
+          source: "channel",
+          title: `飞书 ${event.senderId}@${event.chatId}`,
+          metadata: {
+            channelChatId: event.chatId,
+            platformType: "feishu",
+            platformUserId: event.senderId,
+          },
+        });
+        const conversationId = created?.conversation?.id ?? created?.id ?? null;
+        if (conversationId) {
+          await channelSessionStore.bindConversation(channelSession.id, conversationId);
+        }
+      } catch (error) {
+        appendLog({ type: "warn", text: `feishu conversation bind failed: ${error?.message ?? String(error)}` });
+      }
+    }
+    return channelSessionStore.getSession(channelSession.id) ?? channelSession;
   }
 
   async function appendChannelSessionHistory(channelSession, userText, output, agent) {
@@ -751,6 +802,31 @@ export function createFeishuService(options = {}) {
     if (!channelSessionStore) return;
     const channelSession = await getChannelSession(session, event, agent);
     if (channelSession?.id) await channelSessionStore.closeSession(channelSession.id).catch(() => undefined);
+  }
+
+  // Parity S4 (reverse relay): when Studio sends a message on a conversation
+  // that this channel has bound to an IM chat, push it back to that chat.
+  // Subscribes to the bus event emitted by channel-runtime.relayStudioMessage;
+  // only acts when the target platform matches this service (feishu).
+  let _studioRelayUnsub = null;
+  function subscribeStudioRelay() {
+    if (!channelEventBus || _studioRelayUnsub) return;
+    _studioRelayUnsub = channelEventBus.subscribe("channel:conversation:message:from-studio", (event) => {
+      const payload = event?.payload ?? event ?? {};
+      if (String(payload?.platformType ?? "").toLowerCase() !== "feishu") return;
+      const chatId = String(payload?.chatId ?? "").trim();
+      const text = String(payload?.text ?? "").trim();
+      if (!chatId || !text) return;
+      void sendText(active, chatId, text).catch((error) => {
+        appendLog({ type: "error", text: `feishu studio-relay send failed: ${error?.message ?? String(error)}` });
+      });
+    });
+  }
+  function unsubscribeStudioRelay() {
+    if (_studioRelayUnsub) {
+      try { _studioRelayUnsub(); } catch { /* noop */ }
+      _studioRelayUnsub = null;
+    }
   }
 
   return {

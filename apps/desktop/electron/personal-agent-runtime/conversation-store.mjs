@@ -1,7 +1,8 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { readSession, writeSession } from "./session-store.mjs";
-import { legacyPersonalAgentRoot, personalAgentRoot } from "./runtime-state.mjs";
+import { legacyPersonalAgentRoot, personalAgentRoot, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { readJsonLikeFile, runId, writeJsonFile } from "./utils.mjs";
 
 const CONVERSATION_DIR = "conversations";
@@ -26,6 +27,42 @@ export function conversationEventsFile(workspaceRoot, provider, agentId = "defau
 
 function nowTitle(timestamp) {
   return `Conversation ${new Date(timestamp).toISOString().replace("T", " ").slice(0, 19)}`;
+}
+
+/**
+ * Channel / IM conversations are bound to a person or chat, not to the code
+ * workspace the Studio tab happens to be viewing. They are persisted under
+ * whatever `workspaceRoot` the messaging service was started with, so they can
+ * end up in any of the workspace identity directories under the runtime-state
+ * root. To make them discoverable from any workspace, we enumerate every
+ * workspace's `conversations/*.json` file rather than just the current one.
+ *
+ * Returns an array of { file, dir } absolute paths.
+ */
+async function listAllConversationFiles() {
+  const root = path.join(personalAgentRuntimeStateRoot(), "personal-assistant", "workspaces");
+  let workspaceDirs = [];
+  try {
+    workspaceDirs = (await fs.promises.readdir(root, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(root, entry.name, CONVERSATION_DIR));
+  } catch {
+    return [];
+  }
+  const files = [];
+  for (const dir of workspaceDirs) {
+    let names = [];
+    try {
+      names = await fs.promises.readdir(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!name.endsWith(".json")) continue;
+      files.push({ file: path.join(dir, name), dir });
+    }
+  }
+  return files;
 }
 
 function normalizeConversation(item, provider, agentId) {
@@ -106,6 +143,7 @@ export async function listConversations(workspaceRoot, provider, agentId = "defa
   };
 }
 
+
 export async function createConversation(workspaceRoot, provider, agentId = "default", input = {}) {
   const state = await migrateLegacySession(
     workspaceRoot,
@@ -114,8 +152,9 @@ export async function createConversation(workspaceRoot, provider, agentId = "def
     await readConversationState(workspaceRoot, provider, agentId),
   );
   const timestamp = Date.now();
+  const id = String(input.id ?? "").trim() || `conv-${runId()}`;
   const conversation = normalizeConversation({
-    id: `conv-${runId()}`,
+    id,
     title: String(input.title ?? "").trim() || nowTitle(timestamp),
     providerSessionId: input.providerSessionId ?? null,
     resumeKey: input.resumeKey ?? input.providerSessionId ?? null,
@@ -155,6 +194,103 @@ export async function getConversation(workspaceRoot, provider, agentId = "defaul
     ?? listed.conversations.find((item) => item.id === listed.activeConversationId)
     ?? null;
   return conversation;
+}
+
+/**
+ * Locate a conversation by id across ALL agent files in the workspace,
+ * ignoring the provider/agentId partition. Used to open conversations that
+ * do not live under the currently selected ACP agent (e.g. channel-bound
+ * conversations created under a scoped `-feishu-<hash>` agent, or sessions
+ * restored from the global session manager). Returns null if not found.
+ */
+export async function getConversationById(workspaceRoot, conversationId) {
+  const requested = String(conversationId ?? "").trim();
+  if (!requested) return null;
+  // Search the current workspace first (fast path), then fall back to scanning
+  // every workspace so IM-bound conversations are reachable from any view.
+  const scoped = workspaceRoot ? conversationRoot(workspaceRoot) : null;
+  const candidates = [];
+  if (scoped) {
+    try {
+      for (const name of await fs.promises.readdir(scoped)) {
+        if (name.endsWith(".json")) candidates.push({ file: path.join(scoped, name), dir: scoped });
+      }
+    } catch {
+      // ignore missing directory
+    }
+  }
+  const all = await listAllConversationFiles();
+  const seen = new Set(candidates.map((item) => item.file));
+  for (const item of all) {
+    if (!seen.has(item.file)) candidates.push(item);
+  }
+  for (const { file } of candidates) {
+    const raw = await readJsonLikeFile(file).catch(() => null);
+    const conversations = Array.isArray(raw?.conversations) ? raw.conversations : [];
+    const match = conversations.find((item) => {
+      const id = String(item?.id ?? "");
+      const providerSessionId = String(item?.providerSessionId ?? item?.sessionId ?? "");
+      const resumeKey = String(item?.resumeKey ?? "");
+      return id === requested || (providerSessionId && providerSessionId === requested) || (resumeKey && resumeKey === requested);
+    });
+    if (match) {
+      const [provider, ...rest] = path.basename(file).replace(/\.json$/, "").split("-");
+      const agentId = rest.join("-") || "default";
+      const normalized = normalizeConversation(match, provider, agentId);
+      // If the conversation lives under a scoped channel agent id (e.g.
+      // `codex-weixin-<hash>`) treat it as a channel-bound conversation
+      // even if the persisted `source` was left as the default. This lets
+      // resume-from-archive route the UI to the channel sessions group
+      // instead of creating a phantom ACP-agent conversation.
+      if (normalized && /-(weixin|feishu|wecom|lark|dingtalk|telegram)-[a-f0-9]+$/i.test(agentId)) {
+        normalized.source = "channel";
+      }
+      return normalized;
+    }
+  }
+  return null;
+}
+
+/**
+ * Return every conversation tagged source:"channel" across all agent files
+ * in the workspace. This powers the Studio "Channel sessions" group so that
+ * IM-bound conversations (which live under scoped agents not present in the
+ * ACP agent list) are still visible and switchable in the UI.
+ */
+export async function listChannelConversations(workspaceRoot) {
+  // Scan every workspace directory, not just the current one, because IM
+  // conversations are bound to a chat/person and may have been persisted under
+  // a different workspaceRoot than the Studio tab is currently viewing.
+  const files = await listAllConversationFiles();
+  const result = [];
+  // Scoped runtime agents used by messaging channels embed the platform
+  // in their id: `<provider>-<agent>-<platform>-<hash>`. Historical bindings
+  // (before we started tagging source:"channel") persist without that tag,
+  // so we also recognise channel-scoped agent files by filename pattern and
+  // treat them as channel conversations for the Studio "Channel sessions"
+  // group. The synthetic `channel` source is applied on the returned copy
+  // only; the on-disk file is not rewritten here.
+  const CHANNEL_AGENT_ID_RE = /-(weixin|feishu|wecom|lark|dingtalk|telegram)-[a-f0-9]+$/i;
+  for (const { file } of files) {
+    const raw = await readJsonLikeFile(file).catch(() => null);
+    const conversations = Array.isArray(raw?.conversations) ? raw.conversations : [];
+    const basename = path.basename(file).replace(/\.json$/, "");
+    const [fileProvider, ...rest] = basename.split("-");
+    const fileAgentId = rest.join("-") || "default";
+    const fileIsChannelScoped = CHANNEL_AGENT_ID_RE.test(fileAgentId);
+    for (const item of conversations) {
+      const normalized = normalizeConversation(item, "unknown", "unknown");
+      if (!normalized) continue;
+      const isChannel = normalized.source === "channel" || fileIsChannelScoped;
+      if (!isChannel) continue;
+      normalized.provider = fileProvider;
+      normalized.agentId = fileAgentId;
+      normalized.source = "channel";
+      result.push(normalized);
+    }
+  }
+  result.sort((a, b) => b.updatedAt - a.updatedAt);
+  return { conversations: result };
 }
 
 export async function updateConversation(workspaceRoot, provider, agentId = "default", conversationId, patch = {}) {
@@ -230,4 +366,71 @@ export async function readConversationEvents(workspaceRoot, provider, agentId = 
     events: Array.isArray(raw?.events) ? raw.events : [],
     messages: Array.isArray(raw?.messages) ? raw.messages : [],
   };
+}
+
+/**
+ * Aggregate every conversation that belongs to an agent: the normal sessions
+ * stored under `<provider>-<agentId>.json` plus the communication-channel
+ * sessions (`source:"channel"`, persisted under scoped `<provider>-<platform>-<hash>`
+ * files). Channel sessions are filtered by `provider` so the dropdown for a
+ * given agent shows all of its sessions regardless of which file they live in.
+ */
+export async function listConversationsByProvider(workspaceRoot, provider, agentId = "default") {
+  const [normal, channel] = await Promise.all([
+    listConversations(workspaceRoot, provider, agentId),
+    listChannelConversations(workspaceRoot),
+  ]);
+  const channelForProvider = channel.conversations.filter((conversation) => conversation.provider === provider);
+  const merged = [...normal.conversations, ...channelForProvider].sort((a, b) => b.updatedAt - a.updatedAt);
+  return {
+    conversations: merged,
+    activeConversationId: normal.activeConversationId ?? merged[0]?.id ?? null,
+  };
+}
+
+/**
+ * Import a session's messages (e.g. from the global session archive) into the
+ * local runtime as a durable transcript for `conversationId`. Ensures the
+ * conversation object exists in the target partition (creating it with the
+ * given id when missing) and writes the messages as the conversation's
+ * transcript. Used by "resume from archive" so cross-workspace / server-side
+ * sessions show their chat history in the local agent view.
+ *
+ * Archive messages arrive as `{ id?, role, content }` (content may be a string
+ * or a structured object); they are normalized to the local
+ * `PersonalLocalAgentConversationMessage` shape (`type:"text"`).
+ */
+export async function importConversationFromArchive(workspaceRoot, provider, agentId = "default", input = {}) {
+  const requestedId = String(input.conversationId ?? "").trim();
+  console.log("[runtime] importConversationFromArchive", { workspaceRoot, provider, agentId, conversationId: requestedId, messageCount: Array.isArray(input.messages) ? input.messages.length : 0 });
+  let conversation = requestedId ? await getConversation(workspaceRoot, provider, agentId, requestedId) : null;
+  if (!conversation) {
+    conversation = await createConversation(workspaceRoot, provider, agentId, {
+      id: requestedId || undefined,
+      title: String(input.title ?? "").trim() || "Imported conversation",
+      providerSessionId: input.providerSessionId ?? null,
+      resumeKey: input.providerSessionId ?? null,
+      workdir: input.workdir ?? null,
+      source: input.source ?? "session-archive-resume",
+    });
+  }
+  const conversationId = conversation.id;
+  const rawMessages = Array.isArray(input.messages) ? input.messages : [];
+  const messages = rawMessages.map((raw, index) => {
+    const message = raw && typeof raw === "object" ? raw : {};
+    const role = String(message.role ?? "assistant");
+    const safeRole = role === "user" || role === "assistant" || role === "system" ? role : "assistant";
+    const content = message.content;
+    const text = typeof content === "string" ? content : (content == null ? "" : JSON.stringify(content));
+    return {
+      id: String(message.id ?? `imported-${conversationId}-${index}`),
+      type: "text",
+      role: safeRole,
+      text,
+      createdAt: Number(message.createdAt) || Date.now() + index,
+    };
+  });
+  console.log("[runtime] writing", { conversationId, messageCount: messages.length });
+  await writeConversationEvents(workspaceRoot, provider, agentId, conversationId, [], messages);
+  return { conversation, importedMessageCount: messages.length };
 }

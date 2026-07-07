@@ -263,8 +263,18 @@ export function nativeSessionResumeOnlyMessage(agent: PersonalLocalAgent, conver
   };
 }
 
+const TRANSCRIPT_SOFT_ERRORS: ReadonlySet<string> = new Set([
+  "This provider does not expose a stable native transcript.",
+  // Provider session file may have been rotated / cleaned up / never existed
+  // (e.g. a channel-bound conversation whose Codex rollout was pruned). Treat
+  // as "no transcript to hydrate" instead of surfacing a red banner.
+  "Codex session transcript file was not found.",
+  "Claude session transcript file was not found.",
+]);
+
 export function isUnsupportedNativeTranscriptError(error: string | null | undefined) {
-  return error === "This provider does not expose a stable native transcript.";
+  if (!error) return false;
+  return TRANSCRIPT_SOFT_ERRORS.has(error);
 }
 
 export function safeReadApprovalMode(workspaceRoot: string): PersonalLocalAgentApprovalMode {

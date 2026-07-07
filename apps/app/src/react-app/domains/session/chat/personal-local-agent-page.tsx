@@ -6,6 +6,7 @@ import {
   CircleStop,
   Clock3,
   Loader2,
+  MessageSquare,
   Plus,
   Search,
   UserRound,
@@ -28,7 +29,12 @@ import {
   personalLocalAgentSetAcpConfigOption,
   personalLocalAgentConversationCreate,
   personalLocalAgentConversationTranscript,
+  personalLocalAgentConversationGetById,
+  personalLocalAgentConversationStatus,
+  personalLocalAgentChannelConversationsList,
   personalLocalAgentConversationsList,
+  personalLocalAgentConversationsListByProvider,
+  personalLocalAgentConversationImportFromArchive,
   personalLocalAgentHeartbeatCreate,
   personalLocalAgentHeartbeatDelete,
   personalLocalAgentHeartbeatRunNow,
@@ -37,6 +43,7 @@ import {
   personalLocalAgentResetConversation,
   personalLocalAgentValidate,
   personalLocalAgentStatus,
+  pickDirectory,
   type PersonalLocalAgent,
   type PersonalLocalAgentConversation,
   type PersonalLocalAgentHeartbeatJob,
@@ -68,7 +75,10 @@ import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/m
 import { lastEventTime } from "../../local-agents/messages/timeline-messages";
 import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
 import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
-import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
+import type { OpenworkServerClient } from "../../../../app/lib/onmyagent-server";
+import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message";
+import { WorkspaceFootnote } from "../../local-agents/workspace-picker/workspace-footnote";
+import { addRecentWorkspace, getRecentWorkspaces, readWorkspaceOverride, writeWorkspaceOverride } from "../../local-agents/workspace-picker/recent-workspaces"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
 type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
   workspaceName?: string | null;
@@ -85,6 +95,12 @@ type PersonalLocalAgentPageProps = {
   onOpenAgentManagement?: (panel?: "skills" | "mcp" | "providers" | "agents") => void;
   resumeRequest?: SessionArchiveResumeRequest | null;
   onResumeConsumed?: () => void;
+  /** OnMyAgent server client used to fetch archived session messages when
+   *  resuming a cross-workspace / server-side session (see 诉求2). */
+  onmyagentServerClient?: OpenworkServerClient | null;
+  /** Workspace id used to query the session-archive API (may differ from the
+   *  local filesystem workspaceRoot). */
+  runtimeWorkspaceId?: string | null;
 };
 const localAgentTextClass = {
   panelTitle: "text-sm font-medium leading-5 text-dls-text",
@@ -257,7 +273,52 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [showScheduledTasks, setShowScheduledTasks] = useState(false);
   const [selectedConversationIdByAgent, setSelectedConversationIdByAgent] = useState<Record<string, string>>(persistedState.selectedConversationIdByAgent ?? {});
   const [loadingConversationsByAgent, setLoadingConversationsByAgent] = useState<Record<string, boolean>>({});
+  // Channel-bound conversations (source:"channel") live under scoped agents
+  // not present in the ACP agent list, so they are tracked separately and
+  // surfaced in a dedicated "Channel sessions" group above the agent list.
+  const [channelConversations, setChannelConversations] = useState<PersonalLocalAgentConversation[]>([]);
+  const [loadingChannelConversations, setLoadingChannelConversations] = useState(false);
+  const [selectedChannelConversationId, setSelectedChannelConversationId] = useState<string | null>(null);
+  // When a channel conversation is the active view, the rest of the page reads
+  // from these "virtual" selections instead of the ACP agent partition.
+  const activeChannelConversation = channelConversations.find((item) => item.id === selectedChannelConversationId) ?? null;
+  // Channel conversations live under scoped agents (`-feishu-<hash>` etc.) that
+  // are intentionally NOT surfaced in the ACP agent list. To make them
+  // selectable/switchable like normal sessions we surface them through a single
+  // synthetic "Channel sessions" agent that is kept in its own state so it is
+  // never overwritten by `setAgents` (agent refreshes / re-detects).
+  const CHANNEL_AGENT_ID = "__channel_sessions__";
+  const channelAgent = useMemo<PersonalLocalAgent | null>(() => {
+    if (channelConversations.length === 0) return null;
+    // Synthetic entry: rendered in its own "Channel sessions" section, never
+    // in the ACP agent list. Use `custom` provider so it satisfies the shared
+    // PersonalLocalAgent shape without polluting real provider enums.
+    return {
+      id: CHANNEL_AGENT_ID,
+      name: t("local_agent.channel_sessions_title"),
+      provider: "custom",
+      status: "online",
+      executablePath: "",
+      model: null,
+      customArgs: [],
+      modelOptions: [],
+      defaultModel: null,
+      version: null,
+      error: null,
+      lastCheckedAt: null,
+    };
+  }, [channelConversations.length]);
+  // The agent list used everywhere (rendering + selection) is the merged view of
+  // real ACP agents plus the synthetic channel agent.
+  const allAgents = useMemo(() => {
+    const base = channelAgent ? [...agents, channelAgent] : agents;
+    return base;
+  }, [agents, channelAgent]);
   const [approvalMode, setApprovalMode] = useState<PersonalLocalAgentApprovalMode>(() => safeReadApprovalMode(props.workspaceRoot));
+  const [workspaceOverride, setWorkspaceOverrideState] = useState<string>(() => readWorkspaceOverride());
+  const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>(() => getRecentWorkspaces());
+  const effectiveWorkspaceRoot = (workspaceOverride.trim() || props.workspaceRoot || "").trim();
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Track whether the user is pinned to the bottom of the transcript. We only
   // auto-scroll on new messages when they already are — otherwise scrolling up
@@ -271,12 +332,34 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const scheduledTasksButtonRef = useRef<HTMLButtonElement | null>(null);
   const scheduledTasksPanelRef = useRef<HTMLDivElement | null>(null);
   const selectedAgent = useMemo(
-    () => agents.find((agent) => agent.id === selectedAgentId) ?? agents[0] ?? null,
-    [agents, selectedAgentId],
+    () => allAgents.find((agent) => agent.id === selectedAgentId) ?? allAgents[0] ?? null,
+    [allAgents, selectedAgentId],
   );
-  const selectedConversations = selectedAgent ? conversationsByAgent[selectedAgent.id] ?? [] : [];
-  const selectedConversationId = selectedAgent ? selectedConversationIdByAgent[selectedAgent.id] ?? selectedConversations[0]?.id ?? null : null;
-  const selectedConversation = selectedConversations.find((item) => item.id === selectedConversationId) ?? selectedConversations[0] ?? null;
+  // When the synthetic channel agent is selected, the conversation list is the
+  // channel conversations (driven by selectedChannelConversationId) rather than
+  // the per-ACP-agent partition.
+  const isChannelView = selectedAgentId === CHANNEL_AGENT_ID;
+  const selectedConversations = isChannelView
+    ? channelConversations
+    : selectedAgent
+      ? (conversationsByAgent[selectedAgent.id] ?? [])
+      : [];
+  const selectedConversationId = isChannelView
+    ? selectedChannelConversationId
+    : selectedAgent
+      ? selectedConversationIdByAgent[selectedAgent.id] ?? selectedConversations[0]?.id ?? null
+      : null;
+  const selectedConversation = isChannelView
+    ? activeChannelConversation
+    : selectedConversations.find((item) => item.id === selectedConversationId) ?? selectedConversations[0] ?? null;
+  // Per-conversation workspace binding: an existing conversation shows its own
+  // `workdir` and locks the chip (read-only). A not-yet-created / empty
+  // conversation uses the page-level override (editable) so the user can pick a
+  // directory before the first message. This matches AionUi's per-navigation
+  // workspace semantics instead of a single global override.
+  const selectedConversationWorkdir = selectedConversation?.workdir?.trim() || "";
+  const chipEditable = !selectedConversationWorkdir && !selectedConversation;
+  const displayWorkspaceRoot = selectedConversationWorkdir || effectiveWorkspaceRoot;
   const selectedAcpModelInfo = useAcpModelInfo(selectedAgent);
   const selectedHeartbeatJobs = selectedAgent ? heartbeatJobs.filter((job) => job.agent?.id === selectedAgent.id) : [];
   const selectedChatKey = selectedAgent ? localAgentChatKey(selectedAgent.id, selectedConversationId) : "";
@@ -287,16 +370,19 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       [selectedAgent.id]: (current[selectedAgent.id] ?? []).map((conversation) => conversation.id === selectedConversationId ? { ...conversation, providerSessionId: result.providerSessionId ?? conversation.providerSessionId, resumeKey: result.providerSessionId ?? conversation.resumeKey } : conversation),
     }));
   }, [selectedAgent, selectedConversationId]);
-  useAcpInitialMessage({ workspaceRoot: props.workspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: props.workspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
+  useAcpInitialMessage({ workspaceRoot: effectiveWorkspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, disabled: isChannelView, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: effectiveWorkspaceRoot, agent: isChannelView ? null : selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
   const filteredAgents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return agents;
-    return agents.filter((agent) =>
+    // The synthetic channel agent is rendered in its own section below, not as
+    // a normal agent row.
+    const realAgents = allAgents.filter((agent) => agent.id !== CHANNEL_AGENT_ID);
+    if (!normalized) return realAgents;
+    return realAgents.filter((agent) =>
       `${agent.name} ${agent.executablePath} ${agent.version ?? ""}`
         .toLowerCase()
         .includes(normalized),
     );
-  }, [agents, query]);
+  }, [allAgents, query]);
   const startAgentListResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -455,10 +541,10 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       // Local history is best-effort; quota errors should not break chat.
     }
   }, [activeRunIdByAgent, draftsByAgent, errorsByAgent, healthResults, messagesByAgent, props.workspaceRoot, selectedAgentId, selectedConversationIdByAgent]);
-  const loadConversationsForAgent = useCallback(async (agent: PersonalLocalAgent) => {
+    const loadConversationsForAgent = useCallback(async (agent: PersonalLocalAgent) => {
     setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: true }));
     try {
-      const result = await personalLocalAgentConversationsList({ workspaceRoot: props.workspaceRoot, agent });
+      const result = await personalLocalAgentConversationsListByProvider({ workspaceRoot: effectiveWorkspaceRoot, agent });
       setConversationsByAgent((current) => ({ ...current, [agent.id]: result.conversations }));
       const nextId = selectedConversationIdByAgent[agent.id] && result.conversations.some((item) => item.id === selectedConversationIdByAgent[agent.id])
         ? selectedConversationIdByAgent[agent.id]
@@ -474,12 +560,38 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
       setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
     }
-  }, [props.workspaceRoot, selectedConversationIdByAgent]);
+  }, [effectiveWorkspaceRoot, selectedConversationIdByAgent]);
   useEffect(() => {
     if (!selectedAgent) return;
     if (conversationsByAgent[selectedAgent.id]) return;
     void loadConversationsForAgent(selectedAgent);
   }, [conversationsByAgent, loadConversationsForAgent, selectedAgent]);
+  // Channel conversations are not tied to any ACP agent, so load them directly
+  // from the runtime (which scans every partition for source:"channel").
+  const loadChannelConversations = useCallback(async () => {
+    setLoadingChannelConversations(true);
+    try {
+      const result = await personalLocalAgentChannelConversationsList({ workspaceRoot: effectiveWorkspaceRoot });
+      setChannelConversations(result.conversations ?? []);
+    } catch {
+      setChannelConversations([]);
+    } finally {
+      setLoadingChannelConversations(false);
+    }
+  }, [props.workspaceRoot, effectiveWorkspaceRoot]);
+  useEffect(() => {
+    void loadChannelConversations();
+  }, [loadChannelConversations]);
+  // Keep a valid channel selection whenever the channel set changes.
+  useEffect(() => {
+    if (channelConversations.length === 0) {
+      if (selectedChannelConversationId !== null) setSelectedChannelConversationId(null);
+      return;
+    }
+    if (!channelConversations.some((item) => item.id === selectedChannelConversationId)) {
+      setSelectedChannelConversationId(channelConversations[0].id);
+    }
+  }, [channelConversations, selectedChannelConversationId]);
   const consumedResumeKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const request = props.resumeRequest;
@@ -496,18 +608,100 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     };
     const provider = providerMap[request.agent];
     if (!provider) return;
-    setSelectedAgentId(provider);
-    const targetAgent = agents.find((item) => item.id === provider) ?? agents.find((item) => item.provider === provider) ?? null;
     (async () => {
       try {
-        const existing = conversationsByAgent[provider] ?? (await personalLocalAgentConversationsList({ workspaceRoot: props.workspaceRoot, agent: targetAgent ?? undefined })).conversations;
+        const client = props.onmyagentServerClient ?? null;
+        const workspaceId = props.runtimeWorkspaceId ?? props.workspaceRoot;
+        const conversationId = request.sessionId || request.providerSessionId;
+        const archiveSessionId = request.sessionId;
+
+        // Fetch archived messages (only when a server client + archive id are
+        // available) and import them as the local transcript for a conversation
+        // id, so the local agent view can render cross-workspace / server-side
+        // history (诉求2: "resume copies the conversation over").
+        const importFromArchive = async (targetProvider: string, targetAgentId: string, targetConversationId: string, title: string) => {
+          console.log("[archive-resume] importFromArchive", { targetProvider, targetAgentId, targetConversationId, hasClient: Boolean(client), archiveSessionId });
+          if (!client || !archiveSessionId || !targetConversationId) return null;
+          const archive = await client
+            .getSessionArchiveMessages(workspaceId, archiveSessionId, { limit: 500, direction: "asc" })
+            .catch((error) => {
+              console.error("[archive-resume] getSessionArchiveMessages failed", error);
+              return null;
+            });
+          const messages = archive?.messages ?? [];
+          console.log("[archive-resume] archive messages", messages.length);
+          if (!messages.length) return null;
+          const result = await personalLocalAgentConversationImportFromArchive({
+            workspaceRoot: effectiveWorkspaceRoot,
+            agent: { provider: targetProvider, id: targetAgentId },
+            conversationId: targetConversationId,
+            title,
+            providerSessionId: request.providerSessionId,
+            source: "session-archive-resume",
+            messages,
+          }).catch((error) => {
+            console.error("[archive-resume] import failed", error);
+            return null;
+          });
+          console.log("[archive-resume] import result", result);
+          return result;
+        };
+        const hasLocalTranscript = async (targetProvider: string, targetAgentId: string, targetConversationId: string) => {
+          const status = await personalLocalAgentConversationStatus({
+            workspaceRoot: effectiveWorkspaceRoot,
+            agent: { provider: targetProvider, id: targetAgentId },
+            conversationId: targetConversationId,
+          }).catch(() => null);
+          const has = Boolean(status?.conversationMessages?.length);
+          console.log("[archive-resume] hasLocalTranscript", { targetProvider, targetAgentId, targetConversationId, has, count: status?.conversationMessages?.length });
+          return has;
+        };
+
+        const located = conversationId
+          ? await personalLocalAgentConversationGetById({ workspaceRoot: effectiveWorkspaceRoot, conversationId }).then((res) => res.conversation).catch(() => null)
+          : null;
+        console.log("[archive-resume] located conversation", located);
+        if (located) {
+          const isChannel = located.source === "channel";
+          if (isChannel) {
+            // Surface it through the synthetic channel agent view.
+            const already = channelConversations.some((item) => item.id === located.id);
+            setChannelConversations((current) => (already ? current : [located, ...current]));
+            setSelectedAgentId(CHANNEL_AGENT_ID);
+            setSelectedChannelConversationId(located.id);
+            return;
+          }
+          const targetAgent = agents.find((item) => item.id === located.agentId) ?? agents.find((item) => item.provider === located.provider) ?? agents.find((item) => item.id === provider) ?? null;
+          const agentKey = targetAgent?.id ?? provider;
+          // History is read by the hydrate hook using the *selected* agent's
+          // (provider, id), not the located file's scoped agentId, so check and
+          // import against that identity to keep the transcript reachable.
+          const hasHistory = await hasLocalTranscript(provider, agentKey, located.id);
+          if (!hasHistory) {
+            await importFromArchive(provider, agentKey, located.id, located.title);
+          }
+          setSelectedAgentId(agentKey);
+          setConversationsByAgent((current) => ({
+            ...current,
+            [agentKey]: current[agentKey]?.some((item) => item.id === located.id) ? current[agentKey] : [located, ...(current[agentKey] ?? [])],
+          }));
+          setSelectedConversationIdByAgent((current) => ({ ...current, [agentKey]: located.id }));
+          return;
+        }
+
+        // Fallback: no matching local conversation — create a fresh resume
+        // placeholder under the ACP agent partition (original behaviour).
+        setSelectedAgentId(provider);
+        const targetAgent = agents.find((item) => item.id === provider) ?? agents.find((item) => item.provider === provider) ?? null;
+        const existing = conversationsByAgent[provider] ?? (await personalLocalAgentConversationsList({ workspaceRoot: effectiveWorkspaceRoot, agent: targetAgent ?? undefined })).conversations;
         const match = existing.find((item) => (item.providerSessionId ?? item.resumeKey) === request.providerSessionId);
+        let selectedConversationId: string;
         if (match) {
           setConversationsByAgent((current) => ({ ...current, [provider]: existing }));
-          setSelectedConversationIdByAgent((current) => ({ ...current, [provider]: match.id }));
+          selectedConversationId = match.id;
         } else {
           const result = await personalLocalAgentConversationCreate({
-            workspaceRoot: props.workspaceRoot,
+            workspaceRoot: effectiveWorkspaceRoot,
             title: request.title,
             providerSessionId: request.providerSessionId,
             resumeKey: request.providerSessionId,
@@ -518,8 +712,25 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             ...current,
             [provider]: [result.conversation, ...(current[provider] ?? existing)],
           }));
-          setSelectedConversationIdByAgent((current) => ({ ...current, [provider]: result.conversation.id }));
+          selectedConversationId = result.conversation.id;
         }
+        // Ensure the resumed conversation has its history visible: import from
+        // the archive when the local transcript is empty. Use `provider` (not
+        // agentKey) for the transcript partition so it matches the selected
+        // agent identity used by the hydration hook (selectedAgentId=provider).
+        const hasHistory = await hasLocalTranscript(provider, provider, selectedConversationId);
+        if (!hasHistory) {
+          const imported = await importFromArchive(provider, provider, selectedConversationId, request.title);
+          if (imported?.conversation) {
+            setConversationsByAgent((current) => ({
+              ...current,
+              [provider]: current[provider]?.some((item) => item.id === imported.conversation.id)
+                ? current[provider]
+                : [imported.conversation, ...(current[provider] ?? [])],
+            }));
+          }
+        }
+        setSelectedConversationIdByAgent((current) => ({ ...current, [provider]: selectedConversationId }));
       } catch (error) {
         setErrorsByAgent((current) => ({
           ...current,
@@ -529,10 +740,10 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         props.onResumeConsumed?.();
       }
     })();
-  }, [props.resumeRequest, agents, conversationsByAgent, props.workspaceRoot, props.onResumeConsumed]);
+  }, [props.resumeRequest, agents, conversationsByAgent, channelConversations, effectiveWorkspaceRoot, props.workspaceRoot, props.onResumeConsumed, props.onmyagentServerClient, props.runtimeWorkspaceId]);
   const loadHeartbeats = useCallback(async () => {
     try {
-      const result = await personalLocalAgentHeartbeatsList({ workspaceRoot: props.workspaceRoot });
+      const result = await personalLocalAgentHeartbeatsList({ workspaceRoot: effectiveWorkspaceRoot });
       setHeartbeatJobs(result.jobs);
       setHeartbeatError(null);
     } catch (nextError) {
@@ -581,7 +792,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const sessionContext = scheduledTaskSessionContext(messagesByAgent[key]);
       if (!sessionContext || sessionContext === (job.sessionContext ?? "")) continue;
       void personalLocalAgentHeartbeatUpdate({
-        workspaceRoot: props.workspaceRoot,
+        workspaceRoot: effectiveWorkspaceRoot,
         jobId: job.id,
         patch: { sessionContext },
       }).then(() => loadHeartbeats()).catch(() => undefined);
@@ -634,11 +845,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: null }));
     }
     try {
-      const result = await personalLocalAgentAcpAgentsList({ workspaceRoot: props.workspaceRoot, includeModels: false });
+      const result = await personalLocalAgentAcpAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: false });
       const nextAgents = result.agents.map(agentFromAcpMetadata);
       setAgents(nextAgents);
       safeWriteCachedAgents(props.workspaceRoot, nextAgents);
-      if (nextAgents.length && !nextAgents.some((agent) => agent.id === selectedAgentId)) {
+      if (nextAgents.length && selectedAgentId !== CHANNEL_AGENT_ID && !nextAgents.some((agent) => agent.id === selectedAgentId)) {
         setSelectedAgentId(nextAgents[0].id);
       }
     } catch (nextError) {
@@ -728,7 +939,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     const activeEntries = Object.entries(activeRunIdByAgent).filter(([, runId]) => Boolean(runId));
     if (!activeEntries.length) return;
     const pollRun = (chatKey: string, runId: string) => {
-      void personalLocalAgentStatus({ runId, workspaceRoot: props.workspaceRoot })
+      void personalLocalAgentStatus({ runId, workspaceRoot: effectiveWorkspaceRoot })
         .then((snapshot) => {
           const agentId = chatKey.split("::")[0] ?? chatKey;
           if (!snapshot) {
@@ -831,7 +1042,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     try {
       const requestedModel = selectedModel || null;
       const started = await personalLocalAgentAcpSend({
-        workspaceRoot: props.workspaceRoot,
+        workspaceRoot: effectiveWorkspaceRoot,
         prompt,
         approvalMode,
         conversationId: runConversationId,
@@ -854,7 +1065,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         let snapshot = started;
         for (let attempt = 0; snapshot.status === "running" && attempt < 180; attempt += 1) {
           await new Promise((resolve) => window.setTimeout(resolve, 1000));
-          snapshot = await personalLocalAgentStatus({ runId: started.runId, workspaceRoot: props.workspaceRoot });
+          snapshot = await personalLocalAgentStatus({ runId: started.runId, workspaceRoot: effectiveWorkspaceRoot });
           rememberRunResult(runAgent.id, snapshot);
         }
         return;
@@ -918,7 +1129,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
     try {
       const result = await personalLocalAgentResetConversation({
-        workspaceRoot: props.workspaceRoot,
+        workspaceRoot: effectiveWorkspaceRoot,
         conversationId: selectedConversationId,
         agent,
       });
@@ -934,13 +1145,47 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
     }
   }, [props.workspaceRoot, resetAgentChat, running, selectedAgent, selectedConversationId]);
+  const applyWorkspaceOverride = useCallback((next: string) => {
+    const trimmed = next.trim();
+    writeWorkspaceOverride(trimmed);
+    setWorkspaceOverrideState(trimmed);
+    if (trimmed) {
+      setRecentWorkspaces(addRecentWorkspace(trimmed));
+    }
+  }, []);
+  const clearWorkspaceOverride = useCallback(() => {
+    writeWorkspaceOverride("");
+    setWorkspaceOverrideState("");
+  }, []);
+  const browseWorkspaceOverride = useCallback(async () => {
+    const picked = await pickDirectory({
+      title: t("local_agent.workspace_choose_different_folder"),
+      defaultPath: effectiveWorkspaceRoot || props.workspaceRoot || undefined,
+    });
+    const target = Array.isArray(picked) ? picked[0] : picked;
+    if (typeof target === "string" && target.trim()) {
+      applyWorkspaceOverride(target.trim());
+    }
+  }, [applyWorkspaceOverride, effectiveWorkspaceRoot, props.workspaceRoot]);
+  const workspaceRecentList = useMemo(() => {
+    const base = recentWorkspaces.slice();
+    const rootTrim = (props.workspaceRoot ?? "").trim();
+    if (rootTrim && !base.includes(rootTrim)) {
+      base.push(rootTrim);
+    }
+    return base;
+  }, [recentWorkspaces, props.workspaceRoot]);
   const createNewConversation = useCallback(async () => {
     if (!selectedAgent || running) return;
     const agent = selectedAgent;
     setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: true }));
     setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
     try {
-      const result = await personalLocalAgentConversationCreate({ workspaceRoot: props.workspaceRoot, agent });
+      const result = await personalLocalAgentConversationCreate({
+        workspaceRoot: effectiveWorkspaceRoot,
+        agent,
+        workdir: effectiveWorkspaceRoot || null,
+      });
       setConversationsByAgent((current) => ({
         ...current,
         [agent.id]: [result.conversation, ...(current[agent.id] ?? [])],
@@ -958,7 +1203,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
       setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
     }
-  }, [props.workspaceRoot, running, selectedAgent]);
+  }, [effectiveWorkspaceRoot, props.workspaceRoot, running, selectedAgent]);
   const createHeartbeat = useCallback(async () => {
     if (!selectedAgent || selectedAgent.status !== "online") return;
     const prompt = heartbeatDraft.prompt.trim();
@@ -974,7 +1219,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setHeartbeatBusy("create");
     try {
       await personalLocalAgentHeartbeatCreate({
-        workspaceRoot: props.workspaceRoot,
+        workspaceRoot: effectiveWorkspaceRoot,
         title: heartbeatDraft.title.trim() || t("local_agent.heartbeat_default_title"),
         prompt,
         sessionContext,
@@ -998,7 +1243,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setHeartbeatBusy(job.id);
     try {
       const result = await personalLocalAgentHeartbeatUpdate({
-        workspaceRoot: props.workspaceRoot,
+        workspaceRoot: effectiveWorkspaceRoot,
         jobId: job.id,
         patch: { enabled },
       });
@@ -1013,7 +1258,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const runHeartbeatNow = useCallback(async (job: PersonalLocalAgentHeartbeatJob) => {
     setHeartbeatBusy(job.id);
     try {
-      const result = await personalLocalAgentHeartbeatRunNow({ workspaceRoot: props.workspaceRoot, jobId: job.id });
+      const result = await personalLocalAgentHeartbeatRunNow({ workspaceRoot: effectiveWorkspaceRoot, jobId: job.id });
       if (!result.ok) throw new Error(result.error || "heartbeat run failed");
       await loadHeartbeats();
     } catch (nextError) {
@@ -1025,7 +1270,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const deleteHeartbeat = useCallback(async (job: PersonalLocalAgentHeartbeatJob) => {
     setHeartbeatBusy(job.id);
     try {
-      const result = await personalLocalAgentHeartbeatDelete({ workspaceRoot: props.workspaceRoot, jobId: job.id });
+      const result = await personalLocalAgentHeartbeatDelete({ workspaceRoot: effectiveWorkspaceRoot, jobId: job.id });
       if (!result.ok) throw new Error(result.error || "heartbeat delete failed");
       await loadHeartbeats();
     } catch (nextError) {
@@ -1043,21 +1288,28 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     }
     try {
       const result = await personalLocalAgentConversationTranscript({
-        workspaceRoot: props.workspaceRoot,
+        workspaceRoot: effectiveWorkspaceRoot,
         conversationId: conversation.id,
         providerSessionId: conversation.providerSessionId,
         resumeKey: conversation.resumeKey,
         agent,
         limit: 80,
       });
-      setMessagesByAgent((current) => ({
-        ...current,
-        [key]: result.messages.length
+      setMessagesByAgent((current) => {
+        // Preserve any history already hydrated from Studio's own persisted
+        // transcript (conversation-events). The native provider transcript is
+        // often unavailable (e.g. "Codex session transcript file was not found"),
+        // and in that case we must NOT overwrite the real Studio history with a
+        // "this agent does not expose a transcript" placeholder.
+        const existing = current[key];
+        const hasExisting = Array.isArray(existing) && existing.length > 0;
+        const next = result.messages.length
           ? transcriptMessagesForAgent(agent, result.messages)
           : isUnsupportedNativeTranscriptError(result.error)
-            ? [nativeSessionResumeOnlyMessage(agent, conversation)]
-            : current[key] ?? [welcomeMessageForAgent(agent)],
-      }));
+            ? (hasExisting ? existing : [nativeSessionResumeOnlyMessage(agent, conversation)])
+            : (hasExisting ? existing : [welcomeMessageForAgent(agent)]);
+        return { ...current, [key]: next };
+      });
       if (result.error && !isUnsupportedNativeTranscriptError(result.error)) {
         setErrorsByAgent((current) => ({ ...current, [agent.id]: result.error ?? null }));
       }
@@ -1147,7 +1399,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       if (!result.ok) {
         setErrorsByAgent((current) => ({ ...current, [agentId]: result.error ?? t("local_agent.cancel_failed") }));
       }
-      const snapshot = await personalLocalAgentStatus({ runId, workspaceRoot: props.workspaceRoot });
+      const snapshot = await personalLocalAgentStatus({ runId, workspaceRoot: effectiveWorkspaceRoot });
       setMessagesByAgent((current) => ({
         ...current,
         [chatKey]: (current[chatKey] ?? (runAgent ? [welcomeMessageForAgent(runAgent)] : [])).map((message) =>
@@ -1178,7 +1430,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         alwaysAllow: options?.alwaysAllow,
       });
       if (!result.ok) throw new Error(result.error || t("local_agent.approval_failed"));
-      const snapshot = await personalLocalAgentStatus({ runId: approval.runId, workspaceRoot: props.workspaceRoot });
+      const snapshot = await personalLocalAgentStatus({ runId: approval.runId, workspaceRoot: effectiveWorkspaceRoot });
       setMessagesByAgent((current) => ({
         ...current,
         [selectedChatKey]: (current[selectedChatKey] ?? []).map((message) =>
@@ -1196,15 +1448,17 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
  return ( <div data-onmyagent-view="personal-assistant" className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"><aside className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5" style={{ width: agentListWidth }} ><div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4"><InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1"><InputGroupAddon align="inline-start" inset="tight"><Search className="size-4.5" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("local_agent.search")} className="text-sm placeholder:text-dls-secondary/75" /></InputGroup><Button type="button" size="icon-sm" onClick={() => setShowAddForm((value) => !value)} className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text" title={t("local_agent.add")} aria-label={t("local_agent.add")} ><Bot className="size-4.5" /><Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} /></Button></div> {showAddForm ? ( <div className="mx-4 mt-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3"><div className={localAgentTextClass.panelTitle}>{t("local_agent.add")}</div><Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => void refreshAgents()} disabled={refreshing}>
   {refreshing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
   {t("local_agent.redetect")}
-</Button></div> ) : null} <div className="min-h-0 flex-1 overflow-y-auto"> {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}>
+</Button></div> ) : null} <div className="min-h-0 flex-1 overflow-y-auto">  {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}>
   <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
     <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
-      {selectedAgentIconUrl ? (
+      {isChannelView ? (
+        <MessageSquare className="size-4" />
+      ) : selectedAgentIconUrl ? (
         <img src={selectedAgentIconUrl} alt="" className="size-5 object-contain" loading="lazy" draggable={false} />
       ) : (
         <UserRound className="size-4" />
       )}
-      {selectedAgent ? (
+      {selectedAgent && !isChannelView ? (
         <span
           className={cn(
             "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-dls-surface",
@@ -1226,22 +1480,26 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         value={selectedConversationId ?? ""}
         onChange={(value) => {
           if (!selectedAgent || !value) return;
+          if (isChannelView) {
+            setSelectedChannelConversationId(value);
+            return;
+          }
           setSelectedConversationIdByAgent((current) => ({ ...current, [selectedAgent.id]: value }));
         }}
-        disabled={!selectedAgent || running || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])}
+        disabled={!selectedAgent || running || Boolean(selectedAgent && !isChannelView && loadingConversationsByAgent[selectedAgent.id])}
       />
     </div>
     <Button
       variant="ghost"
       size="icon-sm"
       onClick={() => void createNewConversation()}
-      disabled={!selectedAgent || running || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])}
+      disabled={!selectedAgent || running || isChannelView || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])}
       title={t("local_agent.new_conversation")}
       aria-label={t("local_agent.new_conversation")}
     >
       {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
     </Button>
-    {selectedAcpModelInfo.supportsModelOverride ? (
+    {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
       <div className="min-w-[160px] max-w-[220px]">
         <SelectMenu
           size="compact"
@@ -1257,7 +1515,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             setSelectedModel(value);
             if (value && selectedAgent && selectedAcpModelInfo.supportsModelOverride) {
               void personalLocalAgentSetAcpConfigOption({
-                workspaceRoot: props.workspaceRoot,
+                workspaceRoot: effectiveWorkspaceRoot,
                 agent: selectedAgent,
                 optionId: selectedAcpModelInfo.modelOptionId,
                 value,
@@ -1309,15 +1567,26 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       />
     </div>
   ) : null}
-</header><LocalAgentStatusRail workspaceRoot={props.workspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={props.workspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
+</header><LocalAgentStatusRail workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
         <div className={localAgentLayoutClass.chatPanel}>
+          <div className="flex flex-wrap items-center gap-2 px-1 pb-2 pt-1">
+            <WorkspaceFootnote
+              workspaceRoot={displayWorkspaceRoot}
+              recentWorkspaces={workspaceRecentList}
+              disabled={running || !chipEditable}
+              readOnly={!chipEditable}
+              onSelect={applyWorkspaceOverride}
+              onClear={clearWorkspaceOverride}
+              onBrowse={() => { void browseWorkspaceOverride(); }}
+            />
+          </div>
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
-            workspaceRoot={props.workspaceRoot}
+            workspaceRoot={effectiveWorkspaceRoot}
             initialDraft={draft}
-            disabled={!selectedAgent || selectedAgent.status !== "online"}
+            disabled={!selectedAgent || isChannelView || selectedAgent.status !== "online"}
             submitting={running}
-            placeholder={selectedAgent?.status === "online" ? t("local_agent.input_placeholder") : t("local_agent.input_placeholder_unavailable")}
+            placeholder={isChannelView ? t("local_agent.channel_session_readonly") : selectedAgent?.status === "online" ? t("local_agent.input_placeholder") : t("local_agent.input_placeholder_unavailable")}
             slashCommands={selectedSlashCommands}
             onDraftCommit={updateDraftForChat}
             onSlashCommandExecute={handleSlashCommandExecute}

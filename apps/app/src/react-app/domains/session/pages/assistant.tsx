@@ -1043,6 +1043,8 @@ export function AssistantPage(props: AssistantPageProps) {
                           onResumeConsumed={() => setPendingArchiveResume(null)}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           workspaceName={props.selectedWorkspaceDisplay.name}
+                          onmyagentServerClient={props.onmyagentServerClient}
+                          runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                           headerActions={headerPanelControls}

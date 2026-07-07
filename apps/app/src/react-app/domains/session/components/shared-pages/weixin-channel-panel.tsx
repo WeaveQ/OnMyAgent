@@ -394,6 +394,9 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         setToken("");
         setQrAutoPoll(false);
         await refresh();
+        if (result.autoStartOk === false) {
+          setError(`扫码成功，但微信服务自动启动失败：${String((result.autoStart as { error?: unknown })?.error ?? "未知错误")}。请手动点击「启动」。`);
+        }
       }
     } catch (pollError) {
       setError(pollError instanceof Error ? pollError.message : String(pollError));

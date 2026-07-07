@@ -807,6 +807,38 @@ export type PersonalLocalAgentConversationGetResult = {
   conversation: PersonalLocalAgentConversation | null;
 };
 
+export type PersonalLocalAgentConversationGetByIdResult = {
+  conversation: PersonalLocalAgentConversation | null;
+};
+
+export type PersonalLocalAgentChannelConversationsListResult = {
+  conversations: PersonalLocalAgentConversation[];
+};
+
+export type PersonalLocalAgentConversationsListByProviderResult = {
+  conversations: PersonalLocalAgentConversation[];
+  activeConversationId: string | null;
+};
+
+export type PersonalLocalAgentConversationImportInput = {
+  workspaceRoot: string;
+  agent?: Partial<PersonalLocalAgent> & {
+    provider?: PersonalLocalAgentProvider;
+    customArgs?: string[];
+  };
+  conversationId?: string | null;
+  title?: string;
+  providerSessionId?: string | null;
+  workdir?: string | null;
+  source?: string;
+  messages: Array<{ id?: string | null; role?: string; content?: unknown; createdAt?: number }>;
+};
+
+export type PersonalLocalAgentConversationImportResult = {
+  conversation: PersonalLocalAgentConversation | null;
+  importedMessageCount: number;
+};
+
 export type PersonalLocalAgentConversationStatusResult = {
   conversation: PersonalLocalAgentConversation | null;
   activeRun: PersonalLocalAgentRunResult | null;

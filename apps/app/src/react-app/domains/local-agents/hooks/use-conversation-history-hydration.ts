@@ -1,46 +1,13 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
-import {
-  personalLocalAgentConversationStatus,
-  type PersonalLocalAgent,
-  type PersonalLocalAgentConversationMessage,
-  type PersonalLocalAgentRunResult,
-} from "../../../../app/lib/desktop";
+import { personalLocalAgentConversationStatus, type PersonalLocalAgent } from "../../../../app/lib/desktop";
 import { localAgentChatKey } from "../local-agent-page-model";
 import type { ChatMessage } from "../messages/message-types";
 
-// Build a synthetic completed run so we can render the persisted transcript inside
-// an existing assistant bubble.
-function buildHistoryRun(input: {
-  agent: PersonalLocalAgent;
-  conversationId: string;
-  runId: string;
-  status: PersonalLocalAgentRunResult["status"];
-  persisted: PersonalLocalAgentConversationMessage[];
-  finishText: string;
-}): PersonalLocalAgentRunResult {
-  const now = Date.now();
-  return {
-    ok: true,
-    runId: input.runId,
-    agentId: input.agent.id,
-    agentProvider: input.agent.provider,
-    status: input.status,
-    startedAt: now,
-    finishedAt: now,
-    pid: null,
-    command: "",
-    output: input.finishText,
-    error: null,
-    errorInfo: null,
-    events: [],
-    conversationMessages: input.persisted,
-    logPath: null,
-    conversationId: input.conversationId,
-    pendingApprovals: [],
-  };
-}
-
+// Replay a persisted transcript (e.g. an archived session imported via
+// "resume from archive") into the chat as individual user/assistant bubbles so
+// the full back-and-forth is visible. Each bubble gets a stable, history-scoped
+// id so it can be de-duplicated on re-hydration.
 export function useConversationHistoryHydration(input: {
   workspaceRoot: string;
   agent: PersonalLocalAgent | null | undefined;
@@ -53,57 +20,51 @@ export function useConversationHistoryHydration(input: {
   useEffect(() => {
     if (!agent || !conversationId) return;
     const chatKey = localAgentChatKey(agent.id, conversationId);
-    if (hydratedRef.current.has(chatKey)) return;
+    console.log("[hydrate] checking", { chatKey, agent: { provider: agent.provider, id: agent.id }, conversationId });
+    if (hydratedRef.current.has(chatKey)) {
+      console.log("[hydrate] already hydrated", chatKey);
+      return;
+    }
     let cancelled = false;
     void personalLocalAgentConversationStatus({ workspaceRoot, agent, conversationId })
       .then((result) => {
         if (cancelled) return;
         const persisted = result.conversationMessages ?? [];
+        console.log("[hydrate] status", { chatKey, count: persisted.length });
         if (!persisted.length) return;
         hydratedRef.current.add(chatKey);
-        const last = persisted[persisted.length - 1];
-        const runId = `history-${chatKey}-${last?.createdAt ?? Date.now()}`;
-        const finishText =
-          [...persisted]
-            .reverse()
-            .find((m) => m.type === "finish" || (m.role === "assistant" && m.type === "text"))?.text ?? "";
-        const status: PersonalLocalAgentRunResult["status"] =
-          result.status === "running" ||
-          result.status === "completed" ||
-          result.status === "failed" ||
-          result.status === "cancelled" ||
-          result.status === "missing"
-            ? result.status
-            : "completed";
-        const historyRun = buildHistoryRun({
-          agent,
-          conversationId,
-          runId,
-          status,
-          persisted,
-          finishText,
+        const historyPrefix = `history-${chatKey}-`;
+        const historyMessages: ChatMessage[] = persisted.map((message, index) => {
+          // Local bubbles only support user/assistant/system; map anything else
+          // (e.g. "tool") to assistant so the content is still shown.
+          const role: ChatMessage["role"] =
+            message.role === "user" ? "user" : message.role === "system" ? "system" : "assistant";
+          return {
+            id: `${historyPrefix}${message.id ?? index}`,
+            role,
+            text: message.text ?? "",
+            createdAt: Number(message.createdAt) || Date.now() + index,
+            run: null,
+          };
         });
         setMessagesByAgent((current) => {
           const list = current[chatKey] ?? [];
-          const filtered = list.filter((m) => !(typeof m.id === "string" && m.id.startsWith("history-")));
-          if (filtered.some((m) => m.run?.runId === runId)) return current;
+          const filtered = list.filter(
+            (m) => !(typeof m.id === "string" && (m.id.startsWith(historyPrefix) || m.id.startsWith("native-session-")))
+          );
           // If the user already sent messages in this conversation (a user message or
           // a live assistant run exists), skip hydration to avoid appending a
-          // duplicate history bubble below the real transcript.
+          // duplicate history below the real transcript.
           const hasLiveMessages = filtered.some((m) => m.role === "user" || Boolean(m.run));
-          if (hasLiveMessages) return current;
+          if (hasLiveMessages) {
+            console.log("[hydrate] skipped (has live messages)", chatKey);
+            return current;
+          }
+          if (filtered.some((m) => typeof m.id === "string" && m.id.startsWith(historyPrefix))) return current;
+          console.log("[hydrate] adding", chatKey, historyMessages.length);
           return {
             ...current,
-            [chatKey]: [
-              ...filtered,
-              {
-                id: runId,
-                role: "assistant",
-                text: finishText,
-                createdAt: Date.now(),
-                run: historyRun,
-              },
-            ],
+            [chatKey]: [...filtered, ...historyMessages],
           };
         });
       })

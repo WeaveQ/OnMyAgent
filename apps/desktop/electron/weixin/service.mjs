@@ -122,6 +122,8 @@ export function createWeixinService(options = {}) {
   const appendLog = typeof options.appendLog === "function" ? options.appendLog : () => undefined;
   const channelPairingService = options.channelPairingService ?? null;
   const channelSessionStore = options.channelSessionStore ?? null;
+  const channelEventBus = options.channelEventBus ?? null;
+  const channelAssistantBindingStore = options.channelAssistantBindingStore ?? null;
   const dedup = new TtlSet(MESSAGE_DEDUP_TTL_MS);
   const pendingBatches = new Map();
   const activeRunPollers = new Map();
@@ -146,7 +148,13 @@ export function createWeixinService(options = {}) {
   let active = null;
 
   function snapshot(extra = {}) {
-    return { ...state, ...extra };
+    const base = { ...state, ...extra };
+    base.hasToken = Boolean(state.accountId);
+    base.activeUsers = channelPairingService
+      ? channelPairingService.getAuthorizedUsers().filter((u) => u.platformType === "wechat").length
+      : 0;
+    base.botUsername = state.accountId || undefined;
+    return base;
   }
 
   function setState(patch) {
@@ -158,6 +166,7 @@ export function createWeixinService(options = {}) {
     const normalized = normalizeRuntimeOptions(input);
     normalized.agentByChat = agentByChat;
     normalized.promptModeByChat = promptModeByChat;
+    normalized.channelAssistantBindingStore = channelAssistantBindingStore;
     return normalized;
   }
 
@@ -216,6 +225,7 @@ export function createWeixinService(options = {}) {
       }
     });
     await resumeActiveRuns(active);
+    subscribeStudioRelay();
     return { ok: true, status: snapshot(), account: sanitizeAccount(account) };
   }
 
@@ -229,6 +239,7 @@ export function createWeixinService(options = {}) {
     pendingBatches.clear();
     for (const timer of activeRunPollers.values()) clearTimeout(timer);
     activeRunPollers.clear();
+    unsubscribeStudioRelay();
     setState({ status: "stopped" });
     return { ok: true, status: snapshot() };
   }
@@ -295,8 +306,14 @@ export function createWeixinService(options = {}) {
     const contentKey = `content:${senderId}:${text}`;
     if (dedup.hasOrAdd(contentKey)) return null;
     const chat = guessChatType(message, session.account.accountId);
-    if (!isAllowed(session.options, chat, senderId)) return null;
-    if (!(await ensureChannelUserAuthorized(session, { platformType: "wechat", platformUserId: senderId, chatId: chat.chatId, displayName: senderId }))) return null;
+    if (!isAllowed(session.options, chat, senderId)) {
+      appendLog({ type: "warn", text: `weixin inbound dropped (policy): sender=${senderId} chatType=${chat.chatType}` });
+      return null;
+    }
+    if (!(await ensureChannelUserAuthorized(session, { platformType: "wechat", platformUserId: senderId, chatId: chat.chatId, displayName: senderId }))) {
+      appendLog({ type: "warn", text: `weixin inbound dropped (unauthorized): sender=${senderId} chatId=${chat.chatId}` });
+      return null;
+    }
     const contextToken = String(message?.context_token ?? "").trim();
     if (contextToken) await store.writeContextToken(session.account.accountId, senderId, contextToken);
     const mediaFiles = await collectMediaFiles(session, itemList);
@@ -304,7 +321,10 @@ export function createWeixinService(options = {}) {
     setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
     if (await maybeHandleControlCommand(session, event)) return event;
     void enqueueText(session, event).catch((error) => {
-      setState({ lastError: error?.message ?? String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      setState({ lastError: message });
+      appendLog({ type: "error", text: `weixin enqueue failed: ${message}` });
+      void sendText(session, event.chatId, `处理失败：${message}`, event.senderId).catch(() => undefined);
     });
     return event;
   }
@@ -322,7 +342,12 @@ export function createWeixinService(options = {}) {
     const timer = setTimeout(() => {
       pendingBatches.delete(key);
       void dispatchToAgent(session, batchEvent).catch((error) => {
-        setState({ lastError: error?.message ?? String(error) });
+        const message = error instanceof Error ? error.message : String(error);
+        setState({ lastError: message });
+        appendLog({ type: "error", text: `weixin dispatch failed: ${message}` });
+        // Surface dispatch failures to the user instead of failing silently so
+        // a broken agent runtime does not look like "the bot ignores me".
+        void sendText(session, batchEvent.chatId, `处理失败：${message}\n\n请检查 Studio 中微信通道的本地 Agent 配置。`, batchEvent.senderId).catch(() => undefined);
       });
     }, session.options.textBatchDelayMs);
     pendingBatches.set(key, { event: batchEvent, agent, timer });
@@ -438,7 +463,9 @@ export function createWeixinService(options = {}) {
     const timer = setTimeout(() => {
       activeRunPollers.delete(pollKey);
       void pollActiveRun(session, run.runKey).catch((error) => {
-        setState({ lastError: error?.message ?? String(error) });
+        const message = error instanceof Error ? error.message : String(error);
+        setState({ lastError: message });
+        void sendText(session, run.chatId, `任务状态查询失败：${message}`, run.senderId).catch(() => undefined);
       });
     }, Math.max(0, delayMs));
     activeRunPollers.set(pollKey, timer);
@@ -680,10 +707,20 @@ export function createWeixinService(options = {}) {
       baseUrl: response?.baseurl ?? ILINK_BASE_URL,
       userId: response?.ilink_user_id,
     });
-    const autoStartResult = await start({ ...input, accountId: account.accountId, autoStart: true }).catch((error) => ({
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    }));
+    // Persist the account switch immediately so the new account becomes the
+    // default even if the auto start below fails. Without this, a failure in
+    // `start` would leave the service running the previously configured
+    // (often stale) account while the UI believed the scan succeeded.
+    await persistServiceConfig({ ...input, accountId: account.accountId, autoStart: input.autoStart !== false });
+    let autoStartResult;
+    try {
+      autoStartResult = await start({ ...input, accountId: account.accountId, autoStart: true });
+    } catch (error) {
+      autoStartResult = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
     return {
       ok: true,
       status,
@@ -691,6 +728,7 @@ export function createWeixinService(options = {}) {
       baseUrl: account.baseUrl,
       pollBaseUrl,
       autoStart: autoStartResult,
+      autoStartOk: autoStartResult?.ok !== false,
       ret: response?.ret ?? null,
       errcode: response?.errcode ?? null,
       errmsg: response?.errmsg ?? response?.message ?? null,
@@ -730,7 +768,13 @@ export function createWeixinService(options = {}) {
     if (config.autoStart === false && input.force !== true) {
       return { ok: false, skipped: true, reason: "autoStart disabled", status: snapshot() };
     }
-    const account = await store.loadDefaultAccount();
+    // Prefer the most recently scanned account over the persisted
+    // defaultAccountId. A stale default (e.g. from a previous device/session)
+    // can keep the service polling an expired bot while a freshly scanned
+    // account sits unused.
+    const configured = await store.loadDefaultAccount();
+    const latest = (await store.listAccounts())[0];
+    const account = latest && latest.savedAt && configured?.savedAt && Date.parse(latest.savedAt) >= Date.parse(configured.savedAt) ? latest : configured;
     if (!account?.token) return { ok: false, skipped: true, reason: "no saved Weixin account", status: snapshot() };
     return start({ ...config.lastStartOptions, ...input, accountId: account.accountId, autoStart: true });
   }
@@ -795,6 +839,11 @@ export function createWeixinService(options = {}) {
     }
     session.options.agentByChat.set(event.chatId, nextAgent);
     await store.writeChatSetting(session.account.accountId, event.chatId, { agent: nextAgent });
+    if (session.options.channelAssistantBindingStore) {
+      await session.options.channelAssistantBindingStore
+        .setChatAssistant("wechat", event.chatId, { assistant_id: nextAgent.id })
+        .catch((error) => appendLog({ text: `Failed to persist chat binding: ${error?.message ?? error}` }));
+    }
     setState({ activeAgentId: nextAgent.id, lastError: null });
     await sendText(session, event.chatId, `已切换当前微信会话的回复 Agent：${agentLabel(nextAgent)}`, event.senderId);
     return true;
@@ -908,19 +957,111 @@ export function createWeixinService(options = {}) {
     }
     const result = await channelPairingService.requestPairing(input);
     const code = result?.pairingRequest?.code;
-    if (code) await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`, input.platformUserId);
+    if (code) {
+      await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`, input.platformUserId).catch(() => undefined);
+      appendLog({ type: "warn", text: `weixin pairing requested for ${input.platformUserId}, code=${code}` });
+    } else {
+      appendLog({ type: "warn", text: `weixin pairing request returned no code for ${input.platformUserId}` });
+    }
     return false;
   }
 
   async function getChannelSession(session, event, agent) {
     if (!channelSessionStore) return null;
-    return channelSessionStore.getOrCreateSession({
+    const channelSession = await channelSessionStore.getOrCreateSession({
       platformType: "wechat",
       platformUserId: event.senderId,
       agentType: `${agent.provider}/${agent.id}`,
       workspace: session.options.workspaceRoot,
       chatId: event.chatId,
     }).catch(() => null);
+    if (!channelSession) return null;
+    // Parity with AionCore create_conversation_for_session + bind_conversation:
+    // lazily create (once) a Studio conversation tagged source:"channel" and
+    // persist the mapping on the channel session so the same chat always
+    // reuses the same conversation and Studio can recognize its origin.
+    //
+    // Self-healing guard (regression fix): a channel session may already carry
+    // a non-empty conversationId that points at a missing/orphaned conversation
+    // file (e.g. left behind after a runtime restart). The original
+    // `!channelSession.conversationId` check would never re-bind such a stale
+    // pointer, leaving the UI showing an empty, unselectable session. We now
+    // also rebuild the binding when the bound conversation no longer exists.
+    const needBind = await shouldBindConversation({ session, event, agent, channelSession });
+    if (needBind && runtime?.createConversation) {
+      try {
+        const created = await runtime.createConversation({
+          workspaceRoot: session.options.workspaceRoot,
+          agent: { provider: agent.provider, id: agent.id },
+          source: "channel",
+          title: `微信 ${event.senderId}@${event.chatId}`,
+          metadata: {
+            channelChatId: event.chatId,
+            platformType: "wechat",
+            platformUserId: event.senderId,
+          },
+        });
+        const conversationId = created?.conversation?.id ?? created?.id ?? null;
+        if (conversationId) {
+          await channelSessionStore.bindConversation(channelSession.id, conversationId);
+          if (channelSession.conversationId) {
+            appendLog({ type: "warn", text: `weixin healed orphaned conversationId ${channelSession.conversationId} -> ${conversationId}` });
+          }
+        }
+      } catch (error) {
+        appendLog({ type: "warn", text: `weixin conversation bind failed: ${error?.message ?? String(error)}` });
+      }
+    }
+    return channelSessionStore.getSession(channelSession.id) ?? channelSession;
+
+    async function shouldBindConversation({ session, event, agent, channelSession }) {
+      const boundId = String(channelSession.conversationId ?? "").trim();
+      if (!boundId) return true;
+      // Non-empty binding: verify the conversation still exists. If the
+      // runtime/facade is unavailable, fail safe to "do not rebind" (the old
+      // behavior) so we never clobber a valid mapping on a transient error.
+      //
+      // NOTE: we must match by exact id. `getAgentConversation` falls back to
+      // the active/first conversation when the id is missing, so it would
+      // wrongly report a stale, orphaned id as "found". `listAgentConversations`
+      // returns the raw list and lets us test id membership strictly.
+      if (!runtime?.listAgentConversations) return false;
+      try {
+        const listed = await runtime.listAgentConversations({
+          workspaceRoot: session.options.workspaceRoot,
+          agent: { provider: agent.provider, id: agent.id },
+        });
+        const conversations = listed?.conversations ?? [];
+        return !conversations.some((c) => String(c?.id ?? "") === boundId);
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  // Parity S4 (reverse relay): when Studio sends a message on a conversation
+  // that this channel has bound to an IM chat, push it back to that chat.
+  // Subscribes to the bus event emitted by channel-runtime.relayStudioMessage;
+  // only acts when the target platform matches this service (wechat).
+  let _studioRelayUnsub = null;
+  function subscribeStudioRelay() {
+    if (!channelEventBus || _studioRelayUnsub) return;
+    _studioRelayUnsub = channelEventBus.subscribe("channel:conversation:message:from-studio", (event) => {
+      const payload = event?.payload ?? event ?? {};
+      if (String(payload?.platformType ?? "").toLowerCase() !== "wechat") return;
+      const chatId = String(payload?.chatId ?? "").trim();
+      const text = String(payload?.text ?? "").trim();
+      if (!chatId || !text) return;
+      void sendText(active, chatId, text, chatId).catch((error) => {
+        appendLog({ type: "error", text: `weixin studio-relay send failed: ${error?.message ?? String(error)}` });
+      });
+    });
+  }
+  function unsubscribeStudioRelay() {
+    if (_studioRelayUnsub) {
+      try { _studioRelayUnsub(); } catch { /* noop */ }
+      _studioRelayUnsub = null;
+    }
   }
 
   async function appendChannelSessionHistory(channelSession, userText, output, agent) {
@@ -942,6 +1083,18 @@ export function createWeixinService(options = {}) {
     if (channelSession?.id) await channelSessionStore.closeSession(channelSession.id).catch(() => undefined);
   }
 
+  async function probe(input = {}) {
+    const accountId = String(input.accountId ?? state.accountId ?? "").trim();
+    const account = accountId ? await store.loadAccount(accountId).catch(() => null) : await store.loadDefaultAccount().catch(() => null);
+    if (!account?.token) return { ok: false, error: "no saved Weixin account" };
+    try {
+      await client.getUpdates({ baseUrl: account.baseUrl, token: account.token, syncBuf: "", timeoutMs: 3000 });
+      return { ok: true, botUsername: account.accountId, hasToken: true };
+    } catch (error) {
+      return { ok: false, error: error?.message ?? String(error) };
+    }
+  }
+
   return {
     start,
     stop,
@@ -952,6 +1105,7 @@ export function createWeixinService(options = {}) {
     loginPoll,
     autoStart,
     simulateInbound,
+    probe,
     processMessage: (message, input = {}) => {
       const session = active ?? { account: input.account, store, options: runtimeOptions(input), controller: new AbortController() };
       return processMessage(session, message);
@@ -1055,6 +1209,19 @@ async function currentAgentForChat(session, chatId) {
     const available = resolveAgentAlias(session.options.availableAgents, storedAgent.id) ?? storedAgent;
     session.options.agentByChat.set(chatId, available);
     return available;
+  }
+  const bindingStore = session.options.channelAssistantBindingStore;
+  if (bindingStore) {
+    const chatBinding = bindingStore.getChatAssistant("wechat", chatId);
+    const platformBinding = chatBinding ?? bindingStore.getPlatformSettings("wechat")?.assistant ?? null;
+    const bindingId = platformBinding?.assistant_id ?? platformBinding?.custom_agent_id;
+    if (bindingId) {
+      const alias = resolveAgentAlias(session.options.availableAgents, bindingId);
+      if (alias) {
+        session.options.agentByChat.set(chatId, alias);
+        return alias;
+      }
+    }
   }
   return session.options.agent;
 }

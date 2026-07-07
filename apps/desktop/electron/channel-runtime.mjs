@@ -73,7 +73,25 @@ export function createMessagingChannelServices(options = {}) {
     registry,
   };
 
-  const channelInfrastructureApi = createChannelInfrastructureApi(services);
+  // Reverse relay (Studio -> IM, parity S4): a Studio message sent on a
+  // channel-bound conversation is routed back to the originating IM chat.
+  // The runtime only resolves the target chat from the bound session and
+  // emits a bus event; the platform service owns the actual transport via
+  // its own sendText (subscribed below), so no service public API changes.
+  function relayStudioMessage(conversationId, text) {
+    const id = String(conversationId ?? "").trim();
+    const payload = String(text ?? "").trim();
+    if (!id || !payload) return { ok: false, error: "conversationId and text required" };
+    const session = infrastructure.sessionStore.findSessionByConversationId(id);
+    if (!session || !session.chatId) return { ok: false, error: "no bound channel session" };
+    infrastructure.eventBus.publish(
+      "channel:conversation:message:from-studio",
+      { conversationId: id, chatId: session.chatId, platformType: session.platformType, text: payload },
+    );
+    return { ok: true, chatId: session.chatId, platformType: session.platformType };
+  }
+
+  const channelInfrastructureApi = createChannelInfrastructureApi(services, { relayStudioMessage });
 
   return {
     // Platform channel services (legacy accessors kept for main.mjs).
@@ -172,8 +190,9 @@ export async function probeAccessibleRoot(input = {}) {
 }
 
 export { CHANNEL_EVENTS };
-export function createChannelInfrastructureApi(services) {
+export function createChannelInfrastructureApi(services, extras = {}) {
   const { pairingService, sessionStore, channelEventBus, registry, assistantBindingStore } = services;
+  const { relayStudioMessage } = extras;
 
   return {
     // --- Pairing Service API ---
@@ -339,15 +358,30 @@ export function createChannelInfrastructureApi(services) {
       return status ?? null;
     },
 
-    async enableChannelPlugin(pluginId /*, config */) {
+    async enableChannelPlugin(pluginId, config = {}) {
       const record = registry?.get(pluginId);
       if (!record) return { ok: false, error: `Unknown plugin: ${pluginId}` };
       const service = record.instance?.service ?? record.instance;
       try {
-        if (typeof service?.start === "function") {
-          await service.start({});
-        }
-        return { ok: true, pluginId };
+        const started = typeof service?.autoStart === "function" && !config?.forceStart
+          ? await service.autoStart(config)
+          : (typeof service?.start === "function" ? await service.start(config) : { ok: false, error: "plugin has no start()" });
+        if (started && started.ok === false) return { ok: false, error: started.error ?? "start failed", detail: started };
+        return { ok: true, pluginId, detail: started };
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
+    },
+
+    async testChannelPlugin(pluginId, input = {}) {
+      const record = registry?.get(pluginId);
+      if (!record) return { ok: false, error: `Unknown plugin: ${pluginId}` };
+      const service = record.instance?.service ?? record.instance;
+      if (typeof service?.probe !== "function") {
+        return { ok: false, error: "plugin does not support connectivity test" };
+      }
+      try {
+        return await service.probe(input);
       } catch (error) {
         return { ok: false, error: error?.message ?? String(error) };
       }
@@ -400,6 +434,15 @@ export function createChannelInfrastructureApi(services) {
       } catch (error) {
         return { ok: false, error: error?.message ?? String(error) };
       }
+    },
+
+    // --- Reverse relay API (Studio -> IM, parity S4) ---
+    // Exposed for main.mjs to wire Studio conversation messages back to IM.
+    // The runtime resolves the bound channel session and emits a bus event;
+    // platform services subscribe and perform the actual send.
+    relayStudioMessage(conversationId, text) {
+      if (typeof relayStudioMessage !== "function") return { ok: false, error: "relay unavailable" };
+      return relayStudioMessage(conversationId, text);
     },
   };
 }

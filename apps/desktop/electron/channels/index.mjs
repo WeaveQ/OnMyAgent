@@ -15,6 +15,7 @@ export { default as ChannelEventBus, channelEventBus, CHANNEL_EVENTS } from "./C
 export { ChannelPairingService, PAIRING_CODE_LENGTH, PAIRING_EXPIRY_MS } from "./ChannelPairingService.mjs";
 export { ChannelSessionStore } from "./ChannelSessionStore.mjs";
 export { ChannelMessageAdapter, channelMessageAdapter } from "./ChannelMessageAdapter.mjs";
+export { ChannelStreamRelay } from "./ChannelStreamRelay.mjs";
 export {
   ChannelPluginRegistry,
   createLegacyServicePlugin,
