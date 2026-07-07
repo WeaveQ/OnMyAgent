@@ -49,19 +49,11 @@ import type {
   CodeWorkspaceFileEntry,
 } from "./desktop-types";
 import type {
-  AgentManagementSetProviderInput,
-  AgentManagementSetProviderResult,
-  AgentManagementSetProxyInput,
-  AgentManagementSetProxyResult,
   AgentManagementProviderActionInput,
   AgentManagementProviderActionResult,
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
   AgentManagementMcpActionInput,
-  AgentManagementUpdateCheckResult,
-  AgentManagementInstallationReport,
-  AgentManagementRunLifecycleInput,
-  AgentManagementRunLifecycleResult,
   AgentManagementMcpActionResult,
   AgentManagementMcpSnapshot,
   AgentManagementSkillActionInput,
@@ -83,7 +75,6 @@ import type {
   PersonalLocalAgentConversationInput,
   PersonalLocalAgentConversationStatusResult,
   PersonalLocalAgentConversationWarmupResult,
-  PersonalLocalAgentSideQuestionResult,
   PersonalLocalAgentConversationTranscriptInput,
   PersonalLocalAgentConversationTranscriptResult,
   PersonalLocalAgentConversationsListResult,
@@ -1204,11 +1195,6 @@ export function personalLocalAgentConversationWarmup(
   );
 }
 
-export function personalLocalAgentSideQuestion(
-  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; prompt: string; approvalMode?: PersonalLocalAgentApprovalMode; model?: string | null },
-): Promise<PersonalLocalAgentSideQuestionResult> {
-  return invokeElectronHelper<PersonalLocalAgentSideQuestionResult>("personalLocalAgentSideQuestion", input);
-}
 
 export function personalLocalAgentProviderSessionsList(
   input: PersonalLocalAgentConversationInput,
@@ -1576,23 +1562,6 @@ export function agentManagementSnapshot(input: {
   );
 }
 
-export function agentManagementSetProvider(
-  input: AgentManagementSetProviderInput,
-): Promise<AgentManagementSetProviderResult> {
-  return invokeElectronHelper<AgentManagementSetProviderResult>(
-    "agentManagementSetProvider",
-    input,
-  );
-}
-
-export function agentManagementSetProxy(
-  input: AgentManagementSetProxyInput,
-): Promise<AgentManagementSetProxyResult> {
-  return invokeElectronHelper<AgentManagementSetProxyResult>(
-    "agentManagementSetProxy",
-    input,
-  );
-}
 
 export function agentManagementProviderAction(
   input: AgentManagementProviderActionInput,
@@ -1632,33 +1601,6 @@ export function agentManagementMcpAction(
 ): Promise<AgentManagementMcpActionResult> {
   return invokeElectronHelper<AgentManagementMcpActionResult>(
     "agentManagementMcpAction",
-    input,
-  );
-}
-
-export function agentManagementCheckToolVersion(
-  input: { provider: string; localVersion?: string | null; bypassCache?: boolean },
-): Promise<AgentManagementUpdateCheckResult> {
-  return invokeElectronHelper<AgentManagementUpdateCheckResult>(
-    "agentManagementCheckToolVersion",
-    input,
-  );
-}
-
-export function agentManagementProbeInstallations(
-  input: { provider: string },
-): Promise<AgentManagementInstallationReport> {
-  return invokeElectronHelper<AgentManagementInstallationReport>(
-    "agentManagementProbeInstallations",
-    input,
-  );
-}
-
-export function agentManagementRunLifecycle(
-  input: AgentManagementRunLifecycleInput,
-): Promise<AgentManagementRunLifecycleResult> {
-  return invokeElectronHelper<AgentManagementRunLifecycleResult>(
-    "agentManagementRunLifecycle",
     input,
   );
 }

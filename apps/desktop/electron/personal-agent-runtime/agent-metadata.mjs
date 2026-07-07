@@ -72,6 +72,57 @@ function normalizeCapability(agent) {
   };
 }
 
+
+// Mirror AionCore's `derive_models_from_config_options`: some CLIs (notably
+// claude-agent-acp) never publish `available_models` on session/update but do
+// expose a `model` select inside `config_options`. When that happens, expand
+// the select options into a proper models catalog so the UI's model dropdown
+// gets the same choices AionUi surfaces.
+function deriveModelsFromConfigOptions(configOptions) {
+  if (!Array.isArray(configOptions) || !configOptions.length) return [];
+  const select = configOptions.find((option) => {
+    if (!option || typeof option !== "object") return false;
+    const type = String(option.type ?? option.kind ?? "").toLowerCase();
+    if (type && type !== "select") return false;
+    const category = String(option.category ?? "").toLowerCase();
+    const id = String(option.id ?? option.name ?? "").toLowerCase();
+    return category === "model" || id === "model" || id === "models";
+  });
+  if (!select) return [];
+  const rawOptions = Array.isArray(select.options) ? select.options : [];
+  const flattened = rawOptions.flatMap((entry) => {
+    if (Array.isArray(entry?.options)) return entry.options;
+    return [entry];
+  });
+  return flattened
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        const id = String(entry ?? "").trim();
+        return id ? { id, label: id } : null;
+      }
+      const id = String(entry.value ?? entry.id ?? "").trim();
+      if (!id) return null;
+      const label = String(entry.label ?? entry.name ?? id).trim() || id;
+      return { id, label };
+    })
+    .filter(Boolean);
+}
+
+function mergeModelCatalogs(...lists) {
+  const seen = new Map();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (!item || typeof item !== "object") continue;
+      const id = String(item.id ?? "").trim();
+      if (!id || seen.has(id)) continue;
+      const label = String(item.label ?? item.name ?? id).trim() || id;
+      seen.set(id, { id, label });
+    }
+  }
+  return [...seen.values()];
+}
+
 function sessionCapabilities(capability) {
   return {
     fork: null,
@@ -147,7 +198,6 @@ export function personalAgentMetadataFromAgent(agent) {
       permission_mode: agent?.behaviorPolicy?.permissionMode ?? agent?.behavior_policy?.permission_mode ?? "ask",
       yolo_mode_id: agent?.behaviorPolicy?.yoloModeId ?? agent?.behavior_policy?.yolo_mode_id ?? null,
       auto_approve_readonly: Boolean(agent?.behaviorPolicy?.autoApproveReadonly ?? agent?.behavior_policy?.auto_approve_readonly),
-      supports_side_question: (() => { const explicit = agent?.behaviorPolicy?.supportsSideQuestion ?? agent?.behavior_policy?.supports_side_question; if (typeof explicit === "boolean") return explicit; return Boolean(capability?.supportsAcp); })(),
     },
     connectionMode,
     status,
@@ -161,9 +211,13 @@ export function personalAgentMetadataFromAgent(agent) {
       const mergedConfigOptions = sessionMeta?.configOptions && Array.isArray(sessionMeta.configOptions)
         ? sessionMeta.configOptions
         : configOptions;
-      const mergedModels = sessionMeta?.availableModels && Array.isArray(sessionMeta.availableModels)
-        ? sessionMeta.availableModels.map((m) => ({ id: m.id, label: m.name ?? m.id }))
-        : models;
+      const liveModels = sessionMeta?.availableModels && Array.isArray(sessionMeta.availableModels)
+        ? sessionMeta.availableModels.map((m) => ({ id: String(m.id ?? "").trim(), label: String(m.name ?? m.label ?? m.id ?? "").trim() })).filter((m) => m.id)
+        : [];
+      // Fall back to `config_options[model]` when the CLI does not publish a
+      // dedicated `availableModels` payload (claude-agent-acp behavior).
+      const derivedModels = deriveModelsFromConfigOptions(mergedConfigOptions);
+      const mergedModels = mergeModelCatalogs(liveModels, derivedModels, models);
       const mergedModes = sessionMeta?.modes ?? meta.available_modes ?? null;
       const mergedCommands = sessionMeta?.availableCommands && Array.isArray(sessionMeta.availableCommands)
         ? sessionMeta.availableCommands

@@ -97,7 +97,7 @@ export const sessionArchiveRegistry = [
   entry("gptme", "gptme", "GPTME_DIR", "gptme_dirs", [".local/share/gptme/logs"], "gptme:"),
   entry("shelley", "Shelley", "SHELLEY_DIR", "shelley_dirs", [".config/shelley"], "shelley:"),
   entry("vibe", "Mistral Vibe", "VIBE_SESSIONS_DIR", "vibe_session_dirs", [".vibe/logs/session"], "vibe:"),
-  entry("aider", "Aider", "AIDER_DIR", "aider_dirs", [""], "aider:", { shallowWatch: true }),
+  entry("aider", "Aider", "AIDER_DIR", "aider_dirs", [".aider"], "aider:", { shallowWatch: true }),
   entry("reasonix", "Reasonix", "REASONIX_DIR", "reasonix_dirs", [".reasonix", "AppData/Roaming/reasonix"], "reasonix:", { watchSubdirs: ["sessions", "archive", "projects"] }),
 ] as const satisfies readonly SessionArchiveRegistryEntry[];
 
@@ -131,7 +131,10 @@ export function resolveSessionArchiveSourceRoots(
     const dirs = envValue ? [envValue] : configDirs.length ? configDirs : source.defaultDirs;
     const dirSource: SessionArchiveDirSource = envValue ? "env" : configDirs.length ? "config" : "default";
     return dirs.flatMap((dir) => {
+      if (typeof dir !== "string" || dir.trim() === "") return [];
       const root = resolveHomeRelativePath(home, dir);
+      // Never scan $HOME itself: it explodes into every provider's files under a wrong agent label.
+      if (root === home) return [];
       if (!input.includeMissing && !existsSync(root)) return [];
       return [{ agent: source.agent, root, source: dirSource, configured: dirSource !== "default" }];
     });
