@@ -141,6 +141,8 @@ import {
 
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
+const ASSISTANT_STALL_NOTICE_MS = 45_000;
+const COMPACT_COMPLETE_NOTICE_MS = 4_000;
 
 const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
@@ -538,9 +540,11 @@ function useSharedQueryState<T>(queryKey: readonly unknown[], fallback: T) {
 function AssistantWaitingCard({
   label = t("session.assistant_thinking"),
   collapseLayout = false,
+  detail,
 }: {
   label?: string;
   collapseLayout?: boolean;
+  detail?: string;
 }) {
   const content = (
     <div className="flex justify-start" role="status" aria-live="polite">
@@ -570,6 +574,7 @@ function AssistantWaitingCard({
           />
         </div>
         <span>{label}</span>
+        {detail ? <span className="text-dls-tertiary">{detail}</span> : null}
       </div>
     </div>
   );
@@ -579,6 +584,30 @@ function AssistantWaitingCard({
   }
 
   return content;
+}
+
+function AssistantCompactStatusCard(props: { status: "compacting" | "completed" }) {
+  const completed = props.status === "completed";
+  return (
+    <div className="flex items-center justify-center py-2" role="status" aria-live="polite">
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-3 text-xs text-dls-secondary">
+        <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+        <span className="inline-flex shrink-0 items-center gap-1.5">
+          {completed ? <Check className="size-3.5 text-dls-status-success-fg" /> : null}
+          {completed ? t("session.assistant_compacted") : t("session.assistant_compacting")}
+        </span>
+        <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+      </div>
+    </div>
+  );
+}
+
+function ComposerNoticePanel(props: { label: string }) {
+  return (
+    <div className="border-b border-dls-border px-4 py-2 text-center text-xs text-dls-secondary">
+      {props.label}
+    </div>
+  );
 }
 
 function AssistantNoVisibleOutputCard(props: { text: string }) {
@@ -604,6 +633,77 @@ function AssistantStatusSpacer() {
       />
     </div>
   );
+}
+
+function messageActivityFingerprint(messages: UIMessage[]) {
+  return messages
+    .map((message) => {
+      const partToken = message.parts
+        .map((part) => {
+          if ("text" in part && typeof part.text === "string") {
+            return `${part.type}:${part.text.length}`;
+          }
+          if (part.type === "dynamic-tool") {
+            const record = part as Record<string, unknown>;
+            const state = typeof record.state === "string" ? record.state : "";
+            const toolName = typeof record.toolName === "string" ? record.toolName : "";
+            return `${part.type}:${toolName}:${state}`;
+          }
+          return part.type;
+        })
+        .join(",");
+      return `${message.id}:${message.role}:${partToken}`;
+    })
+    .join("|");
+}
+
+function compactCandidateText(message: UIMessage) {
+  if (message.role !== "assistant") return "";
+  return message.parts
+    .flatMap((part) => {
+      if ("text" in part && typeof part.text === "string") return [part.text];
+      return [];
+    })
+    .join("\n")
+    .trim();
+}
+
+function isLikelyCompactSummaryMessage(message: UIMessage) {
+  const text = compactCandidateText(message);
+  if (text.length < 320) return false;
+  const headings = [
+    "Current State",
+    "Completed",
+    "In Progress",
+    "Blocked",
+    "Key Decisions",
+    "Next Steps",
+    "Progress",
+  ];
+  const headingHits = headings.filter((heading) =>
+    new RegExp(`(^|\\n)\\s*(?:#+\\s*)?${heading}\\b`, "i").test(text),
+  ).length;
+  return headingHits >= 3;
+}
+
+function filterCompactionMessages(
+  messages: UIMessage[],
+  compactBoundary: number | null,
+) {
+  let beforeNextUserAfterBoundary = compactBoundary !== null;
+  return messages.filter((message, index) => {
+    if (compactBoundary !== null && index >= compactBoundary) {
+      if (message.role === "user") beforeNextUserAfterBoundary = false;
+      if (
+        beforeNextUserAfterBoundary &&
+        message.role === "assistant" &&
+        isLikelyCompactSummaryMessage(message)
+      ) {
+        return false;
+      }
+    }
+    return !isLikelyCompactSummaryMessage(message);
+  });
 }
 
 function TodoPanel(props: { todos: TodoItem[] }) {
@@ -888,6 +988,7 @@ function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
     t("session.goal_hidden_next_step"),
     t("session.goal_hidden_continue_when_safe"),
     t("session.goal_hidden_track_progress"),
+    t("session.goal_hidden_stall_recovery"),
     t("session.goal_hidden_blocker"),
   ].join("\n");
 }
@@ -1482,6 +1583,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
     statusQueryKey,
     currentSnapshot?.status ?? IDLE_STATUS,
   );
+  const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
+    useState<Record<string, number>>({});
+  const [compactNoticeBySessionId, setCompactNoticeBySessionId] =
+    useState<Record<string, { status: "compacting" | "completed"; at: number }>>({});
+  const compactWasActiveRef = useRef<Record<string, boolean>>({});
+  const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -1587,10 +1694,58 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
   const chatStreaming =
     sending || liveStatus.type === "busy" || liveStatus.type === "retry";
-  const renderedMessages = useMemo(
+  const rawRenderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  const renderedMessages = useMemo(
+    () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
+    [compactBoundary, rawRenderedMessages],
+  );
+  const compactNotice = compactNoticeBySessionId[props.sessionId] ?? null;
+  useEffect(() => {
+    const compacting = sessionActivityStatus === "compacting";
+    const wasCompacting = compactWasActiveRef.current[props.sessionId] === true;
+    if (compacting) {
+      if (!wasCompacting) {
+        setCompactBoundaryBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: rawRenderedMessages.length,
+        }));
+      }
+      compactWasActiveRef.current = {
+        ...compactWasActiveRef.current,
+        [props.sessionId]: true,
+      };
+      setCompactNoticeBySessionId((current) => ({
+        ...current,
+        [props.sessionId]: { status: "compacting", at: Date.now() },
+      }));
+      return;
+    }
+    if (wasCompacting) {
+      compactWasActiveRef.current = {
+        ...compactWasActiveRef.current,
+        [props.sessionId]: false,
+      };
+      setCompactNoticeBySessionId((current) => ({
+        ...current,
+        [props.sessionId]: { status: "completed", at: Date.now() },
+      }));
+    }
+  }, [props.sessionId, rawRenderedMessages.length, sessionActivityStatus]);
+
+  useEffect(() => {
+    if (compactNotice?.status !== "completed") return;
+    const id = window.setTimeout(() => {
+      setCompactNoticeBySessionId((current) => {
+        const notice = current[props.sessionId];
+        if (!notice || notice.at !== compactNotice.at) return current;
+        return removeRecordKey(current, props.sessionId);
+      });
+    }, COMPACT_COMPLETE_NOTICE_MS);
+    return () => window.clearTimeout(id);
+  }, [compactNotice, props.sessionId]);
   const inferredGoalRuntime = useMemo<CollaborationGoalRuntime | null>(() => {
     if (props.goalRuntime) return null;
     if (!isCodeGoalMode(effectiveCollaborationMode, assistantFeatureCategoryId)) {
@@ -1763,11 +1918,41 @@ export function SessionSurface(props: SessionSurfaceProps) {
         : showAssistantRespondingState
           ? "responding"
           : "idle";
+  const activityFingerprint = useMemo(
+    () => messageActivityFingerprint(renderedMessages),
+    [renderedMessages],
+  );
+  const [activityPulseAt, setActivityPulseAt] = useState(Date.now());
+  const [activityNow, setActivityNow] = useState(Date.now());
+  useEffect(() => {
+    const now = Date.now();
+    setActivityPulseAt(now);
+    setActivityNow(now);
+  }, [
+    activityFingerprint,
+    effectiveActivityStatus,
+    liveStatus.type,
+    props.sessionId,
+  ]);
+  const activityVisible =
+    chatStreaming || effectiveActivityStatus !== "idle";
+  useEffect(() => {
+    if (!activityVisible) return;
+    const id = window.setInterval(() => setActivityNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activityVisible]);
+  const showStalledActivityNotice =
+    activityVisible &&
+    effectiveActivityStatus !== "compacting" &&
+    activityNow - activityPulseAt >= ASSISTANT_STALL_NOTICE_MS;
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
     snapshotSessionError,
   ].find((item) => item && item.message !== dismissedErrorMessage) ?? null;
+  const cancelledError =
+    visibleError && isUserCancelledError(visibleError) ? visibleError : null;
+  const visibleTranscriptError = cancelledError ? null : visibleError;
   const showNoVisibleAssistantOutput =
     noVisibleAssistantOutputBaseline !== null &&
     !assistantOutputAfterNoVisibleFallback;
@@ -1777,9 +1962,20 @@ export function SessionSurface(props: SessionSurfaceProps) {
     assistantOutputAfterAwaitStart &&
     !chatStreaming;
   const assistantStatusFooter =
-    !visibleError && effectiveActivityStatus !== "idle" ? (
+    compactNotice ? (
+      <AssistantCompactStatusCard status={compactNotice.status} />
+    ) : !visibleTranscriptError && effectiveActivityStatus !== "idle" ? (
       <AssistantWaitingCard
-        label={getSessionActivityStatusLabel(effectiveActivityStatus)}
+        label={
+          showStalledActivityNotice
+            ? t("session.assistant_stalled")
+            : getSessionActivityStatusLabel(effectiveActivityStatus)
+        }
+        detail={
+          showStalledActivityNotice
+            ? t("session.assistant_stalled_hint")
+            : undefined
+        }
         collapseLayout
       />
     ) : showNoVisibleAssistantOutput ? (
@@ -2273,10 +2469,31 @@ export function SessionSurface(props: SessionSurfaceProps) {
     snapshotQuery.refetch,
   ]);
 
+  const pauseGoalRuntime = useCallback(async () => {
+    const runtime = props.goalRuntime;
+    if (
+      runtime &&
+      (runtime.status === "running" || runtime.status === "waiting")
+    ) {
+      const now = Date.now();
+      props.onGoalRuntimeChange?.({
+        ...runtime,
+        status: "paused",
+        updatedAt: now,
+        pauseStartedAt: now,
+      });
+    }
+    await stopActiveRun();
+  }, [props.goalRuntime, props.onGoalRuntimeChange, stopActiveRun]);
+
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
+    if (props.goalRuntime) {
+      await pauseGoalRuntime();
+      return;
+    }
     await stopActiveRun();
-  }, [chatStreaming, stopActiveRun]);
+  }, [chatStreaming, pauseGoalRuntime, props.goalRuntime, stopActiveRun]);
 
   const handleDismissError = useCallback(() => {
     if (visibleError?.message) {
@@ -2749,7 +2966,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.personalAssistantHome &&
     props.draftOnly &&
     renderedMessages.length === 0 &&
-    !visibleError &&
+    !visibleTranscriptError &&
     effectiveActivityStatus === "idle";
   const assistantDraftHomeTitle =
     assistantCategoryId === "code"
@@ -2813,14 +3030,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       busy={sending || chatStreaming}
       onPause={() => {
         if (visibleGoalRuntime.status === "paused") return;
-        const now = Date.now();
-        props.onGoalRuntimeChange?.({
-          ...visibleGoalRuntime,
-          status: "paused",
-          updatedAt: now,
-          pauseStartedAt: now,
-        });
-        void stopActiveRun();
+        void pauseGoalRuntime();
       }}
       onResume={resumeGoalRuntime}
       onClear={() => {
@@ -2856,9 +3066,17 @@ export function SessionSurface(props: SessionSurfaceProps) {
       safeStringify={props.safeStringify}
     />
   ) : null;
+  const cancelledAccessory = cancelledError ? (
+    <ComposerNoticePanel label={t("session.user_cancelled")} />
+  ) : null;
   const sessionComposerAccessory =
-    planOrTodoAccessory || goalAccessory || questionAccessory || permissionAccessory ? (
+    cancelledAccessory ||
+    planOrTodoAccessory ||
+    goalAccessory ||
+    questionAccessory ||
+    permissionAccessory ? (
       <div>
+        {cancelledAccessory}
         {planOrTodoAccessory}
         {goalAccessory}
         {questionAccessory}
@@ -2987,13 +3205,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     </div>
                   </div>
                 </div>
-              ) : (snapshotQuery.isError || visibleError) &&
+              ) : (snapshotQuery.isError || visibleTranscriptError) &&
                 !snapshot &&
                 renderedMessages.length === 0 ? (
                 <div className="px-6 py-8">
-                  {visibleError ? (
+                  {visibleTranscriptError ? (
                     <SessionErrorCard
-                      error={visibleError}
+                      error={visibleTranscriptError}
                       onDismiss={handleDismissError}
                       onChangeModel={props.onChangeModel}
                       onOpenModelPicker={props.onModelClick}
@@ -3008,7 +3226,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 </div>
               ) : renderedMessages.length === 0 &&
                 effectiveActivityStatus !== "idle" &&
-                !visibleError ? (
+                !visibleTranscriptError ? (
                 <div className="px-6 py-12">
                   <AssistantWaitingCard
                     label={getSessionActivityStatusLabel(
@@ -3019,9 +3237,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
               ) : renderedMessages.length === 0 &&
                 (props.draftOnly ||
                   (snapshot && snapshot.messages.length === 0)) ? (
-                visibleError ? (
+                visibleTranscriptError ? (
                   <SessionErrorCard
-                    error={visibleError}
+                    error={visibleTranscriptError}
                     onDismiss={handleDismissError}
                     onChangeModel={props.onChangeModel}
                     onOpenModelPicker={props.onModelClick}
@@ -3077,9 +3295,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       }
                       userIdentity={props.userIdentity}
                     />
-                    {visibleError ? (
+                    {visibleTranscriptError ? (
                       <SessionErrorCard
-                        error={visibleError}
+                        error={visibleTranscriptError}
                         onDismiss={handleDismissError}
                         onChangeModel={props.onChangeModel}
                         onOpenModelPicker={props.onModelClick}

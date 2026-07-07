@@ -340,6 +340,7 @@ export function buildGoalRuntimeSystemPrompt(
     "- At the start of each run, decide the next concrete step based on what has already happened in the conversation.",
     "- Do not stop after partial progress when another safe, relevant step remains available.",
     "- Track what remains, verify results against the objective, and report concrete progress.",
+    `- ${t("session.goal_hidden_stall_recovery")}`,
     "- If you cannot continue without user input or an external change, say what is blocking the goal and what is needed next.",
   ].join("\n");
 }
