@@ -647,9 +647,6 @@ function SubmitPlugin(props: { onSubmit: () => void | Promise<void>; disabled: b
   return null;
 }
 
-const PASTE_CHIP_LINE_THRESHOLD = 3;
-const PASTE_CHIP_CHAR_THRESHOLD = 200;
-
 function PasteChipPlugin(props: { onPasteText?: (text: string) => void }) {
   const [editor] = useLexicalComposerContext();
   const onPasteTextRef = useRef(props.onPasteText);
@@ -666,16 +663,7 @@ function PasteChipPlugin(props: { onPasteText?: (text: string) => void }) {
         // Only handle plain-text pastes; files are handled in the React onPaste.
         const files = event.clipboardData?.files;
         if (files && files.length > 0) return false;
-        const text = event.clipboardData?.getData("text/plain") ?? "";
-        if (!text.trim()) return false;
-        const lineCount = text.split(/\r?\n/).length;
-        if (lineCount < PASTE_CHIP_LINE_THRESHOLD && text.length < PASTE_CHIP_CHAR_THRESHOLD) {
-          return false;
-        }
-        // Collapse into a paste chip.
-        event.preventDefault();
-        onPasteTextRef.current(text);
-        return true;
+        return false;
       },
       COMMAND_PRIORITY_CRITICAL,
     );
