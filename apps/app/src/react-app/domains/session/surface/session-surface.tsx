@@ -694,10 +694,19 @@ function PlanApprovalPanel(props: {
     (step) => step.status === "completed",
   ).length;
   const progressLabel = t("session.todo_progress_label");
+  const statusLabel = isDrafting
+    ? t("session.plan_runtime_drafting")
+    : isExecuting
+      ? t("session.plan_runtime_executing")
+      : isCompleted
+        ? t("session.plan_runtime_completed")
+        : t("session.plan_runtime_title");
   const label =
     expanded || planSteps.length === 0
-      ? t("session.plan_runtime_title")
+      ? statusLabel
       : `${progressLabel} · ${completedSteps}/${planSteps.length}`;
+  const showReadyBadge =
+    expanded && props.runtime.status === "awaiting_approval";
 
   return (
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
@@ -712,18 +721,9 @@ function PlanApprovalPanel(props: {
             <span className="truncate font-medium text-dls-secondary">
               {label}
             </span>
-            {expanded ? (
-              <StatusBadge
-                tone={isDrafting || isExecuting ? "warning" : "success"}
-                size="tiny"
-              >
-                {isDrafting
-                  ? t("session.plan_runtime_drafting")
-                  : isExecuting
-                    ? t("session.plan_runtime_executing")
-                    : isCompleted
-                      ? t("session.plan_runtime_completed")
-                      : t("session.plan_runtime_ready")}
+            {showReadyBadge ? (
+              <StatusBadge tone="success" size="tiny">
+                {t("session.plan_runtime_ready")}
               </StatusBadge>
             ) : null}
           </DisclosureRowButton>
