@@ -253,7 +253,7 @@ function StatusPopoverBody(props: StatusPopoverBodyProps) {
             <li key={item.key} className="rounded-md px-2 py-1 hover:bg-dls-hover">
               <div className="truncate text-dls-text">{item.primary}</div>
               {item.secondary ? (
-                <div className="truncate text-[11px] text-dls-secondary">{item.secondary}</div>
+                <div className="truncate text-xs text-dls-secondary">{item.secondary}</div>
               ) : null}
             </li>
           ))}
@@ -263,7 +263,7 @@ function StatusPopoverBody(props: StatusPopoverBodyProps) {
       )}
       {props.sourceErrors && props.sourceErrors.length ? (
         <div
-          className="flex flex-col gap-1 rounded-md border border-dls-status-warning-border bg-dls-status-warning-soft px-2 py-1.5 text-[11px] text-dls-status-warning-fg"
+          className="flex flex-col gap-1 rounded-md border border-dls-status-warning-border bg-dls-status-warning-soft px-2 py-1.5 text-xs text-dls-status-warning-fg"
           data-testid="local-agent-status-rail-source-errors"
         >
           <div className="font-medium">{t("local_agent.status_rail_source_errors_title")}</div>
@@ -276,7 +276,7 @@ function StatusPopoverBody(props: StatusPopoverBodyProps) {
           ))}
         </div>
       ) : null}
-      <div className="text-[11px] text-dls-secondary">{props.hint}</div>
+      <div className="text-xs text-dls-secondary">{props.hint}</div>
     </div>
   );
 }

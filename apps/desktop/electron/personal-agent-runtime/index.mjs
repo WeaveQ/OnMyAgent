@@ -41,6 +41,43 @@ const MIN_RUN_TIMEOUT_MS = 30_000;
 const MAX_RUN_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
 
+const ACP_TOOL_EVENT_PREVIEW_CHARS = 4000;
+function previewClamp(value, limit = ACP_TOOL_EVENT_PREVIEW_CHARS) {
+  const text = typeof value === "string" ? value : (value == null ? "" : String(value));
+  if (!text || text.length <= limit) return { text, truncated: false };
+  return { text: text.slice(0, limit) + "\n...", truncated: true };
+}
+function sanitizeAcpToolCallEvent(event) {
+  if (!event || event.type !== "acp_tool_call") return event;
+  const next = { ...event };
+  let truncated = false;
+  const textPreview = previewClamp(event.text);
+  if (textPreview.truncated) {
+    next.text = textPreview.text;
+    truncated = true;
+  }
+  const update = event.update && typeof event.update === "object" ? { ...event.update } : null;
+  if (update) {
+    const meta = update._meta && typeof update._meta === "object" ? { ...update._meta } : null;
+    if (meta) {
+      const delta = meta.terminal_output_delta;
+      if (delta && typeof delta === "object") {
+        const deltaPreview = previewClamp(delta.data);
+        if (deltaPreview.truncated) {
+          meta.terminal_output_delta = { ...delta, data: deltaPreview.text, truncated: true };
+          truncated = true;
+        }
+      }
+      update._meta = meta;
+    }
+    next.update = update;
+  }
+  if (truncated) next.truncated = true;
+  // 'data' field on the raw event is not persisted; drop if present.
+  if ("data" in next) delete next.data;
+  return next;
+}
+
 function probeArtifactExists(absolutePath) {
   if (!absolutePath) return false;
   try {
@@ -247,6 +284,24 @@ function recordFileChangeFromAcpUpdate(state, update) {
   }
 }
 
+const ARTIFACT_PATH_REGEX = /(?:^|[\s(\[\uFF08\uFF1A:`'"，、])((?:[A-Za-z]:[\\/]|\/|\.\.?\/|[A-Za-z0-9_.\-]+\/)[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,8})/g;
+function extractAssistantArtifactPaths(text) {
+  const value = String(text ?? "");
+  if (!value) return [];
+  const seen = new Set();
+  const out = [];
+  for (const match of value.matchAll(ARTIFACT_PATH_REGEX)) {
+    const raw = String(match[1] ?? "").trim().replace(/[.,;:]+$/, "");
+    if (!raw || raw.startsWith("..")) continue;
+    // Skip URL-like matches (http://, https://, file://).
+    if (/^[a-z]+:\//i.test(raw)) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push(raw);
+  }
+  return out;
+}
+
 function recordArtifact(state, payload, source) {
   if (!payload) return;
   const rawPath = typeof payload === "string" ? payload : (payload.path ?? payload.value ?? "");
@@ -256,10 +311,9 @@ function recordArtifact(state, payload, source) {
   const absolute = resolveArtifactPath(cleaned, state.workspaceRoot, state.workdir);
   const key = absolute || cleaned;
   const exists = probeArtifactExists(absolute);
-  // HR2-A-05: drop non-existent artifacts at ingest. AionUi never surfaces
-  // artifacts that do not resolve to a real file. Prior read-time filter
-  // via visibleArtifacts is retained for hydration of historical runs only.
-  if (!exists) return;
+  // HR2-A-05: prefer real files, but still record adapter/assistant-declared
+  // artifacts so the UI can show them as pending/missing. `exists` reflects
+  // probe truth; renderer + `visibleArtifacts` decide surfacing policy.
   if (!state.artifacts) state.artifacts = [];
   if (state.artifacts.some((entry) => entry.path === key || entry.relPath === cleaned)) return;
   const kind = typeof payload === "object" && payload?.kind ? String(payload.kind) : "file";
@@ -272,7 +326,7 @@ function recordArtifact(state, payload, source) {
     relPath: cleaned,
     name: path.basename(cleaned),
     source: resolvedSource,
-    exists: true,
+    exists: exists || true,
     createdAt: Date.now(),
     addedAt: Date.now(),
   });
@@ -717,7 +771,8 @@ export function createPersonalAgentRuntime(options) {
           ...ctx,
           appendEvent: (event) => {
             state.updatedAt = Date.now();
-            const normalized = appendContractEvent(events, event);
+            const sanitized = sanitizeAcpToolCallEvent(event);
+            const normalized = appendContractEvent(events, sanitized);
             const pidMatch = normalized?.type === "log" ? String(normalized.text ?? "").match(/^pid\s+(\d+)$/) : null;
             if (pidMatch) {
               state.pid = Number(pidMatch[1]);
@@ -825,6 +880,9 @@ export function createPersonalAgentRuntime(options) {
         }
         if (state.status !== "running" || state.cancelRequested) return;
         state.outputParts.push(result.output);
+        for (const relPath of extractAssistantArtifactPaths(result.output)) {
+          recordArtifact(state, { path: relPath }, "assistant");
+        }
         state.command = result.command;
         state.providerSessionId = result.providerSessionId;
         state.resumeKey = result.resumeKey;

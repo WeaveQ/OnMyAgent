@@ -1807,6 +1807,8 @@ describe("personal agent runtime facade", () => {
 
   it("routes Codex through the managed ACP bridge by default", async () => {
     const workspaceRoot = await tempWorkspace();
+    const prevFake = process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE;
+    process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE = "1";
     try {
       const runtime = createPersonalAgentRuntime({
         legacy: {
@@ -1832,6 +1834,8 @@ describe("personal agent runtime facade", () => {
 
   it("routes Claude Code through the managed ACP bridge by default", async () => {
     const workspaceRoot = await tempWorkspace();
+    const prevFake = process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE;
+    process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE = "1";
     try {
       const runtime = createPersonalAgentRuntime({
         legacy: {
