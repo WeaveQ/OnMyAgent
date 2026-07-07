@@ -76,10 +76,12 @@ import {
 import {
   buildAccessModeSystemPrompt,
   buildCollaborationModeSystemPrompt,
+  buildGoalRuntimeSystemPrompt,
   buildLanguageSystemPrompt,
   applySessionAccessMode,
   draftHasSendableContent,
   draftToParts,
+  isComposerGoalMode,
   isComposerPlanningMode,
   joinSystemParts,
   resolveComposerRuntimeTools,
@@ -210,6 +212,7 @@ import {
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import type {
+  CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   ComposerDraft,
   ComposerPart,
@@ -608,6 +611,9 @@ export function SessionRoute() {
     useState<Record<string, ComposerDraft["collaborationMode"]>>({});
   const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
     Record<string, CollaborationPlanRuntime>
+  >({});
+  const [sessionGoalRuntimeById, setSessionGoalRuntimeById] = useState<
+    Record<string, CollaborationGoalRuntime>
   >({});
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
@@ -2079,6 +2085,7 @@ export function SessionRoute() {
         ? { kind: "craft", planning: false, pursueGoal: true }
         : { planning: false, pursueGoal: false });
     const planRuntime = sessionPlanRuntimeById[composerModeSessionId] ?? null;
+    const goalRuntime = sessionGoalRuntimeById[composerModeSessionId] ?? null;
 
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
@@ -2116,6 +2123,18 @@ export function SessionRoute() {
       planRuntime,
       onPlanRuntimeChange: (runtime: CollaborationPlanRuntime | null) => {
         setSessionPlanRuntimeById((current) => {
+          const next = { ...current };
+          if (!runtime) {
+            delete next[composerModeSessionId];
+          } else {
+            next[composerModeSessionId] = runtime;
+          }
+          return next;
+        });
+      },
+      goalRuntime,
+      onGoalRuntimeChange: (runtime: CollaborationGoalRuntime | null) => {
+        setSessionGoalRuntimeById((current) => {
           const next = { ...current };
           if (!runtime) {
             delete next[composerModeSessionId];
@@ -2295,6 +2314,48 @@ export function SessionRoute() {
             return next;
           });
         }
+        const goalIntent = draft.goalIntent;
+        if (goalIntent) {
+          const now = Date.now();
+          setSessionGoalRuntimeById((current) => {
+            const next = { ...current };
+            delete next[composerModeSessionId];
+            next[sessionId] = {
+              status: "running",
+              objective: goalIntent.objective,
+              messageBaseline: goalIntent.messageBaseline,
+              lastRunMessageBaseline: goalIntent.messageBaseline,
+              startedAt: now,
+              updatedAt: now,
+              totalPausedMs: 0,
+              lastRunStartedAt: now,
+            };
+            return next;
+          });
+        } else if (isComposerGoalMode(draft.collaborationMode)) {
+          const existingGoal =
+            sessionGoalRuntimeById[composerModeSessionId] ??
+            sessionGoalRuntimeById[sessionId];
+          if (existingGoal) {
+            const now = Date.now();
+            setSessionGoalRuntimeById((current) => {
+              const currentGoal =
+                current[composerModeSessionId] ??
+                current[sessionId] ??
+                existingGoal;
+              const next = { ...current };
+              delete next[composerModeSessionId];
+              next[sessionId] = {
+                ...currentGoal,
+                status: "running",
+                updatedAt: now,
+                lastRunStartedAt: now,
+                completedAt: undefined,
+              };
+              return next;
+            });
+          }
+        }
 
         const runWithCreatedSessionRuntimeSync = async <T,>(
           action: () => Promise<T>,
@@ -2437,6 +2498,12 @@ export function SessionRoute() {
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
             undefined,
+          buildGoalRuntimeSystemPrompt(
+            draft.goalIntent
+              ? { objective: draft.goalIntent.objective }
+              : sessionGoalRuntimeById[composerModeSessionId] ??
+                  sessionGoalRuntimeById[sessionId],
+          ) || undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
           draft.hiddenSystemPrompt,
         ]);
@@ -2603,6 +2670,7 @@ export function SessionRoute() {
     selectedWorkspaceId,
     sessionAccessModeById,
     sessionCollaborationModeById,
+    sessionGoalRuntimeById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
