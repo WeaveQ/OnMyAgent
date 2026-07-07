@@ -31,9 +31,14 @@ function formatExactTokens(value: number) {
 
 type Usage = { used: number; total: number; label?: string | null };
 
-// Composer-embedded ring (AionUi-style). Click opens a popover with the exact
-// used/total token counts and remaining budget. Threshold colors follow the
-// same 70%/90% breakpoints used by AionUi.
+// Context-usage color thresholds. Kept co-located with the ring indicator so
+// desktop runtime does not need to know about UI palette breakpoints.
+const CONTEXT_USAGE_WARN_PERCENT = 70;
+const CONTEXT_USAGE_DANGER_PERCENT = 90;
+
+// Composer-embedded ring. Click opens a popover with the exact used/total
+// token counts and remaining budget. Threshold colors follow the same
+// 70%/90% breakpoints used by upstream ACP UIs.
 export function ContextUsageIndicator(props: { usage: Usage | null; className?: string; size?: number }) {
   const usage = props.usage;
   if (!usage) return null;
@@ -43,8 +48,8 @@ export function ContextUsageIndicator(props: { usage: Usage | null; className?: 
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (percent / 100) * circumference;
-  const isDanger = percent >= 90;
-  const isWarn = percent >= 70;
+  const isDanger = percent >= CONTEXT_USAGE_DANGER_PERCENT;
+  const isWarn = percent >= CONTEXT_USAGE_WARN_PERCENT;
   const ringClass = isDanger
     ? "text-dls-danger"
     : isWarn

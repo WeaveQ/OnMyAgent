@@ -22,6 +22,7 @@ import path from "node:path";
 const SKILL_INDEX_FILENAME = "SKILL.md";
 const MAX_SKILL_ENTRIES_PER_ROOT = 500;
 const MAX_DIRECTORY_DEPTH = 4;
+const DENIED_DECISIONS = new Set(["reject", "deny", "decline", "cancel", "reject_once", "cancelled"]);
 
 async function pathExists(p) {
   return safeStat(p).then((s) => Boolean(s)).catch(() => false);
@@ -95,7 +96,7 @@ async function collectSkillEntriesForRoot(root) {
  * Build a read-only skill status view-model.
  *
  * @param {object} input
- * @param {string[]} input.nativeSkillsDirs - authoritative skill roots declared
+ * @param {string[]} [input.nativeSkillsDirs] - authoritative skill roots declared
  *   by the underlying CLI agent metadata (native_skills_dirs).
  * @returns {Promise<{ skills: Array<{ id, name, indexFile, source, provenance }>,
  *   roots: Array<{ path: string, exists: boolean, count: number }>,
@@ -134,9 +135,9 @@ export async function buildSkillStatus(input = {}) {
  * connected. This avoids double-source drift.
  *
  * @param {object} input
- * @param {Array} input.conversationMessages - normalized event stream from the
+ * @param {Array} [input.conversationMessages] - normalized event stream from the
  *   current conversation, already flattened by contract.mjs.
- * @param {Array} input.availableCommands - handshake.available_commands entries
+ * @param {Array} [input.availableCommands] - handshake.available_commands entries
  *   which some CLIs annotate with `source: "mcp:<server>"`.
  * @returns {{ servers: Array<{ name: string, transport: string | null, connected: boolean, toolCount: number }>,
  *   error: null | string }}
@@ -179,9 +180,9 @@ export function buildMcpStatus(input = {}) {
  *   - remembered: acceptForSession decisions from approval-store
  *
  * @param {object} input
- * @param {Array} input.pendingApprovals
- * @param {Array} input.conversationMessages
- * @param {Array} input.rememberedDecisions
+ * @param {Array} [input.pendingApprovals]
+ * @param {Array} [input.conversationMessages]
+ * @param {Array} [input.rememberedDecisions]
  * @returns {{ pending: number, approved: number, denied: number,
  *   remembered: number, items: Array<{ id: string, state: string,
  *   summary: string, method: string, at: number | null }> }}
@@ -212,8 +213,7 @@ export function buildPermissionStatus(input = {}) {
     if (!approval || typeof approval !== "object") continue;
     const decision = String(approval.decision ?? "").trim();
     if (!decision) continue;
-    const deniedSet = new Set(["reject", "deny", "decline", "cancel", "reject_once", "cancelled"]);
-    const state = deniedSet.has(decision) ? "denied" : "approved";
+    const state = DENIED_DECISIONS.has(decision) ? "denied" : "approved";
     if (state === "approved") approved += 1;
     else denied += 1;
     items.push({

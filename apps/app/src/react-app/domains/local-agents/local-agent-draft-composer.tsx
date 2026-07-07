@@ -477,7 +477,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-xs font-medium text-dls-text">{command.name}</span>
                       <div className="flex items-center gap-1">
-                        {command.hint ? <kbd className="rounded border border-dls-border bg-dls-surface-muted px-1.5 py-0.5 text-[10px] font-mono text-dls-secondary">{command.hint}</kbd> : null}
+                        {command.hint ? <kbd className="rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs font-mono text-dls-secondary">{command.hint}</kbd> : null}
                         <StatusBadge size="tiny" tone="surface">{command.source === "acp" ? "ACP" : t("local_agent.slash_builtin")}</StatusBadge>
                       </div>
                     </div>

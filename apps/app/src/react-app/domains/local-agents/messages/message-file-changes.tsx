@@ -51,7 +51,7 @@ export function MessageFileChanges({ fileChanges, onFeedback }: Props) {
           >
             <FilePenLine className="size-3.5 shrink-0" />
             <span className="truncate">{entry.fileName}</span>
-            <span className="ml-1 shrink-0 text-[10px] uppercase tracking-wide text-dls-secondary">{entry.tool}</span>
+            <span className="ml-1 shrink-0 text-xs uppercase tracking-wide text-dls-secondary">{entry.tool}</span>
           </Button>
         ))}
       </div>
