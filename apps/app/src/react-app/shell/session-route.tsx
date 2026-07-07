@@ -19,6 +19,7 @@ import {
   readLocalAuthUser,
 } from "../../app/lib/local-auth";
 import {
+  compactSession,
   forkSession,
   listCommands,
   revertSession,
@@ -2495,6 +2496,26 @@ export function SessionRoute() {
             pendingAgentSnapshot,
           );
         }
+        const selectedPromptModel =
+          manualModelOverride ??
+          pendingAgentSnapshot?.model ??
+          local.prefs.defaultModel ??
+          undefined;
+        if (
+          selectedPromptModel &&
+          isComposerGoalMode(draft.collaborationMode) &&
+          !draft.goalIntent
+        ) {
+          try {
+            await compactSession(opencodeClient, sessionId, selectedPromptModel, {
+              auto: true,
+              directory: taskWorkspaceRoot || undefined,
+            });
+          } catch {
+            // Best-effort: if the preflight compact check fails, preserve the
+            // user's send path and let the normal prompt request report errors.
+          }
+        }
         const combinedSystem = joinSystemParts([
           envSystemContext,
           buildLanguageSystemPrompt(currentLocale()),
@@ -2520,11 +2541,7 @@ export function SessionRoute() {
             // Priority: user's manual override > agent's configured model > global default.
             // Never modify `pendingAgentSnapshot.model` — the agent's configured model
             // is owned by the agent page edit dialog.
-            model:
-              manualModelOverride ??
-              pendingAgentSnapshot?.model ??
-              local.prefs.defaultModel ??
-              undefined,
+            model: selectedPromptModel,
             agent: selectedAgent ?? undefined,
             ...(modelVariantValue ? { variant: modelVariantValue } : {}),
             ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
