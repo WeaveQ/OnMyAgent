@@ -58,6 +58,10 @@ import type {
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
   AgentManagementMcpActionInput,
+  AgentManagementUpdateCheckResult,
+  AgentManagementInstallationReport,
+  AgentManagementRunLifecycleInput,
+  AgentManagementRunLifecycleResult,
   AgentManagementMcpActionResult,
   AgentManagementMcpSnapshot,
   AgentManagementSkillActionInput,
@@ -83,6 +87,8 @@ import type {
   PersonalLocalAgentConversationTranscriptInput,
   PersonalLocalAgentConversationTranscriptResult,
   PersonalLocalAgentConversationsListResult,
+  PersonalLocalAgentHostStatusInput,
+  PersonalLocalAgentHostStatusResult,
   PersonalLocalAgentHeartbeatCreateInput,
   PersonalLocalAgentHeartbeatCreateResult,
   PersonalLocalAgentHeartbeatDeleteInput,
@@ -1249,6 +1255,15 @@ export function personalLocalAgentConversationConfirmationsList(
   );
 }
 
+export function personalLocalAgentHostStatus(
+  input: PersonalLocalAgentHostStatusInput,
+): Promise<PersonalLocalAgentHostStatusResult> {
+  return invokeElectronHelper<PersonalLocalAgentHostStatusResult>(
+    "personalLocalAgentHostStatus",
+    input,
+  );
+}
+
 export function personalLocalAgentConversationConfirmationConfirm(
   input: PersonalLocalAgentConversationInput & {
     runId?: string | null;
@@ -1617,6 +1632,33 @@ export function agentManagementMcpAction(
 ): Promise<AgentManagementMcpActionResult> {
   return invokeElectronHelper<AgentManagementMcpActionResult>(
     "agentManagementMcpAction",
+    input,
+  );
+}
+
+export function agentManagementCheckToolVersion(
+  input: { provider: string; localVersion?: string | null; bypassCache?: boolean },
+): Promise<AgentManagementUpdateCheckResult> {
+  return invokeElectronHelper<AgentManagementUpdateCheckResult>(
+    "agentManagementCheckToolVersion",
+    input,
+  );
+}
+
+export function agentManagementProbeInstallations(
+  input: { provider: string },
+): Promise<AgentManagementInstallationReport> {
+  return invokeElectronHelper<AgentManagementInstallationReport>(
+    "agentManagementProbeInstallations",
+    input,
+  );
+}
+
+export function agentManagementRunLifecycle(
+  input: AgentManagementRunLifecycleInput,
+): Promise<AgentManagementRunLifecycleResult> {
+  return invokeElectronHelper<AgentManagementRunLifecycleResult>(
+    "agentManagementRunLifecycle",
     input,
   );
 }

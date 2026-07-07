@@ -60,6 +60,17 @@ import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
+  fetchLatestForProvider as agentUpdateFetchLatestForProvider,
+  probeInstallations as agentUpdateProbeInstallations,
+  buildLifecycleCommand as agentUpdateBuildLifecycleCommand,
+  launchInTerminal as agentUpdateLaunchInTerminal,
+  compareSemver as agentUpdateCompareSemver,
+} from "./agent-update.mjs";
+import {
+  setHttpProxy as setSharedHttpProxy,
+  getCurrentProxyUrl as getSharedHttpProxyUrl,
+} from "./http-client.mjs";
+import {
   listCodeWorkspaceFiles,
   readCodeWorkspaceFile,
 } from "./code-workspace-files.mjs";
@@ -3124,6 +3135,10 @@ function normalizeAgentManagementProxy(proxy = {}) {
     port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : fallback.port,
     takeover: proxy.takeover && typeof proxy.takeover === "object" ? proxy.takeover : {},
     targets: proxy.targets && typeof proxy.targets === "object" ? proxy.targets : {},
+    // cc-switch parity: a user-configured HTTP/HTTPS/SOCKS5 proxy URL used by
+    // the shared HTTP client for outbound requests (registry version checks,
+    // GitHub releases, PyPI). Empty means "follow environment variables".
+    httpProxyUrl: typeof proxy.httpProxyUrl === "string" ? proxy.httpProxyUrl.trim() : "",
     updatedAt: typeof proxy.updatedAt === "number" ? proxy.updatedAt : null,
   };
 }
@@ -4178,6 +4193,9 @@ function readStudioSwitchProxyRows() {
 async function readAgentManagementProxyStatus(workspaceRoot) {
   const preferences = await personalAgentLegacyHarness.readAgentManagementPreferences(workspaceRoot);
   const proxy = normalizeAgentManagementProxy(preferences.proxy);
+  // Re-apply persisted HTTP proxy URL to the shared client on every read so
+  // that dev-reloads and process restarts pick it up (cc-switch parity).
+  try { setSharedHttpProxy(proxy.httpProxyUrl); } catch { /* ignore invalid URL */ }
   const studioService = studioAgentProxyStatusPayload();
   const serviceReachable = studioAgentProxyRunning() || await isTcpPortListening(proxy.address, proxy.port).catch(() => false);
   const studioSwitchRows = readStudioSwitchProxyRows();
@@ -4201,6 +4219,7 @@ async function readAgentManagementProxyStatus(workspaceRoot) {
     serviceReachable,
     takeover: Object.fromEntries(AGENT_MANAGEMENT_PROXY_AGENTS.map((agent) => [agent, Boolean(proxy.takeover?.[agent])])),
     targets: Object.fromEntries(AGENT_MANAGEMENT_PROXY_AGENTS.map((agent) => [agent, typeof proxy.targets?.[agent] === "string" ? proxy.targets[agent] : null])),
+    httpProxyUrl: proxy.httpProxyUrl ?? "",
     updatedAt: proxy.updatedAt,
     studio: studioService,
     studioSwitch: {
@@ -4388,6 +4407,102 @@ function detectClaudeDesktopConfig() {
   };
 }
 
+
+// Overlay the skill list on top of getHostStatus() output so the session
+// page's skill count matches what the management page shows for the same
+// provider. Single source of truth: scanAgentManagementSkills. Do NOT split
+// this into per-provider patches -- keep the parity in one place.
+async function personalLocalAgentHostStatusWithManagementParity(input) {
+  const [base, managed] = await Promise.all([
+    personalAgentRuntime.getHostStatus(input),
+    (async () => {
+      const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
+      if (!workspaceRoot) return [];
+      try {
+        return await scanAgentManagementSkills(workspaceRoot);
+      } catch (error) {
+        console.warn("[personalLocalAgentHostStatus] scanAgentManagementSkills failed", error);
+        return [];
+      }
+    })(),
+  ]);
+  const provider = String(input?.agent?.provider ?? input?.agent?.id ?? "").toLowerCase();
+  const provKey = provider.includes("codex") ? "codex"
+    : provider.includes("claude") ? "claude"
+    : provider.includes("opencode") ? "opencode"
+    : provider.includes("openclaw") ? "openclaw"
+    : provider.includes("hermes") ? "hermes"
+    : provider.includes("gemini") ? "gemini"
+    : provider;
+  const forProvider = managed.filter((skill) => Array.isArray(skill.agents) && skill.agents.includes(provKey));
+  const rootCounts = new Map();
+  const skills = forProvider.map((skill) => {
+    const indexFile = skill.path ? path.join(skill.path, "SKILL.md") : `runtime:${skill.name}`;
+    const source = skill.root || skill.path || "";
+    rootCounts.set(source, (rootCounts.get(source) ?? 0) + 1);
+    return {
+      id: skill.path ? path.basename(skill.path) : skill.name,
+      name: skill.displayNameEn || skill.displayNameZh || skill.name,
+      indexFile,
+      source,
+      provenance: "workspace",
+    };
+  });
+  const roots = [...rootCounts.entries()].map(([p, count]) => ({ path: p, exists: true, count }));
+  return {
+    ...base,
+    skill: {
+      skills,
+      roots,
+      error: base?.skill?.error ?? null,
+    },
+  };
+}
+
+async function agentManagementCheckToolVersion(input = {}) {
+  const provider = String(input?.provider ?? "").trim();
+  const version = typeof input?.localVersion === "string" ? input.localVersion : null;
+  if (!provider) throw new Error("provider is required");
+  const latest = await agentUpdateFetchLatestForProvider(provider, version, { bypassCache: Boolean(input?.bypassCache) });
+  const cmp = latest.latestVersion && version ? agentUpdateCompareSemver(version, latest.latestVersion) : null;
+  return {
+    provider,
+    version,
+    latestVersion: latest.latestVersion,
+    updateAvailable: cmp === -1,
+    latestChannel: latest.latestChannel,
+    versionCheckedAt: Date.now(),
+    versionCheckError: latest.error,
+  };
+}
+
+async function agentManagementRunLifecycle(input = {}) {
+  const provider = String(input?.provider ?? "").trim();
+  const action = String(input?.action ?? "update").trim();
+  const installPath = typeof input?.installPath === "string" ? input.installPath : null;
+  if (!provider) throw new Error("provider is required");
+  if (action !== "install" && action !== "update") throw new Error("action must be install or update");
+  const report = await agentUpdateProbeInstallations(provider);
+  const install = installPath
+    ? report.installs.find((i) => i.path === installPath)
+    : report.installs.find((i) => i.isPathDefault && i.runnable) || report.installs.find((i) => i.runnable) || report.installs[0];
+  if (install?.bundled) return { ok: false, terminalLaunched: false, command: "", error: "bundled install is read-only" };
+  const built = agentUpdateBuildLifecycleCommand(provider, action, install);
+  if (!built.command) return { ok: false, terminalLaunched: false, command: "", error: "no upgrade command available" };
+  const launch = await agentUpdateLaunchInTerminal(built.command);
+  return { ok: launch.ok, terminalLaunched: launch.terminalLaunched, command: built.command, error: launch.error };
+}
+
+async function agentManagementSetHttpProxy(input = {}) {
+  const raw = typeof input?.proxyUrl === "string" ? input.proxyUrl : null;
+  try {
+    const applied = setSharedHttpProxy(raw);
+    return { ok: true, proxyUrl: applied.proxyUrl };
+  } catch (err) {
+    return { ok: false, proxyUrl: getSharedHttpProxyUrl(), error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function agentManagementSnapshot(input = {}) {
   const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
   if (!workspaceRoot) throw new Error("workspaceRoot is required");
@@ -4408,11 +4523,38 @@ async function agentManagementSnapshot(input = {}) {
   return {
     generatedAt: Date.now(),
     workspaceRoot,
-    agents: agents.map((agent) => ({
-      ...agent,
-      providerOptions: providerOptionsForAgent(agent),
-      usage: usageByProvider.get(agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
-      skillCount: skillCounts.get(agent.provider) ?? 0,
+    agents: await Promise.all(agents.map(async (agent) => {
+      let updateFields = {};
+      if (agent && (agent.status === "online" || agent.version)) {
+        try {
+          const latest = await agentUpdateFetchLatestForProvider(agent.provider, agent.version ?? null);
+          const cmp = latest.latestVersion && agent.version
+            ? agentUpdateCompareSemver(agent.version, latest.latestVersion)
+            : null;
+          updateFields = {
+            latestVersion: latest.latestVersion,
+            latestChannel: latest.latestChannel,
+            versionCheckedAt: Date.now(),
+            versionCheckError: latest.error,
+            updateAvailable: cmp === -1,
+          };
+        } catch (err) {
+          updateFields = {
+            latestVersion: null,
+            latestChannel: null,
+            versionCheckedAt: Date.now(),
+            versionCheckError: err instanceof Error ? err.message : String(err),
+            updateAvailable: false,
+          };
+        }
+      }
+      return {
+        ...agent,
+        ...updateFields,
+        providerOptions: providerOptionsForAgent(agent),
+        usage: usageByProvider.get(agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
+        skillCount: skillCounts.get(agent.provider) ?? 0,
+      };
     })),
     skills: managedSkills,
     proxy,
@@ -4465,6 +4607,11 @@ async function agentManagementSetProxy(input = {}) {
       ...(preferences.selections ?? {}),
       [agent]: { model: target, updatedAt: Date.now(), proxyManaged: true },
     };
+  } else if (action === "httpProxyUrl") {
+    const url = typeof input?.proxyUrl === "string" ? input.proxyUrl.trim() : "";
+    // Validate & apply to shared HTTP client before persisting.
+    const applied = setSharedHttpProxy(url);
+    proxy.httpProxyUrl = applied.proxyUrl ?? "";
   } else {
     throw new Error("Unsupported proxy action");
   }
@@ -5719,6 +5866,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.forkProviderSession(args[0] ?? {});
     case "personalLocalAgentConversationConfirmationsList":
       return personalAgentRuntime.listConversationConfirmations(args[0] ?? {});
+    case "personalLocalAgentHostStatus":
+      return personalLocalAgentHostStatusWithManagementParity(args[0] ?? {});
     case "personalLocalAgentConversationConfirmationConfirm":
       return personalAgentRuntime.confirmConversationConfirmation(args[0] ?? {});
     case "personalLocalAgentNativeSessionsList":
@@ -5808,6 +5957,16 @@ async function handleDesktopInvoke(event, command, ...args) {
 
     case "agentManagementSnapshot":
       return agentManagementSnapshot(args[0] ?? {});
+    case "agentManagementCheckToolVersion":
+      return agentManagementCheckToolVersion(args[0] ?? {});
+    case "agentManagementProbeInstallations":
+      return agentUpdateProbeInstallations(String(args[0]?.provider ?? ""));
+    case "agentManagementRunLifecycle":
+      return agentManagementRunLifecycle(args[0] ?? {});
+    case "agentManagementSetHttpProxy":
+      return agentManagementSetHttpProxy(args[0] ?? {});
+    case "agentManagementGetHttpProxy":
+      return { proxyUrl: getSharedHttpProxyUrl() };
     case "agentManagementSetProvider":
       return agentManagementSetProvider(args[0] ?? {});
     case "agentManagementSetProxy":

@@ -19,6 +19,7 @@ const testTargets = new Map([
   ['infinite-canvas-ui-contract', ['bun', ['test', 'scripts/infinite-canvas-ui-contract.test.ts']]],
   ['infinite-canvas-ui-smoke', ['node', ['--experimental-websocket', 'scripts/infinite-canvas-ui-smoke.mjs']]],
   ['personal-local-agent-acp-ui-smoke', ['node', ['scripts/personal-local-agent-acp-ui-smoke.mjs']]],
+  ['agent-manager-cli-update-ui-smoke', ['node', ['scripts/agent-manager-cli-update-ui-smoke.mjs']]],
   ['personal-local-agent-codex-acp-tool-smoke', ['node', ['scripts/personal-local-agent-codex-acp-tool-smoke.mjs']]],
   ['remote-diagnostics', ['bun', ['test', 'scripts/remote-workspace-diagnostics.test.ts']]],
   ['open-target', ['bun', ['test', 'scripts/open-target.test.ts']]],

@@ -33,6 +33,11 @@
       "types": "./src/server.ts",
       "development": "./src/server.ts",
       "default": "./src/server.ts"
+    },
+    "./channel": {
+      "types": "./src/channel.ts",
+      "development": "./src/channel.ts",
+      "default": "./src/channel.ts"
     }
   },
   "files": [

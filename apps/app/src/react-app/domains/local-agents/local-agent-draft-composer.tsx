@@ -13,6 +13,8 @@ import React, {
 } from "react";
 import { FileText, Paperclip, Quote, SlashSquare, X } from "lucide-react";
 
+import { ContextUsageIndicator } from "./context-usage-indicator";
+
 import { Button } from "@/components/ui/button";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -30,6 +32,10 @@ export type LocalAgentSlashCommand = {
   description: string;
   source: "acp" | "builtin";
   selectionBehavior: "insert" | "execute";
+  hint?: string;
+  completionBehavior?: "normal" | "neutral_tip_on_empty";
+  emptyTurnTipCode?: string;
+  emptyTurnTipParams?: Record<string, unknown>;
 };
 
 export type LocalAgentAttachment = {
@@ -53,9 +59,12 @@ export type LocalAgentComposerSubmit = {
   attachments: LocalAgentAttachment[];
   mentions: Record<string, string>;
   quotes: LocalAgentQuoteChip[];
+  unresolvedMentions: string[];
 };
 
 const LONG_PASTE_THRESHOLD = 800;
+
+import { assembleLocalAgentPrompt } from "./local-agent-prompt-assembly";
 
 function isImageMime(mime: string): boolean {
   return mime.startsWith("image/");
@@ -72,7 +81,8 @@ function fileToDataUrl(file: File): Promise<string> {
 
 function getNativeFilePath(file: File): string | null {
   type ElectronBridge = { files?: { getPathForFile?: (file: File) => string | null } };
-  const bridge = (globalThis as unknown as { __ONMYAGENT_ELECTRON__?: ElectronBridge }).__ONMYAGENT_ELECTRON__;
+  const globalScope = globalThis as typeof globalThis & { __ONMYAGENT_ELECTRON__?: ElectronBridge };
+  const bridge = globalScope.__ONMYAGENT_ELECTRON__;
   const helper = bridge?.files?.getPathForFile;
   if (typeof helper === "function") {
     try { return helper(file) ?? null; } catch { return null; }
@@ -173,6 +183,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   onSlashCommandExecute?: (command: LocalAgentSlashCommand) => void;
   toolbarLeft?: ReactNode;
   toolbarRight?: ReactNode;
+  contextUsage?: { used: number; total: number; label?: string | null } | null;
 }) {
   const [value, setValue] = useState(props.initialDraft);
   const [slashOpen, setSlashOpen] = useState(false);
@@ -190,10 +201,12 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const dragCounterRef = useRef(0);
 
   const slashQuery = value.startsWith("/") && !/\s/.test(value) ? value.toLowerCase() : "";
+  // Show all live commands from the ACP wrapper (codex-acp publishes 8 builtins
+  // plus $skill entries); the menu is already scrollable via max-h-60.
   const visibleSlashCommands = useMemo(
     () => slashQuery
-      ? props.slashCommands.filter((command) => command.name.toLowerCase().startsWith(slashQuery)).slice(0, 8)
-      : props.slashCommands.slice(0, 8),
+      ? props.slashCommands.filter((command) => command.name.toLowerCase().startsWith(slashQuery))
+      : props.slashCommands,
     [props.slashCommands, slashQuery],
   );
 
@@ -233,7 +246,8 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     const text = value;
     if (!text.trim() && attachments.length === 0 && quotes.length === 0) return;
     props.onDraftCommit(props.draftKey, "");
-    props.onSubmit({ text, attachments, mentions, quotes });
+    const assembled = assembleLocalAgentPrompt({ text, attachments, mentions, quotes });
+    props.onSubmit({ text, attachments, mentions, quotes, unresolvedMentions: assembled.unresolvedMentions });
     setValue("");
     setAttachments([]);
     setQuotes([]);
@@ -462,7 +476,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-xs font-medium text-dls-text">{command.name}</span>
-                      <StatusBadge size="tiny" tone="surface">{command.source === "acp" ? "ACP" : t("local_agent.slash_builtin")}</StatusBadge>
+                      <div className="flex items-center gap-1">
+                        {command.hint ? <kbd className="rounded border border-dls-border bg-dls-surface-muted px-1.5 py-0.5 text-[10px] font-mono text-dls-secondary">{command.hint}</kbd> : null}
+                        <StatusBadge size="tiny" tone="surface">{command.source === "acp" ? "ACP" : t("local_agent.slash_builtin")}</StatusBadge>
+                      </div>
                     </div>
                     {command.description ? <div className="truncate text-xs text-dls-secondary">{command.description}</div> : null}
                   </div>
@@ -631,6 +648,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             {props.toolbarLeft}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {props.contextUsage ? <ContextUsageIndicator usage={props.contextUsage} /> : null}
             {props.toolbarRight}
             <SendButton
               type="button"
@@ -648,22 +666,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
 LocalAgentDraftComposer.displayName = "LocalAgentDraftComposer";
 
 export function buildLocalAgentPrompt(payload: LocalAgentComposerSubmit): string {
-  const sections: string[] = [];
-  const trimmed = payload.text.trim();
-  if (trimmed) sections.push(trimmed);
-  const mentionEntries = Object.entries(payload.mentions);
-  if (mentionEntries.length) {
-    const lines = mentionEntries.map(([token, absolute]) => `- ${token} -> ${absolute}`);
-    sections.push(`[Referenced files]\n${lines.join("\n")}`);
-  }
-  if (payload.attachments.length) {
-    const lines = payload.attachments.map((att) => `- ${att.name} (${att.kind}) -> ${att.absolutePath}`);
-    sections.push(`[Attached files]\n${lines.join("\n")}`);
-  }
-  if (payload.quotes.length) {
-    for (const quote of payload.quotes) {
-      sections.push(`[Pasted content]\n${quote.text}`);
-    }
-  }
-  return sections.join("\n\n").trim();
+  // Backwards-compat wrapper. Prefer `assembleLocalAgentPrompt` when the
+  // caller also needs `unresolvedMentions` or structured sections.
+  return assembleLocalAgentPrompt(payload).text;
 }

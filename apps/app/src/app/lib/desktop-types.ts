@@ -442,6 +442,16 @@ export type PersonalLocalAgent = {
   handshake?: PersonalLocalAgentMetadata["handshake"];
   behavior_policy?: PersonalLocalAgentMetadata["behavior_policy"];
   lastCheckedAt: number | null;
+  /** cc-switch parity: latest version reported by npm/GitHub/PyPI. `null` when never checked or check failed. */
+  latestVersion?: string | null;
+  /** True when `latestVersion` is strictly newer than `version` per compareSemver. */
+  updateAvailable?: boolean;
+  /** Which registry channel produced `latestVersion`. */
+  latestChannel?: "latest" | "next" | "github" | "pypi" | null;
+  /** Epoch ms of the last successful or failed registry probe. */
+  versionCheckedAt?: number | null;
+  /** Non-null when the last registry probe errored (offline, 404, timeout). */
+  versionCheckError?: string | null;
 };
 
 export type PersonalLocalAgentMetadata = {
@@ -485,15 +495,34 @@ export type PersonalLocalAgentMetadata = {
 };
 
 export type PersonalLocalAgentRunArtifact = {
+  /** Stable id (sha1 slice) used for renderer dedupe. */
+  id?: string;
+  /** Structured artifact kind emitted by the adapter; defaults to "file". */
+  kind?: string;
   /** Absolute path when resolvable, otherwise the raw value emitted by the agent. */
   path: string;
   /** The original (possibly relative) path string emitted by the agent. */
   relPath: string;
   name: string;
-  /** Where this artifact was first observed. */
+  /**
+   * Where this artifact was first observed. Only "adapter" is used by the
+   * current runtime; "assistant" is retained for backward-compat with older
+   * run logs that still carry text-mined entries.
+   */
   source: "adapter" | "assistant" | string;
   exists: boolean;
+  createdAt?: number;
   addedAt: number;
+};
+
+export type PersonalLocalAgentRunFileChange = {
+  id: string;
+  filePath: string;
+  fileName: string;
+  tool: string;
+  toolCallId?: string;
+  diff?: string | null;
+  at: number;
 };
 
 export type PersonalLocalAgentRunEvent = {
@@ -590,6 +619,7 @@ export type PersonalLocalAgentConversationMessage = {
   ownership?: string | null;
   resolution?: { target?: string; kind?: string; message?: string } | null;
   contextUsage?: { used: number; total: number; label?: string | null } | null;
+  commands?: unknown[];
 };
 
 export type PersonalLocalAgentApprovalMode = "auto" | "ask" | "read-only-auto";
@@ -638,10 +668,15 @@ export type PersonalLocalAgentRunResult = {
   pendingApprovals?: PersonalLocalAgentApprovalRequest[];
   /**
    * Files / artifacts the runtime believes were produced or referenced by this run.
-   * Populated from adapter `artifact` events plus a regex pass over the final
-   * assistant output. Prefer this over re-parsing the chat text in the UI.
+   * Populated only from structured adapter `artifact` events. Text mining
+   * was removed in HR2-A-01 to align with AionUi behavior.
    */
   artifacts?: PersonalLocalAgentRunArtifact[];
+  /**
+   * File edits captured from tool_call events (apply_patch/edit/write_file/...).
+   * Rendered by MessageFileChanges alongside artifacts.
+   */
+  fileChanges?: PersonalLocalAgentRunFileChange[];
 };
 
 export type PersonalLocalAgentsListResult = {
@@ -1321,10 +1356,59 @@ export type AgentManagementSkill = LocalSkillCard & {
   lastSeenAt?: number | null;
 };
 
+export type AgentManagementInstallationEntry = {
+  path: string;
+  version: string | null;
+  runnable: boolean;
+  error: string | null;
+  /** Where this install came from: `path`, `npm-global`, `homebrew`, `pipx`, `nvm`, `volta`, `bundled`, `github`, `custom`. */
+  source: string;
+  /** True when this install is the one PATH resolution picks. */
+  isPathDefault: boolean;
+  /** True when this install is bundled by OnMyAgent itself and must not be upgraded via npm/pip. */
+  bundled: boolean;
+};
+
+export type AgentManagementInstallationReport = {
+  provider: PersonalLocalAgentProvider | string;
+  installs: AgentManagementInstallationEntry[];
+  isConflict: boolean;
+  needsConfirmation: boolean;
+  /** Anchored install/update command to run in the terminal. */
+  command: string;
+  anchored: boolean;
+  envType: "macos" | "windows" | "linux" | "unknown";
+};
+
+export type AgentManagementUpdateCheckResult = {
+  provider: PersonalLocalAgentProvider | string;
+  version: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  latestChannel: "latest" | "next" | "github" | "pypi" | null;
+  versionCheckedAt: number;
+  versionCheckError: string | null;
+};
+
+export type AgentManagementRunLifecycleInput = {
+  provider: PersonalLocalAgentProvider | string;
+  action: "install" | "update";
+  installPath?: string;
+};
+
+export type AgentManagementRunLifecycleResult = {
+  ok: boolean;
+  terminalLaunched: boolean;
+  command: string;
+  error?: string;
+};
+
 export type AgentManagementAgent = PersonalLocalAgent & {
   providerOptions: AgentManagementProviderOption[];
   usage: AgentManagementUsageSummary;
   skillCount: number;
+  /** Optional installation report; populated by agentManagementProbeInstallations. */
+  installations?: AgentManagementInstallationReport;
 };
 
 export type AgentManagementSnapshot = {
@@ -1409,6 +1493,7 @@ export type AgentManagementProxyStatus = {
   serviceReachable: boolean;
   takeover: Record<"opencode" | "codex" | "claude" | "hermes" | "openclaw", boolean>;
   targets: Record<"opencode" | "codex" | "claude" | "hermes" | "openclaw", string | null>;
+  httpProxyUrl?: string;
   updatedAt: number | null;
   studio: {
     running: boolean;
@@ -1482,6 +1567,7 @@ export type AgentManagementSetProxyInput = {
   | { action: "service"; enabled: boolean; address?: string; port?: number }
   | { action: "takeover"; agent: AgentManagementSkillAgent; enabled: boolean }
   | { action: "target"; agent: AgentManagementSkillAgent; target: string }
+  | { action: "httpProxyUrl"; proxyUrl: string }
 );
 
 export type AgentManagementSetProxyResult = {
@@ -1539,4 +1625,69 @@ export type AgentManagementSkillActionResult = {
   directory?: string;
   path?: string;
   result?: string;
+};
+
+
+export type PersonalLocalAgentHostStatusInput = {
+  workspaceRoot: string;
+  conversationId?: string | null;
+  additionalSkillRoots?: string[];
+  agent?: Partial<PersonalLocalAgent> & {
+    provider?: PersonalLocalAgentProvider;
+    customArgs?: string[];
+  };
+};
+
+export type PersonalLocalAgentHostStatusSkillEntry = {
+  id: string;
+  name: string;
+  indexFile: string;
+  source: string;
+  provenance: "workspace";
+};
+
+export type PersonalLocalAgentHostStatusSkillRoot = {
+  path: string;
+  exists: boolean;
+  count: number;
+};
+
+export type PersonalLocalAgentHostStatusMcpServer = {
+  name: string;
+  transport: string | null;
+  connected: boolean;
+  toolCount: number;
+  source?: string;
+  sourceFile?: string;
+};
+
+export type PersonalLocalAgentHostStatusPermissionItem = {
+  id: string;
+  state: "pending" | "approved" | "denied";
+  summary: string;
+  method: string;
+  at: number | null;
+};
+
+export type PersonalLocalAgentHostStatusResult = {
+  workspaceRoot: string;
+  agentId: string | null;
+  conversationId: string | null;
+  skill: {
+    skills: PersonalLocalAgentHostStatusSkillEntry[];
+    roots: PersonalLocalAgentHostStatusSkillRoot[];
+    error: string | null;
+  };
+  mcp: {
+    servers: PersonalLocalAgentHostStatusMcpServer[];
+    error: string | null;
+    sourceErrors?: Array<{ file: string; message: string }>;
+  };
+  permission: {
+    pending: number;
+    approved: number;
+    denied: number;
+    remembered: number;
+    items: PersonalLocalAgentHostStatusPermissionItem[];
+  };
 };
