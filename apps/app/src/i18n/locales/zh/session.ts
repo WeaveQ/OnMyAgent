@@ -304,6 +304,7 @@ export default {
   "session.assistant_thinking": "正在思考",
   "session.assistant_stalled": "当前步骤耗时较久",
   "session.assistant_stalled_hint": "可以继续等待，也可以停止后换一种方式。",
+  "session.assistant_stalled_inline": "当前步骤耗时较久，可以继续等待，也可以停止后换一种方式。",
   "session.process_steps": "过程",
   "session.process_steps_count": "{count} 步",
   "session.process_summary_reviewed_files": "已查看 {count} 个文件",

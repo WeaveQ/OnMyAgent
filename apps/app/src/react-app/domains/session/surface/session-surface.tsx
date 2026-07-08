@@ -145,8 +145,7 @@ import {
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
 const ASSISTANT_STALL_NOTICE_MS = 45_000;
-const COMPACT_COMPLETE_NOTICE_MS = 4_000;
-const MAX_INTERRUPTION_NOTICES_PER_SESSION = 12;
+const MAX_TRANSCRIPT_NOTICES_PER_SESSION = 16;
 
 const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
@@ -327,9 +326,9 @@ export type SessionSurfaceProps = {
   onClearDraftWorkspace?: () => void;
 };
 
-type SessionInterruptionNotice = {
+type SessionTranscriptNotice = {
   id: string;
-  kind: "cancelled" | "stopped";
+  kind: "cancelled" | "stopped" | "compacting" | "compacted" | "stalled";
   afterMessageCount: number;
   elapsedMs?: number;
 };
@@ -595,22 +594,6 @@ function AssistantWaitingCard({
   }
 
   return content;
-}
-
-function AssistantCompactStatusCard(props: { status: "compacting" | "completed" }) {
-  const completed = props.status === "completed";
-  return (
-    <div className="flex items-center justify-center py-2" role="status" aria-live="polite">
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-3 text-xs text-dls-secondary">
-        <div className="h-px min-w-10 flex-1 bg-dls-mist" />
-        <span className="inline-flex shrink-0 items-center gap-1.5">
-          {completed ? <Check className="size-3.5 text-dls-status-success-fg" /> : null}
-          {completed ? t("session.assistant_compacted") : t("session.assistant_compacting")}
-        </span>
-        <div className="h-px min-w-10 flex-1 bg-dls-mist" />
-      </div>
-    </div>
-  );
 }
 
 function AssistantNoVisibleOutputCard(props: { text: string }) {
@@ -1049,6 +1032,20 @@ function formatInterruptionElapsed(ms: number) {
   return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
+function transcriptNoticeLabel(notice: SessionTranscriptNotice) {
+  if (notice.kind === "stopped" && notice.elapsedMs !== undefined) {
+    return t("session.user_stopped_after", {
+      duration: formatInterruptionElapsed(notice.elapsedMs),
+    });
+  }
+  if (notice.kind === "compacting") return t("session.assistant_compacting");
+  if (notice.kind === "compacted") return t("session.assistant_compacted");
+  if (notice.kind === "stalled") {
+    return t("session.assistant_stalled_inline");
+  }
+  return t("session.user_cancelled");
+}
+
 function goalObjectiveSummary(objective: string) {
   return objective
     .replace(/\[pasted text [^\]]+\]/g, "")
@@ -1066,6 +1063,7 @@ function removeRecordKey<T>(record: Record<string, T>, key: string) {
 function GoalRuntimePanel(props: {
   runtime: CollaborationGoalRuntime;
   busy: boolean;
+  assistantActive: boolean;
   onPause: () => void;
   onResume: () => void;
   onClear: () => void;
@@ -1073,8 +1071,12 @@ function GoalRuntimePanel(props: {
   const [now, setNow] = useState(Date.now());
   const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
   const objective = goalObjectiveSummary(props.runtime.objective);
-  const canResume = props.runtime.status === "paused" || props.runtime.status === "waiting";
-  const canPause = props.runtime.status === "running" || props.runtime.status === "waiting";
+  const canResume =
+    !props.assistantActive &&
+    (props.runtime.status === "paused" || props.runtime.status === "waiting");
+  const canPause =
+    props.assistantActive ||
+    props.runtime.status === "running";
 
   useEffect(() => {
     if (props.runtime.status === "paused" || props.runtime.status === "completed") {
@@ -1601,10 +1603,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
     useState<Record<string, number>>({});
-  const [compactNoticeBySessionId, setCompactNoticeBySessionId] =
-    useState<Record<string, { status: "compacting" | "completed"; at: number }>>({});
-  const [interruptionNoticesBySessionId, setInterruptionNoticesBySessionId] =
-    useState<Record<string, SessionInterruptionNotice[]>>({});
+  const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
+    useState<Record<string, SessionTranscriptNotice[]>>({});
   const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
@@ -1722,7 +1722,45 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
     [compactBoundary, rawRenderedMessages],
   );
-  const compactNotice = compactNoticeBySessionId[props.sessionId] ?? null;
+  const appendTranscriptNotice = useCallback(
+    (notice: SessionTranscriptNotice) => {
+      setTranscriptNoticesBySessionId((current) => {
+        const existing = current[props.sessionId] ?? [];
+        return {
+          ...current,
+          [props.sessionId]: [...existing, notice].slice(
+            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
+          ),
+        };
+      });
+    },
+    [props.sessionId],
+  );
+  const updateLatestTranscriptNotice = useCallback(
+    (
+      predicate: (notice: SessionTranscriptNotice) => boolean,
+      update: (notice: SessionTranscriptNotice) => SessionTranscriptNotice,
+    ) => {
+      setTranscriptNoticesBySessionId((current) => {
+        const existing = current[props.sessionId] ?? [];
+        let targetIndex = -1;
+        for (let index = existing.length - 1; index >= 0; index -= 1) {
+          const notice = existing[index];
+          if (notice && predicate(notice)) {
+            targetIndex = index;
+            break;
+          }
+        }
+        if (targetIndex < 0) return current;
+        const next = [...existing];
+        const target = next[targetIndex];
+        if (!target) return current;
+        next[targetIndex] = update(target);
+        return { ...current, [props.sessionId]: next };
+      });
+    },
+    [props.sessionId],
+  );
   useEffect(() => {
     const compacting = sessionActivityStatus === "compacting";
     const wasCompacting = compactWasActiveRef.current[props.sessionId] === true;
@@ -1732,15 +1770,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ...current,
           [props.sessionId]: rawRenderedMessages.length,
         }));
+        appendTranscriptNotice({
+          id: `${props.sessionId}:compacting:${renderedMessages.length}:${Date.now()}`,
+          kind: "compacting",
+          afterMessageCount: renderedMessages.length,
+        });
       }
       compactWasActiveRef.current = {
         ...compactWasActiveRef.current,
         [props.sessionId]: true,
       };
-      setCompactNoticeBySessionId((current) => ({
-        ...current,
-        [props.sessionId]: { status: "compacting", at: Date.now() },
-      }));
       return;
     }
     if (wasCompacting) {
@@ -1748,24 +1787,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
         ...compactWasActiveRef.current,
         [props.sessionId]: false,
       };
-      setCompactNoticeBySessionId((current) => ({
-        ...current,
-        [props.sessionId]: { status: "completed", at: Date.now() },
-      }));
+      updateLatestTranscriptNotice(
+        (notice) => notice.kind === "compacting",
+        (notice) => ({ ...notice, kind: "compacted" }),
+      );
     }
-  }, [props.sessionId, rawRenderedMessages.length, sessionActivityStatus]);
-
-  useEffect(() => {
-    if (compactNotice?.status !== "completed") return;
-    const id = window.setTimeout(() => {
-      setCompactNoticeBySessionId((current) => {
-        const notice = current[props.sessionId];
-        if (!notice || notice.at !== compactNotice.at) return current;
-        return removeRecordKey(current, props.sessionId);
-      });
-    }, COMPACT_COMPLETE_NOTICE_MS);
-    return () => window.clearTimeout(id);
-  }, [compactNotice, props.sessionId]);
+  }, [
+    appendTranscriptNotice,
+    props.sessionId,
+    rawRenderedMessages.length,
+    renderedMessages.length,
+    sessionActivityStatus,
+    updateLatestTranscriptNotice,
+  ]);
   const inferredGoalRuntime = useMemo<CollaborationGoalRuntime | null>(() => {
     if (props.goalRuntime) return null;
     if (!isCodeGoalMode(effectiveCollaborationMode, assistantFeatureCategoryId)) {
@@ -1973,19 +2007,38 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const cancelledError =
     visibleError && isUserCancelledError(visibleError) ? visibleError : null;
   const visibleTranscriptError = cancelledError ? null : visibleError;
+  useEffect(() => {
+    if (!showStalledActivityNotice) return;
+    const afterMessageCount = renderedMessages.length;
+    setTranscriptNoticesBySessionId((current) => {
+      const existing = current[props.sessionId] ?? [];
+      const alreadyRecorded = existing.some(
+        (notice) =>
+          notice.kind === "stalled" &&
+          notice.afterMessageCount === afterMessageCount,
+      );
+      if (alreadyRecorded) return current;
+      const notice: SessionTranscriptNotice = {
+        id: `${props.sessionId}:stalled:${afterMessageCount}:${Date.now()}`,
+        kind: "stalled",
+        afterMessageCount,
+      };
+      return {
+        ...current,
+        [props.sessionId]: [...existing, notice].slice(
+          -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
+        ),
+      };
+    });
+  }, [props.sessionId, renderedMessages.length, showStalledActivityNotice]);
   const interruptionDividers = useMemo<SessionTranscriptDivider[]>(() => {
-    const notices = interruptionNoticesBySessionId[props.sessionId] ?? [];
+    const notices = transcriptNoticesBySessionId[props.sessionId] ?? [];
     return notices.map((notice) => ({
       id: notice.id,
       afterMessageCount: notice.afterMessageCount,
-      label:
-        notice.kind === "stopped" && notice.elapsedMs !== undefined
-          ? t("session.user_stopped_after", {
-              duration: formatInterruptionElapsed(notice.elapsedMs),
-            })
-          : t("session.user_cancelled"),
+      label: transcriptNoticeLabel(notice),
     }));
-  }, [interruptionNoticesBySessionId, props.sessionId]);
+  }, [props.sessionId, transcriptNoticesBySessionId]);
   const hasTranscriptContent =
     renderedMessages.length > 0 || interruptionDividers.length > 0;
   const showNoVisibleAssistantOutput =
@@ -1997,23 +2050,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     assistantOutputAfterAwaitStart &&
     !chatStreaming;
   const assistantStatusFooter =
-    compactNotice ? (
-      <AssistantCompactStatusCard status={compactNotice.status} />
-    ) : !visibleTranscriptError && effectiveActivityStatus !== "idle" ? (
-      <AssistantWaitingCard
-        label={
-          showStalledActivityNotice
-            ? t("session.assistant_stalled")
-            : getSessionActivityStatusLabel(effectiveActivityStatus)
-        }
-        detail={
-          showStalledActivityNotice
-            ? t("session.assistant_stalled_hint")
-            : undefined
-        }
-        collapseLayout
-      />
-    ) : showNoVisibleAssistantOutput ? (
+    showNoVisibleAssistantOutput ? (
       <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
     ) : reserveAssistantStatusSpace ? (
       <AssistantStatusSpacer />
@@ -2235,12 +2272,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
 
   const recordSessionInterruption = useCallback(
-    (kind: SessionInterruptionNotice["kind"]) => {
+    (kind: "cancelled" | "stopped") => {
       const now = Date.now();
       const afterMessageCount = renderedMessages.length;
       const runStartedAt =
         activeRunStartedAt ?? props.goalRuntime?.lastRunStartedAt ?? now;
-      const notice: SessionInterruptionNotice = {
+      const notice: SessionTranscriptNotice = {
         id: `${props.sessionId}:${kind}:${afterMessageCount}:${now}`,
         kind,
         afterMessageCount,
@@ -2248,7 +2285,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
       };
 
-      setInterruptionNoticesBySessionId((current) => {
+      setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
         const alreadyRecorded = existing.some(
           (item) =>
@@ -2260,7 +2297,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         return {
           ...current,
           [props.sessionId]: [...existing, notice].slice(
-            -MAX_INTERRUPTION_NOTICES_PER_SESSION,
+            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
           ),
         };
       });
@@ -3127,6 +3164,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     <GoalRuntimePanel
       runtime={visibleGoalRuntime}
       busy={sending || chatStreaming}
+      assistantActive={activityVisible}
       onPause={() => {
         if (visibleGoalRuntime.status === "paused") return;
         void pauseGoalRuntime();
