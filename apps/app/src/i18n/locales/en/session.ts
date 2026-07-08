@@ -339,6 +339,7 @@ export default {
   "session.assistant_thinking": "Thinking",
   "session.assistant_stalled": "This step is taking longer than expected",
   "session.assistant_stalled_hint": "You can keep waiting or stop and try another path.",
+  "session.assistant_stalled_inline": "This step is taking longer than expected. You can keep waiting or stop and try another path.",
   "session.assistant_waiting": "Waiting",
   "session.assistant_compacted": "Context compressed",
   "session.process_steps": "Process",

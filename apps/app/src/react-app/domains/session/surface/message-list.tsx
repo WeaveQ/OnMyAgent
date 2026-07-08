@@ -1269,7 +1269,8 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
 
 function TranscriptDividerRow(props: { label: string }) {
   return (
-    <div className="mx-auto flex max-w-[760px] items-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
+    <div className="mx-auto flex max-w-[760px] items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
+      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
       <span className="shrink-0">{props.label}</span>
       <div className="h-px min-w-10 flex-1 bg-dls-mist" />
     </div>
