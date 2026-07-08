@@ -1,14 +1,6 @@
 import { t } from "@/i18n";
 import type { PersonalLocalAgent, PersonalLocalAgentRunResult } from "../../../app/lib/desktop";
-
-const PROVIDER_LABELS: Record<PersonalLocalAgent["provider"], string> = {
-  opencode: "OpenCode",
-  codex: "Codex",
-  claude: "Claude Code",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
-  custom: "Custom",
-};
+import { PROVIDER_LABELS } from "./constants";
 
 export function shortTime(value: number | null | undefined) {
   if (!value) return "--";

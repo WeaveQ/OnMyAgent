@@ -21,18 +21,10 @@ export type PersistedLocalAgentChatState = {
   errorsByAgent?: Record<string, string | null>;
 };
 
-export const PROVIDER_LABELS: Record<PersonalLocalAgent["provider"], string> = {
-  opencode: "OpenCode",
-  codex: "Codex",
-  claude: "Claude Code",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
-  custom: "Custom",
-};
-
-export function isPersonalLocalAgentProvider(value: string): value is PersonalLocalAgentProvider {
-  return Object.prototype.hasOwnProperty.call(PROVIDER_LABELS, value);
-}
+export {
+  PROVIDER_LABELS,
+  isPersonalLocalAgentProvider,
+} from "./constants";
 
 
 const PROVIDER_ICON_URLS: Partial<Record<PersonalLocalAgentProvider, string>> = {
@@ -263,19 +255,10 @@ export function nativeSessionResumeOnlyMessage(agent: PersonalLocalAgent, conver
   };
 }
 
-const TRANSCRIPT_SOFT_ERRORS: ReadonlySet<string> = new Set([
-  "This provider does not expose a stable native transcript.",
-  // Provider session file may have been rotated / cleaned up / never existed
-  // (e.g. a channel-bound conversation whose Codex rollout was pruned). Treat
-  // as "no transcript to hydrate" instead of surfacing a red banner.
-  "Codex session transcript file was not found.",
-  "Claude session transcript file was not found.",
-]);
-
-export function isUnsupportedNativeTranscriptError(error: string | null | undefined) {
-  if (!error) return false;
-  return TRANSCRIPT_SOFT_ERRORS.has(error);
-}
+export {
+  TRANSCRIPT_SOFT_ERRORS,
+  isUnsupportedNativeTranscriptError,
+} from "./constants";
 
 export function safeReadApprovalMode(workspaceRoot: string): PersonalLocalAgentApprovalMode {
   if (typeof window === "undefined") return "ask";

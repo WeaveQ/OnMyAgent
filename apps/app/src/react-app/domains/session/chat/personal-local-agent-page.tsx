@@ -631,14 +631,20 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
           const messages = archive?.messages ?? [];
           console.log("[archive-resume] archive messages", messages.length);
           if (!messages.length) return null;
+          const importedMessages = messages.map((raw, index) => ({
+            id: String(raw.id ?? index),
+            role: raw.role,
+            content: raw.content,
+            createdAt: raw.timestamp ? Date.parse(raw.timestamp) || Date.now() + index : Date.now() + index,
+          }));
           const result = await personalLocalAgentConversationImportFromArchive({
             workspaceRoot: effectiveWorkspaceRoot,
-            agent: { provider: targetProvider, id: targetAgentId },
+            agent: { provider: targetProvider as PersonalLocalAgentProvider, id: targetAgentId },
             conversationId: targetConversationId,
             title,
             providerSessionId: request.providerSessionId,
             source: "session-archive-resume",
-            messages,
+            messages: importedMessages,
           }).catch((error) => {
             console.error("[archive-resume] import failed", error);
             return null;
@@ -649,7 +655,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         const hasLocalTranscript = async (targetProvider: string, targetAgentId: string, targetConversationId: string) => {
           const status = await personalLocalAgentConversationStatus({
             workspaceRoot: effectiveWorkspaceRoot,
-            agent: { provider: targetProvider, id: targetAgentId },
+            agent: { provider: targetProvider as PersonalLocalAgentProvider, id: targetAgentId },
             conversationId: targetConversationId,
           }).catch(() => null);
           const has = Boolean(status?.conversationMessages?.length);
@@ -721,12 +727,13 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         const hasHistory = await hasLocalTranscript(provider, provider, selectedConversationId);
         if (!hasHistory) {
           const imported = await importFromArchive(provider, provider, selectedConversationId, request.title);
-          if (imported?.conversation) {
+          const importedConversation = imported?.conversation;
+          if (importedConversation) {
             setConversationsByAgent((current) => ({
               ...current,
-              [provider]: current[provider]?.some((item) => item.id === imported.conversation.id)
+              [provider]: current[provider]?.some((item) => item.id === importedConversation.id)
                 ? current[provider]
-                : [imported.conversation, ...(current[provider] ?? [])],
+                : [importedConversation, ...(current[provider] ?? [])],
             }));
           }
         }

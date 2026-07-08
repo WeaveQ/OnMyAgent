@@ -17,7 +17,7 @@
 export class ChannelStreamRelay {
   /**
    * @param {Object} options
-   * @param {(chatId: string, text: string, platformType?: string) => Promise<void>|void} options.sendText
+   * @param {(chatId: string, text: string, platformType?: string) => Promise<void>|void} [options.sendText]
    *   Platform sender. Receives the bound chatId and aggregated text.
    * @param {(response: Object) => Object} [options.formatResponse]
    *   Optional formatter (e.g. channelMessageAdapter.formatAgentResponse).
