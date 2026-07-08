@@ -148,13 +148,18 @@ export function createWeixinService(options = {}) {
   let active = null;
 
   function snapshot(extra = {}) {
-    const base = { ...state, ...extra };
-    base.hasToken = Boolean(state.accountId);
-    base.activeUsers = channelPairingService
-      ? channelPairingService.getAuthorizedUsers().filter((u) => u.platformType === "wechat").length
-      : 0;
-    base.botUsername = state.accountId || undefined;
-    return base;
+    // Return the enriched status as a single object literal so the three
+    // derived fields (hasToken / activeUsers / botUsername) are part of the
+    // inferred return type and the desktop typecheck stays green.
+    return {
+      ...state,
+      ...extra,
+      hasToken: Boolean(state.accountId),
+      activeUsers: channelPairingService
+        ? channelPairingService.getAuthorizedUsers().filter((u) => u.platformType === "wechat").length
+        : 0,
+      botUsername: state.accountId || undefined,
+    };
   }
 
   function setState(patch) {

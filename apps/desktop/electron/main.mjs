@@ -5114,7 +5114,6 @@ async function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     if (isDevMode) {
       mainWindow?.setTitle(APP_NAME);
-      mainWindow?.webContents.openDevTools({ mode: "detach" });
     }
     mainWindow?.show();
     flushPendingDeepLinks();
