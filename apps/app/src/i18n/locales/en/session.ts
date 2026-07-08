@@ -402,6 +402,7 @@ export default {
   "session.goal_runtime_hint": "The goal remains the success criterion for this conversation. Continuing will advance and check progress against it.",
   "session.goal_runtime_continue_prompt": "Continue",
   "session.user_cancelled": "User cancelled",
+  "session.user_stopped_after": "You stopped after {duration}",
   "session.undo_label": "Revert",
   "session.undo_title": "Undo last message",
   "session.untitled": "Untitled",
