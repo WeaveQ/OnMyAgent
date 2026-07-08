@@ -22,14 +22,14 @@ export default {
   "agent_manager.mcp.tab": "MCP 管理",
   "agent_manager.mcp.toggle_enabled": "已启用",
   "agent_manager.mcp.toggle_disabled": "未启用",
-  "agent_manager.mcp.title": "Studio MCP 管理",
+  "agent_manager.mcp.title": "OnMyAgent MCP 管理",
   "agent_manager.no_managed_providers":
     "还没有托管模型服务商，先导入当前配置或新增一个自定义模型服务商。",
   "agent_manager.online_agents": "在线 AI 同事",
   "agent_manager.provider_health": "模型服务商切换与健康",
   "agent_manager.providers": "模型服务商",
   "agent_manager.providers_desc":
-    "Studio Switch 模型服务商托管、导入、自定义和写入配置",
+    "OnMyAgent Switch 模型服务商托管、导入、自定义和写入配置",
   "agent_manager.recognized_skills": "识别 Skill",
   "agent_manager.session_archive_desc": "跨 Agent 会话检索、回收站、用量和归档设置",
   "agent_manager.skill_management": "技能管理",

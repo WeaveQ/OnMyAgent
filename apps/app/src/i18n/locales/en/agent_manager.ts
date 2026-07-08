@@ -24,14 +24,14 @@ export default {
   "agent_manager.mcp.tab": "MCP management",
   "agent_manager.mcp.toggle_enabled": "Enabled",
   "agent_manager.mcp.toggle_disabled": "Disabled",
-  "agent_manager.mcp.title": "Studio MCP management",
+  "agent_manager.mcp.title": "OnMyAgent MCP management",
   "agent_manager.no_managed_providers":
     "No managed providers yet. Import the current configuration or add a custom provider.",
   "agent_manager.online_agents": "Online AI teammates",
   "agent_manager.provider_health": "Model provider switching & health",
   "agent_manager.providers": "Model providers",
   "agent_manager.providers_desc":
-    "Studio Switch provider management, imports, customization, and configuration writes",
+    "OnMyAgent Switch provider management, imports, customization, and configuration writes",
   "agent_manager.recognized_skills": "Recognized Skills",
   "agent_manager.session_archive_desc":
     "Cross-agent session search, trash, usage, and archive settings",
