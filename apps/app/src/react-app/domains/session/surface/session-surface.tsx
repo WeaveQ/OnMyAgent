@@ -76,7 +76,10 @@ import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
 } from "./session-render-state";
-import { SessionTranscript } from "./message-list";
+import {
+  SessionTranscript,
+  type SessionTranscriptDivider,
+} from "./message-list";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
@@ -143,6 +146,7 @@ const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
 const ASSISTANT_STALL_NOTICE_MS = 45_000;
 const COMPACT_COMPLETE_NOTICE_MS = 4_000;
+const MAX_INTERRUPTION_NOTICES_PER_SESSION = 12;
 
 const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
@@ -321,6 +325,13 @@ export type SessionSurfaceProps = {
   draftWorkspaceDirectory?: string | null;
   onPickDraftWorkspace?: () => void;
   onClearDraftWorkspace?: () => void;
+};
+
+type SessionInterruptionNotice = {
+  id: string;
+  kind: "cancelled" | "stopped";
+  afterMessageCount: number;
+  elapsedMs?: number;
 };
 
 const waitForControl = (ms: number) =>
@@ -598,14 +609,6 @@ function AssistantCompactStatusCard(props: { status: "compacting" | "completed" 
         </span>
         <div className="h-px min-w-10 flex-1 bg-dls-mist" />
       </div>
-    </div>
-  );
-}
-
-function ComposerNoticePanel(props: { label: string }) {
-  return (
-    <div className="border-b border-dls-border px-4 py-2 text-center text-xs text-dls-secondary">
-      {props.label}
     </div>
   );
 }
@@ -1031,6 +1034,19 @@ function formatGoalElapsed(ms: number) {
   return hours > 0
     ? `${hours}:${minuteText}:${secondText}`
     : `${minutes}:${secondText}`;
+}
+
+function formatInterruptionElapsed(ms: number) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m ${String(seconds).padStart(2, "0")}s`;
+  }
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
 function goalObjectiveSummary(objective: string) {
@@ -1587,6 +1603,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
     useState<Record<string, number>>({});
   const [compactNoticeBySessionId, setCompactNoticeBySessionId] =
     useState<Record<string, { status: "compacting" | "completed"; at: number }>>({});
+  const [interruptionNoticesBySessionId, setInterruptionNoticesBySessionId] =
+    useState<Record<string, SessionInterruptionNotice[]>>({});
+  const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
@@ -1602,6 +1621,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setShowDelayedLoading(false);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
+    setActiveRunStartedAt(null);
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
@@ -1953,6 +1973,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const cancelledError =
     visibleError && isUserCancelledError(visibleError) ? visibleError : null;
   const visibleTranscriptError = cancelledError ? null : visibleError;
+  const interruptionDividers = useMemo<SessionTranscriptDivider[]>(() => {
+    const notices = interruptionNoticesBySessionId[props.sessionId] ?? [];
+    return notices.map((notice) => ({
+      id: notice.id,
+      afterMessageCount: notice.afterMessageCount,
+      label:
+        notice.kind === "stopped" && notice.elapsedMs !== undefined
+          ? t("session.user_stopped_after", {
+              duration: formatInterruptionElapsed(notice.elapsedMs),
+            })
+          : t("session.user_cancelled"),
+    }));
+  }, [interruptionNoticesBySessionId, props.sessionId]);
+  const hasTranscriptContent =
+    renderedMessages.length > 0 || interruptionDividers.length > 0;
   const showNoVisibleAssistantOutput =
     noVisibleAssistantOutputBaseline !== null &&
     !assistantOutputAfterNoVisibleFallback;
@@ -2065,6 +2100,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (!snapshotSessionError) return;
     setSending(false);
+    setActiveRunStartedAt(null);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
   }, [snapshotSessionError]);
@@ -2198,6 +2234,50 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [props.sessionId, setComposerDraft],
   );
 
+  const recordSessionInterruption = useCallback(
+    (kind: SessionInterruptionNotice["kind"]) => {
+      const now = Date.now();
+      const afterMessageCount = renderedMessages.length;
+      const runStartedAt =
+        activeRunStartedAt ?? props.goalRuntime?.lastRunStartedAt ?? now;
+      const notice: SessionInterruptionNotice = {
+        id: `${props.sessionId}:${kind}:${afterMessageCount}:${now}`,
+        kind,
+        afterMessageCount,
+        elapsedMs:
+          kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
+      };
+
+      setInterruptionNoticesBySessionId((current) => {
+        const existing = current[props.sessionId] ?? [];
+        const alreadyRecorded = existing.some(
+          (item) =>
+            item.afterMessageCount === afterMessageCount &&
+            (item.kind === kind ||
+              (kind === "cancelled" && item.kind === "stopped")),
+        );
+        if (alreadyRecorded) return current;
+        return {
+          ...current,
+          [props.sessionId]: [...existing, notice].slice(
+            -MAX_INTERRUPTION_NOTICES_PER_SESSION,
+          ),
+        };
+      });
+    },
+    [
+      activeRunStartedAt,
+      props.goalRuntime?.lastRunStartedAt,
+      props.sessionId,
+      renderedMessages.length,
+    ],
+  );
+
+  useEffect(() => {
+    if (!cancelledError) return;
+    recordSessionInterruption("cancelled");
+  }, [cancelledError?.message, recordSessionInterruption]);
+
   const handleCopyTranscript = async () => {
     try {
       await navigator.clipboard.writeText(transcriptToText(renderedMessages));
@@ -2240,6 +2320,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
     }
     setSending(true);
+    const startedAt = Date.now();
+    setActiveRunStartedAt(startedAt);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     try {
@@ -2267,8 +2349,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
         props.onGoalRuntimeChange?.({
           ...props.goalRuntime,
           status: "running",
-          updatedAt: Date.now(),
-          lastRunStartedAt: Date.now(),
+          updatedAt: startedAt,
+          lastRunStartedAt: startedAt,
           lastRunMessageBaseline: renderedMessages.length,
           completedAt: undefined,
         });
@@ -2280,6 +2362,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
+      if (isUserCancelledError(parsed)) {
+        recordSessionInterruption("cancelled");
+      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -2310,6 +2395,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.goalRuntime,
     props.sessionId,
     props.workspaceId,
+    recordSessionInterruption,
     renderedMessages.length,
     setComposerDraft,
   ]);
@@ -2333,6 +2419,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
     }
     setSending(true);
+    setActiveRunStartedAt(Date.now());
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(executionMode);
@@ -2352,6 +2439,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
+      if (isUserCancelledError(parsed)) {
+        recordSessionInterruption("cancelled");
+      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -2374,6 +2464,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.planRuntime,
     props.sessionId,
     props.workspaceId,
+    recordSessionInterruption,
     renderedMessages.length,
     updateCollaborationMode,
   ]);
@@ -2409,6 +2500,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
     }
     setSending(true);
+    setActiveRunStartedAt(now);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(goalMode);
@@ -2423,6 +2515,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
+      if (isUserCancelledError(parsed)) {
+        recordSessionInterruption("cancelled");
+      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -2444,6 +2539,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.onSendDraft,
     props.sessionId,
     props.workspaceId,
+    recordSessionInterruption,
     renderedMessages.length,
     updateCollaborationMode,
   ]);
@@ -2476,6 +2572,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       (runtime.status === "running" || runtime.status === "waiting")
     ) {
       const now = Date.now();
+      recordSessionInterruption("stopped");
       props.onGoalRuntimeChange?.({
         ...runtime,
         status: "paused",
@@ -2484,7 +2581,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       });
     }
     await stopActiveRun();
-  }, [props.goalRuntime, props.onGoalRuntimeChange, stopActiveRun]);
+  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
@@ -2492,8 +2589,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       await pauseGoalRuntime();
       return;
     }
+    recordSessionInterruption("stopped");
     await stopActiveRun();
-  }, [chatStreaming, pauseGoalRuntime, props.goalRuntime, stopActiveRun]);
+  }, [chatStreaming, pauseGoalRuntime, props.goalRuntime, recordSessionInterruption, stopActiveRun]);
 
   const handleDismissError = useCallback(() => {
     if (visibleError?.message) {
@@ -2510,6 +2608,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (liveStatus.type === "idle") {
       setSending(false);
+      setActiveRunStartedAt(null);
     }
   }, [liveStatus.type]);
 
@@ -3066,17 +3165,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
       safeStringify={props.safeStringify}
     />
   ) : null;
-  const cancelledAccessory = cancelledError ? (
-    <ComposerNoticePanel label={t("session.user_cancelled")} />
-  ) : null;
   const sessionComposerAccessory =
-    cancelledAccessory ||
     planOrTodoAccessory ||
     goalAccessory ||
     questionAccessory ||
     permissionAccessory ? (
       <div>
-        {cancelledAccessory}
         {planOrTodoAccessory}
         {goalAccessory}
         {questionAccessory}
@@ -3207,7 +3301,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 </div>
               ) : (snapshotQuery.isError || visibleTranscriptError) &&
                 !snapshot &&
-                renderedMessages.length === 0 ? (
+                !hasTranscriptContent ? (
                 <div className="px-6 py-8">
                   {visibleTranscriptError ? (
                     <SessionErrorCard
@@ -3224,7 +3318,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     </div>
                   )}
                 </div>
-              ) : renderedMessages.length === 0 &&
+              ) : !hasTranscriptContent &&
                 effectiveActivityStatus !== "idle" &&
                 !visibleTranscriptError ? (
                 <div className="px-6 py-12">
@@ -3234,7 +3328,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     )}
                   />
                 </div>
-              ) : renderedMessages.length === 0 &&
+              ) : !hasTranscriptContent &&
                 (props.draftOnly ||
                   (snapshot && snapshot.messages.length === 0)) ? (
                 visibleTranscriptError ? (
@@ -3277,6 +3371,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       isStreaming={chatStreaming}
                       developerMode={props.developerMode}
                       showThinking={showThinking}
+                      dividers={interruptionDividers}
                       scrollElement={() => scrollRef.current}
                       onRevertToMessage={props.onRevertToMessage}
                       onForkAtMessage={props.onForkAtMessage}

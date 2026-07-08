@@ -382,6 +382,7 @@ export default {
   "session.goal_runtime_hint": "目标会持续作为本会话的完成标准，继续时会围绕该目标推进并检查进度。",
   "session.goal_runtime_continue_prompt": "继续",
   "session.user_cancelled": "用户已取消",
+  "session.user_stopped_after": "你在 {duration} 后停止了",
   "session.untitled": "未命名",
   "session.automations_count": "自动化 ({count})",
   "session.current_user": "我",
