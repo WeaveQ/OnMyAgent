@@ -39,6 +39,10 @@ const ignoredDirs = new Set([
 const fileAllowlist = new Set([
   // i18n 系统本身允许 CJK（locale metadata、language options 等）
   'apps/app/src/i18n/index.ts',
+  // Marketplace category haystacks：这两个文件是搜索匹配用的字典，同时承载
+  // zh+en 关键词，不是普通 UI 文案。UI 展示走各自 labelKey 的 t() 键。
+  'apps/app/src/react-app/domains/session/expert-marketplace/categories.ts',
+  'apps/app/src/react-app/domains/session/skills-marketplace/categories.ts',
 ])
 
 const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/

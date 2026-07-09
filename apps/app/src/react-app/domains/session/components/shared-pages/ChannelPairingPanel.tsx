@@ -32,11 +32,11 @@ function sessionsForUser(sessions: ChannelSession[], user: ChannelAuthorizedUser
  */
 function formatTimeRemaining(expiresAt: number): string {
   const remainingMs = expiresAt - Date.now();
-  if (remainingMs <= 0) return "已过期";
+  if (remainingMs <= 0) return t("session.channel_pairing_expired");
   const minutes = Math.floor(remainingMs / 60000);
   const seconds = Math.floor((remainingMs % 60000) / 1000);
-  if (minutes > 0) return `${minutes}分${seconds}秒`;
-  return `${seconds}秒`;
+  if (minutes > 0) return t("session.channel_pairing_time_ms", { minutes, seconds });
+  return t("session.channel_pairing_time_s", { seconds });
 }
 
 /**
@@ -95,7 +95,7 @@ function PairingRequestCard(props: {
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-dls-secondary">
-        <span>剩余时间: {formatTimeRemaining(request.expiresAt)}</span>
+        <span>{t("session.channel_pairing_time_left", { value: formatTimeRemaining(request.expiresAt) })}</span>
       </div>
     </div>
   );
@@ -131,7 +131,7 @@ function AuthorizedUserCard(props: {
             </StatusBadge>
           </div>
           <p className="mt-0.5 truncate text-xs text-dls-secondary">
-            最后活跃: {shortDate(user.lastActive || user.authorizedAt)}
+            {t("session.channel_pairing_last_active", { value: shortDate(user.lastActive || user.authorizedAt) })}
           </p>
         </div>
       </div>
@@ -141,20 +141,20 @@ function AuthorizedUserCard(props: {
         disabled={isProcessing}
         onClick={() => onRevoke(user.platformType, user.platformUserId)}
       >
-        撤销授权
+        {t("session.channel_pairing_revoke")}
       </Button>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
         <div className="rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5">
-          <div className="text-dls-secondary">活跃会话</div>
+          <div className="text-dls-secondary">{t("session.channel_pairing_metric_active")}</div>
           <div className="mt-1 font-medium text-dls-text">{activeSessions.length}</div>
         </div>
         <div className="rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5">
-          <div className="text-dls-secondary">当前Agent</div>
+          <div className="text-dls-secondary">{t("session.channel_pairing_metric_agent")}</div>
           <div className="mt-1 truncate font-medium text-dls-text">{latestSession?.agentType || "--"}</div>
         </div>
         <div className="rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5">
-          <div className="text-dls-secondary">最近会话</div>
+          <div className="text-dls-secondary">{t("session.channel_pairing_metric_recent")}</div>
           <div className="mt-1 truncate font-medium text-dls-text">{shortDate(latestSession?.lastActivity)}</div>
         </div>
       </div>
@@ -251,7 +251,7 @@ export function ChannelPairingPanel() {
       <div>
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-medium text-dls-text">待配对请求</h4>
+            <h4 className="text-sm font-medium text-dls-text">{t("session.channel_pairing_pending_title")}</h4>
             {pendingRequests.length > 0 && (
               <StatusBadge tone="warning" size="sm">
                 {pendingRequests.length}
@@ -270,7 +270,7 @@ export function ChannelPairingPanel() {
 
         {pendingRequests.length === 0 ? (
           <div className="rounded-lg border border-dls-border bg-dls-muted/50 p-6 text-center">
-            <p className="text-sm text-dls-secondary">暂无待配对请求</p>
+            <p className="text-sm text-dls-secondary">{t("session.channel_pairing_pending_empty")}</p>
           </div>
         ) : (
           <div className="grid gap-2">
@@ -292,7 +292,7 @@ export function ChannelPairingPanel() {
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="size-4 text-dls-secondary" />
-            <h4 className="text-sm font-medium text-dls-text">已授权用户</h4>
+            <h4 className="text-sm font-medium text-dls-text">{t("session.channel_pairing_authorized_title")}</h4>
             <StatusBadge tone="accent" size="sm">
               {authorizedUsers.length}
             </StatusBadge>
@@ -301,7 +301,7 @@ export function ChannelPairingPanel() {
 
         {authorizedUsers.length === 0 ? (
           <div className="rounded-lg border border-dls-border bg-dls-muted/50 p-6 text-center">
-            <p className="text-sm text-dls-secondary">暂无已授权用户</p>
+            <p className="text-sm text-dls-secondary">{t("session.channel_pairing_authorized_empty")}</p>
           </div>
         ) : (
           <div className="grid gap-2">
