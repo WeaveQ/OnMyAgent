@@ -311,6 +311,7 @@ export type SessionSurfaceProps = {
   onOpenSettingsSection?:
     | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
+  onOpenSkillsMarketplace?: (() => void) | undefined;
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
@@ -3886,6 +3887,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               listImportedPlugins={listImportedPlugins}
               importedPlugins={toolImportedPlugins}
               onOpenSettingsSection={props.onOpenSettingsSection}
+              onOpenSkillsMarketplace={props.onOpenSkillsMarketplace}
               recentFiles={props.recentFiles}
               searchFiles={props.searchFiles}
               onInsertMention={handleInsertMention}
