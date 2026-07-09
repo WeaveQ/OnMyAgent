@@ -30,12 +30,7 @@ import {
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
-import { OwDotTicker } from "../../../shell/dot-ticker";
-import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
-import {
-  type SidePanelItem,
-  useUiStateStore,
-} from "../../../shell/ui-state-store";
+import { OwDotTicker, type OpenworkControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -45,11 +40,6 @@ import {
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
-import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
-import {
-  useControlAction,
-  type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,

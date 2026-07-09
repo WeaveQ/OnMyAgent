@@ -11,8 +11,7 @@ import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { useCheckDesktopRestriction } from "@/react-app/domains/shared/desktop-config-context";
 import { getConnectedProviderItems, useProviderListQuery } from "@/react-app/domains/shared/provider-list-query";
 import { readHiddenModels } from "../../sync/hidden-models-store";
-import { openModelPickerEvent } from "@/react-app/shell/new-providers-toast";
-import { useWorkspace } from "@/react-app/shell/workspace-provider";
+import { openModelPickerEvent, useWorkspace } from "@/react-app/shell";
 
 type ModelSelectContainerProps = {
   open: boolean;

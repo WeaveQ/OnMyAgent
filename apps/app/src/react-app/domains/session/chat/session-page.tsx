@@ -64,9 +64,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
 import type { StatusBarProps } from "../components/status-bar";
-import { OwDotTicker } from "../../../shell/dot-ticker";
-import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
-import { type SidePanelItem, useUiStateStore } from "../../../shell/ui-state-store";
+import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
 import type { AgentCardItem, AgentRegistry } from "../../shared/agent-registry-types";
 import {
   buildAgentToolAccess,

@@ -48,28 +48,18 @@ import type {
   SkillCard,
   TodoItem,
 } from "../../../../app/types";
-import {
-  publishInspectorSlice,
-  recordInspectorEvent,
-} from "../../../shell/app-inspector";
-import {
-  useControlAction,
-  type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
+import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OpenworkControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
 import { ReactSessionComposer } from "./composer/composer";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import {
   decodeComposerMentionValue,
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
-import { DevProfiler } from "../../../shell/dev-profiler";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { ActionRowButton, DisclosureRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PaperGrainGradient } from "@onmyagent/ui/react";
-import { OwDotTicker } from "../../../shell/dot-ticker";
-import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
 import {
