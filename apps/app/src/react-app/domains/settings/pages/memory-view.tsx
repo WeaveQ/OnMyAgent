@@ -34,7 +34,7 @@ export function MemoryView(props: MemoryViewProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <SettingsCard className="grid gap-4">
+      <SettingsCard tone="plain" className="grid gap-4 p-0">
         <SettingsSectionHeader>
           <SettingsSectionHeaderTitle>{t("settings.memory_personal_info")}</SettingsSectionHeaderTitle>
         </SettingsSectionHeader>
@@ -75,7 +75,7 @@ export function MemoryView(props: MemoryViewProps) {
         </div>
       </SettingsCard>
 
-      <SettingsCard className="flex flex-col gap-4">
+      <SettingsCard tone="plain" className="flex flex-col gap-4 p-0">
         <SettingsSectionHeader>
           <SettingsSectionHeaderTitle>{t("settings.memory_work_profile")}</SettingsSectionHeaderTitle>
         </SettingsSectionHeader>
@@ -113,7 +113,7 @@ export function MemoryView(props: MemoryViewProps) {
         </div>
       </SettingsCard>
 
-      <SettingsCard className="flex flex-col gap-4">
+      <SettingsCard tone="plain" className="flex flex-col gap-4 p-0">
         <SettingsSectionHeader>
           <SettingsSectionHeaderTitle>{t("settings.memory_work_habits")}</SettingsSectionHeaderTitle>
         </SettingsSectionHeader>

@@ -169,7 +169,7 @@ export function SystemAuthorizationsView() {
 
   return (
     <>
-      <Card variant="outline" size="sm">
+      <Card variant="outline" size="sm" className="border-0 bg-transparent">
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="flex items-center gap-2">
