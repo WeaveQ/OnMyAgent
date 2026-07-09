@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type * as React from "react";
 import { Loader2 } from "lucide-react";
@@ -11,7 +12,7 @@ interface PreviewLoadingProps extends React.ComponentProps<"div"> {}
 export function PreviewLoading({ className, ...props }: PreviewLoadingProps) {
   return (
     <div className={cn("flex h-full items-center justify-center text-muted-foreground", className)} {...props}>
-      <Loader2 className="size-4 animate-spin" />
+      <LoadingSpinner size="default" />
     </div>
   );
 }

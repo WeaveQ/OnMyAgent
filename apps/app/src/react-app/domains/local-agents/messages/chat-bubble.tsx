@@ -242,7 +242,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
               onClick={() => setTimelineExpanded((value) => !value)}
               aria-expanded={timelineExpanded}
             >
-              {run?.status === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+              {run?.status === "running" ? <LoadingSpinner size="sm" /> : <CheckCircle2 className="size-3.5" />}
               <span>{t("local_agent.timeline_title", { count: timelineItems.length })}</span>
               <ChevronRight className={cn("size-3 text-dls-secondary transition-transform", timelineExpanded && "rotate-90")} />
             </button>

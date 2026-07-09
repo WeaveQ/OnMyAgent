@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { Building2, Check, LogOut, Loader2 } from "lucide-react";
 
@@ -84,7 +85,7 @@ export function CloudAccountSection({
         <ConnectedOrg org={activeOrg} />
       ) : orgsBusy ? (
         <div className="flex items-center gap-2 text-sm text-dls-secondary">
-          <Loader2 size={14} className="animate-spin" />
+          <LoadingSpinner size="sm" />
           Loading organizations...
         </div>
       ) : null}
@@ -135,7 +136,7 @@ function OrgPicker({
   if (orgsBusy) {
     return (
       <div className="flex flex-col items-center gap-3 py-6 text-sm text-dls-secondary">
-        <Loader2 size={20} className="animate-spin" />
+        <LoadingSpinner size="default" />
         Loading your organizations...
       </div>
     );

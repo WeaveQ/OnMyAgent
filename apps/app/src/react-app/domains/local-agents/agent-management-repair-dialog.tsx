@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
@@ -141,7 +142,7 @@ export function AgentManagementRepairDialog(props: {
             >
               {testStatus === "testing" ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <LoadingSpinner size="default" />
                   {t("agent_manager.repair_test")}
                 </>
               ) : (

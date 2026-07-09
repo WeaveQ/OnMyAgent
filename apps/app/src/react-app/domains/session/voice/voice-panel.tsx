@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { CSSProperties } from "react";
 import {
@@ -1068,7 +1069,7 @@ export function VoicePanel(props: VoicePanelProps) {
               disabled={!props.client || connected || status === "connecting"}
             >
               {status === "connecting" ? (
-                <Loader2 data-icon="inline-start" className="animate-spin" />
+                <LoadingSpinner size="sm" data-icon="inline-start" />
               ) : (
                 <Mic2 data-icon="inline-start" />
               )}

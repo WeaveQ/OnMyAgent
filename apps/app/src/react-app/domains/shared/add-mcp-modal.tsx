@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useId, useReducer } from "react";
 import { Loader2, Plus } from "lucide-react";
@@ -244,7 +245,7 @@ export function AddMcpModal(props: AddMcpModalProps) {
             disabled={props.busy || state.submitting}
           >
             {props.busy || state.submitting ? (
-              <Loader2 data-icon="inline-start" className="animate-spin" />
+              <LoadingSpinner size="sm" data-icon="inline-start" />
             ) : (
               <Plus data-icon="inline-start" />
             )}

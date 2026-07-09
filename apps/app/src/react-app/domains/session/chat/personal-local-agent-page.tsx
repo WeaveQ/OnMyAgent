@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import {
@@ -1327,7 +1328,7 @@ return (
                 disabled={refreshing}
               >
                 {refreshing ? (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  <LoadingSpinner size="sm" className="mr-1.5" />
                 ) : null}
                 {t("local_agent.redetect")}
               </Button>
@@ -1450,7 +1451,7 @@ return (
               </div>
             ) : refreshing ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary">
-                <Loader2 className="size-5 animate-spin text-dls-accent" />
+                <LoadingSpinner size="default" className="text-dls-accent" />
                 <div>
                   {t("local_agent.detecting")}
                   <div className="mt-1 text-xs text-dls-secondary/75">
@@ -1555,7 +1556,7 @@ return (
       title={t("local_agent.new_conversation")}
       aria-label={t("local_agent.new_conversation")}
     >
-      {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+      {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <LoadingSpinner size="default" /> : <Plus className="size-4" />}
     </Button>
     {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
       <div className="min-w-[160px] max-w-[220px]">

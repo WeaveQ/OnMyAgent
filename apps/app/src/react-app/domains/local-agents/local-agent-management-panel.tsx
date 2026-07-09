@@ -4,7 +4,7 @@ import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CountBadge } from "@/components/ui/status-badge";
-import { NoticeBox } from "@/components/ui/notice-box";
+import { NoticeBox, EmptyStateBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import {
@@ -263,9 +263,9 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
       ) : null}
 
       {detecting ? (
-        <div className="rounded-xl border border-dashed border-dls-border px-4 py-6 text-center text-sm text-dls-secondary">
+        <EmptyStateBox size="comfortable" className="text-sm">
           {t("local_agent.detect_available_loading")}
-        </div>
+        </EmptyStateBox>
       ) : detected ? (
         <div className="space-y-2 rounded-xl border border-dls-border bg-dls-surface-muted/35 p-3" data-testid="local-agent-detected">
           <div className="text-xs font-medium text-dls-secondary">{t("local_agent.detect_available_title")}</div>
@@ -326,9 +326,9 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-dls-border px-4 py-8 text-center text-sm text-dls-secondary">
+        <EmptyStateBox size="spacious" className="text-sm">
           {t("local_agent.filter_empty")}
-        </div>
+        </EmptyStateBox>
       )}
 
       <ExtensionListPanel />

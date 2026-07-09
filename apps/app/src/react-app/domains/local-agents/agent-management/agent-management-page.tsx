@@ -675,9 +675,9 @@ export function AgentManagementPage(props: {
                   </SegmentedTabGroup>
                 </div>
                 {detectedAgents.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
+                  <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                     {t("agent_manager.detected_agents_desc")}
-                  </div>
+                  </EmptyStateBox>
                 ) : (
                   <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                     {filteredDetectedAgents.map((agent) => (
@@ -707,9 +707,9 @@ export function AgentManagementPage(props: {
                   </Button>
                 </div>
                 {customAgents.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
+                  <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                     {t("agent_manager.custom_agents_empty")}
-                  </div>
+                  </EmptyStateBox>
                 ) : (
                   <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                     {customAgents.map((agent) => (

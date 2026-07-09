@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1944,7 +1945,7 @@ export function AgentsPage(props: AgentsPageProps) {
               {registryState.loading ? (
                 <div className={agentsLayoutClass.loadingState}>
                   <div className="flex items-center gap-3 text-dls-secondary">
-                    <Loader2 className="size-5 animate-spin" />
+                    <LoadingSpinner size="default" />
                     {t("agents.loading")}
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useState } from "react";
 import { Check, Download, Loader2, Pencil, Plus, Server, Trash2, X } from "lucide-react";
@@ -71,7 +72,7 @@ function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; bus
             onClick={props.onToggle}
             disabled={props.busy}
           >
-            {props.busy ? <Loader2 className="size-3 animate-spin" /> : <AgentSkillIcon agent={props.app} />}
+            {props.busy ? <LoadingSpinner size="sm" /> : <AgentSkillIcon agent={props.app} />}
             {props.enabled && !props.busy ? (
               <span className={cn("absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border-2 border-dls-surface", tone.dot)}>
                 <Check className="size-2 text-white" strokeWidth={3} />
@@ -114,7 +115,7 @@ export function AgentManagementMcpPanel(props: {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => void props.onMcpAction({ action: "import" }, "mcp:import") } disabled={props.busyKey === "mcp:import"}>
-              {props.busyKey === "mcp:import" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              {props.busyKey === "mcp:import" ? <LoadingSpinner size="default" /> : <Download className="size-4" />}
               {t("agent_manager.mcp.import_all")}
             </Button>
             <Button size="sm" onClick={() => setDraft({ ...EMPTY_DRAFT, apps: { ...EMPTY_APPS } })}>
@@ -198,7 +199,7 @@ export function AgentManagementMcpPanel(props: {
               {MCP_APPS.map((app) => <McpAppToggle key={app} app={app} enabled={draft.apps[app]} busy={false} onToggle={() => setDraft({ ...draft, apps: { ...draft.apps, [app]: !draft.apps[app] } })} />)}
             </div>
             <Button className="w-full" onClick={submit} disabled={props.busyKey === `mcp:save:${draft.id}`}>
-              {props.busyKey === `mcp:save:${draft.id}` ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              {props.busyKey === `mcp:save:${draft.id}` ? <LoadingSpinner size="default" /> : <Check className="size-4" />}
               {t("agent_manager.mcp.save")}
             </Button>
           </div>

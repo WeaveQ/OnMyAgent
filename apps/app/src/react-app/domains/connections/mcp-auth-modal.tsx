@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, RefreshCcw } from "lucide-react";
@@ -631,7 +632,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
           {isBusy ? (
             <div className="space-y-4 rounded-xl border border-dls-mist bg-dls-surface px-5 py-6 text-center">
               <div className="flex items-center justify-center">
-                <Loader2 size={24} className="animate-spin text-dls-secondary" />
+                <LoadingSpinner size="default" className="text-dls-secondary" />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-dls-text">{t("mcp.auth.waiting_authorization")}</p>
@@ -763,7 +764,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
                   {!props.isRemoteWorkspace ? (
                     isDesktopRuntime() ? (
                       <Button onClick={() => void handleCliReauth()} disabled={cliAuthBusy}>
-                        {cliAuthBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                        {cliAuthBusy ? <LoadingSpinner size="sm" /> : null}
                         {cliAuthBusy
                           ? t("mcp.auth.reauth_running")
                           : t("mcp.auth.reauth_action")}
@@ -809,7 +810,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
                   onClick={() => void handleManualComplete()}
                   disabled={manualAuthBusy || !callbackInput.trim()}
                 >
-                  {manualAuthBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                  {manualAuthBusy ? <LoadingSpinner size="sm" /> : null}
                   {t("mcp.auth.complete_connection")}
                 </Button>
               </div>

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useMemo } from "react";
@@ -61,7 +62,7 @@ function SkillMatrixCell(props: {
   const borderColor = tone.dot.replace("bg-", "border-");
   let glyph: React.ReactNode;
   if (props.state === "busy") {
-    glyph = <Loader2 className="size-3 animate-spin text-dls-secondary" />;
+    glyph = <LoadingSpinner size="sm" className="text-dls-secondary" />;
   } else if (props.state === "native") {
     glyph = <SkillStateGlyph state="native" toneDot={tone.dot} />;
   } else if (props.state === "managed") {
@@ -295,7 +296,7 @@ function SkillMatrixRow(props: {
                   onClick={(event) => { event.stopPropagation(); props.onSkillAction(props.skill, importAgent, "import"); }}
                   aria-label={t("skills.matrix_import_managed")}
                 >
-                  {importBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                  {importBusy ? <LoadingSpinner size="sm" /> : <Download className="size-3.5" />}
                 </Button>
               }
             />
@@ -454,7 +455,7 @@ function SkillMatrixDrawer(props: {
               onClick={() => props.onSkillAction(skill, importAgent, "import")}
               className="mt-2"
             >
-              {importBusy ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+              {importBusy ? <LoadingSpinner size="sm" /> : <Download className="size-3" />}
               <span>{t("skills.matrix_import_to_studio_switch")}</span>
             </Button>
           </EmptyStateBox>

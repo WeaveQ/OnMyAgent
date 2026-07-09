@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useReducer, useRef, useState, type SetStateAction } from "react";
 import {
@@ -1258,7 +1259,7 @@ function McpAdvancedConfigSection(props: {
               <Button variant="outline" onClick={() => void props.onReveal()} disabled={!props.canRevealConfig}>
                 {props.revealBusy ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <LoadingSpinner size="sm" />
                     {t("mcp.opening_label")}
                   </>
                 ) : (

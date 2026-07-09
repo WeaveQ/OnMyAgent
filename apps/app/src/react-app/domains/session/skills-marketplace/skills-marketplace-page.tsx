@@ -408,7 +408,7 @@ function ImportSkillDialog(props: {
           )}
         >
           <span className="flex size-8 items-center justify-center rounded-md border border-dls-border bg-dls-surface text-dls-secondary">
-            {props.importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            {props.importing ? <LoadingSpinner size="default" /> : <Upload className="size-4" />}
           </span>
           <span className="text-sm text-dls-text">{t("skills_marketplace.import_drop")}</span>
         </button>

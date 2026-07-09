@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { NoticeBox } from "@/components/ui/notice-box";
+import { NoticeBox, EmptyStateBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
@@ -1302,9 +1302,9 @@ export function AutomationPage(props: {
                   ))
                 : null}
               {statusTabCounts[activeStatusTab] === 0 ? (
-                <div className="rounded-xl border border-dashed border-dls-border bg-dls-surface-muted px-4 py-10 text-center text-sm text-dls-secondary">
+                <EmptyStateBox size="default" tone="muted" className="text-sm">
                   {t("automation.empty_title")}
-                </div>
+                </EmptyStateBox>
               ) : null}
             </div>
           </section>
