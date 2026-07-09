@@ -67,6 +67,14 @@ function skillDescription(skill: LocalSkillCard): string {
   return skill.descriptionZh || skill.descriptionEn || skill.description || skill.trigger || "";
 }
 
+const builtinMarketplaceSkillByName = new Map(
+  BUILTIN_MARKETPLACE_SKILLS.map((skill) => [skill.skillName, skill]),
+);
+
+function marketplaceSkillForLocalSkill(skill: LocalSkillCard): SkillMarketplaceEntry | null {
+  return builtinMarketplaceSkillByName.get(skill.name) ?? null;
+}
+
 function yamlScalar(markdown: string, key: string): string {
   const frontmatter = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
   const line = frontmatter
@@ -281,15 +289,20 @@ function SkillCard(props: {
 
 function InstalledSkillCard(props: {
   skill: LocalSkillCard;
+  marketplaceSkill: SkillMarketplaceEntry | null;
   opening: boolean;
   onOpenFolder: (skill: LocalSkillCard) => void;
 }) {
   const description = skillDescription(props.skill);
   return (
     <div className="flex min-h-24 items-start gap-3 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
-        {skillFallbackInitial(skillDisplayName(props.skill))}
-      </span>
+      {props.marketplaceSkill ? (
+        <SkillIcon skill={props.marketplaceSkill} />
+      ) : (
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
+          {skillFallbackInitial(skillDisplayName(props.skill))}
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold leading-5 text-dls-text">
           {skillDisplayName(props.skill)}
@@ -590,6 +603,7 @@ export function SkillsMarketplacePage(props: {
                 <InstalledSkillCard
                   key={skill.name}
                   skill={skill}
+                  marketplaceSkill={marketplaceSkillForLocalSkill(skill)}
                   opening={openingSkillPath === skill.path}
                   onOpenFolder={handleOpenSkillFolder}
                 />
