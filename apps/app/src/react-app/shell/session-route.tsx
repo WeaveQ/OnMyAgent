@@ -79,12 +79,15 @@ import {
   buildCollaborationModeSystemPrompt,
   buildGoalRuntimeSystemPrompt,
   buildLanguageSystemPrompt,
+  clearConsumedPermissionNotice,
+  deriveGoalSummary,
   applySessionAccessMode,
   draftHasSendableContent,
   draftToParts,
   isComposerGoalMode,
   isComposerPlanningMode,
   joinSystemParts,
+  resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveDraftSendPlan,
   resolveDraftText,
@@ -620,6 +623,10 @@ export function SessionRoute() {
   const [sessionGoalRuntimeById, setSessionGoalRuntimeById] = useState<
     Record<string, CollaborationGoalRuntime>
   >(() => readSessionGoalRuntimes());
+  const [
+    autoApprovedPermissionNoticeBySessionId,
+    setAutoApprovedPermissionNoticeBySessionId,
+  ] = useState<Record<string, string>>({});
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
   // Subscribe to pending agent so the composer's model selection reflects
@@ -1822,6 +1829,10 @@ export function SessionRoute() {
     if (!activePermission || !selectedSessionId) return;
     if (sessionAccessModeById[selectedSessionId] !== "full") return;
     if (permissionReplyBusy) return;
+    setAutoApprovedPermissionNoticeBySessionId((current) => ({
+      ...current,
+      [selectedSessionId]: activePermission.id,
+    }));
     void respondPermission(activePermission.id, "always");
   }, [
     activePermission,
@@ -1829,6 +1840,20 @@ export function SessionRoute() {
     respondPermission,
     selectedSessionId,
     sessionAccessModeById,
+  ]);
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    setAutoApprovedPermissionNoticeBySessionId((current) => {
+      return clearConsumedPermissionNotice(
+        current,
+        selectedSessionId,
+        activePermission?.id,
+      );
+    });
+  }, [
+    activePermission?.id,
+    autoApprovedPermissionNoticeBySessionId,
+    selectedSessionId,
   ]);
   const activeQuestion = pendingQuestions[0] ?? null;
   const respondQuestion = useCallback(
@@ -2108,18 +2133,22 @@ export function SessionRoute() {
     const sessionAccessMode =
       sessionAccessModeById[composerModeSessionId] ?? "default";
     const sessionCollaborationMode =
-      sessionCollaborationModeById[composerModeSessionId] ??
-      (pageMode === "assistant"
-        ? { kind: "craft", planning: false, pursueGoal: true }
-        : { planning: false, pursueGoal: false });
+      sessionCollaborationModeById[composerModeSessionId];
+    const draftOnlyRuntimeFallback = selectedSessionId ? null : draftComposerModeSessionId;
     const planRuntime =
       sessionPlanRuntimeById[composerModeSessionId] ??
-      sessionPlanRuntimeById[draftComposerModeSessionId] ??
+      (draftOnlyRuntimeFallback
+        ? sessionPlanRuntimeById[draftOnlyRuntimeFallback]
+        : undefined) ??
+      null;
+    const storedGoalRuntime =
+      sessionGoalRuntimeById[composerModeSessionId] ??
+      (draftOnlyRuntimeFallback
+        ? sessionGoalRuntimeById[draftOnlyRuntimeFallback]
+        : undefined) ??
       null;
     const goalRuntime =
-      sessionGoalRuntimeById[composerModeSessionId] ??
-      sessionGoalRuntimeById[draftComposerModeSessionId] ??
-      null;
+      storedGoalRuntime?.source === "goal_intent" ? storedGoalRuntime : null;
 
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
@@ -2175,6 +2204,38 @@ export function SessionRoute() {
           } else {
             next[composerModeSessionId] = runtime;
           }
+          return next;
+        });
+      },
+      onClearSessionProgress: () => {
+        setLastVisibleTodosBySessionId((current) => {
+          const next = { ...current };
+          delete next[composerModeSessionId];
+          delete next[draftComposerModeSessionId];
+          return next;
+        });
+        if (selectedSessionId) {
+          const currentTodoQueryKey = todoQueryKeyForSession(
+            selectedWorkspaceId,
+            selectedSessionId,
+          );
+          if (currentTodoQueryKey) {
+            getReactQueryClient().setQueryData<TodoItem[]>(
+              currentTodoQueryKey,
+              [],
+            );
+          }
+        }
+        setSessionPlanRuntimeById((current) => {
+          const next = { ...current };
+          delete next[composerModeSessionId];
+          delete next[draftComposerModeSessionId];
+          return next;
+        });
+        setSessionGoalRuntimeById((current) => {
+          const next = { ...current };
+          delete next[composerModeSessionId];
+          delete next[draftComposerModeSessionId];
           return next;
         });
       },
@@ -2355,8 +2416,11 @@ export function SessionRoute() {
             const next = { ...current };
             delete next[composerModeSessionId];
             next[sessionId] = {
+              source: "goal_intent",
               status: "running",
+              waitingReason: undefined,
               objective: goalIntent.objective,
+              summary: deriveGoalSummary(goalIntent.objective),
               messageBaseline: goalIntent.messageBaseline,
               lastRunMessageBaseline: goalIntent.messageBaseline,
               startedAt: now,
@@ -2370,7 +2434,7 @@ export function SessionRoute() {
           const existingGoal =
             sessionGoalRuntimeById[composerModeSessionId] ??
             sessionGoalRuntimeById[sessionId];
-          if (existingGoal) {
+          if (existingGoal?.source === "goal_intent") {
             const now = Date.now();
             setSessionGoalRuntimeById((current) => {
               const currentGoal =
@@ -2381,7 +2445,10 @@ export function SessionRoute() {
               delete next[composerModeSessionId];
               next[sessionId] = {
                 ...currentGoal,
+                summary:
+                  currentGoal.summary || deriveGoalSummary(currentGoal.objective),
                 status: "running",
+                waitingReason: undefined,
                 updatedAt: now,
                 lastRunStartedAt: now,
                 completedAt: undefined,
@@ -2554,9 +2621,20 @@ export function SessionRoute() {
             }
           }
         }
+        const responseLanguage = resolveLanguageForUserInput(
+          resolveDraftText(promptDraft),
+          currentLocale(),
+        );
+        const storedRuntimeForGoalPrompt =
+          sessionGoalRuntimeById[composerModeSessionId] ??
+          sessionGoalRuntimeById[sessionId];
+        const runtimeForGoalPrompt =
+          storedRuntimeForGoalPrompt?.source === "goal_intent"
+            ? storedRuntimeForGoalPrompt
+            : undefined;
         const combinedSystem = joinSystemParts([
           envSystemContext,
-          buildLanguageSystemPrompt(currentLocale()),
+          buildLanguageSystemPrompt(responseLanguage, "user-input"),
           skillCommandPrompt?.systemPrompt,
           buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
             undefined,
@@ -2566,8 +2644,7 @@ export function SessionRoute() {
           buildGoalRuntimeSystemPrompt(
             draft.goalIntent
               ? { objective: draft.goalIntent.objective }
-              : sessionGoalRuntimeById[composerModeSessionId] ??
-                  sessionGoalRuntimeById[sessionId],
+              : runtimeForGoalPrompt,
           ) || undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
           draft.hiddenSystemPrompt,
@@ -3510,6 +3587,11 @@ export function SessionRoute() {
           activePermission={activePermission}
           permissionReplyBusy={permissionReplyBusy}
           respondPermission={respondPermission}
+          autoApprovedPermissionNoticeId={
+            selectedSessionId
+              ? autoApprovedPermissionNoticeBySessionId[selectedSessionId] ?? null
+              : null
+          }
           activeQuestion={activeQuestion}
           questionReplyBusy={questionReplyBusy}
           respondQuestion={respondQuestion}
