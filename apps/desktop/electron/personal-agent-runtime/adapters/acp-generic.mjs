@@ -138,9 +138,13 @@ function deriveThoughtHint(text) {
 }
 
 function acpArgsForProvider(provider, ctx, workdir) {
-  if (ctx.agent.managedAcpTool) return [...(ctx.agent.customArgs ?? [])];
-  if (provider === "opencode") return ["acp", "--cwd", workdir, ...(ctx.agent.customArgs ?? [])];
-  return ["acp", ...(ctx.agent.customArgs ?? [])];
+  const agent = ctx.agent ?? {};
+  const customArgs = Array.isArray(agent.customArgs) ? agent.customArgs : [];
+  const acpArgs = Array.isArray(agent.acpArgs) ? agent.acpArgs : [];
+  if (agent.managedAcpTool) return [...customArgs];
+  if (provider === "opencode") return ["acp", "--cwd", workdir, ...customArgs];
+  if (provider === "custom") return [...acpArgs, ...customArgs];
+  return ["acp", ...customArgs];
 }
 
 function normalizeModelId(provider, value) {

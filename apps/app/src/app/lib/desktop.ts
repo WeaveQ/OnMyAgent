@@ -69,6 +69,10 @@ import type {
   PersonalLocalAgentCustomAgentInput,
   PersonalLocalAgentCustomAgentResult,
   PersonalLocalAgentDeleteCustomAgentResult,
+  PersonalLocalAgentDetectResult,
+  PersonalLocalAgentDetectAvailableAgent,
+  PersonalLocalAgentExtensionListResult,
+  PersonalLocalAgentExtensionSetEnabledResult,
   PersonalLocalAgentOverridesResult,
   PersonalLocalAgentConversationConfirmationsResult,
   PersonalLocalAgentConversationGetResult,
@@ -1022,6 +1026,26 @@ export function personalLocalAgentDeleteCustomAgent(input: {
   return invokeElectronHelper<PersonalLocalAgentDeleteCustomAgentResult>("personalLocalAgentDeleteCustomAgent", input);
 }
 
+export function personalLocalAgentDetectAvailableAgents(input: {
+  workspaceRoot: string;
+  existingIds?: string[];
+}): Promise<PersonalLocalAgentDetectResult> {
+  return invokeElectronHelper<PersonalLocalAgentDetectResult>("personalLocalAgentDetectAvailableAgents", input);
+}
+
+
+export function personalLocalAgentListExtensions(): Promise<PersonalLocalAgentExtensionListResult> {
+  return invokeElectronHelper<PersonalLocalAgentExtensionListResult>("personalLocalAgentExtensionsList", {});
+}
+
+export function personalLocalAgentSetExtensionEnabled(input: {
+  name: string;
+  enabled: boolean;
+}): Promise<PersonalLocalAgentExtensionSetEnabledResult> {
+  return invokeElectronHelper<PersonalLocalAgentExtensionSetEnabledResult>("personalLocalAgentExtensionSetEnabled", input);
+}
+
+
 export function personalLocalAgentGetAgentOverrides(input: {
   workspaceRoot: string;
   id: string;
@@ -1070,6 +1094,25 @@ export function personalLocalAgentTestConnection(input: {
 }): Promise<PersonalLocalAgentTestConnectionResult> {
   return invokeElectronHelper<PersonalLocalAgentTestConnectionResult>(
     "personalLocalAgentTestConnection",
+    input,
+  );
+}
+
+export type PersonalLocalAgentTestCustomAgentResult = {
+  step: "success" | "fail_cli" | "fail_acp";
+  error: string | null;
+  durationMs: number;
+};
+
+export function personalLocalAgentTestCustomAgent(input: {
+  command: string;
+  acpArgs?: string[];
+  args?: string[];
+  env?: Record<string, string>;
+  timeoutMs?: number;
+}): Promise<PersonalLocalAgentTestCustomAgentResult> {
+  return invokeElectronHelper<PersonalLocalAgentTestCustomAgentResult>(
+    "personalLocalAgentTestCustomAgent",
     input,
   );
 }

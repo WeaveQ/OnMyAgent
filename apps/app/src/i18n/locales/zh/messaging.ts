@@ -74,4 +74,13 @@ export default {
   "messaging.weixin_allowed_user_placeholder": "允许的微信 user_id",
   "messaging.weixin_simulate_placeholder": "模拟消息内容",
   "messaging.weixin_simulate": "模拟入站",
+  "messaging.pairing_management": "配对与用户管理",
+  "messaging.command_help_title": "IM 内命令帮助",
+  "messaging.command_help_agent": "查看可用 Agent 或切换当前 Agent",
+  "messaging.command_help_status": "查看当前会话状态",
+  "messaging.command_help_runs": "查看历史运行记录",
+  "messaging.command_help_approve": "审批待处理操作",
+  "messaging.command_help_new": "开始新会话",
+  "messaging.command_help_mode": "切换原文直通或调试上下文模式",
+  "messaging.feishu_agent_command_help": "在飞书内发送 #agent 查看可用 Agent，发送 #agent codex 等切换当前聊天后续回复的本地 Agent。",
 } as const;

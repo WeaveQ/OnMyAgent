@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { createCodexAdapter } from "./adapters/codex.mjs";
@@ -11,6 +11,7 @@ import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
+import { detectAvailableLocalAgents } from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
@@ -28,13 +29,14 @@ import {
 } from "./conversation-store.mjs";
 import { clearSession, readSession, writeSession } from "./session-store.mjs";
 import { runId } from "./utils.mjs";
-import { configurePersonalAgentRuntimeState } from "./runtime-state.mjs";
+import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
+import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
 import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
 import { buildMcpStatus, buildPermissionStatus, buildSkillStatus } from "./host-status.mjs";
@@ -362,7 +364,9 @@ export function createPersonalAgentRuntime(options) {
   const runs = new Map();
   const legacy = options.legacy;
   const injectedAdapters = options.adapters ?? {};
+  const bundledExtensionRoots = Array.isArray(options.bundledExtensionRoots) ? options.bundledExtensionRoots.filter(Boolean) : [];
   void recoverAgentProcesses().catch(() => undefined);
+  void reconcileOrphanRuns().catch(() => undefined);
   const adapterFactories = {
     opencode: createOpenCodeAdapter,
     codex: createCodexAdapter,
@@ -373,20 +377,22 @@ export function createPersonalAgentRuntime(options) {
     ...injectedAdapters,
   };
 
-  function adapterFactoryForProvider(provider) {
+  function adapterFactoryForProvider(provider, agent = null) {
     if (Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) return adapterFactories[provider];
     if (provider === "remote") return createRemoteAcpAdapter;
     if (provider === "hermes" || provider === "opencode" || provider === "openclaw" || provider === "codex" || provider === "claude") return createGenericAcpAdapter;
+    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return createGenericAcpAdapter;
     return adapterFactories[provider];
   }
 
-  function defaultConnectionMode(provider) {
+  function defaultConnectionMode(provider, agent = null) {
     if (provider === "opencode") return "OpenCode ACP session";
     if (provider === "codex") return "Codex ACP session";
     if (provider === "hermes") return "Hermes ACP session";
     if (provider === "claude") return "Claude Code ACP session";
     if (provider === "openclaw") return "OpenClaw ACP session";
     if (provider === "remote") return "Remote ACP WebSocket session";
+    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return "Custom ACP session";
     return "本地 Agent harness session";
   }
 
@@ -478,6 +484,91 @@ export function createPersonalAgentRuntime(options) {
     return { runId: String(input ?? "").trim(), workspaceRoot: "" };
   }
 
+  function isProcessAlive(pid) {
+    const n = Number(pid);
+    if (!n) return false;
+    try {
+      process.kill(n, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // A log whose run_meta is still "running" but has no active runtime record
+  // (in-memory runs Map) is an orphan produced by a previous process session
+  // that died/restarted mid-run. Persist it as "failed" so the UI stops
+  // reporting the misleading "本地 Agent 运行状态已丢失 / timeout" error and
+  // future restores read a clean, finalized log.
+  async function finalizeStaleRunLog(logPath, meta) {
+    try {
+      const content = await readFile(logPath, "utf8");
+      const lines = content.split(/\r?\n/).filter((line) => line.trim());
+      const finalizedMeta = {
+        ...meta,
+        status: "failed",
+        finishedAt: Date.now(),
+        debugSummary: "orphaned run: persisted log still 'running' but no active runtime record after process restart (patched by reconcile)",
+        errorInfo: {
+          code: "orphaned",
+          message: "该 run 因主进程重启/崩溃而中断：恢复时已无对应的活跃执行记录，属历史残留（孤儿 run），并未真正执行失败。",
+          debug: "run existed only in persisted log; active runtime state was missing after process restart",
+        },
+      };
+      let changed = false;
+      const outLines = lines.map((line) => {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed?.type === "run_meta") {
+            changed = true;
+            return JSON.stringify(finalizedMeta);
+          }
+        } catch {
+          // Keep non-JSON / corrupt lines as-is.
+        }
+        return line;
+      });
+      if (!changed) return;
+      outLines.push(JSON.stringify({ type: "error", text: finalizedMeta.errorInfo.message, at: Date.now() }));
+      await writeFile(logPath, `${outLines.join("\n")}\n`, "utf8");
+    } catch {
+      // Best effort: never block run restore on a log write failure.
+    }
+  }
+
+  const reconcileCutoffMs = Date.now();
+  // On startup, reconcile every persisted run log across all workspaces and
+  // finalize any orphaned "running" runs (process is already gone) the previous
+  // process session left behind.
+  async function reconcileOrphanRuns() {
+    const reconcileCutoff = reconcileCutoffMs;
+    const root = personalAgentRuntimeStateRoot();
+    const workspacesRoot = path.join(root, "personal-assistant", "workspaces");
+    const workspaces = await readdir(workspacesRoot).catch(() => []);
+    for (const workspace of workspaces) {
+      const runsDir = path.join(workspacesRoot, workspace, "runs");
+      const files = await readdir(runsDir).catch(() => []);
+      for (const file of files) {
+        if (!file.endsWith(".jsonl")) continue;
+        const filePath = path.join(runsDir, file);
+        let meta = null;
+        try {
+          const firstLine = (await readFile(filePath, "utf8")).split(/\r?\n/).find((line) => line.trim());
+          if (firstLine) meta = JSON.parse(firstLine);
+        } catch {
+          continue;
+        }
+        if (!meta || meta.type !== "run_meta" || meta.status !== "running") continue;
+        // Skip live runs owned by the in-memory Map (may still have pid=null while adapter spawns).
+        const startedAt = Number(meta.startedAt ?? meta.at ?? 0);
+        if (startedAt && startedAt >= reconcileCutoff) continue;
+        if (runs.has(meta.runId)) continue;
+        if (isProcessAlive(meta.pid)) continue;
+        await finalizeStaleRunLog(filePath, meta);
+      }
+    }
+  }
+
   function snapshotFromLog(workspaceRoot, id) {
     if (!workspaceRoot || !id) return null;
     let raw = "";
@@ -508,6 +599,12 @@ export function createPersonalAgentRuntime(options) {
       }
     }
     if (!meta) return null;
+    // Finalized orphaned runs (previous process crashed mid-run) must be
+    // invisible to the UI: they carry a misleading "failed / orphaned" status
+    // that reappears every time the renderer polls a stale runId cached in
+    // localStorage. Returning null lets status() fall through to legacy /
+    // not-found, and pollRun then clears the stale activeRunId.
+    if (meta.status === "failed" && meta.errorInfo?.code === "orphaned") return null;
     const assistantText = events
       .filter((event) => event.type === "assistant")
       .map((event) => String(event.text ?? "").trim())
@@ -515,18 +612,14 @@ export function createPersonalAgentRuntime(options) {
       .join("\n")
       .trim();
     const staleRunning = meta.status === "running";
-    const status = staleRunning ? "failed" : meta.status;
-    const errorInfo = staleRunning
-      ? {
-          code: "timeout",
-          message: "本地 Agent 运行状态已丢失：页面恢复时主进程已没有该 run 的活跃执行记录。",
-          debug: "run existed only in persisted log; active runtime state was missing",
-        }
-      : (meta.errorInfo ?? null);
-    const error = staleRunning ? errorInfo.message : (meta.errorInfo?.message ?? null);
-    const restoredEvents = staleRunning
-      ? [...events, { type: "error", text: errorInfo.message, at: Date.now() }]
-      : events;
+    if (staleRunning) {
+      if (logPath) void finalizeStaleRunLog(logPath, meta);
+      return null;
+    }
+    const status = meta.status;
+    const errorInfo = meta.errorInfo ?? null;
+    const error = errorInfo?.message ?? null;
+    const restoredEvents = events;
     return {
       ok: status === "completed",
       runId: meta.runId ?? id,
@@ -535,7 +628,7 @@ export function createPersonalAgentRuntime(options) {
       connectionMode: meta.connectionMode ?? "本地 Agent harness session",
       status,
       startedAt: meta.startedAt ?? null,
-      finishedAt: staleRunning ? Date.now() : (meta.finishedAt ?? null),
+      finishedAt: meta.finishedAt ?? null,
       pid: meta.pid ?? null,
       command: meta.command ?? "",
       output: assistantText,
@@ -548,10 +641,10 @@ export function createPersonalAgentRuntime(options) {
       metadata: meta.metadata ?? null,
       workdir: meta.workdir ?? null,
       conversationId: meta.conversationId ?? null,
-      debugSummary: staleRunning ? errorInfo.debug : (meta.debugSummary ?? null),
+      debugSummary: meta.debugSummary ?? null,
       errorInfo,
       approvalMode: meta.approvalMode ?? "ask",
-      pendingApprovals: staleRunning ? [] : (Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : []),
+      pendingApprovals: Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : [],
       artifacts: visibleArtifacts(meta.artifacts),
       fileChanges: Array.isArray(meta.fileChanges) ? [...meta.fileChanges] : [],
     };
@@ -661,7 +754,7 @@ export function createPersonalAgentRuntime(options) {
 
   async function start(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) {
       return legacy.start(input);
     }
@@ -680,7 +773,7 @@ export function createPersonalAgentRuntime(options) {
       runId: id,
       agentId,
       agentProvider: provider,
-      connectionMode: defaultConnectionMode(provider),
+      connectionMode: defaultConnectionMode(provider, detected),
       status: "running",
       workspaceRoot,
       accessibleWorkspaceRoots,
@@ -732,7 +825,7 @@ export function createPersonalAgentRuntime(options) {
         const tool = await ensureManagedAcpTool(provider);
         detected.executablePath = tool.binPath;
         detected.managedAcpTool = tool;
-        detected.connectionMode = defaultConnectionMode(provider);
+        detected.connectionMode = defaultConnectionMode(provider, detected);
         appendContractEvent(events, { type: "status", text: `${provider} managed ACP tool ready: ${tool.id}@${tool.version}` });
       } catch (error) {
         state.status = "failed";
@@ -982,7 +1075,7 @@ export function createPersonalAgentRuntime(options) {
 
   async function run(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
-    if (!adapterFactoryForProvider(agent.provider)) return legacy.run(input);
+    if (!adapterFactoryForProvider(agent.provider, agent)) return legacy.run(input);
     const started = await start(input);
     return await new Promise((resolve) => {
       const poll = () => {
@@ -1030,7 +1123,9 @@ export function createPersonalAgentRuntime(options) {
     }
     const restored = snapshotFromLog(workspaceRoot, id);
     if (restored) return restored;
-    return legacy.status(id);
+    const legacyResult = legacy.status(id);
+    if (legacyResult?.status === "missing") return null;
+    return legacyResult;
   }
 
   async function cancel(id, options = {}) {
@@ -1048,7 +1143,7 @@ export function createPersonalAgentRuntime(options) {
         await state.cancelHandler();
       } else {
         const ctx = await runtimeContext();
-        const adapterFactory = adapterFactoryForProvider(state.agentProvider);
+        const adapterFactory = adapterFactoryForProvider(state.agentProvider, state.agent ?? null);
         if (!adapterFactory) return legacy.cancel(id);
         const adapter = adapterFactory({ ...ctx, appendEvent: (event) => appendContractEvent(state.events, event) });
         await adapter.cancel({ runId: state.runId, workspaceRoot: state.workspaceRoot, agent: { id: state.agentId, provider: state.agentProvider } });
@@ -1165,14 +1260,14 @@ export function createPersonalAgentRuntime(options) {
     const detected = await legacy.detectAgent(agent, workspaceRoot);
     const provider = detected.provider ?? agent.provider;
     const agentId = detected.id ?? agent.id ?? provider;
-    const adapterFactory = adapterFactoryForProvider(provider);
+    const adapterFactory = adapterFactoryForProvider(provider, detected);
     if (!adapterFactory) return { ok: false, unsupportedReason: "adapter_not_supported" };
     if (detected.status !== "online") return { ok: false, error: detected.error || `${detected.name ?? provider} is not online` };
     if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
       const tool = await ensureManagedAcpTool(provider);
       detected.executablePath = tool.binPath;
       detected.managedAcpTool = tool;
-      detected.connectionMode = defaultConnectionMode(provider);
+      detected.connectionMode = defaultConnectionMode(provider, detected);
     }
     const conversation = await getOrCreateConversation(workspaceRoot, provider, agentId, input.conversationId);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
@@ -1231,7 +1326,7 @@ export function createPersonalAgentRuntime(options) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.listSessions !== "function") return { sessions: [], unsupportedReason: "session_list_not_supported" };
@@ -1242,7 +1337,7 @@ export function createPersonalAgentRuntime(options) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.loadSession !== "function") throw new Error(`${agent.provider} does not support session/load`);
@@ -1279,7 +1374,7 @@ export function createPersonalAgentRuntime(options) {
     const sessionId = String(input.sessionId ?? input.providerSessionId ?? input.resumeKey ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
     if (!sessionId) throw new Error("sessionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.closeSession !== "function") throw new Error(`${agent.provider} does not support session/close`);
@@ -1313,7 +1408,7 @@ export function createPersonalAgentRuntime(options) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.forkSession !== "function") throw new Error(`${agent.provider} does not support session/fork`);
@@ -1334,7 +1429,7 @@ export function createPersonalAgentRuntime(options) {
     const optionId = String(input.optionId ?? input.configOptionId ?? input.id ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
     if (!optionId) throw new Error("optionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.setConfigOption !== "function") throw new Error(`${agent.provider} does not support config/set`);
@@ -1396,11 +1491,21 @@ export function createPersonalAgentRuntime(options) {
     return resolveApproval({ ...input, runId: statusResult.activeRun.runId, approvalId });
   }
 
+  async function loadExtensionAdapters() {
+    try {
+      const { enabledAdapters } = await loadExtensions({ bundledRoots: bundledExtensionRoots });
+      return enabledAdapters.map((adapter) => adapterToCustomAgent(adapter));
+    } catch {
+      return [];
+    }
+  }
+
   async function listAgents(input = {}) {
     const result = await legacy.listAgents(input);
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     const customAgents = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
-    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents];
+    const extensionAgents = await loadExtensionAdapters();
+    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
     // Hydrate ACP session metadata cached from the last warmup so the
     // handshake exposes available_commands / config options / models before
     // the user sends a message. Falls back to the raw agent when the
@@ -1602,6 +1707,40 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
+  // Test a custom agent configuration before saving.
+  // Runs a two-step ACP probe (CLI spawn -> initialize -> session/new) with
+  // the provided command/args/env and returns a three-state result:
+  // success / fail_cli / fail_acp.
+  async function testCustomAgent(input = {}) {
+    const command = String(input.command ?? "").trim();
+    if (!command) {
+      return { step: "fail_cli", error: "command is required", durationMs: 0 };
+    }
+    const args = Array.isArray(input.args) ? input.args.filter(Boolean) : [];
+    const acpArgs = Array.isArray(input.acpArgs) ? input.acpArgs.filter(Boolean) : [];
+    const env = input.env && typeof input.env === "object" && !Array.isArray(input.env) ? input.env : {};
+    const timeoutMs = Math.max(1000, Math.min(30000, Number(input.timeoutMs) || 8000));
+    const cwd = String(input.cwd ?? process.cwd()).trim();
+    const startedAt = Date.now();
+    try {
+      const probe = await probeAcpCommand({ command, args: acpArgs.length > 0 ? acpArgs : args, cwd, timeoutMs, env });
+      const durationMs = Date.now() - startedAt;
+      // Map probeAcpCommand's 4-state result to the 3-state contract:
+      // - "online" -> "success"
+      // - "fail_cli" -> "fail_cli"
+      // - "fail_acp" -> "fail_acp"
+      // - "needs_auth" -> "fail_acp" (auth error is still an ACP-layer issue)
+      const step = probe.step === "online" ? "success" : probe.step === "needs_auth" ? "fail_acp" : probe.step;
+      return { step, error: probe.error ?? null, durationMs };
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      const message = error instanceof Error ? error.message : String(error);
+      // Spawn errors are CLI-layer; JSON-RPC errors are ACP-layer.
+      const step = /ENOENT|spawn|command not found|not found/i.test(message) ? "fail_cli" : "fail_acp";
+      return { step, error: message, durationMs };
+    }
+  }
+
   async function checkProviderHealth(input = {}) {
     const checkedAt = Date.now();
     try {
@@ -1779,6 +1918,8 @@ export function createPersonalAgentRuntime(options) {
   return {
     listAgents,
     listAgentMetadata,
+    listExtensions: async () => loadExtensions({ bundledRoots: bundledExtensionRoots }),
+    setExtensionEnabled: async (input = {}) => setExtensionEnabled(String(input.name ?? input.extensionName ?? "").trim(), input.enabled !== false),
     listAcpAgents,
     refreshAcpAgents,
     acpHealth,
@@ -1789,11 +1930,13 @@ export function createPersonalAgentRuntime(options) {
     setConfigOption: setAgentConfigOption,
     createCustomAgent: createAgent,
     updateCustomAgent: updateAgent,
+    detectAvailableLocalAgents,
     deleteCustomAgent: deleteAgent,
     getAgentOverrides: async (input = {}) => getAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim()),
     setAgentOverrides: async (input = {}) => setAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim(), input.overrides ?? {}),
     listProcesses,
     testConnection,
+    testCustomAgent,
     checkProviderHealth,
     checkManagedAgentHealthById,
     validateAgent: legacy.detectAgent,

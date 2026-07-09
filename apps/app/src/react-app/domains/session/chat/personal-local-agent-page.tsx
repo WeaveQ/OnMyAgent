@@ -12,6 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ActionRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -130,7 +131,7 @@ const localAgentLayoutClass = {
   artifactIconButton: "shrink-0 rounded-none text-dls-status-success-fg hover:bg-dls-status-success-soft",
 };
 const activeRunClass = {
-  overview: "rounded-xl border border-dls-accent/30 bg-dls-accent/5 p-3 text-xs text-dls-text",
+  overview: "p-1 text-xs text-dls-text",
   item: "flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors",
   itemSelected: "border-dls-accent/35 bg-dls-surface",
   itemDefault: "border-dls-accent/15 bg-dls-surface/70 hover:bg-dls-surface",
@@ -206,6 +207,11 @@ function placeholderRunFromProcess(process: PersonalLocalAgentProcessRecord): Pe
   const runId = process.runId.trim();
   const providerRaw = (process.provider ?? process.backend ?? "").trim();
   if (!runId || !providerRaw || !isPersonalLocalAgentProvider(providerRaw)) return null;
+  // Stale processes are leftovers from a previous process session that died on
+  // restart. They are not actually running — treating them as running creates a
+  // placeholder run that pollRun can never resolve, causing repeated orphaned
+  // errors and an activeRunId set/clear loop every sync tick.
+  if (process.status === "stale") return null;
   const provider: PersonalLocalAgentProvider = providerRaw;
   return {
     ok: false,
@@ -244,6 +250,22 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     initialAgentsRef.current = safeReadCachedAgents(props.workspaceRoot);
   }
   const persistedState = initialPersistedStateRef.current;
+  // Drop orphaned run errors cached from a previous process restart. These are
+  // stale false failures — the run may have since completed on disk — and their
+  // persisted error text misleads the user on every app restart.
+  const sanitizedMessagesByAgent: Record<string, ChatMessage[]> = {};
+  for (const [key, messages] of Object.entries(persistedState.messagesByAgent ?? {})) {
+    sanitizedMessagesByAgent[key] = (messages ?? []).filter((message) => {
+      const run = message.run;
+      if (run?.errorInfo?.code === "orphaned") return false;
+      if (run?.status === "failed" && typeof message.text === "string" && message.text.includes("该 run 因主进程重启")) return false;
+      return true;
+    });
+  }
+  const sanitizedErrorsByAgent: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(persistedState.errorsByAgent ?? {})) {
+    sanitizedErrorsByAgent[key] = typeof value === "string" && value.includes("该 run 因主进程重启") ? null : value;
+  }
   const initialAgents = initialAgentsRef.current;
   const [agents, setAgents] = useState<PersonalLocalAgent[]>(initialAgents);
   const [selectedAgentId, setSelectedAgentId] = useState(persistedState.selectedAgentId || "opencode");
@@ -253,13 +275,12 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [draftsByAgent, setDraftsByAgent] = useState<Record<string, string>>(persistedState.draftsByAgent ?? {});
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
   const [startingByAgent, setStartingByAgent] = useState<Record<string, boolean>>({});
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(persistedState.errorsByAgent ?? {});
+  const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(sanitizedErrorsByAgent);
   const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>(
-    recoverActiveRunIds(persistedState.messagesByAgent, persistedState.activeRunIdByAgent),
+    recoverActiveRunIds(sanitizedMessagesByAgent, persistedState.activeRunIdByAgent),
   );
   const [healthResults, setHealthResults] = useState<Record<string, AgentHealthResult>>(persistedState.healthResults ?? {});
-  const [messagesByAgent, setMessagesByAgent] = useState<Record<string, ChatMessage[]>>(persistedState.messagesByAgent ?? {});
+  const [messagesByAgent, setMessagesByAgent] = useState<Record<string, ChatMessage[]>>(sanitizedMessagesByAgent);
   const [conversationsByAgent, setConversationsByAgent] = useState<Record<string, PersonalLocalAgentConversation[]>>({});
   const [heartbeatJobs, setHeartbeatJobs] = useState<PersonalLocalAgentHeartbeatJob[]>([]);
   const [heartbeatDraft, setHeartbeatDraft] = useState<HeartbeatDraft>({
@@ -271,6 +292,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [heartbeatBusy, setHeartbeatBusy] = useState<string | null>(null);
   const [heartbeatError, setHeartbeatError] = useState<string | null>(null);
   const [showScheduledTasks, setShowScheduledTasks] = useState(false);
+  const [showActiveRunsPanel, setShowActiveRunsPanel] = useState(false);
   const [selectedConversationIdByAgent, setSelectedConversationIdByAgent] = useState<Record<string, string>>(persistedState.selectedConversationIdByAgent ?? {});
   const [loadingConversationsByAgent, setLoadingConversationsByAgent] = useState<Record<string, boolean>>({});
   // Channel-bound conversations (source:"channel") live under scoped agents
@@ -868,6 +890,25 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setRefreshing(false);
     }
   }, [props.workspaceRoot, selectedAgentId]);
+  const handleNewConversation = useCallback(async () => {
+    const targetAgent = selectedAgent ?? agents[0] ?? null;
+    if (!targetAgent) return;
+    try {
+      const result = await personalLocalAgentConversationCreate({
+        workspaceRoot: effectiveWorkspaceRoot,
+        title: "",
+        agent: targetAgent,
+      });
+      setConversationsByAgent((current) => ({
+        ...current,
+        [targetAgent.id]: [result.conversation, ...(current[targetAgent.id] ?? [])],
+      }));
+      setSelectedConversationIdByAgent((current) => ({ ...current, [targetAgent.id]: result.conversation.id }));
+    } catch (error) {
+      setErrorsByAgent((current) => ({ ...current, [targetAgent.id]: error instanceof Error ? error.message : String(error) }));
+    }
+  }, [agents, effectiveWorkspaceRoot, selectedAgent]);
+
   useEffect(() => {
     void refreshAgents();
   }, [refreshAgents]);
@@ -1452,10 +1493,13 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: message }));
     }
   }, [props.workspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
- return ( <div data-onmyagent-view="personal-assistant" className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"><aside className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5" style={{ width: agentListWidth }} ><div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4"><InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1"><InputGroupAddon align="inline-start" inset="tight"><Search className="size-4.5" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("local_agent.search")} className="text-sm placeholder:text-dls-secondary/75" /></InputGroup><Button type="button" size="icon-sm" onClick={() => setShowAddForm((value) => !value)} className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text" title={t("local_agent.add")} aria-label={t("local_agent.add")} ><Bot className="size-4.5" /><Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} /></Button></div> {showAddForm ? ( <div className="mx-4 mt-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3"><div className={localAgentTextClass.panelTitle}>{t("local_agent.add")}</div><Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => void refreshAgents()} disabled={refreshing}>
-  {refreshing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-  {t("local_agent.redetect")}
-</Button></div> ) : null} <div className="min-h-0 flex-1 overflow-y-auto">  {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}>
+ return ( <div data-onmyagent-view="personal-assistant" className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"><aside className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5" style={{ width: agentListWidth }} ><div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4"><InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1"><InputGroupAddon align="inline-start" inset="tight"><Search className="size-4.5" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("local_agent.search")} className="text-sm placeholder:text-dls-secondary/75" /></InputGroup><Button type="button" size="icon-sm" onClick={() => setShowActiveRunsPanel(true)} className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text" title={t("local_agent.active_runs_title")} aria-label={t("local_agent.active_runs_title")} aria-expanded={showActiveRunsPanel} ><Activity className="size-4.5" />{activeRuns.length ? (<CountBadge size="dot" className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface">{activeRuns.length}</CountBadge>) : null}</Button><Button type="button" size="icon-sm" onClick={() => void handleNewConversation()} className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text" title={t("local_agent.new_conversation")} aria-label={t("local_agent.new_conversation")} ><Plus className="size-4.5" /></Button></div> {props.onOpenAgentManagement ? (
+  <div className="mx-4 mt-3">
+    <Button variant="ghost" size="sm" className="h-auto p-0 text-dls-accent hover:bg-transparent hover:text-dls-accent" onClick={() => props.onOpenAgentManagement?.("agents")}>
+      {t("local_agent.manage_agents")}…
+    </Button>
+  </div>
+ ) : null} <div className="min-h-0 flex-1 overflow-y-auto">  {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}>
   <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
     <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
       {isChannelView ? (
@@ -1574,7 +1618,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       />
     </div>
   ) : null}
-</header><LocalAgentStatusRail workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {activeRuns.length ? ( <ActiveRunsOverview activeRuns={activeRuns} selectedChatKey={selectedChatKey} onSelectAgent={(chatKey) => { const [agentId, conversationId] = chatKey.split("::"); if (agentId) setSelectedAgentId(agentId); if (agentId && conversationId) { setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId })); } }} onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)} /> ) : null} {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
+</header><LocalAgentStatusRail workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
         <div className={localAgentLayoutClass.chatPanel}>
           <div className="flex flex-wrap items-center gap-2 px-1 pb-2 pt-1">
             <WorkspaceFootnote
@@ -1624,8 +1668,31 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             }
           />
         </div>
-      </footer></main></div> );
+      </footer></main>
+      <Dialog open={showActiveRunsPanel} onOpenChange={setShowActiveRunsPanel}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("local_agent.active_runs_title")}</DialogTitle>
+          </DialogHeader>
+          <ActiveRunsOverview
+            activeRuns={activeRuns}
+            selectedChatKey={selectedChatKey}
+            showTitle={false}
+            onSelectAgent={(chatKey) => {
+              setShowActiveRunsPanel(false);
+              const [agentId, conversationId] = chatKey.split("::");
+              if (agentId) setSelectedAgentId(agentId);
+              if (agentId && conversationId) {
+                setSelectedConversationIdByAgent((current) => ({ ...current, [agentId]: conversationId }));
+              }
+            }}
+            onCancelRun={(runId, chatKey) => void cancelAgentRun(runId, chatKey)}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
-function ActiveRunsOverview(props: { activeRuns: Array<{ chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult }>; selectedChatKey: string | null; onSelectAgent: (chatKey: string) => void; onCancelRun?: (runId: string, chatKey: string) => void;
-}) { return ( <section className={activeRunClass.overview}><div className={localAgentTextClass.runSectionTitle}><Activity className="size-4" />{t("local_agent.active_runs")} <CountBadge size="dot" className="bg-dls-accent/10 text-dls-accent">{props.activeRuns.length}</CountBadge></div><div className="grid gap-2"> {props.activeRuns.map(({ chatKey, agentId, agent, run }) => { const isSelected = props.selectedChatKey === chatKey; return ( <div key={run.runId} className={cn( activeRunClass.item, isSelected ? activeRunClass.itemSelected : activeRunClass.itemDefault, )} ><ActionRowButton type="button" onClick={() => props.onSelectAgent(chatKey)} density="compact" className="min-w-0 flex-1 border-0 bg-transparent p-0 text-left hover:bg-transparent" title={isSelected ? t("local_agent.current_agent_running") : t("local_agent.switch_to_agent_detail")} ><div className="flex flex-wrap items-center justify-between gap-2"><span className={localAgentTextClass.runItemTitle}><StatusPing /><span className="truncate">{agent?.name ?? agentId}</span></span><span className={activeRunClass.runId}>Run {run.runId}</span></div><div className={activeRunClass.meta}><span>{run.pendingApprovals?.length ? t("local_agent.waiting_approval_count", { count: run.pendingApprovals.length }) : t("local_agent.elapsed", { value: elapsedSeconds(run.startedAt, null) })}</span><span>{t("local_agent.latest_event", { time: shortTime(lastEventTime(run)) })}</span><span>{t("local_agent.connection", { value: run.connectionMode || "--" })}</span></div></ActionRowButton> {props.onCancelRun ? ( <Button variant="outline" size="sm" className={activeRunClass.cancel} onClick={() => props.onCancelRun?.(run.runId, chatKey)} title={t("local_agent.stop_run")} ><CircleStop className="mr-1 size-3.5" />{t("composer.stop")} </Button> ) : null} </div> ); })} </div></section> );
+function ActiveRunsOverview(props: { activeRuns: Array<{ chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult }>; selectedChatKey: string | null; onSelectAgent: (chatKey: string) => void; onCancelRun?: (runId: string, chatKey: string) => void; showTitle?: boolean;
+}) { return ( <section className={activeRunClass.overview}>{props.showTitle ? (<div className={localAgentTextClass.runSectionTitle}><Activity className="size-4" />{t("local_agent.active_runs")} <CountBadge size="dot" className="bg-dls-accent/10 text-dls-accent">{props.activeRuns.length}</CountBadge></div>) : null}<div className="grid gap-2"> {props.activeRuns.map(({ chatKey, agentId, agent, run }) => { const isSelected = props.selectedChatKey === chatKey; return ( <div key={run.runId} className={cn( activeRunClass.item, isSelected ? activeRunClass.itemSelected : activeRunClass.itemDefault, )} ><ActionRowButton type="button" onClick={() => props.onSelectAgent(chatKey)} density="compact" className="min-w-0 flex-1 border-0 bg-transparent p-0 text-left hover:bg-transparent" title={isSelected ? t("local_agent.current_agent_running") : t("local_agent.switch_to_agent_detail")} ><div className="flex flex-wrap items-center justify-between gap-2"><span className={localAgentTextClass.runItemTitle}><StatusPing /><span className="truncate">{agent?.name ?? agentId}</span></span><span className={activeRunClass.runId}>Run {run.runId}</span></div><div className={activeRunClass.meta}><span>{run.pendingApprovals?.length ? t("local_agent.waiting_approval_count", { count: run.pendingApprovals.length }) : t("local_agent.elapsed", { value: elapsedSeconds(run.startedAt, null) })}</span><span>{t("local_agent.latest_event", { time: shortTime(lastEventTime(run)) })}</span><span>{t("local_agent.connection", { value: run.connectionMode || "--" })}</span></div></ActionRowButton> {props.onCancelRun ? ( <Button variant="outline" size="sm" className={activeRunClass.cancel} onClick={() => props.onCancelRun?.(run.runId, chatKey)} title={t("local_agent.stop_run")} ><CircleStop className="mr-1 size-3.5" />{t("composer.stop")} </Button> ) : null} </div> ); })} </div>{props.activeRuns.length ? null : <div className="px-1 py-1 text-xs text-dls-secondary">{t("local_agent.no_active_runs")}</div>}</section> );
 }

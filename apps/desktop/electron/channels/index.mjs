@@ -24,3 +24,4 @@ export {
   PLUGIN_TRANSPORT_STATE,
 } from "./PluginRegistry.mjs";
 export { ChannelAssistantBindingStore } from "./AssistantBindingStore.mjs";
+export { formatAgentReply } from "./AgentReplyHeader.mjs";

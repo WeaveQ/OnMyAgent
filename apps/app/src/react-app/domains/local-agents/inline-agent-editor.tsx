@@ -1,12 +1,15 @@
 /** @jsxImportSource react */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { t } from "@/i18n";
-import type { PersonalLocalAgent } from "../../../app/lib/desktop";
+import type { PersonalLocalAgent, PersonalLocalAgentTestCustomAgentResult } from "../../../app/lib/desktop";
+import { personalLocalAgentTestCustomAgent } from "../../../app/lib/desktop";
 import { EnvVarEditor, type EnvVarRow } from "./env-var-editor";
 
 export type InlineAgentEditorValue = {
@@ -18,6 +21,13 @@ export type InlineAgentEditorValue = {
   description: string;
   nativeSkillsDirs: string[];
   behaviorPolicy: Record<string, unknown>;
+  connectionType: "cli" | "raw";
+  acpArgs: string[];
+  supportsStreaming: boolean;
+  supportsResume: boolean;
+  supportsApproval: boolean;
+  supportsModelOverride: boolean;
+  authRequired: boolean;
 };
 
 type EditableAgentFields = PersonalLocalAgent & {
@@ -25,6 +35,13 @@ type EditableAgentFields = PersonalLocalAgent & {
   env?: Record<string, string> | Array<{ name: string; value: string }>;
   nativeSkillsDirs?: string[];
   behaviorPolicy?: Record<string, unknown> | null;
+  connectionType?: "cli" | "raw" | null;
+  acpArgs?: string[];
+  supportsStreaming?: boolean;
+  supportsResume?: boolean;
+  supportsApproval?: boolean;
+  supportsModelOverride?: boolean;
+  authRequired?: boolean;
 };
 
 function splitArgs(value: string): string[] {
@@ -78,6 +95,41 @@ export function InlineAgentEditor(props: {
   const [nativeSkillsDirs, setNativeSkillsDirs] = useState(Array.isArray(editableAgent?.nativeSkillsDirs) ? editableAgent.nativeSkillsDirs.join("\n") : "");
   const [behaviorPolicy, setBehaviorPolicy] = useState(editableAgent?.behaviorPolicy ? JSON.stringify(editableAgent.behaviorPolicy, null, 2) : "");
   const [env, setEnv] = useState<EnvVarRow[]>(envRows(editableAgent?.env));
+  const [connectionType, setConnectionType] = useState<"cli" | "raw">(editableAgent?.connectionType === "cli" ? "cli" : editableAgent?.connectionType === "raw" ? "raw" : "raw");
+  const [acpArgs, setAcpArgs] = useState(Array.isArray(editableAgent?.acpArgs) ? editableAgent.acpArgs.join(" ") : "");
+  const [supportsStreaming, setSupportsStreaming] = useState<boolean>(editableAgent?.supportsStreaming === true);
+  const [supportsResume, setSupportsResume] = useState<boolean>(editableAgent?.supportsResume === true);
+  const [supportsApproval, setSupportsApproval] = useState<boolean>(editableAgent?.supportsApproval === true);
+  const [supportsModelOverride, setSupportsModelOverride] = useState<boolean>(editableAgent?.supportsModelOverride === true);
+  const [authRequired, setAuthRequired] = useState<boolean>(editableAgent?.authRequired === true);
+
+  // Test Connection state
+  type TestStatus = "idle" | "testing" | "success" | "fail_cli" | "fail_acp";
+  const [testStatus, setTestStatus] = useState<TestStatus>("idle");
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testDuration, setTestDuration] = useState<number>(0);
+
+  const handleTestConnection = useCallback(async () => {
+    if (!command.trim()) return;
+    setTestStatus("testing");
+    setTestError(null);
+    setTestDuration(0);
+    try {
+      const result: PersonalLocalAgentTestCustomAgentResult = await personalLocalAgentTestCustomAgent({
+        command: command.trim(),
+        acpArgs: connectionType === "cli" ? splitArgs(acpArgs) : undefined,
+        args: splitArgs(args),
+        env: envRecord(env),
+        timeoutMs: 8000,
+      });
+      setTestStatus(result.step === "success" ? "success" : result.step);
+      setTestError(result.error);
+      setTestDuration(result.durationMs);
+    } catch (error) {
+      setTestStatus("fail_cli");
+      setTestError(error instanceof Error ? error.message : String(error));
+    }
+  }, [command, acpArgs, args, env, connectionType]);
 
   const validation = useMemo(() => {
     if (!id.trim()) return t("local_agent.editor_error_id");
@@ -100,6 +152,13 @@ export function InlineAgentEditor(props: {
       description: description.trim(),
       nativeSkillsDirs: nativeSkillsDirs.split(/\n+/).map((item) => item.trim()).filter(Boolean),
       behaviorPolicy: parseBehaviorPolicy(behaviorPolicy).value,
+      connectionType,
+      acpArgs: splitArgs(acpArgs),
+      supportsStreaming,
+      supportsResume,
+      supportsApproval,
+      supportsModelOverride,
+      authRequired,
     });
   };
 
@@ -136,6 +195,98 @@ export function InlineAgentEditor(props: {
         <span>{t("local_agent.editor_behavior_policy")}</span>
         <Textarea data-testid="local-agent-editor-behavior-policy" variant="dlsMono" className="min-h-20 resize-y text-xs" value={behaviorPolicy} disabled={props.busy} onChange={(event) => setBehaviorPolicy(event.target.value)} />
       </label>
+      <fieldset data-testid="local-agent-editor-acp" className="space-y-2 rounded-lg border border-dls-border/70 bg-dls-surface p-3">
+        <legend className="px-1 text-xs font-medium text-dls-secondary">{t("local_agent.editor_acp_section")}</legend>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1 text-xs text-dls-secondary">
+            <span>{t("local_agent.editor_connection_type")}</span>
+            <select data-testid="local-agent-editor-connection-type" className="h-8 w-full rounded-md border border-dls-border bg-dls-surface px-2 text-xs" value={connectionType} disabled={props.busy} onChange={(event) => setConnectionType(event.target.value === "cli" ? "cli" : "raw")}>
+              <option value="raw">{t("local_agent.editor_connection_raw")}</option>
+              <option value="cli">{t("local_agent.editor_connection_cli")}</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-xs text-dls-secondary">
+            <span>{t("local_agent.editor_acp_args")}</span>
+            <Input data-testid="local-agent-editor-acp-args" variant="dls" value={acpArgs} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAcpArgs(event.target.value)} placeholder="acp" />
+          </label>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+            <input type="checkbox" checked={supportsStreaming} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsStreaming(event.target.checked)} />
+            <span>{t("local_agent.editor_supports_streaming")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+            <input type="checkbox" checked={supportsResume} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsResume(event.target.checked)} />
+            <span>{t("local_agent.editor_supports_resume")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+            <input type="checkbox" checked={supportsApproval} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsApproval(event.target.checked)} />
+            <span>{t("local_agent.editor_supports_approval")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+            <input type="checkbox" checked={supportsModelOverride} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsModelOverride(event.target.checked)} />
+            <span>{t("local_agent.editor_supports_model_override")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+            <input type="checkbox" checked={authRequired} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAuthRequired(event.target.checked)} />
+            <span>{t("local_agent.editor_auth_required")}</span>
+          </label>
+        </div>
+      </fieldset>
+
+      {/* Test Connection */}
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={!command.trim() || testStatus === "testing" || props.busy}
+          onClick={handleTestConnection}
+          data-testid="local-agent-editor-test-connection"
+        >
+          {testStatus === "testing" ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              {t("local_agent.test_connection_testing")}
+            </>
+          ) : (
+            t("local_agent.test_connection")
+          )}
+        </Button>
+        {testStatus === "success" && (
+          <Alert className="border-green-500/50 bg-green-50 text-green-900 [&>svg]:text-green-600">
+            <CheckCircle2 className="size-4" />
+            <AlertTitle>{t("local_agent.test_connection_success")}</AlertTitle>
+            <AlertDescription className="text-xs">
+              {t("local_agent.test_connection_duration", { ms: testDuration })}
+            </AlertDescription>
+          </Alert>
+        )}
+        {testStatus === "fail_cli" && (
+          <Alert variant="destructive">
+            <XCircle className="size-4" />
+            <AlertTitle>{t("local_agent.test_connection_fail_cli")}</AlertTitle>
+            {testError && (
+              <AlertDescription className="text-xs break-all">
+                {testError}
+              </AlertDescription>
+            )}
+          </Alert>
+        )}
+        {testStatus === "fail_acp" && (
+          <Alert className="border-orange-500/50 bg-orange-50 text-orange-900 [&>svg]:text-orange-600">
+            <AlertTriangle className="size-4" />
+            <AlertTitle>{t("local_agent.test_connection_fail_acp")}</AlertTitle>
+            {testError && (
+              <AlertDescription className="text-xs break-all">
+                {testError}
+              </AlertDescription>
+            )}
+          </Alert>
+        )}
+      </div>
+
       {validation || props.error ? <NoticeBox tone="error">{validation || props.error}</NoticeBox> : null}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" disabled={props.busy} onClick={props.onCancel}>{t("common.cancel")}</Button>
