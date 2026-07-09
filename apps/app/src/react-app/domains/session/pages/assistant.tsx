@@ -858,35 +858,26 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   };
 
-  const headerPanelControls = (
+  const headerPanelControls = !sidePanelOpen ? (
     <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
-        size="icon-sm"
-        className={cn(
-          "transition-colors hover:bg-muted hover:text-foreground",
-          sidePanelOpen &&
-            activeSidePanel !== "canvas" &&
-            "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-        )}
+        size="icon-xs"
+        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
-          if (sidePanelOpen) {
-            closeRightPane();
-            return;
-          }
           openAssistantSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
         aria-label={t("session.code_side_panel_toggle")}
         aria-expanded={sidePanelOpen}
       >
-        <PanelRight className="size-4" />
+        <PanelRight className="size-3.5" />
       </Button>
     </div>
-  );
+  ) : null;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
