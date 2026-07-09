@@ -1200,13 +1200,13 @@ function OpenTargetIcon(props: { target: OpenTarget }) {
   }
   if (props.target.preview === "markdown") {
     return (
-      <StatusBadge size="fileType" className="border border-primary/25 bg-primary/10 text-primary">
+      <StatusBadge size="fileType" className="border border-dls-border bg-dls-surface-muted text-dls-text">
         MD
       </StatusBadge>
     );
   }
 
-  return <FileIcon size={12} className="shrink-0 text-primary" />;
+  return <FileIcon size={12} className="shrink-0 text-dls-secondary" />;
 }
 
 function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (target: OpenTarget) => void }) {
@@ -1220,7 +1220,7 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
             type="button"
             variant="outline"
             size="xs"
-            className="max-w-[220px] rounded-lg text-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+            className="max-w-[220px] rounded-lg border-dls-border bg-dls-surface-muted text-dls-text hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text"
             title={target.value}
             onClick={() => props.onOpenTarget(target)}
           >
