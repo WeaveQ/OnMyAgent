@@ -43,6 +43,8 @@ const fileAllowlist = new Set([
   // zh+en 关键词，不是普通 UI 文案。UI 展示走各自 labelKey 的 t() 键。
   'apps/app/src/react-app/domains/session/expert-marketplace/categories.ts',
   'apps/app/src/react-app/domains/session/skills-marketplace/categories.ts',
+  // Legacy value normalizer: CJK map keys are backend value keys, not UI copy.
+  'apps/app/src/react-app/domains/settings/pages/legacy-profile-options.ts',
 ])
 
 const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
