@@ -1,7 +1,7 @@
 {
   "$schema": "./i18n-cjk-hardcoded.schema.json",
   "description": "Frozen CJK hard-coded string occurrences keyed by file+excerpt with a count. Only shrink (delete entries or lower counts); never bump counts by hand. Regenerate with `node scripts/checks/check-i18n-cjk.mjs --write` after genuine reduction.",
-  "generatedAt": "2026-07-09T03:21:18.183Z",
+  "generatedAt": "2026-07-09T04:13:22.735Z",
   "entries": {
     "apps/app/src/react-app/domains/agents/agent-registry.ts::\"专业\",": 1,
     "apps/app/src/react-app/domains/agents/agent-registry.ts::\"专家\",": 1,
@@ -48,7 +48,7 @@
     "apps/app/src/react-app/domains/local-agents/local-agent-filters.ts::if (/auth|login|unauthorized|forbidden|认证|登录/.test(text)) return \"needs_auth\";": 1,
     "apps/app/src/react-app/domains/local-agents/local-agent-filters.ts::if (/not found|command not found|no such file|未配置|命令不可用/.test(text)) return \"missing\";": 1,
     "apps/app/src/react-app/domains/local-agents/messages/message-utils.ts::const pattern = /(?:产物文件：|^|[\\s\"'`([{])((?:\\.{1,2}[/\\\\]|~[/\\\\]|[/\\\\])?[\\w.\\-]+(?:[/\\\\][\\w.\\-]+)*\\.(?:md|markdown|mdx|txt|log|json|csv|tsv|xlsx|html|pdf|png|jpg|jpeg|webp|svg))/gim;": 1,
-    "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx::events: [{ type: \"status\", text: \"后台运行状态已从主进程恢复。\", at: process.updatedAt }],": 1,
+    "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts::events: [{ type: \"status\", text: \"后台运行状态已从主进程恢复。\", at: process.updatedAt }],": 1,
     "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx::if (run?.status === \"failed\" && typeof message.text === \"string\" && message.text.includes(\"该 run 因主进程重启\")) return false;": 1,
     "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx::sanitizedErrorsByAgent[key] = typeof value === \"string\" && value.includes(\"该 run 因主进程重启\") ? null : value;": 1,
     "apps/app/src/react-app/domains/session/chat/personal-local-agent-scheduled-tasks.tsx::text: `定时任务“${title}”执行完成。\\n状态：${status}\\nRun：${runIdValue}\\n\\n${output}`,": 1,

@@ -78,6 +78,12 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/timeline-messages",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-status-rail",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/context-usage-indicator",
+  // Extracted parts of personal-local-agent-page.tsx keep the same
+  // session <-> local-agents imports as the page they were pulled from.
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents/local-agent-page-model",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents/messages/message-types",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents/local-agent-formatters",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents/messages/timeline-messages",
   "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx|../../../local-agents/extension-list-panel",
   "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx|../../../local-agents/inline-agent-editor",
   "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx|../../../local-agents/agent-management-repair-dialog",

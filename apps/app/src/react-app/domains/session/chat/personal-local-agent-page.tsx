@@ -67,7 +67,7 @@ import {
 import { LocalAgentStatusRail } from "../../local-agents/local-agent-status-rail";
 import { LocalAgentDraftComposer, buildLocalAgentPrompt, type LocalAgentComposerSubmit, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
 import { elapsedSeconds, shortTime } from "../../local-agents/local-agent-formatters";
-import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, PROVIDER_LABELS, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, normalizeAcpSlashCommandList, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, isPersonalLocalAgentProvider, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
+import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, normalizeAcpSlashCommandList, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
 import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
 import { ChatBubble } from "../../local-agents/messages/chat-bubble";
 import { latestContextUsage } from "../../local-agents/context-usage-indicator";
@@ -80,6 +80,17 @@ import type { OpenworkServerClient } from "../../../../app/lib/onmyagent-server"
 import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message";
 import { WorkspaceFootnote } from "../../local-agents/workspace-picker/workspace-footnote";
 import { addRecentWorkspace, getRecentWorkspaces, readWorkspaceOverride, writeWorkspaceOverride } from "../../local-agents/workspace-picker/recent-workspaces"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
+import { useArchiveResume } from "./use-archive-resume";
+import { ActiveRunsOverview } from "./personal-local-agent-active-runs";
+import {
+  agentSubtitle,
+  lastRunForAgent,
+  localAgentLayoutClass,
+  localAgentTextClass,
+  messageTextForRun,
+  nowId,
+  placeholderRunFromProcess,
+} from "./personal-local-agent-page-helpers";
 type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
   workspaceName?: string | null;
@@ -103,143 +114,6 @@ type PersonalLocalAgentPageProps = {
    *  local filesystem workspaceRoot). */
   runtimeWorkspaceId?: string | null;
 };
-const localAgentTextClass = {
-  panelTitle: "text-sm font-medium leading-5 text-dls-text",
-  rowTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5",
-  pageTitle: "truncate text-base font-medium leading-6 text-dls-text",
-  debugMeta: "font-mono text-xs text-dls-secondary",
-  runSectionTitle: "mb-2 flex items-center gap-2 font-medium",
-  runItemTitle: "flex min-w-0 items-center gap-1.5 font-medium",
-  approvalTitle: "text-xs font-medium",
-  artifactTitle: "mb-2 flex items-center gap-1.5 text-xs font-medium text-dls-status-success-fg",
-};
-const localAgentLayoutClass = {
-  refreshIcon: "mr-1.5 size-3.5",
-  agentRow: "flex h-[68px] w-full items-center gap-3 px-4 text-left transition-colors",
-  agentAvatar: "flex size-11 items-center justify-center overflow-hidden rounded-lg border text-base font-medium",
-  agentAvatarSelected: "border-dls-border bg-dls-surface text-dls-accent",
-  agentAvatarDefault: "border-dls-border bg-dls-decision-soft text-dls-accent",
-  agentStatusDot: "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
-  header: "shrink-0 border-b border-dls-border bg-dls-surface mac:titlebar-drag",
-  pageContent: "mx-auto flex w-full max-w-[1120px] flex-col gap-5",
-  chatPanel: "mx-auto w-full max-w-[1120px] rounded-xl border border-dls-border bg-dls-surface p-2",
-  chatMessage: "max-w-[86%] rounded-xl border border-dls-border px-4 py-3 text-sm leading-6",
-  userChatMessage: "bg-dls-chat-user-bg text-dls-text",
-  assistantChatMessage: "bg-dls-surface text-dls-chat-agent-text",
-  artifactPanel: "rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2",
-  artifactButton: "min-w-0 max-w-[260px] justify-start rounded-none text-dls-status-success-fg hover:bg-dls-status-success-soft",
-  artifactIconButton: "shrink-0 rounded-none text-dls-status-success-fg hover:bg-dls-status-success-soft",
-};
-const activeRunClass = {
-  overview: "p-1 text-xs text-dls-text",
-  item: "flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors",
-  itemSelected: "border-dls-accent/35 bg-dls-surface",
-  itemDefault: "border-dls-accent/15 bg-dls-surface/70 hover:bg-dls-surface",
-  runId: "font-mono text-xs text-dls-accent",
-  meta: "mt-1 flex flex-wrap gap-2 text-xs text-dls-secondary",
-  cancel: "h-7 shrink-0 border-dls-accent/30 bg-dls-surface text-xs text-dls-text hover:bg-dls-accent/10",
-};
-function nowId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-function agentSubtitle(agent: PersonalLocalAgent) {
-  if (agent.status !== "online") return agent.error || t("common.unavailable");
-  const mode = agent.connectionMode;
-  return [mode, agent.version || agent.executablePath || t("config.status_connected")].filter(Boolean).join(" · ");
-}
-function lastRunForAgent(messages: ChatMessage[] | undefined) {
-  return [...(messages ?? [])].reverse().find((message) => message.run)?.run ?? null;
-}
-function shouldJoinAssistantChunkTightly(current: string, next: string) {
-  if (!current || /^\s/.test(next) || /\s$/.test(current)) return true;
-  if (/^[,.;:!?，。！？、；：）)\]}]/.test(next)) return true;
-  if (/[（([{]$/.test(current)) return true;
-  if (/[\u4e00-\u9fff]$/.test(current) || /^[\u4e00-\u9fff]/.test(next)) return true;
-  return false;
-}
-function runningAssistantTextForRun(run: PersonalLocalAgentRunResult) {
-  const chunks = run.events
-    .filter((event) => event.type === "assistant_chunk" || event.type === "chunk")
-    .map((event) => event.text)
-    .filter((text) => text.trim().length > 0);
-  if (!chunks.length) return "";
-  if (run.agentProvider === "hermes") {
-    return chunks.reduce((current, next) => {
-      if (!current) return next;
-      return shouldJoinAssistantChunkTightly(current, next) ? `${current}${next}` : `${current} ${next}`;
-    }, "").trim();
-  }
-  return chunks.join("\n").trim();
-}
-function messageTextForRun(
-  run: PersonalLocalAgentRunResult,
-  fallback: string,
-) {
-  if (run.conversationMessages?.length) {
-    const finalMessage = [...run.conversationMessages].reverse().find((message) => message.type === "finish" && message.text.trim());
-    if (finalMessage) return finalMessage.text.trim();
-    const latestAssistant = [...run.conversationMessages].reverse().find((message) => message.role === "assistant" && message.text.trim());
-    if (latestAssistant) return latestAssistant.text.trim();
-  }
-  const output = run.output.trim();
-  if (output) return output;
-  const liveAssistantText = runningAssistantTextForRun(run);
-  if (liveAssistantText) {
-    if (run.status === "running" && run.pendingApprovals?.length) {
-      return `${liveAssistantText}\n\n${t("local_agent.waiting_for_approval")}`;
-    }
-    return liveAssistantText;
-  }
-  if (run.status === "running" && run.pendingApprovals?.length) return t("local_agent.waiting_for_approval");
-  if (run.status === "running") return t("local_agent.running");
-  if (run.status === "completed") return fallback;
-  if (run.status === "cancelled") return t("local_agent.cancelled");
-  if (run.status === "failed") {
-    return run.errorInfo?.message
-      ? t("local_agent.failed_with_message", { message: run.errorInfo.message })
-      : run.error
-        ? t("local_agent.failed_with_message", { message: run.error })
-        : t("local_agent.failed");
-  }
-  return fallback;
-}
-function placeholderRunFromProcess(process: PersonalLocalAgentProcessRecord): PersonalLocalAgentRunResult | null {
-  const runId = process.runId.trim();
-  const providerRaw = (process.provider ?? process.backend ?? "").trim();
-  if (!runId || !providerRaw || !isPersonalLocalAgentProvider(providerRaw)) return null;
-  // Stale processes are leftovers from a previous process session that died on
-  // restart. They are not actually running — treating them as running creates a
-  // placeholder run that pollRun can never resolve, causing repeated orphaned
-  // errors and an activeRunId set/clear loop every sync tick.
-  if (process.status === "stale") return null;
-  const provider: PersonalLocalAgentProvider = providerRaw;
-  return {
-    ok: false,
-    runId,
-    agentId: provider,
-    agentProvider: provider,
-    connectionMode: process.agentType === "acp" ? `${PROVIDER_LABELS[provider] ?? provider} ACP session` : process.agentType,
-    status: "running",
-    startedAt: process.startedAt,
-    finishedAt: null,
-    pid: process.pid,
-    command: process.command ?? "",
-    output: "",
-    error: null,
-    errorInfo: null,
-    events: [{ type: "status", text: "后台运行状态已从主进程恢复。", at: process.updatedAt }],
-    logPath: null,
-    workdir: null,
-    conversationId: process.conversationId,
-    debugSummary: null,
-    providerSessionId: null,
-    resumeKey: null,
-    metadata: null,
-    approvalMode: null,
-    pendingApprovals: [],
-    artifacts: [],
-  };
-}
 export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const initialPersistedStateRef = useRef<PersistedLocalAgentChatState | null>(null);
   if (initialPersistedStateRef.current === null) {
@@ -614,162 +488,24 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setSelectedChannelConversationId(channelConversations[0].id);
     }
   }, [channelConversations, selectedChannelConversationId]);
-  const consumedResumeKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    const request = props.resumeRequest;
-    if (!request) return;
-    const marker = `${request.agent}:${request.providerSessionId}`;
-    if (consumedResumeKeyRef.current === marker) return;
-    consumedResumeKeyRef.current = marker;
-    const providerMap: Record<string, string> = {
-      opencode: "opencode",
-      codex: "codex",
-      claude: "claude",
-      openclaw: "openclaw",
-      hermes: "hermes",
-    };
-    const provider = providerMap[request.agent];
-    if (!provider) return;
-    (async () => {
-      try {
-        const client = props.onmyagentServerClient ?? null;
-        const workspaceId = props.runtimeWorkspaceId ?? props.workspaceRoot;
-        const conversationId = request.sessionId || request.providerSessionId;
-        const archiveSessionId = request.sessionId;
-
-        // Fetch archived messages (only when a server client + archive id are
-        // available) and import them as the local transcript for a conversation
-        // id, so the local agent view can render cross-workspace / server-side
-        // history (诉求2: "resume copies the conversation over").
-        const importFromArchive = async (targetProvider: string, targetAgentId: string, targetConversationId: string, title: string) => {
-          console.log("[archive-resume] importFromArchive", { targetProvider, targetAgentId, targetConversationId, hasClient: Boolean(client), archiveSessionId });
-          if (!client || !archiveSessionId || !targetConversationId) return null;
-          const archive = await client
-            .getSessionArchiveMessages(workspaceId, archiveSessionId, { limit: 500, direction: "asc" })
-            .catch((error) => {
-              console.error("[archive-resume] getSessionArchiveMessages failed", error);
-              return null;
-            });
-          const messages = archive?.messages ?? [];
-          console.log("[archive-resume] archive messages", messages.length);
-          if (!messages.length) return null;
-          const importedMessages = messages.map((raw, index) => ({
-            id: String(raw.id ?? index),
-            role: raw.role,
-            content: raw.content,
-            createdAt: raw.timestamp ? Date.parse(raw.timestamp) || Date.now() + index : Date.now() + index,
-          }));
-          const result = await personalLocalAgentConversationImportFromArchive({
-            workspaceRoot: effectiveWorkspaceRoot,
-            agent: { provider: targetProvider as PersonalLocalAgentProvider, id: targetAgentId },
-            conversationId: targetConversationId,
-            title,
-            providerSessionId: request.providerSessionId,
-            source: "session-archive-resume",
-            messages: importedMessages,
-          }).catch((error) => {
-            console.error("[archive-resume] import failed", error);
-            return null;
-          });
-          console.log("[archive-resume] import result", result);
-          return result;
-        };
-        const hasLocalTranscript = async (targetProvider: string, targetAgentId: string, targetConversationId: string) => {
-          const status = await personalLocalAgentConversationStatus({
-            workspaceRoot: effectiveWorkspaceRoot,
-            agent: { provider: targetProvider as PersonalLocalAgentProvider, id: targetAgentId },
-            conversationId: targetConversationId,
-          }).catch(() => null);
-          const has = Boolean(status?.conversationMessages?.length);
-          console.log("[archive-resume] hasLocalTranscript", { targetProvider, targetAgentId, targetConversationId, has, count: status?.conversationMessages?.length });
-          return has;
-        };
-
-        const located = conversationId
-          ? await personalLocalAgentConversationGetById({ workspaceRoot: effectiveWorkspaceRoot, conversationId }).then((res) => res.conversation).catch(() => null)
-          : null;
-        console.log("[archive-resume] located conversation", located);
-        if (located) {
-          const isChannel = located.source === "channel";
-          if (isChannel) {
-            // Surface it through the synthetic channel agent view.
-            const already = channelConversations.some((item) => item.id === located.id);
-            setChannelConversations((current) => (already ? current : [located, ...current]));
-            setSelectedAgentId(CHANNEL_AGENT_ID);
-            setSelectedChannelConversationId(located.id);
-            return;
-          }
-          const targetAgent = agents.find((item) => item.id === located.agentId) ?? agents.find((item) => item.provider === located.provider) ?? agents.find((item) => item.id === provider) ?? null;
-          const agentKey = targetAgent?.id ?? provider;
-          // History is read by the hydrate hook using the *selected* agent's
-          // (provider, id), not the located file's scoped agentId, so check and
-          // import against that identity to keep the transcript reachable.
-          const hasHistory = await hasLocalTranscript(provider, agentKey, located.id);
-          if (!hasHistory) {
-            await importFromArchive(provider, agentKey, located.id, located.title);
-          }
-          setSelectedAgentId(agentKey);
-          setConversationsByAgent((current) => ({
-            ...current,
-            [agentKey]: current[agentKey]?.some((item) => item.id === located.id) ? current[agentKey] : [located, ...(current[agentKey] ?? [])],
-          }));
-          setSelectedConversationIdByAgent((current) => ({ ...current, [agentKey]: located.id }));
-          return;
-        }
-
-        // Fallback: no matching local conversation — create a fresh resume
-        // placeholder under the ACP agent partition (original behaviour).
-        setSelectedAgentId(provider);
-        const targetAgent = agents.find((item) => item.id === provider) ?? agents.find((item) => item.provider === provider) ?? null;
-        const existing = conversationsByAgent[provider] ?? (await personalLocalAgentConversationsList({ workspaceRoot: effectiveWorkspaceRoot, agent: targetAgent ?? undefined })).conversations;
-        const match = existing.find((item) => (item.providerSessionId ?? item.resumeKey) === request.providerSessionId);
-        let selectedConversationId: string;
-        if (match) {
-          setConversationsByAgent((current) => ({ ...current, [provider]: existing }));
-          selectedConversationId = match.id;
-        } else {
-          const result = await personalLocalAgentConversationCreate({
-            workspaceRoot: effectiveWorkspaceRoot,
-            title: request.title,
-            providerSessionId: request.providerSessionId,
-            resumeKey: request.providerSessionId,
-            source: "session-archive-resume",
-            agent: targetAgent ?? undefined,
-          });
-          setConversationsByAgent((current) => ({
-            ...current,
-            [provider]: [result.conversation, ...(current[provider] ?? existing)],
-          }));
-          selectedConversationId = result.conversation.id;
-        }
-        // Ensure the resumed conversation has its history visible: import from
-        // the archive when the local transcript is empty. Use `provider` (not
-        // agentKey) for the transcript partition so it matches the selected
-        // agent identity used by the hydration hook (selectedAgentId=provider).
-        const hasHistory = await hasLocalTranscript(provider, provider, selectedConversationId);
-        if (!hasHistory) {
-          const imported = await importFromArchive(provider, provider, selectedConversationId, request.title);
-          const importedConversation = imported?.conversation;
-          if (importedConversation) {
-            setConversationsByAgent((current) => ({
-              ...current,
-              [provider]: current[provider]?.some((item) => item.id === importedConversation.id)
-                ? current[provider]
-                : [importedConversation, ...(current[provider] ?? [])],
-            }));
-          }
-        }
-        setSelectedConversationIdByAgent((current) => ({ ...current, [provider]: selectedConversationId }));
-      } catch (error) {
-        setErrorsByAgent((current) => ({
-          ...current,
-          [provider]: error instanceof Error ? error.message : String(error),
-        }));
-      } finally {
-        props.onResumeConsumed?.();
-      }
-    })();
-  }, [props.resumeRequest, agents, conversationsByAgent, channelConversations, effectiveWorkspaceRoot, props.workspaceRoot, props.onResumeConsumed, props.onmyagentServerClient, props.runtimeWorkspaceId]);
+  useArchiveResume({
+    resumeRequest: props.resumeRequest,
+    agents,
+    conversationsByAgent,
+    channelConversations,
+    effectiveWorkspaceRoot,
+    workspaceRoot: props.workspaceRoot,
+    channelAgentId: CHANNEL_AGENT_ID,
+    onResumeConsumed: props.onResumeConsumed,
+    onmyagentServerClient: props.onmyagentServerClient,
+    runtimeWorkspaceId: props.runtimeWorkspaceId,
+    setChannelConversations,
+    setSelectedAgentId,
+    setSelectedChannelConversationId,
+    setConversationsByAgent,
+    setSelectedConversationIdByAgent,
+    setErrorsByAgent,
+  });
   const loadHeartbeats = useCallback(async () => {
     try {
       const result = await personalLocalAgentHeartbeatsList({ workspaceRoot: effectiveWorkspaceRoot });
@@ -1692,7 +1428,4 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       </Dialog>
     </div>
   );
-}
-function ActiveRunsOverview(props: { activeRuns: Array<{ chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult }>; selectedChatKey: string | null; onSelectAgent: (chatKey: string) => void; onCancelRun?: (runId: string, chatKey: string) => void; showTitle?: boolean;
-}) { return ( <section className={activeRunClass.overview}>{props.showTitle ? (<div className={localAgentTextClass.runSectionTitle}><Activity className="size-4" />{t("local_agent.active_runs")} <CountBadge size="dot" className="bg-dls-accent/10 text-dls-accent">{props.activeRuns.length}</CountBadge></div>) : null}<div className="grid gap-2"> {props.activeRuns.map(({ chatKey, agentId, agent, run }) => { const isSelected = props.selectedChatKey === chatKey; return ( <div key={run.runId} className={cn( activeRunClass.item, isSelected ? activeRunClass.itemSelected : activeRunClass.itemDefault, )} ><ActionRowButton type="button" onClick={() => props.onSelectAgent(chatKey)} density="compact" className="min-w-0 flex-1 border-0 bg-transparent p-0 text-left hover:bg-transparent" title={isSelected ? t("local_agent.current_agent_running") : t("local_agent.switch_to_agent_detail")} ><div className="flex flex-wrap items-center justify-between gap-2"><span className={localAgentTextClass.runItemTitle}><StatusPing /><span className="truncate">{agent?.name ?? agentId}</span></span><span className={activeRunClass.runId}>Run {run.runId}</span></div><div className={activeRunClass.meta}><span>{run.pendingApprovals?.length ? t("local_agent.waiting_approval_count", { count: run.pendingApprovals.length }) : t("local_agent.elapsed", { value: elapsedSeconds(run.startedAt, null) })}</span><span>{t("local_agent.latest_event", { time: shortTime(lastEventTime(run)) })}</span><span>{t("local_agent.connection", { value: run.connectionMode || "--" })}</span></div></ActionRowButton> {props.onCancelRun ? ( <Button variant="outline" size="sm" className={activeRunClass.cancel} onClick={() => props.onCancelRun?.(run.runId, chatKey)} title={t("local_agent.stop_run")} ><CircleStop className="mr-1 size-3.5" />{t("composer.stop")} </Button> ) : null} </div> ); })} </div>{props.activeRuns.length ? null : <div className="px-1 py-1 text-xs text-dls-secondary">{t("local_agent.no_active_runs")}</div>}</section> );
 }
