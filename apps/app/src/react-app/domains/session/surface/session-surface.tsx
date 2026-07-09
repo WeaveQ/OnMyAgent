@@ -12,11 +12,11 @@ import {
   Code2,
   Folder,
   FolderOpen,
+  Goal,
   Minimize2,
   Pause,
   Play,
   Settings2,
-  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -109,6 +109,13 @@ import {
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
 import {
+  deriveGoalSummary,
+  resolveSessionCollaborationKind,
+  resolveSessionRunPolicy,
+  shouldShowGoalRuntime,
+  summarizeGoalObjective,
+} from "./session-run-controller";
+import {
   getComposerAttachments,
   getComposerDraft,
   getComposerMentions,
@@ -144,7 +151,8 @@ import {
 
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
-const ASSISTANT_STALL_NOTICE_MS = 45_000;
+const ASSISTANT_STALL_NOTICE_MS = 15_000;
+const ASSISTANT_RECOVERY_HINT_MS = 120_000;
 const MAX_TRANSCRIPT_NOTICES_PER_SESSION = 16;
 
 const sessionSurfaceTextClass = {
@@ -269,6 +277,7 @@ export type SessionSurfaceProps = {
   onPlanRuntimeChange?: (runtime: CollaborationPlanRuntime | null) => void;
   goalRuntime?: CollaborationGoalRuntime | null;
   onGoalRuntimeChange?: (runtime: CollaborationGoalRuntime | null) => void;
+  onClearSessionProgress?: () => void;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   modelVariantLabel: string;
@@ -297,6 +306,7 @@ export type SessionSurfaceProps = {
     requestID: string,
     reply: "once" | "always" | "reject",
   ) => void;
+  autoApprovedPermissionNoticeId?: string | null;
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;
   respondQuestion?: (requestID: string, answers: string[][]) => void;
@@ -328,7 +338,14 @@ export type SessionSurfaceProps = {
 
 type SessionTranscriptNotice = {
   id: string;
-  kind: "cancelled" | "stopped" | "compacting" | "compacted" | "stalled";
+  kind:
+    | "cancelled"
+    | "stopped"
+    | "compacting"
+    | "compacted"
+    | "stalled"
+    | "permission-rejected"
+    | "permission-auto-approved";
   afterMessageCount: number;
   elapsedMs?: number;
 };
@@ -352,12 +369,38 @@ type PlanStepItem = {
   status: "pending" | "active" | "completed";
 };
 
+type PlanDetailSection = {
+  kind: "risk" | "validation" | "reversibility";
+  title: string;
+  items: string[];
+};
+
 const PLAN_SECTION_BOUNDARY_RE =
-  /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
+  /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u98ce\u9669\u8bf4\u660e|\u53ef\u9006\u6027|\u9a8c\u8bc1|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
 const PLAN_STEP_SECTION_RE =
   /^(?:#{1,6}\s*)?(?:\u6267\u884c\u6b65\u9aa4|\u5b9e\u65bd\u6b65\u9aa4|\u8ba1\u5212\u6b65\u9aa4|\u6b65\u9aa4)(?:\s|$|\uff08|:|\uff1a)/;
 const PLAN_HEADING_RE =
   /^(?:#{1,6}\s*)?(?:plan|\u8ba1\u5212)(?:\s|$|:|\uff1a)/i;
+const PLAN_DETAIL_PATTERNS: Array<{
+  kind: PlanDetailSection["kind"];
+  pattern: RegExp;
+}> = [
+  {
+    kind: "risk",
+    pattern:
+      /^(?:#{1,6}\s*)?(?:risks?|risk\s+notes?|\u98ce\u9669|\u98ce\u9669\u8bf4\u660e)\s*(?:[:\uff1a-]\s*)?(.*)$/i,
+  },
+  {
+    kind: "validation",
+    pattern:
+      /^(?:#{1,6}\s*)?(?:validation|verification|verify|\u9a8c\u8bc1|\u9a8c\u8bc1\u65b9\u5f0f)\s*(?:[:\uff1a-]\s*)?(.*)$/i,
+  },
+  {
+    kind: "reversibility",
+    pattern:
+      /^(?:#{1,6}\s*)?(?:reversibility|rollback|\u53ef\u9006\u6027|\u56de\u6eda)\s*(?:[:\uff1a-]\s*)?(.*)$/i,
+  },
+];
 
 function cleanPlanStepLine(line: string) {
   return line
@@ -428,6 +471,66 @@ function uniquePlanSteps(steps: string[]) {
     seen.add(key);
     return true;
   });
+}
+
+function planDetailTitle(kind: PlanDetailSection["kind"]) {
+  if (kind === "risk") return t("session.plan_runtime_risk");
+  if (kind === "validation") return t("session.plan_runtime_validation");
+  return t("session.plan_runtime_reversibility");
+}
+
+function planDetailHeading(line: string) {
+  for (const entry of PLAN_DETAIL_PATTERNS) {
+    const match = line.match(entry.pattern);
+    if (match) {
+      return {
+        kind: entry.kind,
+        remainder: cleanPlanStepLine(match[1] ?? ""),
+      };
+    }
+  }
+  return null;
+}
+
+function extractPlanDetailSections(planText: string): PlanDetailSection[] {
+  const buffers: Record<PlanDetailSection["kind"], string[]> = {
+    risk: [],
+    validation: [],
+    reversibility: [],
+  };
+  let currentKind: PlanDetailSection["kind"] | null = null;
+  const lines = planText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const heading = planDetailHeading(line);
+    if (heading) {
+      currentKind = heading.kind;
+      if (heading.remainder) buffers[currentKind].push(heading.remainder);
+      continue;
+    }
+    if (PLAN_STEP_SECTION_RE.test(line) || (PLAN_SECTION_BOUNDARY_RE.test(line) && !currentKind)) {
+      currentKind = null;
+      continue;
+    }
+    if (!currentKind) continue;
+    if (PLAN_SECTION_BOUNDARY_RE.test(line) && !planDetailHeading(line)) {
+      currentKind = null;
+      continue;
+    }
+    const item = cleanPlanStepLine(line);
+    if (item) buffers[currentKind].push(item);
+  }
+
+  return (Object.keys(buffers) as PlanDetailSection["kind"][])
+    .map((kind) => ({
+      kind,
+      title: planDetailTitle(kind),
+      items: uniquePlanSteps(buffers[kind]).slice(0, 3),
+    }))
+    .filter((section) => section.items.length > 0);
 }
 
 function extractPlanSteps(planText: string): PlanStepItem[] {
@@ -654,21 +757,40 @@ function compactCandidateText(message: UIMessage) {
     .trim();
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function isLikelyCompactSummaryMessage(message: UIMessage) {
   const text = compactCandidateText(message);
   if (text.length < 320) return false;
   const headings = [
+    "Summary",
     "Current State",
     "Completed",
+    "Done",
     "In Progress",
     "Blocked",
     "Key Decisions",
     "Next Steps",
     "Progress",
+    "\u5f53\u524d\u72b6\u6001",
+    "\u6458\u8981",
+    "\u5df2\u5b8c\u6210",
+    "\u5b8c\u6210",
+    "\u8fdb\u884c\u4e2d",
+    "\u963b\u585e",
+    "\u5173\u952e\u51b3\u7b56",
+    "\u4e0b\u4e00\u6b65",
+    "\u8fdb\u5ea6",
   ];
-  const headingHits = headings.filter((heading) =>
-    new RegExp(`(^|\\n)\\s*(?:#+\\s*)?${heading}\\b`, "i").test(text),
-  ).length;
+  const headingHits = headings.filter((heading) => {
+    const escapedHeading = escapeRegExp(heading);
+    return new RegExp(
+      `(^|\\n)\\s*(?:#+\\s*)?${escapedHeading}(?:\\s|[:：]|$)`,
+      "i",
+    ).test(text);
+  }).length;
   return headingHits >= 3;
 }
 
@@ -798,6 +920,7 @@ function PlanApprovalPanel(props: {
   const isDrafting = props.runtime.status === "drafting";
   const isExecuting = props.runtime.status === "executing";
   const isCompleted = props.runtime.status === "completed";
+  const isBlocked = props.runtime.status === "blocked";
   const detailsExpanded = expanded;
   const planText = props.runtime.planText?.trim() || "";
   const planSteps = resolvePlanStepItems({
@@ -806,6 +929,7 @@ function PlanApprovalPanel(props: {
     runtimeStatus: props.runtime.status,
     todos: props.todos,
   });
+  const planDetails = extractPlanDetailSections(planText);
   const completedSteps = planSteps.filter(
     (step) => step.status === "completed",
   ).length;
@@ -816,6 +940,8 @@ function PlanApprovalPanel(props: {
       ? t("session.plan_runtime_executing")
       : isCompleted
         ? t("session.plan_runtime_completed")
+        : isBlocked
+          ? t("session.plan_runtime_blocked")
         : t("session.plan_runtime_title");
   const label =
     detailsExpanded || planSteps.length === 0
@@ -844,7 +970,7 @@ function PlanApprovalPanel(props: {
             ) : null}
           </DisclosureRowButton>
         </div>
-        {isCompleted ? (
+        {isCompleted || isBlocked ? (
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" size="xs" onClick={props.onConfirm}>
               {t("session.plan_runtime_confirm")}
@@ -939,6 +1065,24 @@ function PlanApprovalPanel(props: {
               {t("session.plan_runtime_empty")}
             </div>
           )}
+          {!isDrafting && planDetails.length > 0 ? (
+            <div className="space-y-2 border-t border-dls-border pt-3">
+              {planDetails.map((section) => (
+                <div key={section.kind} className="text-xs leading-5">
+                  <div className="font-medium text-dls-secondary">
+                    {section.title}
+                  </div>
+                  <div className="mt-1 space-y-1 text-dls-secondary">
+                    {section.items.map((item) => (
+                      <div key={`${section.kind}-${item}`} className="truncate">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -947,21 +1091,46 @@ function PlanApprovalPanel(props: {
 
 const GOAL_RUNTIME_TICK_MS = 1000;
 
-function isCodeGoalMode(
-  mode: ComposerCollaborationMode,
-  categoryId: AssistantCategoryId,
-) {
-  if (mode.pursueGoal !== true || mode.planning === true || mode.kind === "plan") {
-    return false;
-  }
-  return categoryId === "code" || mode.kind !== "craft";
-}
-
 function buildLocaleRuntimeInstruction() {
   return t("session.runtime_language_requirement", currentLocale());
 }
 
 function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
+  const details: string[] = [];
+  if (runtime.summary?.trim()) {
+    details.push(`${t("session.goal_hidden_summary_label")} ${runtime.summary.trim()}`);
+  }
+  if (runtime.currentCheckpoint?.trim()) {
+    details.push(`${t("session.goal_hidden_checkpoint_label")} ${runtime.currentCheckpoint.trim()}`);
+  }
+  if (runtime.completionCriteria?.length) {
+    details.push(
+      `${t("session.goal_hidden_completion_criteria_label")}\n${runtime.completionCriteria
+        .map((item) => `- ${item}`)
+        .join("\n")}`,
+    );
+  }
+  if (runtime.validationCommands?.length) {
+    details.push(
+      `${t("session.goal_hidden_validation_label")}\n${runtime.validationCommands
+        .map((item) => `- ${item}`)
+        .join("\n")}`,
+    );
+  }
+  if (runtime.lastKnownTodos?.length) {
+    details.push(
+      `${t("session.goal_hidden_todos_label")}\n${runtime.lastKnownTodos
+        .map((item) => `- [${item.status}] ${item.content}`)
+        .join("\n")}`,
+    );
+  }
+  if (runtime.progressLog?.length) {
+    details.push(
+      `${t("session.goal_hidden_progress_label")}\n${runtime.progressLog
+        .map((item) => `- ${item}`)
+        .join("\n")}`,
+    );
+  }
   return [
     buildLocaleRuntimeInstruction(),
     "",
@@ -969,6 +1138,7 @@ function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
     "",
     t("session.goal_hidden_objective_label"),
     runtime.objective,
+    details.length ? `\n${details.join("\n\n")}` : "",
     "",
     t("session.goal_hidden_success_criterion"),
     t("session.goal_hidden_next_step"),
@@ -996,15 +1166,28 @@ function buildPlanExecutionHiddenSystemPrompt(runtime: CollaborationPlanRuntime)
 }
 
 function goalElapsedMs(runtime: CollaborationGoalRuntime, now: number) {
+  if (runtime.status === "paused") {
+    const pauseStartedAt = runtime.pauseStartedAt ?? runtime.updatedAt;
+    return Math.max(
+      0,
+      pauseStartedAt - runtime.startedAt - runtime.totalPausedMs,
+    );
+  }
+  if (runtime.status === "waiting") {
+    if (runtime.waitingReason === "user") {
+      const pauseStartedAt = runtime.pauseStartedAt ?? runtime.updatedAt;
+      return Math.max(
+        0,
+        pauseStartedAt - runtime.startedAt - runtime.totalPausedMs,
+      );
+    }
+    return Math.max(
+      0,
+      runtime.updatedAt - runtime.startedAt - runtime.totalPausedMs,
+    );
+  }
   const endAt = runtime.completedAt ?? now;
-  const activePauseMs =
-    runtime.status === "paused" && runtime.pauseStartedAt
-      ? Math.max(0, now - runtime.pauseStartedAt)
-      : 0;
-  return Math.max(
-    0,
-    endAt - runtime.startedAt - runtime.totalPausedMs - activePauseMs,
-  );
+  return Math.max(0, endAt - runtime.startedAt - runtime.totalPausedMs);
 }
 
 function formatGoalElapsed(ms: number) {
@@ -1043,14 +1226,13 @@ function transcriptNoticeLabel(notice: SessionTranscriptNotice) {
   if (notice.kind === "stalled") {
     return t("session.assistant_stalled_inline");
   }
+  if (notice.kind === "permission-rejected") {
+    return t("session.permission_rejected_notice");
+  }
+  if (notice.kind === "permission-auto-approved") {
+    return t("session.permission_auto_approved_notice");
+  }
   return t("session.user_cancelled");
-}
-
-function goalObjectiveSummary(objective: string) {
-  return objective
-    .replace(/\[pasted text [^\]]+\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function removeRecordKey<T>(record: Record<string, T>, key: string) {
@@ -1060,26 +1242,61 @@ function removeRecordKey<T>(record: Record<string, T>, key: string) {
   return next;
 }
 
+function normalizedTodoItems(todos: TodoItem[] | undefined) {
+  return (todos ?? []).filter((todo) => todo.content.trim());
+}
+
+function goalCheckpointFromTodos(todos: TodoItem[]) {
+  const active = todos.find((todo) => todo.status === "in_progress");
+  if (active) return active.content.trim();
+  const pending = todos.find((todo) => todo.status === "pending");
+  if (pending) return pending.content.trim();
+  const completed = [...todos]
+    .reverse()
+    .find((todo) => todo.status === "completed");
+  return completed?.content.trim() ?? "";
+}
+
+function appendGoalProgressLog(
+  runtime: CollaborationGoalRuntime,
+  runText: string,
+) {
+  const trimmed = runText.replace(/\s+/g, " ").trim();
+  if (!trimmed) return runtime.progressLog;
+  const entry = trimmed.length > 400 ? `${trimmed.slice(0, 400).trimEnd()}...` : trimmed;
+  const existing = runtime.progressLog ?? [];
+  if (existing[existing.length - 1] === entry) return existing;
+  return [...existing, entry].slice(-8);
+}
+
+function isGoalIntentRuntime(
+  runtime: CollaborationGoalRuntime | null | undefined,
+): runtime is CollaborationGoalRuntime {
+  return runtime?.source === "goal_intent";
+}
+
 function GoalRuntimePanel(props: {
   runtime: CollaborationGoalRuntime;
   busy: boolean;
-  assistantActive: boolean;
+  canPause: boolean;
+  canResume: boolean;
   onPause: () => void;
   onResume: () => void;
   onClear: () => void;
 }) {
   const [now, setNow] = useState(Date.now());
   const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
-  const objective = goalObjectiveSummary(props.runtime.objective);
-  const canResume =
-    !props.assistantActive &&
-    (props.runtime.status === "paused" || props.runtime.status === "waiting");
-  const canPause =
-    props.assistantActive ||
-    props.runtime.status === "running";
+  const objective = summarizeGoalObjective({
+    objective: props.runtime.objective,
+    summary: props.runtime.summary,
+  });
 
   useEffect(() => {
-    if (props.runtime.status === "paused" || props.runtime.status === "completed") {
+    if (
+      props.runtime.status === "paused" ||
+      props.runtime.status === "completed" ||
+      props.runtime.waitingReason === "user"
+    ) {
       setNow(Date.now());
       return;
     }
@@ -1091,7 +1308,11 @@ function GoalRuntimePanel(props: {
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
       <div className="flex items-center gap-3 px-4 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-          <Target size={14} className="shrink-0 text-dls-secondary" />
+          <Goal
+            size={15}
+            strokeWidth={1.8}
+            className="shrink-0 text-dls-secondary"
+          />
           <span className="shrink-0 font-medium text-dls-text">
             {t("session.goal_runtime_active")}
           </span>
@@ -1107,18 +1328,19 @@ function GoalRuntimePanel(props: {
             <Clock3 size={12} />
             {t("session.goal_runtime_elapsed", { duration: elapsed })}
           </span>
-          {canResume ? (
+          {props.canResume ? (
             <Button
               type="button"
-              size="xs"
+              size="icon-xs"
               onClick={props.onResume}
               disabled={props.busy}
+              aria-label={t("session.goal_runtime_resume")}
+              title={t("session.goal_runtime_resume")}
             >
-              <Play data-icon="inline-start" />
-              {t("session.goal_runtime_resume")}
+              <Play size={14} />
             </Button>
           ) : null}
-          {canPause ? (
+          {props.canPause ? (
             <Button
               type="button"
               size="icon-xs"
@@ -1374,10 +1596,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: false,
     });
-  const [dismissedProgressBySessionId, setDismissedProgressBySessionId] =
+  const [dismissedPlanBySessionId, setDismissedPlanBySessionId] =
     useState<Record<string, boolean>>({});
-  const progressDismissedForSession =
-    dismissedProgressBySessionId[props.sessionId] === true;
+  const [dismissedGoalBySessionId, setDismissedGoalBySessionId] =
+    useState<Record<string, boolean>>({});
+  const planDismissedForSession =
+    dismissedPlanBySessionId[props.sessionId] === true;
+  const goalDismissedForSession =
+    dismissedGoalBySessionId[props.sessionId] === true;
   const [officeCollaborationMode, setOfficeCollaborationMode] =
     useState<ComposerCollaborationMode>({
       kind: "craft",
@@ -1605,8 +1831,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
     useState<Record<string, number>>({});
   const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
     useState<Record<string, SessionTranscriptNotice[]>>({});
+  const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
+    useState<Record<string, boolean>>({});
   const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
+  const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
   useEffect(() => {
@@ -1762,6 +1991,27 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [props.sessionId],
   );
   useEffect(() => {
+    const noticeId = props.autoApprovedPermissionNoticeId?.trim();
+    if (!noticeId) return;
+    if (autoApprovedPermissionNoticeRef.current[props.sessionId] === noticeId) {
+      return;
+    }
+    autoApprovedPermissionNoticeRef.current = {
+      ...autoApprovedPermissionNoticeRef.current,
+      [props.sessionId]: noticeId,
+    };
+    appendTranscriptNotice({
+      id: `${props.sessionId}:permission-auto-approved:${noticeId}`,
+      kind: "permission-auto-approved",
+      afterMessageCount: renderedMessages.length,
+    });
+  }, [
+    appendTranscriptNotice,
+    props.autoApprovedPermissionNoticeId,
+    props.sessionId,
+    renderedMessages.length,
+  ]);
+  useEffect(() => {
     const compacting = sessionActivityStatus === "compacting";
     const wasCompacting = compactWasActiveRef.current[props.sessionId] === true;
     if (compacting) {
@@ -1800,71 +2050,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     sessionActivityStatus,
     updateLatestTranscriptNotice,
   ]);
-  const inferredGoalRuntime = useMemo<CollaborationGoalRuntime | null>(() => {
-    if (props.goalRuntime) return null;
-    if (!isCodeGoalMode(effectiveCollaborationMode, assistantFeatureCategoryId)) {
-      return null;
-    }
-    if (progressDismissedForSession && !chatStreaming) return null;
-    const firstUserMessage = renderedMessages.find(
-      (message) => message.role === "user",
-    );
-    if (!firstUserMessage) return null;
-    const objective = messageToReadableText(firstUserMessage).trim();
-    if (!objective) return null;
-    const now = Date.now();
-    return {
-      status: chatStreaming ? "running" : "waiting",
-      objective,
-      messageBaseline: 0,
-      lastRunMessageBaseline: 0,
-      startedAt: now,
-      updatedAt: now,
-      totalPausedMs: 0,
-      lastRunStartedAt: chatStreaming ? now : undefined,
-    };
-  }, [
-    chatStreaming,
-    assistantFeatureCategoryId,
-    effectiveCollaborationMode,
-    progressDismissedForSession,
-    props.goalRuntime,
-    renderedMessages,
-  ]);
-  useEffect(() => {
-    if (progressDismissedForSession && !chatStreaming) return;
-    if (
-      !isCodeGoalMode(effectiveCollaborationMode, assistantFeatureCategoryId) ||
-      props.goalRuntime
-    ) {
-      return;
-    }
-    const firstUserMessage = renderedMessages.find(
-      (message) => message.role === "user",
-    );
-    if (!firstUserMessage) return;
-    const objective = messageToReadableText(firstUserMessage).trim();
-    if (!objective) return;
-    const now = Date.now();
-    props.onGoalRuntimeChange?.({
-      status: chatStreaming ? "running" : "waiting",
-      objective,
-      messageBaseline: 0,
-      lastRunMessageBaseline: 0,
-      startedAt: now,
-      updatedAt: now,
-      totalPausedMs: 0,
-      lastRunStartedAt: chatStreaming ? now : undefined,
-    });
-  }, [
-    chatStreaming,
-    assistantFeatureCategoryId,
-    effectiveCollaborationMode,
-    progressDismissedForSession,
-    props.goalRuntime,
-    props.onGoalRuntimeChange,
-    renderedMessages,
-  ]);
   useEffect(() => {
     const runtime = props.planRuntime;
     if (!runtime || runtime.status !== "drafting" || chatStreaming) return;
@@ -1885,19 +2070,38 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
   useEffect(() => {
     const runtime = props.goalRuntime;
-    if (!runtime || runtime.status !== "running" || chatStreaming) return;
+    if (
+      !isGoalIntentRuntime(runtime) ||
+      runtime.status !== "running" ||
+      chatStreaming
+    ) {
+      return;
+    }
     const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
     const runText = planTextFromMessages(renderedMessages.slice(baseline));
     if (!runText) return;
+    const lastKnownTodos = normalizedTodoItems(props.todos);
+    const currentCheckpoint = goalCheckpointFromTodos(lastKnownTodos);
+    const progressLog = appendGoalProgressLog(runtime, runText);
+    const todosCompleted =
+      lastKnownTodos.length > 0 &&
+      lastKnownTodos.every((todo) => todo.status === "completed");
+    const now = Date.now();
     props.onGoalRuntimeChange?.({
       ...runtime,
-      status: "waiting",
-      updatedAt: Date.now(),
+      status: todosCompleted ? "completed" : "waiting",
+      waitingReason: todosCompleted ? undefined : "idle",
+      updatedAt: now,
+      completedAt: todosCompleted ? now : runtime.completedAt,
+      ...(currentCheckpoint ? { currentCheckpoint } : {}),
+      ...(progressLog?.length ? { progressLog } : {}),
+      ...(lastKnownTodos.length ? { lastKnownTodos } : {}),
     });
   }, [
     chatStreaming,
     props.goalRuntime,
     props.onGoalRuntimeChange,
+    props.todos,
     renderedMessages,
   ]);
   useEffect(() => {
@@ -1999,6 +2203,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     activityVisible &&
     effectiveActivityStatus !== "compacting" &&
     activityNow - activityPulseAt >= ASSISTANT_STALL_NOTICE_MS;
+  const shouldInjectStallRecovery =
+    activityVisible &&
+    effectiveActivityStatus !== "compacting" &&
+    activityNow - activityPulseAt >= ASSISTANT_RECOVERY_HINT_MS;
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
@@ -2008,29 +2216,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
     visibleError && isUserCancelledError(visibleError) ? visibleError : null;
   const visibleTranscriptError = cancelledError ? null : visibleError;
   useEffect(() => {
-    if (!showStalledActivityNotice) return;
-    const afterMessageCount = renderedMessages.length;
-    setTranscriptNoticesBySessionId((current) => {
-      const existing = current[props.sessionId] ?? [];
-      const alreadyRecorded = existing.some(
-        (notice) =>
-          notice.kind === "stalled" &&
-          notice.afterMessageCount === afterMessageCount,
-      );
-      if (alreadyRecorded) return current;
-      const notice: SessionTranscriptNotice = {
-        id: `${props.sessionId}:stalled:${afterMessageCount}:${Date.now()}`,
-        kind: "stalled",
-        afterMessageCount,
-      };
-      return {
-        ...current,
-        [props.sessionId]: [...existing, notice].slice(
-          -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
-        ),
-      };
+    if (!shouldInjectStallRecovery) return;
+    setStallRecoveryBySessionId((current) => {
+      if (current[props.sessionId]) return current;
+      return { ...current, [props.sessionId]: true };
     });
-  }, [props.sessionId, renderedMessages.length, showStalledActivityNotice]);
+  }, [props.sessionId, shouldInjectStallRecovery]);
   const interruptionDividers = useMemo<SessionTranscriptDivider[]>(() => {
     const notices = transcriptNoticesBySessionId[props.sessionId] ?? [];
     return notices.map((notice) => ({
@@ -2044,13 +2235,20 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const showNoVisibleAssistantOutput =
     noVisibleAssistantOutputBaseline !== null &&
     !assistantOutputAfterNoVisibleFallback;
+  const showInlineActivityIndicator =
+    hasTranscriptContent &&
+    activityVisible &&
+    effectiveActivityStatus !== "compacting" &&
+    !visibleTranscriptError;
   const reserveAssistantStatusSpace =
     effectiveActivityStatus === "idle" &&
     awaitingAssistantBaseline !== null &&
     assistantOutputAfterAwaitStart &&
     !chatStreaming;
   const assistantStatusFooter =
-    showNoVisibleAssistantOutput ? (
+    showInlineActivityIndicator ? (
+      <AssistantWaitingCard collapseLayout />
+    ) : showNoVisibleAssistantOutput ? (
       <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
     ) : reserveAssistantStatusSpace ? (
       <AssistantStatusSpacer />
@@ -2160,7 +2358,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const id = window.setTimeout(() => {
       setNoVisibleAssistantOutputBaseline(awaitingAssistantBaseline);
       setAwaitingAssistantBaseline(null);
-    }, 1200);
+    }, 1000);
     return () => window.clearTimeout(id);
   }, [
     assistantOutputAfterAwaitStart,
@@ -2346,7 +2544,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     // backend can't accept the follow-up it'll surface an error via the
     // catch below. This restores the "append a prompt while it's still
     // talking" behavior that the Solid composer had.
-    setDismissedProgressBySessionId((current) =>
+    setDismissedPlanBySessionId((current) =>
+      removeRecordKey(current, props.sessionId),
+    );
+    setDismissedGoalBySessionId((current) =>
       removeRecordKey(current, props.sessionId),
     );
     setError(null);
@@ -2363,10 +2564,22 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setNoVisibleAssistantOutputBaseline(null);
     try {
       const nextDraft = buildDraft(text, attachments);
-      const goalMode = isCodeGoalMode(
-        effectiveCollaborationMode,
-        assistantFeatureCategoryId,
-      );
+      if (stallRecoveryBySessionId[props.sessionId]) {
+        nextDraft.hiddenSystemPrompt = [
+          nextDraft.hiddenSystemPrompt,
+          t("session.stall_recovery_hidden"),
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        setStallRecoveryBySessionId((current) =>
+          removeRecordKey(current, props.sessionId),
+        );
+      }
+      const goalMode =
+        resolveSessionCollaborationKind(
+          effectiveCollaborationMode,
+          assistantFeatureCategoryId,
+        ) === "goal";
       if (
         effectiveCollaborationMode.kind === "plan" ||
         effectiveCollaborationMode.planning
@@ -2376,16 +2589,26 @@ export function SessionSurface(props: SessionSurfaceProps) {
           messageBaseline: renderedMessages.length,
         };
       }
-      if (goalMode && !props.goalRuntime) {
+      const currentGoalRuntime = isGoalIntentRuntime(props.goalRuntime)
+        ? props.goalRuntime
+        : null;
+      if (goalMode && !currentGoalRuntime) {
         nextDraft.goalIntent = {
           objective: nextDraft.resolvedText ?? text,
           messageBaseline: renderedMessages.length,
         };
-      } else if (goalMode && props.goalRuntime) {
-        nextDraft.hiddenSystemPrompt = buildGoalHiddenSystemPrompt(props.goalRuntime);
+      } else if (goalMode && currentGoalRuntime) {
+        const runtimeWithSummary = currentGoalRuntime.summary
+          ? currentGoalRuntime
+          : {
+              ...currentGoalRuntime,
+              summary: deriveGoalSummary(currentGoalRuntime.objective),
+            };
+        nextDraft.hiddenSystemPrompt = buildGoalHiddenSystemPrompt(runtimeWithSummary);
         props.onGoalRuntimeChange?.({
-          ...props.goalRuntime,
+          ...runtimeWithSummary,
           status: "running",
+          waitingReason: undefined,
           updatedAt: startedAt,
           lastRunStartedAt: startedAt,
           lastRunMessageBaseline: renderedMessages.length,
@@ -2435,6 +2658,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     recordSessionInterruption,
     renderedMessages.length,
     setComposerDraft,
+    stallRecoveryBySessionId,
   ]);
 
   const executeApprovedPlan = useCallback(async () => {
@@ -2507,7 +2731,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
 
   const resumeGoalRuntime = useCallback(async () => {
-    const runtime = props.goalRuntime;
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
+      : null;
     if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
     const now = Date.now();
     const totalPausedMs =
@@ -2520,13 +2746,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
     };
     const nextRuntime: CollaborationGoalRuntime = {
       ...runtime,
+      summary: runtime.summary || deriveGoalSummary(runtime.objective),
       status: "running",
+      waitingReason: undefined,
       updatedAt: now,
       totalPausedMs,
       pauseStartedAt: undefined,
       lastRunStartedAt: now,
       lastRunMessageBaseline: renderedMessages.length,
       completedAt: undefined,
+      lastKnownTodos: (props.todos ?? []).filter((todo) => todo.content.trim()),
     };
 
     setError(null);
@@ -2575,6 +2804,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.onGoalRuntimeChange,
     props.onSendDraft,
     props.sessionId,
+    props.todos,
     props.workspaceId,
     recordSessionInterruption,
     renderedMessages.length,
@@ -2603,7 +2833,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
 
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = props.goalRuntime;
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
+      : null;
     if (
       runtime &&
       (runtime.status === "running" || runtime.status === "waiting")
@@ -2613,6 +2845,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       props.onGoalRuntimeChange?.({
         ...runtime,
         status: "paused",
+        waitingReason: "user",
         updatedAt: now,
         pauseStartedAt: now,
       });
@@ -2622,13 +2855,32 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
-    if (props.goalRuntime) {
+    if (isGoalIntentRuntime(props.goalRuntime)) {
       await pauseGoalRuntime();
       return;
     }
+    if (
+      props.planRuntime &&
+      (props.planRuntime.status === "executing" ||
+        props.planRuntime.status === "drafting")
+    ) {
+      props.onPlanRuntimeChange?.({
+        ...props.planRuntime,
+        status: "blocked",
+        blockedReason: "cancelled",
+      });
+    }
     recordSessionInterruption("stopped");
     await stopActiveRun();
-  }, [chatStreaming, pauseGoalRuntime, props.goalRuntime, recordSessionInterruption, stopActiveRun]);
+  }, [
+    chatStreaming,
+    pauseGoalRuntime,
+    props.goalRuntime,
+    props.onPlanRuntimeChange,
+    props.planRuntime,
+    recordSessionInterruption,
+    stopActiveRun,
+  ]);
 
   const handleDismissError = useCallback(() => {
     if (visibleError?.message) {
@@ -2706,13 +2958,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   };
 
   const handlePasteText = (text: string) => {
-    const id = `paste-${Math.random().toString(36).slice(2)}`;
-    const label = `${id.slice(-4)} · ${text.split(/\r?\n/).length} lines`;
-    setComposerPasteParts(props.sessionId, [
-      ...pasteParts,
-      { id, label, text, lines: text.split(/\r?\n/).length },
-    ]);
-    setComposerDraft(props.sessionId, `${draft}[pasted text ${label}]`);
+    if (!text) return;
+    const separator = draft && !draft.endsWith("\n") ? "\n" : "";
+    setComposerDraft(props.sessionId, `${draft}${separator}${text}`);
   };
 
   const handleRevealPastedText = (id: string) => {
@@ -3136,48 +3384,139 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }));
   }, [incomingHasTodos, incomingTodos, props.sessionId]);
 
-  const visiblePlanRuntime = progressDismissedForSession
+  const visiblePlanRuntime = planDismissedForSession
     ? null
     : props.planRuntime ?? null;
-  const visibleGoalRuntime = progressDismissedForSession && !chatStreaming
-    ? null
-    : props.goalRuntime ?? inferredGoalRuntime;
+  const visibleGoalRuntime = shouldShowGoalRuntime({
+    mode: effectiveCollaborationMode,
+    categoryId: assistantFeatureCategoryId,
+    goalRuntime: props.goalRuntime ?? null,
+    dismissed: goalDismissedForSession,
+  }) && isGoalIntentRuntime(props.goalRuntime)
+    ? props.goalRuntime
+    : null;
+  const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
+    effectiveAccessMode !== "full" && props.activePermission
+      ? "permission"
+      : props.activeQuestion
+        ? "question"
+        : effectiveActivityStatus === "compacting"
+          ? "compacting"
+          : null;
+  const visibleGoalRuntimeForUi =
+    visibleGoalRuntime &&
+    activeGoalWaitingReason &&
+    visibleGoalRuntime.status !== "paused" &&
+    visibleGoalRuntime.status !== "completed"
+      ? {
+          ...visibleGoalRuntime,
+          status: "waiting" as const,
+          waitingReason: activeGoalWaitingReason,
+        }
+      : visibleGoalRuntime;
   const visibleTodos = incomingHasTodos
     ? incomingTodos
     : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
-  const hasVisibleTodos =
-    !progressDismissedForSession &&
-    visibleTodos.some((todo) => todo.content.trim());
+  const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
+  const runPolicy = resolveSessionRunPolicy({
+    accessMode: effectiveAccessMode,
+    collaborationMode: effectiveCollaborationMode,
+    categoryId: assistantFeatureCategoryId,
+    activityStatus: effectiveActivityStatus,
+    assistantActive: activityVisible,
+    hasActivePermission:
+      effectiveAccessMode !== "full" && Boolean(props.activePermission),
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    planRuntime: visiblePlanRuntime,
+    goalRuntime: visibleGoalRuntimeForUi,
+    stalled: showStalledActivityNotice,
+  });
+  const respondPermissionWithTranscriptNotice = (
+    requestID: string,
+    reply: "reject" | "once" | "always",
+  ) => {
+    if (reply === "reject") {
+      const now = Date.now();
+      appendTranscriptNotice({
+        id: `${props.sessionId}:permission-rejected:${renderedMessages.length}:${now}`,
+        kind: "permission-rejected",
+        afterMessageCount: renderedMessages.length,
+      });
+      if (
+        visibleGoalRuntime &&
+        visibleGoalRuntime.status !== "paused" &&
+        visibleGoalRuntime.status !== "completed"
+      ) {
+        props.onGoalRuntimeChange?.({
+          ...visibleGoalRuntime,
+          status: "paused",
+          waitingReason: "permission",
+          updatedAt: now,
+          pauseStartedAt: now,
+        });
+      }
+      if (
+        visiblePlanRuntime &&
+        (visiblePlanRuntime.status === "executing" ||
+          visiblePlanRuntime.status === "drafting")
+      ) {
+        props.onPlanRuntimeChange?.({
+          ...visiblePlanRuntime,
+          status: "blocked",
+          blockedReason: "permission_rejected",
+        });
+      }
+    }
+    props.respondPermission?.(requestID, reply);
+  };
   const planOrTodoAccessory = visiblePlanRuntime ? (
     <PlanApprovalPanel
       runtime={visiblePlanRuntime}
       todos={visibleTodos}
       busy={sending || chatStreaming}
       onExecute={executeApprovedPlan}
-      onCancel={() => props.onPlanRuntimeChange?.(null)}
-      onConfirm={() => props.onPlanRuntimeChange?.(null)}
+      onCancel={() => {
+        setDismissedPlanBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        props.onPlanRuntimeChange?.(null);
+      }}
+      onConfirm={() => {
+        setDismissedPlanBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        props.onPlanRuntimeChange?.(null);
+      }}
     />
   ) : hasVisibleTodos ? (
     <TodoPanel todos={visibleTodos} />
   ) : null;
-  const goalAccessory = visibleGoalRuntime ? (
+  const goalAccessory = visibleGoalRuntimeForUi ? (
     <GoalRuntimePanel
-      runtime={visibleGoalRuntime}
+      runtime={visibleGoalRuntimeForUi}
       busy={sending || chatStreaming}
-      assistantActive={activityVisible}
+      canPause={runPolicy.canPauseGoal}
+      canResume={runPolicy.canResumeGoal}
       onPause={() => {
-        if (visibleGoalRuntime.status === "paused") return;
+        if (visibleGoalRuntimeForUi.status === "paused") return;
         void pauseGoalRuntime();
       }}
       onResume={resumeGoalRuntime}
       onClear={() => {
-        setDismissedProgressBySessionId((current) => ({
+        setDismissedGoalBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        setDismissedPlanBySessionId((current) => ({
           ...current,
           [props.sessionId]: true,
         }));
         setLastTodosBySessionId((current) =>
           removeRecordKey(current, props.sessionId),
         );
+        props.onClearSessionProgress?.();
         props.onGoalRuntimeChange?.(null);
         props.onPlanRuntimeChange?.(null);
         void stopActiveRun();
@@ -3195,24 +3534,25 @@ export function SessionSurface(props: SessionSurfaceProps) {
       }}
     />
   ) : null;
-  const permissionAccessory = props.activePermission ? (
-    <PermissionApprovalPanel
-      permission={props.activePermission}
-      busy={props.permissionReplyBusy}
-      respondPermission={props.respondPermission}
-      safeStringify={props.safeStringify}
-    />
-  ) : null;
+  const permissionAccessory =
+    props.activePermission && effectiveAccessMode !== "full" ? (
+      <PermissionApprovalPanel
+        permission={props.activePermission}
+        busy={props.permissionReplyBusy}
+        respondPermission={respondPermissionWithTranscriptNotice}
+        safeStringify={props.safeStringify}
+      />
+    ) : null;
   const sessionComposerAccessory =
     planOrTodoAccessory ||
     goalAccessory ||
     questionAccessory ||
     permissionAccessory ? (
       <div>
+        {permissionAccessory}
+        {questionAccessory}
         {planOrTodoAccessory}
         {goalAccessory}
-        {questionAccessory}
-        {permissionAccessory}
       </div>
     ) : null;
 

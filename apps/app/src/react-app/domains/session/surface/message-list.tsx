@@ -72,7 +72,6 @@ const messageTextClass = {
 };
 
 const messageStateClass = {
-  pastedTextChip: "inline-flex rounded-full border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg hover:bg-dls-status-warning/10",
   skillReferenceChip: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
   toolError: "overflow-x-auto rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-4 py-3 text-xs leading-6 text-dls-status-danger",
   sheetBadge: "min-w-5 border border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
@@ -743,37 +742,23 @@ function CopyButton(props: { getText: () => string }) {
   );
 }
 
-/** Expandable chip for collapsed pasted text in sent messages. */
-function PastedTextChip(props: { label: string; text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const lineCount = props.text.split(/\r?\n/).length;
-
-  return (
-    <span className="inline">
-      <Button
-        type="button"
-        variant="outline"
-        size="xs"
-        className={messageStateClass.pastedTextChip}
-        onClick={() => setExpanded((v) => !v)}
-        title={expanded ? t("session.collapse_pasted_text") : t("session.expand_pasted_text")}
-      >
-        <ChevronDown
-          size={12}
-          className={cn("shrink-0 transition-transform", expanded && "rotate-180")}
-        />
-        <span>Pasted · {lineCount} line{lineCount === 1 ? "" : "s"}</span>
-      </Button>
-      {expanded ? (
-        <NoticeBox tone="warning" size="content" className="mb-1.5 mt-1.5 leading-5 text-foreground">
-          <pre className="whitespace-pre-wrap break-words font-mono">{props.text}</pre>
-        </NoticeBox>
-      ) : null}
-    </span>
-  );
-}
-
 const PASTE_TOKEN_RE = /(\[pasted text [^\]]+\])/;
+const PASTE_TOKEN_EXACT_RE = /^\[pasted text (.+)\]$/;
+
+export function resolveDisplayedPastedText(
+  text: string,
+  pastedTextMap?: Map<string, string>,
+) {
+  if (!pastedTextMap?.size || !PASTE_TOKEN_RE.test(text)) return text;
+  return text
+    .split(PASTE_TOKEN_RE)
+    .map((segment) => {
+      const match = segment.match(PASTE_TOKEN_EXACT_RE);
+      if (!match?.[1]) return segment;
+      return pastedTextMap.get(match[1]) ?? segment;
+    })
+    .join("");
+}
 
 function HighlightedPlainText(props: {
   text: string;
@@ -783,6 +768,10 @@ function HighlightedPlainText(props: {
   pastedTextMap?: Map<string, string>;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const displayText = resolveDisplayedPastedText(
+    props.text,
+    props.pastedTextMap,
+  );
 
   useEffect(() => {
     const root = rootRef.current;
@@ -792,34 +781,11 @@ function HighlightedPlainText(props: {
       if (!rootRef.current || rootRef.current !== root) return;
       applyTextHighlights(root, props.highlightQuery ?? "");
     });
-  }, [props.highlightQuery, props.text]);
+  }, [displayText, props.highlightQuery]);
 
-  // If no paste tokens present, render as plain text (fast path).
-  if (!props.pastedTextMap?.size || !PASTE_TOKEN_RE.test(props.text)) {
-    return (
-      <div ref={rootRef} className={props.className}>
-        {props.text}
-      </div>
-    );
-  }
-
-  // Split on paste tokens and render chips inline.
-  const segments = props.text.split(PASTE_TOKEN_RE);
-  let segmentOffset = 0;
   return (
     <div ref={rootRef} className={props.className}>
-      {segments.map((segment) => {
-        const key = `${segmentOffset}:${segment}`;
-        segmentOffset += segment.length;
-        const match = segment.match(/^\[pasted text (.+)\]$/);
-        if (match?.[1]) {
-          const pastedBody = props.pastedTextMap?.get(match[1]);
-          if (pastedBody) {
-            return <PastedTextChip key={key} label={match[1]} text={pastedBody} />;
-          }
-        }
-        return <span key={key}>{segment}</span>;
-      })}
+      {displayText}
     </div>
   );
 }
@@ -1722,7 +1688,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       nextDividerIndex += 1;
     }
 
-    return mergeLeadingAssistantStepClusters(blocks);
+    return blocks;
   }, [props.developerMode, props.dividers, showThinking, transcriptMessages]);
 
   // Structural sharing: reuse the previous block object reference for any
