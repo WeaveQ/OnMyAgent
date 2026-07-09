@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bot,
   ChevronDown,
@@ -348,22 +349,30 @@ function FilePreviewDrawer(props: {
 }) {
   const { open, file, target, state, copied, onClose, onCopyPath, onOpenInFolder, onOpenExternally } = props;
 
-  return (
-    <>
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "pointer-events-none fixed inset-0 z-[300] transition-opacity duration-200",
+        open && "pointer-events-auto",
+      )}
+    >
       <div
-        aria-hidden={!open}
         onClick={onClose}
         className={cn(
-          "pointer-events-none absolute inset-0 z-10 bg-black/5 opacity-0 transition-opacity duration-200",
-          open && "pointer-events-auto opacity-100",
+          "absolute inset-0 bg-black/25 opacity-0 transition-opacity duration-200 supports-backdrop-filter:backdrop-blur-[2px]",
+          open && "opacity-100",
         )}
       />
       <aside
         role="dialog"
+        aria-modal="true"
         aria-hidden={!open}
         aria-label={file?.name ?? t("files.preview_empty")}
         className={cn(
-          "absolute inset-y-0 right-0 z-20 flex w-full max-w-[520px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
+          "absolute inset-y-0 right-0 flex w-full max-w-[560px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
           open && "translate-x-0",
         )}
       >
@@ -460,8 +469,10 @@ function FilePreviewDrawer(props: {
           </>
         ) : null}
       </aside>
-    </>
+    </div>
   );
+
+  return createPortal(overlay, document.body);
 }
 
 export function WorkspaceFilesPage(props: {
