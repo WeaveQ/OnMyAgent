@@ -133,16 +133,6 @@ async function main() {
     await page.waitForText("Provider timeout", 10000);
     await page.waitForText(["上下文用量", "Context usage"], 10000);
     await page.waitForText("10 / 100", 10000);
-    await page.waitForText(["顺便问", "BTW"], 10000);
-    await page.clickTestId("local-agent-btw-open");
-    await page.waitFor(() => Boolean(document.querySelector('[data-testid="local-agent-btw-overlay"]')) && Boolean(document.querySelector('[data-testid="local-agent-btw-send"]')), 10000);
-    await page.fillInputByTestId("local-agent-btw-input", "visible side question smoke");
-    await page.clickTestId("local-agent-btw-send");
-    await page.assertVisibleTestId("local-agent-btw-result-overlay");
-    await page.waitForText("ACP side reply", 10000);
-    await page.assertVisibleTestId("local-agent-btw-result-answer");
-    await page.clickTestId("local-agent-btw-result-dismiss");
-    await page.waitFor(() => !document.querySelector('[data-testid="local-agent-btw-result-overlay"]'), 10000);
     await page.clickTestId("local-agent-tips-resolution");
     await page.waitForText("添加自定义 Agent", 10000);
     await page.clickText(["管理 Agent", "Manage agents"]);
@@ -257,15 +247,14 @@ function desktopBridgeMockSource(workspaceRoot) {
     const modelOptions = [{ id: 'ark-coding-openai/ark-code-latest', label: 'ark-code-latest' }, { id: 'ark-coding-openai/ark-code-fast', label: 'ark-code-fast' }];
     const configOptions = [{ id: 'mode', label: 'Mode', type: 'select', value: 'default', options: ['default', 'plan'] }, { id: 'model', label: 'Model', type: 'select', value: 'ark-coding-openai/ark-code-latest', options: modelOptions.map((item) => ({ value: item.id, label: item.label })) }];
     const sessionCapabilities = { list: {}, load: {}, close: {}, fork: {}, resume: {} };
-    const behaviorPolicy = { supports_side_question: true };
-    const makeAgent = (id, name, command, connectionMode, version) => ({ id, name, provider: id, executablePath: command, model: null, customArgs: [], modelOptions, defaultModel: modelOptions[0].id, connectionMode, status: 'online', version, error: null, capability, behavior_policy: behaviorPolicy, handshake: { available_models: modelOptions, available_commands: [{ name: '/help', description: 'ACP reported help' }], config_options: configOptions, agent_capabilities: { loadSession: true, sessionCapabilities, _meta: { supportsAcp: true } } }, lastCheckedAt: Date.now() });
-    const makeMetadata = (id, name, command, connectionMode, version) => ({ id, name, backend: id, agent_type: 'acp', agent_source: 'builtin', enabled: true, available: true, command, args: [], connectionMode, status: 'online', error: null, capability, behavior_policy: behaviorPolicy, agent_source_info: { binary_name: command, version }, handshake: { available_models: modelOptions, available_commands: [{ name: '/help', description: 'ACP reported help' }], config_options: configOptions, agent_capabilities: { loadSession: true, sessionCapabilities, _meta: { supportsAcp: true } } } });
+    const makeAgent = (id, name, command, connectionMode, version) => ({ id, name, provider: id, executablePath: command, model: null, customArgs: [], modelOptions, defaultModel: modelOptions[0].id, connectionMode, status: 'online', version, error: null, capability, handshake: { available_models: modelOptions, available_commands: [{ name: '/help', description: 'ACP reported help' }], config_options: configOptions, agent_capabilities: { loadSession: true, sessionCapabilities, _meta: { supportsAcp: true } } }, lastCheckedAt: Date.now() });
+    const makeMetadata = (id, name, command, connectionMode, version) => ({ id, name, backend: id, agent_type: 'acp', agent_source: 'builtin', enabled: true, available: true, command, args: [], connectionMode, status: 'online', error: null, capability, agent_source_info: { binary_name: command, version }, handshake: { available_models: modelOptions, available_commands: [{ name: '/help', description: 'ACP reported help' }], config_options: configOptions, agent_capabilities: { loadSession: true, sessionCapabilities, _meta: { supportsAcp: true } } } });
     const agents = [makeAgent('opencode', 'OpenCode', 'opencode', 'OpenCode ACP session', '1.17.8'), makeAgent('codex', 'Codex', 'codex-acp', 'Codex ACP session', '1.0.1'), makeAgent('claude', 'Claude Code', 'claude-agent-acp', 'Claude Code ACP session', '0.52.0')];
     const metadata = [makeMetadata('opencode', 'OpenCode', 'opencode', 'OpenCode ACP session', '1.17.8'), makeMetadata('codex', 'Codex', 'codex-acp', 'Codex ACP session', '1.0.1'), makeMetadata('claude', 'Claude Code', 'claude-agent-acp', 'Claude Code ACP session', '0.52.0')];
     agents[1].handshake.available_commands = [];
     metadata[1].handshake.available_commands = [];
     const finish = (run, text) => ({ ...run, ok: true, status: 'completed', finishedAt: Date.now(), output: text, events: [...run.events, { type: 'assistant', text, at: Date.now() }] });
-    window.__LOCAL_AGENT_ACP_SMOKE__ = { runs, calls: [], configSets: [], processPolls: 0, loadedProviderSession: false, closedProviderSession: false, forkedProviderSession: false, setConfigOption: false, warmedConversation: false, sideQuestion: false, createdCustomAgent: false, updatedCustomAgent: false, deletedCustomAgent: false, get turn() { return turn; } };
+    window.__LOCAL_AGENT_ACP_SMOKE__ = { runs, calls: [], configSets: [], processPolls: 0, loadedProviderSession: false, closedProviderSession: false, forkedProviderSession: false, setConfigOption: false, warmedConversation: false, createdCustomAgent: false, updatedCustomAgent: false, deletedCustomAgent: false, get turn() { return turn; } };
     const invokeDesktop = async (command, ...args) => {
       window.__LOCAL_AGENT_ACP_SMOKE__.calls.push(command);
       if (command === 'workspaceList') return { items: [{ id: 'ws_local_agent_acp_smoke', name: 'ACP Smoke Workspace', path: workspaceRoot, workspaceType: 'local' }], selectedId: 'ws_local_agent_acp_smoke' };
@@ -389,23 +378,6 @@ function desktopBridgeMockSource(workspaceRoot) {
         done.artifacts = [{ path: workspaceRoot + '/reports/acp-smoke-' + turn + '.md', relPath: 'reports/acp-smoke-' + turn + '.md', name: 'acp-smoke-' + turn + '.md', source: 'assistant', exists: true, addedAt: now }];
         runs.set(run.runId, done);
         return done;
-      }
-      if (command === 'personalLocalAgentSideQuestion') {
-        window.__LOCAL_AGENT_ACP_SMOKE__.sideQuestion = true;
-        const input = args[0] || {};
-        const now = Date.now();
-        const run = finish({
-          ok: false, runId: 'run-side-question', agentId: 'opencode', agentProvider: 'opencode',
-          connectionMode: 'OpenCode ACP session', status: 'running', startedAt: now, finishedAt: null,
-          pid: 4243, command: 'opencode acp', output: '', error: null,
-          events: [{ type: 'status', text: 'side question started', at: now }],
-          logPath: null, conversationId: input.conversationId || 'conv-acp-smoke',
-          providerSessionId: 'acp-session-1', resumeKey: 'acp-session-1', metadata: { agent_type: 'acp', sideQuestion: true },
-          workdir: workspaceRoot, debugSummary: 'side question smoke', errorInfo: null,
-          approvalMode: input.approvalMode || 'ask', pendingApprovals: [], artifacts: [], conversationMessages: []
-        }, 'ACP side reply');
-        runs.set(run.runId, run);
-        return { ok: true, run, runId: run.runId };
       }
       if (command === 'personalLocalAgentStatus') return runs.get((args[0] || {}).runId || args[0]) || null;
       if (command === 'personalLocalAgentAcpResolveApproval') {

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -140,7 +140,21 @@ export async function readJsonLikeFile(targetPath) {
 
 export async function writeJsonFile(targetPath, data) {
   await mkdir(path.dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  // Atomic write: tmp+rename so a crash mid-serialize cannot leave a partial
+  // JSON file on disk that would break the next boot's parse. The tmp
+  // filename is randomized so concurrent writers targeting the same path
+  // do not race on a shared `<target>.tmp` (the previous fixed suffix caused
+  // spurious ENOENT during rename when two writes overlapped).
+  const suffix = randomBytes(6).toString("hex");
+  const tmpPath = `${targetPath}.${suffix}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  try {
+    await rename(tmpPath, targetPath);
+  } catch (error) {
+    // Best-effort cleanup so a failed rename does not leak temp files.
+    try { const { rm } = await import("node:fs/promises"); await rm(tmpPath, { force: true }); } catch { /* noop */ }
+    throw error;
+  }
 }
 
 export function uniqueModelOptions(options) {

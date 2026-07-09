@@ -25,25 +25,53 @@ function envObject(value) {
   return result;
 }
 
+function boolValue(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
+  const text = String(value).trim().toLowerCase();
+  if (text === "true" || text === "1" || text === "yes" || text === "on") return true;
+  if (text === "false" || text === "0" || text === "no" || text === "off") return false;
+  return fallback;
+}
+
+function normalizeConnectionType(value) {
+  const text = textValue(value).toLowerCase();
+  return text === "cli" || text === "acp" ? "cli" : "raw";
+}
+
 function normalizeCustomAgent(input = {}) {
   const id = textValue(input.id) || `custom-${Date.now().toString(36)}`;
   const name = textValue(input.name) || id;
   const executablePath = textValue(input.executablePath ?? input.command);
   if (!executablePath) throw new Error("custom agent command is required");
+  const connectionType = normalizeConnectionType(input.connectionType);
+  const supportsAcp = connectionType === "cli" ? boolValue(input.supportsAcp, true) : false;
+  const acpArgs = stringList(input.acpArgs);
   return {
     id,
     name,
     provider: "custom",
     executablePath,
     customArgs: stringList(input.customArgs ?? input.args),
+    acpArgs,
+    connectionType,
     env: envObject(input.env),
     description: textValue(input.description) || null,
     nativeSkillsDirs: stringList(input.nativeSkillsDirs ?? input.native_skills_dirs),
     behaviorPolicy: input.behaviorPolicy && typeof input.behaviorPolicy === "object" ? input.behaviorPolicy : {},
+    supportsAcp,
+    supportsStreaming: boolValue(input.supportsStreaming, supportsAcp),
+    supportsResume: boolValue(input.supportsResume, false),
+    supportsApproval: boolValue(input.supportsApproval, false),
+    supportsModelOverride: boolValue(input.supportsModelOverride, false),
+    supportsPermissionAutoApprove: boolValue(input.supportsPermissionAutoApprove, false),
+    authRequired: boolValue(input.authRequired, false),
     status: "online",
     enabled: input.enabled !== false,
-    agent_source: "custom",
-    connectionMode: "Custom command",
+    agent_source: textValue(input.agent_source) || "custom",
+    extensionName: textValue(input.extensionName) || null,
+    customAgentSourceId: textValue(input.customAgentSourceId ?? input.custom_agent_id) || null,
+    connectionMode: supportsAcp ? "Custom ACP session" : "Custom command",
     updatedAt: Date.now(),
   };
 }

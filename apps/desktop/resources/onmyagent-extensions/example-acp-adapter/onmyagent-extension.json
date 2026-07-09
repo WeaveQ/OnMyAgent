@@ -1,0 +1,25 @@
+{
+  "name": "onmyagent.example-acp-adapter",
+  "displayName": "Example ACP Adapter",
+  "version": "1.0.0",
+  "description": "Demo extension that contributes an ACP adapter entry; disabled by default in production installs.",
+  "author": "OnMyAgent Contributors",
+  "contributes": {
+    "acpAdapters": [
+      {
+        "id": "example-codex-acp",
+        "name": "Example Codex ACP",
+        "description": "Reuses the local `codex` CLI via ACP to prove the extension pipeline end to end.",
+        "connectionType": "cli",
+        "cliCommand": "codex",
+        "defaultCliPath": "codex",
+        "acpArgs": ["acp"],
+        "authRequired": false,
+        "supportsStreaming": true,
+        "supportsResume": true,
+        "supportsApproval": true,
+        "supportsModelOverride": true
+      }
+    ]
+  }
+}

@@ -6,11 +6,12 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
   openclaw: "OpenClaw",
   hermes: "Hermes",
   codex: "Codex",
+  gemini: "Gemini",
   onmyagent: "OnMyAgent",
   unknown: "未识别",
 };
 
-export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "hermes", "openclaw", "onmyagent"];
+export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "onmyagent"];
 
 // Tailwind theme in this project overrides all built-in palettes with Radix
 // steps 1-12 (see apps/app/tailwind.config.ts + styles/tailwind-colors.ts).
@@ -34,6 +35,12 @@ export const SKILL_AGENT_TONES: Record<string, { active: string; badge: string; 
     badge: "bg-jade-3 text-jade-11",
     iconActive: "bg-jade-3 hover:bg-jade-4",
     dot: "bg-jade-9",
+  },
+  gemini: {
+    active: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100",
+    badge: "bg-indigo-50 text-indigo-700",
+    iconActive: "bg-indigo-50 hover:bg-indigo-100",
+    dot: "bg-indigo-500",
   },
   claude: {
     active: "bg-orange-3 text-orange-11 ring-1 ring-orange-6 hover:bg-orange-4",

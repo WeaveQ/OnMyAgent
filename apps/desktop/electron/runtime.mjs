@@ -21,6 +21,7 @@ const ORCHESTRATOR_RUNTIME = "onmyagent-orchestrator";
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
+const BUNDLED_EXTENSIONS_RESOURCE_DIR = "onmyagent-extensions";
 
 function bundledSkillsRootPath() {
   const candidates = [
@@ -30,6 +31,16 @@ function bundledSkillsRootPath() {
     path.resolve(__runtimeDir, "..", "resources", BUNDLED_SKILLS_RESOURCE_DIR),
   ].filter(Boolean);
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+function bundledExtensionRootPaths() {
+  const candidates = [
+    process.resourcesPath
+      ? path.resolve(process.resourcesPath, BUNDLED_EXTENSIONS_RESOURCE_DIR)
+      : null,
+    path.resolve(__runtimeDir, "..", "resources", BUNDLED_EXTENSIONS_RESOURCE_DIR),
+  ].filter(Boolean);
+  return candidates.filter((candidate) => existsSync(candidate));
 }
 
 function truncateOutput(value, limit = 8000) {
@@ -80,6 +91,7 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     engineInfo: () => runtimeManager.engineInfo(),
     onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
     legacy: personalAgentLegacyHarness,
+    bundledExtensionRoots: bundledExtensionRootPaths(),
   });
   const personalAgentHeartbeatScheduler = createPersonalAgentHeartbeatScheduler({
     personalAgentRuntime,

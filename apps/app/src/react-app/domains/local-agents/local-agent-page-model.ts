@@ -21,18 +21,10 @@ export type PersistedLocalAgentChatState = {
   errorsByAgent?: Record<string, string | null>;
 };
 
-export const PROVIDER_LABELS: Record<PersonalLocalAgent["provider"], string> = {
-  opencode: "OpenCode",
-  codex: "Codex",
-  claude: "Claude Code",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
-  custom: "Custom",
-};
-
-export function isPersonalLocalAgentProvider(value: string): value is PersonalLocalAgentProvider {
-  return Object.prototype.hasOwnProperty.call(PROVIDER_LABELS, value);
-}
+export {
+  PROVIDER_LABELS,
+  isPersonalLocalAgentProvider,
+} from "./constants";
 
 
 const PROVIDER_ICON_URLS: Partial<Record<PersonalLocalAgentProvider, string>> = {
@@ -102,28 +94,69 @@ export function agentFromAcpMetadata(metadata: PersonalLocalAgentMetadata): Pers
   };
 }
 
-export function normalizeAcpSlashCommands(agent: PersonalLocalAgent | null): LocalAgentSlashCommand[] {
-  const rawCommands = agent && "handshake" in agent && Array.isArray(agent.handshake?.available_commands)
-    ? agent.handshake.available_commands
-    : [];
-  return rawCommands.flatMap((item) => {
+export function normalizeAcpSlashCommandList(raw: unknown): LocalAgentSlashCommand[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const source = item as Record<string, unknown>;
     const rawName = String(source.name ?? source.command ?? source.id ?? "").trim();
     if (!rawName) return [];
     const name = rawName.startsWith("/") ? rawName : `/${rawName}`;
     const rawBehavior = String(source.selectionBehavior ?? source.selection_behavior ?? "insert").toLowerCase();
-    return [{ name, description: String(source.description ?? source.summary ?? "").trim(), source: "acp" as const, selectionBehavior: rawBehavior === "execute" ? "execute" as const : "insert" as const }];
+    const rawInput = source.input && typeof source.input === "object" ? (source.input as Record<string, unknown>) : null;
+    const meta = source._meta && typeof source._meta === "object" ? (source._meta as Record<string, unknown>) : null;
+    const hint = typeof source.hint === "string" && source.hint.trim()
+      ? source.hint.trim()
+      : rawInput && typeof rawInput.hint === "string" && rawInput.hint.trim()
+        ? rawInput.hint.trim()
+        : undefined;
+    const rawCompletion = String(source.completion_behavior ?? source.completionBehavior ?? meta?.completion_behavior ?? "").toLowerCase();
+    const completionBehavior = rawCompletion === "neutral_tip_on_empty" ? "neutral_tip_on_empty" as const : rawCompletion === "normal" ? "normal" as const : undefined;
+    const emptyTurnTipCode = typeof source.empty_turn_tip_code === "string" && source.empty_turn_tip_code.trim()
+      ? source.empty_turn_tip_code.trim()
+      : typeof source.emptyTurnTipCode === "string" && source.emptyTurnTipCode.trim()
+        ? source.emptyTurnTipCode.trim()
+        : typeof meta?.empty_turn_tip_code === "string" && (meta.empty_turn_tip_code as string).trim()
+          ? (meta.empty_turn_tip_code as string).trim()
+          : undefined;
+    const emptyTurnTipParamsRaw = source.empty_turn_tip_params ?? source.emptyTurnTipParams ?? meta?.empty_turn_tip_params;
+    const emptyTurnTipParams = emptyTurnTipParamsRaw && typeof emptyTurnTipParamsRaw === "object" && !Array.isArray(emptyTurnTipParamsRaw)
+      ? (emptyTurnTipParamsRaw as Record<string, unknown>)
+      : undefined;
+    const description = String(source.description ?? source.summary ?? "").trim();
+    const command: LocalAgentSlashCommand = {
+      name,
+      description,
+      source: "acp",
+      selectionBehavior: rawBehavior === "execute" ? "execute" : "insert",
+    };
+    if (hint) command.hint = hint;
+    if (completionBehavior) command.completionBehavior = completionBehavior;
+    if (emptyTurnTipCode) command.emptyTurnTipCode = emptyTurnTipCode;
+    if (emptyTurnTipParams) command.emptyTurnTipParams = emptyTurnTipParams;
+    return [command];
   });
 }
 
-export function builtinSlashCommands(agent: PersonalLocalAgent | null): LocalAgentSlashCommand[] {
+export function normalizeAcpSlashCommands(agent: PersonalLocalAgent | null): LocalAgentSlashCommand[] {
+  const rawCommands = agent && "handshake" in agent && Array.isArray(agent.handshake?.available_commands)
+    ? agent.handshake.available_commands
+    : [];
+  return normalizeAcpSlashCommandList(rawCommands);
+}
+
+export function builtinSlashCommands(agent: PersonalLocalAgent | null, options?: { hasConversation?: boolean }): LocalAgentSlashCommand[] {
   if (!agent) return [];
-  return [
+  const commands: LocalAgentSlashCommand[] = [
     { name: "/new", description: t("local_agent.slash_new_desc"), source: "builtin", selectionBehavior: "execute" },
     { name: "/clear", description: t("local_agent.slash_clear_desc"), source: "builtin", selectionBehavior: "execute" },
     { name: "/sessions", description: t("local_agent.slash_sessions_desc"), source: "builtin", selectionBehavior: "execute" },
+    { name: "/open", description: t("local_agent.slash_open_desc"), source: "builtin", selectionBehavior: "execute" },
   ];
+  if (options?.hasConversation) {
+    commands.push({ name: "/copy", description: t("local_agent.slash_copy_desc"), source: "builtin", selectionBehavior: "execute" });
+  }
+  return commands;
 }
 
 export function mergeSlashCommands(commands: LocalAgentSlashCommand[]) {
@@ -222,9 +255,10 @@ export function nativeSessionResumeOnlyMessage(agent: PersonalLocalAgent, conver
   };
 }
 
-export function isUnsupportedNativeTranscriptError(error: string | null | undefined) {
-  return error === "This provider does not expose a stable native transcript.";
-}
+export {
+  TRANSCRIPT_SOFT_ERRORS,
+  isUnsupportedNativeTranscriptError,
+} from "./constants";
 
 export function safeReadApprovalMode(workspaceRoot: string): PersonalLocalAgentApprovalMode {
   if (typeof window === "undefined") return "ask";

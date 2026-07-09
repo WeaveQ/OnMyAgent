@@ -15,13 +15,13 @@ function isAuthError(message) {
  *   { ok, step, status, initialized, sessionResult, error, events }
  * where step ∈ "fail_cli" | "fail_acp" | "needs_auth" | "online".
  */
-export async function probeAcpCommand({ command, args = [], cwd = process.cwd(), timeoutMs = 10_000 }) {
+export async function probeAcpCommand({ command, args = [], cwd = process.cwd(), env = undefined, timeoutMs = 10_000 }) {
   const events = [];
   const { child, client } = spawnAcpClient({
     command,
     args,
     cwd,
-    env: process.env,
+    env: env ?? process.env,
     appendEvent: (event) => events.push(event),
   });
 

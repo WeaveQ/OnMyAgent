@@ -47,6 +47,9 @@ export const CHANNEL_EVENTS = {
 
   // Errors
   ERROR: "channel:error",
+
+  // Reverse relay: Studio -> IM (parity S4)
+  CONVERSATION_MESSAGE_FROM_STUDIO: "channel:conversation:message:from-studio",
 };
 
 class ChannelEventBus extends EventEmitter {
