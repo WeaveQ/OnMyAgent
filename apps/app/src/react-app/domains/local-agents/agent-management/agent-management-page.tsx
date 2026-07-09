@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, Plus, RefreshCw, ShoppingBag, Sparkles, Wrench } from "lucide-react";
 
-import { t } from "../../../../../i18n";
+import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
@@ -27,11 +27,11 @@ import {
   type AgentManagementSkill,
   type AgentManagementSkillAgent,
   type AgentManagementSnapshot,
-} from "../../../../../app/lib/desktop";
+} from "../../../../app/lib/desktop";
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
-import { InlineAgentEditor, type InlineAgentEditorValue } from "../../../local-agents/inline-agent-editor";
-import { AgentManagementRepairDialog } from "../../../local-agents/agent-management-repair-dialog";
-import { ExtensionListPanel } from "../../../local-agents/extension-list-panel";
+import { InlineAgentEditor, type InlineAgentEditorValue } from "../inline-agent-editor";
+import { AgentManagementRepairDialog } from "../agent-management-repair-dialog";
+import { ExtensionListPanel } from "../extension-list-panel";
 import {
   formatAgentManagerDuration,
   summarizeAgentManagementHealth,

@@ -72,4 +72,4 @@ export {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
 } from "./components/shared-pages/automation-session-groups";
-export { OpenCodeProviderConfigDialog } from "./components/shared-pages/agent-management-providers";
+export { OpenCodeProviderConfigDialog } from "../local-agents/agent-management/agent-management-providers";

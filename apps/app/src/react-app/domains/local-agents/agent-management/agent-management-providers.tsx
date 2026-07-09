@@ -38,14 +38,14 @@ import type {
   AgentManagementManagedProvider,
   AgentManagementProviderActionInput,
   AgentManagementSnapshot,
-} from "../../../../../app/lib/desktop";
-import { agentManagementFetchModels, agentManagementProviderAction } from "../../../../../app/lib/desktop";
-import { t } from "../../../../../i18n";
-import claudeIconUrl from "../../../../../assets/agent-icons/claude.svg";
-import codexIconUrl from "../../../../../assets/agent-icons/openai.svg";
-import hermesIconUrl from "../../../../../assets/agent-icons/hermes.png";
-import openclawIconUrl from "../../../../../assets/agent-icons/claw.svg";
-import opencodeIconUrl from "../../../../../assets/agent-icons/opencode-logo-light.svg";
+} from "../../../../app/lib/desktop";
+import { agentManagementFetchModels, agentManagementProviderAction } from "../../../../app/lib/desktop";
+import { t } from "../../../../i18n";
+import claudeIconUrl from "../../../../assets/agent-icons/claude.svg";
+import codexIconUrl from "../../../../assets/agent-icons/openai.svg";
+import hermesIconUrl from "../../../../assets/agent-icons/hermes.png";
+import openclawIconUrl from "../../../../assets/agent-icons/claw.svg";
+import opencodeIconUrl from "../../../../assets/agent-icons/opencode-logo-light.svg";
 
 export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   opencode: "OpenCode",

@@ -55,7 +55,7 @@ When more than one component could fit, use this table. New code must not invent
 | Multi-panel content tabs | `components/ui/tabs` | Mixing pill Segmented styling with content Tabs |
 | Local busy / refresh | `LoadingSpinner` (or Button with spinner child) | New bare `Loader2 className="animate-spin"` in page JSX |
 | Destructive / confirm | `ConfirmModal` (wraps `AlertDialog`; footer `size="lg"`) | Ad-hoc Dialog footers for delete/reset |
-| Single-line input | `Input` / `InputGroup` | New uses of `design-system/text-input` |
+| Single-line input | `Input` / `InputGroup` | New uses of `design-system/text-input` (**deprecated**) |
 | Select list | Prefer `components/ui/select`; `SelectMenu` only for dense settings rows already on that path | New ad-hoc popover option lists outside composer |
 | Tool approval | `ToolApprovalCard` risk tiers (safe / careful / destructive) | Untiered permission panels |
 | Streaming caret | `StreamingCursor` | One-off blink spans in transcript pages |

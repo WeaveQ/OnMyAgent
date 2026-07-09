@@ -31,9 +31,10 @@ src/react-app/
     └── shared/                TRANSITIONAL cross-domain bag (see migration map)
 ```
 
-**Not present on disk (do not invent):** `domains/plugins/` — skills catalog currently lives
-under `shared/plugins-page.tsx` + `settings/pages/skills-view.tsx`. Target: create
-`domains/plugins/` in a later phase (see migration map).
+**`domains/plugins/`** exists as a **public entry** (`plugins/index.ts`) that re-exports
+the transitional implementations still under `shared/` (plugins-page, skills-catalog,
+skill-scope). New imports should use `domains/plugins`; physical move of files is
+follow-up.
 
 Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` § 4 / § 4i).
 
@@ -123,7 +124,7 @@ migrate when touching a file.
 | `add-mcp-modal.tsx` | `connections/` | Canonical MCP owner |
 | `provider-auth-modal.tsx`, `provider-auth-types.ts`, `provider-list-query.ts` | `connections/` | Collapse with `connections/provider-auth/*` |
 | `share-workspace-*.tsx`, `workspace-modal-types.ts`, `workspace-option-card.tsx` | `workspace/` | Keep workspace flows together |
-| `plugins-page.tsx`, `skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts` | **`plugins/` (create)** | Or temporary `settings/` until `plugins/` exists |
+| `plugins-page.tsx`, `skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts` | **`plugins/` entry** (re-exports live; move files later) | Import via `domains/plugins` |
 | `agent-registry-*.ts(x)`, `pending-agent-store.ts`, `agent-session-state.ts`, `agent-default-registry.ts`, `agent-prompt-suggestions.tsx` | `agents/` (or `local-agents/` for pending draft) | **Eliminate dual stores** with `agents/*-store` |
 | `onmyagent-server-store.ts`, `extension-state.ts`, `env-context.ts`, `desktop-config-context.ts` | keep in `shared/` until a kernel/infra home is clearer | Low priority |
 | `modal-styles.ts`, `onmyagent-den-help-link.tsx` | design-system / cloud as appropriate | Cosmetic |
@@ -132,7 +133,7 @@ migrate when touching a file.
 
 | Current area | Target | Phase |
 | --- | --- | --- |
-| `agent-management-*` | `local-agents/` | P4 first cut |
+| `agent-management-*` | **`local-agents/agent-management/`** (moved) | P4 done; session re-exports for compat |
 | `automation-*`, channel panels (`weixin`, `feishu`, …) | `settings/` or future `messaging/` | After P4 |
 | `workspace-files-page.tsx` | `workspace/` | After P4 |
 | Conversation lists / true session chrome | stay in `session/` | — |
