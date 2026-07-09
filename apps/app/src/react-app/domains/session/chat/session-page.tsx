@@ -108,8 +108,7 @@ import {
   buildSessionPageViewModel,
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
-import { StorePage } from "./session-page-store-page";
-import { WorkspaceFilesPage } from "../components/shared-pages";
+import { StorePage, WorkspaceFilesPage, type StorePrimaryTab } from "../components/shared-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -119,7 +118,6 @@ import {
 } from "../../shared/extension-state";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { SkillsPage } from "../../shared/plugins-page";
 import { PersonalLocalAgentPage } from "./personal-local-agent-page";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
@@ -366,6 +364,8 @@ export function SessionPage(props: SessionPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeAssistantCategoryId, setActiveAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
+  const [storeActiveTab, setStoreActiveTab] =
+    useState<StorePrimaryTab>("skills");
   const agentRegistry = useAgentRegistryStore((state) => state.registry);
   const agentPanel = useSessionPageAgentPanel(props.selectedSessionId);
   const sidePanelScopeId =
@@ -786,7 +786,11 @@ export function SessionPage(props: SessionPageProps) {
 
                       {agentPanel.activeSidebarView === "store" ? (
                         <StorePage
-                          skillsSlot={<SkillsPage workspaceId={props.selectedWorkspaceId} />}
+                          workspaceId={props.selectedWorkspaceId}
+                          workspaceRoot={props.selectedWorkspaceRoot}
+                          client={props.onmyagentServerClient}
+                          activeTab={storeActiveTab}
+                          onActiveTabChange={setStoreActiveTab}
                         />
                       ) : null}
 
@@ -923,6 +927,10 @@ export function SessionPage(props: SessionPageProps) {
                           headerActions={headerPanelControls}
                           onOpenTarget={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
+                          onOpenSkillsMarketplace={() => {
+                            setStoreActiveTab("skills");
+                            agentPanel.openSidebarView("store");
+                          }}
                         />
                       ) : null}
 

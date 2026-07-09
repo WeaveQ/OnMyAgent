@@ -31,6 +31,7 @@ export default {
   "composer.access_full": "完全访问权限",
   "composer.access_full_desc": "自动允许本任务中的权限请求",
   "composer.access_high_risk": "高风险",
+  "composer.add_file": "添加文件",
   "composer.collaboration_choose_mode": "选择协作模式",
   "composer.collaboration_mode": "协作模式",
   "composer.collaboration_mode_info": "{mode} 说明",
@@ -48,5 +49,8 @@ export default {
   "composer.collaboration_planning_desc": "先拆解步骤、风险和验证方式",
   "composer.collaboration_pursue_goal": "追求目标",
   "composer.collaboration_pursue_goal_desc": "持续围绕目标推进并检查进度",
+  "composer.connectors_label": "连接器",
+  "composer.quick_actions": "添加上下文",
+  "composer.remove_collaboration_mode": "移除{mode}协作模式",
   "composer.send_message": "发送消息",
 } as const;
