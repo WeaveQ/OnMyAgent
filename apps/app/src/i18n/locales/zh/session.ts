@@ -72,6 +72,8 @@ export default {
   "session.code_side_panel_expand": "展开侧边栏",
   "session.code_side_panel_minimize": "最小化侧边栏",
   "session.code_side_panel_toggle": "展开侧边栏",
+  "session.collapse_sidebar_pane": "收起侧栏面板",
+  "session.expand_sidebar_pane": "展开侧栏面板",
   "session.code_review_branch": "分支",
   "session.code_review_commit_or_push": "提交或推送",
   "session.code_review_empty_desc": "此项目中的更改将显示在此处。",

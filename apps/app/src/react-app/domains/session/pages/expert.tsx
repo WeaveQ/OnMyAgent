@@ -3,7 +3,6 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
-  PanelLeft,
   PanelRight,
   Zap,
 } from "lucide-react";
@@ -118,6 +117,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  SidebarPaneCollapseToggle,
   SidebarFeaturePlaceholder,
   STARTUP_SKELETON_ROWS,
   StorePage,
@@ -1441,20 +1441,14 @@ export function ExpertPage(props: ExpertPageProps) {
                 onPrefetchSession={props.sidebar.onPrefetchSession}
               />
             ) : null}
-            {activeSidebarView === "chat" && agentPanelCollapsed ? (
-              <div className="flex w-10 shrink-0 bg-dls-background px-2 pb-5 pt-2">
-                <Button
-                  type="button"
-                  onClick={() => setAgentPanelCollapsed(false)}
-                  variant="ghost"
-                  size="icon-xs"
-                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                  title={t("session.expand_session_list")}
-                  aria-label={t("session.expand_session_list")}
-                >
-                  <PanelLeft className="size-3.5" />
-                </Button>
-              </div>
+            {activeSidebarView === "chat" ? (
+              <SidebarPaneCollapseToggle
+                collapsed={agentPanelCollapsed}
+                onToggle={() => setAgentPanelCollapsed((value) => !value)}
+                style={{
+                  left: agentPanelCollapsed ? 0 : agentPanelWidth,
+                }}
+              />
             ) : null}
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
               <div
@@ -1547,6 +1541,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 

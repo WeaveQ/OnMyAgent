@@ -111,7 +111,7 @@ import {
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
 import { StorePage } from "./session-page-store-page";
-import { WorkspaceFilesPage } from "./session-page-workspace-files-page";
+import { WorkspaceFilesPage } from "../components/shared-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -181,7 +181,7 @@ function CodeSidePanelMenu(props: {
                 data-code-side-panel-menu-item={item.id}
                 className={cn(
                   "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                  selected && "bg-dls-hover text-dls-accent",
+                  selected && "bg-dls-hover text-dls-text",
                 )}
                 onClick={() => props.onSelect(item.id)}
                 aria-pressed={selected}
@@ -798,6 +798,7 @@ export function SessionPage(props: SessionPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 
