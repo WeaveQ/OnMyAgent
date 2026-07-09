@@ -65,13 +65,23 @@ type CategoryDefinition = {
   title: string;
 };
 
-const PLUGIN_CATEGORIES: CategoryDefinition[] = [
-  { id: "commerce", title: "电商与市场" },
-  { id: "productivity", title: "生产力与知识管理" },
-  { id: "social", title: "社交媒体" },
-  { id: "communication", title: "通讯与协作" },
-  { id: "developer", title: "开发者与数据工具" },
-];
+const PLUGIN_CATEGORY_IDS = [
+  "commerce",
+  "productivity",
+  "social",
+  "communication",
+  "developer",
+] as const satisfies readonly PluginCategory[];
+
+function getPluginCategories(): CategoryDefinition[] {
+  return [
+    { id: "commerce", title: t("session.plugins_category_commerce") },
+    { id: "productivity", title: t("session.plugins_category_productivity") },
+    { id: "social", title: t("session.plugins_category_social") },
+    { id: "communication", title: t("session.plugins_category_communication") },
+    { id: "developer", title: t("session.plugins_category_developer") },
+  ];
+}
 
 const pluginsTextClass = {
   cardTitle: "truncate text-sm font-medium leading-5 text-dls-text",
@@ -108,100 +118,101 @@ const pluginsLayoutClass = {
   originDefault: "bg-dls-surface-muted text-dls-secondary hover:bg-dls-brand-neutral-soft hover:text-dls-secondary",
 };
 
-const SAMPLE_PLUGINS: PluginItem[] = [
-  {
-    id: "wordpress",
-    name: "WordPress",
-    description: "连接 WordPress.com，支持查看站点、文章、评论与发布状态。",
-    category: "commerce",
-    iconKey: "wordpress",
-  },
-  {
-    id: "notion",
-    name: "Notion",
-    description: "连接 Notion，支持页面检索、数据库查询与知识资产管理。",
-    category: "productivity",
-    iconKey: "notion",
-  },
-  {
-    id: "microsoft365",
-    name: "Microsoft 365",
-    description: "支持 Outlook 邮件、日历、联系人、OneDrive 和 Office 协同。",
-    category: "productivity",
-    iconKey: "m365",
-  },
-  {
-    id: "twitter-x",
-    name: "Twitter/X",
-    description: "抓取时间线、关键词和公开帖子，支持热点监测与内容整理。",
-    category: "social",
-    iconKey: "x",
-  },
-  {
-    id: "linkedin",
-    name: "LinkedIn",
-    description: "连接 LinkedIn，辅助获取个人资料、公司页面和职位情报。",
-    category: "social",
-    iconKey: "linkedin",
-  },
-  {
-    id: "gmail",
-    name: "Gmail",
-    description: "帮助检索 Gmail 邮件、标签与线程，辅助整理待办与跟进信息。",
-    category: "communication",
-    iconKey: "gmail",
-  },
-  {
-    id: "feishu",
-    name: "飞书",
-    description: "整合飞书消息、文档与开放平台能力，适合协作流程自动化。",
-    category: "communication",
-    iconKey: "feishu",
-  },
-  {
-    id: "feishu",
-    name: "飞书",
-    description: "整合飞书消息、文档与开放平台能力，适合协作流程自动化。",
-    category: "communication",
-    iconKey: "feishu",
-  },
-  {
-    id: "supabase",
-    name: "Supabase",
-    description:
-      "连接 Supabase 项目，查询数据库、Auth、Storage 与 Edge Functions。",
-    category: "developer",
-    iconKey: "supabase",
-  },
-  {
-    id: "cloudflare",
-    name: "Cloudflare",
-    description: "管理 Cloudflare 站点、DNS、缓存、Workers 与边缘网络配置。",
-    category: "developer",
-    iconKey: "cloudflare",
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    description: "浏览仓库、Issue、PR 和 Actions，辅助代码协作与自动化工作流。",
-    category: "developer",
-    iconKey: "github",
-  },
-  {
-    id: "vercel",
-    name: "Vercel",
-    description: "查看 Vercel 项目、部署记录、域名绑定与环境变量状态。",
-    category: "developer",
-    iconKey: "vercel",
-  },
-  {
-    id: "huggingface",
-    name: "HuggingFace",
-    description: "连接 Hugging Face Hub，探索模型、数据集和推理端点。",
-    category: "developer",
-    iconKey: "huggingface",
-  },
-];
+function getSamplePlugins(): PluginItem[] {
+  return [
+    {
+      id: "wordpress",
+      name: "WordPress",
+      description: t("session.plugins_desc_wordpress"),
+      category: "commerce",
+      iconKey: "wordpress",
+    },
+    {
+      id: "notion",
+      name: "Notion",
+      description: t("session.plugins_desc_notion"),
+      category: "productivity",
+      iconKey: "notion",
+    },
+    {
+      id: "microsoft365",
+      name: "Microsoft 365",
+      description: t("session.plugins_desc_microsoft365"),
+      category: "productivity",
+      iconKey: "m365",
+    },
+    {
+      id: "twitter-x",
+      name: "Twitter/X",
+      description: t("session.plugins_desc_twitter_x"),
+      category: "social",
+      iconKey: "x",
+    },
+    {
+      id: "linkedin",
+      name: "LinkedIn",
+      description: t("session.plugins_desc_linkedin"),
+      category: "social",
+      iconKey: "linkedin",
+    },
+    {
+      id: "gmail",
+      name: "Gmail",
+      description: t("session.plugins_desc_gmail"),
+      category: "communication",
+      iconKey: "gmail",
+    },
+    {
+      id: "feishu",
+      name: t("session.plugins_name_feishu"),
+      description: t("session.plugins_desc_feishu"),
+      category: "communication",
+      iconKey: "feishu",
+    },
+    {
+      id: "feishu",
+      name: t("session.plugins_name_feishu"),
+      description: t("session.plugins_desc_feishu"),
+      category: "communication",
+      iconKey: "feishu",
+    },
+    {
+      id: "supabase",
+      name: "Supabase",
+      description: t("session.plugins_desc_supabase"),
+      category: "developer",
+      iconKey: "supabase",
+    },
+    {
+      id: "cloudflare",
+      name: "Cloudflare",
+      description: t("session.plugins_desc_cloudflare"),
+      category: "developer",
+      iconKey: "cloudflare",
+    },
+    {
+      id: "github",
+      name: "GitHub",
+      description: t("session.plugins_desc_github"),
+      category: "developer",
+      iconKey: "github",
+    },
+    {
+      id: "vercel",
+      name: "Vercel",
+      description: t("session.plugins_desc_vercel"),
+      category: "developer",
+      iconKey: "vercel",
+    },
+    {
+      id: "huggingface",
+      name: "HuggingFace",
+      description: t("session.plugins_desc_huggingface"),
+      category: "developer",
+      iconKey: "huggingface",
+    },
+  ];
+}
 
 const CONNECTOR_ICON_SRC: Partial<Record<string, string>> = {
   "tencent-docs": "/connector-icons/tencent-docs.png",
@@ -359,7 +370,7 @@ function PluginLogo(props: { iconKey: string; className?: string }) {
               31
             </div>
             <div className="bg-dls-surface px-2 py-1 text-xs font-medium">
-              日历
+              {t("session.plugins_calendar_label")}
             </div>
           </div>
         </div>
@@ -507,7 +518,7 @@ function PluginCard(props: { item: PluginItem }) {
         variant="ghost"
         size="icon-sm"
         className={pluginsLayoutClass.iconButton}
-        aria-label={`添加 ${props.item.name}`}
+        aria-label={t("session.plugins_add_aria", { name: props.item.name })}
       >
         <Plus className="size-4" />
       </Button>
@@ -516,16 +527,18 @@ function PluginCard(props: { item: PluginItem }) {
 }
 
 export function PluginsPage(props: PluginsPageProps) {
+  const categories = useMemo(() => getPluginCategories(), []);
+  const samplePlugins = useMemo(() => getSamplePlugins(), []);
   const filteredByCategory = useMemo(() => {
     const map = new Map<PluginCategory, PluginItem[]>();
-    for (const category of PLUGIN_CATEGORIES) {
+    for (const category of categories) {
       map.set(
         category.id,
-        SAMPLE_PLUGINS.filter((item) => item.category === category.id),
+        samplePlugins.filter((item) => item.category === category.id),
       );
     }
     return map;
-  }, []);
+  }, [categories, samplePlugins]);
 
   return (
     <div
@@ -534,7 +547,7 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
-          {PLUGIN_CATEGORIES.map((category) => {
+          {categories.map((category) => {
             const items = filteredByCategory.get(category.id) ?? [];
             if (items.length === 0) return null;
             return (
@@ -1028,7 +1041,7 @@ function ScannedSkillCard(props: { skill: ScannedSkill }) {
   const dirPath = skill.path.replace(/[/\\]SKILL\.md$/i, "");
   const scopeLabel = SKILL_SCOPE_LABELS[skill.scope];
   return (
-    <PluginStoreCard className="group gap-2" layout="column" title={`来源: ${dirPath}`}>
+    <PluginStoreCard className="group gap-2" layout="column" title={t("session.plugins_scanned_source_prefix", { path: dirPath })}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className={pluginsTextClass.cardTitle}>
@@ -1047,7 +1060,7 @@ function ScannedSkillCard(props: { skill: ScannedSkill }) {
           className={pluginsTextClass.helper}
           title={skill.trigger}
         >
-          触发：{skill.trigger}
+          {t("session.plugins_scanned_trigger", { trigger: skill.trigger })}
         </div>
       )}
       <div
