@@ -539,29 +539,10 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </NoticeBox>
       ) : null}
 
-      <PanelSection title={t("config.diagnostics_title")} description={t("messaging.weixin_simulate")}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-xs font-medium text-dls-text">{t("messaging.weixin_simulate")}</div>
-            <div className="mt-1 text-xs leading-5 text-dls-secondary">
-              <span className="font-mono text-dls-text">#agent</span> / <span className="font-mono text-dls-text">#status</span> / <span className="font-mono text-dls-text">#runs</span> / <span className="font-mono text-dls-text">#approve</span> / <span className="font-mono text-dls-text">#new</span>
-            </div>
-          </div>
-          {serviceState.lastRunId ? (
-            <StatusBadge tone="surface" shape="soft" className="max-w-full font-mono">
-              <span className="truncate">runId: {serviceState.lastRunId}</span>
-            </StatusBadge>
-          ) : null}
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <Input value={allowedUser} onChange={(event) => setAllowedUser(event.currentTarget.value)} placeholder="open_id / union_id allowlist (optional)" />
-          <Input value={simulateText} onChange={(event) => setSimulateText(event.currentTarget.value)} placeholder={t("messaging.weixin_simulate_placeholder")} />
-          <Button type="button" variant="secondary" size="sm" onClick={simulateInbound} disabled={!effectiveAccountId || Boolean(busy)}>
-            {busy === "simulate" ? busyIcon : <Send className="size-4" />}
-            {t("messaging.weixin_simulate")}
-          </Button>
-        </div>
-      </PanelSection>
+      {/* Agent 切换提示 */}
+      <div className="rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
+        {t("messaging.feishu_agent_command_help")}
+      </div>
     </div>
   );
 }

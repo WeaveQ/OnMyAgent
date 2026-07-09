@@ -78,3 +78,11 @@ export function runtimeStateWorkspaceRoots(workspaceRoot) {
     legacySessionArchiveRoot: legacySessionArchiveRoot(workspaceRoot),
   };
 }
+
+export function personalAgentExtensionsRoot() {
+  return path.join(personalAgentRuntimeStateRoot(), "extensions");
+}
+
+export function personalAgentExtensionStateFile() {
+  return path.join(personalAgentExtensionsRoot(), "state.json");
+}

@@ -1,24 +1,26 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, RefreshCw, ShoppingBag, Sparkles, Zap } from "lucide-react";
+import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, Plus, RefreshCw, ShoppingBag, Sparkles, Wrench } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   agentManagementFetchModels,
   agentManagementMcpAction,
   agentManagementProviderAction,
-  agentManagementSetProvider,
-  agentManagementSetProxy,
   agentManagementSkillAction,
   agentManagementSnapshot,
   personalLocalAgentStart,
   personalLocalAgentStatus,
+  personalLocalAgentCreateCustomAgent,
+  personalLocalAgentUpdateCustomAgent,
+  personalLocalAgentDeleteCustomAgent,
   type AgentManagementAgent,
   type AgentManagementManagedProvider,
   type AgentManagementSkill,
@@ -26,6 +28,9 @@ import {
   type AgentManagementSnapshot,
 } from "../../../../../app/lib/desktop";
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
+import { InlineAgentEditor, type InlineAgentEditorValue } from "../../../local-agents/inline-agent-editor";
+import { AgentManagementRepairDialog } from "../../../local-agents/agent-management-repair-dialog";
+import { ExtensionListPanel } from "../../../local-agents/extension-list-panel";
 import {
   formatAgentManagerDuration,
   summarizeAgentManagementHealth,
@@ -42,13 +47,12 @@ import {
   type AgentManagementProviderApp,
   type ProviderDraft,
 } from "./agent-management-providers";
-import { AgentManagementProxyPanel } from "./agent-management-proxy-panel";
 import { AgentManagementMcpPanel } from "./agent-management-mcp-panel";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
 
 const AGENT_MANAGER_HEALTH_PROMPT = "Agent 管理健康检查：请只回复 HEALTH_CHECK_OK。";
 
-type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive" | "proxy";
+type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive";
 
 type AgentManagementUiCache = {
   activePanel: AgentManagementPanel;
@@ -68,7 +72,7 @@ function agentManagerCacheKey(workspaceRoot: string) {
 }
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
-  return value === "providers" || value === "agents" || value === "skills" || value === "mcp" || value === "archive" || value === "proxy";
+  return value === "providers" || value === "agents" || value === "skills" || value === "mcp" || value === "archive";
 }
 
 function isAgentManagementProviderApp(value: unknown): value is AgentManagementProviderApp {
@@ -149,7 +153,7 @@ function AgentManagementMetric(props: { label: string; value: string | number })
 export function AgentManagementPage(props: {
   workspaceRoot: string;
   sessionArchiveSlot?: ReactNode;
-  intent?: { key: string; action: "createProvider" } | null;
+  intent?: { key: string; action: "createProvider" | "openPanel"; panel?: AgentManagementPanel; focus?: "custom" | "detected" } | null;
 }) {
   const cacheKey = agentManagerCacheKey(props.workspaceRoot);
   const initialUi = useMemo(() => readInitialAgentManagementUi(cacheKey), [cacheKey]);
@@ -158,7 +162,6 @@ export function AgentManagementPage(props: {
   const [activePanel, setActivePanel] = useState<AgentManagementPanel>(() => initialUi.activePanel);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savingProvider, setSavingProvider] = useState<string | null>(null);
   const [providerActionKey, setProviderActionKey] = useState<string | null>(null);
   const [providerApp, setProviderApp] = useState<AgentManagementProviderApp>(() => initialUi.providerApp);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>(() => defaultProviderDraft(initialUi.providerApp));
@@ -166,12 +169,10 @@ export function AgentManagementPage(props: {
   const [checkingAgentId, setCheckingAgentId] = useState<string | null>(null);
   const [skillActionKey, setSkillActionKey] = useState<string | null>(null);
   const [mcpActionKey, setMcpActionKey] = useState<string | null>(null);
-  const [proxyActionKey, setProxyActionKey] = useState<string | null>(null);
   const [healthResults, setHealthResults] = useState<Record<string, AgentManagementHealthResult>>(() => initialUi.healthResults);
   const [skillColumnFilter, setSkillColumnFilter] = useState<AgentManagementSkillAgent[]>(() => initialUi.skillColumnFilter);
   const [skillSearch, setSkillSearch] = useState(() => initialUi.skillSearch);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string | null>(() => initialUi.selectedSkillKey);
-
   const refresh = useCallback(async (options?: { force?: boolean }) => {
     const cached = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
     if (cached && !options?.force) {
@@ -209,6 +210,108 @@ export function AgentManagementPage(props: {
     });
   }, [activePanel, cacheKey, healthResults, providerApp, selectedSkillKey, skillColumnFilter, skillSearch]);
 
+  const [agentFilter, setAgentFilter] = useState<"all" | "available" | "unavailable">("all");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<AgentManagementAgent | null>(null);
+  const [editorBusy, setEditorBusy] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [repairAgent, setRepairAgent] = useState<AgentManagementAgent | null>(null);
+  const [customFocusPending, setCustomFocusPending] = useState(false);
+  const customSectionRef = useRef<HTMLDivElement>(null);
+
+  const detectedAgents = useMemo(
+    () => (snapshot?.agents ?? []).filter((agent) => agent.provider !== "custom"),
+    [snapshot?.agents],
+  );
+  const customAgents = useMemo(
+    () => (snapshot?.agents ?? []).filter((agent) => agent.provider === "custom"),
+    [snapshot?.agents],
+  );
+  const filteredDetectedAgents = useMemo(() => {
+    if (agentFilter === "available") return detectedAgents.filter((agent) => agent.status === "online");
+    if (agentFilter === "unavailable") return detectedAgents.filter((agent) => agent.status !== "online");
+    return detectedAgents;
+  }, [agentFilter, detectedAgents]);
+
+  const openAddCustomAgent = useCallback(() => {
+    setEditingAgent(null);
+    setEditorError(null);
+    setEditorBusy(false);
+    setEditorOpen(true);
+  }, []);
+
+  const openEditCustomAgent = useCallback((agent: AgentManagementAgent) => {
+    setEditingAgent(agent);
+    setEditorError(null);
+    setEditorBusy(false);
+    setEditorOpen(true);
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditingAgent(null);
+    setEditorError(null);
+    setEditorBusy(false);
+  }, []);
+
+  const openRepair = useCallback((agent: AgentManagementAgent) => {
+    setRepairAgent(agent);
+  }, []);
+
+  const handleSaveCustomAgent = useCallback(async (value: InlineAgentEditorValue) => {
+    setEditorBusy(true);
+    setEditorError(null);
+    try {
+      const agentInput = {
+        id: value.id,
+        name: value.name,
+        command: value.command,
+        args: value.args,
+        env: value.env,
+        description: value.description,
+        nativeSkillsDirs: value.nativeSkillsDirs,
+        behaviorPolicy: value.behaviorPolicy,
+        connectionType: value.connectionType,
+        acpArgs: value.acpArgs,
+        supportsAcp: value.connectionType === "cli",
+        supportsStreaming: value.supportsStreaming,
+        supportsResume: value.supportsResume,
+        supportsApproval: value.supportsApproval,
+        supportsModelOverride: value.supportsModelOverride,
+        authRequired: value.authRequired,
+      };
+      if (editingAgent) {
+        await personalLocalAgentUpdateCustomAgent({ workspaceRoot: props.workspaceRoot, id: editingAgent.id, agent: agentInput });
+      } else {
+        await personalLocalAgentCreateCustomAgent({ workspaceRoot: props.workspaceRoot, id: value.id, agent: agentInput });
+      }
+      await refresh({ force: true });
+      closeEditor();
+    } catch (saveError) {
+      setEditorError(saveError instanceof Error ? saveError.message : String(saveError));
+    } finally {
+      setEditorBusy(false);
+    }
+  }, [closeEditor, editingAgent, props.workspaceRoot, refresh]);
+
+  const handleToggleCustomAgentEnabled = useCallback(async (agent: AgentManagementAgent, enabled: boolean) => {
+    try {
+      await personalLocalAgentUpdateCustomAgent({ workspaceRoot: props.workspaceRoot, id: agent.id, agent: { enabled } });
+      await refresh({ force: true });
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : String(toggleError));
+    }
+  }, [props.workspaceRoot, refresh]);
+
+  const handleDeleteCustomAgent = useCallback(async (agent: AgentManagementAgent) => {
+    try {
+      await personalLocalAgentDeleteCustomAgent({ workspaceRoot: props.workspaceRoot, id: agent.id });
+      await refresh({ force: true });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
+    }
+  }, [props.workspaceRoot, refresh]);
+
   useEffect(() => {
     const intent = props.intent;
     if (!intent || consumedIntentRef.current === intent.key) return;
@@ -218,37 +321,18 @@ export function AgentManagementPage(props: {
       setProviderApp("opencode");
       setProviderDraft(defaultProviderDraft("opencode"));
       setProviderModalOpen(true);
+    } else if (intent.action === "openPanel" && intent.panel && isAgentManagementPanel(intent.panel)) {
+      setActivePanel(intent.panel);
+      setCustomFocusPending(intent.focus === "custom");
     }
   }, [props.intent]);
 
-  const switchProvider = useCallback(async (agent: AgentManagementAgent, model: string) => {
-    setSavingProvider(agent.provider);
-    setError(null);
-    try {
-      await agentManagementSetProvider({ workspaceRoot: props.workspaceRoot, provider: agent.provider, model });
-      await refresh({ force: true });
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-    } finally {
-      setSavingProvider(null);
+  useEffect(() => {
+    if (customFocusPending && activePanel === "agents") {
+      customSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setCustomFocusPending(false);
     }
-  }, [props.workspaceRoot, refresh]);
-
-  const runProxyAction = useCallback(async (
-    input: Parameters<typeof agentManagementSetProxy>[0],
-    busyKey: string,
-  ) => {
-    setProxyActionKey(busyKey);
-    setError(null);
-    try {
-      await agentManagementSetProxy({ ...input, workspaceRoot: props.workspaceRoot });
-      await refresh({ force: true });
-    } catch (proxyError) {
-      setError(proxyError instanceof Error ? proxyError.message : String(proxyError));
-    } finally {
-      setProxyActionKey(null);
-    }
-  }, [props.workspaceRoot, refresh]);
+  }, [customFocusPending, activePanel]);
 
   const selectProviderApp = useCallback((app: AgentManagementProviderApp) => {
     setProviderApp(app);
@@ -519,21 +603,9 @@ export function AgentManagementPage(props: {
                   <Archive className="size-4" />
                   {t("nav.session_archive")}
                 </NavTabButton>
-              ) : null}
-              <NavTabButton
-                active={activePanel === "proxy"}
-                onClick={() => setActivePanel("proxy")}
-                size="tab"
-                shape="tab"
-              >
-                <Zap className="size-4" />
-                {t("agent_manager.proxy_control")}
-              </NavTabButton>
-            </SegmentedTabGroup>
+              ) : null}            </SegmentedTabGroup>
             <div className="text-xs text-dls-secondary">
-              {activePanel === "proxy"
-                ? t("agent_manager.proxy_desc")
-                : activePanel === "archive"
+              {activePanel === "archive"
                   ? t("agent_manager.session_archive_desc")
                 : activePanel === "mcp"
                   ? t("agent_manager.mcp.desc")
@@ -549,12 +621,6 @@ export function AgentManagementPage(props: {
             <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-dls-border bg-dls-surface">
               {props.sessionArchiveSlot}
             </div>
-          ) : activePanel === "proxy" ? (
-            <AgentManagementProxyPanel
-              snapshot={snapshot}
-              busyKey={proxyActionKey}
-              onProxyAction={runProxyAction}
-            />
           ) : activePanel === "providers" ? (
             <>
               <AgentManagementProviderPanel
@@ -583,26 +649,83 @@ export function AgentManagementPage(props: {
               onMcpAction={runMcpAction}
             />
           ) : activePanel === "agents" ? (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Cpu className="size-4 text-dls-secondary" />
-                <h3 className="text-sm font-medium">
-                  {t("agent_manager.provider_health")}
-                </h3>
+            <section className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="size-4 text-dls-secondary" />
+                    <h3 className="text-sm font-medium">{t("agent_manager.detected_agents")}</h3>
+                    <span className="text-xs text-dls-secondary">
+                      {filteredDetectedAgents.length} / {detectedAgents.length}
+                    </span>
+                  </div>
+                  <SegmentedTabGroup>
+                    <NavTabButton active={agentFilter === "all"} onClick={() => setAgentFilter("all")} size="tab" shape="tab">
+                      {t("agent_manager.filter_all")}
+                    </NavTabButton>
+                    <NavTabButton active={agentFilter === "available"} onClick={() => setAgentFilter("available")} size="tab" shape="tab">
+                      {t("agent_manager.filter_available")}
+                    </NavTabButton>
+                    <NavTabButton active={agentFilter === "unavailable"} onClick={() => setAgentFilter("unavailable")} size="tab" shape="tab">
+                      {t("agent_manager.filter_unavailable")}
+                    </NavTabButton>
+                  </SegmentedTabGroup>
+                </div>
+                {detectedAgents.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
+                    {t("agent_manager.detected_agents_desc")}
+                  </div>
+                ) : (
+                  <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                    {filteredDetectedAgents.map((agent) => (
+                      <AgentManagementAgentCard
+                        key={agent.id}
+                        agent={agent}
+                        health={healthResults[agent.id]}
+                        checking={checkingAgentId === agent.id}
+                        onHealthCheck={runHealthCheck}
+                        onRepair={openRepair}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                {(snapshot?.agents ?? []).map((agent) => (
-                  <AgentManagementAgentCard
-                    key={agent.id}
-                    agent={agent}
-                    busy={savingProvider === agent.provider}
-                    health={healthResults[agent.id]}
-                    checking={checkingAgentId === agent.id}
-                    onSwitch={switchProvider}
-                    onHealthCheck={runHealthCheck}
-                  />
-                ))}
+
+              <div ref={customSectionRef} className="scroll-mt-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Bot className="size-4 text-dls-secondary" />
+                    <h3 className="text-sm font-medium">{t("agent_manager.custom_agents")}</h3>
+                    <span className="text-xs text-dls-secondary">{customAgents.length}</span>
+                  </div>
+                  <Button variant="default" size="sm" onClick={openAddCustomAgent}>
+                    <Plus className="mr-1.5 size-3.5" />
+                    {t("agent_manager.custom_agents_add")}
+                  </Button>
+                </div>
+                {customAgents.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
+                    {t("agent_manager.custom_agents_empty")}
+                  </div>
+                ) : (
+                  <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                    {customAgents.map((agent) => (
+                      <AgentManagementAgentCard
+                        key={agent.id}
+                        agent={agent}
+                        health={healthResults[agent.id]}
+                        checking={checkingAgentId === agent.id}
+                        onHealthCheck={runHealthCheck}
+                        onToggleEnabled={handleToggleCustomAgentEnabled}
+                        onDelete={handleDeleteCustomAgent}
+                        onEdit={openEditCustomAgent}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
+
+              <ExtensionListPanel />
             </section>
           ) : (
             <SkillMatrixPanel
@@ -621,6 +744,34 @@ export function AgentManagementPage(props: {
           )}
         </div>
       </div>
+
+      <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) closeEditor(); }}>
+        <DialogContent className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
+          <DialogHeader className="border-b border-dls-border px-5 py-4">
+            <DialogTitle className="truncate text-base font-medium text-dls-text">
+              {editingAgent ? t("agent_manager.custom_agents_edit") : t("agent_manager.custom_agents_add")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-5 py-4">
+            <InlineAgentEditor
+              agent={editingAgent}
+              busy={editorBusy}
+              error={editorError}
+              onCancel={closeEditor}
+              onSave={handleSaveCustomAgent}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {repairAgent ? (
+        <AgentManagementRepairDialog
+          agent={repairAgent}
+          workspaceRoot={props.workspaceRoot}
+          onClose={() => setRepairAgent(null)}
+          onSaved={() => void refresh({ force: true })}
+        />
+      ) : null}
     </div>
   );
 }

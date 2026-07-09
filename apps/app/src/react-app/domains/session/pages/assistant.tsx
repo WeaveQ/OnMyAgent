@@ -3,7 +3,6 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
-  PanelLeft,
   PanelRight,
   Zap,
 } from "lucide-react";
@@ -45,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
-import { SessionArchivePage } from "../chat/session-page-session-archive-page";
+import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
   expertMarketplaceCategoryLabel,
@@ -77,6 +76,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  SidebarPaneCollapseToggle,
   SidebarFeaturePlaceholder,
   STARTUP_SKELETON_ROWS,
   StorePage,
@@ -160,6 +160,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const consumedAgentManagementIntentRef = useRef<string | null>(null);
   const [activeSidebarView, setActiveSidebarView] =
     useState<OnMyAgentPrimaryView>("assistant");
+  const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
@@ -848,35 +849,26 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   };
 
-  const headerPanelControls = (
+  const headerPanelControls = !sidePanelOpen ? (
     <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
-        size="icon-sm"
-        className={cn(
-          "transition-colors hover:bg-muted hover:text-foreground",
-          sidePanelOpen &&
-            activeSidePanel !== "canvas" &&
-            "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-        )}
+        size="icon-xs"
+        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
-          if (sidePanelOpen) {
-            closeRightPane();
-            return;
-          }
           openAssistantSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
         aria-label={t("session.code_side_panel_toggle")}
         aria-expanded={sidePanelOpen}
       >
-        <PanelRight className="size-4" />
+        <PanelRight className="size-3.5" />
       </Button>
     </div>
-  );
+  ) : null;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
@@ -956,21 +948,14 @@ export function AssistantPage(props: AssistantPageProps) {
             ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") &&
-            agentPanelCollapsed ? (
-              <div className="flex w-10 shrink-0 bg-dls-background px-2 pb-5 pt-2">
-                <Button
-                  type="button"
-                  onClick={() => setAgentPanelCollapsed(false)}
-                  variant="ghost"
-                  size="icon-xs"
-                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                  title={t("session.expand_session_list")}
-                  aria-label={t("session.expand_session_list")}
-                >
-                  <PanelLeft className="size-3.5" />
-                </Button>
-              </div>
+              activeSidebarView === "scheduledTasks") ? (
+              <SidebarPaneCollapseToggle
+                collapsed={agentPanelCollapsed}
+                onToggle={() => setAgentPanelCollapsed((value) => !value)}
+                style={{
+                  left: agentPanelCollapsed ? 0 : agentPanelWidth,
+                }}
+              />
             ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
@@ -1028,11 +1013,23 @@ export function AssistantPage(props: AssistantPageProps) {
 
                       {activeSidebarView === "localAgent" ? (
                         <PersonalLocalAgentPage
+                          resumeRequest={pendingArchiveResume}
+                          onResumeConsumed={() => setPendingArchiveResume(null)}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           workspaceName={props.selectedWorkspaceDisplay.name}
+                          onmyagentServerClient={props.onmyagentServerClient}
+                          runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                           headerActions={headerPanelControls}
+                          onOpenAgentManagement={(panel) => {
+                            setAgentManagementPageIntent({
+                              key: `open-panel-${Date.now()}`,
+                              action: "openPanel",
+                              panel: panel ?? "skills",
+                            });
+                            setActiveSidebarView("agentManagement");
+                          }}
                         />
                       ) : null}
 
@@ -1044,6 +1041,10 @@ export function AssistantPage(props: AssistantPageProps) {
                             <SessionArchivePage
                               client={props.onmyagentServerClient}
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                              onResume={(request) => {
+                                setPendingArchiveResume(request);
+                                setActiveSidebarView("localAgent");
+                              }}
                             />
                           )}
                         />
@@ -1057,6 +1058,7 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 

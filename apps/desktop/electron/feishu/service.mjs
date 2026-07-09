@@ -8,6 +8,7 @@ import { getChannelRunSnapshotState } from "./local-qr.mjs";
 import { createFeishuStore, sanitizeAccount } from "./store.mjs";
 import { createFeishuWebSocketClient } from "./ws-client.mjs";
 import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
+import { formatAgentReply } from "../channels/AgentReplyHeader.mjs";
 
 const RETRY_DELAY_SECONDS = 2;
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
@@ -16,6 +17,8 @@ const DEFAULT_HISTORY_LIMIT = 12;
 const DEFAULT_HISTORY_STORE_LIMIT = 24;
 const ACTIVE_RUN_POLL_INTERVAL_MS = 1_000;
 const ACTIVE_RUN_PENDING_POLL_INTERVAL_MS = 3_000;
+// Minimum spacing between "agent still busy" replies for the same chat+agent.
+const AGENT_BUSY_NOTICE_INTERVAL_MS = 15_000;
 const WEBHOOK_MAX_BODY_BYTES = 1024 * 1024;
 
 function sleep(ms) {
@@ -79,8 +82,10 @@ export function createFeishuService(options = {}) {
   const appendLog = typeof options.appendLog === "function" ? options.appendLog : () => undefined;
   const channelPairingService = options.channelPairingService ?? null;
   const channelSessionStore = options.channelSessionStore ?? null;
+  const channelEventBus = options.channelEventBus ?? null;
   const dedup = new TtlSet(5 * 60_000);
   const pendingBatches = new Map();
+  const agentBusyNoticeAt = new Map(); // busyKey -> lastNoticeAt (ms)
   const activeRunPollers = new Map();
   const clearedActiveRunKeys = new Set();
   const agentByChat = new Map();
@@ -177,6 +182,7 @@ export function createFeishuService(options = {}) {
     setState(statePatchForStart(accountId, optionsValue, "running"));
     await persistServiceConfig({ ...input, accountId, autoStart: input.autoStart ?? true });
     await resumeActiveRuns(active);
+    subscribeStudioRelay();
     return { ok: true, status: snapshot(), account: sanitizeAccount(account) };
   }
 
@@ -210,6 +216,7 @@ export function createFeishuService(options = {}) {
     activeRunPollers.clear();
     current.wsClient?.stop?.();
     await closeWebhookServer(current.server);
+    unsubscribeStudioRelay();
     setState({ status: "stopped", websocketState: "closed" });
     return { ok: true, status: snapshot() };
   }
@@ -310,11 +317,22 @@ export function createFeishuService(options = {}) {
     if (event.messageId && dedup.hasOrAdd(`id:${event.messageId}`)) return null;
     const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
     if (dedup.hasOrAdd(contentKey)) return null;
-    if (!isAllowed(session.options, event, event.senderId)) return null;
-    if (!(await ensureChannelUserAuthorized(session, { platformType: "feishu", platformUserId: event.senderId, chatId: event.chatId, displayName: event.senderId }))) return null;
+    if (!isAllowed(session.options, event, event.senderId)) {
+      appendLog({ type: "warn", text: `feishu inbound dropped (policy): sender=${event.senderId} chatType=${event.chatType}` });
+      return null;
+    }
+    if (!(await ensureChannelUserAuthorized(session, { platformType: "feishu", platformUserId: event.senderId, chatId: event.chatId, displayName: event.senderId }))) {
+      appendLog({ type: "warn", text: `feishu inbound dropped (unauthorized): sender=${event.senderId} chatId=${event.chatId}` });
+      return null;
+    }
     setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
     if (await maybeHandleControlCommand(session, event)) return event;
-    void enqueueText(session, event).catch((error) => setState({ lastError: error?.message ?? String(error) }));
+    void enqueueText(session, event).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setState({ lastError: message });
+      appendLog({ type: "error", text: `feishu enqueue failed: ${message}` });
+      void sendText(session, event.chatId, `处理失败：${message}`).catch(() => undefined);
+    });
     return event;
   }
 
@@ -330,7 +348,12 @@ export function createFeishuService(options = {}) {
     const batchEvent = prior?.event ?? { ...event, agentSnapshot: agent };
     const timer = setTimeout(() => {
       pendingBatches.delete(key);
-      void dispatchToAgent(session, batchEvent).catch((error) => setState({ lastError: error?.message ?? String(error) }));
+      void dispatchToAgent(session, batchEvent).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setState({ lastError: message });
+        appendLog({ type: "error", text: `feishu dispatch failed: ${message}` });
+        void sendText(session, batchEvent.chatId, `处理失败：${message}\n\n请检查 Studio 中飞书通道的本地 Agent 配置。`).catch(() => undefined);
+      });
     }, session.options.textBatchDelayMs);
     pendingBatches.set(key, { event: batchEvent, agent, timer });
   }
@@ -343,8 +366,15 @@ export function createFeishuService(options = {}) {
     const runKey = activeRunKey(event.chatId, agent);
     const existingRun = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
     if (existingRun?.runId) {
+      // Same chat + same agent is already busy. See weixin/service.mjs.
       scheduleActiveRunPoll(session, existingRun, 0);
-      await sendText(session, event.chatId, renderRunStatus(existingRun));
+      const busyKey = `${session.account.accountId}:${runKey}`;
+      const nowTs = Date.now();
+      const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
+      if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
+        agentBusyNoticeAt.set(busyKey, nowTs);
+        await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`).catch(() => undefined);
+      }
       return existingRun;
     }
     const runtimeAgent = scopedFeishuRuntimeAgent(agent, event);
@@ -416,7 +446,7 @@ export function createFeishuService(options = {}) {
       await sendText(session, event.chatId, "本次处理失败，请在 Studio 查看本地 Agent 日志。");
       return;
     }
-    await sendText(session, event.chatId, result.output);
+    await sendText(session, event.chatId, formatAgentReply({ agent, text: result.output }));
     await appendAgentHistory(session, historyKey, event.text, result.output, agent, session.options.historyStoreLimit);
     await appendChannelSessionHistory(channelSession, event.text, result.output, agent);
   }
@@ -457,10 +487,11 @@ export function createFeishuService(options = {}) {
     setState({ lastRunId: record.runId });
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
-      await sendText(session, record.chatId, result.output);
+      await sendText(session, record.chatId, formatAgentReply({ agent: record.agent, text: result.output }));
       await appendAgentHistory(session, record.historyKey, record.userText, result.output, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
       await appendChannelSessionHistoryById(record.channelSessionId, record.userText, result.output, record.agent);
       clearedActiveRunKeys.add(pollKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
       await store.deleteActiveRun(session.account.accountId, runKey);
       return;
     }
@@ -468,6 +499,7 @@ export function createFeishuService(options = {}) {
       const message = resultState.status === "cancelled" ? "本次本地 Agent 任务已取消。" : `本次处理失败，请在 Studio 查看本地 Agent 日志。${result?.error ? `\n${result.error}` : ""}`;
       await sendText(session, record.chatId, message);
       clearedActiveRunKeys.add(pollKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
       await store.deleteActiveRun(session.account.accountId, runKey);
       return;
     }
@@ -601,19 +633,44 @@ export function createFeishuService(options = {}) {
     }
     const agentCommand = parseAgentSwitchCommand(event.text);
     if (!agentCommand) return false;
+    const availableIds = (session.options.availableAgents ?? []).map((a) => `${a.provider}/${a.id}`);
+    appendLog({ type: "debug", text: `feishu agent-switch: raw=${JSON.stringify(event.text)} target=${JSON.stringify(agentCommand.target)} chat=${event.chatId} available=[${availableIds.join(",")}]` });
     if (!agentCommand.target) {
-      await sendText(session, event.chatId, renderAgentHelp(session, event.chatId));
+      appendLog({ type: "debug", text: "feishu agent-switch: empty target, sending help" });
+      await sendText(session, event.chatId, renderAgentHelp(session, event.chatId)).catch((error) => {
+        appendLog({ type: "error", text: `feishu agent-switch help send failed: ${error?.message ?? error}` });
+      });
       return true;
     }
     const nextAgent = resolveAgentAlias(session.options.availableAgents, agentCommand.target);
     if (!nextAgent) {
-      await sendText(session, event.chatId, `未找到可切换的本地 Agent：${agentCommand.target}\n\n${renderAgentHelp(session, event.chatId)}`);
+      appendLog({ type: "warn", text: `feishu agent-switch: target=${agentCommand.target} did not match any available agent alias; sending not-found` });
+      await sendText(session, event.chatId, `未找到可切换的本地 Agent：${agentCommand.target}\n\n${renderAgentHelp(session, event.chatId)}`).catch((error) => {
+        appendLog({ type: "error", text: `feishu agent-switch not-found send failed: ${error?.message ?? error}` });
+      });
       return true;
     }
+    const priorAgent = session.options.agentByChat.get(event.chatId) ?? null;
     session.options.agentByChat.set(event.chatId, nextAgent);
-    await store.writeChatSetting(session.account.accountId, event.chatId, { agent: nextAgent });
+    try {
+      await store.writeChatSetting(session.account.accountId, event.chatId, { agent: nextAgent });
+    } catch (error) {
+      appendLog({ type: "error", text: `feishu agent-switch: writeChatSetting failed: ${error?.message ?? error}` });
+    }
     setState({ activeAgentId: nextAgent.id, lastError: null });
-    await sendText(session, event.chatId, `已切换当前飞书会话的回复 Agent：${agentLabel(nextAgent)}`);
+    let priorRun = null;
+    try {
+      const priorRunKey = priorAgent ? activeRunKey(event.chatId, priorAgent) : null;
+      if (priorRunKey) priorRun = await store.readActiveRun(session.account.accountId, priorRunKey).catch(() => null);
+    } catch { /* noop */ }
+    const suffix = priorRun?.runId ? `\n上一个任务（${priorAgent ? agentLabel(priorAgent) : "旧 Agent"}）仍在运行，其结果会异步返回；新消息将由新 Agent 处理。` : "";
+    appendLog({ type: "debug", text: `feishu agent-switch: switched ${priorAgent ? priorAgent.id : "<none>"} -> ${nextAgent.id} priorRun=${priorRun?.runId ?? "none"}` });
+    try {
+      await sendText(session, event.chatId, `已切换当前飞书会话的回复 Agent：${agentLabel(nextAgent)}${suffix}`);
+      appendLog({ type: "debug", text: `feishu agent-switch: ack delivered to chat=${event.chatId}` });
+    } catch (error) {
+      appendLog({ type: "error", text: `feishu agent-switch ack send failed: ${error?.message ?? error}` });
+    }
     return true;
   }
 
@@ -657,6 +714,7 @@ export function createFeishuService(options = {}) {
       }
       const cancelled = typeof runtime?.cancelRun === "function" ? await runtime.cancelRun(run.runId, { reason: "feishu" }) : { ok: false, error: "runtime cancel is unavailable" };
       clearedActiveRunKeys.add(activeRunGuardKey(session.account.accountId, runKey));
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
       await store.deleteActiveRun(session.account.accountId, runKey);
       await sendText(session, event.chatId, cancelled?.ok === false ? `已清理飞书侧任务记录，但本地取消失败：${cancelled.error ?? "unknown error"}` : "已取消当前飞书会话的本地 Agent 任务。");
     }
@@ -719,19 +777,51 @@ export function createFeishuService(options = {}) {
     }
     const result = await channelPairingService.requestPairing(input);
     const code = result?.pairingRequest?.code;
-    if (code) await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`);
+    if (code) {
+      await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`);
+      appendLog({ type: "warn", text: `feishu pairing requested for ${input.platformUserId}, code=${code}` });
+    } else {
+      appendLog({ type: "warn", text: `feishu pairing request returned no code for ${input.platformUserId}` });
+    }
     return false;
   }
 
   async function getChannelSession(session, event, agent) {
     if (!channelSessionStore) return null;
-    return channelSessionStore.getOrCreateSession({
+    const channelSession = await channelSessionStore.getOrCreateSession({
       platformType: "feishu",
       platformUserId: event.senderId,
       agentType: `${agent.provider}/${agent.id}`,
       workspace: session.options.workspaceRoot,
       chatId: event.chatId,
     }).catch(() => null);
+    if (!channelSession) return null;
+    // Parity with AionCore create_conversation_for_session + bind_conversation:
+    // lazily create (once) a Studio conversation tagged source:"channel" and
+    // persist the mapping on the channel session so the same chat always
+    // reuses the same conversation and Studio can recognize its origin.
+    if (!channelSession.conversationId && runtime?.createConversation) {
+      try {
+        const created = await runtime.createConversation({
+          workspaceRoot: session.options.workspaceRoot,
+          agent: { provider: agent.provider, id: agent.id },
+          source: "channel",
+          title: `飞书 ${event.senderId}@${event.chatId}`,
+          metadata: {
+            channelChatId: event.chatId,
+            platformType: "feishu",
+            platformUserId: event.senderId,
+          },
+        });
+        const conversationId = created?.conversation?.id ?? created?.id ?? null;
+        if (conversationId) {
+          await channelSessionStore.bindConversation(channelSession.id, conversationId);
+        }
+      } catch (error) {
+        appendLog({ type: "warn", text: `feishu conversation bind failed: ${error?.message ?? String(error)}` });
+      }
+    }
+    return channelSessionStore.getSession(channelSession.id) ?? channelSession;
   }
 
   async function appendChannelSessionHistory(channelSession, userText, output, agent) {
@@ -751,6 +841,31 @@ export function createFeishuService(options = {}) {
     if (!channelSessionStore) return;
     const channelSession = await getChannelSession(session, event, agent);
     if (channelSession?.id) await channelSessionStore.closeSession(channelSession.id).catch(() => undefined);
+  }
+
+  // Parity S4 (reverse relay): when Studio sends a message on a conversation
+  // that this channel has bound to an IM chat, push it back to that chat.
+  // Subscribes to the bus event emitted by channel-runtime.relayStudioMessage;
+  // only acts when the target platform matches this service (feishu).
+  let _studioRelayUnsub = null;
+  function subscribeStudioRelay() {
+    if (!channelEventBus || _studioRelayUnsub) return;
+    _studioRelayUnsub = channelEventBus.subscribe("channel:conversation:message:from-studio", (event) => {
+      const payload = event?.payload ?? event ?? {};
+      if (String(payload?.platformType ?? "").toLowerCase() !== "feishu") return;
+      const chatId = String(payload?.chatId ?? "").trim();
+      const text = String(payload?.text ?? "").trim();
+      if (!chatId || !text) return;
+      void sendText(active, chatId, text).catch((error) => {
+        appendLog({ type: "error", text: `feishu studio-relay send failed: ${error?.message ?? String(error)}` });
+      });
+    });
+  }
+  function unsubscribeStudioRelay() {
+    if (_studioRelayUnsub) {
+      try { _studioRelayUnsub(); } catch { /* noop */ }
+      _studioRelayUnsub = null;
+    }
   }
 
   return {

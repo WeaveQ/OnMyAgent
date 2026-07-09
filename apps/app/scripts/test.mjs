@@ -19,6 +19,7 @@ const testTargets = new Map([
   ['infinite-canvas-ui-contract', ['bun', ['test', 'scripts/infinite-canvas-ui-contract.test.ts']]],
   ['infinite-canvas-ui-smoke', ['node', ['--experimental-websocket', 'scripts/infinite-canvas-ui-smoke.mjs']]],
   ['personal-local-agent-acp-ui-smoke', ['node', ['scripts/personal-local-agent-acp-ui-smoke.mjs']]],
+  ['local-agent-workspace-picker-ui-smoke', ['node', ['scripts/local-agent-workspace-picker-ui-smoke.mjs']]],
   ['personal-local-agent-codex-acp-tool-smoke', ['node', ['scripts/personal-local-agent-codex-acp-tool-smoke.mjs']]],
   ['remote-diagnostics', ['bun', ['test', 'scripts/remote-workspace-diagnostics.test.ts']]],
   ['open-target', ['bun', ['test', 'scripts/open-target.test.ts']]],
@@ -33,7 +34,8 @@ const testTargets = new Map([
   ['session-page-conversation-model', ['bun', ['test', 'scripts/session-page-conversation-model.test.ts']]],
   ['session-page-files-model', ['bun', ['test', 'scripts/session-page-files-model.test.ts']]],
   ['session-page-model', ['bun', ['test', 'scripts/session-page-model.test.ts']]],
-  ['session-page-session-archive-model', ['bun', ['test', 'scripts/session-page-session-archive-model.test.ts']]],
+  ['session-archive-page', ['bun', ['test', 'scripts/session-archive-page.test.ts']]],
+  ['local-agent-constants', ['bun', ['test', 'scripts/local-agent-constants.test.ts']]],
   ['session-page-view-model', ['bun', ['test', 'scripts/session-page-view-model.test.ts']]],
   ['session-route-sidebar-model', ['bun', ['test', 'scripts/session-route-sidebar-model.test.ts']]],
   ['session-route-agent-context', ['bun', ['test', 'scripts/session-route-agent-context.test.ts']]],
@@ -51,6 +53,8 @@ const testTargets = new Map([
   ['session-process-summary', ['bun', ['test', 'scripts/session-process-summary.test.ts']]],
   ['session-shared-pages-layout', ['bun', ['test', 'scripts/session-shared-pages-layout.test.ts']]],
   ['session-shared-models', ['bun', ['test', 'scripts/session-shared-models.test.ts']]],
+  ['session-side-panel-toggle-contract', ['bun', ['test', 'scripts/session-side-panel-toggle-contract.test.ts']]],
+  ['session-visual-files-contract', ['bun', ['test', 'scripts/session-visual-files-contract.test.ts']]],
   ['session-snapshot-error', ['bun', ['test', 'scripts/session-snapshot-error.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['ui-state-store', ['bun', ['test', 'scripts/ui-state-store.test.ts']]],
@@ -60,14 +64,6 @@ const testTargets = new Map([
   ['shared-provider-list', ['bun', ['test', 'scripts/shared-provider-list-query.test.ts']]],
   ['shared-modal-styles', ['bun', ['test', 'scripts/shared-modal-styles.test.ts']]],
   ['shared-onmyagent-server-store', ['bun', ['test', 'scripts/shared-onmyagent-server-store.test.ts']]],
-  ['session-archive-pagination', ['bun', ['test', 'scripts/session-archive-pagination.test.ts']]],
-  ['session-archive-message-pagination', ['bun', ['test', 'scripts/session-archive-message-pagination.test.ts']]],
-  ['session-archive-command-palette', ['bun', ['test', 'scripts/session-archive-command-palette.test.ts']]],
-  ['session-archive-keyboard', ['bun', ['test', 'scripts/session-archive-keyboard.test.ts']]],
-  ['session-archive-grouping', ['bun', ['test', 'scripts/session-archive-grouping.test.ts']]],
-  ['session-archive-transcript-controls', ['bun', ['test', 'scripts/session-archive-transcript-controls.test.ts']]],
-  ['session-archive-inline-rename', ['bun', ['test', 'scripts/session-archive-inline-rename.test.ts']]],
-  ['session-archive-ui-smoke', ['node', ['scripts/session-archive-ui-smoke.mjs']]],
   ['titlebar-hit-targets', ['bun', ['test', 'scripts/titlebar-hit-targets.test.ts']]],
   ['shared-extension-state', ['bun', ['test', 'scripts/shared-extension-state.test.ts']]],
   ['shared-workspace-modal-types', ['bun', ['test', 'scripts/shared-workspace-modal-types.test.ts']]],
@@ -107,7 +103,7 @@ function printUsage() {
 
 Targets:
   health|mention-send|sessions|events|todos|permissions
-  remote-diagnostics|open-target|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|personal-local-agent-codex-acp-tool-smoke|artifact-spreadsheet|assistant-selection-memory|composer-state-store|conversation-model|session-memory|session-activity-store|session-sync|session-draft-store|session-page-info-models|session-page-conversation-model|session-page-files-model|session-page-model|session-page-session-archive-model|session-route-agent-context|session-route-created-session-actions|session-route-control|session-route-model-options|session-route-sessions|session-scroll-store|session-surface-model|session-transition-controller|session-route-state|session-route-storage|session-render-state|session-process-summary|session-shared-pages-layout|session-shared-models|settings-route-model|session-route-composer|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|session-archive-pagination|session-archive-message-pagination|session-archive-command-palette|session-archive-keyboard|session-archive-grouping|session-archive-transcript-controls|session-archive-inline-rename|session-archive-ui-smoke|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|shared-pending-agent-store|shared-desktop-config-context|shared-agent-session-state|shared-agent-registry-store|shared-agent-registry-types|shared-agent-registry-helpers|shared-agent-default-registry|dev-log
+  remote-diagnostics|open-target|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|personal-local-agent-codex-acp-tool-smoke|artifact-spreadsheet|assistant-selection-memory|composer-state-store|conversation-model|session-memory|session-activity-store|session-sync|session-draft-store|session-page-info-models|session-page-conversation-model|session-page-files-model|session-page-model|session-page-session-archive-model|session-route-agent-context|session-route-created-session-actions|session-route-control|session-route-model-options|session-route-sessions|session-scroll-store|session-surface-model|session-transition-controller|session-route-state|session-route-storage|session-render-state|session-process-summary|session-shared-pages-layout|session-shared-models|session-side-panel-toggle-contract|settings-route-model|session-route-composer|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|session-archive-pagination|session-archive-message-pagination|session-archive-command-palette|session-archive-keyboard|session-archive-grouping|session-archive-transcript-controls|session-archive-inline-rename|session-archive-ui-smoke|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|shared-pending-agent-store|shared-desktop-config-context|shared-agent-session-state|shared-agent-registry-store|shared-agent-registry-types|shared-agent-registry-helpers|shared-agent-default-registry|dev-log
   session-error-recovery|session-scope|session-switch|fs-engine
   local-file-path|browser-entry|version-gate
   refactor|e2e|ui`)

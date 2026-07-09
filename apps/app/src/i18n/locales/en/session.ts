@@ -75,6 +75,8 @@ export default {
   "session.code_side_panel_expand": "Expand side panel",
   "session.code_side_panel_minimize": "Minimize side panel",
   "session.code_side_panel_toggle": "Expand side panel",
+  "session.collapse_sidebar_pane": "Collapse sidebar pane",
+  "session.expand_sidebar_pane": "Expand sidebar pane",
   "session.code_review_branch": "Branch",
   "session.code_review_commit_or_push": "Commit or push",
   "session.code_review_empty_desc": "Changes in this project will appear here.",

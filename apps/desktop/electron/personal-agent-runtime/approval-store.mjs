@@ -67,3 +67,9 @@ export async function rememberApprovalDecision(workspaceRoot, input) {
   await writeStore(workspaceRoot, store);
   return { key, ...store.decisions[key] };
 }
+
+export async function listRememberedApprovalDecisions(workspaceRoot) {
+  if (!workspaceRoot) return [];
+  const store = await readStore(workspaceRoot);
+  return Object.entries(store.decisions).map(([key, entry]) => ({ key, ...entry }));
+}

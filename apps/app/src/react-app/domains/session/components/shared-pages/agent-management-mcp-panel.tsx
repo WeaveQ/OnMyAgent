@@ -61,20 +61,26 @@ function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; bus
           <button
             type="button"
             className={cn(
-              "group/mcp-app flex size-8 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+              "group/mcp-app relative flex size-8 items-center justify-center rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-60",
               props.enabled
-                ? cn("border-transparent ring-1", tone.iconActive, tone.active)
-                : "border-dls-border bg-dls-surface text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                ? cn("border-2 shadow-sm ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
+                : "border border-dashed border-dls-border bg-dls-surface-muted text-dls-secondary opacity-70 grayscale hover:bg-dls-hover hover:opacity-100 hover:grayscale-0 hover:text-dls-text",
             )}
             aria-label={label}
+            aria-pressed={props.enabled}
             onClick={props.onToggle}
             disabled={props.busy}
           >
             {props.busy ? <Loader2 className="size-3 animate-spin" /> : <AgentSkillIcon agent={props.app} />}
+            {props.enabled && !props.busy ? (
+              <span className={cn("absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border-2 border-dls-surface", tone.dot)}>
+                <Check className="size-2 text-white" strokeWidth={3} />
+              </span>
+            ) : null}
           </button>
         }
       />
-      <TooltipContent side="bottom"><span>{label}</span></TooltipContent>
+      <TooltipContent side="bottom"><span>{label} · {props.enabled ? t("agent_manager.mcp.toggle_enabled") : t("agent_manager.mcp.toggle_disabled")}</span></TooltipContent>
     </Tooltip>
   );
 }

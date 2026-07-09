@@ -246,6 +246,62 @@ server.tool(
   }
 );
 
+
+// ── Convenience wrappers (read-only where possible; write actions still
+// route through ui_execute_action, which the renderer gates via the ACP
+// approval store on side-effectful action ids).
+server.tool(
+  "ui_list_sessions",
+  "List sessions surfaced by the OnMyAgent renderer. Read-only. Convenience wrapper over ui_execute_action with actionId='session.list'.",
+  {},
+  async () => {
+    const result = await bridgeRequest("/execute", {
+      method: "POST",
+      body: { actionId: "session.list_sessions", args: {} },
+    });
+    if (!result.ok && result.error) {
+      return { content: [{ type: "text", text: `Error: ${result.error}. If the action is not registered, use ui_list_actions to discover the current renderer's session ids.` }], isError: true };
+    }
+    return { content: [{ type: "text", text: formatExecutionResult("session.list_sessions", result) }] };
+  }
+);
+
+server.tool(
+  "ui_focus_session",
+  "Bring a specific OnMyAgent session into focus. Convenience wrapper over ui_execute_action with actionId='session.focus'. Requires user approval on first use per session.",
+  {
+    sessionId: z.string().describe("The session id to focus"),
+  },
+  async ({ sessionId }) => {
+    const result = await bridgeRequest("/execute", {
+      method: "POST",
+      body: { actionId: "session.open", args: { sessionId } },
+    });
+    if (!result.ok && result.error) {
+      return { content: [{ type: "text", text: `Error focusing session ${sessionId}: ${result.error}` }], isError: true };
+    }
+    return { content: [{ type: "text", text: formatExecutionResult("session.open", result) }] };
+  }
+);
+
+server.tool(
+  "ui_describe_workspace",
+  "Describe the active OnMyAgent workspace context: current route, narration, and any workspace hints exposed by the snapshot. Read-only.",
+  {},
+  async () => {
+    const result = await bridgeRequest("/snapshot");
+    if (!result.ok && result.error) {
+      return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
+    }
+    const snapshot = result.snapshot ?? result;
+    const lines = [];
+    if (snapshot.route) lines.push(`Route: ${snapshot.route}`);
+    if (snapshot.status) lines.push(`Status: ${snapshot.status}`);
+    if (snapshot.narration) lines.push(`Narration: ${snapshot.narration}`);
+    return { content: [{ type: "text", text: lines.join("\n") || "No workspace hints available from snapshot." }] };
+  }
+);
+
 // ── Start ──
 const transport = new StdioServerTransport();
 await server.connect(transport);
