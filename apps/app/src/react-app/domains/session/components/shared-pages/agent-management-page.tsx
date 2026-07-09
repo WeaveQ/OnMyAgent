@@ -5,6 +5,7 @@ import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, Plus, Re
 
 import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -540,7 +541,7 @@ export function AgentManagementPage(props: {
           </p>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={() => void refresh({ force: true })} title={t("common.refresh")} aria-label={t("common.refresh")}>
-          <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+          {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
         </Button>
       </header>
 

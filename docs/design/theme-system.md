@@ -41,6 +41,28 @@ Cross-cutting rules that surface most often in review:
 - **Composer host policy.** Global `SessionSurface` composer only on chat host views; never under manage / files / market / local-agent (local has its own ACP composer). See `DESIGN.md` § 11.
 - **Marketplace dialect.** Expert/skill store card grids may stay avatar-forward; do not import that density into workbench panels.
 
+## Canonical primitive table
+
+When more than one component could fit, use this table. New code must not invent a third path.
+
+| Need | Canonical | Do not |
+|------|-----------|--------|
+| Regional / list empty | `EmptyStateBox` (+ optional icon + one primary CTA) | Page-level long `border-dashed` blocks; third empty chrome |
+| Full-panel empty | `Empty` compound (`Empty` + Header/Media/Title/Description/Content) | Using only `EmptyStateBox` when the main panel is empty; inventing a third hero |
+| In-page persistent callout | `NoticeBox` (tones: neutral/info/warning/error) | Toast for sticky gates; ad-hoc tinted borders |
+| Ephemeral feedback | Toast (§ 4b) | `NoticeBox` that auto-dismisses |
+| In-page segmented control | `SegmentedTabGroup` + `NavTabButton shape="tab"` (or `SegmentedTabButton` inside the group) | Hand-written `inline-flex rounded-xl … p-1` tracks |
+| Multi-panel content tabs | `components/ui/tabs` | Mixing pill Segmented styling with content Tabs |
+| Local busy / refresh | `LoadingSpinner` (or Button with spinner child) | New bare `Loader2 className="animate-spin"` in page JSX |
+| Destructive / confirm | `ConfirmModal` (wraps `AlertDialog`; footer `size="lg"`) | Ad-hoc Dialog footers for delete/reset |
+| Single-line input | `Input` / `InputGroup` | New uses of `design-system/text-input` |
+| Select list | Prefer `components/ui/select`; `SelectMenu` only for dense settings rows already on that path | New ad-hoc popover option lists outside composer |
+| Tool approval | `ToolApprovalCard` risk tiers (safe / careful / destructive) | Untiered permission panels |
+| Streaming caret | `StreamingCursor` | One-off blink spans in transcript pages |
+| Keyboard chord display | `formatShortcut()` + kbd chip contract (§ 5a) | Hardcoded `⌘` / `Ctrl` strings in JSX |
+
+Shell chrome detail (sizes, tones, Confirm media): **`DESIGN.md` § 4i**.
+
 ## Palette, Semantic Tokens, Type Scale, Radius, Buttons, Rows
 
 See [`DESIGN.md`](../../DESIGN.md) — sections 2 (Color Palette),
@@ -48,6 +70,8 @@ See [`DESIGN.md`](../../DESIGN.md) — sections 2 (Color Palette),
 primitives + signature components), 4a (State Machines: loading /
 empty / error / success anatomy + perceptual timing bands), 4b
 (Notifications: toast anatomy, position, duration by severity),
+4c–4h (agent-native signatures), **4i (Shell chrome: Empty /
+EmptyStateBox / NoticeBox / LoadingSpinner / ConfirmModal)**,
 5 (Layout), 5a (Keyboard Contract: kbd chip + platform substitution),
 6 (Depth incl. Z-Layer Stack), 7 (Shapes: border-radius + iconography
 + photography geometry), 10 (Responsive & Platform incl.

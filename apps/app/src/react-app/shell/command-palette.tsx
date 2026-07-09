@@ -25,6 +25,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronLeftIcon, FileText, Globe } from "lucide-react";
 
+import { formatShortcut } from "@/lib/format-shortcut";
+
+/** Display label for the command palette chord. */
+export const COMMAND_PALETTE_SHORTCUT = formatShortcut(["Mod", "K"]);
 export type PaletteItem = {
   id: string;
   title: string;
@@ -343,6 +347,7 @@ export function CommandPalette(props: CommandPaletteProps) {
             : mode === "accessible-items"
               ? t("session.accessible_items_title")
               : t("session.palette_title_actions")}
+          <span className="ml-2 text-xs font-normal text-dls-secondary">{COMMAND_PALETTE_SHORTCUT}</span>
         </CommandDialogTitle>
         <Command key={mode} items={items}>
           <CommandHeader className={commandPaletteClass.header}>

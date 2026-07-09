@@ -30,7 +30,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MenuRowButton, NavTabButton, SegmentedTabButton } from "@/components/ui/action-row";
+import { MenuRowButton, NavTabButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -668,7 +668,7 @@ function FrequencyFields(props: {
   return (
     <div className="space-y-3">
       <div className="text-sm font-medium text-dls-secondary">{t("automation.field_frequency")}</div>
-      <div className="inline-flex rounded-xl border border-dls-border bg-dls-surface p-1">
+      <SegmentedTabGroup>
         {frequencyModes.map((mode) => (
           <SegmentedTabButton
             key={mode}
@@ -682,7 +682,7 @@ function FrequencyFields(props: {
             {automationFrequencyLabel(mode)}
           </SegmentedTabButton>
         ))}
-      </div>
+      </SegmentedTabGroup>
 
       {props.form.frequencyMode === "weekly" ? (
         <div className="flex flex-wrap items-center gap-2">
