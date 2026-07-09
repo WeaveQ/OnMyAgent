@@ -1,7 +1,43 @@
 import { randomUUID } from "node:crypto";
+import { chmodSync, existsSync, statSync } from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import pty from "node-pty";
+
+// node-pty ships `spawn-helper` binaries under prebuilds/. pnpm can drop the
+// executable bit while unpacking from its content-addressed store, and the
+// resulting `posix_spawnp failed.` is swallowed by the renderer, so the
+// "打开终端" menu item ends up looking dead. Best-effort restore +x once
+// before pty.spawn is called.
+function ensureSpawnHelperExecutable() {
+  if (process.platform === "win32") return;
+  try {
+    const requireFromHere = createRequire(import.meta.url);
+    const ptyEntry = requireFromHere.resolve("node-pty");
+    const ptyRoot = path.dirname(path.dirname(ptyEntry));
+    const prebuilds = path.join(ptyRoot, "prebuilds");
+    if (!existsSync(prebuilds)) return;
+    const platformDir =
+      process.platform === "darwin"
+        ? process.arch === "arm64"
+          ? "darwin-arm64"
+          : "darwin-x64"
+        : process.platform === "linux"
+          ? process.arch === "arm64"
+            ? "linux-arm64"
+            : "linux-x64"
+          : null;
+    if (!platformDir) return;
+    const helper = path.join(prebuilds, platformDir, "spawn-helper");
+    if (!existsSync(helper)) return;
+    const mode = statSync(helper).mode;
+    if ((mode & 0o111) === 0) chmodSync(helper, mode | 0o755);
+  } catch {
+    // Non-fatal: if we cannot chmod, node-pty will still surface its own error.
+  }
+}
+ensureSpawnHelperExecutable();
 
 const OUTPUT_LIMIT = 1_000_000;
 const DEFAULT_COLS = 96;
