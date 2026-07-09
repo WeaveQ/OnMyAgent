@@ -167,6 +167,9 @@ export default {
     "已切換到 {name} 的歷史 session：{title}。這個 Agent 暫不提供穩定的歷史內容讀取接口；後續消息會基於該原生 session 繼續，但 OnMyAgent 不在這裡偽造歷史 transcript。",
   "local_agent.use_default_config": "使用本機默認配置",
   "local_agent.loading_models": "正在讀取可選模型...",
+  "local_agent.model_switch_success_title": "已切換模型",
+  "local_agent.model_switch_error_title": "模型切換失敗",
+  "local_agent.model_switch_error_unknown": "發生未知錯誤",
   "local_agent.clear_chat": "清空當前對話",
   "local_agent.clear_chat_title":
     "清空當前 Agent 的 OnMyAgent 對話窗口，並讓下一條消息新建本地 Agent 會話；不會刪除該 Agent 框架自己的長期記憶或工作區文件。",

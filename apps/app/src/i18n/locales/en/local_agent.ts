@@ -179,6 +179,9 @@ export default {
     "Switched to {name} history session: {title}. This agent does not expose a stable history transcript API yet; future messages will resume that native session, but OnMyAgent will not fake a transcript here.",
   "local_agent.use_default_config": "Use local default configuration",
   "local_agent.loading_models": "Loading available models...",
+  "local_agent.model_switch_success_title": "Model switched",
+  "local_agent.model_switch_error_title": "Failed to switch model",
+  "local_agent.model_switch_error_unknown": "An unknown error occurred",
   "local_agent.clear_chat": "Clear current conversation",
   "local_agent.clear_chat_title":
     "Clear this agent's OnMyAgent conversation window and start a new local agent session on the next message. It does not delete the agent framework's long-term memory or workspace files.",

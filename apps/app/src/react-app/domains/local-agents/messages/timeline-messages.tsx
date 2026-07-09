@@ -165,9 +165,23 @@ function getKindDisplayName(kind?: string): string {
   return kind.trim();
 }
 
-function inferTitleFromInput(input?: string): string | null {
-  if (!input?.trim()) return null;
-  const trimmed = input.trim();
+function inferTitleFromInput(input?: unknown): string | null {
+  if (input == null) return null;
+  // ACP tool_call `input` may be a structured object (e.g. { command, path }),
+  // not a string. Normalize safely before trimming/parsing so an object
+  // payload does not crash the renderer with `input?.trim is not a function`.
+  let str: string;
+  if (typeof input === "string") {
+    str = input;
+  } else {
+    try {
+      str = JSON.stringify(input);
+    } catch {
+      str = String(input);
+    }
+  }
+  if (!str?.trim()) return null;
+  const trimmed = str.trim();
   // 尝试解析 JSON，看有没有 command/path/file_path/pattern
   try {
     const parsed = JSON.parse(trimmed);
@@ -184,6 +198,19 @@ function inferTitleFromInput(input?: string): string | null {
   const preview = trimmed.slice(0, 50).replace(/\s+/g, " ").trim();
   if (preview) return preview;
   return null;
+}
+
+// Safely stringify a tool field that may be a string OR a structured object
+// (ACP tool_call input/output are often objects). Avoids `x?.trim is not a
+// function` renderer crashes when the payload is non-string.
+function stringifyToolField(value?: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
 function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage) {
@@ -216,8 +243,8 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage) {
     title;
 
   const detailSections: Array<{ label: string; value: string; truncated?: boolean }> = [];
-  const input = tool?.input?.trim() || acpUpdate?.input?.trim();
-  const output = tool?.output?.trim() || acpUpdate?.output?.trim();
+  const input = stringifyToolField(tool?.input ?? acpUpdate?.input);
+  const output = stringifyToolField(tool?.output ?? acpUpdate?.output);
   if (input) detailSections.push({ label: "Input", value: input, truncated: tool?.inputTruncated });
   if (output) detailSections.push({ label: "Output", value: output, truncated: tool?.outputTruncated });
   if (Array.isArray(acpUpdate?.content) && acpUpdate.content.length) detailSections.push({ label: "Content", value: JSON.stringify(acpUpdate.content, null, 2) });

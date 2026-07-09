@@ -192,6 +192,8 @@ export function personalAgentMetadataFromAgent(agent) {
     available,
     command,
     args,
+    acpArgs: stringList(agent?.acpArgs),
+    connectionType: agent?.connectionType ?? null,
     env,
     native_skills_dirs: stringList(agent?.nativeSkillsDirs ?? agent?.native_skills_dirs),
     behavior_policy: {
