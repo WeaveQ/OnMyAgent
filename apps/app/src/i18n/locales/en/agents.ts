@@ -141,4 +141,6 @@ export default {
   "agents.action_conversation_target": "{name} / Chat",
   "agents.action_create_team_target": "{name} / Create team",
   "agents.error_image_read_failed": "Failed to read image",
+  "agents.default_agent_name": "New agent",
+  "agents.default_agent_quote": "I'm a professional agent assistant.",
 } as const;
