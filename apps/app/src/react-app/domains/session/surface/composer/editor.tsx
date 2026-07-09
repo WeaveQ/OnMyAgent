@@ -18,13 +18,11 @@ import {
   $isElementNode,
   $isRangeSelection,
   $isTextNode,
-  COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
   KEY_ARROW_LEFT_COMMAND,
   KEY_ARROW_RIGHT_COMMAND,
   KEY_BACKSPACE_COMMAND,
   KEY_ENTER_COMMAND,
-  PASTE_COMMAND,
   type SerializedTextNode,
   type Spread,
   TextNode,
@@ -38,14 +36,11 @@ type EditorProps = {
   value: string;
   mentions: Record<string, "agent" | "file">;
   scenarioTags?: Array<{ id: string; label: string }>;
-  pastedText?: Array<{ label: string; lines: number }>;
   disabled: boolean;
   placeholder: string;
   onChange: (value: string) => void;
   onSubmit: () => void | Promise<void>;
-  onExpandPastedText?: (label: string) => void;
   onPaste?: React.ClipboardEventHandler<HTMLDivElement>;
-  onPasteText?: (text: string) => void;
   onDrop?: React.DragEventHandler<HTMLDivElement>;
   onDragOver?: React.DragEventHandler<HTMLDivElement>;
   onDragLeave?: React.DragEventHandler<HTMLDivElement>;
@@ -57,8 +52,6 @@ const composerEditorTokenClass = {
   slashCommand: "inline-flex items-center rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
   scenario: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
   scenarioButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/10 hover:text-dls-accent",
-  pastedText: "inline-flex items-center gap-1 rounded-full border border-dls-status-warning-border bg-dls-status-warning-soft px-2.5 py-1 text-xs font-medium text-dls-status-warning",
-  pastedTextButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-status-warning transition-colors hover:bg-dls-status-warning/10 hover:text-dls-status-warning",
 };
 
 type SerializedComposerMentionNode = Spread<
@@ -323,125 +316,7 @@ function $createComposerScenarioNode(id: string, label: string) {
   return $applyNodeReplacement(new ComposerScenarioNode(id, label));
 }
 
-function pastedTextChipLabel(lines: number) {
-  return `Pasted · ${lines} line${lines === 1 ? "" : "s"}`;
-}
-
-function createPastedTextChipDom(label: string, lines: number) {
-  const dom = document.createElement("span");
-  dom.className = composerEditorTokenClass.pastedText;
-  dom.contentEditable = "false";
-  dom.setAttribute("spellcheck", "false");
-  dom.title = `Pasted text · ${label}`;
-
-  const text = document.createElement("span");
-  text.textContent = pastedTextChipLabel(lines);
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = composerEditorTokenClass.pastedTextButton;
-  button.title = "Expand pasted text";
-  button.setAttribute("aria-label", "Expand pasted text");
-  button.dataset.pastedExpandLabel = label;
-
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("fill", "currentColor");
-  svg.setAttribute("class", "h-3 w-3");
-  svg.setAttribute("aria-hidden", "true");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M5 3h8v8h-1.5V5.56l-7.97 7.97-1.06-1.06 7.97-7.97H5V3Z");
-  svg.append(path);
-  button.append(svg);
-  dom.append(text, button);
-  return dom;
-}
-
-function updatePastedTextChipDom(dom: HTMLElement, label: string, lines: number) {
-  const text = dom.firstElementChild;
-  if (text) text.textContent = pastedTextChipLabel(lines);
-  const button = dom.querySelector("button[data-pasted-expand-label]");
-  if (button instanceof HTMLButtonElement) {
-    button.dataset.pastedExpandLabel = label;
-  }
-  dom.title = `Pasted text · ${label}`;
-}
-
-type SerializedComposerPastedTextNode = Spread<
-  {
-    pastedLabel: string;
-    pastedLines: number;
-    type: "composer-pasted-text";
-    version: 1;
-  },
-  SerializedTextNode
->;
-
-class ComposerPastedTextNode extends TextNode {
-  __pastedLabel: string;
-  __pastedLines: number;
-
-  static override getType() {
-    return "composer-pasted-text";
-  }
-
-  static override clone(node: ComposerPastedTextNode) {
-    return new ComposerPastedTextNode(node.__pastedLabel, node.__pastedLines, node.__key);
-  }
-
-  static override importJSON(serializedNode: SerializedComposerPastedTextNode) {
-    return $createComposerPastedTextNode(serializedNode.pastedLabel, serializedNode.pastedLines);
-  }
-
-  constructor(label = "", lines = 0, key?: NodeKey) {
-    super(`[pasted text ${label}]`, key);
-    this.__pastedLabel = label;
-    this.__pastedLines = lines;
-  }
-
-  override exportJSON(): SerializedComposerPastedTextNode {
-    return {
-      ...super.exportJSON(),
-      pastedLabel: this.__pastedLabel,
-      pastedLines: this.__pastedLines,
-      type: "composer-pasted-text",
-      version: 1,
-    };
-  }
-
-  override createDOM(_config: EditorConfig) {
-    return createPastedTextChipDom(this.__pastedLabel, this.__pastedLines);
-  }
-
-  override updateDOM(prevNode: ComposerPastedTextNode, dom: HTMLElement) {
-    if (prevNode.__pastedLabel !== this.__pastedLabel || prevNode.__pastedLines !== this.__pastedLines) {
-      updatePastedTextChipDom(dom, this.__pastedLabel, this.__pastedLines);
-    }
-    return false;
-  }
-
-  override canInsertTextBefore(): false {
-    return false;
-  }
-
-  override canInsertTextAfter(): false {
-    return false;
-  }
-
-  override isTextEntity(): true {
-    return true;
-  }
-
-  override isToken(): true {
-    return true;
-  }
-}
-
-function $createComposerPastedTextNode(label: string, lines: number) {
-  return $applyNodeReplacement(new ComposerPastedTextNode(label, lines));
-}
-
-type ComposerInlineTokenNode = ComposerMentionNode | ComposerSlashCommandNode | ComposerScenarioNode | ComposerPastedTextNode;
+type ComposerInlineTokenNode = ComposerMentionNode | ComposerSlashCommandNode | ComposerScenarioNode;
 
 function setSelectionAfterNode(node: ComposerInlineTokenNode) {
   const parent = node.getParent();
@@ -493,7 +368,6 @@ function appendSegmentWithNewlines(
 function setPrompt(
   value: string,
   mentions: Record<string, "agent" | "file">,
-  pastedText?: Array<{ label: string; lines: number }>,
   scenarioTags?: Array<{ id: string; label: string }>,
 ) {
   const root = $getRoot();
@@ -509,8 +383,7 @@ function setPrompt(
     value = slashMatch[2] ?? "";
   }
 
-  const segments = value.split(/(\[\[assistant-scenario:[^\]]+\]\]|\[pasted text [^\]]+\]|@[^\s@]+)/);
-  const pastedTextByLabel = new Map((pastedText ?? []).map((item) => [item.label, item]));
+  const segments = value.split(/(\[\[assistant-scenario:[^\]]+\]\]|@[^\s@]+)/);
   for (const segment of segments) {
     if (!segment) continue;
     const scenarioMatch = segment.match(/^\[\[assistant-scenario:([^\]]+)\]\]$/);
@@ -518,14 +391,6 @@ function setPrompt(
       const label = scenarioLabels.get(scenarioMatch[1]);
       if (label) {
         paragraph.append($createComposerScenarioNode(scenarioMatch[1], label));
-        continue;
-      }
-    }
-    const pasteMatch = segment.match(/^\[pasted text (.+)\]$/);
-    if (pasteMatch?.[1]) {
-      const target = pastedTextByLabel.get(pasteMatch[1]);
-      if (target) {
-        paragraph.append($createComposerPastedTextNode(target.label, target.lines));
         continue;
       }
     }
@@ -559,7 +424,6 @@ function SyncPlugin(props: {
   value: string;
   mentions: Record<string, "agent" | "file">;
   scenarioTags?: Array<{ id: string; label: string }>;
-  pastedText?: Array<{ label: string; lines: number }>;
   disabled: boolean;
 }) {
   const [editor] = useLexicalComposerContext();
@@ -593,7 +457,7 @@ function SyncPlugin(props: {
       // Double-check inside the update in case another queued update
       // changed the state between the read above and this callback.
       if (!forceRebuild && serializePromptFromRoot() === props.value) return;
-      setPrompt(props.value, props.mentions, props.pastedText, props.scenarioTags);
+      setPrompt(props.value, props.mentions, props.scenarioTags);
       // $getRoot().selectEnd() doesn't work when the last node is a
       // token (chip) — Lexical can't position a cursor inside a token,
       // so the selection collapses to position 0. Use element-level
@@ -607,7 +471,7 @@ function SyncPlugin(props: {
         $getRoot().selectEnd();
       }
     });
-  }, [editor, props.mentions, props.pastedText, props.scenarioTags, props.value]);
+  }, [editor, props.mentions, props.scenarioTags, props.value]);
 
   return null;
 }
@@ -643,43 +507,6 @@ function SubmitPlugin(props: { onSubmit: () => void | Promise<void>; disabled: b
       COMMAND_PRIORITY_HIGH,
     );
   }, [editor, props.disabled]);
-
-  return null;
-}
-
-const PASTE_CHIP_LINE_THRESHOLD = 3;
-const PASTE_CHIP_CHAR_THRESHOLD = 200;
-
-function PasteChipPlugin(props: { onPasteText?: (text: string) => void }) {
-  const [editor] = useLexicalComposerContext();
-  const onPasteTextRef = useRef(props.onPasteText);
-
-  useEffect(() => {
-    onPasteTextRef.current = props.onPasteText;
-  }, [props.onPasteText]);
-
-  useEffect(() => {
-    return editor.registerCommand(
-      PASTE_COMMAND,
-      (event: ClipboardEvent) => {
-        if (!onPasteTextRef.current) return false;
-        // Only handle plain-text pastes; files are handled in the React onPaste.
-        const files = event.clipboardData?.files;
-        if (files && files.length > 0) return false;
-        const text = event.clipboardData?.getData("text/plain") ?? "";
-        if (!text.trim()) return false;
-        const lineCount = text.split(/\r?\n/).length;
-        if (lineCount < PASTE_CHIP_LINE_THRESHOLD && text.length < PASTE_CHIP_CHAR_THRESHOLD) {
-          return false;
-        }
-        // Collapse into a paste chip.
-        event.preventDefault();
-        onPasteTextRef.current(text);
-        return true;
-      },
-      COMMAND_PRIORITY_CRITICAL,
-    );
-  }, [editor]);
 
   return null;
 }
@@ -769,10 +596,10 @@ function MentionChipNavigationPlugin() {
           }
         }
 
-        // --- Mention / pasted-text chips: atomic delete (same as before) ---
+        // --- Mention / scenario chips: atomic delete (same as before) ---
         if ($isTextNode(anchorNode) && selection.anchor.offset === 0) {
           const previous = anchorNode.getPreviousSibling();
-          if (previous instanceof ComposerMentionNode || previous instanceof ComposerScenarioNode || previous instanceof ComposerPastedTextNode) {
+          if (previous instanceof ComposerMentionNode || previous instanceof ComposerScenarioNode) {
             previous.remove();
             return true;
           }
@@ -780,7 +607,7 @@ function MentionChipNavigationPlugin() {
 
         if ($isElementNode(anchorNode)) {
           const previous = anchorNode.getChildAtIndex(selection.anchor.offset - 1);
-          if (previous instanceof ComposerSlashCommandNode || previous instanceof ComposerMentionNode || previous instanceof ComposerScenarioNode || previous instanceof ComposerPastedTextNode) {
+          if (previous instanceof ComposerSlashCommandNode || previous instanceof ComposerMentionNode || previous instanceof ComposerScenarioNode) {
             previous.remove();
             return true;
           }
@@ -800,7 +627,7 @@ function MentionChipNavigationPlugin() {
 
         if ($isTextNode(anchorNode) && selection.anchor.offset === 0) {
           const previous = anchorNode.getPreviousSibling();
-          if (previous instanceof ComposerMentionNode || previous instanceof ComposerSlashCommandNode || previous instanceof ComposerScenarioNode || previous instanceof ComposerPastedTextNode) {
+          if (previous instanceof ComposerMentionNode || previous instanceof ComposerSlashCommandNode || previous instanceof ComposerScenarioNode) {
             setSelectionBeforeNode(previous);
             return true;
           }
@@ -818,14 +645,14 @@ function MentionChipNavigationPlugin() {
         if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false;
         const anchorNode = selection.anchor.getNode();
 
-        if (anchorNode instanceof ComposerMentionNode || anchorNode instanceof ComposerSlashCommandNode || anchorNode instanceof ComposerScenarioNode || anchorNode instanceof ComposerPastedTextNode) {
+        if (anchorNode instanceof ComposerMentionNode || anchorNode instanceof ComposerSlashCommandNode || anchorNode instanceof ComposerScenarioNode) {
           setSelectionAfterNode(anchorNode);
           return true;
         }
 
         if ($isElementNode(anchorNode)) {
           const current = anchorNode.getChildAtIndex(selection.anchor.offset);
-          if (current instanceof ComposerMentionNode || current instanceof ComposerSlashCommandNode || current instanceof ComposerScenarioNode || current instanceof ComposerPastedTextNode) {
+          if (current instanceof ComposerMentionNode || current instanceof ComposerSlashCommandNode || current instanceof ComposerScenarioNode) {
             setSelectionAfterNode(current);
             return true;
           }
@@ -865,9 +692,9 @@ export function LexicalPromptEditor(props: EditorProps) {
         throw error;
       },
         editable: !props.disabled,
-        nodes: [ComposerMentionNode, ComposerSlashCommandNode, ComposerScenarioNode, ComposerPastedTextNode],
+        nodes: [ComposerMentionNode, ComposerSlashCommandNode, ComposerScenarioNode],
         editorState: () => {
-          setPrompt(props.value, props.mentions, props.pastedText, props.scenarioTags);
+          setPrompt(props.value, props.mentions, props.scenarioTags);
         },
       }),
     [],
@@ -885,26 +712,6 @@ export function LexicalPromptEditor(props: EditorProps) {
     [],
   );
 
-  const handlePastedTextExpandPointer = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const button = target.closest("button[data-pasted-expand-label]");
-    if (!(button instanceof HTMLButtonElement)) return;
-    const label = button.dataset.pastedExpandLabel;
-    if (!label) return;
-    event.preventDefault();
-    event.stopPropagation();
-    props.onExpandPastedText?.(label);
-  }, [props.onExpandPastedText]);
-
-  const handlePastedTextExpandMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (!target.closest("button[data-pasted-expand-label]")) return;
-    event.preventDefault();
-    event.stopPropagation();
-  }, []);
-
   return (
     <LexicalComposer initialConfig={initialConfig}>
       {/*
@@ -913,7 +720,7 @@ export function LexicalPromptEditor(props: EditorProps) {
         - max-h caps the composer — long pastes / multi-paragraph drafts scroll
           inside the editor instead of pushing the transcript out of view.
       */}
-      <div className="relative" onClickCapture={handlePastedTextExpandPointer} onMouseDownCapture={handlePastedTextExpandMouseDown}>
+      <div className="relative">
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
@@ -935,9 +742,8 @@ export function LexicalPromptEditor(props: EditorProps) {
         />
         <OnChangePlugin onChange={syncPromptFromEditorState} />
         <HistoryPlugin />
-        <SyncPlugin value={props.value} mentions={props.mentions} scenarioTags={props.scenarioTags} pastedText={props.pastedText} disabled={props.disabled} />
+        <SyncPlugin value={props.value} mentions={props.mentions} scenarioTags={props.scenarioTags} disabled={props.disabled} />
         <SubmitPlugin onSubmit={props.onSubmit} disabled={props.disabled} />
-        <PasteChipPlugin onPasteText={props.onPasteText} />
         <ScenarioChipRemovePlugin />
         <MentionChipNavigationPlugin />
       </div>

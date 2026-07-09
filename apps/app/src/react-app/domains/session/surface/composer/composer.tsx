@@ -654,17 +654,6 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!mentionQuery) return mentionItems.slice(0, 8);
     return fuzzysort.go(mentionQuery, mentionItems, { keys: ["label"], limit: 8 }).map((entry) => entry.obj);
   }, [mentionItems, mentionOpen, mentionQuery]);
-  const pastedTextTokens = useMemo(
-    () => props.pastedText.map((item) => ({ label: item.label, lines: item.lines })),
-    [props.pastedText],
-  );
-
-  const handleExpandPastedText = useCallback((label: string) => {
-    const target = props.pastedText.find((item) => item.label === label);
-    if (!target) return;
-    props.onExpandPastedText(target.id);
-  }, [props.onExpandPastedText, props.pastedText]);
-
   const activeMenu = slashOpen ? "slash" : mentionOpen ? "mention" : null;
   const activeItems = activeMenu === "slash" ? slashFiltered : activeMenu === "mention" ? mentionFiltered : [];
   const toolCommandItems = commands.filter((command) => !command.source || command.source === "command");
@@ -1064,11 +1053,8 @@ export function ReactSessionComposer(props: ComposerProps) {
           ) : null}
 
           {/*
-            The pasted-text chip used to render twice — once inline inside
-            the Lexical editor (via ComposerPastedTextNode) and again as a
-            separate rail here above the composer. Keep only the inline
-            chip; its pill already shows label + line count, and the user
-            removes it with backspace like any other inline token.
+            Plain text pastes stay as text in the editor. We intentionally do
+            not render a pasted-text chip or rail here.
           */}
 
           {dropzoneActive ? (
@@ -1086,13 +1072,10 @@ export function ReactSessionComposer(props: ComposerProps) {
               value={props.draft}
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}
-              pastedText={pastedTextTokens}
               disabled={props.disabled}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={props.onDraftChange}
               onSubmit={props.onSend}
-              onExpandPastedText={handleExpandPastedText}
-              onPasteText={props.onPasteText}
               onPaste={(event) => {
                 // Paste policy:
                 // 1. Actual files on the clipboard -> attach them.
@@ -1125,11 +1108,9 @@ export function ReactSessionComposer(props: ComposerProps) {
 
                 const text = event.clipboardData?.getData("text/plain") ?? "";
 
-                // Long pastes (3+ lines / 200+ chars) are collapsed into
-                // an inline chip by PasteChipPlugin inside the Lexical
-                // editor. Do NOT duplicate that here — calling onPasteText
-                // from both the React onPaste handler and the Lexical
-                // PASTE_COMMAND handler causes double chip creation.
+                // Plain long text pastes stay as editable text. Historical
+                // paste chips remain readable through the editor renderer, but
+                // new clipboard text should not collapse into a tag.
 
                 if (
                   text.trim() &&

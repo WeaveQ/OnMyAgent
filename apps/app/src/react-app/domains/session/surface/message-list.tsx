@@ -72,7 +72,6 @@ const messageTextClass = {
 };
 
 const messageStateClass = {
-  pastedTextChip: "inline-flex rounded-full border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg hover:bg-dls-status-warning/10",
   skillReferenceChip: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
   toolError: "overflow-x-auto rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-4 py-3 text-xs leading-6 text-dls-status-danger",
   sheetBadge: "min-w-5 border border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
@@ -149,6 +148,14 @@ type StepClusterBlock = {
   isUser: boolean;
 };
 
+type DividerBlock = {
+  kind: "divider";
+  id: string;
+  label: string;
+  afterMessageCount: number;
+  isUser: false;
+};
+
 type MessageBlock = {
   kind: "message";
   message: UIMessage;
@@ -165,7 +172,14 @@ type MessageBlock = {
   messageId: string;
 };
 
-type MessageBlockItem = MessageBlock | StepClusterBlock;
+type MessageBlockItem = MessageBlock | StepClusterBlock | DividerBlock;
+type ConversationBlockItem = MessageBlock | StepClusterBlock;
+
+export type SessionTranscriptDivider = {
+  id: string;
+  label: string;
+  afterMessageCount: number;
+};
 
 /**
  * Stable-key used to match a block across renders. For message blocks the
@@ -173,6 +187,7 @@ type MessageBlockItem = MessageBlock | StepClusterBlock;
  * derived from its first step group) as the identity anchor.
  */
 function blockIdentityKey(block: MessageBlockItem): string {
+  if (block.kind === "divider") return `divider:${block.id}`;
   if (block.kind === "steps-cluster") return `cluster:${block.id}`;
   return `msg:${block.messageId}`;
 }
@@ -201,6 +216,14 @@ function blocksAreEquivalent(
   if (!previous) return false;
   if (previous.kind !== next.kind) return false;
   if (previous.isUser !== next.isUser) return false;
+
+  if (previous.kind === "divider" && next.kind === "divider") {
+    return (
+      previous.id === next.id &&
+      previous.label === next.label &&
+      previous.afterMessageCount === next.afterMessageCount
+    );
+  }
 
   if (previous.kind === "steps-cluster" && next.kind === "steps-cluster") {
     if (previous.id !== next.id) return false;
@@ -275,6 +298,7 @@ type SessionTranscriptProps = {
     handler: ((messageId: string, behavior?: ScrollBehavior) => boolean) | null,
   ) => void;
   footer?: ReactNode;
+  dividers?: SessionTranscriptDivider[];
   variant?: "default" | "nested";
   /** Revert to this message (undo everything after it). */
   onRevertToMessage?: (messageId: string) => void;
@@ -322,6 +346,10 @@ function estimateTextBlockSize(text: string, isUser: boolean) {
 
 function estimateBlockSize(block: MessageBlockItem | undefined) {
   if (!block) return 360;
+
+  if (block.kind === "divider") {
+    return 56;
+  }
 
   if (block.kind === "steps-cluster") {
     const partCount = block.stepGroups.reduce((total, group) => total + group.parts.length, 0);
@@ -714,37 +742,23 @@ function CopyButton(props: { getText: () => string }) {
   );
 }
 
-/** Expandable chip for collapsed pasted text in sent messages. */
-function PastedTextChip(props: { label: string; text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const lineCount = props.text.split(/\r?\n/).length;
-
-  return (
-    <span className="inline">
-      <Button
-        type="button"
-        variant="outline"
-        size="xs"
-        className={messageStateClass.pastedTextChip}
-        onClick={() => setExpanded((v) => !v)}
-        title={expanded ? t("session.collapse_pasted_text") : t("session.expand_pasted_text")}
-      >
-        <ChevronDown
-          size={12}
-          className={cn("shrink-0 transition-transform", expanded && "rotate-180")}
-        />
-        <span>Pasted · {lineCount} line{lineCount === 1 ? "" : "s"}</span>
-      </Button>
-      {expanded ? (
-        <NoticeBox tone="warning" size="content" className="mb-1.5 mt-1.5 leading-5 text-foreground">
-          <pre className="whitespace-pre-wrap break-words font-mono">{props.text}</pre>
-        </NoticeBox>
-      ) : null}
-    </span>
-  );
-}
-
 const PASTE_TOKEN_RE = /(\[pasted text [^\]]+\])/;
+const PASTE_TOKEN_EXACT_RE = /^\[pasted text (.+)\]$/;
+
+export function resolveDisplayedPastedText(
+  text: string,
+  pastedTextMap?: Map<string, string>,
+) {
+  if (!pastedTextMap?.size || !PASTE_TOKEN_RE.test(text)) return text;
+  return text
+    .split(PASTE_TOKEN_RE)
+    .map((segment) => {
+      const match = segment.match(PASTE_TOKEN_EXACT_RE);
+      if (!match?.[1]) return segment;
+      return pastedTextMap.get(match[1]) ?? segment;
+    })
+    .join("");
+}
 
 function HighlightedPlainText(props: {
   text: string;
@@ -754,6 +768,10 @@ function HighlightedPlainText(props: {
   pastedTextMap?: Map<string, string>;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const displayText = resolveDisplayedPastedText(
+    props.text,
+    props.pastedTextMap,
+  );
 
   useEffect(() => {
     const root = rootRef.current;
@@ -763,34 +781,11 @@ function HighlightedPlainText(props: {
       if (!rootRef.current || rootRef.current !== root) return;
       applyTextHighlights(root, props.highlightQuery ?? "");
     });
-  }, [props.highlightQuery, props.text]);
+  }, [displayText, props.highlightQuery]);
 
-  // If no paste tokens present, render as plain text (fast path).
-  if (!props.pastedTextMap?.size || !PASTE_TOKEN_RE.test(props.text)) {
-    return (
-      <div ref={rootRef} className={props.className}>
-        {props.text}
-      </div>
-    );
-  }
-
-  // Split on paste tokens and render chips inline.
-  const segments = props.text.split(PASTE_TOKEN_RE);
-  let segmentOffset = 0;
   return (
     <div ref={rootRef} className={props.className}>
-      {segments.map((segment) => {
-        const key = `${segmentOffset}:${segment}`;
-        segmentOffset += segment.length;
-        const match = segment.match(/^\[pasted text (.+)\]$/);
-        if (match?.[1]) {
-          const pastedBody = props.pastedTextMap?.get(match[1]);
-          if (pastedBody) {
-            return <PastedTextChip key={key} label={match[1]} text={pastedBody} />;
-          }
-        }
-        return <span key={key}>{segment}</span>;
-      })}
+      {displayText}
     </div>
   );
 }
@@ -1238,8 +1233,18 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
   );
 }
 
+function TranscriptDividerRow(props: { label: string }) {
+  return (
+    <div className="mx-auto flex max-w-[760px] items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
+      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+      <span className="shrink-0">{props.label}</span>
+      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+    </div>
+  );
+}
+
 function MessageBlockRow(props: {
-  block: MessageBlockItem;
+  block: ConversationBlockItem;
   blockIndex: number;
   totalBlocks: number;
   isNestedVariant: boolean;
@@ -1556,8 +1561,36 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
   const rawMessageBlocks = useMemo<MessageBlockItem[]>(() => {
     const blocks: MessageBlockItem[] = [];
+    const dividers = [...(props.dividers ?? [])]
+      .filter((divider) => divider.label.trim())
+      .sort((left, right) => {
+        if (left.afterMessageCount !== right.afterMessageCount) {
+          return left.afterMessageCount - right.afterMessageCount;
+        }
+        return left.id.localeCompare(right.id);
+      });
+    let nextDividerIndex = 0;
+    const pushReadyDividers = (afterMessageCount: number) => {
+      while (
+        nextDividerIndex < dividers.length &&
+        dividers[nextDividerIndex]?.afterMessageCount === afterMessageCount
+      ) {
+        const divider = dividers[nextDividerIndex];
+        if (divider) {
+          blocks.push({
+            kind: "divider",
+            id: divider.id,
+            label: divider.label,
+            afterMessageCount: divider.afterMessageCount,
+            isUser: false,
+          });
+        }
+        nextDividerIndex += 1;
+      }
+    };
 
-    transcriptMessages.forEach((message) => {
+    pushReadyDividers(0);
+    transcriptMessages.forEach((message, messageIndex) => {
       const renderableParts = message.parts.filter((part) => {
         if (part.type === "reasoning") {
           return showThinking;
@@ -1576,7 +1609,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         );
       });
 
-      if (!renderableParts.length) return;
+      if (!renderableParts.length) {
+        pushReadyDividers(messageIndex + 1);
+        return;
+      }
 
       // Filter out empty assistant messages. A newly-created session can briefly have
       // an empty assistant message with just a text part containing whitespace.
@@ -1586,7 +1622,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         if (part.type === "text") return partToText(part).trim().length === 0;
         if (part.type === "reasoning") return partToText(part).trim().length === 0;
         return false;
-      })) return;
+      })) {
+        pushReadyDividers(messageIndex + 1);
+        return;
+      }
       const attachments = attachmentsForParts(renderableParts);
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
       const groups = groupMessageParts(nonAttachmentParts, message.id);
@@ -1620,6 +1659,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         } else {
           blocks.push(nextBlock);
         }
+        pushReadyDividers(messageIndex + 1);
         return;
       }
 
@@ -1632,10 +1672,24 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         isUser,
         messageId: message.id,
       });
+      pushReadyDividers(messageIndex + 1);
     });
+    while (nextDividerIndex < dividers.length) {
+      const divider = dividers[nextDividerIndex];
+      if (divider) {
+        blocks.push({
+          kind: "divider",
+          id: divider.id,
+          label: divider.label,
+          afterMessageCount: divider.afterMessageCount,
+          isUser: false,
+        });
+      }
+      nextDividerIndex += 1;
+    }
 
-    return mergeLeadingAssistantStepClusters(blocks);
-  }, [props.developerMode, showThinking, transcriptMessages]);
+    return blocks;
+  }, [props.developerMode, props.dividers, showThinking, transcriptMessages]);
 
   // Structural sharing: reuse the previous block object reference for any
   // block whose content is equivalent. During streaming, only the active
@@ -1677,6 +1731,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         });
         return;
       }
+      if (block.kind === "divider") return;
 
       if (block.messageId) {
         next.set(block.messageId, index);
@@ -1702,6 +1757,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     if (!block) return `block-${index}`;
     if (block.kind === "steps-cluster") {
       return `steps-${block.messageIds.join(",")}`;
+    }
+    if (block.kind === "divider") {
+      return `divider-${block.id}`;
     }
     return `message-${block.messageId}`;
   }, [messageBlocks]);
@@ -1791,26 +1849,30 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                     ref={virtualizer.measureElement}
                     className="w-full"
                   >
-                    <MessageBlockRow
-                      block={block}
-                      blockIndex={virtualRow.index}
-                      totalBlocks={messageBlocks.length}
-                      isNestedVariant={isNestedVariant}
-                      shouldUseContentVisibility={shouldUseContentVisibility}
-                      expandedStepIds={expandedStepIds}
-                      onExpandedStepIdsChange={onExpandedStepIdsChange}
-                      searchMatchMessageIds={props.searchMatchMessageIds}
-                      activeSearchMessageId={props.activeSearchMessageId}
-                      searchHighlightQuery={props.searchHighlightQuery}
-                      isStreaming={props.isStreaming}
-                      latestAssistantMessageId={latestAssistantMessageId}
-                      onRevertToMessage={props.onRevertToMessage}
-                      onForkAtMessage={props.onForkAtMessage}
-                      openTargets={props.openTargets}
-                      onOpenTarget={props.onOpenTarget}
-                      assistantAvatar={props.assistantAvatar}
-                      userIdentity={props.userIdentity}
-                    />
+                    {block.kind === "divider" ? (
+                      <TranscriptDividerRow label={block.label} />
+                    ) : (
+                      <MessageBlockRow
+                        block={block}
+                        blockIndex={virtualRow.index}
+                        totalBlocks={messageBlocks.length}
+                        isNestedVariant={isNestedVariant}
+                        shouldUseContentVisibility={shouldUseContentVisibility}
+                        expandedStepIds={expandedStepIds}
+                        onExpandedStepIdsChange={onExpandedStepIdsChange}
+                        searchMatchMessageIds={props.searchMatchMessageIds}
+                        activeSearchMessageId={props.activeSearchMessageId}
+                        searchHighlightQuery={props.searchHighlightQuery}
+                        isStreaming={props.isStreaming}
+                        latestAssistantMessageId={latestAssistantMessageId}
+                        onRevertToMessage={props.onRevertToMessage}
+                        onForkAtMessage={props.onForkAtMessage}
+                        openTargets={props.openTargets}
+                        onOpenTarget={props.onOpenTarget}
+                        assistantAvatar={props.assistantAvatar}
+                        userIdentity={props.userIdentity}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -1820,27 +1882,31 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       ) : (
         <div>
           {messageBlocks.map((block, index) => (
-            <MessageBlockRow
-              key={blockIdentityKey(block)}
-              block={block}
-              blockIndex={index}
-              totalBlocks={messageBlocks.length}
-              isNestedVariant={isNestedVariant}
-              shouldUseContentVisibility={shouldUseContentVisibility}
-              expandedStepIds={expandedStepIds}
-              onExpandedStepIdsChange={onExpandedStepIdsChange}
-              searchMatchMessageIds={props.searchMatchMessageIds}
-              activeSearchMessageId={props.activeSearchMessageId}
-              searchHighlightQuery={props.searchHighlightQuery}
-              isStreaming={props.isStreaming}
-              latestAssistantMessageId={latestAssistantMessageId}
-              onRevertToMessage={props.onRevertToMessage}
-              onForkAtMessage={props.onForkAtMessage}
-              openTargets={props.openTargets}
-              onOpenTarget={props.onOpenTarget}
-              assistantAvatar={props.assistantAvatar}
-              userIdentity={props.userIdentity}
-            />
+            block.kind === "divider" ? (
+              <TranscriptDividerRow key={blockIdentityKey(block)} label={block.label} />
+            ) : (
+              <MessageBlockRow
+                key={blockIdentityKey(block)}
+                block={block}
+                blockIndex={index}
+                totalBlocks={messageBlocks.length}
+                isNestedVariant={isNestedVariant}
+                shouldUseContentVisibility={shouldUseContentVisibility}
+                expandedStepIds={expandedStepIds}
+                onExpandedStepIdsChange={onExpandedStepIdsChange}
+                searchMatchMessageIds={props.searchMatchMessageIds}
+                activeSearchMessageId={props.activeSearchMessageId}
+                searchHighlightQuery={props.searchHighlightQuery}
+                isStreaming={props.isStreaming}
+                latestAssistantMessageId={latestAssistantMessageId}
+                onRevertToMessage={props.onRevertToMessage}
+                onForkAtMessage={props.onForkAtMessage}
+                openTargets={props.openTargets}
+                onOpenTarget={props.onOpenTarget}
+                assistantAvatar={props.assistantAvatar}
+                userIdentity={props.userIdentity}
+              />
+            )
           ))}
         </div>
       )}

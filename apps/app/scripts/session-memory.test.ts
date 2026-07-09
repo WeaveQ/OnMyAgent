@@ -4,15 +4,18 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
+  readSessionGoalRuntimes,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
+  writeSessionGoalRuntimes,
   writeWorkspaceOrderIds,
 } from "../src/react-app/shell/session-memory";
 
 const ACTIVE_WORKSPACE_KEY = "onmyagent.react.activeWorkspace";
 const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
+const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -85,6 +88,137 @@ describe("session memory", () => {
     window.localStorage.setItem(SESSION_BY_WORKSPACE_KEY, JSON.stringify({ ws_a: "ses_1", ws_b: 42 }));
     expect(readLastSessionFor("ws_a")).toBe("ses_1");
     expect(readLastSessionFor("ws_b")).toBeNull();
+  });
+
+  test("persists goal runtimes with checkpoints, logs, and cached todos by session", () => {
+    writeSessionGoalRuntimes({
+      ses_a: {
+        source: "goal_intent",
+        status: "waiting",
+        waitingReason: "permission",
+        objective: "Create a long-running project manager demo",
+        summary: "项目管理工具 Demo 搭建",
+        messageBaseline: 3,
+        lastRunMessageBaseline: 5,
+        startedAt: 100,
+        updatedAt: 400,
+        totalPausedMs: 20,
+        lastRunStartedAt: 300,
+        currentCheckpoint: "浏览器自测",
+        completionCriteria: ["功能可用", "自测通过"],
+        validationCommands: ["pnpm test:ui"],
+        progressLog: ["已创建脚手架", "已完成基础样式"],
+        lastKnownTodos: [
+          {
+            id: "todo-1",
+            content: "完成权限审批验证",
+            status: "in_progress",
+            priority: "medium",
+          },
+        ],
+      },
+      ses_b: {
+        source: "goal_intent",
+        status: "completed",
+        objective: "Finished goal",
+        messageBaseline: 1,
+        startedAt: 10,
+        updatedAt: 20,
+        completedAt: 30,
+        totalPausedMs: 0,
+      },
+      " ": {
+        status: "running",
+        objective: "ignored",
+        messageBaseline: 0,
+        startedAt: 1,
+        updatedAt: 1,
+        totalPausedMs: 0,
+      },
+      ses_empty: {
+        status: "running",
+        objective: "   ",
+        messageBaseline: 0,
+        startedAt: 1,
+        updatedAt: 1,
+        totalPausedMs: 0,
+      },
+    });
+
+    expect(readSessionGoalRuntimes()).toEqual({
+      ses_a: {
+        source: "goal_intent",
+        status: "waiting",
+        waitingReason: "permission",
+        objective: "Create a long-running project manager demo",
+        summary: "项目管理工具 Demo 搭建",
+        messageBaseline: 3,
+        lastRunMessageBaseline: 5,
+        startedAt: 100,
+        updatedAt: 400,
+        totalPausedMs: 20,
+        lastRunStartedAt: 300,
+        currentCheckpoint: "浏览器自测",
+        completionCriteria: ["功能可用", "自测通过"],
+        validationCommands: ["pnpm test:ui"],
+        progressLog: ["已创建脚手架", "已完成基础样式"],
+        lastKnownTodos: [
+          {
+            id: "todo-1",
+            content: "完成权限审批验证",
+            status: "in_progress",
+            priority: "medium",
+          },
+        ],
+      },
+      ses_b: {
+        source: "goal_intent",
+        status: "completed",
+        objective: "Finished goal",
+        messageBaseline: 1,
+        startedAt: 10,
+        updatedAt: 20,
+        completedAt: 30,
+        totalPausedMs: 0,
+      },
+    });
+
+    writeSessionGoalRuntimes({});
+    expect(window.localStorage.getItem(GOAL_RUNTIME_BY_SESSION_KEY)).toBeNull();
+  });
+
+  test("ignores legacy inferred goal runtimes without an explicit source", () => {
+    window.localStorage.setItem(
+      GOAL_RUNTIME_BY_SESSION_KEY,
+      JSON.stringify({
+        ses_legacy: {
+          status: "waiting",
+          objective: "This was inferred from a historical user message",
+          messageBaseline: 0,
+          startedAt: 10,
+          updatedAt: 20,
+          totalPausedMs: 0,
+        },
+      ses_goal: {
+        source: "goal_intent",
+        status: "waiting",
+        objective: "Real goal",
+        summary:
+          "You 项目要求：1. 新建文件夹 long-goal-project-manager-demo，不要改动当前工作区已有业务代码。",
+        messageBaseline: 0,
+        startedAt: 10,
+        updatedAt: 20,
+        totalPausedMs: 0,
+        },
+      }),
+    );
+
+    expect(readSessionGoalRuntimes()).toMatchObject({
+      ses_goal: {
+        summary:
+          "新建文件夹 long-goal-project-manager-demo，不要改动当前工作区已有业务代码",
+      },
+    });
   });
 
   test("forgets active workspace, last-session entry, and workspace order", () => {
