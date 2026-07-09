@@ -149,6 +149,14 @@ type StepClusterBlock = {
   isUser: boolean;
 };
 
+type DividerBlock = {
+  kind: "divider";
+  id: string;
+  label: string;
+  afterMessageCount: number;
+  isUser: false;
+};
+
 type MessageBlock = {
   kind: "message";
   message: UIMessage;
@@ -165,7 +173,14 @@ type MessageBlock = {
   messageId: string;
 };
 
-type MessageBlockItem = MessageBlock | StepClusterBlock;
+type MessageBlockItem = MessageBlock | StepClusterBlock | DividerBlock;
+type ConversationBlockItem = MessageBlock | StepClusterBlock;
+
+export type SessionTranscriptDivider = {
+  id: string;
+  label: string;
+  afterMessageCount: number;
+};
 
 /**
  * Stable-key used to match a block across renders. For message blocks the
@@ -173,6 +188,7 @@ type MessageBlockItem = MessageBlock | StepClusterBlock;
  * derived from its first step group) as the identity anchor.
  */
 function blockIdentityKey(block: MessageBlockItem): string {
+  if (block.kind === "divider") return `divider:${block.id}`;
   if (block.kind === "steps-cluster") return `cluster:${block.id}`;
   return `msg:${block.messageId}`;
 }
@@ -201,6 +217,14 @@ function blocksAreEquivalent(
   if (!previous) return false;
   if (previous.kind !== next.kind) return false;
   if (previous.isUser !== next.isUser) return false;
+
+  if (previous.kind === "divider" && next.kind === "divider") {
+    return (
+      previous.id === next.id &&
+      previous.label === next.label &&
+      previous.afterMessageCount === next.afterMessageCount
+    );
+  }
 
   if (previous.kind === "steps-cluster" && next.kind === "steps-cluster") {
     if (previous.id !== next.id) return false;
@@ -275,6 +299,7 @@ type SessionTranscriptProps = {
     handler: ((messageId: string, behavior?: ScrollBehavior) => boolean) | null,
   ) => void;
   footer?: ReactNode;
+  dividers?: SessionTranscriptDivider[];
   variant?: "default" | "nested";
   /** Revert to this message (undo everything after it). */
   onRevertToMessage?: (messageId: string) => void;
@@ -322,6 +347,10 @@ function estimateTextBlockSize(text: string, isUser: boolean) {
 
 function estimateBlockSize(block: MessageBlockItem | undefined) {
   if (!block) return 360;
+
+  if (block.kind === "divider") {
+    return 56;
+  }
 
   if (block.kind === "steps-cluster") {
     const partCount = block.stepGroups.reduce((total, group) => total + group.parts.length, 0);
@@ -1238,8 +1267,18 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
   );
 }
 
+function TranscriptDividerRow(props: { label: string }) {
+  return (
+    <div className="mx-auto flex max-w-[760px] items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
+      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+      <span className="shrink-0">{props.label}</span>
+      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+    </div>
+  );
+}
+
 function MessageBlockRow(props: {
-  block: MessageBlockItem;
+  block: ConversationBlockItem;
   blockIndex: number;
   totalBlocks: number;
   isNestedVariant: boolean;
@@ -1556,8 +1595,36 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
   const rawMessageBlocks = useMemo<MessageBlockItem[]>(() => {
     const blocks: MessageBlockItem[] = [];
+    const dividers = [...(props.dividers ?? [])]
+      .filter((divider) => divider.label.trim())
+      .sort((left, right) => {
+        if (left.afterMessageCount !== right.afterMessageCount) {
+          return left.afterMessageCount - right.afterMessageCount;
+        }
+        return left.id.localeCompare(right.id);
+      });
+    let nextDividerIndex = 0;
+    const pushReadyDividers = (afterMessageCount: number) => {
+      while (
+        nextDividerIndex < dividers.length &&
+        dividers[nextDividerIndex]?.afterMessageCount === afterMessageCount
+      ) {
+        const divider = dividers[nextDividerIndex];
+        if (divider) {
+          blocks.push({
+            kind: "divider",
+            id: divider.id,
+            label: divider.label,
+            afterMessageCount: divider.afterMessageCount,
+            isUser: false,
+          });
+        }
+        nextDividerIndex += 1;
+      }
+    };
 
-    transcriptMessages.forEach((message) => {
+    pushReadyDividers(0);
+    transcriptMessages.forEach((message, messageIndex) => {
       const renderableParts = message.parts.filter((part) => {
         if (part.type === "reasoning") {
           return showThinking;
@@ -1576,7 +1643,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         );
       });
 
-      if (!renderableParts.length) return;
+      if (!renderableParts.length) {
+        pushReadyDividers(messageIndex + 1);
+        return;
+      }
 
       // Filter out empty assistant messages. A newly-created session can briefly have
       // an empty assistant message with just a text part containing whitespace.
@@ -1586,7 +1656,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         if (part.type === "text") return partToText(part).trim().length === 0;
         if (part.type === "reasoning") return partToText(part).trim().length === 0;
         return false;
-      })) return;
+      })) {
+        pushReadyDividers(messageIndex + 1);
+        return;
+      }
       const attachments = attachmentsForParts(renderableParts);
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
       const groups = groupMessageParts(nonAttachmentParts, message.id);
@@ -1620,6 +1693,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         } else {
           blocks.push(nextBlock);
         }
+        pushReadyDividers(messageIndex + 1);
         return;
       }
 
@@ -1632,10 +1706,24 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         isUser,
         messageId: message.id,
       });
+      pushReadyDividers(messageIndex + 1);
     });
+    while (nextDividerIndex < dividers.length) {
+      const divider = dividers[nextDividerIndex];
+      if (divider) {
+        blocks.push({
+          kind: "divider",
+          id: divider.id,
+          label: divider.label,
+          afterMessageCount: divider.afterMessageCount,
+          isUser: false,
+        });
+      }
+      nextDividerIndex += 1;
+    }
 
     return mergeLeadingAssistantStepClusters(blocks);
-  }, [props.developerMode, showThinking, transcriptMessages]);
+  }, [props.developerMode, props.dividers, showThinking, transcriptMessages]);
 
   // Structural sharing: reuse the previous block object reference for any
   // block whose content is equivalent. During streaming, only the active
@@ -1677,6 +1765,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         });
         return;
       }
+      if (block.kind === "divider") return;
 
       if (block.messageId) {
         next.set(block.messageId, index);
@@ -1702,6 +1791,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     if (!block) return `block-${index}`;
     if (block.kind === "steps-cluster") {
       return `steps-${block.messageIds.join(",")}`;
+    }
+    if (block.kind === "divider") {
+      return `divider-${block.id}`;
     }
     return `message-${block.messageId}`;
   }, [messageBlocks]);
@@ -1791,26 +1883,30 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                     ref={virtualizer.measureElement}
                     className="w-full"
                   >
-                    <MessageBlockRow
-                      block={block}
-                      blockIndex={virtualRow.index}
-                      totalBlocks={messageBlocks.length}
-                      isNestedVariant={isNestedVariant}
-                      shouldUseContentVisibility={shouldUseContentVisibility}
-                      expandedStepIds={expandedStepIds}
-                      onExpandedStepIdsChange={onExpandedStepIdsChange}
-                      searchMatchMessageIds={props.searchMatchMessageIds}
-                      activeSearchMessageId={props.activeSearchMessageId}
-                      searchHighlightQuery={props.searchHighlightQuery}
-                      isStreaming={props.isStreaming}
-                      latestAssistantMessageId={latestAssistantMessageId}
-                      onRevertToMessage={props.onRevertToMessage}
-                      onForkAtMessage={props.onForkAtMessage}
-                      openTargets={props.openTargets}
-                      onOpenTarget={props.onOpenTarget}
-                      assistantAvatar={props.assistantAvatar}
-                      userIdentity={props.userIdentity}
-                    />
+                    {block.kind === "divider" ? (
+                      <TranscriptDividerRow label={block.label} />
+                    ) : (
+                      <MessageBlockRow
+                        block={block}
+                        blockIndex={virtualRow.index}
+                        totalBlocks={messageBlocks.length}
+                        isNestedVariant={isNestedVariant}
+                        shouldUseContentVisibility={shouldUseContentVisibility}
+                        expandedStepIds={expandedStepIds}
+                        onExpandedStepIdsChange={onExpandedStepIdsChange}
+                        searchMatchMessageIds={props.searchMatchMessageIds}
+                        activeSearchMessageId={props.activeSearchMessageId}
+                        searchHighlightQuery={props.searchHighlightQuery}
+                        isStreaming={props.isStreaming}
+                        latestAssistantMessageId={latestAssistantMessageId}
+                        onRevertToMessage={props.onRevertToMessage}
+                        onForkAtMessage={props.onForkAtMessage}
+                        openTargets={props.openTargets}
+                        onOpenTarget={props.onOpenTarget}
+                        assistantAvatar={props.assistantAvatar}
+                        userIdentity={props.userIdentity}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -1820,27 +1916,31 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       ) : (
         <div>
           {messageBlocks.map((block, index) => (
-            <MessageBlockRow
-              key={blockIdentityKey(block)}
-              block={block}
-              blockIndex={index}
-              totalBlocks={messageBlocks.length}
-              isNestedVariant={isNestedVariant}
-              shouldUseContentVisibility={shouldUseContentVisibility}
-              expandedStepIds={expandedStepIds}
-              onExpandedStepIdsChange={onExpandedStepIdsChange}
-              searchMatchMessageIds={props.searchMatchMessageIds}
-              activeSearchMessageId={props.activeSearchMessageId}
-              searchHighlightQuery={props.searchHighlightQuery}
-              isStreaming={props.isStreaming}
-              latestAssistantMessageId={latestAssistantMessageId}
-              onRevertToMessage={props.onRevertToMessage}
-              onForkAtMessage={props.onForkAtMessage}
-              openTargets={props.openTargets}
-              onOpenTarget={props.onOpenTarget}
-              assistantAvatar={props.assistantAvatar}
-              userIdentity={props.userIdentity}
-            />
+            block.kind === "divider" ? (
+              <TranscriptDividerRow key={blockIdentityKey(block)} label={block.label} />
+            ) : (
+              <MessageBlockRow
+                key={blockIdentityKey(block)}
+                block={block}
+                blockIndex={index}
+                totalBlocks={messageBlocks.length}
+                isNestedVariant={isNestedVariant}
+                shouldUseContentVisibility={shouldUseContentVisibility}
+                expandedStepIds={expandedStepIds}
+                onExpandedStepIdsChange={onExpandedStepIdsChange}
+                searchMatchMessageIds={props.searchMatchMessageIds}
+                activeSearchMessageId={props.activeSearchMessageId}
+                searchHighlightQuery={props.searchHighlightQuery}
+                isStreaming={props.isStreaming}
+                latestAssistantMessageId={latestAssistantMessageId}
+                onRevertToMessage={props.onRevertToMessage}
+                onForkAtMessage={props.onForkAtMessage}
+                openTargets={props.openTargets}
+                onOpenTarget={props.onOpenTarget}
+                assistantAvatar={props.assistantAvatar}
+                userIdentity={props.userIdentity}
+              />
+            )
           ))}
         </div>
       )}

@@ -19,6 +19,7 @@ import {
   readLocalAuthUser,
 } from "../../app/lib/local-auth";
 import {
+  compactSession,
   forkSession,
   listCommands,
   revertSession,
@@ -76,10 +77,12 @@ import {
 import {
   buildAccessModeSystemPrompt,
   buildCollaborationModeSystemPrompt,
+  buildGoalRuntimeSystemPrompt,
   buildLanguageSystemPrompt,
   applySessionAccessMode,
   draftHasSendableContent,
   draftToParts,
+  isComposerGoalMode,
   isComposerPlanningMode,
   joinSystemParts,
   resolveComposerRuntimeTools,
@@ -210,6 +213,7 @@ import {
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import type {
+  CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   ComposerDraft,
   ComposerPart,
@@ -289,9 +293,13 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
+  readSessionGoalRuntimes,
+  readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
+  writeSessionGoalRuntimes,
+  writeSessionTodos,
   writeWorkspaceOrderIds,
 } from "./session-memory";
 import { recordInspectorEvent } from "./app-inspector";
@@ -609,6 +617,9 @@ export function SessionRoute() {
   const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
     Record<string, CollaborationPlanRuntime>
   >({});
+  const [sessionGoalRuntimeById, setSessionGoalRuntimeById] = useState<
+    Record<string, CollaborationGoalRuntime>
+  >(() => readSessionGoalRuntimes());
   const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
   const questionReplyBusyRef = useRef(false);
   // Subscribe to pending agent so the composer's model selection reflects
@@ -620,6 +631,10 @@ export function SessionRoute() {
   // The agent's configured model can only change via the agent page edit dialog.
   const [manualModelOverride, setManualModelOverride] =
     useState<ModelRef | null>(null);
+
+  useEffect(() => {
+    writeSessionGoalRuntimes(sessionGoalRuntimeById);
+  }, [sessionGoalRuntimeById]);
 
   // Clear the manual override when a fresh "conversation from agent card"
   // flow begins. We key on `conversationStartId` (a nonce set on every
@@ -1688,6 +1703,24 @@ export function SessionRoute() {
     [selectedSessionId, selectedWorkspaceId],
   );
   const todos = useQueryCacheState<TodoItem[]>(todoQueryKey, emptyTodos);
+  const [lastVisibleTodosBySessionId, setLastVisibleTodosBySessionId] =
+    useState<Record<string, TodoItem[]>>(() => readSessionTodos());
+  const todosHaveContent = todos.some((todo) => todo.content.trim());
+  useEffect(() => {
+    if (!selectedSessionId || !todosHaveContent) return;
+    setLastVisibleTodosBySessionId((current) => ({
+      ...current,
+      [selectedSessionId]: todos,
+    }));
+  }, [selectedSessionId, todos, todosHaveContent]);
+  useEffect(() => {
+    writeSessionTodos(lastVisibleTodosBySessionId);
+  }, [lastVisibleTodosBySessionId]);
+  const visibleTodos = useMemo(() => {
+    if (todosHaveContent) return todos;
+    if (!selectedSessionId) return todos;
+    return lastVisibleTodosBySessionId[selectedSessionId] ?? todos;
+  }, [lastVisibleTodosBySessionId, selectedSessionId, todos, todosHaveContent]);
   useEffect(() => {
     if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
     let cancelled = false;
@@ -2070,7 +2103,8 @@ export function SessionRoute() {
       return null;
     }
 
-    const composerModeSessionId = selectedSessionId ?? `draft:${selectedWorkspaceId}`;
+    const draftComposerModeSessionId = `draft:${selectedWorkspaceId}`;
+    const composerModeSessionId = selectedSessionId ?? draftComposerModeSessionId;
     const sessionAccessMode =
       sessionAccessModeById[composerModeSessionId] ?? "default";
     const sessionCollaborationMode =
@@ -2078,7 +2112,14 @@ export function SessionRoute() {
       (pageMode === "assistant"
         ? { kind: "craft", planning: false, pursueGoal: true }
         : { planning: false, pursueGoal: false });
-    const planRuntime = sessionPlanRuntimeById[composerModeSessionId] ?? null;
+    const planRuntime =
+      sessionPlanRuntimeById[composerModeSessionId] ??
+      sessionPlanRuntimeById[draftComposerModeSessionId] ??
+      null;
+    const goalRuntime =
+      sessionGoalRuntimeById[composerModeSessionId] ??
+      sessionGoalRuntimeById[draftComposerModeSessionId] ??
+      null;
 
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
@@ -2116,6 +2157,18 @@ export function SessionRoute() {
       planRuntime,
       onPlanRuntimeChange: (runtime: CollaborationPlanRuntime | null) => {
         setSessionPlanRuntimeById((current) => {
+          const next = { ...current };
+          if (!runtime) {
+            delete next[composerModeSessionId];
+          } else {
+            next[composerModeSessionId] = runtime;
+          }
+          return next;
+        });
+      },
+      goalRuntime,
+      onGoalRuntimeChange: (runtime: CollaborationGoalRuntime | null) => {
+        setSessionGoalRuntimeById((current) => {
           const next = { ...current };
           if (!runtime) {
             delete next[composerModeSessionId];
@@ -2295,6 +2348,48 @@ export function SessionRoute() {
             return next;
           });
         }
+        const goalIntent = draft.goalIntent;
+        if (goalIntent) {
+          const now = Date.now();
+          setSessionGoalRuntimeById((current) => {
+            const next = { ...current };
+            delete next[composerModeSessionId];
+            next[sessionId] = {
+              status: "running",
+              objective: goalIntent.objective,
+              messageBaseline: goalIntent.messageBaseline,
+              lastRunMessageBaseline: goalIntent.messageBaseline,
+              startedAt: now,
+              updatedAt: now,
+              totalPausedMs: 0,
+              lastRunStartedAt: now,
+            };
+            return next;
+          });
+        } else if (isComposerGoalMode(draft.collaborationMode)) {
+          const existingGoal =
+            sessionGoalRuntimeById[composerModeSessionId] ??
+            sessionGoalRuntimeById[sessionId];
+          if (existingGoal) {
+            const now = Date.now();
+            setSessionGoalRuntimeById((current) => {
+              const currentGoal =
+                current[composerModeSessionId] ??
+                current[sessionId] ??
+                existingGoal;
+              const next = { ...current };
+              delete next[composerModeSessionId];
+              next[sessionId] = {
+                ...currentGoal,
+                status: "running",
+                updatedAt: now,
+                lastRunStartedAt: now,
+                completedAt: undefined,
+              };
+              return next;
+            });
+          }
+        }
 
         const runWithCreatedSessionRuntimeSync = async <T,>(
           action: () => Promise<T>,
@@ -2428,6 +2523,37 @@ export function SessionRoute() {
             pendingAgentSnapshot,
           );
         }
+        const selectedPromptModel =
+          manualModelOverride ??
+          pendingAgentSnapshot?.model ??
+          local.prefs.defaultModel ??
+          undefined;
+        if (
+          selectedPromptModel &&
+          isComposerGoalMode(draft.collaborationMode) &&
+          !draft.goalIntent
+        ) {
+          const activityStore = useSessionActivityStore.getState();
+          const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
+          activityStore.setCompacting(selectedWorkspaceId, sessionId, true);
+          if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
+            activityStore.setCompacting(runtimeWorkspaceId, sessionId, true);
+          }
+          try {
+            await compactSession(opencodeClient, sessionId, selectedPromptModel, {
+              auto: true,
+              directory: taskWorkspaceRoot || undefined,
+            });
+          } catch {
+            // Best-effort: if the preflight compact check fails, preserve the
+            // user's send path and let the normal prompt request report errors.
+          } finally {
+            activityStore.setCompacting(selectedWorkspaceId, sessionId, false);
+            if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
+              activityStore.setCompacting(runtimeWorkspaceId, sessionId, false);
+            }
+          }
+        }
         const combinedSystem = joinSystemParts([
           envSystemContext,
           buildLanguageSystemPrompt(currentLocale()),
@@ -2437,6 +2563,12 @@ export function SessionRoute() {
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
             undefined,
+          buildGoalRuntimeSystemPrompt(
+            draft.goalIntent
+              ? { objective: draft.goalIntent.objective }
+              : sessionGoalRuntimeById[composerModeSessionId] ??
+                  sessionGoalRuntimeById[sessionId],
+          ) || undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
           draft.hiddenSystemPrompt,
         ]);
@@ -2447,11 +2579,7 @@ export function SessionRoute() {
             // Priority: user's manual override > agent's configured model > global default.
             // Never modify `pendingAgentSnapshot.model` — the agent's configured model
             // is owned by the agent page edit dialog.
-            model:
-              manualModelOverride ??
-              pendingAgentSnapshot?.model ??
-              local.prefs.defaultModel ??
-              undefined,
+            model: selectedPromptModel,
             agent: selectedAgent ?? undefined,
             ...(modelVariantValue ? { variant: modelVariantValue } : {}),
             ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
@@ -2603,6 +2731,7 @@ export function SessionRoute() {
     selectedWorkspaceId,
     sessionAccessModeById,
     sessionCollaborationModeById,
+    sessionGoalRuntimeById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
@@ -3338,7 +3467,7 @@ export function SessionRoute() {
             onUndo: () => {},
             onRedo: () => {},
           }}
-          todos={todos}
+          todos={visibleTodos}
           sessionLoadingById={(sessionId) =>
             effectiveLoading &&
             Boolean(sessionId && sessionId === selectedSessionId)

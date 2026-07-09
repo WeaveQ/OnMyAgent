@@ -73,13 +73,14 @@ export async function compactSession(
   client: Client,
   sessionID: string,
   model: ModelRef,
-  options?: { directory?: string },
+  options?: { directory?: string; auto?: boolean },
 ): Promise<void> {
   const session = client.session as { summarize?: (input: {
     sessionID: string;
     directory?: string;
     providerID: string;
     modelID: string;
+    auto?: boolean;
   }) => Promise<unknown> };
 
   if (typeof session.summarize === "function") {
@@ -88,6 +89,7 @@ export async function compactSession(
       directory: options?.directory,
       providerID: model.providerID,
       modelID: model.modelID,
+      auto: options?.auto,
     });
     assertNoClientError(result);
     return;

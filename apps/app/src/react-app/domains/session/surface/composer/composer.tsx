@@ -1125,11 +1125,9 @@ export function ReactSessionComposer(props: ComposerProps) {
 
                 const text = event.clipboardData?.getData("text/plain") ?? "";
 
-                // Long pastes (3+ lines / 200+ chars) are collapsed into
-                // an inline chip by PasteChipPlugin inside the Lexical
-                // editor. Do NOT duplicate that here — calling onPasteText
-                // from both the React onPaste handler and the Lexical
-                // PASTE_COMMAND handler causes double chip creation.
+                // Plain long text pastes stay as editable text. Historical
+                // paste chips remain readable through the editor renderer, but
+                // new clipboard text should not collapse into a tag.
 
                 if (
                   text.trim() &&
