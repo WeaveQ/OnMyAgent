@@ -21,6 +21,7 @@ import { StatusDot, StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../../design-system/select-menu";
+import { useStatusToasts } from "../../shared/status-toasts";
 import {
   personalLocalAgentAcpCancel,
   personalLocalAgentAcpAgentsList,
@@ -145,6 +146,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [selectedAgentId, setSelectedAgentId] = useState(persistedState.selectedAgentId || "opencode");
   const [query, setQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const { showToast } = useStatusToasts();
   const [agentListWidth, setAgentListWidth] = useState(LOCAL_AGENT_LIST_DEFAULT_WIDTH);
   const [draftsByAgent, setDraftsByAgent] = useState<Record<string, string>>(persistedState.draftsByAgent ?? {});
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
@@ -254,22 +256,47 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // directory before the first message. This matches AionUi's per-navigation
   // workspace semantics instead of a single global override.
   const selectedConversationWorkdir = selectedConversation?.workdir?.trim() || "";
-  // A conversation is editable whenever it has not yet committed a workdir.
-  // This used to also require "no conversation selected at all", which left the
-  // chip permanently disabled (a conversation is almost always auto-selected),
-  // so users could never mount/switch a project for a brand-new conversation.
-  const chipEditable = !selectedConversationWorkdir;
   const displayWorkspaceRoot = selectedConversationWorkdir || effectiveWorkspaceRoot;
   const selectedAcpModelInfo = useAcpModelInfo(selectedAgent);
   const selectedHeartbeatJobs = selectedAgent ? heartbeatJobs.filter((job) => job.agent?.id === selectedAgent.id) : [];
   const selectedChatKey = selectedAgent ? localAgentChatKey(selectedAgent.id, selectedConversationId) : "";
+  // The workspace chip stays editable ONLY while the conversation is truly
+  // fresh: it has no committed `workdir` AND no real messages yet. Before the
+  // first message the user may freely pick / re-pick a project (so a wrong
+  // choice can be corrected). Sending the first message commits the workdir on
+  // the server and permanently locks the chip. This keeps the chip's editable
+  // state consistent with `selectedIsFreshConversation()` (the rebase guard),
+  // avoiding the case where the chip looks editable but re-picking silently
+  // does nothing.
+  const selectedConversationHasContent = (messagesByAgent[selectedChatKey] ?? []).some(
+    (message) => (message as { run?: unknown }).run || (message as { role?: string }).role === "user",
+  );
+  const chipEditable = !selectedConversationWorkdir && !selectedConversationHasContent;
   const handleWarmupResult = useCallback((result: { ok: boolean; providerSessionId?: string | null }) => {
-    if (!result.ok || !selectedAgent || !selectedConversationId || !result.providerSessionId) return;
-    setConversationsByAgent((current) => ({
-      ...current,
-      [selectedAgent.id]: (current[selectedAgent.id] ?? []).map((conversation) => conversation.id === selectedConversationId ? { ...conversation, providerSessionId: result.providerSessionId ?? conversation.providerSessionId, resumeKey: result.providerSessionId ?? conversation.resumeKey } : conversation),
-    }));
-  }, [selectedAgent, selectedConversationId]);
+    if (!result.ok || !selectedAgent || !selectedConversationId) return;
+    if (result.providerSessionId) {
+      setConversationsByAgent((current) => ({
+        ...current,
+        [selectedAgent.id]: (current[selectedAgent.id] ?? []).map((conversation) => conversation.id === selectedConversationId ? { ...conversation, providerSessionId: result.providerSessionId ?? conversation.providerSessionId, resumeKey: result.providerSessionId ?? conversation.resumeKey } : conversation),
+      }));
+    }
+    // After the ACP warmup handshake completes, the runtime has persisted the
+    // session metadata (available_models, config options, commands) into the
+    // session-store. Re-pull the agent list so `listAgents` hydrates that
+    // metadata into `agent.handshake` — this is what makes the model selector
+    // appear for custom/ACP agents (which have no static `modelOptions`),
+    // matching AionUI's "models become selectable after the session handshake"
+    // behavior. Without this the handshake stays cold and the selector never
+    // shows. `useAcpInitialMessage` de-dupes warmups by key, so refreshing the
+    // agents here cannot cause a warmup loop.
+    void personalLocalAgentAcpAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: false })
+      .then((listed) => {
+        const nextAgents = listed.agents.map(agentFromAcpMetadata);
+        setAgents(nextAgents);
+        safeWriteCachedAgents(props.workspaceRoot, nextAgents);
+      })
+      .catch(() => undefined);
+  }, [effectiveWorkspaceRoot, props.workspaceRoot, selectedAgent, selectedConversationId]);
   useAcpInitialMessage({ workspaceRoot: effectiveWorkspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, disabled: isChannelView, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: effectiveWorkspaceRoot, agent: isChannelView ? null : selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
   const filteredAgents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -934,19 +961,36 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
     }
   }, [props.workspaceRoot, resetAgentChat, running, selectedAgent, selectedConversationId]);
-  // Re-create the currently selected fresh (no-workdir) conversation under a
-  // different workspace root. Conversations are partitioned by `workspaceRoot`,
-  // so mounting a project must move the selected conversation into that
-  // project's partition, otherwise the run attaches to a different/empty
-  // conversation. Only used for brand-new conversations that have no messages
-  // yet, so discarding the old empty one is safe.
-  const rebaseFreshConversation = useCallback(async (partitionRoot: string) => {
+  // Whether the selected conversation is safe to re-base into a different
+  // workspace partition. Only a *truly fresh* conversation qualifies: it has no
+  // committed `workdir` and no real messages yet. This guarantees we never
+  // discard an in-progress conversation, and never let a conversation that
+  // already has content "arbitrarily switch its project".
+  const selectedIsFreshConversation = useCallback(() => {
+    if (selectedConversation?.workdir?.trim()) return false;
+    return !selectedConversationHasContent;
+  }, [selectedConversationHasContent, selectedConversation]);
+  // Re-create the currently selected fresh (no-workdir, no-messages)
+  // conversation under a different workspace root. Conversations are
+  // partitioned by `workspaceRoot`, so mounting a project must move the
+  // selected conversation into that project's partition, otherwise the run
+  // attaches to a different/empty conversation. Only used for brand-new
+  // conversations that have no messages yet, so discarding the old empty one
+  // is safe.
+  // `partitionRoot` selects which workspace partition the conversation lives in.
+  // `committedWorkdir` is the directory the conversation *commits to* (locks the
+  // chip). These are deliberately decoupled: mounting a project passes both
+  // (lock to the chosen project), while clearing a project passes a partition
+  // but a `null` workdir so the conversation stays fresh/editable and does NOT
+  // show "directory locked".
+  const rebaseFreshConversation = useCallback(async (partitionRoot: string, committedWorkdir: string | null) => {
     if (!selectedAgent || running) return;
+    if (!selectedIsFreshConversation()) return;
     const agent = selectedAgent;
     const result = await personalLocalAgentConversationCreate({
       workspaceRoot: partitionRoot,
       agent,
-      workdir: partitionRoot || null,
+      workdir: committedWorkdir,
     });
     setConversationsByAgent((current) => ({
       ...current,
@@ -957,7 +1001,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setMessagesByAgent((current) => ({ ...current, [key]: [welcomeMessageForAgent(agent)] }));
     setDraftsByAgent((current) => ({ ...current, [key]: "" }));
     setActiveRunIdByAgent((current) => ({ ...current, [key]: null }));
-  }, [running, selectedAgent, selectedConversationId]);
+  }, [running, selectedAgent, selectedConversationId, selectedIsFreshConversation]);
   const applyWorkspaceOverride = useCallback((next: string) => {
     const trimmed = next.trim();
     writeWorkspaceOverride(trimmed);
@@ -965,19 +1009,27 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (trimmed) {
       setRecentWorkspaces(addRecentWorkspace(trimmed));
     }
-    // If a fresh (no-workdir) conversation is selected, re-create it under the
-    // mounted project's partition so the mount is consistent.
-    if (trimmed && selectedAgent && selectedConversation && !selectedConversation.workdir?.trim()) {
-      void rebaseFreshConversation(trimmed);
+    // If a fresh (no-workdir, no-messages) conversation is selected, re-create
+    // it under the mounted project's partition but DO NOT commit the workdir
+    // yet. The chip must stay editable before the first message so the user can
+    // re-pick a project if they chose the wrong one. The project is displayed
+    // via `effectiveWorkspaceRoot` (the override), and the workdir is committed
+    // (and the chip locked) only after the first run finishes on the server.
+    if (trimmed && selectedAgent && selectedConversation && selectedIsFreshConversation()) {
+      void rebaseFreshConversation(trimmed, null);
     }
-  }, [rebaseFreshConversation, selectedAgent, selectedConversation]);
+  }, [rebaseFreshConversation, selectedAgent, selectedConversation, selectedIsFreshConversation]);
   const clearWorkspaceOverride = useCallback(() => {
     writeWorkspaceOverride("");
     setWorkspaceOverrideState("");
-    if (selectedAgent && selectedConversation && !selectedConversation.workdir?.trim()) {
-      void rebaseFreshConversation(props.workspaceRoot || "");
+    // Clearing / removing the project must NOT lock the chip. Re-base into the
+    // default partition but keep the workdir `null` so the conversation stays
+    // fresh and the chip remains editable ("no project" state), instead of
+    // immediately showing "directory locked".
+    if (selectedAgent && selectedConversation && selectedIsFreshConversation()) {
+      void rebaseFreshConversation(props.workspaceRoot || "", null);
     }
-  }, [props.workspaceRoot, rebaseFreshConversation, selectedAgent, selectedConversation]);
+  }, [props.workspaceRoot, rebaseFreshConversation, selectedAgent, selectedConversation, selectedIsFreshConversation]);
   const browseWorkspaceOverride = useCallback(async () => {
     const picked = await pickDirectory({
       title: t("local_agent.workspace_choose_different_folder"),
@@ -1005,7 +1057,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const result = await personalLocalAgentConversationCreate({
         workspaceRoot: effectiveWorkspaceRoot,
         agent,
-        workdir: effectiveWorkspaceRoot || null,
+        // Do NOT pre-commit a `workdir` here. A brand-new conversation must stay
+        // "fresh" (no committed workdir) so the workspace chip stays editable and
+        // the user can mount a project. The run commits the workdir later based
+        // on the page-level override (see `startAgentRun` -> `workdir`).
+        workdir: null,
       });
       setConversationsByAgent((current) => ({
         ...current,
@@ -1338,12 +1394,40 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             if (value === "__loading") return;
             setSelectedModel(value);
             if (value && selectedAgent && selectedAcpModelInfo.supportsModelOverride) {
-              void personalLocalAgentSetAcpConfigOption({
+              const previousModel = selectedModel;
+              const optionLabel =
+                selectedModelOptions.find((option) => option.id === value)?.label ?? value;
+              personalLocalAgentSetAcpConfigOption({
                 workspaceRoot: effectiveWorkspaceRoot,
                 agent: selectedAgent,
                 optionId: selectedAcpModelInfo.modelOptionId,
                 value,
-              });
+              })
+                .then((result) => {
+                  if (result.ok) {
+                    showToast({
+                      tone: "success",
+                      title: t("local_agent.model_switch_success_title"),
+                      description: optionLabel,
+                    });
+                  } else {
+                    setSelectedModel(previousModel);
+                    showToast({
+                      tone: "error",
+                      title: t("local_agent.model_switch_error_title"),
+                      description: result.error ?? t("local_agent.model_switch_error_unknown"),
+                    });
+                  }
+                })
+                .catch((nextError) => {
+                  setSelectedModel(previousModel);
+                  showToast({
+                    tone: "error",
+                    title: t("local_agent.model_switch_error_title"),
+                    description:
+                      nextError instanceof Error ? nextError.message : String(nextError),
+                  });
+                });
             }
           }}
           disabled={!selectedAgent || running}

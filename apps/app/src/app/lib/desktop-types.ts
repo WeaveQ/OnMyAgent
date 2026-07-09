@@ -432,6 +432,9 @@ export type PersonalLocalAgent = {
   executablePath: string;
   model: string | null;
   customArgs: string[];
+  acpArgs?: string[];
+  connectionType?: string | null;
+  supportsAcp?: boolean;
   modelOptions: PersonalLocalAgentModelOption[];
   defaultModel: string | null;
   connectionMode?: string | null;
@@ -467,6 +470,8 @@ export type PersonalLocalAgentMetadata = {
   available: boolean;
   command?: string | null;
   args?: string[];
+  acpArgs?: string[];
+  connectionType?: string | null;
   env?: Array<{ name: string; value: string; description?: string }>;
   native_skills_dirs?: string[];
   behavior_policy?: {

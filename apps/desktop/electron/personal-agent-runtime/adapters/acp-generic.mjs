@@ -623,6 +623,14 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       // handshake exposes /compact, /review, etc. immediately after warmup —
       // otherwise slash suggestions appear only after the user sends a message.
       let liveAvailableCommands = null;
+      // Some ACP wrappers publish `available_models` asynchronously via
+      // session/update after newSession returns (same fire-and-forget pattern
+      // as available_commands). Capture it here so the handshake exposes the
+      // model catalog immediately after warmup — otherwise the model selector
+      // only appears after the user sends a message (or never, for custom
+      // agents with no static modelOptions).
+      let liveAvailableModels = null;
+      let liveCurrentModelId = null;
       const { child, client } = spawnAcpClient({
         command: executablePath,
         args,
@@ -640,22 +648,35 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
                 : null;
             if (commands && commands.length) liveAvailableCommands = commands;
           }
+          if (type === "available_models") {
+            const extracted = extractAcpSessionMetadata(data);
+            if (extracted?.availableModels?.length) liveAvailableModels = extracted.availableModels;
+            if (extracted?.currentModelId) liveCurrentModelId = extracted.currentModelId;
+          }
         },
       });
       child.unref?.();
       try {
         const { sessionId, sessionMetadata } = await createOrResumeSession(ctx, client, workdir, provider);
-        // Give the wrapper a short window to flush its async available_commands
-        // publish. 800ms is enough in practice for codex-acp / claude-agent-acp
-        // and does not meaningfully affect warmup latency.
-        if (!liveAvailableCommands) {
+        // Give the wrapper a short window to flush its async available_commands /
+        // available_models publish. The handshake (session/new response) often
+        // already carries models; only wait for the async path when it does not.
+        const sessionHasModels = Array.isArray(sessionMetadata?.availableModels) && sessionMetadata.availableModels.length > 0;
+        const needCommands = () => !liveAvailableCommands;
+        const needModels = () => !liveAvailableModels && !sessionHasModels;
+        if (needCommands() || needModels()) {
           const deadline = Date.now() + 1500;
-          while (!liveAvailableCommands && Date.now() < deadline) {
+          while ((needCommands() || needModels()) && Date.now() < deadline) {
             await new Promise((resolve) => setTimeout(resolve, 50));
           }
         }
-        const mergedMetadata = liveAvailableCommands
-          ? { ...(sessionMetadata ?? {}), availableCommands: liveAvailableCommands }
+        const mergedMetadata = (liveAvailableCommands || liveAvailableModels || liveCurrentModelId)
+          ? {
+              ...(sessionMetadata ?? {}),
+              ...(liveAvailableCommands ? { availableCommands: liveAvailableCommands } : {}),
+              ...(liveAvailableModels ? { availableModels: liveAvailableModels } : {}),
+              ...(liveCurrentModelId ? { currentModelId: liveCurrentModelId } : {}),
+            }
           : sessionMetadata;
         return { ok: true, sessionId, providerSessionId: sessionId, resumeKey: sessionId, workdir, sessionMetadata: mergedMetadata };
       } finally {
@@ -711,11 +732,28 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       return withAcpSessionClient(ctx, appendEvent, async ({ client, workdir }) => {
         let sessionId = textValue(ctx.sessionId ?? ctx.providerSessionId ?? ctx.resumeKey);
         if (!sessionId) {
-          const created = await client.createSession({ cwd: workdir });
+          // ACP session/new requires `mcpServers` (array). Omitting it makes
+          // CodeBuddy and other strict ACP backends reject with
+          // "Invalid params: mcpServers expected array, received undefined".
+          // Align with `createOrResumeSession` which always passes `mcpServers: []`.
+          const created = await client.createSession({ cwd: workdir, mcpServers: [] });
           sessionId = extractAcpSessionId(created);
         }
         if (!sessionId) throw new Error("config/set requires an ACP sessionId");
-        const result = await client.setConfigOption(sessionId, optionId, ctx.value, { cwd: workdir });
+        let result;
+        try {
+          result = await client.setConfigOption(sessionId, optionId, ctx.value, { cwd: workdir });
+        } catch (error) {
+          // Some ACP backends (e.g. CodeBuddy) advertise model config_options
+          // in session/new but don't implement `config/set`. Fall back to the
+          // legacy `session/set_model` method for model options, aligning with
+          // AionCore's ConfigSetPath::LegacyModel path.
+          if (/method not found|not.*found|not.*supported/i.test(String(error?.message ?? error)) && optionId === "model") {
+            result = await client.setModel(sessionId, String(ctx.value), { cwd: workdir });
+          } else {
+            throw error;
+          }
+        }
         const configOptions = Array.isArray(result?.configOptions)
           ? result.configOptions
           : Array.isArray(result?.config_options)

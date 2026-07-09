@@ -1310,6 +1310,25 @@ export function createPersonalAgentRuntime(options) {
             sessionMetadata: warmSessionMetadata,
             handshakeAt: Date.now(),
           });
+          // Custom agents are stored with provider="custom" but warmed up
+          // via their detected adapter provider (e.g. CodeBuddy detects as
+          // "opencode"). listAgents hydrates with agent.provider ("custom"),
+          // so mirror the session metadata under the original provider key
+          // too, otherwise the handshake stays cold and the model selector
+          // never appears for custom ACP agents.
+          const originalProvider = String(input.agent?.provider ?? agent.provider ?? "").trim();
+          if (originalProvider && originalProvider !== provider) {
+            try {
+              const priorOriginal = await readSession(workspaceRoot, originalProvider, agentId).catch(() => ({}));
+              await writeSession(workspaceRoot, originalProvider, agentId, {
+                ...(priorOriginal && typeof priorOriginal === "object" ? priorOriginal : {}),
+                sessionMetadata: warmSessionMetadata,
+                handshakeAt: Date.now(),
+              });
+            } catch {
+              // best-effort mirror; the primary write above already succeeded.
+            }
+          }
         } catch (error) {
           // eslint-disable-next-line no-console
           console.warn(`[personal-agent-runtime] warmup session-store write failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -1435,11 +1454,19 @@ export function createPersonalAgentRuntime(options) {
     const optionId = String(input.optionId ?? input.configOptionId ?? input.id ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
     if (!optionId) throw new Error("optionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
-    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    // Custom agents are stored with provider="custom" but their ACP adapter
+    // is resolved via detectAgent (e.g. CodeBuddy detects as "opencode").
+    // Without detecting, adapterFactoryForProvider("custom", agent) returns
+    // null because the normalized agent lacks connectionType/supportsAcp,
+    // and setConfigOption fails with "No adapter for custom". Aligns with
+    // warmupConversation which uses detected.provider.
+    const detected = await legacy.detectAgent(agent, workspaceRoot).catch(() => agent);
+    const provider = detected.provider ?? agent.provider;
+    const adapterFactory = adapterFactoryForProvider(provider, detected);
+    if (!adapterFactory) throw new Error(`No adapter for ${provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.setConfigOption !== "function") throw new Error(`${agent.provider} does not support config/set`);
-    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent });
+    if (typeof adapter.setConfigOption !== "function") throw new Error(`${provider} does not support config/set`);
+    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected });
   }
 
   async function getConversationStatus(input = {}) {
@@ -1534,13 +1561,41 @@ export function createPersonalAgentRuntime(options) {
           const agentId = String(agent?.id ?? provider).trim();
           if (!provider || !agentId) return agent;
           try {
-            const stored = await readSession(workspaceRoot, provider, agentId);
+            // Custom ACP agents are stored with provider="custom" but warmed
+            // up via their detected adapter provider (e.g. CodeBuddy is
+            // detected as the "opencode" provider). The warmup path mirrors
+            // the session metadata under the original provider key, but as a
+            // safety net also try the backend / "opencode" keys.
+            const candidateProviders = [provider];
+            const backend = String(agent?.backend ?? "").trim();
+            if (backend && !candidateProviders.includes(backend)) candidateProviders.push(backend);
+            if (!candidateProviders.includes("opencode")) candidateProviders.push("opencode");
+            let stored = null;
+            for (const candidate of candidateProviders) {
+              stored = await readSession(workspaceRoot, candidate, agentId);
+              if (stored?.sessionMetadata && typeof stored.sessionMetadata === "object") break;
+            }
             const meta = stored?.sessionMetadata;
             if (!meta || typeof meta !== "object") return agent;
             const nextAvailableCommands = Array.isArray(meta.availableCommands) && meta.availableCommands.length
               ? meta.availableCommands
               : (Array.isArray(agent?.availableCommands) ? agent.availableCommands : []);
-            return { ...agent, sessionMetadata: meta, availableCommands: nextAvailableCommands };
+            // Merge warmup-captured config options / models into the agent
+            // handshake so acpConfigOptions() and the renderer's
+            // useAcpModelInfo can see them without waiting for the first
+            // message. Aligns with AionCore's preload_advertised_catalogs
+            // which seeds advertised models/modes from the agent handshake.
+            const handshake = { ...(agent.handshake ?? {}) };
+            if (Array.isArray(meta.configOptions) && meta.configOptions.length && !Array.isArray(handshake.config_options)) {
+              handshake.config_options = meta.configOptions;
+            }
+            if (Array.isArray(meta.availableModels) && meta.availableModels.length && !(Array.isArray(handshake.available_models) && handshake.available_models.length)) {
+              handshake.available_models = meta.availableModels;
+            }
+            if (meta.currentModelId && !handshake.current_model_id) {
+              handshake.current_model_id = meta.currentModelId;
+            }
+            return { ...agent, handshake, sessionMetadata: meta, availableCommands: nextAvailableCommands };
           } catch {
             return agent;
           }
