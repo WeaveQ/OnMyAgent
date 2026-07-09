@@ -254,7 +254,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // directory before the first message. This matches AionUi's per-navigation
   // workspace semantics instead of a single global override.
   const selectedConversationWorkdir = selectedConversation?.workdir?.trim() || "";
-  const chipEditable = !selectedConversationWorkdir && !selectedConversation;
+  // A conversation is editable whenever it has not yet committed a workdir.
+  // This used to also require "no conversation selected at all", which left the
+  // chip permanently disabled (a conversation is almost always auto-selected),
+  // so users could never mount/switch a project for a brand-new conversation.
+  const chipEditable = !selectedConversationWorkdir;
   const displayWorkspaceRoot = selectedConversationWorkdir || effectiveWorkspaceRoot;
   const selectedAcpModelInfo = useAcpModelInfo(selectedAgent);
   const selectedHeartbeatJobs = selectedAgent ? heartbeatJobs.filter((job) => job.agent?.id === selectedAgent.id) : [];
@@ -830,6 +834,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         prompt,
         approvalMode,
         conversationId: runConversationId,
+        workdir: effectiveWorkspaceRoot || null,
         agent: {
           ...runAgent,
           model: requestedModel,
@@ -929,6 +934,30 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
     }
   }, [props.workspaceRoot, resetAgentChat, running, selectedAgent, selectedConversationId]);
+  // Re-create the currently selected fresh (no-workdir) conversation under a
+  // different workspace root. Conversations are partitioned by `workspaceRoot`,
+  // so mounting a project must move the selected conversation into that
+  // project's partition, otherwise the run attaches to a different/empty
+  // conversation. Only used for brand-new conversations that have no messages
+  // yet, so discarding the old empty one is safe.
+  const rebaseFreshConversation = useCallback(async (partitionRoot: string) => {
+    if (!selectedAgent || running) return;
+    const agent = selectedAgent;
+    const result = await personalLocalAgentConversationCreate({
+      workspaceRoot: partitionRoot,
+      agent,
+      workdir: partitionRoot || null,
+    });
+    setConversationsByAgent((current) => ({
+      ...current,
+      [agent.id]: [result.conversation, ...(current[agent.id] ?? []).filter((item) => item.id !== selectedConversationId)],
+    }));
+    setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: result.conversation.id }));
+    const key = localAgentChatKey(agent.id, result.conversation.id);
+    setMessagesByAgent((current) => ({ ...current, [key]: [welcomeMessageForAgent(agent)] }));
+    setDraftsByAgent((current) => ({ ...current, [key]: "" }));
+    setActiveRunIdByAgent((current) => ({ ...current, [key]: null }));
+  }, [running, selectedAgent, selectedConversationId]);
   const applyWorkspaceOverride = useCallback((next: string) => {
     const trimmed = next.trim();
     writeWorkspaceOverride(trimmed);
@@ -936,11 +965,19 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (trimmed) {
       setRecentWorkspaces(addRecentWorkspace(trimmed));
     }
-  }, []);
+    // If a fresh (no-workdir) conversation is selected, re-create it under the
+    // mounted project's partition so the mount is consistent.
+    if (trimmed && selectedAgent && selectedConversation && !selectedConversation.workdir?.trim()) {
+      void rebaseFreshConversation(trimmed);
+    }
+  }, [rebaseFreshConversation, selectedAgent, selectedConversation]);
   const clearWorkspaceOverride = useCallback(() => {
     writeWorkspaceOverride("");
     setWorkspaceOverrideState("");
-  }, []);
+    if (selectedAgent && selectedConversation && !selectedConversation.workdir?.trim()) {
+      void rebaseFreshConversation(props.workspaceRoot || "");
+    }
+  }, [props.workspaceRoot, rebaseFreshConversation, selectedAgent, selectedConversation]);
   const browseWorkspaceOverride = useCallback(async () => {
     const picked = await pickDirectory({
       title: t("local_agent.workspace_choose_different_folder"),
