@@ -70,16 +70,16 @@ export function ExtensionListPanel() {
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-dls-primary">
                     <span>{ext.displayName || ext.name}</span>
-                    <span className="rounded-md border border-dls-border px-1.5 py-0.5 text-[10px] uppercase text-dls-secondary">{ext.source}</span>
-                    <span className="text-[10px] text-dls-secondary">v{ext.version}</span>
+                    <span className="rounded-md border border-dls-border px-1.5 py-0.5 text-2xs uppercase text-dls-secondary">{ext.source}</span>
+                    <span className="text-2xs text-dls-secondary">v{ext.version}</span>
                   </div>
                   {ext.description ? <p className="text-xs text-dls-secondary">{ext.description}</p> : null}
-                  <p className="text-[11px] text-dls-secondary">
+                  <p className="text-xs text-dls-secondary">
                     {t("local_agent.extensions_adapters", { count: ext.adapterIds.length })}
                     {ext.adapterIds.length ? `: ${ext.adapterIds.join(", ")}` : ""}
                   </p>
                   {ext.errors.length ? (
-                    <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-dls-danger">
+                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-dls-danger">
                       {ext.errors.map((entry, index) => (<li key={index}>{entry.message}</li>))}
                     </ul>
                   ) : null}

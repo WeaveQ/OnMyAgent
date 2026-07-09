@@ -63,7 +63,7 @@ function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; bus
             className={cn(
               "group/mcp-app relative flex size-8 items-center justify-center rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-60",
               props.enabled
-                ? cn("border-2 shadow-sm ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
+                ? cn("border-2 ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
                 : "border border-dashed border-dls-border bg-dls-surface-muted text-dls-secondary opacity-70 grayscale hover:bg-dls-hover hover:opacity-100 hover:grayscale-0 hover:text-dls-text",
             )}
             aria-label={label}

@@ -297,7 +297,7 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
         <AlertDialogHeader>
           <div className="flex items-start gap-4 text-left">
             <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
-              <Icon size={23} strokeWidth={1.9} />
+              <Icon size={24} strokeWidth={1.9} />
             </div>
             <div className="min-w-0 flex-1">
               <AlertDialogTitle>

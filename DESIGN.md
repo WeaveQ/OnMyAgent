@@ -1739,6 +1739,19 @@ in dedicated registry files, not in ordinary JSX:
   only `rounded-full` allowed inside the workbench chrome. Do not
   extract this shape into a generic `Button` variant, and do not
   re-derive circular CTAs elsewhere.
+- **Expert marketplace grid** — `StorePage` / expert marketplace cards
+  may use avatar-forward card grids, soft category chips, and denser
+  marketing-adjacent card rhythm. This is a deliberate **marketplace
+  dialect** separate from the dense workbench. It still uses `dls-*`
+  surfaces and borders; do not copy marketplace card density into
+  session / manage / settings surfaces.
+- **Composer host policy** — `SessionSurface` (global assistant
+  composer) mounts only on chat host views (`activeSidebarView` is
+  `chat` or `assistant`) in `assistant.tsx` / `expert.tsx`. Local ACP
+  chat uses `PersonalLocalAgentPage` + `LocalAgentDraftComposer` and
+  must never stack the global composer. Manage / files / market /
+  devices / channels / billing never host a composer. Violating this
+  reintroduces the dual-composer / chrome-leak regression.
 
 If a scan hit does not match one of these, prefer moving it to a `dls-*`
 token, a shared variant, or a named local class map before leaving it in

@@ -56,7 +56,7 @@ export function StatusToast(props: StatusToastProps) {
         <div
           className={`${statusToastLayoutClass.iconTile} ${tileClass}`.trim()}
         >
-          <Icon size={18} />
+          <Icon size={16} />
         </div>
 
         <div className={statusToastLayoutClass.content}>

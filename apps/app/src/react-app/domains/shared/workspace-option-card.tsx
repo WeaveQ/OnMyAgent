@@ -34,7 +34,7 @@ export function WorkspaceOptionCard({
       className="group items-center gap-4"
     >
       <IconTile size="md" shape="xl" border>
-        <Icon size={18} />
+        <Icon size={16} />
       </IconTile>
       <div className="min-w-0 flex-1">
         <div className={sectionTitleClass}>{title}</div>

@@ -164,7 +164,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
                 className={extensionCardClass.meshAvatar}
               />
             ) : (
-              <FallbackIcon size={18} className="text-dls-secondary" />
+              <FallbackIcon size={16} className="text-dls-secondary" />
             )}
           </IconTile>
           {connected ? (

@@ -255,7 +255,7 @@ export function InlineAgentEditor(props: {
           )}
         </Button>
         {testStatus === "success" && (
-          <Alert className="border-green-500/50 bg-green-50 text-green-900 [&>svg]:text-green-600">
+          <Alert className="border-dls-status-success/40 bg-dls-status-success-soft text-dls-status-success-fg [&>svg]:text-dls-status-success-fg">
             <CheckCircle2 className="size-4" />
             <AlertTitle>{t("local_agent.test_connection_success")}</AlertTitle>
             <AlertDescription className="text-xs">
@@ -275,7 +275,7 @@ export function InlineAgentEditor(props: {
           </Alert>
         )}
         {testStatus === "fail_acp" && (
-          <Alert className="border-orange-500/50 bg-orange-50 text-orange-900 [&>svg]:text-orange-600">
+          <Alert className="border-dls-status-warning/40 bg-dls-status-warning-soft text-dls-status-warning-fg [&>svg]:text-dls-status-warning-fg">
             <AlertTriangle className="size-4" />
             <AlertTitle>{t("local_agent.test_connection_fail_acp")}</AlertTitle>
             {testError && (

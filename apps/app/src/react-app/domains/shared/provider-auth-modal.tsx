@@ -887,7 +887,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         <IconTile size="sm" shape="circle" tone="surface" border className="overflow-hidden border-dls-mist bg-dls-surface-muted">
                           <ProviderIcon
                             providerId={entry.id}
-                            size={18}
+                            size={16}
                             className="text-dls-text"
                           />
                         </IconTile>

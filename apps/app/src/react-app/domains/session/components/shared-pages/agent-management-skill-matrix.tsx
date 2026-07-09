@@ -28,15 +28,15 @@ function SkillStateGlyph(props: { state: Exclude<SkillCellState, "busy">; toneDo
   const markerSizeClass = props.size === "legend" ? "size-1" : "size-1.5";
   if (props.state === "native") {
     return (
-      <span className={cn("flex items-center justify-center rounded-full font-medium leading-none text-white", sizeClass, props.toneDot ?? "bg-dls-accent")}>
+      <span className={cn("flex items-center justify-center rounded-full font-medium leading-none text-white", sizeClass, "bg-dls-online")}>
         ✓
       </span>
     );
   }
   if (props.state === "managed") {
     return (
-      <span className={cn("relative flex items-center justify-center rounded-full border-2 bg-dls-surface font-medium leading-none", sizeClass, props.borderColor ?? "border-dls-accent")}>
-        <span className={cn("absolute -right-0.5 -top-0.5 rounded-full", markerSizeClass, props.toneDot ?? "bg-dls-accent")} />✓
+      <span className={cn("relative flex items-center justify-center rounded-full border-2 border-dls-accent bg-dls-surface font-medium leading-none text-dls-accent", sizeClass)}>
+        <span className={cn("absolute -right-0.5 -top-0.5 rounded-full bg-dls-accent", markerSizeClass)} />✓
       </span>
     );
   }
@@ -235,7 +235,9 @@ function SkillMatrixRow(props: {
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-medium text-dls-text">{title}</span>
-            <span className="shrink-0 font-mono text-xs text-dls-secondary">{props.skill.name}</span>
+            {title !== props.skill.name ? (
+              <span className="shrink-0 font-mono text-xs text-dls-secondary">{props.skill.name}</span>
+            ) : null}
             {sourceKindLabel ? (
               <span className="shrink-0 rounded border border-dls-border px-1 py-0 text-xs font-medium text-dls-secondary">{sourceKindLabel}</span>
             ) : null}

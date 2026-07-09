@@ -773,6 +773,10 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
+  // SessionSurface (global assistant composer) only on chat hosts — never
+  // stack under 管理/本地/文件/市场 etc. DESIGN: composer host policy.
+  const isSessionSurfaceHostView =
+    activeSidebarView === "chat" || activeSidebarView === "assistant";
   const railActiveView =
     activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
 
@@ -1111,8 +1115,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       showBlockingStartupSkeleton ? (
                         <div
                           className="px-6 py-14"
@@ -1148,8 +1152,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       showDelayedSessionLoadingState ? (
                         <div className="px-6 py-16">
                           <div
@@ -1165,8 +1169,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       !showDelayedSessionLoadingState &&
                       canRenderReactSurface ? (
                         <SessionSurface
@@ -1212,12 +1216,11 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
-                      !showStartupSkeleton &&
-                      activeSidebarView !== "scheduledTasks" &&
-                      activeSidebarView !== "agentManagement" ? (
+                      !showStartupSkeleton ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
                         >
