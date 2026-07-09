@@ -94,7 +94,7 @@ describe("session-archive parser registry", () => {
       fileBased: true,
       enabled: true,
     });
-    expect(sessionArchiveRegistry.find((entry) => entry.agent === "aider")).toMatchObject({ defaultDirs: [""], shallowWatch: true });
+    expect(sessionArchiveRegistry.find((entry) => entry.agent === "aider")).toMatchObject({ defaultDirs: [".aider"], shallowWatch: true });
     expect(sessionArchiveRegistry.filter((entry) => !entry.fileBased).map((entry) => entry.agent)).toEqual(["claude-ai", "chatgpt", "forge", "piebald", "warp"]);
   });
 

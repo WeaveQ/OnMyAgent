@@ -83,6 +83,7 @@ export class ChannelSessionStore {
       agentType,
       workspace: workspace || null,
       chatId: chatId || null,
+      conversationId: null,
       createdAt: Date.now(),
       lastActivity: Date.now(),
       messages: [],
@@ -108,6 +109,66 @@ export class ChannelSessionStore {
    */
   getSession(sessionId) {
     return this._sessions.get(sessionId) || null;
+  }
+
+  /**
+   * Bind a Studio conversation to this channel session (parity with
+   * AionCore assistant_sessions.conversation_id). Idempotent: rebinding the
+   * same conversationId is a no-op; binding a different id overwrites.
+   * @param {string} sessionId - Channel session ID
+   * @param {string} conversationId - Studio conversation ID
+   */
+  async bindConversation(sessionId, conversationId) {
+    const session = this._sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    const next = String(conversationId ?? "").trim();
+    if (!next) {
+      throw new Error("conversationId is required to bind a conversation");
+    }
+    if (session.conversationId === next) return session;
+    session.conversationId = next;
+    session.lastActivity = Date.now();
+    await this._saveSession(session);
+    channelEventBus.publish(CHANNEL_EVENTS.SESSION_UPDATED, { session });
+    return session;
+  }
+
+  /**
+   * Read the bound Studio conversation ID for a channel session.
+   * @param {string} sessionId - Channel session ID
+   * @returns {string|null} Bound conversation ID or null
+   */
+  getConversationId(sessionId) {
+    const session = this._sessions.get(sessionId);
+    if (!session) return null;
+    const id = String(session.conversationId ?? "").trim();
+    return id || null;
+  }
+
+  /**
+   * Reverse lookup: find the active channel session bound to a Studio
+   * conversation. Used by the reverse relay (Studio -> IM) to resolve the
+   * target chat. O(n) over in-memory sessions; session counts are small.
+   * @param {string} conversationId - Studio conversation ID
+   * @returns {Object|null} Session with chatId/platformType or null
+   */
+  findSessionByConversationId(conversationId) {
+    const id = String(conversationId ?? "").trim();
+    if (!id) return null;
+    for (const session of this._sessions.values()) {
+      if (session.closedAt) continue;
+      if (String(session.conversationId ?? "").trim() === id) {
+        return {
+          id: session.id,
+          chatId: session.chatId,
+          platformType: session.platformType,
+          platformUserId: session.platformUserId,
+        };
+      }
+    }
+    return null;
   }
 
   /**

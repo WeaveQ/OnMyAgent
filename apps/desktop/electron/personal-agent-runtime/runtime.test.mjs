@@ -12,6 +12,7 @@ import { probeAcpCommand } from "./acp-probe.mjs";
 import { MANAGED_ACP_TOOLS, managedAcpBinPath, managedAcpToolRoot, validateManagedAcpTool } from "./managed-acp-tools.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataFromAgent, personalAgentMetadataList, normalizeAgentStatus } from "./agent-metadata.mjs";
 import { appendContractEvent, runEventsToConversationMessages } from "./contract.mjs";
+import { extractPromptUsageTotals, lookupModelContextLimit, normalizeContextUsagePayload } from "./context-usage.mjs";
 import { createConversation, getConversation, getOrCreateConversation, listConversations, readConversationEvents, updateConversation } from "./conversation-store.mjs";
 import { createPersonalAgentRuntime } from "./index.mjs";
 import { AcpE2EStreamInjector } from "./acp-e2e-stream-injector.mjs";
@@ -310,42 +311,6 @@ describe("personal agent runtime storage", () => {
     }
   });
 
-  it("runs side questions in the same conversation without interrupting the main run", async () => {
-    const workspaceRoot = await tempWorkspace();
-    try {
-      const runtime = createPersonalAgentRuntime({
-        legacy: {
-          listAgents: async () => ({ agents: [] }),
-          normalizeAgent: async (input) => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", ...input }),
-          detectAgent: async (agent) => ({ ...agent, id: "codex", provider: "codex", status: "online" }),
-          start: async () => ({}),
-          run: async () => ({}),
-          status: () => ({}),
-          cancel: () => ({}),
-        },
-        adapters: {
-          codex: () => ({
-            sendMessage: async (ctx) => {
-              if (ctx.prompt === "main") await new Promise((resolve) => setTimeout(resolve, 80));
-              return { output: `reply:${ctx.prompt}`, command: "fake", connectionMode: "Codex ACP session", providerSessionId: ctx.providerSessionId ?? "shared-session", resumeKey: ctx.resumeKey ?? "shared-session" };
-            },
-          }),
-        },
-      });
-      const conversation = await runtime.createConversation({ workspaceRoot, agent: { provider: "codex" }, title: "Side" });
-      const main = await runtime.startMessage({ workspaceRoot, agent: { provider: "codex" }, conversationId: conversation.conversation.id, prompt: "main" });
-      const side = await runtime.sideQuestion({ workspaceRoot, agent: { provider: "codex" }, conversationId: conversation.conversation.id, prompt: "btw" });
-      assert.equal(side.ok, true);
-      assert.equal(side.run.output, "reply:btw");
-      assert.notEqual(side.run.runId, main.runId);
-      const mainFinal = await waitForRun(runtime, main.runId);
-      assert.equal(mainFinal.output, "reply:main");
-      assert.equal(side.run.conversationId, conversation.conversation.id);
-      assert.equal(side.run.providerSessionId, mainFinal.providerSessionId);
-    } finally {
-      await cleanup(workspaceRoot);
-    }
-  });
 
   it("persists streaming conversation events outside the transient run object", async () => {
     const workspaceRoot = await tempWorkspace();
@@ -438,7 +403,7 @@ describe("personal agent metadata", () => {
     assert.equal(metadata.agent_source_info.hub_package_id, "openclaw-acp");
     assert.deepEqual(metadata.env, [{ name: "OPENCLAW_ENV", value: "1", description: "test env" }]);
     assert.deepEqual(metadata.native_skills_dirs, ["/tmp/openclaw/skills"]);
-    assert.deepEqual(metadata.behavior_policy, { permission_mode: "read-only-auto", yolo_mode_id: "ask", auto_approve_readonly: true, supports_side_question: false });
+    assert.deepEqual(metadata.behavior_policy, { permission_mode: "read-only-auto", yolo_mode_id: "ask", auto_approve_readonly: true });
     assert.equal(metadata.handshake.agent_capabilities.loadSession, true);
     assert.equal(metadata.handshake.agent_capabilities._meta.supportsApproval, false);
     assert.equal(metadata.handshake.available_models[0].id, "stable");
@@ -668,6 +633,13 @@ describe("personal agent metadata", () => {
 });
 
 describe("personal agent ACP JSON-RPC client", () => {
+  it("normalizes codex-acp available_commands_update sessionUpdate to available_commands", () => {
+    const update = { sessionUpdate: "available_commands_update", availableCommands: [{ name: "compact", description: "Summarize" }] };
+    const normalized = normalizeAcpUpdate(update);
+    assert.equal(normalized.type, "available_commands");
+    assert.deepEqual(normalized.data.availableCommands, [{ name: "compact", description: "Summarize" }]);
+  });
+
   it("resolves managed ACP bridge locations outside project repositories", () => {
     assert.equal(MANAGED_ACP_TOOLS.codex.packageName, "@agentclientprotocol/codex-acp");
     assert.equal(MANAGED_ACP_TOOLS.claude.packageName, "@agentclientprotocol/claude-agent-acp");
@@ -951,6 +923,34 @@ describe("personal agent normalized conversation message stream", () => {
     assert.equal(messages.length, 1);
     assert.equal(messages[0].type, "context_usage");
     assert.deepEqual(messages[0].contextUsage, { used: 10, total: 100, label: null });
+  });
+
+  it("looks up known model context windows and defaults to 200k", () => {
+    assert.equal(lookupModelContextLimit("claude-sonnet-4.5"), 1_000_000);
+    assert.equal(lookupModelContextLimit("gpt-5"), 400_000);
+    assert.equal(lookupModelContextLimit("unknown-model"), 200_000);
+    assert.equal(lookupModelContextLimit(""), 200_000);
+    assert.equal(lookupModelContextLimit(null), 200_000);
+    // Fuzzy longest-prefix match: "claude-3.5-sonnet-latest" -> claude-3.5-sonnet
+    assert.equal(lookupModelContextLimit("claude-3.5-sonnet-latest"), 200_000);
+  });
+
+  it("normalizes usage payloads and falls back to model context window when total missing", () => {
+    assert.deepEqual(normalizeContextUsagePayload({ used: 5, total: 100 }, null), { used: 5, total: 100, label: null });
+    assert.deepEqual(normalizeContextUsagePayload({ used: 12345 }, "claude-sonnet-4.5"), { used: 12345, total: 1_000_000, label: null });
+    assert.deepEqual(normalizeContextUsagePayload({ total_tokens: 42, label: "codex" }, "gpt-5"), { used: 42, total: 400_000, label: "codex" });
+    // Codex ACP CLI reports `size` instead of `total`; must not fall through to DEFAULT_CONTEXT_LIMIT.
+    assert.deepEqual(normalizeContextUsagePayload({ used: 29725, size: 258400 }, null), { used: 29725, total: 258400, label: null });
+    assert.equal(normalizeContextUsagePayload(null, null), null);
+    assert.equal(normalizeContextUsagePayload({}, null), null);
+  });
+
+  it("extracts prompt totalTokens from various usage bucket shapes", () => {
+    assert.deepEqual(extractPromptUsageTotals({ usage: { totalTokens: 30 } }), { used: 30 });
+    assert.deepEqual(extractPromptUsageTotals({ result: { usage: { total_tokens: 55 } } }), { used: 55 });
+    assert.deepEqual(extractPromptUsageTotals({ turn: { usage: { total: 77 } } }), { used: 77 });
+    assert.equal(extractPromptUsageTotals({}), null);
+    assert.equal(extractPromptUsageTotals(null), null);
   });
 });
 
@@ -1771,6 +1771,8 @@ describe("personal agent runtime facade", () => {
 
   it("routes Codex through the managed ACP bridge by default", async () => {
     const workspaceRoot = await tempWorkspace();
+    const prevFake = process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE;
+    process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE = "1";
     try {
       const runtime = createPersonalAgentRuntime({
         legacy: {
@@ -1796,6 +1798,8 @@ describe("personal agent runtime facade", () => {
 
   it("routes Claude Code through the managed ACP bridge by default", async () => {
     const workspaceRoot = await tempWorkspace();
+    const prevFake = process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE;
+    process.env.PERSONAL_AGENT_MANAGED_ACP_FAKE = "1";
     try {
       const runtime = createPersonalAgentRuntime({
         legacy: {

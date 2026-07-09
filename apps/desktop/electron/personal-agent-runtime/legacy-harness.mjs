@@ -49,20 +49,7 @@ export function createPersonalAgentLegacyHarness(options = {}) {
   async function readAgentManagementPreferences(workspaceRoot) {
     const raw = await readJsonLikeFile(agentManagementPreferencePath(workspaceRoot));
     const selections = raw?.selections && typeof raw.selections === "object" ? raw.selections : {};
-    const proxy = raw?.proxy && typeof raw.proxy === "object" ? raw.proxy : {};
-    const takeover = proxy.takeover && typeof proxy.takeover === "object" ? proxy.takeover : {};
-    const targets = proxy.targets && typeof proxy.targets === "object" ? proxy.targets : {};
-    return {
-      selections,
-      proxy: {
-        enabled: Boolean(proxy.enabled),
-        address: typeof proxy.address === "string" && proxy.address.trim() ? proxy.address.trim() : "127.0.0.1",
-        port: Number.isInteger(proxy.port) ? proxy.port : 15721,
-        takeover,
-        targets,
-        updatedAt: typeof proxy.updatedAt === "number" ? proxy.updatedAt : null,
-      },
-    };
+    return { selections };
   }
 
   async function writeAgentManagementPreferences(workspaceRoot, preferences) {
@@ -72,7 +59,6 @@ export function createPersonalAgentLegacyHarness(options = {}) {
       version: 1,
       updatedAt: Date.now(),
       selections: preferences.selections ?? {},
-      proxy: preferences.proxy ?? {},
     };
     await writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     return filePath;
@@ -94,6 +80,8 @@ export function createPersonalAgentLegacyHarness(options = {}) {
 
   function personalAgentStatus(agent, status, extra = {}) {
     const error = extra.error ?? null;
+    const customAgentContext = agent.provider === "custom" ? agent : null;
+    const capabilityExtra = customAgentContext ? { ...extra, customAgent: customAgentContext } : extra;
     return {
       id: agent.id,
       name: agent.name,
@@ -101,14 +89,16 @@ export function createPersonalAgentLegacyHarness(options = {}) {
       executablePath: agent.executablePath,
       model: agent.model,
       customArgs: agent.customArgs,
+      acpArgs: agent.acpArgs ?? [],
+      connectionType: agent.connectionType ?? null,
       modelOptions: extra.modelOptions ?? [],
       defaultModel: extra.defaultModel ?? null,
-      connectionMode: extra.connectionMode ?? personalLocalAgentConnectionMode(agent.provider),
+      connectionMode: extra.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, customAgentContext),
       status,
       version: extra.version ?? null,
       error,
       errorInfo: error ? classifyPersonalAgentError(error, extra.errorCode ?? "unknown") : null,
-      capability: personalAgentCapability(agent.provider, status, extra),
+      capability: personalAgentCapability(agent.provider, status, capabilityExtra),
       lastCheckedAt: Date.now(),
     };
   }
@@ -333,7 +323,6 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     if (!root || !agent?.provider) return agent;
     const preferences = await readAgentManagementPreferences(root);
     const selected = preferences.selections?.[agent.provider];
-    if (selected?.proxyManaged && (!preferences.proxy?.enabled || !preferences.proxy?.takeover?.[agent.provider])) return agent;
     const model = typeof selected?.model === "string" ? selected.model.trim() : "";
     if (!model) return agent;
     const hasOption = (agent.modelOptions ?? []).some((option) => option.id === model);

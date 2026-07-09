@@ -419,6 +419,7 @@ export type PersonalLocalAgentErrorInfo = {
     | "acp_bridge_interrupted_after_retry"
     | "acp_tool_failed"
     | "sandbox_or_network_refusal"
+    | "orphaned"
     | "unknown";
   message: string;
   debug?: string | null;
@@ -442,6 +443,10 @@ export type PersonalLocalAgent = {
   handshake?: PersonalLocalAgentMetadata["handshake"];
   behavior_policy?: PersonalLocalAgentMetadata["behavior_policy"];
   lastCheckedAt: number | null;
+  /** Present for custom agents; when false the agent is hidden from runtime dropdowns but kept in management. */
+  enabled?: boolean;
+  /** Source discriminator used by the management UI to split detected vs custom agents. */
+  agentSource?: string;
 };
 
 export type PersonalLocalAgentMetadata = {
@@ -468,7 +473,6 @@ export type PersonalLocalAgentMetadata = {
     permission_mode?: string | null;
     yolo_mode_id?: string | null;
     auto_approve_readonly?: boolean;
-    supports_side_question?: boolean;
   } | null;
   connectionMode?: string | null;
   status?: PersonalLocalAgentStatus;
@@ -485,15 +489,34 @@ export type PersonalLocalAgentMetadata = {
 };
 
 export type PersonalLocalAgentRunArtifact = {
+  /** Stable id (sha1 slice) used for renderer dedupe. */
+  id?: string;
+  /** Structured artifact kind emitted by the adapter; defaults to "file". */
+  kind?: string;
   /** Absolute path when resolvable, otherwise the raw value emitted by the agent. */
   path: string;
   /** The original (possibly relative) path string emitted by the agent. */
   relPath: string;
   name: string;
-  /** Where this artifact was first observed. */
+  /**
+   * Where this artifact was first observed. Only "adapter" is used by the
+   * current runtime; "assistant" is retained for backward-compat with older
+   * run logs that still carry text-mined entries.
+   */
   source: "adapter" | "assistant" | string;
   exists: boolean;
+  createdAt?: number;
   addedAt: number;
+};
+
+export type PersonalLocalAgentRunFileChange = {
+  id: string;
+  filePath: string;
+  fileName: string;
+  tool: string;
+  toolCallId?: string;
+  diff?: string | null;
+  at: number;
 };
 
 export type PersonalLocalAgentRunEvent = {
@@ -590,6 +613,7 @@ export type PersonalLocalAgentConversationMessage = {
   ownership?: string | null;
   resolution?: { target?: string; kind?: string; message?: string } | null;
   contextUsage?: { used: number; total: number; label?: string | null } | null;
+  commands?: unknown[];
 };
 
 export type PersonalLocalAgentApprovalMode = "auto" | "ask" | "read-only-auto";
@@ -638,10 +662,15 @@ export type PersonalLocalAgentRunResult = {
   pendingApprovals?: PersonalLocalAgentApprovalRequest[];
   /**
    * Files / artifacts the runtime believes were produced or referenced by this run.
-   * Populated from adapter `artifact` events plus a regex pass over the final
-   * assistant output. Prefer this over re-parsing the chat text in the UI.
+   * Populated only from structured adapter `artifact` events. Text mining
+   * was removed in HR2-A-01 to align with AionUi behavior.
    */
   artifacts?: PersonalLocalAgentRunArtifact[];
+  /**
+   * File edits captured from tool_call events (apply_patch/edit/write_file/...).
+   * Rendered by MessageFileChanges alongside artifacts.
+   */
+  fileChanges?: PersonalLocalAgentRunFileChange[];
 };
 
 export type PersonalLocalAgentsListResult = {
@@ -759,11 +788,67 @@ export type PersonalLocalAgentCustomAgentInput = {
     description?: string | null;
     nativeSkillsDirs?: string[];
     behaviorPolicy?: Record<string, unknown>;
+    connectionType?: "cli" | "raw";
+    acpArgs?: string[];
+    supportsAcp?: boolean;
+    supportsStreaming?: boolean;
+    supportsResume?: boolean;
+    supportsApproval?: boolean;
+    supportsModelOverride?: boolean;
+    supportsPermissionAutoApprove?: boolean;
+    authRequired?: boolean;
   };
+};
+
+export type PersonalLocalAgentExtensionAdapterInfo = {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  connectionType: "cli" | "raw";
+  supportsAcp: boolean;
+};
+
+export type PersonalLocalAgentExtensionInfo = {
+  name: string;
+  version: string;
+  displayName: string;
+  description?: string | null;
+  author?: string | null;
+  source: "bundled" | "user";
+  installRoot: string;
+  manifestPath: string;
+  enabled: boolean;
+  errors: Array<{ message: string }>;
+  adapterIds: string[];
+};
+
+export type PersonalLocalAgentExtensionListResult = {
+  extensions: PersonalLocalAgentExtensionInfo[];
+  enabledAdapters: Array<PersonalLocalAgentExtensionAdapterInfo & { extension: { name: string; version: string; source: string } }>;
+};
+
+export type PersonalLocalAgentExtensionSetEnabledResult = {
+  name: string;
+  enabled: boolean;
 };
 
 export type PersonalLocalAgentCustomAgentResult = {
   agent: PersonalLocalAgent;
+};
+
+export type PersonalLocalAgentDetectAvailableAgent = {
+  id: string;
+  name: string;
+  command: string;
+  connectionType: "cli" | "raw";
+  supportsAcp: boolean;
+  acpArgs: string[];
+  nativeSkillsDirs: string[];
+};
+
+export type PersonalLocalAgentDetectResult = {
+  agents: PersonalLocalAgentDetectAvailableAgent[];
 };
 
 export type PersonalLocalAgentDeleteCustomAgentResult = {
@@ -781,6 +866,38 @@ export type PersonalLocalAgentConversationCreateResult = {
 
 export type PersonalLocalAgentConversationGetResult = {
   conversation: PersonalLocalAgentConversation | null;
+};
+
+export type PersonalLocalAgentConversationGetByIdResult = {
+  conversation: PersonalLocalAgentConversation | null;
+};
+
+export type PersonalLocalAgentChannelConversationsListResult = {
+  conversations: PersonalLocalAgentConversation[];
+};
+
+export type PersonalLocalAgentConversationsListByProviderResult = {
+  conversations: PersonalLocalAgentConversation[];
+  activeConversationId: string | null;
+};
+
+export type PersonalLocalAgentConversationImportInput = {
+  workspaceRoot: string;
+  agent?: Partial<PersonalLocalAgent> & {
+    provider?: PersonalLocalAgentProvider;
+    customArgs?: string[];
+  };
+  conversationId?: string | null;
+  title?: string;
+  providerSessionId?: string | null;
+  workdir?: string | null;
+  source?: string;
+  messages: Array<{ id?: string | null; role?: string; content?: unknown; createdAt?: number }>;
+};
+
+export type PersonalLocalAgentConversationImportResult = {
+  conversation: PersonalLocalAgentConversation | null;
+  importedMessageCount: number;
 };
 
 export type PersonalLocalAgentConversationStatusResult = {
@@ -801,12 +918,6 @@ export type PersonalLocalAgentConversationWarmupResult = {
   error?: string | null;
 };
 
-export type PersonalLocalAgentSideQuestionResult = {
-  ok: boolean;
-  run?: PersonalLocalAgentRunResult | null;
-  runId?: string | null;
-  error?: string | null;
-};
 
 export type PersonalLocalAgentConversationConfirmationsResult = {
   conversation: PersonalLocalAgentConversation | null;
@@ -1024,6 +1135,7 @@ export type PersonalLocalAgentProcessRecord = {
   command: string | null;
   startedAt: number;
   updatedAt: number;
+  status?: string;
 };
 
 export type MessagingChannelStatus = {
@@ -1165,12 +1277,6 @@ export type FeishuAccountStatus = {
   error?: string;
 };
 
-export type AgentManagementProviderOption = {
-  id: string;
-  label: string;
-  source: string;
-  active: boolean;
-};
 
 export type AgentManagementManagedProviderModel = {
   id: string;
@@ -1281,6 +1387,7 @@ export type AgentManagementSkillAgent =
   | "openclaw"
   | "hermes"
   | "codex"
+  | "gemini"
   | "onmyagent"
   | "unknown";
 
@@ -1322,7 +1429,6 @@ export type AgentManagementSkill = LocalSkillCard & {
 };
 
 export type AgentManagementAgent = PersonalLocalAgent & {
-  providerOptions: AgentManagementProviderOption[];
   usage: AgentManagementUsageSummary;
   skillCount: number;
 };
@@ -1332,163 +1438,10 @@ export type AgentManagementSnapshot = {
   workspaceRoot: string;
   agents: AgentManagementAgent[];
   skills: AgentManagementSkill[];
-  proxy: AgentManagementProxyStatus;
   providers: AgentManagementProvidersSnapshot;
   mcp: AgentManagementMcpSnapshot;
-  claudeDesktop?: AgentManagementClaudeDesktopStatus;
 };
 
-export type AgentProxyBreakerState = "closed" | "open" | "half_open";
-
-export type AgentProxyBreakerSnapshot = {
-  key: string;
-  appType: string;
-  providerId: string;
-  state: AgentProxyBreakerState;
-  consecutiveFailures: number;
-  totalRequests: number;
-  failedRequests: number;
-  openedAt: number | null;
-  lastEventAt: number | null;
-};
-
-export type AgentProxyFailoverChainEntry = {
-  providerId: string;
-  providerName: string;
-  ok: boolean;
-  error?: string;
-};
-
-export type AgentProxyRecentRequest = {
-  at: number;
-  appType: string;
-  endpoint: string;
-  ok: boolean;
-  status?: number;
-  durationMs?: number;
-  providerId?: string;
-  providerName?: string;
-  model?: string | null;
-  error?: string;
-  failoverChain?: AgentProxyFailoverChainEntry[];
-};
-
-export type AgentProxyFailoverSnapshot = {
-  claude: { lastChain: AgentProxyFailoverChainEntry[]; lastError: string | null };
-  codex: { lastChain: AgentProxyFailoverChainEntry[]; lastError: string | null };
-  breakers: AgentProxyBreakerSnapshot[];
-  recentRequests: AgentProxyRecentRequest[];
-};
-
-export type AgentProxyUsageDailyRow = {
-  day: string;
-  app_type: string;
-  provider_id: string;
-  requests: number;
-  successes: number;
-  failures: number;
-  total_duration_ms: number;
-};
-
-export type AgentManagementProxyUsageInput = {
-  limit?: number;
-  appType?: string;
-  days?: number;
-};
-
-export type AgentManagementProxyUsageResult = {
-  recentRequests: AgentProxyRecentRequest[];
-  usageDaily: AgentProxyUsageDailyRow[];
-  failover: AgentProxyFailoverSnapshot;
-};
-
-export type AgentManagementProxyStatus = {
-  enabled: boolean;
-  address: string;
-  port: number;
-  serviceReachable: boolean;
-  takeover: Record<"opencode" | "codex" | "claude" | "hermes" | "openclaw", boolean>;
-  targets: Record<"opencode" | "codex" | "claude" | "hermes" | "openclaw", string | null>;
-  updatedAt: number | null;
-  studio: {
-    running: boolean;
-    address: string | null;
-    port: number | null;
-    startedAt: number | null;
-    totalRequests: number;
-    successRequests: number;
-    failedRequests: number;
-    lastError: string | null;
-    activeTargets: Record<string, { providerId: string; providerName: string; model?: string | null }>;
-    supportedApps: string[];
-    failover?: AgentProxyFailoverSnapshot;
-  };
-  studioSwitch: {
-    databasePath: string;
-    address: string;
-    port: number;
-    serviceReachable: boolean;
-    enableLogging: boolean;
-    takeover: Record<"claude" | "codex" | "gemini", boolean>;
-  };
-};
-
-export type AgentManagementClaudeDesktopStatus = {
-  installed: boolean;
-  supported: boolean;
-  configPath: string | null;
-  threepConfigPath?: string | null;
-  profilePath?: string | null;
-  metaPath?: string | null;
-  normalDeploymentMode?: string | null;
-  threepDeploymentMode?: string | null;
-  profileExists?: boolean;
-  appliedId?: string | null;
-  studioApplied?: boolean;
-  studioProfileId?: string;
-  reason: string;
-};
-
-export type AgentManagementSetClaudeDesktopInput =
-  | { action: "apply" }
-  | { action: "restore" }
-  | { action: "detect" };
-
-export type AgentManagementSetClaudeDesktopResult = {
-  ok: boolean;
-  applied?: boolean;
-  baseUrl?: string;
-  profileId?: string;
-  profilePath?: string;
-  detect: AgentManagementClaudeDesktopStatus;
-};
-
-export type AgentManagementSetProviderInput = {
-  workspaceRoot: string;
-  provider: PersonalLocalAgentProvider;
-  model: string;
-};
-
-export type AgentManagementSetProviderResult = {
-  ok: boolean;
-  preferencePath: string;
-  provider: PersonalLocalAgentProvider;
-  model: string;
-};
-
-export type AgentManagementSetProxyInput = {
-  workspaceRoot: string;
-} & (
-  | { action: "service"; enabled: boolean; address?: string; port?: number }
-  | { action: "takeover"; agent: AgentManagementSkillAgent; enabled: boolean }
-  | { action: "target"; agent: AgentManagementSkillAgent; target: string }
-);
-
-export type AgentManagementSetProxyResult = {
-  ok: boolean;
-  preferencePath: string;
-  proxy: AgentManagementProxyStatus;
-};
 
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }
@@ -1539,4 +1492,69 @@ export type AgentManagementSkillActionResult = {
   directory?: string;
   path?: string;
   result?: string;
+};
+
+
+export type PersonalLocalAgentHostStatusInput = {
+  workspaceRoot: string;
+  conversationId?: string | null;
+  additionalSkillRoots?: string[];
+  agent?: Partial<PersonalLocalAgent> & {
+    provider?: PersonalLocalAgentProvider;
+    customArgs?: string[];
+  };
+};
+
+export type PersonalLocalAgentHostStatusSkillEntry = {
+  id: string;
+  name: string;
+  indexFile: string;
+  source: string;
+  provenance: "workspace";
+};
+
+export type PersonalLocalAgentHostStatusSkillRoot = {
+  path: string;
+  exists: boolean;
+  count: number;
+};
+
+export type PersonalLocalAgentHostStatusMcpServer = {
+  name: string;
+  transport: string | null;
+  connected: boolean;
+  toolCount: number;
+  source?: string;
+  sourceFile?: string;
+};
+
+export type PersonalLocalAgentHostStatusPermissionItem = {
+  id: string;
+  state: "pending" | "approved" | "denied";
+  summary: string;
+  method: string;
+  at: number | null;
+};
+
+export type PersonalLocalAgentHostStatusResult = {
+  workspaceRoot: string;
+  agentId: string | null;
+  conversationId: string | null;
+  skill: {
+    skills: PersonalLocalAgentHostStatusSkillEntry[];
+    roots: PersonalLocalAgentHostStatusSkillRoot[];
+    error: string | null;
+  };
+  mcp: {
+    servers: PersonalLocalAgentHostStatusMcpServer[];
+    error: string | null;
+    sourceErrors?: Array<{ file: string; message: string }>;
+  };
+  permission: {
+    pending: number;
+    approved: number;
+    denied: number;
+    remembered: number;
+    items: PersonalLocalAgentHostStatusPermissionItem[];
+  };
 };

@@ -39,7 +39,14 @@ export async function readSession(workspaceRoot, provider, agentId = "default") 
 }
 
 export async function writeSession(workspaceRoot, provider, agentId, data) {
-  await writeJsonFile(sessionFile(workspaceRoot, provider, agentId), data);
+  // Merge into the existing session file so callers writing partial patches
+  // (e.g. conversation-store persisting just sessionId/workdir/updatedAt on
+  // conversation updates) do not clobber unrelated fields like
+  // sessionMetadata / availableCommands captured during warmup.
+  const prior = await readJsonLikeFile(sessionFile(workspaceRoot, provider, agentId));
+  const base = prior && typeof prior === "object" && !Array.isArray(prior) ? prior : {};
+  const patch = data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  await writeJsonFile(sessionFile(workspaceRoot, provider, agentId), { ...base, ...patch });
 }
 
 export async function clearSession(workspaceRoot, provider, agentId = "default") {
