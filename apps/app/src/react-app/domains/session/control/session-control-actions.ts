@@ -10,7 +10,7 @@ import { getDisplaySessionTitle } from "../../../../app/lib/session-title";
 import {
   useControlAction,
   type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
+} from "../../../shell";
 import { t } from "../../../../i18n";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 

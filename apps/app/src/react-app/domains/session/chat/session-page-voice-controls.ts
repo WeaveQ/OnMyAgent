@@ -1,11 +1,8 @@
 import { useMemo } from "react";
 
 import { t } from "../../../../i18n";
-import {
-  useControlAction,
-  type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
-import type { SidePanelItem } from "../../../shell/ui-state-store";
+import { type OpenworkControlAction, useControlAction } from "../../../shell";
+import type { SidePanelItem } from "../../../shell";
 
 type UseSessionPageVoiceControlsInput = {
   activeSidePanel: SidePanelItem | null;
