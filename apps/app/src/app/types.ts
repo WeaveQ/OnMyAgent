@@ -156,18 +156,22 @@ export type ComposerGoalIntent = {
 };
 
 export type CollaborationPlanRuntime = {
-  status: "drafting" | "awaiting_approval" | "executing" | "completed";
+  status: "drafting" | "awaiting_approval" | "executing" | "completed" | "blocked";
   originalPrompt: string;
   messageBaseline: number;
   planText?: string;
   createdAt: number;
   approvedAt?: number;
   executionBaseline?: number;
+  blockedReason?: "permission_rejected" | "permission_waiting" | "question_waiting" | "stalled" | "cancelled";
 };
 
 export type CollaborationGoalRuntime = {
+  source?: "goal_intent";
   status: "running" | "waiting" | "paused" | "completed";
+  waitingReason?: "permission" | "question" | "compacting" | "tool" | "user" | "idle";
   objective: string;
+  summary?: string;
   messageBaseline: number;
   lastRunMessageBaseline?: number;
   startedAt: number;
@@ -176,6 +180,11 @@ export type CollaborationGoalRuntime = {
   pauseStartedAt?: number;
   lastRunStartedAt?: number;
   completedAt?: number;
+  currentCheckpoint?: string;
+  completionCriteria?: string[];
+  validationCommands?: string[];
+  progressLog?: string[];
+  lastKnownTodos?: TodoItem[];
 };
 
 export type ArtifactItem = {

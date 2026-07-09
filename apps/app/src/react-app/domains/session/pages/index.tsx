@@ -113,6 +113,7 @@ export type SessionPageProps = {
     requestID: string,
     reply: "once" | "always" | "reject",
   ) => void;
+  autoApprovedPermissionNoticeId?: string | null;
   safeStringify?: (value: unknown) => string;
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;

@@ -1186,6 +1186,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           activePermission={props.activePermission}
                           permissionReplyBusy={props.permissionReplyBusy}
                           respondPermission={props.respondPermission}
+                          autoApprovedPermissionNoticeId={
+                            props.autoApprovedPermissionNoticeId
+                          }
                           activeQuestion={props.activeQuestion}
                           questionReplyBusy={props.questionReplyBusy}
                           respondQuestion={props.respondQuestion}

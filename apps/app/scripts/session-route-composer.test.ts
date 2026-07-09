@@ -4,11 +4,13 @@ import {
   applySessionAccessMode,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
+  clearConsumedPermissionNotice,
   draftHasSendableContent,
   draftToParts,
   inboxAbsolutePath,
   inboxRelativePath,
   joinSystemParts,
+  resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveDraftSendPlan,
   routeForSettingsSection,
@@ -16,6 +18,7 @@ import {
   updateDefaultModelPrefs,
 } from "../src/react-app/shell/session-route-composer";
 import type { ComposerAttachment, ComposerDraft } from "../src/app/types";
+import { setLocale } from "../src/i18n";
 
 function draft(input: Partial<ComposerDraft>): ComposerDraft {
   return {
@@ -74,6 +77,14 @@ describe("session route composer", () => {
     expect(buildLanguageSystemPrompt("zh")).toContain("简体中文");
     expect(buildLanguageSystemPrompt("zh-TW")).toContain("繁體中文");
     expect(buildLanguageSystemPrompt("en")).toContain("English");
+  });
+
+  test("prefers the latest user input language over the interface locale", () => {
+    expect(resolveLanguageForUserInput("创建一个项目管理工具", "en")).toBe("zh");
+    expect(resolveLanguageForUserInput("建立一個專案管理工具", "zh-TW")).toBe("zh-TW");
+    expect(resolveLanguageForUserInput("Build a project manager", "en")).toBe("en");
+    expect(buildLanguageSystemPrompt("zh", "user-input")).toContain("用户本轮输入");
+    expect(buildLanguageSystemPrompt("zh", "user-input")).toContain("Todo 项");
   });
 
   test("resolves assistant send plans for new and existing sessions", () => {
@@ -137,15 +148,34 @@ describe("session route composer", () => {
     expect(applySessionAccessMode(current, "ses_1", undefined)).toEqual({ ses_1: "default" });
   });
 
+  test("clears consumed auto-approved permission notices only after the active request disappears", () => {
+    const current = { ses_1: "perm_1", ses_2: "perm_2" };
+    expect(clearConsumedPermissionNotice(current, "ses_1", "perm_1")).toBe(current);
+    expect(clearConsumedPermissionNotice(current, null, "perm_1")).toBe(current);
+    expect(clearConsumedPermissionNotice(current, "ses_missing", null)).toBe(current);
+    expect(clearConsumedPermissionNotice(current, "ses_1", null)).toEqual({
+      ses_2: "perm_2",
+    });
+    expect(clearConsumedPermissionNotice(current, "ses_1", "perm_other")).toEqual({
+      ses_2: "perm_2",
+    });
+  });
+
   test("builds collaboration prompts for Craft, Ask, Plan, and legacy planning mode", () => {
     expect(buildCollaborationModeSystemPrompt({ planning: false, pursueGoal: false })).toBeNull();
-    expect(buildCollaborationModeSystemPrompt({ kind: "craft", planning: false, pursueGoal: true })).toContain("Craft 协作模式");
+    setLocale("zh");
+    const craftPrompt = buildCollaborationModeSystemPrompt({ kind: "craft", planning: false, pursueGoal: true });
+    expect(craftPrompt).toContain("Craft 协作模式");
+    expect(craftPrompt).not.toContain("追求目标");
     expect(buildCollaborationModeSystemPrompt({ kind: "ask", planning: false, pursueGoal: false })).toContain("Ask 协作模式");
     expect(buildCollaborationModeSystemPrompt({ kind: "plan", planning: true, pursueGoal: false })).toContain("Plan 协作模式");
     expect(buildCollaborationModeSystemPrompt({ planning: true, pursueGoal: false })).toContain("Plan 协作模式");
+    expect(buildCollaborationModeSystemPrompt({ planning: false, pursueGoal: true })).toContain("追求目标");
+    setLocale("en");
+    expect(buildCollaborationModeSystemPrompt({ kind: "ask", planning: false, pursueGoal: false })).toContain("Ask mode");
   });
 
-  test("disables built-in and custom tools while drafting a plan", () => {
+  test("allows read-only tools and disables side-effect tools while drafting a plan", () => {
     const tools = resolveComposerRuntimeTools(
       {
         customCalendarTool: true,
@@ -158,8 +188,8 @@ describe("session route composer", () => {
       BrowserNavigate: false,
       BashFunc: false,
       EditFileFunc: false,
-      ReadFileFunc: false,
-      Read: false,
+      ReadFileFunc: true,
+      Read: true,
       Skill: false,
       Task: false,
       TodoWrite: false,
@@ -177,7 +207,8 @@ describe("session route composer", () => {
       onmyagent_list_actions: false,
       opencode_router: false,
       opencode_router_send: false,
-      read_file_func: false,
+      read_file_func: true,
+      read: true,
       task: false,
       todowrite: false,
       write_file_func: false,
@@ -195,9 +226,16 @@ describe("session route composer", () => {
     });
   });
 
-  test("keeps ask-mode runtime tools unchanged", () => {
-    const tools = { customCalendarTool: true };
-    expect(resolveComposerRuntimeTools(tools, { kind: "ask", planning: false, pursueGoal: false })).toBe(tools);
+  test("uses read-only runtime tools in ask mode", () => {
+    const tools = { customCalendarTool: true, read: false };
+    expect(resolveComposerRuntimeTools(tools, { kind: "ask", planning: false, pursueGoal: false })).toMatchObject({
+      customCalendarTool: false,
+      read: false,
+      Read: true,
+      Write: false,
+      BashFunc: false,
+      Task: false,
+    });
   });
 
   test("normalizes upload and inbox paths", () => {

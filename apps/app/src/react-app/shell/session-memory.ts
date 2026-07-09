@@ -1,4 +1,5 @@
 import type { CollaborationGoalRuntime, TodoItem } from "../../app/types";
+import { deriveGoalSummary } from "./session-route-composer";
 
 /**
  * Thin localStorage wrapper for the React shell's "remember what the user had
@@ -118,6 +119,15 @@ function readStringField(record: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function readStringArrayField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const text = typeof item === "string" ? item.trim() : "";
+    return text ? [text] : [];
+  });
+}
+
 function readNumberField(record: Record<string, unknown>, key: string) {
   const value = record[key];
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -138,8 +148,26 @@ function readGoalStatus(
   return null;
 }
 
+function readGoalWaitingReason(
+  record: Record<string, unknown>,
+): CollaborationGoalRuntime["waitingReason"] | undefined {
+  const reason = record.waitingReason;
+  if (
+    reason === "permission" ||
+    reason === "question" ||
+    reason === "compacting" ||
+    reason === "tool" ||
+    reason === "user" ||
+    reason === "idle"
+  ) {
+    return reason;
+  }
+  return undefined;
+}
+
 function parseGoalRuntime(value: unknown): CollaborationGoalRuntime | null {
   if (!isRecord(value)) return null;
+  if (value.source !== "goal_intent") return null;
   const status = readGoalStatus(value);
   const objective = readStringField(value, "objective").trim();
   const messageBaseline = readNumberField(value, "messageBaseline");
@@ -158,6 +186,7 @@ function parseGoalRuntime(value: unknown): CollaborationGoalRuntime | null {
   }
   const restoredStatus = status === "running" ? "waiting" : status;
   const runtime: CollaborationGoalRuntime = {
+    source: "goal_intent",
     status: restoredStatus,
     objective,
     messageBaseline,
@@ -165,6 +194,9 @@ function parseGoalRuntime(value: unknown): CollaborationGoalRuntime | null {
     updatedAt,
     totalPausedMs,
   };
+  if (restoredStatus === "waiting") {
+    runtime.waitingReason = readGoalWaitingReason(value) ?? "idle";
+  }
   const lastRunMessageBaseline = readNumberField(value, "lastRunMessageBaseline");
   if (lastRunMessageBaseline !== undefined) {
     runtime.lastRunMessageBaseline = lastRunMessageBaseline;
@@ -180,6 +212,25 @@ function parseGoalRuntime(value: unknown): CollaborationGoalRuntime | null {
   const completedAt = readNumberField(value, "completedAt");
   if (completedAt !== undefined && restoredStatus === "completed") {
     runtime.completedAt = completedAt;
+  }
+  const rawSummary = readStringField(value, "summary").trim();
+  const summary = rawSummary ? deriveGoalSummary(rawSummary) : "";
+  if (summary) runtime.summary = summary;
+  const currentCheckpoint = readStringField(value, "currentCheckpoint").trim();
+  if (currentCheckpoint) runtime.currentCheckpoint = currentCheckpoint;
+  const completionCriteria = readStringArrayField(value, "completionCriteria");
+  if (completionCriteria.length) runtime.completionCriteria = completionCriteria;
+  const validationCommands = readStringArrayField(value, "validationCommands");
+  if (validationCommands.length) runtime.validationCommands = validationCommands;
+  const progressLog = readStringArrayField(value, "progressLog");
+  if (progressLog.length) runtime.progressLog = progressLog;
+  const lastKnownTodosValue = value.lastKnownTodos;
+  if (Array.isArray(lastKnownTodosValue)) {
+    const lastKnownTodos = lastKnownTodosValue.flatMap((item) => {
+      const todo = parseTodoItem(item);
+      return todo ? [todo] : [];
+    });
+    if (lastKnownTodos.length) runtime.lastKnownTodos = lastKnownTodos;
   }
   return runtime;
 }
