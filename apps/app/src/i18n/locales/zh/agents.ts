@@ -133,4 +133,7 @@ export default {
   "agents.template_business_expert_name": "业务专家",
   "agents.template_business_expert_desc":
     "收集并分析市场数据，提出清晰、可执行的业务诉求。",
+  "agents.action_conversation_target": "{name} / 对话",
+  "agents.action_create_team_target": "{name} / 创建团队",
+  "agents.error_image_read_failed": "图片读取失败",
 } as const;

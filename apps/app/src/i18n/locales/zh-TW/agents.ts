@@ -133,4 +133,7 @@ export default {
   "agents.template_business_expert_name": "業務專家",
   "agents.template_business_expert_desc":
     "收集並分析市場數據，提出清晰、可執行的業務訴求。",
+  "agents.action_conversation_target": "{name} / 對話",
+  "agents.action_create_team_target": "{name} / 建立團隊",
+  "agents.error_image_read_failed": "圖片讀取失敗",
 } as const;

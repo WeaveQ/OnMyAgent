@@ -138,4 +138,7 @@ export default {
   "agents.template_business_expert_name": "Business expert",
   "agents.template_business_expert_desc":
     "Analyzes market data and turns it into clear, actionable business requirements.",
+  "agents.action_conversation_target": "{name} / Chat",
+  "agents.action_create_team_target": "{name} / Create team",
+  "agents.error_image_read_failed": "Failed to read image",
 } as const;
