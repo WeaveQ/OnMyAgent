@@ -657,7 +657,7 @@ export function CodeWorkspaceSidePanel(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-workspace-side-panel="true">
-      <header className="flex h-10 shrink-0 items-center gap-1 border-b border-dls-border px-2 mac:titlebar-no-drag">
+      <header className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-no-drag">
         <div className="min-w-0 flex-1 overflow-x-auto">
           <div className="flex min-w-max items-center gap-1">
             <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
@@ -701,12 +701,13 @@ export function CodeWorkspaceSidePanel(props: {
           variant="ghost"
           size="icon-xs"
           data-code-side-panel-close="true"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
           onMouseDown={(event) => event.preventDefault()}
           onClick={props.onClose}
           aria-label={t("session.code_side_panel_close")}
           title={t("session.code_side_panel_close")}
         >
-          <PanelRight />
+          <PanelRight className="size-3.5" />
         </Button>
       </header>
       <div className="min-h-0 flex-1">
