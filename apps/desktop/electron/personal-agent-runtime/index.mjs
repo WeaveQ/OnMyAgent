@@ -36,6 +36,7 @@ import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, 
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
+import { personalAgentCapability, personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
 import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
@@ -842,7 +843,12 @@ export function createPersonalAgentRuntime(options) {
     state.conversationId = conversation.id;
     state.providerSessionId = conversation.providerSessionId;
     state.resumeKey = conversation.resumeKey;
-    state.conversationWorkdir = conversation.workdir;
+    // When the conversation has no committed workdir (a brand-new conversation
+    // whose project was picked via the workspace chip after creation), fall
+    // back to the workdir passed on the send so the run executes in the mounted
+    // project instead of the default workspace root.
+    const requestedWorkdir = input.workdir ? String(input.workdir).trim() || null : null;
+    state.conversationWorkdir = conversation.workdir || requestedWorkdir || null;
 
     state.timeoutTimer = setTimeout(() => {
       if (state.status !== "running") return;
@@ -913,7 +919,7 @@ export function createPersonalAgentRuntime(options) {
           conversationId: conversation.id,
           providerSessionId: conversation.providerSessionId,
           resumeKey: conversation.resumeKey,
-          conversationWorkdir: conversation.workdir,
+          conversationWorkdir: state.conversationWorkdir,
           agent: detected,
           model: detected.model,
           prompt,
@@ -989,7 +995,7 @@ export function createPersonalAgentRuntime(options) {
           title: conversation.title,
           providerSessionId: result.providerSessionId ?? result.sessionId ?? state.providerSessionId ?? null,
           resumeKey: result.resumeKey ?? result.providerSessionId ?? result.sessionId ?? state.resumeKey ?? null,
-          workdir: result.workdir ?? state.workdir ?? null,
+          workdir: result.workdir ?? state.conversationWorkdir ?? null,
           lastRunId: state.runId,
           lastStatus: "completed",
           source: conversation.source ?? "studio-created",
@@ -1503,7 +1509,19 @@ export function createPersonalAgentRuntime(options) {
   async function listAgents(input = {}) {
     const result = await legacy.listAgents(input);
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const customAgents = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
+    const customAgentsRaw = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
+    // Custom agents come straight from the store without going through the
+    // legacy detector, so `capability` / `connectionMode` were never
+    // populated. Compute them here (AionUI-aligned: cli + supportsAcp => ACP)
+    // so `agent_type` becomes "acp", the ACP warmup path kicks in, and the
+    // UI's model selector sees supportsModelOverride based on the handshake
+    // instead of the raw stored bool.
+    const customAgents = customAgentsRaw.map((agent) => {
+      const status = agent?.status === "offline" ? "offline" : "online";
+      const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
+      const connectionMode = agent.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, agent);
+      return { ...agent, capability, connectionMode };
+    });
     const extensionAgents = await loadExtensionAdapters();
     const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
     // Hydrate ACP session metadata cached from the last warmup so the
