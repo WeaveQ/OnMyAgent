@@ -1,7 +1,7 @@
 {
   "$schema": "./i18n-cjk-hardcoded.schema.json",
   "description": "Frozen CJK hard-coded string occurrences keyed by file+excerpt with a count. Only shrink (delete entries or lower counts); never bump counts by hand. Regenerate with `node scripts/checks/check-i18n-cjk.mjs --write` after genuine reduction.",
-  "generatedAt": "2026-07-07T09:40:02.197Z",
+  "generatedAt": "2026-07-08T12:46:39.183Z",
   "entries": {
     "apps/app/src/react-app/domains/agents/agent-registry.ts::\"专业\",": 1,
     "apps/app/src/react-app/domains/agents/agent-registry.ts::\"专家\",": 1,
@@ -530,13 +530,8 @@
     "apps/app/src/react-app/shell/onboarding-profile.ts::joinValues(\"用户职业角色\", profile.roles),": 1,
     "apps/app/src/react-app/shell/onboarding-profile.ts::profile.mbti.trim() ? `用户 MBTI：${profile.mbti.trim()}` : null,": 1,
     "apps/app/src/react-app/shell/onboarding-profile.ts::profile.userName.trim() ? `用户姓名：${profile.userName.trim()}` : null,": 1,
-    "apps/app/src/react-app/shell/session-route-composer.ts::\"Ask 协作模式：以问答和解释为主；默认只读取必要文件与上下文，不主动修改文件、不运行会产生副作用的命令、不创建任务。若需要写入、执行命令或改变外部状态，先向用户说明并请求确认。\",": 1,
-    "apps/app/src/react-app/shell/session-route-composer.ts::\"Craft 协作模式：默认端到端推进用户目标；可以按需读取和修改文件、运行本地命令、管理任务、联网搜索并产出可交付结果。执行高风险或破坏性操作前先请求确认。\",": 1,
-    "apps/app/src/react-app/shell/session-route-composer.ts::\"Plan 协作模式：先制定清晰的多步骤计划，说明目标、范围、风险、验证方式和下一步；默认只读取必要文件与上下文。除非用户明确要求执行计划，否则不要直接修改文件或运行有副作用的命令。\",": 1,
     "apps/app/src/react-app/shell/session-route-composer.ts::\"用户上传了以下文件。不要把这些文件当作模型原生文件输入；如果任务需要处理文件，请使用本地工具或已配置的对应 skill，并直接读取这些本地路径：\",": 1,
-    "apps/app/src/react-app/shell/session-route-composer.ts::\"追求目标：持续围绕用户目标推进，主动跟踪完成状态；遇到阻塞时说明阻塞并寻找可行替代路径。\",": 1,
     "apps/app/src/react-app/shell/session-route-composer.ts::`- ${file.name} (${file.mimeType || \"application/octet-stream\"}): ${file.absolutePath}（工作区相对路径：${file.relativePath}）`,": 1,
-    "apps/app/src/react-app/shell/session-route-composer.ts::return `协作模式系统提示词：\\n${instructions.map((instruction) => `- ${instruction}`).join(\"\\n\")}`;": 1,
     "apps/app/src/react-app/shell/session-route.tsx::void pickDirectory({ title: \"选择工作空间\" }).then((directory) => {": 1
   }
 }
