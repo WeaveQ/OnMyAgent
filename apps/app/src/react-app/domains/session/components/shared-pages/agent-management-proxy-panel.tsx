@@ -12,6 +12,7 @@ import {
 } from "../../../../../app/lib/desktop";
 import { AgentSkillIcon } from "./agent-skill-icon";
 import { SKILL_AGENT_LABELS } from "./agent-management-skill-model";
+import { t } from "@/i18n";
 
 const proxyPanelTextClass = {
   sectionTitle: "text-sm font-medium text-dls-text",
@@ -72,9 +73,9 @@ export function AgentManagementProxyPanel(props: {
           <div className="min-w-0">
             <div className={proxyPanelLayoutClass.titleWrap}>
               <Zap className="size-4 text-dls-accent" />
-              <h3 className={proxyPanelTextClass.sectionTitle}>本地代理接管</h3>
+              <h3 className={proxyPanelTextClass.sectionTitle}>{t("session.proxy_panel_title")}</h3>
               <StatusBadge tone={proxy?.serviceReachable ? "success" : "warning"}>
-                {proxy?.serviceReachable ? "服务在线" : "服务未监听"}
+                {proxy?.serviceReachable ? t("session.proxy_service_online") : t("session.proxy_service_offline")}
               </StatusBadge>
             </div>
             <p className={proxyPanelLayoutClass.address}>{address}</p>
@@ -87,14 +88,14 @@ export function AgentManagementProxyPanel(props: {
                   disabled={props.busyKey === "proxy:service"}
                   onClick={() => props.onProxyAction({ workspaceRoot: props.snapshot?.workspaceRoot ?? "", action: "service", enabled: !(proxy?.enabled ?? false), address: proxy?.address, port: proxy?.port }, "proxy:service")}
                   className={cn(proxy?.enabled ? "bg-dls-status-success-soft text-dls-status-success-fg ring-1 ring-dls-status-success-border" : "bg-dls-hover text-dls-secondary hover:bg-dls-hover")}
-                  aria-label={proxy?.enabled ? "关闭代理偏好" : "启用代理偏好"}
+                  aria-label={proxy?.enabled ? t("session.proxy_toggle_disable") : t("session.proxy_toggle_enable")}
                 >
                   {props.busyKey === "proxy:service" ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
                 </Button>
               }
             />
             <TooltipContent side="bottom">
-              <span>{proxy?.enabled ? "关闭代理偏好" : "启用代理偏好"}</span>
+              <span>{proxy?.enabled ? t("session.proxy_toggle_disable") : t("session.proxy_toggle_enable")}</span>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -103,15 +104,15 @@ export function AgentManagementProxyPanel(props: {
           <div className={proxyPanelLayoutClass.subCard}>
             <div className={proxyPanelLayoutClass.subHeader}>
               <div>
-                <div className={proxyPanelLayoutClass.subTitle}>Studio 本地网关</div>
-                <div className={proxyPanelLayoutClass.subDescription}>当前内置协议代理支持 Claude Code / Codex；其他 Agent 保持运行时目标选择。</div>
+                <div className={proxyPanelLayoutClass.subTitle}>{t("session.proxy_studio_gateway_title")}</div>
+                <div className={proxyPanelLayoutClass.subDescription}>{t("session.proxy_studio_gateway_desc")}</div>
               </div>
-              <StatusBadge size="default" tone={studioProxy?.running ? "success" : agentManagerEnabledTone(Boolean(proxy?.enabled))}>{studioProxy?.running ? "网关运行中" : proxy?.enabled ? "已启用" : "未启用"}</StatusBadge>
+              <StatusBadge size="default" tone={studioProxy?.running ? "success" : agentManagerEnabledTone(Boolean(proxy?.enabled))}>{studioProxy?.running ? t("session.proxy_gateway_running") : proxy?.enabled ? t("session.proxy_enabled") : t("session.proxy_disabled")}</StatusBadge>
             </div>
             <div className={proxyPanelLayoutClass.metricsGrid}>
-              <AgentManagementMetric label="请求" value={studioProxy?.totalRequests ?? 0} />
-              <AgentManagementMetric label="成功" value={studioProxy?.successRequests ?? 0} />
-              <AgentManagementMetric label="失败" value={studioProxy?.failedRequests ?? 0} />
+              <AgentManagementMetric label={t("session.proxy_metric_requests")} value={studioProxy?.totalRequests ?? 0} />
+              <AgentManagementMetric label={t("session.proxy_metric_success")} value={studioProxy?.successRequests ?? 0} />
+              <AgentManagementMetric label={t("session.proxy_metric_failed")} value={studioProxy?.failedRequests ?? 0} />
             </div>
             {studioProxy?.lastError ? <NoticeBox className="mt-2" tone="error">{studioProxy.lastError}</NoticeBox> : null}
             <div className={proxyPanelLayoutClass.agentGrid}>
@@ -133,7 +134,7 @@ export function AgentManagementProxyPanel(props: {
                       onChange={(event) => props.onProxyAction({ workspaceRoot: props.snapshot?.workspaceRoot ?? "", action: "target", agent: agentId, target: event.currentTarget.value }, `proxy:${agentId}`)}
                       className={proxyPanelLayoutClass.select}
                     >
-                      {target ? <option value={target}>{target}</option> : <option value="">未发现目标</option>}
+                      {target ? <option value={target}>{target}</option> : <option value="">{t("session.proxy_no_target")}</option>}
                       {options.filter((option) => option.id !== target).map((option) => (
                         <option key={option.id} value={option.id}>{option.label}</option>
                       ))}
@@ -146,13 +147,13 @@ export function AgentManagementProxyPanel(props: {
                             disabled={!agent || busy}
                             onClick={() => props.onProxyAction({ workspaceRoot: props.snapshot?.workspaceRoot ?? "", action: "takeover", agent: agentId, enabled: !enabled }, `proxy:${agentId}`)}
                             className={cn(enabled ? "bg-dls-status-success-soft text-dls-status-success-fg ring-1 ring-dls-status-success-border" : "bg-dls-hover text-dls-secondary hover:bg-dls-hover")}
-                            aria-label={enabled ? `${SKILL_AGENT_LABELS[agentId]} 取消接管` : `${SKILL_AGENT_LABELS[agentId]} 接管`}
+                            aria-label={enabled ? t("session.proxy_agent_release", { name: SKILL_AGENT_LABELS[agentId] }) : t("session.proxy_agent_takeover", { name: SKILL_AGENT_LABELS[agentId] })}
                           >
                             {busy ? <Loader2 className="size-3 animate-spin" /> : <Zap className="size-3.5" />}
                           </Button>
                         }
                       />
-                      <TooltipContent side="bottom"><span>{enabled ? "取消接管" : "接管"}</span></TooltipContent>
+                      <TooltipContent side="bottom"><span>{enabled ? t("session.proxy_release") : t("session.proxy_takeover")}</span></TooltipContent>
                     </Tooltip>
                   </div>
                 );
@@ -163,16 +164,16 @@ export function AgentManagementProxyPanel(props: {
           <div className={proxyPanelLayoutClass.subCard}>
             <div className={proxyPanelLayoutClass.subHeader}>
               <div>
-                <div className={proxyPanelLayoutClass.subTitle}>Studio Switch 本地路由</div>
-                <div className={proxyPanelLayoutClass.subDescription}>{studioSwitchAddress} · {proxy?.studioSwitch.serviceReachable ? "在线" : "未监听"}</div>
+                <div className={proxyPanelLayoutClass.subTitle}>{t("session.proxy_studio_switch_title")}</div>
+                <div className={proxyPanelLayoutClass.subDescription}>{studioSwitchAddress} · {proxy?.studioSwitch.serviceReachable ? t("session.proxy_switch_online") : t("session.proxy_switch_offline")}</div>
               </div>
-              <StatusBadge size="default" tone={proxy?.studioSwitch.serviceReachable ? "success" : "neutral"}>{proxy?.studioSwitch.serviceReachable ? "运行中" : "未运行"}</StatusBadge>
+              <StatusBadge size="default" tone={proxy?.studioSwitch.serviceReachable ? "success" : "neutral"}>{proxy?.studioSwitch.serviceReachable ? t("session.proxy_switch_running") : t("session.proxy_switch_not_running")}</StatusBadge>
             </div>
             <div className={proxyPanelLayoutClass.appGrid}>
               {(["claude", "codex", "gemini"] as const).map((app) => (
                 <div key={app} className={proxyPanelLayoutClass.appCard}>
                   <div className={proxyPanelLayoutClass.appTitle}>{app}</div>
-                  <div className={cn("mt-1 text-xs font-medium", proxy?.studioSwitch.takeover?.[app] ? "text-dls-status-success-fg" : "text-dls-secondary")}>{proxy?.studioSwitch.takeover?.[app] ? "已接管" : "未接管"}</div>
+                  <div className={cn("mt-1 text-xs font-medium", proxy?.studioSwitch.takeover?.[app] ? "text-dls-status-success-fg" : "text-dls-secondary")}>{proxy?.studioSwitch.takeover?.[app] ? t("session.proxy_switch_taken_over") : t("session.proxy_switch_not_taken_over")}</div>
                 </div>
               ))}
             </div>
