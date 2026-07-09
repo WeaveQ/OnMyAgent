@@ -2,6 +2,7 @@
 
 import { IconTile } from "@/components/ui/action-row";
 import { FeaturePreviewPlaceholder } from "../components/feature-preview-placeholder";
+import { t } from "../../../../i18n";
 
 import {
   SIDEBAR_VIEW_ICONS,
@@ -30,7 +31,7 @@ export function SidebarFeaturePlaceholder(props: {
           <Icon className="size-6" />
         </IconTile>
         <h2 className={featurePlaceholderTextClass.emptyTitle}>{label}</h2>
-        <p className="mt-2 text-sm text-dls-secondary">开发中，敬请期待</p>
+        <p className="mt-2 text-sm text-dls-secondary">{t("session.feature_placeholder_coming_soon")}</p>
       </div>
     </div>
   );

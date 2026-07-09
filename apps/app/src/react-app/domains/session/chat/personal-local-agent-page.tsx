@@ -75,7 +75,6 @@ import type { ChatMessage } from "../../local-agents/messages/message-types";
 import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/message-utils";
 import { lastEventTime } from "../../local-agents/messages/timeline-messages";
 import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
-import { BtwOverlay, agentSupportsSideQuestion } from "../../local-agents/side-question";
 import type { LocalAgentRepairAction } from "../../local-agents/local-agent-repair-panel";
 import { SidebarPaneCollapseToggle } from "../components/shared-pages/sidebar-pane-collapse-toggle";
 import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { NavTabButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 
+import { t } from "../../../../i18n";
+
 import {
   BILLING_CHART_BARS,
   BILLING_USAGE_RECORDS,
@@ -23,12 +25,12 @@ export function BillingPage() {
     <div className="h-full overflow-auto bg-dls-surface px-6 py-6 text-dls-text">
       <div className="mx-auto max-w-7xl space-y-5">
         <SessionPreviewPanel as="section" className="flex min-h-16 items-center justify-between px-4" size="none">
-          <h2 className={billingTextClass.panelTitle}>免费版套餐</h2>
+          <h2 className={billingTextClass.panelTitle}>{t("session.billing_free_plan")}</h2>
           <Button
             type="button"
             size="sm"
           >
-            升级
+            {t("session.billing_upgrade")}
           </Button>
         </SessionPreviewPanel>
 
@@ -37,13 +39,13 @@ export function BillingPage() {
             active={activeTab === "usage"}
             onClick={() => setActiveTab("usage")}
           >
-            使用详情
+            {t("session.billing_tab_usage")}
           </BillingTabButton>
           <BillingTabButton
             active={activeTab === "bill"}
             onClick={() => setActiveTab("bill")}
           >
-            账单
+            {t("session.billing_tab_bill")}
           </BillingTabButton>
         </div>
 
@@ -81,11 +83,11 @@ function BillingUsagePanel() {
               <span className="text-2xl font-medium leading-none">1</span>
               <span className="ml-1 text-sm font-medium">/ 20</span>
               <span className="ml-2 text-xs text-dls-secondary">
-                已用5%
+                {t("session.billing_used_percent", { percent: 5 })}
               </span>
             </div>
             <span className="text-xs text-dls-secondary">
-              2026年5月27日-2026年6月26日
+              {t("session.billing_period_placeholder")}
             </span>
           </div>
           <div className="mb-3 h-1 overflow-hidden rounded-full bg-muted">
@@ -94,16 +96,16 @@ function BillingUsagePanel() {
           <div className="space-y-2 text-sm">
             <BillingMetric
               color="bg-dls-accent"
-              label="今日基础积分"
+              label={t("session.billing_daily_credits")}
               value="1 / 20"
             />
-            <BillingMetric color="bg-dls-signal" label="限时积分" value="0" />
-            <BillingMetric color="bg-dls-status-warning" label="补充积分" value="0" />
+            <BillingMetric color="bg-dls-signal" label={t("session.billing_promo_credits")} value="0" />
+            <BillingMetric color="bg-dls-status-warning" label={t("session.billing_addon_credits")} value="0" />
           </div>
         </SessionPreviewPanel>
 
         <SessionPreviewPanel as="section">
-          <h3 className={`mb-4 ${billingTextClass.subSectionTitle}`}>近14天消耗</h3>
+          <h3 className={`mb-4 ${billingTextClass.subSectionTitle}`}>{t("session.billing_last_14_days")}</h3>
           <div className="flex h-[116px] items-end gap-6 px-2">
             {BILLING_CHART_BARS.map((height, index) => (
               <div
@@ -127,13 +129,13 @@ function BillingUsagePanel() {
       </div>
 
       <SessionPreviewPanel as="section">
-        <h3 className={`mb-3 ${billingTextClass.subSectionTitle}`}>用量记录 (20)</h3>
+        <h3 className={`mb-3 ${billingTextClass.subSectionTitle}`}>{t("session.billing_usage_records", { count: 20 })}</h3>
         <div className="overflow-hidden border-t border-dls-border">
           <div className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-border py-3 text-sm font-medium">
-            <div>时间区间</div>
-            <div>场景</div>
-            <div>会话</div>
-            <div>积分</div>
+            <div>{t("session.billing_col_time")}</div>
+            <div>{t("session.billing_col_scene")}</div>
+            <div>{t("session.billing_col_session")}</div>
+            <div>{t("session.billing_col_credits")}</div>
             <div />
           </div>
           {BILLING_USAGE_RECORDS.map((record) => (
@@ -151,7 +153,7 @@ function BillingUsagePanel() {
                 size="xs"
                 className="justify-start p-0 text-left text-dls-secondary hover:text-dls-text"
               >
-                查看详情
+                {t("session.billing_view_details")}
               </Button>
             </div>
           ))}
@@ -174,7 +176,7 @@ function BillingMetric(props: { color: string; label: string; value: string }) {
 function BillingBillPanel() {
   return (
     <SessionPreviewPanel as="section" className="flex h-[220px] items-center justify-center text-sm text-dls-secondary">
-      暂无账单记录
+      {t("session.billing_no_records")}
     </SessionPreviewPanel>
   );
 }

@@ -12,7 +12,7 @@ import { usePlatform } from "../../../../kernel/platform";
 import {
   useControlAction,
   type OpenworkControlAction,
-} from "../../../../shell/control/control-provider";
+} from "../../../../shell";
 import type { OpenworkServerStatus } from "../../../../../app/lib/onmyagent-server";
 import { APP_NAME } from "../../../../../i18n/locales/brand";
 

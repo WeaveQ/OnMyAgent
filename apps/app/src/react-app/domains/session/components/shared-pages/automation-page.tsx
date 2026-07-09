@@ -52,7 +52,7 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
-import { useWorkspace } from "@/react-app/shell/workspace-provider";
+import { useWorkspace } from "@/react-app/shell";
 import { AccessPermissionSelect } from "../../surface/composer/access-permission-select";
 import type {
   OpenworkAutomationTaskItem,
