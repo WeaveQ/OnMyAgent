@@ -5,12 +5,14 @@ import {
   ChevronDown,
   ChevronRight,
   Cloud,
+  Copy,
+  ExternalLink,
   FileText,
   Folder,
-  FolderOpen,
   MoreHorizontal,
   Search,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -333,6 +335,135 @@ function buildFileHierarchy(
   return groups;
 }
 
+function FilePreviewDrawer(props: {
+  open: boolean;
+  file: FileNode | null;
+  target: OpenTarget | null;
+  state: FilePreviewState;
+  copied: boolean;
+  onClose: () => void;
+  onCopyPath: () => void;
+  onOpenInFolder?: () => void;
+  onOpenExternally?: () => void;
+}) {
+  const { open, file, target, state, copied, onClose, onCopyPath, onOpenInFolder, onOpenExternally } = props;
+
+  return (
+    <>
+      <div
+        aria-hidden={!open}
+        onClick={onClose}
+        className={cn(
+          "pointer-events-none absolute inset-0 z-10 bg-black/5 opacity-0 transition-opacity duration-200",
+          open && "pointer-events-auto opacity-100",
+        )}
+      />
+      <aside
+        role="dialog"
+        aria-hidden={!open}
+        aria-label={file?.name ?? t("files.preview_empty")}
+        className={cn(
+          "absolute inset-y-0 right-0 z-20 flex w-full max-w-[520px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
+          open && "translate-x-0",
+        )}
+      >
+        {file && target ? (
+          <>
+            <header className="flex items-start gap-3 border-b border-dls-border px-5 py-4">
+              <ArtifactIcon type={target.preview} className="mt-0.5 size-5 shrink-0 text-dls-secondary" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
+                  {file.name}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-dls-secondary">
+                  <span>{formatWorkspaceFileSize(file.size)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatWorkspaceFileTime(file.mtimeMs)}</span>
+                </div>
+                <div
+                  className="mt-1 truncate font-mono text-xs text-dls-secondary/80"
+                  title={file.path}
+                >
+                  {file.path}
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={onClose}
+                aria-label={t("files.close_preview")}
+                title={t("files.close_preview")}
+              >
+                <X className="size-4" />
+              </Button>
+            </header>
+
+            <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
+              {onOpenExternally ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenExternally}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <ExternalLink data-icon="inline-start" className="size-3.5" />
+                  {t("files.open_file")}
+                </Button>
+              ) : null}
+              {onOpenInFolder ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenInFolder}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <Folder data-icon="inline-start" className="size-3.5" />
+                  {t("files.open_in_folder")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onCopyPath}
+                className="text-dls-secondary hover:text-dls-text"
+              >
+                <Copy data-icon="inline-start" className="size-3.5" />
+                {copied ? t("files.copied") : t("files.copy_path")}
+              </Button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden bg-dls-surface">
+              {state.status === "loading" ? (
+                <PreviewLoading />
+              ) : state.status === "error" ? (
+                <PreviewError message={state.message} />
+              ) : state.status === "ready" && target.preview === "markdown" ? (
+                <MarkdownPreview content={state.content} />
+              ) : state.status === "ready" ? (
+                <PlainText content={state.content} />
+              ) : state.status === "browser" ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {t("files.preview_opened_in_browser")}
+                </div>
+              ) : state.status === "external" ? (
+                <PreviewUnavailable />
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {t("files.preview_empty")}
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+      </aside>
+    </>
+  );
+}
+
 export function WorkspaceFilesPage(props: {
   client: OpenworkServerClient | null;
   workspaceId: string;
@@ -352,6 +483,7 @@ export function WorkspaceFilesPage(props: {
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(
     () => new Set(),
@@ -550,6 +682,38 @@ export function WorkspaceFilesPage(props: {
     [fileRoot, openArtifactTarget],
   );
 
+  const closePreview = useCallback(() => {
+    setSelectedFile(null);
+    setPreviewState({ status: "idle" });
+    setCopiedPath(false);
+  }, []);
+
+  const handleCopyPath = useCallback(async () => {
+    if (!selectedFile) return;
+    const absolute = selectedFile.path.startsWith("/")
+      ? selectedFile.path
+      : `${fileRoot}/${selectedFile.path}`;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopiedPath(true);
+      window.setTimeout(() => setCopiedPath(false), 1600);
+    } catch (copyError) {
+      console.error("Failed to copy path:", copyError);
+    }
+  }, [fileRoot, selectedFile]);
+
+  useEffect(() => {
+    if (!selectedFile) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        closePreview();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [closePreview, selectedFile]);
+
   const toggleAgent = (name: string) => {
     setExpandedAgents((prev) => {
       const next = new Set(prev);
@@ -652,11 +816,8 @@ export function WorkspaceFilesPage(props: {
             </div>
           </div>
 
-          <div className={cn(
-            "grid min-h-0 flex-1 gap-4 bg-transparent",
-            selectedFile ? "grid-cols-[minmax(0,1fr)_minmax(320px,420px)]" : "grid-cols-1",
-          )}>
-            <div className="min-h-0 overflow-auto">
+          <div className="relative min-h-0 flex-1">
+            <div className="h-full min-h-0 overflow-auto pr-1">
         {loading && entries.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
             {t("files.loading")}
@@ -789,44 +950,21 @@ export function WorkspaceFilesPage(props: {
           </div>
         )}
             </div>
-            {selectedFile && selectedTarget ? (
-              <div className="min-h-0 overflow-hidden rounded-lg border border-dls-border bg-dls-surface-muted">
-                <div className="flex items-start gap-3 border-b border-dls-border px-4 py-3">
-                  <ArtifactIcon type={selectedTarget.preview} className="mt-0.5 size-4 shrink-0 text-dls-secondary" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-dls-text">{selectedFile.name}</div>
-                    <div className="mt-1 truncate text-xs text-dls-secondary" title={selectedFile.path}>
-                      {selectedFile.path}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right text-xs text-dls-secondary">
-                    <div>{formatWorkspaceFileSize(selectedFile.size)}</div>
-                    <div className="mt-1">{formatWorkspaceFileTime(selectedFile.mtimeMs)}</div>
-                  </div>
-                </div>
-                <div className="h-[420px] min-h-0 bg-dls-surface">
-                  {previewState.status === "loading" ? (
-                    <PreviewLoading />
-                  ) : previewState.status === "error" ? (
-                    <PreviewError message={previewState.message} />
-                  ) : previewState.status === "ready" && selectedTarget.preview === "markdown" ? (
-                    <MarkdownPreview content={previewState.content} />
-                  ) : previewState.status === "ready" ? (
-                    <PlainText content={previewState.content} />
-                  ) : previewState.status === "browser" ? (
-                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
-                      {t("files.preview_opened_in_browser")}
-                    </div>
-                  ) : previewState.status === "external" ? (
-                    <PreviewUnavailable />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
-                      {t("files.preview_empty")}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : null}
+            <FilePreviewDrawer
+              open={Boolean(selectedFile && selectedTarget)}
+              file={selectedFile}
+              target={selectedTarget}
+              state={previewState}
+              copied={copiedPath}
+              onClose={closePreview}
+              onCopyPath={handleCopyPath}
+              onOpenInFolder={selectedFile ? () => handleOpenFile(selectedFile.path) : undefined}
+              onOpenExternally={
+                selectedTarget && selectedFile
+                  ? () => void openArtifactTarget(selectedTarget)
+                  : undefined
+              }
+            />
           </div>
             </>
           )}
