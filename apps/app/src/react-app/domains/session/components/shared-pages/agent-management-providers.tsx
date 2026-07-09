@@ -63,7 +63,7 @@ const SKILL_AGENT_LABELS: Record<string, string> = {
   hermes: "Hermes",
   codex: "Codex",
   onmyagent: "OnMyAgent",
-  unknown: "未识别",
+  unknown: t("agent_manager.skill_agent_unknown"),
 };
 
 const providerTextClass = {
@@ -285,9 +285,10 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
 }
 
 function providerModelSummary(provider: AgentManagementManagedProvider) {
-  if (provider.models.length === 0) return "未声明模型";
-  if (provider.models.length === 1) return provider.models[0]?.name || provider.models[0]?.id;
-  return `${provider.models[0]?.name || provider.models[0]?.id} 等 ${provider.models.length} 个`;
+  if (provider.models.length === 0) return t("agent_manager.provider_no_models");
+  const first = provider.models[0]?.name || provider.models[0]?.id;
+  if (provider.models.length === 1) return first;
+  return t("agent_manager.provider_models_more", { name: first, count: provider.models.length });
 }
 
 function ProviderBrandIcon(props: { provider?: AgentManagementManagedProvider; appType: AgentManagementProviderApp }) {
@@ -625,14 +626,14 @@ export function AgentManagementProviderModal(props: {
                         <Input
                           value={row.displayName}
                           onChange={(event) => updateCodexCatalogRow(row.rowId, { displayName: event.currentTarget.value })}
-                          placeholder="例如 DeepSeek V4 Pro"
+                          placeholder={t("agent_manager.provider_modal.example_model_name", { name: "DeepSeek V4 Pro" })}
                           className={fieldClass}
                         />
                         <Input
                           value={row.model}
                           onChange={(event) => updateCodexCatalogRow(row.rowId, { model: event.currentTarget.value })}
                           list={fetchedModels.length ? `agent-provider-models-${props.appType}` : undefined}
-                          placeholder="例如 deepseek-v4-pro"
+                          placeholder={t("agent_manager.provider_modal.example_model_id", { name: "deepseek-v4-pro" })}
                           className={fieldClass}
                         />
                         <Input
@@ -913,7 +914,7 @@ export function AgentManagementProviderPanel(props: {
           })}
         </div>
         <div className="mt-4 rounded-lg border border-dls-border bg-dls-surface-muted p-3 text-xs leading-5 text-dls-secondary">
-          <div className="font-medium text-dls-text">Studio Switch DB</div>
+          <div className="font-medium text-dls-text">{t("agent_manager.provider_studio_db_title")}</div>
           <div className="mt-1 break-all">{props.snapshot?.providers.databasePath}</div>
         </div>
       </aside>

@@ -177,7 +177,7 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
                   <span
                     key={agent}
                     className={cn(
-                      "flex size-4.5 items-center justify-center rounded-full border border-dls-surface bg-dls-surface",
+                      "flex size-4 items-center justify-center rounded-full border border-dls-surface bg-dls-surface",
                       index > 0 && "-ml-[5px]",
                     )}
                     style={{ zIndex: 10 - index }}
@@ -192,7 +192,7 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
                 ) : null}
               </div>
             ) : (
-              <span className="size-4.5 rounded-full border border-dashed border-dls-border-strong bg-dls-surface" />
+              <span className="size-4 rounded-full border border-dashed border-dls-border-strong bg-dls-surface" />
             )}
           </div>
         }
@@ -215,7 +215,7 @@ function SkillMatrixRow(props: {
   const title = props.skill.displayNameZh || props.skill.displayNameEn || props.skill.name;
   const description = props.skill.descriptionZh || props.skill.descriptionEn || props.skill.description || "";
   const sourceKind = props.skill.kind ?? props.skill.sources.find((source) => source.kind)?.kind ?? "skill";
-  const sourceKindLabel = sourceKind === "runtime-skill" ? "Runtime" : sourceKind === "slash-command" ? "Slash" : sourceKind === "plugin" ? "Plugin" : null;
+  const sourceKindLabel = sourceKind === "runtime-skill" ? t("agent_manager.skill.kind_runtime") : sourceKind === "slash-command" ? t("agent_manager.skill.kind_slash") : sourceKind === "plugin" ? t("agent_manager.skill.kind_plugin") : null;
   const importAgent = props.skill.agents.find((agent) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(agent)) ?? props.skill.sources.find((source) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(source.agent))?.agent ?? "claude";
   const importBusy = props.busyKey === `${props.skill.path}:${importAgent}:import`;
   return (
@@ -330,7 +330,7 @@ function SkillMatrixDrawer(props: {
   const title = skill.displayNameZh || skill.displayNameEn || skill.name;
   const description = skill.descriptionZh || skill.descriptionEn || skill.description || "";
   const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
-  const sourceKindLabel = sourceKind === "runtime-skill" ? "Runtime" : sourceKind === "slash-command" ? "Slash" : sourceKind === "plugin" ? "Plugin" : null;
+  const sourceKindLabel = sourceKind === "runtime-skill" ? t("agent_manager.skill.kind_runtime") : sourceKind === "slash-command" ? t("agent_manager.skill.kind_slash") : sourceKind === "plugin" ? t("agent_manager.skill.kind_plugin") : null;
   const importAgent = skill.agents.find((agent) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(agent)) ?? skill.sources.find((source) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(source.agent))?.agent ?? "claude";
   const importBusy = props.busyKey === `${skill.path}:${importAgent}:import`;
   const copyPath = useCallback(async (path: string) => {

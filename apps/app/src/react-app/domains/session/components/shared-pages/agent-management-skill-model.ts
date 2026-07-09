@@ -1,3 +1,4 @@
+import { t } from "../../../../../i18n";
 import type { AgentManagementSkillAgent } from "../../../../../app/lib/desktop";
 
 export const SKILL_AGENT_LABELS: Record<string, string> = {
@@ -8,7 +9,7 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
   codex: "Codex",
   gemini: "Gemini",
   onmyagent: "OnMyAgent",
-  unknown: "未识别",
+  unknown: t("agent_manager.skill_agent_unknown"),
 };
 
 export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "onmyagent"];
