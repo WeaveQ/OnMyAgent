@@ -93,6 +93,7 @@ import {
   writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
   type OnMyAgentPrimaryView,
+  type StorePrimaryTab,
 } from "../components/shared-pages";
 import {
   readAssistantSelectionMemory,
@@ -165,6 +166,8 @@ export function AssistantPage(props: AssistantPageProps) {
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
+  const [storeActiveTab, setStoreActiveTab] =
+    useState<StorePrimaryTab>("experts");
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -1005,7 +1008,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           client={props.onmyagentServerClient}
+                          activeTab={storeActiveTab}
                           myExperts={myExpertPackages}
+                          onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
                         />
@@ -1200,6 +1205,10 @@ export function AssistantPage(props: AssistantPageProps) {
                           personalAssistantCategoryId={assistantCategoryId}
                           onPersonalAssistantCategoryChange={setAssistantCategoryId}
                           onPersonalAssistantCategoryActive={setAssistantCategoryId}
+                          onOpenSkillsMarketplace={() => {
+                            setStoreActiveTab("skills");
+                            setActiveSidebarView("store");
+                          }}
                         />
                       ) : null}
 

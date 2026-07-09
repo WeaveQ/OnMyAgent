@@ -50,6 +50,7 @@ import type {
 } from "../../../../app/types";
 import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OpenworkControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
 import { ReactSessionComposer } from "./composer/composer";
+import { AccessPermissionSelect } from "./composer/access-permission-select";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import {
   decodeComposerMentionValue,
@@ -311,6 +312,7 @@ export type SessionSurfaceProps = {
   onOpenSettingsSection?:
     | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
+  onOpenSkillsMarketplace?: (() => void) | undefined;
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
@@ -3361,6 +3363,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
         onSelectPrompt={selectAssistantPrompt}
       />
     ) : null;
+  const draftWorkspaceAccessoryActive =
+    Boolean(props.personalAssistantHome || props.assistantFeatureCategoryId) &&
+    Boolean(props.draftOnly);
 
   const [lastTodosBySessionId, setLastTodosBySessionId] =
     useState<Record<string, TodoItem[]>>({});
@@ -3886,6 +3891,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               listImportedPlugins={listImportedPlugins}
               importedPlugins={toolImportedPlugins}
               onOpenSettingsSection={props.onOpenSettingsSection}
+              onOpenSkillsMarketplace={props.onOpenSkillsMarketplace}
               recentFiles={props.recentFiles}
               searchFiles={props.searchFiles}
               onInsertMention={handleInsertMention}
@@ -3904,74 +3910,81 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
               compactTopSpacing={Boolean(composerAccessory)}
               topAccessory={composerAccessory}
+              hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
               bottomAccessory={
-                (props.personalAssistantHome || props.assistantFeatureCategoryId) && props.draftOnly ? (
-                  <div className="relative inline-flex h-6 items-center gap-1 text-xs font-medium">
-                    {showFolderRequiredBubble ? (
-                      <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
-                        <div className="font-medium text-dls-accent">
-                          {t("session.choose_folder_required_title")}
+                draftWorkspaceAccessoryActive ? (
+                  <div className="inline-flex min-h-8 items-center gap-1 text-xs font-medium">
+                    <div className="relative inline-flex h-6 items-center gap-1">
+                      {showFolderRequiredBubble ? (
+                        <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
+                          <div className="font-medium text-dls-accent">
+                            {t("session.choose_folder_required_title")}
+                          </div>
+                          <div className="mt-0.5 text-dls-secondary">
+                            {t("session.choose_folder_required_desc")}
+                          </div>
+                          <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/30 bg-dls-surface" />
                         </div>
-                        <div className="mt-0.5 text-dls-secondary">
-                          {t("session.choose_folder_required_desc")}
-                        </div>
-                        <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/30 bg-dls-surface" />
-                      </div>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowFolderRequiredBubble(false);
-                        props.onPickDraftWorkspace?.();
-                      }}
-                      className={cn(
-                        "group h-6 justify-start gap-2 rounded-md px-1 text-left text-xs hover:text-dls-text",
-                        props.draftWorkspaceDirectory
-                          ? "text-dls-secondary"
-                          : assistantFeatureCategoryId === "code"
-                            ? "animate-pulse bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
-                            : "text-dls-secondary",
-                      )}
-                    >
-                      {props.draftWorkspaceDirectory ? (
-                        <>
-                          <FolderOpen className="size-3.5 shrink-0" />
-                          <span className="max-w-56 truncate text-dls-text">
-                            {props.draftWorkspaceDirectory
-                              .replace(/\\/g, "/")
-                              .replace(/\/+$/, "")
-                              .split("/")
-                              .filter(Boolean)
-                              .pop()}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Folder className="size-3.5 shrink-0" />
-                          <span>
-                            {assistantFeatureCategoryId === "office"
-                              ? t("session.choose_folder_optional")
-                              : t("session.choose_folder")}
-                          </span>
-                        </>
-                      )}
-                      <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
-                    </Button>
-                    {props.draftWorkspaceDirectory ? (
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon-xs"
-                        onClick={props.onClearDraftWorkspace}
-                        className="size-5 rounded-full text-dls-secondary hover:bg-dls-surface hover:text-dls-text"
-                        title={t("session.clear_workspace_selection")}
-                        aria-label={t("session.clear_workspace_selection")}
+                        size="sm"
+                        onClick={() => {
+                          setShowFolderRequiredBubble(false);
+                          props.onPickDraftWorkspace?.();
+                        }}
+                        className={cn(
+                          "group h-6 justify-start gap-2 rounded-md px-1 text-left text-xs hover:text-dls-text",
+                          props.draftWorkspaceDirectory
+                            ? "text-dls-secondary"
+                            : assistantFeatureCategoryId === "code"
+                              ? "animate-pulse bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
+                              : "text-dls-secondary",
+                        )}
                       >
-                        <X className="size-3" />
+                        {props.draftWorkspaceDirectory ? (
+                          <>
+                            <FolderOpen className="size-3.5 shrink-0" />
+                            <span className="max-w-56 truncate text-dls-text">
+                              {props.draftWorkspaceDirectory
+                                .replace(/\\/g, "/")
+                                .replace(/\/+$/, "")
+                                .split("/")
+                                .filter(Boolean)
+                                .pop()}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Folder className="size-3.5 shrink-0" />
+                            <span>
+                              {assistantFeatureCategoryId === "office"
+                                ? t("session.choose_folder_optional")
+                                : t("session.choose_folder")}
+                            </span>
+                          </>
+                        )}
+                        <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
                       </Button>
-                    ) : null}
+                      {props.draftWorkspaceDirectory ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={props.onClearDraftWorkspace}
+                          className="size-5 rounded-full text-dls-secondary hover:bg-dls-surface hover:text-dls-text"
+                          title={t("session.clear_workspace_selection")}
+                          aria-label={t("session.clear_workspace_selection")}
+                        >
+                          <X className="size-3" />
+                        </Button>
+                      ) : null}
+                    </div>
+                    <AccessPermissionSelect
+                      value={effectiveAccessMode}
+                      onChange={updateAccessMode}
+                    />
                   </div>
                 ) : undefined
               }

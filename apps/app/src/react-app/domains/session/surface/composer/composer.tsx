@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { ChevronRight, FileText, Paperclip, Plug, Settings, Square, Terminal, X, Zap } from "lucide-react";
+import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Settings, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
@@ -18,7 +18,6 @@ import { ModelBehaviorSelect } from "../../../../../components/model-behavior-se
 import { ModelSelectContainer } from "../../components/model-select";
 import { LexicalPromptEditor } from "./editor";
 import { AccessPermissionSelect } from "./access-permission-select";
-import { CollaborationModeSelect } from "./collaboration-mode-select";
 import {
   ReactComposerNotice,
   type ReactComposerNotice as ReactComposerNoticeData,
@@ -39,7 +38,13 @@ type PastedTextChip = {
 };
 
 type ToolMenuSettingsSection = "commands" | "skills" | "mcps" | "plugins";
-type ToolMenuSection = "commands" | "skills" | "mcps" | "extensions" | `plugin:${string}`;
+type ToolMenuSection = "files" | "modes" | "skills" | "mcps";
+type CollaborationModeOption = {
+  key: "craft" | "ask" | "plan" | "planning" | "pursueGoal";
+  label: string;
+  description: string;
+  Icon: typeof Rocket;
+};
 const composerTextClass = {
   sourceBadge: "bg-dls-accent/10 text-dls-accent",
   commandBadge: "bg-dls-signal/15 text-dls-text",
@@ -57,6 +62,86 @@ const composerMenuClass = {
   toolButton: "text-dls-secondary hover:bg-dls-hover",
   activeToolButton: "bg-dls-hover text-dls-text",
 };
+
+const EMPTY_COLLABORATION_MODE: ComposerCollaborationMode = {
+  planning: false,
+  pursueGoal: false,
+};
+
+const DEFAULT_OFFICE_COLLABORATION_MODE: ComposerCollaborationMode = {
+  kind: "craft",
+  planning: false,
+  pursueGoal: true,
+};
+
+function collaborationModeValue(
+  key: CollaborationModeOption["key"],
+): ComposerCollaborationMode {
+  if (key === "planning" || key === "pursueGoal") {
+    return {
+      planning: key === "planning",
+      pursueGoal: key === "pursueGoal",
+    };
+  }
+  return {
+    kind: key,
+    planning: key === "plan",
+    pursueGoal: key === "craft",
+  };
+}
+
+function selectedCollaborationModeKey(
+  value: ComposerCollaborationMode,
+  variant: "office" | "legacy",
+): CollaborationModeOption["key"] | null {
+  if (variant === "office") {
+    if (value.kind === "craft" || value.kind === "ask" || value.kind === "plan") return value.kind;
+    if (value.planning) return "plan";
+    return null;
+  }
+  if (value.planning) return "planning";
+  if (value.pursueGoal) return "pursueGoal";
+  return null;
+}
+
+function collaborationModeOptions(variant: "office" | "legacy"): CollaborationModeOption[] {
+  if (variant === "office") {
+    return [
+      {
+        key: "craft",
+        get label() { return t("composer.collaboration_craft"); },
+        get description() { return t("composer.collaboration_craft_desc"); },
+        Icon: Rocket,
+      },
+      {
+        key: "ask",
+        get label() { return t("composer.collaboration_ask"); },
+        get description() { return t("composer.collaboration_ask_desc"); },
+        Icon: MessageCircle,
+      },
+      {
+        key: "plan",
+        get label() { return t("composer.collaboration_plan"); },
+        get description() { return t("composer.collaboration_plan_desc"); },
+        Icon: ClipboardList,
+      },
+    ];
+  }
+  return [
+    {
+      key: "planning",
+      get label() { return t("composer.collaboration_planning"); },
+      get description() { return t("composer.collaboration_planning_desc"); },
+      Icon: ClipboardList,
+    },
+    {
+      key: "pursueGoal",
+      get label() { return t("composer.collaboration_pursue_goal"); },
+      get description() { return t("composer.collaboration_pursue_goal_desc"); },
+      Icon: Target,
+    },
+  ];
+}
 
 function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
   const hasSessionSurface = entry.extensionManifest?.contributions?.some((contribution) =>
@@ -109,6 +194,7 @@ type ComposerProps = {
   listImportedPlugins?: () => Promise<CloudImportedPlugin[]>;
   importedPlugins?: CloudImportedPlugin[];
   onOpenSettingsSection?: (section: ToolMenuSettingsSection) => void;
+  onOpenSkillsMarketplace?: () => void;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<string[]>;
   onInsertMention: (kind: "agent" | "file", value: string) => void;
@@ -127,6 +213,7 @@ type ComposerProps = {
   compactTopSpacing?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
+  hideAccessPermissionSelect?: boolean;
 };
 
 const FLUSH_PROMPT_EVENT = "onmyagent:flushPromptDraft";
@@ -314,10 +401,10 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [mcpStatus, setMcpStatus] = useState<string | null>(props.mcpStatus ?? null);
   const [mcpStatuses, setMcpStatuses] = useState<McpStatusMap>(props.mcpStatuses ?? {});
   const [importedPlugins, setImportedPlugins] = useState<CloudImportedPlugin[]>(props.importedPlugins ?? []);
-  const [pluginsLoading, setPluginsLoading] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
-  const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("commands");
+  const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("files");
+  const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
   const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
@@ -339,7 +426,6 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [commandsLoaded, setCommandsLoaded] = useState(false);
   const [skillsLoaded, setSkillsLoaded] = useState(Boolean(props.skills));
   const [mcpLoaded, setMcpLoaded] = useState(Boolean(props.mcpServers));
-  const [pluginsLoaded, setPluginsLoaded] = useState(Boolean(props.importedPlugins));
   const [, setExtensionStateVersion] = useState(0);
   const [agentMenuIndex, setAgentMenuIndex] = useState(0);
   const agentItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -468,7 +554,6 @@ export function ReactSessionComposer(props: ComposerProps) {
     setCommandsLoaded(false);
     setSkillsLoaded(Boolean(props.skills));
     setMcpLoaded(Boolean(props.mcpServers));
-    setPluginsLoaded(Boolean(props.importedPlugins));
   }, [toolMenuOpen]);
 
   useEffect(() => {
@@ -563,22 +648,16 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (listImportedPlugins && !toolMenuLoadRef.current.plugins) {
       let cancelled = false;
       toolMenuLoadRef.current.plugins = true;
-      setPluginsLoading(true);
       void listImportedPlugins()
         .then((next) => {
           if (!cancelled && toolMenuLoadRef.current.openId === openId) {
             setImportedPlugins(next);
-            setPluginsLoaded(true);
           }
         })
         .catch(() => {
           if (!cancelled && toolMenuLoadRef.current.openId === openId) {
             setImportedPlugins([]);
-            setPluginsLoaded(true);
           }
-        })
-        .finally(() => {
-          if (!cancelled && toolMenuLoadRef.current.openId === openId) setPluginsLoading(false);
         });
       return () => {
         cancelled = true;
@@ -658,25 +737,25 @@ export function ReactSessionComposer(props: ComposerProps) {
   const activeItems = activeMenu === "slash" ? slashFiltered : activeMenu === "mention" ? mentionFiltered : [];
   const toolCommandItems = commands.filter((command) => !command.source || command.source === "command");
   const toolSkillItems = commands.filter((command) => command.source === "skill");
-  const toolMcpItems = commands.filter((command) => command.source === "mcp");
-  void toolMcpItems;
-  const pluginSections = importedPlugins
-    .filter((plugin) => plugin.files.length > 0)
-    .map((plugin) => ({ section: `plugin:${plugin.pluginId}` as const, plugin }));
-  const activePlugin = toolMenuSection.startsWith("plugin:")
-    ? pluginSections.find((entry) => entry.section === toolMenuSection)?.plugin ?? null
-    : null;
+  const pluginSkillFiles = importedPlugins.flatMap((plugin) =>
+    plugin.files.filter((file) => file.objectType === "command" || file.objectType === "skill"),
+  );
   const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter((entry) =>
     !builtInExtensionsDisabled &&
     !isOnMyAgentExtensionHidden(entry) && isComposerExtensionAvailable(entry)
   );
   const canSend = props.draft.trim().length > 0 || props.attachments.length > 0;
-
-  useEffect(() => {
-    if (!toolMenuSection.startsWith("plugin:")) return;
-    if (activePlugin) return;
-    setToolMenuSection("commands");
-  }, [activePlugin, toolMenuSection]);
+  const collaborationVariant = props.collaborationModeVariant ?? "legacy";
+  const modeOptions = collaborationModeOptions(collaborationVariant);
+  const selectedModeKey = selectedCollaborationModeKey(props.collaborationMode, collaborationVariant);
+  const selectedModeOption =
+    modeOptions.find((option) => option.key === selectedModeKey) ?? null;
+  const SelectedModeIcon = selectedModeOption?.Icon ?? ClipboardList;
+  const shouldShowCollaborationChip =
+    selectedModeOption !== null &&
+    (collaborationVariant === "legacy" ||
+      selectedModeKey !== "craft" ||
+      showDefaultCollaborationChip);
 
   useEffect(() => {
     if (!activeItems.length) {
@@ -718,10 +797,31 @@ export function ReactSessionComposer(props: ComposerProps) {
   };
 
   const openToolMenuSettings = () => {
-    const section: ToolMenuSettingsSection = toolMenuSection === "commands" || toolMenuSection === "skills" || toolMenuSection === "mcps"
-      ? toolMenuSection
-      : "plugins";
-    props.onOpenSettingsSection?.(section);
+    props.onOpenSkillsMarketplace?.();
+    if (!props.onOpenSkillsMarketplace) {
+      props.onOpenSettingsSection?.("skills");
+    }
+  };
+
+  const openFilePicker = () => {
+    if (!props.attachmentsEnabled) return;
+    setToolMenuOpen(false);
+    fileInputRef.current?.click();
+  };
+
+  const applyCollaborationModeSelection = (option: CollaborationModeOption) => {
+    props.onCollaborationModeChange(collaborationModeValue(option.key));
+    setShowDefaultCollaborationChip(true);
+    setToolMenuOpen(false);
+  };
+
+  const clearCollaborationModeSelection = () => {
+    setShowDefaultCollaborationChip(false);
+    props.onCollaborationModeChange(
+      collaborationVariant === "office"
+        ? DEFAULT_OFFICE_COLLABORATION_MODE
+        : EMPTY_COLLABORATION_MODE,
+    );
   };
 
   const acceptActiveItem = () => {
@@ -1170,21 +1270,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                     event.currentTarget.value = "";
                   }}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={composerMenuClass.toolButton}
-                  onClick={() => {
-                    if (!props.attachmentsEnabled) return;
-                    fileInputRef.current?.click();
-                  }}
-                  disabled={!props.attachmentsEnabled}
-                  title={props.attachmentsDisabledReason ?? t("composer.attach_files")}
-                >
-                  <Paperclip size={16} />
-                </Button>
-                <div ref={toolMenuRef} className="relative">
+                <div ref={toolMenuRef} className="relative -ml-2">
                   <Button
                     type="button"
                     variant="ghost"
@@ -1194,204 +1280,233 @@ export function ReactSessionComposer(props: ComposerProps) {
                       setMentionOpen(false);
                       setMentionItems([]);
                       setSlashOpen(false);
-                      setToolMenuOpen((value) => !value);
+                      setToolMenuOpen((value) => {
+                        const nextOpen = !value;
+                        if (nextOpen) setToolMenuSection("files");
+                        return nextOpen;
+                      });
                     }}
                     aria-expanded={toolMenuOpen}
                     aria-haspopup="dialog"
-                    title={t("composer.tools_label")}
+                    title={t("composer.quick_actions")}
+                    aria-label={t("composer.quick_actions")}
                   >
-                    <Plug size={16} />
+                    <Plus
+                      size={16}
+                      className={`transition-transform duration-200 ease-out ${toolMenuOpen ? "rotate-45" : "rotate-0"}`}
+                    />
                   </Button>
                   {toolMenuOpen ? (
-                    <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),34rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                      <div className="grid grid-cols-[152px_minmax(0,1fr)] sm:grid-cols-[176px_minmax(0,1fr)]">
-                        <div className="border-r border-dls-border bg-dls-surface-muted p-2">
-                          {([
-                            ["commands", t("dashboard.commands")],
-                            ["skills", t("dashboard.skills")],
-                            ["extensions", t("settings.tab_extensions")],
-                            ["mcps", t("composer.mcps_label")],
-                          ] as const).map(([section, label]) => (
-                            <MenuRowButton align="center"
-                              key={section}
-                              type="button"
-                              active={toolMenuSection === section} className="mb-1 justify-between"
-                              onClick={() => setToolMenuSection(section)}
-                            >
+                    <div className="absolute bottom-full left-0 z-40 mb-3 h-0 w-0">
+                      <div className="absolute bottom-0 left-0 w-36 rounded-xl border border-dls-border bg-dls-surface p-2">
+                        <MenuRowButton
+                          type="button"
+                          align="center"
+                          active={toolMenuSection === "files"}
+                          className="mb-1 justify-between gap-2"
+                          disabled={!props.attachmentsEnabled}
+                          onMouseEnter={() => setToolMenuSection("files")}
+                          onFocus={() => setToolMenuSection("files")}
+                          onClick={openFilePicker}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Paperclip size={14} className="shrink-0 text-dls-secondary" />
+                            <span className="truncate">{t("composer.add_file")}</span>
+                          </span>
+                        </MenuRowButton>
+                        {([
+                          ["modes", t("composer.collaboration_mode"), MessageCircle],
+                          ["skills", t("dashboard.skills"), Zap],
+                          ["mcps", t("composer.connectors_label"), Plug],
+                        ] as const).map(([section, label, Icon]) => (
+                          <MenuRowButton
+                            key={section}
+                            type="button"
+                            align="center"
+                            active={toolMenuSection === section}
+                            className="mb-1 justify-between gap-2"
+                            onMouseEnter={() => setToolMenuSection(section)}
+                            onFocus={() => setToolMenuSection(section)}
+                            onClick={() => setToolMenuSection(section)}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Icon size={14} className="shrink-0 text-dls-secondary" />
                               <span className="truncate">{label}</span>
-                              <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                            </MenuRowButton>
-                          ))}
-                          {pluginSections.length > 0 ? <div className="my-2 border-t border-dls-border" /> : null}
-                          {pluginSections.map(({ section, plugin }) => (
-                            <MenuRowButton align="center"
-                              key={plugin.pluginId}
-                              type="button"
-                              active={toolMenuSection === section} className="mb-1 justify-between"
-                              onClick={() => setToolMenuSection(section)}
-                            >
-                              <span className="truncate">{plugin.name}</span>
-                              <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                            </MenuRowButton>
-                          ))}
-                        </div>
-                        <div className="max-h-72 overflow-y-auto p-2">
-                          <div className="mb-2 flex justify-end border-b border-dls-border px-1 pb-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="xs"
-                              className="rounded-full text-dls-secondary hover:bg-dls-surface-muted"
-                              onClick={() => {
-                                setToolMenuOpen(false);
-                                openToolMenuSettings();
-                              }}
-                            >
-                              <Settings size={12} />
-                              {t("composer.configure")}
-                            </Button>
-                          </div>
-                          {toolMenuSection === "commands" ? (
-                            toolCommandItems.length > 0 ? (
-                              <div className="grid gap-1">
-                                {toolCommandItems.map((command) => (
-                                  <MenuRowButton
-                                    key={command.id}
-                                    type="button"
-                                                                        onClick={() => applyCommandSelection(command)}
-                                  >
-                                    <Terminal size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                    <div className="min-w-0">
-                                      <div className="truncate text-xs font-medium text-dls-secondary">/{command.name}</div>
-                                      {command.description ? <div className="truncate text-xs text-dls-secondary">{command.description}</div> : null}
-                                    </div>
-                                  </MenuRowButton>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">
-                                {!commandsLoaded && commandsLoading ? t("composer.loading_commands") : t("composer.no_commands")}
-                              </div>
-                            )
-                          ) : null}
-                          {toolMenuSection === "skills" ? (
-                            (skills.length > 0 || toolSkillItems.length > 0) ? (
-                              <div className="grid gap-1">
-                                {[...toolSkillItems, ...skills.filter((skill) => !toolSkillItems.some((command) => command.name === skill.name)).map((skill) => ({ id: `skill:${skill.name}`, name: skill.name, description: skill.description, source: "skill" as const }))].map((command) => (
-                                  <MenuRowButton
-                                    key={command.id}
-                                    type="button"
-                                                                        onClick={() => applyCommandSelection(command)}
-                                  >
-                                    <Zap size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                    <div className="min-w-0">
-                                      <div className="truncate text-xs font-medium text-dls-secondary">/{command.name}</div>
-                                      {command.description ? <div className="truncate text-xs text-dls-secondary">{command.description}</div> : null}
-                                    </div>
-                                  </MenuRowButton>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">
-                                {(!skillsLoaded && skillsLoading) || (!commandsLoaded && commandsLoading) ? t("composer.loading_commands") : t("context_panel.no_skills")}
-                              </div>
-                            )
-                          ) : null}
-                          {toolMenuSection === "mcps" ? (
-                            activeMcpItems.length > 0 ? (
-                              <div className="grid gap-1">
-                                {activeMcpItems.map(({ entry, status }) => (
-                                  <MenuRowSurface key={entry.name}>
-                                    <Plug size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div className="truncate text-xs font-medium text-dls-secondary">{entry.name}</div>
-                                        <StatusBadge size="tiny" tone={mcpStatusBadgeTone(status)}>
-                                          {formatMcpStatusLabel(status)}
-                                        </StatusBadge>
-                                      </div>
-                                      <div className="truncate text-xs text-dls-secondary">{entry.config.type === "remote" ? entry.config.url ?? entry.config.command?.join(" ") ?? "Remote MCP" : entry.config.command?.join(" ") ?? "Local MCP"}</div>
-                                    </div>
-                                  </MenuRowSurface>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">
-                                {!mcpLoaded && mcpLoading ? t("composer.loading_commands") : (mcpStatus ?? t("context_panel.no_mcp"))}
-                              </div>
-                            )
-                          ) : null}
-                          {toolMenuSection === "extensions" ? (
-                            composerExtensions.length > 0 ? (
-                              <div className="grid gap-1">
-                                {composerExtensions.map((entry) => (
-                                  <MenuRowButton
-                                    key={entry.id ?? entry.serverName ?? entry.name}
-                                    type="button"
-                                                                        onClick={() => applyExtensionSelection(entry)}
-                                  >
-                                    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                      {extensionIcon(entry, 16)}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div className="truncate text-xs font-medium text-dls-secondary">{entry.name}</div>
-                                        {entry.defaultEnabled ? (
-                                          <StatusBadge size="tiny" tone="accent">{t("plugins.enabled")}</StatusBadge>
-                                        ) : null}
-                                      </div>
-                                      <div className="truncate text-xs text-dls-secondary">{entry.description}</div>
-                                    </div>
-                                  </MenuRowButton>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">No extensions enabled. Open Extensions to enable them.</div>
-                            )
-                          ) : null}
-                          {activePlugin ? (
-                            activePlugin.files.length > 0 ? (
-                              <div className="grid gap-1">
-                                {activePlugin.files.map((file) => (
-                                  <MenuRowButton
-                                    key={`${file.configObjectId}:${file.path}`}
-                                    type="button"
-                                                                        onClick={() => applyPluginFileSelection(file)}
-                                  >
-                                    <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div className="truncate text-xs font-medium text-dls-secondary">{file.title}</div>
-                                        <StatusBadge size="tiny" tone="neutral">
-                                          {formatPluginObjectType(file.objectType)}
-                                        </StatusBadge>
-                                      </div>
-                                    </div>
-                                  </MenuRowButton>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">No plugin files imported yet.</div>
-                            )
-                          ) : toolMenuSection.startsWith("plugin:") ? (
-                            <div className="px-3 py-2 text-xs text-dls-secondary">
-                              {!pluginsLoaded && pluginsLoading ? t("composer.loading_commands") : "Plugin files are unavailable."}
-                            </div>
-                          ) : null}
-                        </div>
+                            </span>
+                            <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                          </MenuRowButton>
+                        ))}
                       </div>
+                      {toolMenuSection === "files" ? null : (
+                        <div className="absolute bottom-0 left-[calc(9rem-1px)] flex w-[min(calc(100vw-11.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                          {toolMenuSection === "skills" ? (
+                            <div className="flex min-h-12 items-center justify-between gap-3 border-b border-dls-border px-3 py-2">
+                              <div className="text-xs font-medium text-dls-text">{t("dashboard.skills")}</div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="xs"
+                                className="shrink-0 text-dls-secondary hover:bg-dls-surface-muted"
+                                onClick={() => {
+                                  setToolMenuOpen(false);
+                                  openToolMenuSettings();
+                                }}
+                              >
+                                <Settings size={12} />
+                                {t("composer.configure")}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                              {toolMenuSection === "modes" ? t("composer.collaboration_choose_mode") : null}
+                              {toolMenuSection === "mcps" ? t("composer.connectors_label") : null}
+                            </div>
+                          )}
+                          <div className="max-h-72 overflow-y-auto p-2">
+                            {toolMenuSection === "modes" ? (
+                              <div className="grid gap-1">
+                                {modeOptions.map((option) => {
+                                  const checked = selectedModeKey === option.key;
+                                  const Icon = option.Icon;
+                                  return (
+                                    <MenuRowButton
+                                      key={option.key}
+                                      type="button"
+                                      align="center"
+                                      active={checked}
+                                      className="gap-3"
+                                      onClick={() => applyCollaborationModeSelection(option)}
+                                      role="menuitemradio"
+                                      aria-checked={checked}
+                                    >
+                                      <Icon size={16} className="shrink-0 text-dls-secondary" />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="truncate text-xs font-medium text-dls-text">{option.label}</div>
+                                        <div className="truncate text-xs text-dls-secondary">{option.description}</div>
+                                      </div>
+                                      {checked ? <Check size={14} className="shrink-0 text-dls-text" /> : null}
+                                    </MenuRowButton>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                            {toolMenuSection === "skills" ? (
+                              (toolCommandItems.length > 0 || skills.length > 0 || toolSkillItems.length > 0 || pluginSkillFiles.length > 0) ? (
+                                <div className="grid gap-1">
+                                  {[
+                                    ...toolCommandItems,
+                                    ...toolSkillItems,
+                                    ...skills
+                                      .filter((skill) => !toolSkillItems.some((command) => command.name === skill.name))
+                                      .map((skill) => ({ id: `skill:${skill.name}`, name: skill.name, description: skill.description, source: "skill" as const })),
+                                  ].map((command) => (
+                                    <MenuRowButton
+                                      key={command.id}
+                                      type="button"
+                                      onClick={() => applyCommandSelection(command)}
+                                    >
+                                      <Zap size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                      <div className="min-w-0">
+                                        <div className="truncate text-xs font-medium text-dls-secondary">/{command.name}</div>
+                                        {command.description ? <div className="truncate text-xs text-dls-secondary">{command.description}</div> : null}
+                                      </div>
+                                    </MenuRowButton>
+                                  ))}
+                                  {pluginSkillFiles.map((file) => (
+                                    <MenuRowButton
+                                      key={`${file.configObjectId}:${file.path}`}
+                                      type="button"
+                                      onClick={() => applyPluginFileSelection(file)}
+                                    >
+                                      <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-3">
+                                          <div className="truncate text-xs font-medium text-dls-secondary">{file.title}</div>
+                                          <StatusBadge size="tiny" tone="neutral">
+                                            {formatPluginObjectType(file.objectType)}
+                                          </StatusBadge>
+                                        </div>
+                                      </div>
+                                    </MenuRowButton>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="px-3 py-2 text-xs text-dls-secondary">
+                                  {(!skillsLoaded && skillsLoading) || (!commandsLoaded && commandsLoading) ? t("composer.loading_commands") : t("context_panel.no_skills")}
+                                </div>
+                              )
+                            ) : null}
+                            {toolMenuSection === "mcps" ? (
+                              activeMcpItems.length > 0 || composerExtensions.length > 0 ? (
+                                <div className="grid gap-1">
+                                  {activeMcpItems.map(({ entry, status }) => (
+                                    <MenuRowSurface key={entry.name}>
+                                      <Plug size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-3">
+                                          <div className="truncate text-xs font-medium text-dls-secondary">{entry.name}</div>
+                                          <StatusBadge size="tiny" tone={mcpStatusBadgeTone(status)}>
+                                            {formatMcpStatusLabel(status)}
+                                          </StatusBadge>
+                                        </div>
+                                        <div className="truncate text-xs text-dls-secondary">{entry.config.type === "remote" ? entry.config.url ?? entry.config.command?.join(" ") ?? "Remote MCP" : entry.config.command?.join(" ") ?? "Local MCP"}</div>
+                                      </div>
+                                    </MenuRowSurface>
+                                  ))}
+                                  {composerExtensions.map((entry) => (
+                                    <MenuRowButton
+                                      key={entry.id ?? entry.serverName ?? entry.name}
+                                      type="button"
+                                      onClick={() => applyExtensionSelection(entry)}
+                                    >
+                                      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                        {extensionIcon(entry, 16)}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-3">
+                                          <div className="truncate text-xs font-medium text-dls-secondary">{entry.name}</div>
+                                          {entry.defaultEnabled ? (
+                                            <StatusBadge size="tiny" tone="accent">{t("plugins.enabled")}</StatusBadge>
+                                          ) : null}
+                                        </div>
+                                        <div className="truncate text-xs text-dls-secondary">{entry.description}</div>
+                                      </div>
+                                    </MenuRowButton>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="px-3 py-2 text-xs text-dls-secondary">
+                                  {!mcpLoaded && mcpLoading ? t("composer.loading_commands") : (mcpStatus ?? t("context_panel.no_mcp"))}
+                                </div>
+                              )
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>
-                <CollaborationModeSelect
-                  value={props.collaborationMode}
-                  onChange={props.onCollaborationModeChange}
-                  variant={props.collaborationModeVariant}
-                />
-                <AccessPermissionSelect
-                  value={props.accessMode}
-                  onChange={props.onAccessModeChange}
-                />
+                {shouldShowCollaborationChip && selectedModeOption ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="group max-w-40 shrink-0 bg-dls-hover px-2 text-dls-text hover:bg-dls-active"
+                    onClick={clearCollaborationModeSelection}
+                    title={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
+                    aria-label={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
+                  >
+                    <SelectedModeIcon size={14} className="shrink-0 group-hover:hidden" />
+                    <X size={14} className="hidden shrink-0 group-hover:block" />
+                    <span className="min-w-0 truncate">{selectedModeOption.label}</span>
+                  </Button>
+                ) : null}
+                {props.hideAccessPermissionSelect ? null : (
+                  <AccessPermissionSelect
+                    value={props.accessMode}
+                    onChange={props.onAccessModeChange}
+                  />
+                )}
                 {props.modelUnavailable ? (
                   <span className={composerTextClass.modelUnavailable}>
                     {t("settings.model_unavailable")}
