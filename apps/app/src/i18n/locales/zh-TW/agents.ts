@@ -136,4 +136,6 @@ export default {
   "agents.action_conversation_target": "{name} / 對話",
   "agents.action_create_team_target": "{name} / 建立團隊",
   "agents.error_image_read_failed": "圖片讀取失敗",
+  "agents.default_agent_name": "新建智能體",
+  "agents.default_agent_quote": "我是一個專業的智能體助手。",
 } as const;
