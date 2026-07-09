@@ -1682,6 +1682,10 @@ export function ExpertPage(props: ExpertPageProps) {
                           personalAssistantHome={false}
                           assistantFeatureCategoryId={activeExpertFeatureCategoryId}
                           agentContext={activeAgentContext}
+                          onOpenSkillsMarketplace={() => {
+                            setStoreActiveTab("skills");
+                            setActiveSidebarView("store");
+                          }}
                         />
                       ) : null}
 

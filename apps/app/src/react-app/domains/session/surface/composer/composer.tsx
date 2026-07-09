@@ -1,11 +1,11 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { ChevronRight, FileText, Paperclip, Plug, Settings, Square, Terminal, X, Zap } from "lucide-react";
+import { FileText, Paperclip, Plug, Settings, Square, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { MenuRowButton, MenuRowSurface } from "@/components/ui/action-row";
+import { MenuRowButton, MenuRowSurface, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
@@ -39,7 +39,7 @@ type PastedTextChip = {
 };
 
 type ToolMenuSettingsSection = "commands" | "skills" | "mcps" | "plugins";
-type ToolMenuSection = "commands" | "skills" | "mcps" | "extensions" | `plugin:${string}`;
+type ToolMenuSection = "skills" | "mcps";
 const composerTextClass = {
   sourceBadge: "bg-dls-accent/10 text-dls-accent",
   commandBadge: "bg-dls-signal/15 text-dls-text",
@@ -109,6 +109,7 @@ type ComposerProps = {
   listImportedPlugins?: () => Promise<CloudImportedPlugin[]>;
   importedPlugins?: CloudImportedPlugin[];
   onOpenSettingsSection?: (section: ToolMenuSettingsSection) => void;
+  onOpenSkillsMarketplace?: () => void;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<string[]>;
   onInsertMention: (kind: "agent" | "file", value: string) => void;
@@ -314,10 +315,9 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [mcpStatus, setMcpStatus] = useState<string | null>(props.mcpStatus ?? null);
   const [mcpStatuses, setMcpStatuses] = useState<McpStatusMap>(props.mcpStatuses ?? {});
   const [importedPlugins, setImportedPlugins] = useState<CloudImportedPlugin[]>(props.importedPlugins ?? []);
-  const [pluginsLoading, setPluginsLoading] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
-  const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("commands");
+  const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("skills");
   const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
@@ -339,7 +339,6 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [commandsLoaded, setCommandsLoaded] = useState(false);
   const [skillsLoaded, setSkillsLoaded] = useState(Boolean(props.skills));
   const [mcpLoaded, setMcpLoaded] = useState(Boolean(props.mcpServers));
-  const [pluginsLoaded, setPluginsLoaded] = useState(Boolean(props.importedPlugins));
   const [, setExtensionStateVersion] = useState(0);
   const [agentMenuIndex, setAgentMenuIndex] = useState(0);
   const agentItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -468,7 +467,6 @@ export function ReactSessionComposer(props: ComposerProps) {
     setCommandsLoaded(false);
     setSkillsLoaded(Boolean(props.skills));
     setMcpLoaded(Boolean(props.mcpServers));
-    setPluginsLoaded(Boolean(props.importedPlugins));
   }, [toolMenuOpen]);
 
   useEffect(() => {
@@ -563,22 +561,16 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (listImportedPlugins && !toolMenuLoadRef.current.plugins) {
       let cancelled = false;
       toolMenuLoadRef.current.plugins = true;
-      setPluginsLoading(true);
       void listImportedPlugins()
         .then((next) => {
           if (!cancelled && toolMenuLoadRef.current.openId === openId) {
             setImportedPlugins(next);
-            setPluginsLoaded(true);
           }
         })
         .catch(() => {
           if (!cancelled && toolMenuLoadRef.current.openId === openId) {
             setImportedPlugins([]);
-            setPluginsLoaded(true);
           }
-        })
-        .finally(() => {
-          if (!cancelled && toolMenuLoadRef.current.openId === openId) setPluginsLoading(false);
         });
       return () => {
         cancelled = true;
@@ -658,25 +650,14 @@ export function ReactSessionComposer(props: ComposerProps) {
   const activeItems = activeMenu === "slash" ? slashFiltered : activeMenu === "mention" ? mentionFiltered : [];
   const toolCommandItems = commands.filter((command) => !command.source || command.source === "command");
   const toolSkillItems = commands.filter((command) => command.source === "skill");
-  const toolMcpItems = commands.filter((command) => command.source === "mcp");
-  void toolMcpItems;
-  const pluginSections = importedPlugins
-    .filter((plugin) => plugin.files.length > 0)
-    .map((plugin) => ({ section: `plugin:${plugin.pluginId}` as const, plugin }));
-  const activePlugin = toolMenuSection.startsWith("plugin:")
-    ? pluginSections.find((entry) => entry.section === toolMenuSection)?.plugin ?? null
-    : null;
+  const pluginSkillFiles = importedPlugins.flatMap((plugin) =>
+    plugin.files.filter((file) => file.objectType === "command" || file.objectType === "skill"),
+  );
   const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter((entry) =>
     !builtInExtensionsDisabled &&
     !isOnMyAgentExtensionHidden(entry) && isComposerExtensionAvailable(entry)
   );
   const canSend = props.draft.trim().length > 0 || props.attachments.length > 0;
-
-  useEffect(() => {
-    if (!toolMenuSection.startsWith("plugin:")) return;
-    if (activePlugin) return;
-    setToolMenuSection("commands");
-  }, [activePlugin, toolMenuSection]);
 
   useEffect(() => {
     if (!activeItems.length) {
@@ -718,10 +699,10 @@ export function ReactSessionComposer(props: ComposerProps) {
   };
 
   const openToolMenuSettings = () => {
-    const section: ToolMenuSettingsSection = toolMenuSection === "commands" || toolMenuSection === "skills" || toolMenuSection === "mcps"
-      ? toolMenuSection
-      : "plugins";
-    props.onOpenSettingsSection?.(section);
+    props.onOpenSkillsMarketplace?.();
+    if (!props.onOpenSkillsMarketplace) {
+      props.onOpenSettingsSection?.("skills");
+    }
   };
 
   const acceptActiveItem = () => {
@@ -1204,44 +1185,31 @@ export function ReactSessionComposer(props: ComposerProps) {
                   </Button>
                   {toolMenuOpen ? (
                     <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),34rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                      <div className="grid grid-cols-[152px_minmax(0,1fr)] sm:grid-cols-[176px_minmax(0,1fr)]">
-                        <div className="border-r border-dls-border bg-dls-surface-muted p-2">
-                          {([
-                            ["commands", t("dashboard.commands")],
-                            ["skills", t("dashboard.skills")],
-                            ["extensions", t("settings.tab_extensions")],
-                            ["mcps", t("composer.mcps_label")],
-                          ] as const).map(([section, label]) => (
-                            <MenuRowButton align="center"
-                              key={section}
-                              type="button"
-                              active={toolMenuSection === section} className="mb-1 justify-between"
-                              onClick={() => setToolMenuSection(section)}
-                            >
-                              <span className="truncate">{label}</span>
-                              <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                            </MenuRowButton>
-                          ))}
-                          {pluginSections.length > 0 ? <div className="my-2 border-t border-dls-border" /> : null}
-                          {pluginSections.map(({ section, plugin }) => (
-                            <MenuRowButton align="center"
-                              key={plugin.pluginId}
-                              type="button"
-                              active={toolMenuSection === section} className="mb-1 justify-between"
-                              onClick={() => setToolMenuSection(section)}
-                            >
-                              <span className="truncate">{plugin.name}</span>
-                              <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                            </MenuRowButton>
-                          ))}
-                        </div>
-                        <div className="max-h-72 overflow-y-auto p-2">
-                          <div className="mb-2 flex justify-end border-b border-dls-border px-1 pb-2">
+                      <div className="flex min-h-0 flex-col">
+                        <div className="flex min-h-12 items-center justify-between gap-3 border-b border-dls-border bg-dls-surface-muted px-2 py-2">
+                          <SegmentedTabGroup>
+                            {([
+                              ["skills", t("dashboard.skills")],
+                              ["mcps", t("composer.mcps_label")],
+                            ] as const).map(([section, label]) => (
+                              <NavTabButton
+                                key={section}
+                                type="button"
+                                active={toolMenuSection === section}
+                                size="tab"
+                                shape="tab"
+                                onClick={() => setToolMenuSection(section)}
+                              >
+                                {label}
+                              </NavTabButton>
+                            ))}
+                          </SegmentedTabGroup>
+                          {toolMenuSection === "skills" ? (
                             <Button
                               type="button"
                               variant="outline"
                               size="xs"
-                              className="rounded-full text-dls-secondary hover:bg-dls-surface-muted"
+                              className="shrink-0 text-dls-secondary hover:bg-dls-surface"
                               onClick={() => {
                                 setToolMenuOpen(false);
                                 openToolMenuSettings();
@@ -1250,34 +1218,19 @@ export function ReactSessionComposer(props: ComposerProps) {
                               <Settings size={12} />
                               {t("composer.configure")}
                             </Button>
-                          </div>
-                          {toolMenuSection === "commands" ? (
-                            toolCommandItems.length > 0 ? (
-                              <div className="grid gap-1">
-                                {toolCommandItems.map((command) => (
-                                  <MenuRowButton
-                                    key={command.id}
-                                    type="button"
-                                                                        onClick={() => applyCommandSelection(command)}
-                                  >
-                                    <Terminal size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                    <div className="min-w-0">
-                                      <div className="truncate text-xs font-medium text-dls-secondary">/{command.name}</div>
-                                      {command.description ? <div className="truncate text-xs text-dls-secondary">{command.description}</div> : null}
-                                    </div>
-                                  </MenuRowButton>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">
-                                {!commandsLoaded && commandsLoading ? t("composer.loading_commands") : t("composer.no_commands")}
-                              </div>
-                            )
                           ) : null}
+                        </div>
+                        <div className="max-h-72 overflow-y-auto p-2">
                           {toolMenuSection === "skills" ? (
-                            (skills.length > 0 || toolSkillItems.length > 0) ? (
+                            (toolCommandItems.length > 0 || skills.length > 0 || toolSkillItems.length > 0 || pluginSkillFiles.length > 0) ? (
                               <div className="grid gap-1">
-                                {[...toolSkillItems, ...skills.filter((skill) => !toolSkillItems.some((command) => command.name === skill.name)).map((skill) => ({ id: `skill:${skill.name}`, name: skill.name, description: skill.description, source: "skill" as const }))].map((command) => (
+                                {[
+                                  ...toolCommandItems,
+                                  ...toolSkillItems,
+                                  ...skills
+                                    .filter((skill) => !toolSkillItems.some((command) => command.name === skill.name))
+                                    .map((skill) => ({ id: `skill:${skill.name}`, name: skill.name, description: skill.description, source: "skill" as const })),
+                                ].map((command) => (
                                   <MenuRowButton
                                     key={command.id}
                                     type="button"
@@ -1290,6 +1243,23 @@ export function ReactSessionComposer(props: ComposerProps) {
                                     </div>
                                   </MenuRowButton>
                                 ))}
+                                {pluginSkillFiles.map((file) => (
+                                  <MenuRowButton
+                                    key={`${file.configObjectId}:${file.path}`}
+                                    type="button"
+                                    onClick={() => applyPluginFileSelection(file)}
+                                  >
+                                    <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="truncate text-xs font-medium text-dls-secondary">{file.title}</div>
+                                        <StatusBadge size="tiny" tone="neutral">
+                                          {formatPluginObjectType(file.objectType)}
+                                        </StatusBadge>
+                                      </div>
+                                    </div>
+                                  </MenuRowButton>
+                                ))}
                               </div>
                             ) : (
                               <div className="px-3 py-2 text-xs text-dls-secondary">
@@ -1298,7 +1268,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                             )
                           ) : null}
                           {toolMenuSection === "mcps" ? (
-                            activeMcpItems.length > 0 ? (
+                            activeMcpItems.length > 0 || composerExtensions.length > 0 ? (
                               <div className="grid gap-1">
                                 {activeMcpItems.map(({ entry, status }) => (
                                   <MenuRowSurface key={entry.name}>
@@ -1314,21 +1284,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                                     </div>
                                   </MenuRowSurface>
                                 ))}
-                              </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">
-                                {!mcpLoaded && mcpLoading ? t("composer.loading_commands") : (mcpStatus ?? t("context_panel.no_mcp"))}
-                              </div>
-                            )
-                          ) : null}
-                          {toolMenuSection === "extensions" ? (
-                            composerExtensions.length > 0 ? (
-                              <div className="grid gap-1">
                                 {composerExtensions.map((entry) => (
                                   <MenuRowButton
                                     key={entry.id ?? entry.serverName ?? entry.name}
                                     type="button"
-                                                                        onClick={() => applyExtensionSelection(entry)}
+                                    onClick={() => applyExtensionSelection(entry)}
                                   >
                                     <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
                                       {extensionIcon(entry, 16)}
@@ -1346,37 +1306,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                                 ))}
                               </div>
                             ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">No extensions enabled. Open Extensions to enable them.</div>
-                            )
-                          ) : null}
-                          {activePlugin ? (
-                            activePlugin.files.length > 0 ? (
-                              <div className="grid gap-1">
-                                {activePlugin.files.map((file) => (
-                                  <MenuRowButton
-                                    key={`${file.configObjectId}:${file.path}`}
-                                    type="button"
-                                                                        onClick={() => applyPluginFileSelection(file)}
-                                  >
-                                    <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div className="truncate text-xs font-medium text-dls-secondary">{file.title}</div>
-                                        <StatusBadge size="tiny" tone="neutral">
-                                          {formatPluginObjectType(file.objectType)}
-                                        </StatusBadge>
-                                      </div>
-                                    </div>
-                                  </MenuRowButton>
-                                ))}
+                              <div className="px-3 py-2 text-xs text-dls-secondary">
+                                {!mcpLoaded && mcpLoading ? t("composer.loading_commands") : (mcpStatus ?? t("context_panel.no_mcp"))}
                               </div>
-                            ) : (
-                              <div className="px-3 py-2 text-xs text-dls-secondary">No plugin files imported yet.</div>
                             )
-                          ) : toolMenuSection.startsWith("plugin:") ? (
-                            <div className="px-3 py-2 text-xs text-dls-secondary">
-                              {!pluginsLoaded && pluginsLoading ? t("composer.loading_commands") : "Plugin files are unavailable."}
-                            </div>
                           ) : null}
                         </div>
                       </div>
