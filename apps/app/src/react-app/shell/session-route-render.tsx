@@ -8,16 +8,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type {
   ProviderListResponse,
 } from "@opencode-ai/sdk/v2/client";
 
 import { createClient, unwrap } from "../../app/lib/opencode";
-import {
-  clearLocalAuthUser,
-  readLocalAuthUser,
-} from "../../app/lib/local-auth";
 import {
   compactSession,
   forkSession,
@@ -52,7 +47,6 @@ import {
   buildWorkspaceReorderIds,
   emptyWorkspaceDisplay,
   findRouteWorkspace,
-  localUserToSidebarAccount,
   normalizePickedDirectory,
   isRemoteOnMyAgentWorkspace,
   orderRouteWorkspaces,
@@ -242,7 +236,6 @@ import {
   safeStringify,
 } from "../../app/utils";
 import { currentLocale, subscribeToLocale, t } from "../../i18n";
-import { useLocal } from "../kernel/local-provider";
 import { usePlatform } from "../kernel/platform";
 import {
   SessionPage,
@@ -336,6 +329,8 @@ import {
   installMarketplaceExpertAfterSessionCreated,
   readSessionAgentManagementIntent,
 } from "./session-route-intent";
+import { SessionRouteModals } from "./session-route-modals";
+import { useSessionRouteNavigation } from "./use-session-route-navigation";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
 import { useStatusToasts } from "../domains/shell-feedback";
@@ -356,60 +351,27 @@ import {
 
 /** Full session route controller + view. Keep session-route.tsx as thin entry. */
 export function SessionRouteRender() {
-  const navigate = useNavigate();
+  const {
+    navigate,
+    local,
+    sidebarAccount,
+    setSidebarAccount,
+    localUserSignedIn,
+    routeWorkspaceId,
+    selectedSessionId,
+    isAssistantMode,
+    pageMode,
+    agentManagementIntent,
+    clearAgentManagementIntent,
+    handleSignOut,
+    navigateToWorkspaceSession,
+    location,
+  } = useSessionRouteNavigation();
   const platform = usePlatform();
-  const local = useLocal();
   const reloadCoordinator = useReloadCoordinator();
   const { showToast } = useStatusToasts();
   const checkDesktopRestriction = useCheckDesktopRestriction();
   const restrictionNotice = useRestrictionNotice();
-  const [sidebarAccount, setSidebarAccount] =
-    useState<SessionSidebarAccount | null>(() =>
-      localUserToSidebarAccount(readLocalAuthUser()),
-    );
-  const localUserSignedIn = sidebarAccount !== null;
-  const params = useParams<{ workspaceId?: string; sessionId?: string }>();
-  const location = useLocation();
-  const routeWorkspaceId = params.workspaceId?.trim() || "";
-  const selectedSessionId = params.sessionId?.trim() || null;
-  const isAssistantMode = location.pathname.includes("/assistant");
-  const pageMode: PageMode = isAssistantMode ? "assistant" : "expert";
-  const agentManagementIntent = useMemo(
-    () => readSessionAgentManagementIntent(location.state),
-    [location.state],
-  );
-  const clearAgentManagementIntent = useCallback(
-    (key: string) => {
-      const current = readSessionAgentManagementIntent(location.state);
-      if (!current || current.key !== key) return;
-      navigate(`${location.pathname}${location.search}${location.hash}`, {
-        replace: true,
-        state: clearSessionAgentManagementIntentState(location.state),
-      });
-    },
-    [location.hash, location.pathname, location.search, location.state, navigate],
-  );
-  const handleSignOut = useCallback(() => {
-    clearLocalAuthUser();
-    setSidebarAccount(null);
-    local.setPrefs((prev) => ({ ...prev, hasCompletedOnboarding: false }));
-    navigate("/welcome", { replace: true });
-  }, [local, navigate]);
-  const navigateToWorkspaceSession = useCallback(
-    (
-      workspaceId: string,
-      sessionId?: string | null,
-      options?: { replace?: boolean },
-    ) => {
-      const route = resolveWorkspaceSessionRoute({
-        assistantMode: isAssistantMode,
-        sessionId,
-        workspaceId,
-      });
-      navigate(route, options);
-    },
-    [navigate, isAssistantMode],
-  );
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
@@ -3625,133 +3587,43 @@ export function SessionRouteRender() {
           }
           onSignOut={handleSignOut}
         />
-        <CreateWorkspaceModal
-          open={createWorkspaceOpen}
-          onClose={() => {
-            setCreateWorkspaceOpen(false);
-            setCreateWorkspaceError(null);
-          }}
-          onConfirm={handleCreateWorkspace}
-          onConfirmRemote={handleCreateRemoteWorkspace}
-          onPickFolder={() =>
-            pickDirectory({
-              title: t("onboarding.authorize_folder"),
-            }) as Promise<string | null>
-          }
-          submitting={createWorkspaceBusy}
-          localError={createWorkspaceError}
-          remoteSubmitting={createWorkspaceRemoteBusy}
-          remoteError={createWorkspaceRemoteError}
-        />
-        <CreateRemoteWorkspaceModal
-          open={remoteWorkspaceConnectionEditor.workspace !== null}
-          onClose={remoteWorkspaceConnectionEditor.close}
-          onConfirm={(input) =>
-            void remoteWorkspaceConnectionEditor.save(input)
-          }
-          initialValues={remoteWorkspaceConnectionEditor.initialValues}
-          submitting={remoteWorkspaceConnectionEditor.busy}
-          error={remoteWorkspaceConnectionEditor.error}
-          title={t("dashboard.edit_remote_workspace_title")}
-          subtitle={t("dashboard.edit_remote_workspace_subtitle")}
-          confirmLabel={t("dashboard.edit_remote_workspace_confirm")}
-        />
-        <RenameWorkspaceModal
-          open={renameWorkspaceId !== null}
-          title={renameWorkspaceTitle}
-          busy={renameWorkspaceBusy}
-          canSave={
-            !renameWorkspaceBusy && renameWorkspaceTitle.trim().length > 0
-          }
-          onClose={() => {
-            if (renameWorkspaceBusy) return;
-            setRenameWorkspaceId(null);
-            setRenameWorkspaceTitle("");
-          }}
-          onSave={() => void handleSaveRenameWorkspace()}
-          onTitleChange={setRenameWorkspaceTitle}
-        />
-        <CommandPalette
-          open={commandPaletteOpen}
-          onClose={() => setCommandPaletteOpen(false)}
-          onCreateNewSession={() => {
-            if (selectedWorkspaceId) {
-              void handleCreateTaskInWorkspace(selectedWorkspaceId);
-            }
-          }}
-          onOpenSession={(workspaceId, sessionId) =>
-            navigateToWorkspaceSession(workspaceId, sessionId)
-          }
-          onOpenSettings={(route) =>
-            handleOpenSettings(route ?? "/settings/general")
-          }
-          accessibleTargets={paletteAccessibleTargets}
-          onOpenAccessibleTarget={(target) => {
-            try {
-              window.dispatchEvent(
-                new CustomEvent("onmyagent-open-accessible-target", {
-                  detail: target,
-                }),
-              );
-            } catch {
-              // ignore event dispatch failures
-            }
-          }}
-          onHideAccessibleTarget={(target) => {
-            try {
-              window.dispatchEvent(
-                new CustomEvent("onmyagent-hide-accessible-target", {
-                  detail: target,
-                }),
-              );
-            } catch {
-              // ignore event dispatch failures
-            }
-          }}
-          sessions={paletteSessionOptions}
-        />
-        <ModelPickerModal
-          open={modelPickerOpen}
-          options={allowedModelOptions}
-          query={modelPickerQuery}
-          setQuery={setModelPickerQuery}
-          target="default"
-          current={
-            local.prefs.defaultModel ??
-            ({ providerID: "", modelID: "" } satisfies ModelRef)
-          }
-          onSelect={(next: ModelRef) => {
-            local.setPrefs((previous) => updateDefaultModelPrefs(previous, next));
-            setModelPickerOpen(false);
-          }}
-          disabledProviders={disabledProviderIds}
-          onBehaviorChange={() => {}}
-          onToggleProvider={async (providerId, enable) => {
-            if (!opencodeClient) return;
-            try {
-              const config = unwrap(await opencodeClient.config.get()) as {
-                disabled_providers?: string[];
-              };
-              const current = Array.isArray(config.disabled_providers)
-                ? config.disabled_providers
-                : [];
-              const next = enable
-                ? current.filter((id: string) => id !== providerId)
-                : [...current, providerId];
-              await opencodeClient.config.update({
-                config: { ...config, disabled_providers: next },
-              });
-              setDisabledProviderIds(next);
-            } catch {}
-          }}
-          onOpenSettings={() => {
-            setModelPickerOpen(false);
-            handleOpenSettings("/settings/general");
-          }}
-          onClose={() => {
-            setModelPickerOpen(false);
-            setRecentProviderIds(new Set());
-          }}
+        <SessionRouteModals
+          createWorkspaceOpen={createWorkspaceOpen}
+          setCreateWorkspaceOpen={setCreateWorkspaceOpen}
+          setCreateWorkspaceError={setCreateWorkspaceError}
+          handleCreateWorkspace={handleCreateWorkspace}
+          handleCreateRemoteWorkspace={handleCreateRemoteWorkspace}
+          createWorkspaceBusy={createWorkspaceBusy}
+          createWorkspaceError={createWorkspaceError}
+          createWorkspaceRemoteBusy={createWorkspaceRemoteBusy}
+          createWorkspaceRemoteError={createWorkspaceRemoteError}
+          remoteWorkspaceConnectionEditor={remoteWorkspaceConnectionEditor}
+          renameWorkspaceId={renameWorkspaceId}
+          renameWorkspaceTitle={renameWorkspaceTitle}
+          renameWorkspaceBusy={renameWorkspaceBusy}
+          setRenameWorkspaceId={setRenameWorkspaceId}
+          setRenameWorkspaceTitle={setRenameWorkspaceTitle}
+          handleSaveRenameWorkspace={handleSaveRenameWorkspace}
+          commandPaletteOpen={commandPaletteOpen}
+          setCommandPaletteOpen={setCommandPaletteOpen}
+          selectedWorkspaceId={selectedWorkspaceId}
+          handleCreateTaskInWorkspace={handleCreateTaskInWorkspace}
+          navigateToWorkspaceSession={navigateToWorkspaceSession}
+          handleOpenSettings={handleOpenSettings}
+          paletteAccessibleTargets={paletteAccessibleTargets}
+          paletteSessionOptions={paletteSessionOptions}
+          modelPickerOpen={modelPickerOpen}
+          setModelPickerOpen={setModelPickerOpen}
+          allowedModelOptions={allowedModelOptions}
+          modelPickerQuery={modelPickerQuery}
+          setModelPickerQuery={setModelPickerQuery}
+          defaultModel={local.prefs.defaultModel}
+          setPrefs={local.setPrefs}
+          updateDefaultModelPrefs={updateDefaultModelPrefs}
+          disabledProviderIds={disabledProviderIds}
+          setDisabledProviderIds={setDisabledProviderIds}
+          setRecentProviderIds={setRecentProviderIds}
+          opencodeClient={opencodeClient}
         />
       </WorkspaceProvider>
     </CloudSessionProvider>
