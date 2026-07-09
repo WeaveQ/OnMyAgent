@@ -8,7 +8,8 @@ export {
   shouldAutoOpenTarget,
 } from "./artifacts/open-target";
 export { useSessionControlActions } from "./control/session-control-actions";
-export { ModelPickerModal, readHiddenModels } from "./modals/model-picker-modal";
+export { ModelPickerModal } from "./modals/model-picker-modal";
+export { readHiddenModels } from "./sync/hidden-models-store";
 export type { ModelPickerModalProps } from "./modals/model-picker-modal";
 export {
   SessionPage,
