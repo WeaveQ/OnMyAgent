@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import type { AgentManagementAgent } from "../../../../../app/lib/desktop";
 import { SelectMenu } from "../../../../design-system/select-menu";
 import { AGENT_MANAGER_PROVIDER_LABELS } from "./agent-management-providers";
+import { t } from "../../../../../i18n";
 import {
   agentManagerHealthLabel,
   agentManagerHealthTone,
@@ -51,7 +52,7 @@ export function AgentManagementAgentCard(props: {
           <div className="flex items-center gap-2">
             <h3 className="truncate text-base font-medium text-dls-text">{props.agent.name}</h3>
             <StatusBadge tone={agentManagerStatusTone(props.agent.status)}>
-              {props.agent.status === "online" ? "健康" : props.agent.status === "offline" ? "离线" : "异常"}
+              {props.agent.status === "online" ? t("session.agent_mgmt_status_online") : props.agent.status === "offline" ? t("session.agent_mgmt_status_offline") : t("session.agent_mgmt_status_error")}
             </StatusBadge>
             <StatusBadge tone={agentManagerHealthTone(props.agent, props.health)}>
               {agentManagerHealthLabel(props.agent, props.health)}
@@ -65,18 +66,18 @@ export function AgentManagementAgentCard(props: {
       {props.agent.error ? <NoticeBox className="mt-3 leading-5" tone="error">{props.agent.error}</NoticeBox> : null}
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <AgentManagementMetric label="运行次数" value={usage.runs} />
-        <AgentManagementMetric label="成功 / 失败" value={`${usage.completed} / ${usage.failed}`} />
-        <AgentManagementMetric label="总耗时" value={formatAgentManagerDuration(usage.totalDurationMs)} />
+        <AgentManagementMetric label={t("session.agent_mgmt_metric_runs")} value={usage.runs} />
+        <AgentManagementMetric label={t("session.agent_mgmt_metric_completed_failed")} value={`${usage.completed} / ${usage.failed}`} />
+        <AgentManagementMetric label={t("session.agent_mgmt_metric_duration")} value={formatAgentManagerDuration(usage.totalDurationMs)} />
         <AgentManagementMetric label="Skill" value={props.agent.skillCount} />
       </div>
 
       <div className="mt-4 rounded-lg border border-dls-border bg-dls-surface px-3 py-2">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs font-medium text-dls-text">运行健康检查</div>
+            <div className="text-xs font-medium text-dls-text">{t("session.agent_mgmt_health_title")}</div>
             <div className="mt-1 truncate text-xs text-dls-secondary">
-              {props.health?.output || props.health?.error || props.agent.connectionMode || "检测安装、认证和当前 Agent 可执行链路"}
+              {props.health?.output || props.health?.error || props.agent.connectionMode || t("session.agent_mgmt_health_desc_default")}
             </div>
           </div>
           <Button
@@ -86,31 +87,31 @@ export function AgentManagementAgentCard(props: {
             onClick={() => props.onHealthCheck(props.agent)}
           >
             {props.checking ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <HeartPulse className="mr-1.5 size-3.5" />}
-            检查
+            {t("session.agent_mgmt_health_check")}
           </Button>
         </div>
       </div>
 
       <div className="mt-4 rounded-lg border border-dls-border bg-dls-surface-muted p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-dls-text">供应商 / 模型切换</span>
-          <span className="text-xs text-dls-secondary">上次运行 {formatAgentManagerTime(usage.lastRunAt)}</span>
+          <span className="text-xs font-medium text-dls-text">{t("session.agent_mgmt_switch_title")}</span>
+          <span className="text-xs text-dls-secondary">{t("session.agent_mgmt_switch_last_run", { value: formatAgentManagerTime(usage.lastRunAt) })}</span>
         </div>
         {modelOptions.length > 0 ? (
           <div className="flex gap-2">
             <SelectMenu
-              ariaLabel="供应商 / 模型切换"
+              ariaLabel={t("session.agent_mgmt_switch_title")}
               size="compact"
               options={modelOptions.map((option) => ({ value: option.id, label: option.label }))}
               value={selectedModel}
               onChange={setSelectedModel}
             />
             <Button size="sm" variant="outline" disabled={!canSwitch || props.busy} onClick={() => props.onSwitch(props.agent, selectedModel)}>
-              应用
+              {t("session.agent_mgmt_switch_apply")}
             </Button>
           </div>
         ) : (
-          <div className="text-xs text-dls-secondary">未发现可切换的供应商或模型配置</div>
+          <div className="text-xs text-dls-secondary">{t("session.agent_mgmt_switch_empty")}</div>
         )}
       </div>
     </section>
