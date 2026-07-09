@@ -25,7 +25,7 @@ import { ExtensionMeshAvatar } from "./extension-mesh-avatar";
 import { APP_NAME, APP_NAME_LOWER } from "../../i18n/locales/brand";
 
 const extensionDetailTextClass = {
-  sectionLabel: "mb-1 text-xs font-medium text-muted-foreground",
+  sectionLabel: "mb-1 text-xs font-medium text-dls-secondary",
 };
 
 const extensionDetailLayoutClass = {
@@ -38,16 +38,16 @@ const extensionDetailLayoutClass = {
   meshAvatar: "size-9 rounded-lg text-xs font-medium",
   connectedDot: "absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-status-success-fg",
   skillPreview: "flex flex-col gap-2",
-  skillPreviewTitle: "text-sm font-medium text-card-foreground",
-  skillPreviewBody: "max-h-[300px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-card-foreground",
+  skillPreviewTitle: "text-sm font-medium text-dls-text",
+  skillPreviewBody: "max-h-[300px] overflow-y-auto rounded-xl border border-dls-border bg-dls-surface p-4 text-sm leading-relaxed text-dls-text",
   footer: "shrink-0",
   footerRow: "flex justify-between",
   leftActions: "flex gap-2",
   rightActions: "flex gap-3",
   uiControlStack: "space-y-4",
-  uiControlCopy: "flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground",
-  codeBlock: "max-h-[180px] overflow-x-auto rounded-xl border border-border p-3 text-xs leading-relaxed text-card-foreground",
-  tableFrame: "relative overflow-hidden rounded-xl bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-border",
+  uiControlCopy: "flex flex-col gap-2 text-sm leading-relaxed text-dls-secondary",
+  codeBlock: "max-h-[180px] overflow-x-auto rounded-xl border border-dls-border p-3 text-xs leading-relaxed text-dls-text",
+  tableFrame: "relative overflow-hidden rounded-xl bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-dls-border",
 };
 
 const uiControlCompatibleClientsTitle = ["Claude Desktop", "Codex", "Cursor"].join(", ");
@@ -299,7 +299,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                     className={extensionDetailLayoutClass.meshAvatar}
                   />
                 ) : (
-                  <FallbackIcon size={24} className="text-muted-foreground" />
+                  <FallbackIcon size={24} className="text-dls-secondary" />
                 )}
               </IconTile>
               {connected ? (
@@ -331,7 +331,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
         <div className={modalBodyClass}>
           <div className="space-y-5 px-px">
             {/* Description */}
-            <div className="text-sm leading-relaxed text-card-foreground">
+            <div className="text-sm leading-relaxed text-dls-text">
               {description}
             </div>
 
@@ -341,7 +341,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                   <CardTitle>{t("extensions.setup")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-sm leading-relaxed text-muted-foreground">
+                  <div className="text-sm leading-relaxed text-dls-secondary">
                     {setupInstructions}
                   </div>
                 </CardContent>
@@ -396,20 +396,20 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{t("common.type")}</span>
-                    <span className="font-medium text-card-foreground">
+                    <span className="text-dls-secondary">{t("common.type")}</span>
+                    <span className="font-medium text-dls-text">
                       {kindLabel[kind]}
                     </span>
                   </div>
 
                   {url ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{t("extensions.endpoint")}</span>
-                      <span className="flex items-center gap-1.5 truncate font-mono text-xs text-card-foreground">
+                      <span className="text-dls-secondary">{t("extensions.endpoint")}</span>
+                      <span className="flex items-center gap-1.5 truncate font-mono text-xs text-dls-text">
                         {url.replace(/^https?:\/\//, "").slice(0, 40)}
                         <ExternalLink
                           size={12}
-                          className="shrink-0 text-muted-foreground"
+                          className="shrink-0 text-dls-secondary"
                         />
                       </span>
                     </div>
@@ -417,8 +417,8 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
 
                   {kind === "ui-control" ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{t("extensions.launch")}</span>
-                      <span className="max-w-[300px] truncate font-mono text-xs text-card-foreground">
+                      <span className="text-dls-secondary">{t("extensions.launch")}</span>
+                      <span className="max-w-[300px] truncate font-mono text-xs text-dls-text">
                         {(launchCommand ?? fallbackUiControlCommand).join(" ")}
                       </span>
                     </div>
@@ -426,7 +426,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
 
                   {path && onReveal ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{t("extensions.location")}</span>
+                      <span className="text-dls-secondary">{t("extensions.location")}</span>
                       <Button variant="link" size="xs" onClick={onReveal}>
                         {t("message.reveal_in_finder")}
                         <ExternalLink data-icon="inline-end" />
@@ -436,19 +436,19 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
 
                   {oauth ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
+                      <span className="text-dls-secondary">
                         Authentication
                       </span>
-                      <span className="font-medium text-card-foreground">
+                      <span className="font-medium text-dls-text">
                         {t("extensions.oauth_required")}
                       </span>
                     </div>
                   ) : null}
 
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{t("common.status")}</span>
+                    <span className="text-dls-secondary">{t("common.status")}</span>
                     <span
-                      className={`font-medium ${connected ? "text-dls-status-success-fg" : "text-muted-foreground"}`}
+                      className={`font-medium ${connected ? "text-dls-status-success-fg" : "text-dls-secondary"}`}
                     >
                       {connected
                         ? (connectedLabel ??
@@ -465,15 +465,15 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{t("extensions.visibility")}</span>
-                    <span className="font-medium text-card-foreground">
+                    <span className="text-dls-secondary">{t("extensions.visibility")}</span>
+                    <span className="font-medium text-dls-text">
                       {hidden ? t("extensions.hidden") : t("extensions.shown")}
                     </span>
                   </div>
 
                   {preview ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
+                      <span className="text-dls-secondary">
                         {t("extensions.release_stage")}
                       </span>
                       <span className="font-medium text-dls-accent">{t("extensions.preview")}</span>
@@ -482,7 +482,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
 
                   {disabledReason ? (
                     <div className="flex items-center justify-between gap-4 text-sm">
-                      <span className="text-muted-foreground">
+                      <span className="text-dls-secondary">
                         Availability
                       </span>
                       <span className="text-right font-medium text-dls-status-warning">
@@ -508,7 +508,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                   <CardTitle>{t("extensions.trigger")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-sm leading-relaxed text-card-foreground">
+                  <div className="text-sm leading-relaxed text-dls-text">
                     {trigger}
                   </div>
                 </CardContent>
@@ -541,7 +541,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                   <CardTitle>{t("extensions.what_this_enables")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-sm leading-relaxed text-muted-foreground">
+                  <div className="text-sm leading-relaxed text-dls-secondary">
                     {t(kindDescKey[kind])}
                   </div>
                 </CardContent>
@@ -640,7 +640,7 @@ function UiControlConnectionDetails(props: {
             </div>
             <div>
               {t("extensions.ui_control_client_starts_prefix")}{" "}
-              <span className="font-mono text-card-foreground">
+              <span className="font-mono text-dls-text">
                 ${APP_NAME_LOWER}-ui-mcp
               </span>{" "}
               {t("extensions.ui_control_client_starts_suffix")}
@@ -682,8 +682,8 @@ function UiControlConnectionDetails(props: {
           <div className={extensionDetailLayoutClass.tableFrame}>
             <Table className="text-xs">
               <TableBody>
-                <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-                  <TableCell className="bg-muted/50 w-40 py-2 text-xs font-medium">
+                <TableRow className="*:border-dls-border hover:bg-transparent [&>:not(:last-child)]:border-r">
+                  <TableCell className="bg-dls-surface-muted/50 w-40 py-2 text-xs font-medium">
                     {t("extensions.production_discovery_file")}
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
@@ -693,8 +693,8 @@ function UiControlConnectionDetails(props: {
                     </span>
                   </TableCell>
                 </TableRow>
-                <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-                  <TableCell className="bg-muted/50 py-2 text-xs font-medium">
+                <TableRow className="*:border-dls-border hover:bg-transparent [&>:not(:last-child)]:border-r">
+                  <TableCell className="bg-dls-surface-muted/50 py-2 text-xs font-medium">
                     {t("extensions.dev_discovery_file")}
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
@@ -704,8 +704,8 @@ function UiControlConnectionDetails(props: {
                     </span>
                   </TableCell>
                 </TableRow>
-                <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-                  <TableCell className="bg-muted/50 py-2 text-xs font-medium">
+                <TableRow className="*:border-dls-border hover:bg-transparent [&>:not(:last-child)]:border-r">
+                  <TableCell className="bg-dls-surface-muted/50 py-2 text-xs font-medium">
                     {t("extensions.override")}
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
@@ -715,8 +715,8 @@ function UiControlConnectionDetails(props: {
                   </TableCell>
                 </TableRow>
                 {props.environment?.ONMYAGENT_UI_CONTROL_DISCOVERY ? (
-                  <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-                    <TableCell className="bg-muted/50 py-2 text-xs font-medium">
+                  <TableRow className="*:border-dls-border hover:bg-transparent [&>:not(:last-child)]:border-r">
+                    <TableCell className="bg-dls-surface-muted/50 py-2 text-xs font-medium">
                       {t("extensions.current_override")}
                     </TableCell>
                     <TableCell className="py-2 whitespace-normal">

@@ -53,11 +53,12 @@ export function ConfirmModal(props: ConfirmModalProps) {
           <AlertDialogDescription>{props.message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel variant={cancelVariant}>
+          <AlertDialogCancel variant={cancelVariant} size="lg">
             {props.cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
             variant={confirmVariant}
+            size="lg"
             onClick={props.onConfirm}
           >
             {props.confirmLabel}

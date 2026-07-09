@@ -1,10 +1,9 @@
 /** @jsxImportSource react */
-import { Loader2 } from "lucide-react";
-
 import { StatusDot } from "@/components/ui/status-dot";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { t } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../design-system/select-menu";
 import type { PersonalLocalAgentAcpConfigOptionValue } from "../../../app/lib/desktop";
 
@@ -37,10 +36,20 @@ export function AcpConfigOptionEditor(props: {
   if (props.option.type === "boolean") {
     const checked = Boolean(currentValue);
     return (
-      <button type="button" className={cn("flex min-h-9 min-w-[160px] items-center justify-between gap-2 rounded-lg border border-dls-border bg-dls-surface px-2 text-xs text-dls-text transition-colors hover:border-dls-border-strong disabled:cursor-not-allowed disabled:opacity-60", checked && "border-dls-accent/40 bg-dls-accent/5")} disabled={props.disabled || props.busy} aria-pressed={checked} onClick={() => props.onChange(!checked)}>
+      <label className="flex min-h-9 min-w-[160px] items-center justify-between gap-2 rounded-lg border border-dls-border bg-dls-surface px-2 text-xs text-dls-text">
         <span className="min-w-0 truncate">{props.option.label}</span>
-        {props.busy ? <Loader2 className="size-3.5 animate-spin text-dls-secondary" /> : <StatusDot size="sm" tone={checked ? "active" : "muted"} />}
-      </button>
+        {props.busy ? (
+          <LoadingSpinner size="sm" />
+        ) : (
+          <Switch
+            size="sm"
+            checked={checked}
+            disabled={props.disabled || props.busy}
+            onCheckedChange={(next) => props.onChange(next)}
+            aria-label={props.option.label}
+          />
+        )}
+      </label>
     );
   }
   return (
