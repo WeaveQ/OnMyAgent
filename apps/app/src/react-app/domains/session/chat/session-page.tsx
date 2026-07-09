@@ -337,6 +337,7 @@ export type SessionPageProps = {
     requestID: string,
     reply: "once" | "always" | "reject",
   ) => void;
+  autoApprovedPermissionNoticeId?: string | null;
   safeStringify?: (value: unknown) => string;
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;
@@ -912,6 +913,9 @@ export function SessionPage(props: SessionPageProps) {
                           activePermission={props.activePermission}
                           permissionReplyBusy={props.permissionReplyBusy}
                           respondPermission={props.respondPermission}
+                          autoApprovedPermissionNoticeId={
+                            props.autoApprovedPermissionNoticeId
+                          }
                           activeQuestion={props.activeQuestion}
                           questionReplyBusy={props.questionReplyBusy}
                           respondQuestion={props.respondQuestion}

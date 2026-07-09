@@ -4,8 +4,10 @@ import type { Part } from "@opencode-ai/sdk/v2/client";
 import {
   canMergeStepClusters,
   mergeLeadingAssistantStepClusters,
+  resolveDisplayedPastedText,
   summarizeStepCluster,
 } from "../src/react-app/domains/session/surface/message-list";
+import { groupMessageParts } from "../src/app/utils";
 
 type MergeBlock = Parameters<typeof canMergeStepClusters>[1];
 type TimelineBlock = Parameters<typeof mergeLeadingAssistantStepClusters>[0][number];
@@ -113,5 +115,27 @@ describe("session process summary", () => {
     expect(merged).toHaveLength(2);
     expect(merged[0]?.kind).toBe("steps-cluster");
     expect(merged[1]?.kind).toBe("message");
+  });
+
+  test("keeps visible assistant text outside pure process clusters", () => {
+    const groups = groupMessageParts(
+      [
+        { id: "intro", type: "text", text: "我先说明当前状态。" },
+        toolPart("write-a", "write"),
+        { id: "result", type: "text", text: "文件已经写好。" },
+      ],
+      "assistant-a",
+    );
+
+    expect(groups.map((group) => group.kind)).toEqual(["text", "steps", "text"]);
+  });
+
+  test("renders pasted text placeholders as their text content", () => {
+    expect(
+      resolveDisplayedPastedText(
+        "目标：[pasted text 9flg · 77 lines]",
+        new Map([["9flg · 77 lines", "创建项目管理工具并完成自测"]]),
+      ),
+    ).toBe("目标：创建项目管理工具并完成自测");
   });
 });

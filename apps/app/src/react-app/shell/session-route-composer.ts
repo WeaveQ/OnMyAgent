@@ -1,6 +1,6 @@
 import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
 import type { ComposerAttachment, ComposerDraft, ModelRef } from "../../app/types";
-import type { Language } from "../../i18n";
+import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
 
@@ -30,26 +30,65 @@ export function joinSystemParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
 }
 
-export function buildLanguageSystemPrompt(locale: Language) {
-  if (locale === "zh") {
-    return [
-      "语言偏好：当前界面语言是简体中文。",
-      "除非用户明确要求其他语言，面向用户的回答、思考过程摘要、计划、状态说明和总结都尽量使用简体中文。",
-      "代码、命令、文件名、API 名称、专有名词和引用原文可以保留原语言。",
-    ].join("\n");
+const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
+const HIRAGANA_KATAKANA_RE = /[\u3040-\u30ff]/;
+const HANGUL_RE = /[\uac00-\ud7af]/;
+const LATIN_RE = /[A-Za-z]/;
+
+export function resolveLanguageForUserInput(
+  text: string,
+  fallbackLocale: Language,
+): Language {
+  if (CJK_RE.test(text)) {
+    return fallbackLocale === "zh-TW" ? "zh-TW" : "zh";
   }
-  if (locale === "zh-TW") {
-    return [
-      "語言偏好：目前介面語言是繁體中文。",
-      "除非使用者明確要求其他語言，面向使用者的回答、思考過程摘要、計劃、狀態說明和總結都盡量使用繁體中文。",
-      "程式碼、命令、檔案名稱、API 名稱、專有名詞和引用原文可以保留原語言。",
-    ].join("\n");
+  if (HIRAGANA_KATAKANA_RE.test(text) || HANGUL_RE.test(text)) {
+    return fallbackLocale;
   }
-  return [
-    "Language preference: the current interface language is English.",
-    "Unless the user explicitly asks for another language, write user-facing answers, reasoning/progress summaries, plans, status notes, and final summaries in English.",
-    "Code, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
-  ].join("\n");
+  if (LATIN_RE.test(text)) return fallbackLocale;
+  return fallbackLocale;
+}
+
+export function buildLanguageSystemPrompt(
+  locale: Language,
+  source: "interface" | "user-input" = "interface",
+) {
+  return t(
+    source === "user-input"
+      ? "session.language_system_prompt_from_input"
+      : "session.language_system_prompt",
+    locale,
+  );
+}
+
+export function deriveGoalSummary(objective: string) {
+  const normalized = stripGoalSummaryPrefixes(objective
+    .replace(/\[pasted text[^\]]*\]/gi, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/\s+/g, " ")
+    .trim());
+  const sentence =
+    normalized
+      .split(/(?:。|！|？|\.|\n)/)
+      .map((item) => item.trim())
+      .find(Boolean) ?? normalized;
+  if (sentence.length <= 56) return sentence;
+  return `${sentence.slice(0, 56).trimEnd()}...`;
+}
+
+function stripGoalSummaryPrefixes(value: string) {
+  let next = value.trim();
+  for (let index = 0; index < 4; index += 1) {
+    const previous = next;
+    next = next
+      .replace(/^(?:You|User|The user(?:\s+(?:wants|asked))?(?:\s+me)?(?:\s+to)?|Objective|Goal|Task)\s*(?::|\uff1a)?\s*/i, "")
+      .replace(/^(?:\u76ee\u6807|\u4efb\u52a1|\u9879\u76ee\u8981\u6c42|\u9700\u6c42|\u7528\u6237\u8981\u6c42|\u7528\u6237\u5e0c\u671b)\s*[:\uff1a]?\s*/i, "")
+      .replace(/^\d+[.)、]\s*/, "")
+      .replace(/^[-*]\s*/, "")
+      .trim();
+    if (next === previous) return next;
+  }
+  return next;
 }
 
 export function resolveDraftSendPlan(input: {
@@ -92,6 +131,19 @@ export function applySessionAccessMode(
   return current[sessionId] === nextAccessMode
     ? current
     : { ...current, [sessionId]: nextAccessMode };
+}
+
+export function clearConsumedPermissionNotice(
+  current: Record<string, string>,
+  sessionId: string | null,
+  activePermissionId: string | null | undefined,
+) {
+  if (!sessionId) return current;
+  const noticeId = current[sessionId];
+  if (!noticeId || noticeId === activePermissionId) return current;
+  const next = { ...current };
+  delete next[sessionId];
+  return next;
 }
 
 export async function fileToDataUrl(file: File) {
@@ -137,32 +189,32 @@ export function buildCollaborationModeSystemPrompt(
   const instructions: string[] = [];
   if (kind === "craft") {
     instructions.push(
-      "Craft 协作模式：默认端到端推进用户目标；可以按需读取和修改文件、运行本地命令、管理任务、联网搜索并产出可交付结果。执行高风险或破坏性操作前先请求确认。",
+      t("session.collaboration_craft_system"),
     );
   }
   if (kind === "ask") {
     instructions.push(
-      "Ask 协作模式：以问答和解释为主；默认只读取必要文件与上下文，不主动修改文件、不运行会产生副作用的命令、不创建任务。若需要写入、执行命令或改变外部状态，先向用户说明并请求确认。",
+      t("session.collaboration_ask_system"),
     );
   }
   if (kind === "plan") {
     instructions.push(
-      "Plan 协作模式：先制定清晰的多步骤计划，说明目标、范围、风险、验证方式和下一步；默认只读取必要文件与上下文。除非用户明确要求执行计划，否则不要直接修改文件或运行有副作用的命令。",
+      t("session.collaboration_plan_system"),
     );
     instructions.push(
-      "Plan mode hard gate: do not call tools, do not emit tool-call markup, and do not claim side effects are complete. Return a textual plan only until the user explicitly approves execution.",
+      t("session.collaboration_plan_hard_gate"),
     );
     instructions.push(
-      "For this response, reinterpret the user's task request as a request to draft an approval plan. Start with a plan-ready heading, use future-tense action steps, and never say that files were created, commands were run, pages were opened, or work was completed.",
+      t("session.collaboration_plan_response_gate"),
     );
   }
-  if (kind === "craft" || mode.pursueGoal) {
+  if (isComposerGoalMode(mode)) {
     instructions.push(
-      "追求目标：持续围绕用户目标推进，主动跟踪完成状态；遇到阻塞时说明阻塞并寻找可行替代路径。",
+      t("session.collaboration_goal_system"),
     );
   }
   if (instructions.length === 0) return null;
-  return `协作模式系统提示词：\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`;
+  return `${t("session.collaboration_system_title")}\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`;
 }
 
 export function isComposerPlanningMode(
@@ -170,6 +222,20 @@ export function isComposerPlanningMode(
 ) {
   if (!mode) return false;
   return mode.kind === "plan" || Boolean(mode.planning);
+}
+
+export function isComposerAskMode(
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!mode) return false;
+  return mode.kind === "ask" && !mode.planning && mode.pursueGoal !== true;
+}
+
+export function isComposerGoalMode(
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (!mode) return false;
+  return mode.kind !== "craft" && !mode.planning && mode.pursueGoal === true;
 }
 
 const PLAN_MODE_DISABLED_TOOLS = [
@@ -181,20 +247,13 @@ const PLAN_MODE_DISABLED_TOOLS = [
   "BrowserScreenshot",
   "Edit",
   "EditFileFunc",
-  "Glob",
-  "Grep",
-  "List",
-  "ListFileFunc",
   "MultiEdit",
   "NotebookEdit",
-  "Read",
-  "ReadFileFunc",
   "Shell",
   "Skill",
   "SkillLoad",
   "Task",
   "Terminal",
-  "TodoRead",
   "TodoWrite",
   "WebFetch",
   "WebSearch",
@@ -236,10 +295,6 @@ const PLAN_MODE_DISABLED_TOOLS = [
   "gitnexus_search",
   "gitnexus_status",
   "gitnexus_*",
-  "glob",
-  "grep",
-  "list",
-  "list_file_func",
   "load_skill",
   "mcp",
   "multi_edit",
@@ -254,21 +309,35 @@ const PLAN_MODE_DISABLED_TOOLS = [
   "opencode_router_send",
   "opencode_router_status",
   "patch",
-  "read",
-  "read_file_func",
   "shell",
   "skill",
   "skill_load",
   "str_replace_editor",
   "task",
   "terminal",
-  "todoread",
   "todowrite",
   "webfetch",
   "websearch",
   "write",
   "write_file",
   "write_file_func",
+] as const;
+
+const PLAN_MODE_READONLY_TOOLS = [
+  "Glob",
+  "Grep",
+  "List",
+  "ListFileFunc",
+  "Read",
+  "ReadFileFunc",
+  "TodoRead",
+  "glob",
+  "grep",
+  "list",
+  "list_file_func",
+  "read",
+  "read_file_func",
+  "todoread",
 ] as const;
 
 const DEFAULT_EXECUTION_TOOLS: Record<string, boolean> = {
@@ -317,17 +386,7 @@ const DEFAULT_EXECUTION_TOOLS: Record<string, boolean> = {
   write_file_func: true,
 };
 
-export function resolveComposerRuntimeTools(
-  tools: Record<string, boolean> | undefined,
-  mode: ComposerDraft["collaborationMode"],
-) {
-  if (!isComposerPlanningMode(mode)) {
-    if (mode?.kind !== "craft") return tools;
-    return {
-      ...DEFAULT_EXECUTION_TOOLS,
-      ...(tools ?? {}),
-    };
-  }
+function resolveReadonlyRuntimeTools(tools: Record<string, boolean> | undefined) {
   const next: Record<string, boolean> = {};
   for (const toolName of PLAN_MODE_DISABLED_TOOLS) {
     next[toolName] = false;
@@ -335,7 +394,43 @@ export function resolveComposerRuntimeTools(
   for (const toolName of Object.keys(tools ?? {})) {
     next[toolName] = false;
   }
+  for (const toolName of PLAN_MODE_READONLY_TOOLS) {
+    next[toolName] = tools?.[toolName] === false ? false : true;
+  }
   return next;
+}
+
+export function resolveComposerRuntimeTools(
+  tools: Record<string, boolean> | undefined,
+  mode: ComposerDraft["collaborationMode"],
+) {
+  if (isComposerAskMode(mode)) return resolveReadonlyRuntimeTools(tools);
+  if (!isComposerPlanningMode(mode)) {
+    if (mode?.kind !== "craft" && !isComposerGoalMode(mode)) return tools;
+    return {
+      ...DEFAULT_EXECUTION_TOOLS,
+      ...(tools ?? {}),
+    };
+  }
+  return resolveReadonlyRuntimeTools(tools);
+}
+
+export function buildGoalRuntimeSystemPrompt(
+  input: { objective: string; status?: string } | null | undefined,
+) {
+  const objective = input?.objective.trim();
+  if (!objective) return null;
+  return [
+    t("session.goal_runtime_system_title"),
+    t("session.goal_runtime_system_objective", { objective }),
+    t("session.goal_runtime_system_success"),
+    t("session.goal_runtime_system_persist"),
+    t("session.goal_runtime_system_next_step"),
+    t("session.goal_runtime_system_continue"),
+    t("session.goal_runtime_system_progress"),
+    `- ${t("session.goal_hidden_stall_recovery")}`,
+    t("session.goal_runtime_system_blocker"),
+  ].join("\n");
 }
 
 export function buildAccessModeSystemPrompt(
@@ -343,13 +438,13 @@ export function buildAccessModeSystemPrompt(
 ) {
   if (mode === "full") {
     return [
-      "Access mode: full access.",
-      "The user has selected a high-trust mode. You may proceed with file edits, local commands, and network access when needed for the task, while still obeying the host runtime safety boundaries and asking before destructive or irreversible operations.",
+      t("session.access_mode_full_system_title"),
+      t("session.access_mode_full_system_body"),
     ].join("\n");
   }
   return [
-    "Access mode: default.",
-    "Treat file writes, local commands, network access, and external state changes as actions that may require host approval. Explain the need before taking high-risk or irreversible actions.",
+    t("session.access_mode_default_system_title"),
+    t("session.access_mode_default_system_body"),
   ].join("\n");
 }
 

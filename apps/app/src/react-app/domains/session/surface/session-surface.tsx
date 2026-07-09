@@ -8,17 +8,22 @@ import {
   BookOpenCheck,
   Check,
   ChevronRight,
+  Clock3,
   Code2,
   Folder,
   FolderOpen,
+  Goal,
   Minimize2,
+  Pause,
+  Play,
   Settings2,
+  Trash2,
   X,
 } from "lucide-react";
 
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
-import { t } from "../../../../i18n";
+import { currentLocale, t } from "../../../../i18n";
 import {
   readWorkspaceCloudImports,
   type CloudImportedPlugin,
@@ -33,6 +38,7 @@ import type {
   ComposerCollaborationMode,
   ComposerDraft,
   ComposerPart,
+  CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   McpServerEntry,
   McpStatusMap,
@@ -70,7 +76,10 @@ import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
 } from "./session-render-state";
-import { SessionTranscript } from "./message-list";
+import {
+  SessionTranscript,
+  type SessionTranscriptDivider,
+} from "./message-list";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
@@ -99,6 +108,13 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
+import {
+  deriveGoalSummary,
+  resolveSessionCollaborationKind,
+  resolveSessionRunPolicy,
+  shouldShowGoalRuntime,
+  summarizeGoalObjective,
+} from "./session-run-controller";
 import {
   getComposerAttachments,
   getComposerDraft,
@@ -135,6 +151,9 @@ import {
 
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
+const ASSISTANT_STALL_NOTICE_MS = 15_000;
+const ASSISTANT_RECOVERY_HINT_MS = 120_000;
+const MAX_TRANSCRIPT_NOTICES_PER_SESSION = 16;
 
 const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
@@ -256,6 +275,9 @@ export type SessionSurfaceProps = {
   onSessionCollaborationModeChange?: (mode: ComposerCollaborationMode) => void;
   planRuntime?: CollaborationPlanRuntime | null;
   onPlanRuntimeChange?: (runtime: CollaborationPlanRuntime | null) => void;
+  goalRuntime?: CollaborationGoalRuntime | null;
+  onGoalRuntimeChange?: (runtime: CollaborationGoalRuntime | null) => void;
+  onClearSessionProgress?: () => void;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   modelVariantLabel: string;
@@ -284,6 +306,7 @@ export type SessionSurfaceProps = {
     requestID: string,
     reply: "once" | "always" | "reject",
   ) => void;
+  autoApprovedPermissionNoticeId?: string | null;
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;
   respondQuestion?: (requestID: string, answers: string[][]) => void;
@@ -313,6 +336,20 @@ export type SessionSurfaceProps = {
   onClearDraftWorkspace?: () => void;
 };
 
+type SessionTranscriptNotice = {
+  id: string;
+  kind:
+    | "cancelled"
+    | "stopped"
+    | "compacting"
+    | "compacted"
+    | "stalled"
+    | "permission-rejected"
+    | "permission-auto-approved";
+  afterMessageCount: number;
+  elapsedMs?: number;
+};
+
 const waitForControl = (ms: number) =>
   new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -332,12 +369,38 @@ type PlanStepItem = {
   status: "pending" | "active" | "completed";
 };
 
+type PlanDetailSection = {
+  kind: "risk" | "validation" | "reversibility";
+  title: string;
+  items: string[];
+};
+
 const PLAN_SECTION_BOUNDARY_RE =
-  /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
+  /^(?:#{1,6}\s*)?(?:\u76ee\u6807|\u8303\u56f4|\u98ce\u9669|\u98ce\u9669\u8bf4\u660e|\u53ef\u9006\u6027|\u9a8c\u8bc1|\u9a8c\u8bc1\u65b9\u5f0f|\u4e0b\u4e00\u6b65|\u6267\u884c\u7ed3\u679c|\u7ed3\u679c|\u6ce8\u610f\u4e8b\u9879)(?:\s|$|:|\uff1a)/;
 const PLAN_STEP_SECTION_RE =
   /^(?:#{1,6}\s*)?(?:\u6267\u884c\u6b65\u9aa4|\u5b9e\u65bd\u6b65\u9aa4|\u8ba1\u5212\u6b65\u9aa4|\u6b65\u9aa4)(?:\s|$|\uff08|:|\uff1a)/;
 const PLAN_HEADING_RE =
   /^(?:#{1,6}\s*)?(?:plan|\u8ba1\u5212)(?:\s|$|:|\uff1a)/i;
+const PLAN_DETAIL_PATTERNS: Array<{
+  kind: PlanDetailSection["kind"];
+  pattern: RegExp;
+}> = [
+  {
+    kind: "risk",
+    pattern:
+      /^(?:#{1,6}\s*)?(?:risks?|risk\s+notes?|\u98ce\u9669|\u98ce\u9669\u8bf4\u660e)\s*(?:[:\uff1a-]\s*)?(.*)$/i,
+  },
+  {
+    kind: "validation",
+    pattern:
+      /^(?:#{1,6}\s*)?(?:validation|verification|verify|\u9a8c\u8bc1|\u9a8c\u8bc1\u65b9\u5f0f)\s*(?:[:\uff1a-]\s*)?(.*)$/i,
+  },
+  {
+    kind: "reversibility",
+    pattern:
+      /^(?:#{1,6}\s*)?(?:reversibility|rollback|\u53ef\u9006\u6027|\u56de\u6eda)\s*(?:[:\uff1a-]\s*)?(.*)$/i,
+  },
+];
 
 function cleanPlanStepLine(line: string) {
   return line
@@ -408,6 +471,66 @@ function uniquePlanSteps(steps: string[]) {
     seen.add(key);
     return true;
   });
+}
+
+function planDetailTitle(kind: PlanDetailSection["kind"]) {
+  if (kind === "risk") return t("session.plan_runtime_risk");
+  if (kind === "validation") return t("session.plan_runtime_validation");
+  return t("session.plan_runtime_reversibility");
+}
+
+function planDetailHeading(line: string) {
+  for (const entry of PLAN_DETAIL_PATTERNS) {
+    const match = line.match(entry.pattern);
+    if (match) {
+      return {
+        kind: entry.kind,
+        remainder: cleanPlanStepLine(match[1] ?? ""),
+      };
+    }
+  }
+  return null;
+}
+
+function extractPlanDetailSections(planText: string): PlanDetailSection[] {
+  const buffers: Record<PlanDetailSection["kind"], string[]> = {
+    risk: [],
+    validation: [],
+    reversibility: [],
+  };
+  let currentKind: PlanDetailSection["kind"] | null = null;
+  const lines = planText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const heading = planDetailHeading(line);
+    if (heading) {
+      currentKind = heading.kind;
+      if (heading.remainder) buffers[currentKind].push(heading.remainder);
+      continue;
+    }
+    if (PLAN_STEP_SECTION_RE.test(line) || (PLAN_SECTION_BOUNDARY_RE.test(line) && !currentKind)) {
+      currentKind = null;
+      continue;
+    }
+    if (!currentKind) continue;
+    if (PLAN_SECTION_BOUNDARY_RE.test(line) && !planDetailHeading(line)) {
+      currentKind = null;
+      continue;
+    }
+    const item = cleanPlanStepLine(line);
+    if (item) buffers[currentKind].push(item);
+  }
+
+  return (Object.keys(buffers) as PlanDetailSection["kind"][])
+    .map((kind) => ({
+      kind,
+      title: planDetailTitle(kind),
+      items: uniquePlanSteps(buffers[kind]).slice(0, 3),
+    }))
+    .filter((section) => section.items.length > 0);
 }
 
 function extractPlanSteps(planText: string): PlanStepItem[] {
@@ -530,9 +653,11 @@ function useSharedQueryState<T>(queryKey: readonly unknown[], fallback: T) {
 function AssistantWaitingCard({
   label = t("session.assistant_thinking"),
   collapseLayout = false,
+  detail,
 }: {
   label?: string;
   collapseLayout?: boolean;
+  detail?: string;
 }) {
   const content = (
     <div className="flex justify-start" role="status" aria-live="polite">
@@ -562,6 +687,7 @@ function AssistantWaitingCard({
           />
         </div>
         <span>{label}</span>
+        {detail ? <span className="text-dls-tertiary">{detail}</span> : null}
       </div>
     </div>
   );
@@ -598,12 +724,103 @@ function AssistantStatusSpacer() {
   );
 }
 
+function messageActivityFingerprint(messages: UIMessage[]) {
+  return messages
+    .map((message) => {
+      const partToken = message.parts
+        .map((part) => {
+          if ("text" in part && typeof part.text === "string") {
+            return `${part.type}:${part.text.length}`;
+          }
+          if (part.type === "dynamic-tool") {
+            const record = part as Record<string, unknown>;
+            const state = typeof record.state === "string" ? record.state : "";
+            const toolName = typeof record.toolName === "string" ? record.toolName : "";
+            return `${part.type}:${toolName}:${state}`;
+          }
+          return part.type;
+        })
+        .join(",");
+      return `${message.id}:${message.role}:${partToken}`;
+    })
+    .join("|");
+}
+
+function compactCandidateText(message: UIMessage) {
+  if (message.role !== "assistant") return "";
+  return message.parts
+    .flatMap((part) => {
+      if ("text" in part && typeof part.text === "string") return [part.text];
+      return [];
+    })
+    .join("\n")
+    .trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isLikelyCompactSummaryMessage(message: UIMessage) {
+  const text = compactCandidateText(message);
+  if (text.length < 320) return false;
+  const headings = [
+    "Summary",
+    "Current State",
+    "Completed",
+    "Done",
+    "In Progress",
+    "Blocked",
+    "Key Decisions",
+    "Next Steps",
+    "Progress",
+    "\u5f53\u524d\u72b6\u6001",
+    "\u6458\u8981",
+    "\u5df2\u5b8c\u6210",
+    "\u5b8c\u6210",
+    "\u8fdb\u884c\u4e2d",
+    "\u963b\u585e",
+    "\u5173\u952e\u51b3\u7b56",
+    "\u4e0b\u4e00\u6b65",
+    "\u8fdb\u5ea6",
+  ];
+  const headingHits = headings.filter((heading) => {
+    const escapedHeading = escapeRegExp(heading);
+    return new RegExp(
+      `(^|\\n)\\s*(?:#+\\s*)?${escapedHeading}(?:\\s|[:：]|$)`,
+      "i",
+    ).test(text);
+  }).length;
+  return headingHits >= 3;
+}
+
+function filterCompactionMessages(
+  messages: UIMessage[],
+  compactBoundary: number | null,
+) {
+  let beforeNextUserAfterBoundary = compactBoundary !== null;
+  return messages.filter((message, index) => {
+    if (compactBoundary !== null && index >= compactBoundary) {
+      if (message.role === "user") beforeNextUserAfterBoundary = false;
+      if (
+        beforeNextUserAfterBoundary &&
+        message.role === "assistant" &&
+        isLikelyCompactSummaryMessage(message)
+      ) {
+        return false;
+      }
+    }
+    return !isLikelyCompactSummaryMessage(message);
+  });
+}
+
 function TodoPanel(props: { todos: TodoItem[] }) {
-  const [expanded, setExpanded] = useState(false);
+  const [pinnedExpanded, setPinnedExpanded] = useState(false);
   const todos = props.todos.filter((todo) => todo.content.trim());
   const completedTodos = todos.filter(
     (todo) => todo.status === "completed",
   ).length;
+  const expanded = pinnedExpanded;
   const progressLabel = t("session.todo_progress_label");
   const label = expanded
     ? progressLabel
@@ -613,21 +830,41 @@ function TodoPanel(props: { todos: TodoItem[] }) {
 
   return (
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
-      <DisclosureRowButton
-        type="button"
-        className="justify-between px-4 py-3 text-xs text-dls-secondary hover:bg-dls-surface-muted"
-        onClick={() => setExpanded((current) => !current)}
+      <div
+        className={cn(
+          "flex items-center gap-2 px-4 py-2",
+          expanded ? "border-b border-dls-border" : "",
+        )}
       >
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-dls-secondary">{label}</span>
-        </div>
-        <Minimize2
-          size={12}
-          className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
-        />
-      </DisclosureRowButton>
+        <DisclosureRowButton
+          type="button"
+          density="flush"
+          className="min-w-0 flex-1 justify-start gap-2 text-xs text-dls-secondary hover:bg-transparent hover:text-dls-text"
+          onClick={() => setPinnedExpanded((current) => !current)}
+        >
+          <span className="truncate font-medium text-dls-secondary">
+            {label}
+          </span>
+        </DisclosureRowButton>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => setPinnedExpanded((current) => !current)}
+          aria-label={
+            expanded
+              ? t("session.plan_runtime_collapse")
+              : t("session.plan_runtime_expand")
+          }
+        >
+          <Minimize2
+            size={12}
+            className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
+          />
+        </Button>
+      </div>
       {expanded ? (
-        <div className="max-h-60 space-y-2.5 overflow-auto border-t border-dls-border px-4 pb-3">
+        <div className="max-h-60 space-y-2.5 overflow-auto px-4 pb-3">
           {todos.map((todo, index) => {
             const done = todo.status === "completed";
             const cancelled = todo.status === "cancelled";
@@ -683,6 +920,8 @@ function PlanApprovalPanel(props: {
   const isDrafting = props.runtime.status === "drafting";
   const isExecuting = props.runtime.status === "executing";
   const isCompleted = props.runtime.status === "completed";
+  const isBlocked = props.runtime.status === "blocked";
+  const detailsExpanded = expanded;
   const planText = props.runtime.planText?.trim() || "";
   const planSteps = resolvePlanStepItems({
     planText,
@@ -690,6 +929,7 @@ function PlanApprovalPanel(props: {
     runtimeStatus: props.runtime.status,
     todos: props.todos,
   });
+  const planDetails = extractPlanDetailSections(planText);
   const completedSteps = planSteps.filter(
     (step) => step.status === "completed",
   ).length;
@@ -700,13 +940,15 @@ function PlanApprovalPanel(props: {
       ? t("session.plan_runtime_executing")
       : isCompleted
         ? t("session.plan_runtime_completed")
+        : isBlocked
+          ? t("session.plan_runtime_blocked")
         : t("session.plan_runtime_title");
   const label =
-    expanded || planSteps.length === 0
+    detailsExpanded || planSteps.length === 0
       ? statusLabel
       : `${progressLabel} · ${completedSteps}/${planSteps.length}`;
   const showReadyBadge =
-    expanded && props.runtime.status === "awaiting_approval";
+    detailsExpanded && props.runtime.status === "awaiting_approval";
 
   return (
     <div className="overflow-hidden border-b border-dls-border bg-transparent">
@@ -728,7 +970,7 @@ function PlanApprovalPanel(props: {
             ) : null}
           </DisclosureRowButton>
         </div>
-        {isCompleted ? (
+        {isCompleted || isBlocked ? (
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" size="xs" onClick={props.onConfirm}>
               {t("session.plan_runtime_confirm")}
@@ -772,7 +1014,7 @@ function PlanApprovalPanel(props: {
           />
         </Button>
       </div>
-      {expanded ? (
+      {detailsExpanded ? (
         <div className="max-h-60 space-y-2.5 overflow-auto px-4 pb-3">
           {isDrafting ? (
             <div className="pt-2.5">
@@ -823,8 +1065,304 @@ function PlanApprovalPanel(props: {
               {t("session.plan_runtime_empty")}
             </div>
           )}
+          {!isDrafting && planDetails.length > 0 ? (
+            <div className="space-y-2 border-t border-dls-border pt-3">
+              {planDetails.map((section) => (
+                <div key={section.kind} className="text-xs leading-5">
+                  <div className="font-medium text-dls-secondary">
+                    {section.title}
+                  </div>
+                  <div className="mt-1 space-y-1 text-dls-secondary">
+                    {section.items.map((item) => (
+                      <div key={`${section.kind}-${item}`} className="truncate">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+const GOAL_RUNTIME_TICK_MS = 1000;
+
+function buildLocaleRuntimeInstruction() {
+  return t("session.runtime_language_requirement", currentLocale());
+}
+
+function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
+  const details: string[] = [];
+  if (runtime.summary?.trim()) {
+    details.push(`${t("session.goal_hidden_summary_label")} ${runtime.summary.trim()}`);
+  }
+  if (runtime.currentCheckpoint?.trim()) {
+    details.push(`${t("session.goal_hidden_checkpoint_label")} ${runtime.currentCheckpoint.trim()}`);
+  }
+  if (runtime.completionCriteria?.length) {
+    details.push(
+      `${t("session.goal_hidden_completion_criteria_label")}\n${runtime.completionCriteria
+        .map((item) => `- ${item}`)
+        .join("\n")}`,
+    );
+  }
+  if (runtime.validationCommands?.length) {
+    details.push(
+      `${t("session.goal_hidden_validation_label")}\n${runtime.validationCommands
+        .map((item) => `- ${item}`)
+        .join("\n")}`,
+    );
+  }
+  if (runtime.lastKnownTodos?.length) {
+    details.push(
+      `${t("session.goal_hidden_todos_label")}\n${runtime.lastKnownTodos
+        .map((item) => `- [${item.status}] ${item.content}`)
+        .join("\n")}`,
+    );
+  }
+  if (runtime.progressLog?.length) {
+    details.push(
+      `${t("session.goal_hidden_progress_label")}\n${runtime.progressLog
+        .map((item) => `- ${item}`)
+        .join("\n")}`,
+    );
+  }
+  return [
+    buildLocaleRuntimeInstruction(),
+    "",
+    t("session.goal_hidden_continue"),
+    "",
+    t("session.goal_hidden_objective_label"),
+    runtime.objective,
+    details.length ? `\n${details.join("\n\n")}` : "",
+    "",
+    t("session.goal_hidden_success_criterion"),
+    t("session.goal_hidden_next_step"),
+    t("session.goal_hidden_continue_when_safe"),
+    t("session.goal_hidden_track_progress"),
+    t("session.goal_hidden_stall_recovery"),
+    t("session.goal_hidden_blocker"),
+  ].join("\n");
+}
+
+function buildPlanExecutionHiddenSystemPrompt(runtime: CollaborationPlanRuntime) {
+  return [
+    buildLocaleRuntimeInstruction(),
+    "",
+    t("session.plan_hidden_execute_now"),
+    t("session.plan_hidden_approval_granted"),
+    t("session.plan_hidden_use_tools"),
+    "",
+    t("session.plan_hidden_original_request_label"),
+    runtime.originalPrompt,
+    "",
+    t("session.plan_hidden_approved_plan_label"),
+    runtime.planText?.trim() || t("session.plan_runtime_empty"),
+  ].join("\n");
+}
+
+function goalElapsedMs(runtime: CollaborationGoalRuntime, now: number) {
+  if (runtime.status === "paused") {
+    const pauseStartedAt = runtime.pauseStartedAt ?? runtime.updatedAt;
+    return Math.max(
+      0,
+      pauseStartedAt - runtime.startedAt - runtime.totalPausedMs,
+    );
+  }
+  if (runtime.status === "waiting") {
+    if (runtime.waitingReason === "user") {
+      const pauseStartedAt = runtime.pauseStartedAt ?? runtime.updatedAt;
+      return Math.max(
+        0,
+        pauseStartedAt - runtime.startedAt - runtime.totalPausedMs,
+      );
+    }
+    return Math.max(
+      0,
+      runtime.updatedAt - runtime.startedAt - runtime.totalPausedMs,
+    );
+  }
+  const endAt = runtime.completedAt ?? now;
+  return Math.max(0, endAt - runtime.startedAt - runtime.totalPausedMs);
+}
+
+function formatGoalElapsed(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const seconds = totalSeconds % 60;
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minuteText = String(minutes).padStart(2, "0");
+  const secondText = String(seconds).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${minuteText}:${secondText}`
+    : `${minutes}:${secondText}`;
+}
+
+function formatInterruptionElapsed(ms: number) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m ${String(seconds).padStart(2, "0")}s`;
+  }
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+function transcriptNoticeLabel(notice: SessionTranscriptNotice) {
+  if (notice.kind === "stopped" && notice.elapsedMs !== undefined) {
+    return t("session.user_stopped_after", {
+      duration: formatInterruptionElapsed(notice.elapsedMs),
+    });
+  }
+  if (notice.kind === "compacting") return t("session.assistant_compacting");
+  if (notice.kind === "compacted") return t("session.assistant_compacted");
+  if (notice.kind === "stalled") {
+    return t("session.assistant_stalled_inline");
+  }
+  if (notice.kind === "permission-rejected") {
+    return t("session.permission_rejected_notice");
+  }
+  if (notice.kind === "permission-auto-approved") {
+    return t("session.permission_auto_approved_notice");
+  }
+  return t("session.user_cancelled");
+}
+
+function removeRecordKey<T>(record: Record<string, T>, key: string) {
+  if (!(key in record)) return record;
+  const next = { ...record };
+  delete next[key];
+  return next;
+}
+
+function normalizedTodoItems(todos: TodoItem[] | undefined) {
+  return (todos ?? []).filter((todo) => todo.content.trim());
+}
+
+function goalCheckpointFromTodos(todos: TodoItem[]) {
+  const active = todos.find((todo) => todo.status === "in_progress");
+  if (active) return active.content.trim();
+  const pending = todos.find((todo) => todo.status === "pending");
+  if (pending) return pending.content.trim();
+  const completed = [...todos]
+    .reverse()
+    .find((todo) => todo.status === "completed");
+  return completed?.content.trim() ?? "";
+}
+
+function appendGoalProgressLog(
+  runtime: CollaborationGoalRuntime,
+  runText: string,
+) {
+  const trimmed = runText.replace(/\s+/g, " ").trim();
+  if (!trimmed) return runtime.progressLog;
+  const entry = trimmed.length > 400 ? `${trimmed.slice(0, 400).trimEnd()}...` : trimmed;
+  const existing = runtime.progressLog ?? [];
+  if (existing[existing.length - 1] === entry) return existing;
+  return [...existing, entry].slice(-8);
+}
+
+function isGoalIntentRuntime(
+  runtime: CollaborationGoalRuntime | null | undefined,
+): runtime is CollaborationGoalRuntime {
+  return runtime?.source === "goal_intent";
+}
+
+function GoalRuntimePanel(props: {
+  runtime: CollaborationGoalRuntime;
+  busy: boolean;
+  canPause: boolean;
+  canResume: boolean;
+  onPause: () => void;
+  onResume: () => void;
+  onClear: () => void;
+}) {
+  const [now, setNow] = useState(Date.now());
+  const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
+  const objective = summarizeGoalObjective({
+    objective: props.runtime.objective,
+    summary: props.runtime.summary,
+  });
+
+  useEffect(() => {
+    if (
+      props.runtime.status === "paused" ||
+      props.runtime.status === "completed" ||
+      props.runtime.waitingReason === "user"
+    ) {
+      setNow(Date.now());
+      return;
+    }
+    const id = window.setInterval(() => setNow(Date.now()), GOAL_RUNTIME_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [props.runtime.status]);
+
+  return (
+    <div className="overflow-hidden border-b border-dls-border bg-transparent">
+      <div className="flex items-center gap-3 px-4 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <Goal
+            size={15}
+            strokeWidth={1.8}
+            className="shrink-0 text-dls-secondary"
+          />
+          <span className="shrink-0 font-medium text-dls-text">
+            {t("session.goal_runtime_active")}
+          </span>
+          <span
+            className="min-w-0 truncate text-dls-secondary"
+            title={objective}
+          >
+            {objective || t("session.goal_runtime_untitled")}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-xs text-dls-secondary">
+            <Clock3 size={12} />
+            {t("session.goal_runtime_elapsed", { duration: elapsed })}
+          </span>
+          {props.canResume ? (
+            <Button
+              type="button"
+              size="icon-xs"
+              onClick={props.onResume}
+              disabled={props.busy}
+              aria-label={t("session.goal_runtime_resume")}
+              title={t("session.goal_runtime_resume")}
+            >
+              <Play size={14} />
+            </Button>
+          ) : null}
+          {props.canPause ? (
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="outline"
+              onClick={props.onPause}
+              aria-label={t("session.goal_runtime_pause")}
+              title={t("session.goal_runtime_pause")}
+            >
+              <Pause size={14} />
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            onClick={props.onClear}
+            aria-label={t("session.goal_runtime_clear")}
+          >
+            <Trash2 size={14} />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -924,6 +1462,10 @@ function PersonalAssistantAccessory(props: {
   );
 }
 
+function isUserCancelledError(error: SessionError) {
+  return /\b(aborted|abort|cancelled|canceled)\b/i.test(error.message);
+}
+
 function SessionErrorCard({
   error,
   onDismiss,
@@ -935,6 +1477,16 @@ function SessionErrorCard({
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
   onOpenModelPicker?: () => void;
 }) {
+  if (isUserCancelledError(error)) {
+    return (
+      <div className="mx-auto max-w-3xl px-3 py-2 sm:px-5">
+        <div className="text-sm text-dls-secondary">
+          {t("session.user_cancelled")}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-3 py-3 sm:px-5">
       <div className={sessionSurfaceStateClass.errorPanel}>
@@ -1044,6 +1596,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: false,
     });
+  const [dismissedPlanBySessionId, setDismissedPlanBySessionId] =
+    useState<Record<string, boolean>>({});
+  const [dismissedGoalBySessionId, setDismissedGoalBySessionId] =
+    useState<Record<string, boolean>>({});
+  const planDismissedForSession =
+    dismissedPlanBySessionId[props.sessionId] === true;
+  const goalDismissedForSession =
+    dismissedGoalBySessionId[props.sessionId] === true;
   const [officeCollaborationMode, setOfficeCollaborationMode] =
     useState<ComposerCollaborationMode>({
       kind: "craft",
@@ -1267,6 +1827,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
     statusQueryKey,
     currentSnapshot?.status ?? IDLE_STATUS,
   );
+  const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
+    useState<Record<string, number>>({});
+  const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
+    useState<Record<string, SessionTranscriptNotice[]>>({});
+  const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
+    useState<Record<string, boolean>>({});
+  const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
+  const compactWasActiveRef = useRef<Record<string, boolean>>({});
+  const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
+  const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -1280,6 +1850,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setShowDelayedLoading(false);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
+    setActiveRunStartedAt(null);
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
@@ -1372,10 +1943,113 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
   const chatStreaming =
     sending || liveStatus.type === "busy" || liveStatus.type === "retry";
-  const renderedMessages = useMemo(
+  const rawRenderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  const renderedMessages = useMemo(
+    () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
+    [compactBoundary, rawRenderedMessages],
+  );
+  const appendTranscriptNotice = useCallback(
+    (notice: SessionTranscriptNotice) => {
+      setTranscriptNoticesBySessionId((current) => {
+        const existing = current[props.sessionId] ?? [];
+        return {
+          ...current,
+          [props.sessionId]: [...existing, notice].slice(
+            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
+          ),
+        };
+      });
+    },
+    [props.sessionId],
+  );
+  const updateLatestTranscriptNotice = useCallback(
+    (
+      predicate: (notice: SessionTranscriptNotice) => boolean,
+      update: (notice: SessionTranscriptNotice) => SessionTranscriptNotice,
+    ) => {
+      setTranscriptNoticesBySessionId((current) => {
+        const existing = current[props.sessionId] ?? [];
+        let targetIndex = -1;
+        for (let index = existing.length - 1; index >= 0; index -= 1) {
+          const notice = existing[index];
+          if (notice && predicate(notice)) {
+            targetIndex = index;
+            break;
+          }
+        }
+        if (targetIndex < 0) return current;
+        const next = [...existing];
+        const target = next[targetIndex];
+        if (!target) return current;
+        next[targetIndex] = update(target);
+        return { ...current, [props.sessionId]: next };
+      });
+    },
+    [props.sessionId],
+  );
+  useEffect(() => {
+    const noticeId = props.autoApprovedPermissionNoticeId?.trim();
+    if (!noticeId) return;
+    if (autoApprovedPermissionNoticeRef.current[props.sessionId] === noticeId) {
+      return;
+    }
+    autoApprovedPermissionNoticeRef.current = {
+      ...autoApprovedPermissionNoticeRef.current,
+      [props.sessionId]: noticeId,
+    };
+    appendTranscriptNotice({
+      id: `${props.sessionId}:permission-auto-approved:${noticeId}`,
+      kind: "permission-auto-approved",
+      afterMessageCount: renderedMessages.length,
+    });
+  }, [
+    appendTranscriptNotice,
+    props.autoApprovedPermissionNoticeId,
+    props.sessionId,
+    renderedMessages.length,
+  ]);
+  useEffect(() => {
+    const compacting = sessionActivityStatus === "compacting";
+    const wasCompacting = compactWasActiveRef.current[props.sessionId] === true;
+    if (compacting) {
+      if (!wasCompacting) {
+        setCompactBoundaryBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: rawRenderedMessages.length,
+        }));
+        appendTranscriptNotice({
+          id: `${props.sessionId}:compacting:${renderedMessages.length}:${Date.now()}`,
+          kind: "compacting",
+          afterMessageCount: renderedMessages.length,
+        });
+      }
+      compactWasActiveRef.current = {
+        ...compactWasActiveRef.current,
+        [props.sessionId]: true,
+      };
+      return;
+    }
+    if (wasCompacting) {
+      compactWasActiveRef.current = {
+        ...compactWasActiveRef.current,
+        [props.sessionId]: false,
+      };
+      updateLatestTranscriptNotice(
+        (notice) => notice.kind === "compacting",
+        (notice) => ({ ...notice, kind: "compacted" }),
+      );
+    }
+  }, [
+    appendTranscriptNotice,
+    props.sessionId,
+    rawRenderedMessages.length,
+    renderedMessages.length,
+    sessionActivityStatus,
+    updateLatestTranscriptNotice,
+  ]);
   useEffect(() => {
     const runtime = props.planRuntime;
     if (!runtime || runtime.status !== "drafting" || chatStreaming) return;
@@ -1392,6 +2066,42 @@ export function SessionSurface(props: SessionSurfaceProps) {
     chatStreaming,
     props.onPlanRuntimeChange,
     props.planRuntime,
+    renderedMessages,
+  ]);
+  useEffect(() => {
+    const runtime = props.goalRuntime;
+    if (
+      !isGoalIntentRuntime(runtime) ||
+      runtime.status !== "running" ||
+      chatStreaming
+    ) {
+      return;
+    }
+    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
+    const runText = planTextFromMessages(renderedMessages.slice(baseline));
+    if (!runText) return;
+    const lastKnownTodos = normalizedTodoItems(props.todos);
+    const currentCheckpoint = goalCheckpointFromTodos(lastKnownTodos);
+    const progressLog = appendGoalProgressLog(runtime, runText);
+    const todosCompleted =
+      lastKnownTodos.length > 0 &&
+      lastKnownTodos.every((todo) => todo.status === "completed");
+    const now = Date.now();
+    props.onGoalRuntimeChange?.({
+      ...runtime,
+      status: todosCompleted ? "completed" : "waiting",
+      waitingReason: todosCompleted ? undefined : "idle",
+      updatedAt: now,
+      completedAt: todosCompleted ? now : runtime.completedAt,
+      ...(currentCheckpoint ? { currentCheckpoint } : {}),
+      ...(progressLog?.length ? { progressLog } : {}),
+      ...(lastKnownTodos.length ? { lastKnownTodos } : {}),
+    });
+  }, [
+    chatStreaming,
+    props.goalRuntime,
+    props.onGoalRuntimeChange,
+    props.todos,
     renderedMessages,
   ]);
   useEffect(() => {
@@ -1466,25 +2176,78 @@ export function SessionSurface(props: SessionSurfaceProps) {
         : showAssistantRespondingState
           ? "responding"
           : "idle";
+  const activityFingerprint = useMemo(
+    () => messageActivityFingerprint(renderedMessages),
+    [renderedMessages],
+  );
+  const [activityPulseAt, setActivityPulseAt] = useState(Date.now());
+  const [activityNow, setActivityNow] = useState(Date.now());
+  useEffect(() => {
+    const now = Date.now();
+    setActivityPulseAt(now);
+    setActivityNow(now);
+  }, [
+    activityFingerprint,
+    effectiveActivityStatus,
+    liveStatus.type,
+    props.sessionId,
+  ]);
+  const activityVisible =
+    chatStreaming || effectiveActivityStatus !== "idle";
+  useEffect(() => {
+    if (!activityVisible) return;
+    const id = window.setInterval(() => setActivityNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activityVisible]);
+  const showStalledActivityNotice =
+    activityVisible &&
+    effectiveActivityStatus !== "compacting" &&
+    activityNow - activityPulseAt >= ASSISTANT_STALL_NOTICE_MS;
+  const shouldInjectStallRecovery =
+    activityVisible &&
+    effectiveActivityStatus !== "compacting" &&
+    activityNow - activityPulseAt >= ASSISTANT_RECOVERY_HINT_MS;
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
     snapshotSessionError,
   ].find((item) => item && item.message !== dismissedErrorMessage) ?? null;
+  const cancelledError =
+    visibleError && isUserCancelledError(visibleError) ? visibleError : null;
+  const visibleTranscriptError = cancelledError ? null : visibleError;
+  useEffect(() => {
+    if (!shouldInjectStallRecovery) return;
+    setStallRecoveryBySessionId((current) => {
+      if (current[props.sessionId]) return current;
+      return { ...current, [props.sessionId]: true };
+    });
+  }, [props.sessionId, shouldInjectStallRecovery]);
+  const interruptionDividers = useMemo<SessionTranscriptDivider[]>(() => {
+    const notices = transcriptNoticesBySessionId[props.sessionId] ?? [];
+    return notices.map((notice) => ({
+      id: notice.id,
+      afterMessageCount: notice.afterMessageCount,
+      label: transcriptNoticeLabel(notice),
+    }));
+  }, [props.sessionId, transcriptNoticesBySessionId]);
+  const hasTranscriptContent =
+    renderedMessages.length > 0 || interruptionDividers.length > 0;
   const showNoVisibleAssistantOutput =
     noVisibleAssistantOutputBaseline !== null &&
     !assistantOutputAfterNoVisibleFallback;
+  const showInlineActivityIndicator =
+    hasTranscriptContent &&
+    activityVisible &&
+    effectiveActivityStatus !== "compacting" &&
+    !visibleTranscriptError;
   const reserveAssistantStatusSpace =
     effectiveActivityStatus === "idle" &&
     awaitingAssistantBaseline !== null &&
     assistantOutputAfterAwaitStart &&
     !chatStreaming;
   const assistantStatusFooter =
-    !visibleError && effectiveActivityStatus !== "idle" ? (
-      <AssistantWaitingCard
-        label={getSessionActivityStatusLabel(effectiveActivityStatus)}
-        collapseLayout
-      />
+    showInlineActivityIndicator ? (
+      <AssistantWaitingCard collapseLayout />
     ) : showNoVisibleAssistantOutput ? (
       <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
     ) : reserveAssistantStatusSpace ? (
@@ -1572,6 +2335,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (!snapshotSessionError) return;
     setSending(false);
+    setActiveRunStartedAt(null);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
   }, [snapshotSessionError]);
@@ -1594,7 +2358,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const id = window.setTimeout(() => {
       setNoVisibleAssistantOutputBaseline(awaitingAssistantBaseline);
       setAwaitingAssistantBaseline(null);
-    }, 1200);
+    }, 1000);
     return () => window.clearTimeout(id);
   }, [
     assistantOutputAfterAwaitStart,
@@ -1705,6 +2469,50 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [props.sessionId, setComposerDraft],
   );
 
+  const recordSessionInterruption = useCallback(
+    (kind: "cancelled" | "stopped") => {
+      const now = Date.now();
+      const afterMessageCount = renderedMessages.length;
+      const runStartedAt =
+        activeRunStartedAt ?? props.goalRuntime?.lastRunStartedAt ?? now;
+      const notice: SessionTranscriptNotice = {
+        id: `${props.sessionId}:${kind}:${afterMessageCount}:${now}`,
+        kind,
+        afterMessageCount,
+        elapsedMs:
+          kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
+      };
+
+      setTranscriptNoticesBySessionId((current) => {
+        const existing = current[props.sessionId] ?? [];
+        const alreadyRecorded = existing.some(
+          (item) =>
+            item.afterMessageCount === afterMessageCount &&
+            (item.kind === kind ||
+              (kind === "cancelled" && item.kind === "stopped")),
+        );
+        if (alreadyRecorded) return current;
+        return {
+          ...current,
+          [props.sessionId]: [...existing, notice].slice(
+            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
+          ),
+        };
+      });
+    },
+    [
+      activeRunStartedAt,
+      props.goalRuntime?.lastRunStartedAt,
+      props.sessionId,
+      renderedMessages.length,
+    ],
+  );
+
+  useEffect(() => {
+    if (!cancelledError) return;
+    recordSessionInterruption("cancelled");
+  }, [cancelledError?.message, recordSessionInterruption]);
+
   const handleCopyTranscript = async () => {
     try {
       await navigator.clipboard.writeText(transcriptToText(renderedMessages));
@@ -1736,6 +2544,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
     // backend can't accept the follow-up it'll surface an error via the
     // catch below. This restores the "append a prompt while it's still
     // talking" behavior that the Solid composer had.
+    setDismissedPlanBySessionId((current) =>
+      removeRecordKey(current, props.sessionId),
+    );
+    setDismissedGoalBySessionId((current) =>
+      removeRecordKey(current, props.sessionId),
+    );
     setError(null);
     setDismissedErrorMessage(null);
     if (!props.draftOnly) {
@@ -1744,10 +2558,28 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
     }
     setSending(true);
+    const startedAt = Date.now();
+    setActiveRunStartedAt(startedAt);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     try {
       const nextDraft = buildDraft(text, attachments);
+      if (stallRecoveryBySessionId[props.sessionId]) {
+        nextDraft.hiddenSystemPrompt = [
+          nextDraft.hiddenSystemPrompt,
+          t("session.stall_recovery_hidden"),
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        setStallRecoveryBySessionId((current) =>
+          removeRecordKey(current, props.sessionId),
+        );
+      }
+      const goalMode =
+        resolveSessionCollaborationKind(
+          effectiveCollaborationMode,
+          assistantFeatureCategoryId,
+        ) === "goal";
       if (
         effectiveCollaborationMode.kind === "plan" ||
         effectiveCollaborationMode.planning
@@ -1757,6 +2589,32 @@ export function SessionSurface(props: SessionSurfaceProps) {
           messageBaseline: renderedMessages.length,
         };
       }
+      const currentGoalRuntime = isGoalIntentRuntime(props.goalRuntime)
+        ? props.goalRuntime
+        : null;
+      if (goalMode && !currentGoalRuntime) {
+        nextDraft.goalIntent = {
+          objective: nextDraft.resolvedText ?? text,
+          messageBaseline: renderedMessages.length,
+        };
+      } else if (goalMode && currentGoalRuntime) {
+        const runtimeWithSummary = currentGoalRuntime.summary
+          ? currentGoalRuntime
+          : {
+              ...currentGoalRuntime,
+              summary: deriveGoalSummary(currentGoalRuntime.objective),
+            };
+        nextDraft.hiddenSystemPrompt = buildGoalHiddenSystemPrompt(runtimeWithSummary);
+        props.onGoalRuntimeChange?.({
+          ...runtimeWithSummary,
+          status: "running",
+          waitingReason: undefined,
+          updatedAt: startedAt,
+          lastRunStartedAt: startedAt,
+          lastRunMessageBaseline: renderedMessages.length,
+          completedAt: undefined,
+        });
+      }
       await props.onSendDraft(nextDraft);
       attachments.forEach(revokeAttachmentPreview);
       clearComposerSession(props.sessionId);
@@ -1764,6 +2622,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
+      if (isUserCancelledError(parsed)) {
+        recordSessionInterruption("cancelled");
+      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1785,14 +2646,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
     draft,
     effectiveCollaborationMode.kind,
     effectiveCollaborationMode.planning,
+    effectiveCollaborationMode.pursueGoal,
     props.onDraftChange,
+    props.onGoalRuntimeChange,
     props.onSendDraft,
     props.draftOnly,
     props.draftWorkspaceDirectory,
+    props.goalRuntime,
     props.sessionId,
     props.workspaceId,
+    recordSessionInterruption,
     renderedMessages.length,
     setComposerDraft,
+    stallRecoveryBySessionId,
   ]);
 
   const executeApprovedPlan = useCallback(async () => {
@@ -1803,17 +2669,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       planning: false,
       pursueGoal: effectiveCollaborationMode.pursueGoal,
     };
-    const executionSystemPrompt = [
-      "Execute the approved plan for the original request now.",
-      "The user has approved execution, so any previous plan-mode text-only or no-tool restriction inside the approved plan is no longer active.",
-      "Use the available execution tools as needed to make the requested changes and verify the result.",
-      "",
-      "Original request:",
-      runtime.originalPrompt,
-      "",
-      "Approved plan:",
-      runtime.planText?.trim() || t("session.plan_runtime_empty"),
-    ].join("\n");
+    const executionSystemPrompt = buildPlanExecutionHiddenSystemPrompt(runtime);
     const executionPrompt = t("session.plan_runtime_execute");
 
     setError(null);
@@ -1824,6 +2680,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
     }
     setSending(true);
+    setActiveRunStartedAt(Date.now());
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(executionMode);
@@ -1843,6 +2700,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
+      if (isUserCancelledError(parsed)) {
+        recordSessionInterruption("cancelled");
+      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1865,26 +2725,162 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.planRuntime,
     props.sessionId,
     props.workspaceId,
+    recordSessionInterruption,
     renderedMessages.length,
     updateCollaborationMode,
   ]);
 
-  const handleAbort = useCallback(async () => {
-    if (!chatStreaming) return;
+  const resumeGoalRuntime = useCallback(async () => {
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
+      : null;
+    if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
+    const now = Date.now();
+    const totalPausedMs =
+      runtime.status === "paused" && runtime.pauseStartedAt
+        ? runtime.totalPausedMs + Math.max(0, now - runtime.pauseStartedAt)
+        : runtime.totalPausedMs;
+    const goalMode: ComposerCollaborationMode = {
+      planning: false,
+      pursueGoal: true,
+    };
+    const nextRuntime: CollaborationGoalRuntime = {
+      ...runtime,
+      summary: runtime.summary || deriveGoalSummary(runtime.objective),
+      status: "running",
+      waitingReason: undefined,
+      updatedAt: now,
+      totalPausedMs,
+      pauseStartedAt: undefined,
+      lastRunStartedAt: now,
+      lastRunMessageBaseline: renderedMessages.length,
+      completedAt: undefined,
+      lastKnownTodos: (props.todos ?? []).filter((todo) => todo.content.trim()),
+    };
+
     setError(null);
     setDismissedErrorMessage(null);
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+    }
+    setSending(true);
+    setActiveRunStartedAt(now);
+    setAwaitingAssistantBaseline(renderedMessages.length);
+    setNoVisibleAssistantOutputBaseline(null);
+    updateCollaborationMode(goalMode);
+    props.onGoalRuntimeChange?.(nextRuntime);
     try {
-      await abortSessionSafe(opencodeClient, props.sessionId);
-      await snapshotQuery.refetch();
+      await props.onSendDraft({
+        ...buildDraft(t("session.goal_runtime_continue_prompt"), []),
+        collaborationMode: goalMode,
+        hiddenSystemPrompt: buildGoalHiddenSystemPrompt(nextRuntime),
+      });
+      props.onDraftChange(buildDraft("", []));
+      setSending(false);
     } catch (nextError) {
-      setError({
-        message:
-          nextError instanceof Error
-            ? nextError.message
-            : t("session.stop_run_failed"),
+      const parsed = parseSessionError(nextError);
+      if (isUserCancelledError(parsed)) {
+        recordSessionInterruption("cancelled");
+      }
+      setError(parsed);
+      setDismissedErrorMessage(null);
+      if (!props.draftOnly) {
+        useSessionActivityStore
+          .getState()
+          .setError(props.workspaceId, props.sessionId, parsed.message);
+      }
+      props.onGoalRuntimeChange?.(runtime);
+      setAwaitingAssistantBaseline(null);
+      setNoVisibleAssistantOutputBaseline(null);
+      setSending(false);
+    }
+  }, [
+    buildDraft,
+    props.draftOnly,
+    props.goalRuntime,
+    props.onDraftChange,
+    props.onGoalRuntimeChange,
+    props.onSendDraft,
+    props.sessionId,
+    props.todos,
+    props.workspaceId,
+    recordSessionInterruption,
+    renderedMessages.length,
+    updateCollaborationMode,
+  ]);
+
+  const stopActiveRun = useCallback(async () => {
+    setError(null);
+    setDismissedErrorMessage(null);
+    setSending(false);
+    setAwaitingAssistantBaseline(null);
+    setNoVisibleAssistantOutputBaseline(null);
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .setRunStatus(props.workspaceId, props.sessionId, { type: "idle" });
+    }
+    await abortSessionSafe(opencodeClient, props.sessionId);
+    await snapshotQuery.refetch();
+  }, [
+    opencodeClient,
+    props.draftOnly,
+    props.sessionId,
+    props.workspaceId,
+    snapshotQuery.refetch,
+  ]);
+
+  const pauseGoalRuntime = useCallback(async () => {
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
+      : null;
+    if (
+      runtime &&
+      (runtime.status === "running" || runtime.status === "waiting")
+    ) {
+      const now = Date.now();
+      recordSessionInterruption("stopped");
+      props.onGoalRuntimeChange?.({
+        ...runtime,
+        status: "paused",
+        waitingReason: "user",
+        updatedAt: now,
+        pauseStartedAt: now,
       });
     }
-  }, [chatStreaming, opencodeClient, props.sessionId, snapshotQuery.refetch]);
+    await stopActiveRun();
+  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
+
+  const handleAbort = useCallback(async () => {
+    if (!chatStreaming) return;
+    if (isGoalIntentRuntime(props.goalRuntime)) {
+      await pauseGoalRuntime();
+      return;
+    }
+    if (
+      props.planRuntime &&
+      (props.planRuntime.status === "executing" ||
+        props.planRuntime.status === "drafting")
+    ) {
+      props.onPlanRuntimeChange?.({
+        ...props.planRuntime,
+        status: "blocked",
+        blockedReason: "cancelled",
+      });
+    }
+    recordSessionInterruption("stopped");
+    await stopActiveRun();
+  }, [
+    chatStreaming,
+    pauseGoalRuntime,
+    props.goalRuntime,
+    props.onPlanRuntimeChange,
+    props.planRuntime,
+    recordSessionInterruption,
+    stopActiveRun,
+  ]);
 
   const handleDismissError = useCallback(() => {
     if (visibleError?.message) {
@@ -1901,6 +2897,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (liveStatus.type === "idle") {
       setSending(false);
+      setActiveRunStartedAt(null);
     }
   }, [liveStatus.type]);
 
@@ -1961,13 +2958,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   };
 
   const handlePasteText = (text: string) => {
-    const id = `paste-${Math.random().toString(36).slice(2)}`;
-    const label = `${id.slice(-4)} · ${text.split(/\r?\n/).length} lines`;
-    setComposerPasteParts(props.sessionId, [
-      ...pasteParts,
-      { id, label, text, lines: text.split(/\r?\n/).length },
-    ]);
-    setComposerDraft(props.sessionId, `${draft}[pasted text ${label}]`);
+    if (!text) return;
+    const separator = draft && !draft.endsWith("\n") ? "\n" : "";
+    setComposerDraft(props.sessionId, `${draft}${separator}${text}`);
   };
 
   const handleRevealPastedText = (id: string) => {
@@ -2357,7 +3350,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.personalAssistantHome &&
     props.draftOnly &&
     renderedMessages.length === 0 &&
-    !visibleError &&
+    !visibleTranscriptError &&
     effectiveActivityStatus === "idle";
   const assistantDraftHomeTitle =
     assistantCategoryId === "code"
@@ -2379,43 +3372,187 @@ export function SessionSurface(props: SessionSurfaceProps) {
       />
     ) : null;
 
-  const visiblePlanRuntime = props.planRuntime ?? null;
+  const [lastTodosBySessionId, setLastTodosBySessionId] =
+    useState<Record<string, TodoItem[]>>({});
+  const incomingTodos = props.todos ?? [];
+  const incomingHasTodos = incomingTodos.some((todo) => todo.content.trim());
+  useEffect(() => {
+    if (!incomingHasTodos) return;
+    setLastTodosBySessionId((current) => ({
+      ...current,
+      [props.sessionId]: incomingTodos,
+    }));
+  }, [incomingHasTodos, incomingTodos, props.sessionId]);
+
+  const visiblePlanRuntime = planDismissedForSession
+    ? null
+    : props.planRuntime ?? null;
+  const visibleGoalRuntime = shouldShowGoalRuntime({
+    mode: effectiveCollaborationMode,
+    categoryId: assistantFeatureCategoryId,
+    goalRuntime: props.goalRuntime ?? null,
+    dismissed: goalDismissedForSession,
+  }) && isGoalIntentRuntime(props.goalRuntime)
+    ? props.goalRuntime
+    : null;
+  const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
+    effectiveAccessMode !== "full" && props.activePermission
+      ? "permission"
+      : props.activeQuestion
+        ? "question"
+        : effectiveActivityStatus === "compacting"
+          ? "compacting"
+          : null;
+  const visibleGoalRuntimeForUi =
+    visibleGoalRuntime &&
+    activeGoalWaitingReason &&
+    visibleGoalRuntime.status !== "paused" &&
+    visibleGoalRuntime.status !== "completed"
+      ? {
+          ...visibleGoalRuntime,
+          status: "waiting" as const,
+          waitingReason: activeGoalWaitingReason,
+        }
+      : visibleGoalRuntime;
+  const visibleTodos = incomingHasTodos
+    ? incomingTodos
+    : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
+  const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
+  const runPolicy = resolveSessionRunPolicy({
+    accessMode: effectiveAccessMode,
+    collaborationMode: effectiveCollaborationMode,
+    categoryId: assistantFeatureCategoryId,
+    activityStatus: effectiveActivityStatus,
+    assistantActive: activityVisible,
+    hasActivePermission:
+      effectiveAccessMode !== "full" && Boolean(props.activePermission),
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    planRuntime: visiblePlanRuntime,
+    goalRuntime: visibleGoalRuntimeForUi,
+    stalled: showStalledActivityNotice,
+  });
+  const respondPermissionWithTranscriptNotice = (
+    requestID: string,
+    reply: "reject" | "once" | "always",
+  ) => {
+    if (reply === "reject") {
+      const now = Date.now();
+      appendTranscriptNotice({
+        id: `${props.sessionId}:permission-rejected:${renderedMessages.length}:${now}`,
+        kind: "permission-rejected",
+        afterMessageCount: renderedMessages.length,
+      });
+      if (
+        visibleGoalRuntime &&
+        visibleGoalRuntime.status !== "paused" &&
+        visibleGoalRuntime.status !== "completed"
+      ) {
+        props.onGoalRuntimeChange?.({
+          ...visibleGoalRuntime,
+          status: "paused",
+          waitingReason: "permission",
+          updatedAt: now,
+          pauseStartedAt: now,
+        });
+      }
+      if (
+        visiblePlanRuntime &&
+        (visiblePlanRuntime.status === "executing" ||
+          visiblePlanRuntime.status === "drafting")
+      ) {
+        props.onPlanRuntimeChange?.({
+          ...visiblePlanRuntime,
+          status: "blocked",
+          blockedReason: "permission_rejected",
+        });
+      }
+    }
+    props.respondPermission?.(requestID, reply);
+  };
+  const planOrTodoAccessory = visiblePlanRuntime ? (
+    <PlanApprovalPanel
+      runtime={visiblePlanRuntime}
+      todos={visibleTodos}
+      busy={sending || chatStreaming}
+      onExecute={executeApprovedPlan}
+      onCancel={() => {
+        setDismissedPlanBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        props.onPlanRuntimeChange?.(null);
+      }}
+      onConfirm={() => {
+        setDismissedPlanBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        props.onPlanRuntimeChange?.(null);
+      }}
+    />
+  ) : hasVisibleTodos ? (
+    <TodoPanel todos={visibleTodos} />
+  ) : null;
+  const goalAccessory = visibleGoalRuntimeForUi ? (
+    <GoalRuntimePanel
+      runtime={visibleGoalRuntimeForUi}
+      busy={sending || chatStreaming}
+      canPause={runPolicy.canPauseGoal}
+      canResume={runPolicy.canResumeGoal}
+      onPause={() => {
+        if (visibleGoalRuntimeForUi.status === "paused") return;
+        void pauseGoalRuntime();
+      }}
+      onResume={resumeGoalRuntime}
+      onClear={() => {
+        setDismissedGoalBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        setDismissedPlanBySessionId((current) => ({
+          ...current,
+          [props.sessionId]: true,
+        }));
+        setLastTodosBySessionId((current) =>
+          removeRecordKey(current, props.sessionId),
+        );
+        props.onClearSessionProgress?.();
+        props.onGoalRuntimeChange?.(null);
+        props.onPlanRuntimeChange?.(null);
+        void stopActiveRun();
+      }}
+    />
+  ) : null;
+  const questionAccessory = props.activeQuestion ? (
+    <QuestionPanel
+      questions={props.activeQuestion.questions}
+      busy={props.questionReplyBusy ?? false}
+      onReply={(answers) => {
+        if (props.activeQuestion) {
+          props.respondQuestion?.(props.activeQuestion.id, answers);
+        }
+      }}
+    />
+  ) : null;
+  const permissionAccessory =
+    props.activePermission && effectiveAccessMode !== "full" ? (
+      <PermissionApprovalPanel
+        permission={props.activePermission}
+        busy={props.permissionReplyBusy}
+        respondPermission={respondPermissionWithTranscriptNotice}
+        safeStringify={props.safeStringify}
+      />
+    ) : null;
   const sessionComposerAccessory =
-    visiblePlanRuntime ||
-    props.activeQuestion ||
-    (props.todos ?? []).some((todo) => todo.content.trim()) ||
-    props.activePermission ? (
+    planOrTodoAccessory ||
+    goalAccessory ||
+    questionAccessory ||
+    permissionAccessory ? (
       <div>
-        {visiblePlanRuntime ? (
-          <PlanApprovalPanel
-            runtime={visiblePlanRuntime}
-            todos={props.todos ?? []}
-            busy={sending || chatStreaming}
-            onExecute={executeApprovedPlan}
-            onCancel={() => props.onPlanRuntimeChange?.(null)}
-            onConfirm={() => props.onPlanRuntimeChange?.(null)}
-          />
-        ) : props.activeQuestion ? (
-          <QuestionPanel
-            questions={props.activeQuestion.questions}
-            busy={props.questionReplyBusy ?? false}
-            onReply={(answers) => {
-              if (props.activeQuestion) {
-                props.respondQuestion?.(props.activeQuestion.id, answers);
-              }
-            }}
-          />
-        ) : (
-          <TodoPanel todos={props.todos ?? []} />
-        )}
-        {props.activePermission ? (
-          <PermissionApprovalPanel
-            permission={props.activePermission}
-            busy={props.permissionReplyBusy}
-            respondPermission={props.respondPermission}
-            safeStringify={props.safeStringify}
-          />
-        ) : null}
+        {permissionAccessory}
+        {questionAccessory}
+        {planOrTodoAccessory}
+        {goalAccessory}
       </div>
     ) : null;
 
@@ -2540,13 +3677,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     </div>
                   </div>
                 </div>
-              ) : (snapshotQuery.isError || visibleError) &&
+              ) : (snapshotQuery.isError || visibleTranscriptError) &&
                 !snapshot &&
-                renderedMessages.length === 0 ? (
+                !hasTranscriptContent ? (
                 <div className="px-6 py-8">
-                  {visibleError ? (
+                  {visibleTranscriptError ? (
                     <SessionErrorCard
-                      error={visibleError}
+                      error={visibleTranscriptError}
                       onDismiss={handleDismissError}
                       onChangeModel={props.onChangeModel}
                       onOpenModelPicker={props.onModelClick}
@@ -2559,9 +3696,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     </div>
                   )}
                 </div>
-              ) : renderedMessages.length === 0 &&
+              ) : !hasTranscriptContent &&
                 effectiveActivityStatus !== "idle" &&
-                !visibleError ? (
+                !visibleTranscriptError ? (
                 <div className="px-6 py-12">
                   <AssistantWaitingCard
                     label={getSessionActivityStatusLabel(
@@ -2569,12 +3706,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     )}
                   />
                 </div>
-              ) : renderedMessages.length === 0 &&
+              ) : !hasTranscriptContent &&
                 (props.draftOnly ||
                   (snapshot && snapshot.messages.length === 0)) ? (
-                visibleError ? (
+                visibleTranscriptError ? (
                   <SessionErrorCard
-                    error={visibleError}
+                    error={visibleTranscriptError}
                     onDismiss={handleDismissError}
                     onChangeModel={props.onChangeModel}
                     onOpenModelPicker={props.onModelClick}
@@ -2612,6 +3749,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       isStreaming={chatStreaming}
                       developerMode={props.developerMode}
                       showThinking={showThinking}
+                      dividers={interruptionDividers}
                       scrollElement={() => scrollRef.current}
                       onRevertToMessage={props.onRevertToMessage}
                       onForkAtMessage={props.onForkAtMessage}
@@ -2630,9 +3768,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       }
                       userIdentity={props.userIdentity}
                     />
-                    {visibleError ? (
+                    {visibleTranscriptError ? (
                       <SessionErrorCard
-                        error={visibleError}
+                        error={visibleTranscriptError}
                         onDismiss={handleDismissError}
                         onChangeModel={props.onChangeModel}
                         onOpenModelPicker={props.onModelClick}
