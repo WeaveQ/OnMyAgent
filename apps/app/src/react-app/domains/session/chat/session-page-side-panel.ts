@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { usePanelRef } from "react-resizable-panels";
 
 import { isElectronRuntime } from "../../../../app/utils";
-import type { SidePanelItem } from "../../../shell/ui-state-store";
-import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
+import { useWorkspaceShellLayout } from "../../../shell";
+import type { SidePanelItem } from "../../../shell";
 import {
   isCollectibleArtifactTarget,
   type OpenTarget,

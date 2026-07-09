@@ -238,7 +238,7 @@ function AgentCard(props: {
             if (props.onStartConversation && props.runtimeRegistry) {
               props.onStartConversation(props.item, props.runtimeRegistry);
             } else {
-              props.onAction(`${normalized.name} / 对话`);
+              props.onAction(t("agents.action_conversation_target", { name: normalized.name }));
             }
           }}
         >
@@ -248,7 +248,7 @@ function AgentCard(props: {
         <Button variant="ghost" size="sm"
           type="button"
           className={agentsLayoutClass.secondaryCardAction}
-          onClick={() => props.onAction(`${normalized.name} / 创建团队`)}
+          onClick={() => props.onAction(t("agents.action_create_team_target", { name: normalized.name }))}
         >
           <UserRoundPlus className="size-3.5" />
           {t("agents.create_team")}
@@ -509,10 +509,10 @@ export function CreateAgentWizard(props: {
   const [avatarPageByStyle, setAvatarPageByStyle] = useState<
     Record<AgentAvatarOption["style"], number>
   >({
-    像素风: 0,
-    冒险家: 0,
-    机器人: 0,
-    洛蕾莱: 0,
+    "\u50CF\u7D20\u98CE": 0,
+    "\u5192\u9669\u5BB6": 0,
+    "\u673A\u5668\u4EBA": 0,
+    "\u6D1B\u857E\u83B1": 0,
   });
 
   const [editSection, setEditSection] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -539,10 +539,10 @@ export function CreateAgentWizard(props: {
       setNameError(null);
       setSkillSearch("");
       setAvatarPageByStyle({
-        像素风: 0,
-        冒险家: 0,
-        机器人: 0,
-        洛蕾莱: 0,
+        "\u50CF\u7D20\u98CE": 0,
+        "\u5192\u9669\u5BB6": 0,
+        "\u673A\u5668\u4EBA": 0,
+        "\u6D1B\u857E\u83B1": 0,
       });
       setEditSection(1);
     } else {
@@ -554,10 +554,10 @@ export function CreateAgentWizard(props: {
       setNameError(null);
       setSkillSearch("");
       setAvatarPageByStyle({
-        像素风: 0,
-        冒险家: 0,
-        机器人: 0,
-        洛蕾莱: 0,
+        "\u50CF\u7D20\u98CE": 0,
+        "\u5192\u9669\u5BB6": 0,
+        "\u673A\u5668\u4EBA": 0,
+        "\u6D1B\u857E\u83B1": 0,
       });
     }
   }, [props.open, props.registry, props.editingAgent, props.mergedSkills]);
@@ -597,7 +597,7 @@ export function CreateAgentWizard(props: {
       models: { id: string; name: string }[];
     };
     const auto: ProviderOption = {
-      id: "自动",
+      id: "\u81EA\u52A8",
       name: t("agents.provider_auto"),
       models: [{ id: "auto", name: "Auto" }],
     };
@@ -760,10 +760,10 @@ export function CreateAgentWizard(props: {
     if (!file) return;
     const reader = new FileReader();
     const dataUrl = await new Promise<string>((resolve, reject) => {
-      reader.onerror = () => reject(new Error("图片读取失败"));
+      reader.onerror = () => reject(new Error(t("agents.error_image_read_failed")));
       reader.onload = () => {
         if (typeof reader.result === "string") resolve(reader.result);
-        else reject(new Error("图片读取失败"));
+        else reject(new Error(t("agents.error_image_read_failed")));
       };
       reader.readAsDataURL(file);
     });

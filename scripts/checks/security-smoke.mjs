@@ -21,8 +21,8 @@ const markdownSource = await readFile(new URL("../../apps/app/src/react-app/doma
 assert.match(desktopEmbeddedBrowserPanel, /function isExternalOpenUrlAllowed\(url\)/);
 assert.match(desktopEmbeddedBrowserPanel, /return \["http:", "https:", "mailto:"\]\.includes\(parsed\.protocol\);/);
 assert.doesNotMatch(desktopMain, /ipcMain\.handle\("onmyagent:shell:openExternal", async \(_event, url\) => \{\s*if \(typeof url === "string" && url\.trim\(\)\.length > 0\) \{\s*await shell\.openExternal\(url\);/s);
-assert.match(desktopMain, /const MAIN_WINDOW_MIN_WIDTH = 1280;/);
-assert.match(desktopMain, /const MAIN_WINDOW_MIN_HEIGHT = 720;/);
+assert.match(desktopMain, /const MAIN_WINDOW_MIN_WIDTH = 1440;/);
+assert.match(desktopMain, /const MAIN_WINDOW_MIN_HEIGHT = 900;/);
 assert.match(desktopApplicationMenu, /\{ role: "windowMenu" \}/);
 assert.match(desktopApplicationMenu, /const fileSubmenu = isMac/);
 assert.match(desktopApplicationMenu, /label: "Settings\.\.\.",/);

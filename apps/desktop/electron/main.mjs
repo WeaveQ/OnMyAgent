@@ -88,8 +88,8 @@ const DESKTOP_PROTOCOL_SCHEME = "onmyagent";
 const isDevMode = process.env.ONMYAGENT_DEV_MODE === "1";
 const APP_NAME = isDevMode ? "OnMyAgent - Dev" : "OnMyAgent";
 const APP_IDENTIFIER = isDevMode ? DEV_APP_IDENTIFIER : TAURI_APP_IDENTIFIER;
-const MAIN_WINDOW_MIN_WIDTH = 1280;
-const MAIN_WINDOW_MIN_HEIGHT = 720;
+const MAIN_WINDOW_MIN_WIDTH = 1440;
+const MAIN_WINDOW_MIN_HEIGHT = 900;
 const codeTerminalManager = createCodeTerminalManager();
 const RELEASE_DOWNLOAD_BASE_URL =
   "https://github.com/WeaveQ/onmyagent/releases/latest/download";
@@ -5097,8 +5097,8 @@ async function createMainWindow() {
   }
 
   mainWindow = new BrowserWindow({
-    width: 1180,
-    height: 820,
+    width: 1520,
+    height: 960,
     minWidth: MAIN_WINDOW_MIN_WIDTH,
     minHeight: MAIN_WINDOW_MIN_HEIGHT,
     title: APP_NAME,

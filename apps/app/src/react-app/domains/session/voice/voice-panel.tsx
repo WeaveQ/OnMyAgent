@@ -36,14 +36,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { DisclosureRowButton } from "@/components/ui/action-row";
-import {
-  publishInspectorSlice,
-  recordInspectorEvent,
-} from "../../../shell/app-inspector";
-import {
-  useControlAction,
-  type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
+import { publishInspectorSlice, recordInspectorEvent, type OpenworkControlAction, useControlAction } from "../../../shell";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 
 import { t } from "../../../../i18n";

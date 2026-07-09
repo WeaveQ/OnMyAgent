@@ -1,0 +1,6 @@
+{
+  "$schema": "./domain-shell-depth.schema.json",
+  "description": "Frozen domain -> shell deep imports, keyed by domainFile::subPath with an occurrence count. Only shrink this list. Regenerate with `node scripts/checks/check-boundaries.mjs --write-domain-shell-baseline` only after refactoring domains to consume the shell barrel (`apps/app/src/react-app/shell/index.ts`).",
+  "generatedAt": "2026-07-09T02:18:06.770Z",
+  "entries": {}
+}
