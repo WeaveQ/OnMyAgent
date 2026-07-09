@@ -194,3 +194,8 @@ tree when a domain-scoped import path is clearer:
 - `app/lib/*` (opencode, desktop, onmyagent-server, ...) — consumed directly by React.
 - `app/types.ts`, `app/constants.ts`, `app/theme.ts`, `app/utils/*` — shared utilities.
 - `app/session/composer-tools.ts` — shared session helpers.
+
+## Route entry rule (enforced)
+
+- `shell/session-route.tsx` and `shell/settings-route.tsx` must stay thin re-exports
+  (implementation in `*-route-render.tsx`). Guard: `node scripts/checks/architecture-paths.mjs`.

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { t } from "../../../i18n";
 import {
   errorBannerClass,
-} from "../shared/modal-styles";
+} from "../../design-system/modal-styles";
 import { RemoteWorkspaceFields } from "./remote-workspace-fields";
 import type { CreateRemoteWorkspaceModalProps } from "../shared/workspace-modal-types";
 

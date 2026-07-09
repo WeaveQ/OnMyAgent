@@ -16,7 +16,7 @@ import {
   surfaceCardClass,
   tagClass,
   warningBannerClass,
-} from "../shared/modal-styles";
+} from "../../design-system/modal-styles";
 
 export type CreateWorkspaceProgressStep = {
   key: string;

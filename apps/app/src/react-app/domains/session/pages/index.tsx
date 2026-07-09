@@ -13,7 +13,7 @@ import type {
   WorkspaceSessionGroup,
 } from "../../../../app/types";
 import type { ShareWorkspaceModalProps } from "../../shared/workspace-modal-types";
-import type { AgentCardItem, AgentRegistry } from "../../shared/agent-registry-types";
+import type { AgentCardItem, AgentRegistry } from "../../agents/agent-registry-types";
 import type {
   SidebarAccountInfo,
   SidebarPrimaryView,

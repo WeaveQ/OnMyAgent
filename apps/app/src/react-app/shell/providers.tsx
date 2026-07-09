@@ -5,7 +5,7 @@ import { isWebDeployment } from "../../app/lib/onmyagent-deployment";
 import { hydrateOpenworkServerSettingsFromEnv } from "../../app/lib/onmyagent-server";
 import { isDesktopRuntime } from "../../app/utils";
 import { DenAuthProvider, DesktopConfigProvider, RestrictionNoticeProvider } from "../domains/cloud";
-import { StatusToastsProvider } from "../domains/shared";
+import { StatusToastsProvider } from "../domains/shell-feedback";
 import { LocalProvider } from "../kernel/local-provider";
 import { ServerProvider } from "../kernel/server-provider";
 import { ArchitectureMismatchGate } from "./architecture-mismatch-gate";

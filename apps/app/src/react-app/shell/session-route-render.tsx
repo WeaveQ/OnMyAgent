@@ -185,8 +185,8 @@ import {
   resolvePendingAgentForPrompt,
 } from "./session-route-agent-context";
 import { SessionCloudAccountBridge } from "./session-cloud-account-bridge";
-import { usePendingAgentStore } from "../domains/shared";
-import type { PendingAgentContext } from "../domains/shared";
+import { usePendingAgentStore } from "../domains/agents";
+import type { PendingAgentContext } from "../domains/agents";
 import {
   readCustomAgentIdForSession,
   writeCustomAgentIdForSession,
@@ -203,7 +203,7 @@ import {
   removeAssistantSession,
   removeExpertSession,
   writeAssistantSessionCategory,
-} from "../domains/shared";
+} from "../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
@@ -254,7 +254,7 @@ import { legacyAssistantRoute } from "./workspace-routes";
 import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
 import { useCheckDesktopRestriction, useRestrictionNotice } from "../domains/cloud";
 import { ReactSessionRuntime, useSessionActivityStore } from "../domains/session";
-import { buildOpenworkEnvSystemContext } from "../domains/shared";
+import { buildOpenworkEnvSystemContext } from "../domains/shared/env-context";
 import {
   assistantSessionWorkspacesChangedEvent,
   dispatchAssistantSessionWorkspacesChanged,
@@ -338,7 +338,7 @@ import {
 } from "./session-route-intent";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
-import { useStatusToasts } from "../domains/shared";
+import { useStatusToasts } from "../domains/shell-feedback";
 import { useSessionControlActions } from "../domains/session";
 import {
   legacySessionRoute,
@@ -352,7 +352,7 @@ import {
   ensureProviderListQuery,
   refreshProviderListQueries,
   useProviderListQuery,
-} from "../domains/shared";
+} from "../domains/connections";
 
 /** Full session route controller + view. Keep session-route.tsx as thin entry. */
 export function SessionRouteRender() {

@@ -79,14 +79,14 @@ import {
   useSessionActivityStore,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
-import { usePendingAgentStore } from "../../shared/pending-agent-store";
-import type { PendingAgentContext } from "../../shared/pending-agent-store";
+import { usePendingAgentStore } from "../../agents/pending-agent-store";
+import type { PendingAgentContext } from "../../agents/pending-agent-store";
 import { AgentPromptSuggestions } from "../../shared/agent-prompt-suggestions";
-import { buildPendingAgentFromRecord } from "../../shared/agent-registry-store";
+import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
 import {
   readCustomAgentIdForSession,
   useAgentRegistryStore,
-} from "../../shared/agent-registry-store";
+} from "../../agents/agent-registry-store";
 import { PermissionApprovalPanel } from "../components/permission-modal";
 import { QuestionPanel } from "../modals/question-modal";
 import {
@@ -150,6 +150,7 @@ import {
   filterCompactionMessages,
   messageActivityFingerprint,
 } from "./transcript/message-compaction";
+import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import {
   sessionSurfaceStateClass,
   sessionSurfaceTextClass,
@@ -282,17 +283,6 @@ export type SessionSurfaceProps = {
   onClearDraftWorkspace?: () => void;
 };
 
-const waitForControl = (ms: number) =>
-  new Promise((resolve) => window.setTimeout(resolve, ms));
-
-function useSharedQueryState<T>(queryKey: readonly unknown[], fallback: T) {
-  const query = useQuery<T, Error, T, readonly unknown[]>({
-    queryKey,
-    queryFn: async () => fallback,
-    enabled: false,
-  });
-  return query.data ?? fallback;
-}
 
 export function SessionSurface(props: SessionSurfaceProps) {
   const local = useLocal();

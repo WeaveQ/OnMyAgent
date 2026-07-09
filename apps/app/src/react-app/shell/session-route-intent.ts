@@ -1,6 +1,6 @@
 /** Session route navigation-state helpers for agent-management deep links + expert install. */
 import { installExpertPackage } from "../../app/lib/desktop";
-import type { PendingAgentContext } from "../domains/shared/pending-agent-store";
+import type { PendingAgentContext } from "../domains/agents/pending-agent-store";
 import type { SessionAgentManagementIntent } from "../domains/session";
 
 export function readStringStateField(state: unknown, key: string) {

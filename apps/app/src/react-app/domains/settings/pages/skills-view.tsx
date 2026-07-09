@@ -54,7 +54,7 @@ import {
   pillSecondaryClass,
   surfaceCardClass,
   tagClass,
-} from "../../shared/modal-styles";
+} from "../../../design-system/modal-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
