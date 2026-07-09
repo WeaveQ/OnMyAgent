@@ -1,4 +1,4 @@
-import type { AgentManagementSkillAgent } from "../../../../../app/lib/desktop";
+import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 
 export const SKILL_AGENT_LABELS: Record<string, string> = {
   opencode: "OpenCode",

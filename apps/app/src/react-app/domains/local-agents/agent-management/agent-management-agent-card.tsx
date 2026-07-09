@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
-import { t } from "../../../../../i18n";
+import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
-import type { AgentManagementAgent } from "../../../../../app/lib/desktop";
+import type { AgentManagementAgent } from "../../../../app/lib/desktop";
 import { AGENT_MANAGER_PROVIDER_LABELS } from "./agent-management-providers";
 import {
   agentManagerHealthLabel,

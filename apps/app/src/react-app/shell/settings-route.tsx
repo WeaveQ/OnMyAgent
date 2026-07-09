@@ -107,7 +107,7 @@ import { ShareWorkspaceModal } from "../domains/shared";
 import { ModelPickerModal, workspaceSwatchColor } from "../domains/session";
 import type { ModelOption, ModelRef } from "../../app/types";
 import { recordInspectorEvent } from "./app-inspector";
-import {
+import { normalizeSettingsProviderSource,
   describeRouteError,
   describeWorkspaceCreateError,
   buildSettingsRefreshErrorEvent,
@@ -198,20 +198,6 @@ const ROUTE_ONMYAGENT_CAPABILITIES: OpenworkServerCapabilities = {
   commands: { read: true, write: true },
   config: { read: true, write: true },
 };
-
-function normalizeSettingsProviderSource(
-  source: ProviderListItem["source"],
-): AiSettingsConnectedProvider["source"] | undefined {
-  if (
-    source === "env" ||
-    source === "api" ||
-    source === "config" ||
-    source === "custom"
-  ) {
-    return source;
-  }
-  return undefined;
-}
 
 export type SettingsSurfaceProps = {
   embedded?: boolean;

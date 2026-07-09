@@ -210,7 +210,6 @@ import {
 } from "../domains/session";
 import { useEnsureAgentRegistry } from "../domains/agents";
 import {
-  installExpertPackage,
   pickDirectory,
   type OpenworkServerInfo,
   type WorkspaceList,
@@ -332,6 +331,11 @@ import { useReactRenderWatchdog } from "./react-render-watchdog";
 import { filterProviderList } from "../../app/utils/providers";
 import { ensureDesktopLocalOpenworkConnection } from "./desktop-local-onmyagent";
 import { loadSessionOpenworkConnectionState } from "./session-route-server-actions";
+import {
+  clearSessionAgentManagementIntentState,
+  installMarketplaceExpertAfterSessionCreated,
+  readSessionAgentManagementIntent,
+} from "./session-route-intent";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
 import { useStatusToasts } from "../domains/shared";
@@ -349,54 +353,6 @@ import {
   refreshProviderListQueries,
   useProviderListQuery,
 } from "../domains/shared";
-
-function readStringStateField(state: unknown, key: string) {
-  if (!state || typeof state !== "object") return null;
-  const value = Reflect.get(state, key);
-  return typeof value === "string" ? value.trim() || null : null;
-}
-
-function readSessionAgentManagementIntent(
-  state: unknown,
-): SessionAgentManagementIntent | null {
-  const action = readStringStateField(state, "agentManagementAction");
-  if (action !== "createProvider") return null;
-  return {
-    action,
-    key: readStringStateField(state, "agentManagementActionKey") ?? action,
-  };
-}
-
-function clearSessionAgentManagementIntentState(state: unknown) {
-  if (!state || typeof state !== "object") return undefined;
-  const next: Record<string, unknown> = {};
-  for (const key of Object.keys(state)) {
-    if (
-      key === "agentManagementAction" ||
-      key === "agentManagementActionKey"
-    ) {
-      continue;
-    }
-    next[key] = Reflect.get(state, key);
-  }
-  return next;
-}
-
-async function installMarketplaceExpertAfterSessionCreated(
-  agent: PendingAgentContext,
-) {
-  const marketplaceExpert = agent.marketplaceExpert;
-  if (!marketplaceExpert || marketplaceExpert.source !== "builtin") return;
-  try {
-    await installExpertPackage({
-      source: "builtin",
-      marketplace: "experts",
-      packageName: marketplaceExpert.packageName,
-    });
-  } catch (error) {
-    console.warn("[expert-marketplace] failed to install expert package", error);
-  }
-}
 
 export function SessionRoute() {
   const navigate = useNavigate();

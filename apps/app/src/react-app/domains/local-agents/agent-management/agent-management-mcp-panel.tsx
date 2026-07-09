@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Check, Download, Loader2, Pencil, Plus, Server, Trash2, X } from "lucide-react";
 
-import { t } from "../../../../../i18n";
+import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,8 +10,8 @@ import { SelectMenu } from "@/react-app/design-system/select-menu";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { AgentManagementMcpActionInput, AgentManagementMcpApp, AgentManagementMcpServer, AgentManagementMcpSnapshot } from "../../../../../app/lib/desktop";
-import { AgentSkillIcon } from "./agent-skill-icon";
+import type { AgentManagementMcpActionInput, AgentManagementMcpApp, AgentManagementMcpServer, AgentManagementMcpSnapshot } from "../../../../app/lib/desktop";
+import { AgentSkillIcon } from "../../session/components/shared-pages/agent-skill-icon";
 import { SKILL_AGENT_TONES } from "./agent-management-skill-model";
 
 const MCP_APPS: AgentManagementMcpApp[] = ["claude", "codex", "gemini", "opencode", "hermes"];

@@ -11,13 +11,13 @@ import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
-import type { AgentManagementSkill, AgentManagementSkillAgent } from "../../../../../app/lib/desktop";
+import type { AgentManagementSkill, AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import {
   SKILL_AGENT_LABELS,
   SKILL_AGENT_TONES,
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
-import { AgentSkillIcon } from "./agent-skill-icon";
+import { AgentSkillIcon } from "../../session/components/shared-pages/agent-skill-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy";
 

@@ -1,6 +1,10 @@
 /** @jsxImportSource react */
 import type { ComponentProps } from "react";
 
+/**
+ * @deprecated Prefer `Input` / `InputGroup` from `@/components/ui/input`
+ * (`DESIGN.md` § 4i / theme-system canonical table). Do not add new call sites.
+ */
 export type TextInputProps = ComponentProps<"input"> & {
   label?: string;
   hint?: string;
@@ -14,6 +18,7 @@ const textInputClass = {
   hint: "mt-1 text-xs text-dls-secondary",
 };
 
+/** @deprecated Prefer `Input` / `InputGroup` from `@/components/ui/input`. */
 export function TextInput({ label, hint, className, wrapperClassName, ref, ...rest }: TextInputProps) {
   return (
     <label className={wrapperClassName ?? textInputClass.wrapper}>

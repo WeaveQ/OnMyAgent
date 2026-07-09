@@ -2,7 +2,7 @@ import type { StatusBadgeTone } from "@/components/ui/status-badge";
 import type {
   AgentManagementAgent,
   PersonalLocalAgentRunResult,
-} from "../../../../../app/lib/desktop";
+} from "../../../../app/lib/desktop";
 
 export type AgentManagementHealthResult = {
   status: "idle" | "running" | "passed" | "failed";
