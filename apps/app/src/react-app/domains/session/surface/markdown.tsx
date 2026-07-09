@@ -168,10 +168,10 @@ const baseMarkedOptions = {
       return `<li class="my-1">${checkbox}${this.parser.parse(item.tokens)}</li>`;
     },
     blockquote({ tokens }) {
-      return `<blockquote class="my-4 rounded-r-lg border-l border-dls-border bg-dls-surface-muted pl-4 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
+      return `<blockquote class="my-4 rounded-r-lg border-l border-dls-border bg-dls-surface-muted px-4 py-2 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
     },
     code({ text, lang }) {
-      return `<pre class="my-4 overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(lang)}>${escapeHtml(text)}</code></pre>`;
+      return `<pre class="my-4 overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface-muted px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(lang)}>${escapeHtml(text)}</code></pre>`;
     },
     codespan({ text }) {
       return `<code class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-foreground">${escapeHtml(text)}</code>`;
@@ -201,8 +201,8 @@ const baseMarkedOptions = {
     tablecell({ tokens, header, align }) {
       const tag = header ? "th" : "td";
       const className = header
-        ? "border border-dls-border bg-dls-hover p-2 text-left"
-        : "border border-dls-border p-2 align-top";
+        ? "border border-dls-border bg-dls-surface-muted p-2 text-left"
+        : "border border-dls-border bg-dls-surface-muted p-2 align-top";
       return `<${tag}${alignAttribute(align)} class="${className}">${this.parser.parseInline(tokens)}</${tag}>`;
     },
     hr() {
@@ -244,7 +244,7 @@ const highlightedMarkdownParser = new Marked<string, string>({
         ],
       });
     },
-    container: `<div data-onmyagent-shiki="true" class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface p-4 text-xs leading-6">%s</div>`,
+    container: `<div data-onmyagent-shiki="true" class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted p-4 text-xs leading-6">%s</div>`,
   }),
 );
 

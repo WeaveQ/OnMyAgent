@@ -4,7 +4,6 @@ import { usePanelRef } from "react-resizable-panels";
 import {
   Bot,
   ClipboardCheck,
-  Columns3,
   Expand,
   Folder,
   Globe,
@@ -112,7 +111,7 @@ import {
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
 import { StorePage } from "./session-page-store-page";
-import { WorkspaceFilesPage } from "./session-page-workspace-files-page";
+import { WorkspaceFilesPage } from "../components/shared-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -158,14 +157,14 @@ function CodeSidePanelMenu(props: {
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-side-panel-menu="true">
-      <header className="flex h-10 shrink-0 items-center justify-end gap-1 px-3 text-dls-secondary">
-        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
+      <header className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary">
+        <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
           <Expand className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
+        <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
           <RectangleHorizontal className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
+        <Button type="button" variant="ghost" size="icon-xs" data-code-side-panel-close="true" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
           <PanelRight className="size-3.5" />
         </Button>
       </header>
@@ -182,7 +181,7 @@ function CodeSidePanelMenu(props: {
                 data-code-side-panel-menu-item={item.id}
                 className={cn(
                   "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                  selected && "bg-dls-hover text-dls-accent",
+                  selected && "bg-dls-hover text-dls-text",
                 )}
                 onClick={() => props.onSelect(item.id)}
                 aria-pressed={selected}
@@ -214,7 +213,7 @@ function CodeSidePanelPlaceholder(props: {
   const Icon = props.icon;
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Icon className="size-4 text-muted-foreground" />
           {props.title}
@@ -609,33 +608,26 @@ export function SessionPage(props: SessionPageProps) {
 
   const headerPanelControls = (
     <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
-      {showCodeSideRail
-        ? (
+      {showCodeSideRail ? (
+        !sidePanelOpen ? (
             <Button
               data-code-side-panel-toggle="true"
               type="button"
               variant="ghost"
-              size="icon-sm"
-              className={cn(
-                "transition-colors hover:bg-muted hover:text-foreground",
-                sidePanelOpen && "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-              )}
+              size="icon-xs"
+              className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                if (sidePanelOpen) {
-                  closeRightPane();
-                  return;
-                }
                 openCodeSidePanelMenu();
               }}
               title={t("session.code_side_panel_toggle")}
               aria-label={t("session.code_side_panel_toggle")}
               aria-pressed={sidePanelOpen || codeMenuRailActive}
             >
-              <Columns3 className="size-4" />
+              <PanelRight className="size-3.5" />
             </Button>
-          )
-        : (
+          ) : null
+        ) : (
             <>
               {isElectronRuntime() ? (
                 <Button
@@ -808,6 +800,7 @@ export function SessionPage(props: SessionPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 
