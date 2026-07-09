@@ -23,185 +23,189 @@ export type PromptSuggestion = {
 
 type PromptTemplates = Record<string, PromptSuggestion[]>;
 
-const GENERIC_PROMPTS: PromptSuggestion[] = [
+function getGenericPrompts(): PromptSuggestion[] {
+  return [
   {
-    title: "分析问题",
-    description: "给我一份结构化的分析",
-    prompt: "请帮我分析以下内容，并给出结构化的要点总结：\n",
+    title: t("session.prompt_generic_analyze_title"),
+    description: t("session.prompt_generic_analyze_desc"),
+    prompt: t("session.prompt_generic_analyze_body"),
     icon: Lightbulb,
   },
   {
-    title: "起草文档",
-    description: "生成一份专业文档",
-    prompt:
-      "请帮我起草一份关于 ____ 的文档，包含背景、目标、方案和下一步计划。",
+    title: t("session.prompt_generic_draft_doc_title"),
+    description: t("session.prompt_generic_draft_doc_desc"),
+    prompt: t("session.prompt_generic_draft_doc_body"),
     icon: PenLine,
   },
   {
-    title: "头脑风暴",
-    description: "发散多个创意方向",
-    prompt:
-      "请针对 ____ 话题进行头脑风暴，给出至少 5 个不同的创意方向，每个方向都简述理由。",
+    title: t("session.prompt_generic_brainstorm_title"),
+    description: t("session.prompt_generic_brainstorm_desc"),
+    prompt: t("session.prompt_generic_brainstorm_body"),
     icon: Sparkles,
   },
   {
-    title: "总结归纳",
-    description: "提炼核心观点",
-    prompt: "请帮我把下面的内容总结成 3-5 个核心要点，尽量简洁明了：\n",
+    title: t("session.prompt_generic_summarize_title"),
+    description: t("session.prompt_generic_summarize_desc"),
+    prompt: t("session.prompt_generic_summarize_body"),
     icon: FileText,
   },
-];
+  ];
+}
 
-const TEMPLATE_PROMPTS: PromptTemplates = {
-  "blank-agent": GENERIC_PROMPTS,
-  "daily-assistant": [
-    {
-      title: "日程整理",
-      description: "帮我梳理今天的待办",
-      prompt:
-        "请帮我整理今天的待办事项，按优先级从高到低列出，并给出时间建议：\n",
-      icon: ClipboardList,
-    },
-    {
-      title: "写作辅助",
-      description: "润色我的文字",
-      prompt: "请帮我润色以下文字，让表达更清晰、更专业：\n",
-      icon: PenLine,
-    },
-    {
-      title: "快速总结",
-      description: "提炼一篇长文的核心",
-      prompt: "请把下面这段长内容总结成 5 个核心要点，每个要点不超过一句话：\n",
-      icon: FileText,
-    },
-    {
-      title: "计划建议",
-      description: "做一份行动计划",
-      prompt:
-        "我想实现 ____（目标），请帮我制定一份行动计划，包含具体步骤、预估时间和可能遇到的风险。",
-      icon: Target,
-    },
-  ],
-  "pixel-retail": [
-    {
-      title: "商品描述",
-      description: "写出吸引人的卖点文案",
-      prompt:
-        "请为以下商品写一段吸引人的商品描述，突出核心卖点和差异化优势：\n商品名称：\n目标受众：",
-      icon: PenLine,
-    },
-    {
-      title: "竞品分析",
-      description: "对比同类商品",
-      prompt:
-        "请帮我做一个竞品分析，对比我的商品与 3 个主要竞品的价格、功能、评价、售后等维度：\n我的商品：",
-      icon: Target,
-    },
-    {
-      title: "客服话术",
-      description: "生成标准回复",
-      prompt:
-        "请帮我生成客服话术模板，针对以下常见客户问题：\n1. 商品质量问题\n2. 物流延迟\n3. 退换货申请\n",
-      icon: MessageSquare,
-    },
-    {
-      title: "营销方案",
-      description: "设计促销活动",
-      prompt:
-        "请为我的电商店铺设计一个促销活动方案，包含活动主题、优惠规则、推广渠道和预算分配。我的店铺主营 ____。",
-      icon: Sparkles,
-    },
-  ],
-};
-
-const EXPERT_PROMPT_ICONS = [Sparkles, FileText, Target];
-
-const CODE_PROMPTS: PromptSuggestion[] = [
+function getDailyAssistantPrompts(): PromptSuggestion[] {
+  return [
   {
-    title: "代码审查",
-    description: "找问题、给建议",
-    prompt:
-      "请帮我审查以下代码，指出潜在的问题、安全隐患或可优化的地方，并给出改进建议：\n",
-    icon: Code,
+    title: t("session.prompt_daily_schedule_title"),
+    description: t("session.prompt_daily_schedule_desc"),
+    prompt: t("session.prompt_daily_schedule_body"),
+    icon: ClipboardList,
   },
   {
-    title: "实现功能",
-    description: "从零开始编写",
-    prompt:
-      "请帮我实现 ____ 功能，使用 ____ 技术栈，包含单元测试和边界情况处理。",
-    icon: Code,
+    title: t("session.prompt_daily_writing_polish_title"),
+    description: t("session.prompt_daily_writing_polish_desc"),
+    prompt: t("session.prompt_daily_writing_polish_body"),
+    icon: PenLine,
   },
   {
-    title: "调试问题",
-    description: "定位并修复 bug",
-    prompt:
-      "我遇到了以下问题：____。请帮我分析可能的原因并给出修复方案。相关代码和错误信息如下：\n",
-    icon: Lightbulb,
+    title: t("session.prompt_daily_quick_summary_title"),
+    description: t("session.prompt_daily_quick_summary_desc"),
+    prompt: t("session.prompt_daily_quick_summary_body"),
+    icon: FileText,
   },
   {
-    title: "重构代码",
-    description: "提升代码质量",
-    prompt:
-      "请把以下代码重构为更简洁、可维护的版本，保持良好的函数拆分和类型安全：\n",
-    icon: Sparkles,
+    title: t("session.prompt_daily_plan_action_title"),
+    description: t("session.prompt_daily_plan_action_desc"),
+    prompt: t("session.prompt_daily_plan_action_body"),
+    icon: Target,
   },
-];
+  ];
+}
 
-TEMPLATE_PROMPTS["pixel-tech"] = CODE_PROMPTS;
-
-// 业务专家、设计专家、电商专家等 — 按 agent ID 映射
-const DOMAIN_EXPERT_PROMPTS: PromptSuggestion[] = [
+function getPixelRetailPrompts(): PromptSuggestion[] {
+  return [
   {
-    title: "业务分析",
-    description: "从业务角度解读需求",
-    prompt: "请从业务角度分析以下需求，包括可行性、预期收益和实施路径：\n",
+    title: t("session.prompt_retail_product_desc_title"),
+    description: t("session.prompt_retail_product_desc_desc"),
+    prompt: t("session.prompt_retail_product_desc_body"),
+    icon: PenLine,
+  },
+  {
+    title: t("session.prompt_retail_competitor_analysis_title"),
+    description: t("session.prompt_retail_competitor_analysis_desc"),
+    prompt: t("session.prompt_retail_competitor_analysis_body"),
     icon: Target,
   },
   {
-    title: "方案起草",
-    description: "输出一份业务方案",
-    prompt:
-      "请起草一份业务方案，背景是 ____，目标是 ____。包含现状、问题、解决方案和预期效果。",
-    icon: FileText,
+    title: t("session.prompt_retail_customer_service_title"),
+    description: t("session.prompt_retail_customer_service_desc"),
+    prompt: t("session.prompt_retail_customer_service_body"),
+    icon: MessageSquare,
   },
   {
-    title: "数据解读",
-    description: "从数据中提炼洞察",
-    prompt: "请解读以下业务数据，提炼趋势、异常点和潜在机会：\n",
+    title: t("session.prompt_retail_marketing_plan_title"),
+    description: t("session.prompt_retail_marketing_plan_desc"),
+    prompt: t("session.prompt_retail_marketing_plan_body"),
+    icon: Sparkles,
+  },
+  ];
+}
+
+function getTemplatePrompts(): PromptTemplates {
+  const generic = getGenericPrompts();
+  const code = getCodePrompts();
+  const domain = getDomainExpertPrompts();
+  return {
+    "blank-agent": generic,
+    "daily-assistant": getDailyAssistantPrompts(),
+    "pixel-retail": getPixelRetailPrompts(),
+    "pixel-tech": code,
+    "pixel-business": domain,
+    "pixel-product": domain,
+  };
+}
+
+const EXPERT_PROMPT_ICONS = [Sparkles, FileText, Target];
+
+function getCodePrompts(): PromptSuggestion[] {
+  return [
+  {
+    title: t("session.prompt_code_code_review_title"),
+    description: t("session.prompt_code_code_review_desc"),
+    prompt: t("session.prompt_code_code_review_body"),
+    icon: Code,
+  },
+  {
+    title: t("session.prompt_code_implement_feature_title"),
+    description: t("session.prompt_code_implement_feature_desc"),
+    prompt: t("session.prompt_code_implement_feature_body"),
+    icon: Code,
+  },
+  {
+    title: t("session.prompt_code_debug_title"),
+    description: t("session.prompt_code_debug_desc"),
+    prompt: t("session.prompt_code_debug_body"),
     icon: Lightbulb,
   },
   {
-    title: "竞品调研",
-    description: "梳理对标方案",
-    prompt:
-      "请针对 ____ 领域做一份竞品调研，列出 3-5 个主要竞品的核心功能、定价策略和差异化优势。",
+    title: t("session.prompt_code_refactor_title"),
+    description: t("session.prompt_code_refactor_desc"),
+    prompt: t("session.prompt_code_refactor_body"),
+    icon: Sparkles,
+  },
+  ];
+}
+
+// 业务专家、设计专家、电商专家等 — 按 agent ID 映射
+function getDomainExpertPrompts(): PromptSuggestion[] {
+  return [
+  {
+    title: t("session.prompt_expert_biz_analysis_title"),
+    description: t("session.prompt_expert_biz_analysis_desc"),
+    prompt: t("session.prompt_expert_biz_analysis_body"),
+    icon: Target,
+  },
+  {
+    title: t("session.prompt_expert_biz_plan_title"),
+    description: t("session.prompt_expert_biz_plan_desc"),
+    prompt: t("session.prompt_expert_biz_plan_body"),
+    icon: FileText,
+  },
+  {
+    title: t("session.prompt_expert_data_insight_title"),
+    description: t("session.prompt_expert_data_insight_desc"),
+    prompt: t("session.prompt_expert_data_insight_body"),
+    icon: Lightbulb,
+  },
+  {
+    title: t("session.prompt_expert_competitor_research_title"),
+    description: t("session.prompt_expert_competitor_research_desc"),
+    prompt: t("session.prompt_expert_competitor_research_body"),
     icon: ClipboardList,
   },
-];
-
-for (const id of ["pixel-business", "pixel-product"]) {
-  TEMPLATE_PROMPTS[id] = DOMAIN_EXPERT_PROMPTS;
+  ];
 }
 
 function resolvePrompts(
   agentId: string | null | undefined,
 ): PromptSuggestion[] {
-  if (agentId && agentId in TEMPLATE_PROMPTS) {
-    return TEMPLATE_PROMPTS[agentId];
+  const templates = getTemplatePrompts();
+  if (agentId && agentId in templates) {
+    return templates[agentId];
   }
-  // Fallback: 包含 "tech" -> 代码；包含 "business" / "product" / "retail" -> 业务
+  // Fallback: agent id containing "tech"/"code" -> code prompts;
+  // "business"/"product"/"retail" -> domain expert prompts.
   if (agentId) {
     if (agentId.includes("tech") || agentId.includes("code"))
-      return CODE_PROMPTS;
+      return getCodePrompts();
     if (
       agentId.includes("business") ||
       agentId.includes("product") ||
       agentId.includes("retail")
     ) {
-      return DOMAIN_EXPERT_PROMPTS;
+      return getDomainExpertPrompts();
     }
   }
-  return GENERIC_PROMPTS;
+  return getGenericPrompts();
 }
 
 function promptsFromExpertQuickPrompts(quickPrompts: string[] | undefined): PromptSuggestion[] | null {
