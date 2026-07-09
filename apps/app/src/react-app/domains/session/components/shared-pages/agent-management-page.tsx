@@ -29,7 +29,7 @@ import {
 } from "../../../../../app/lib/desktop";
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
 import { InlineAgentEditor, type InlineAgentEditorValue } from "../../../local-agents/inline-agent-editor";
-import { AgentManagementRepairDialog } from "@/react-app/domains/local-agents/agent-management-repair-dialog";
+import { AgentManagementRepairDialog } from "../../../local-agents/agent-management-repair-dialog";
 import { ExtensionListPanel } from "../../../local-agents/extension-list-panel";
 import {
   formatAgentManagerDuration,
