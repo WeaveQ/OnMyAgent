@@ -46,6 +46,7 @@ export function normalizeAcpUpdate(update) {
     turnend: "turn_end",
     endturn: "turn_end",
     availablecommands: "available_commands",
+    availablecommandsupdate: "available_commands",
     contextusage: "context_usage",
     command: "command",
     permission: "permission",

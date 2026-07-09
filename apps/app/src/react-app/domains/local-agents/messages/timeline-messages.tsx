@@ -202,7 +202,7 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage) {
     const inferred =
       inferTitleFromInput(tool?.input ?? acpUpdate?.input ?? undefined) ||
       tool?.description?.trim() ||
-      message.text.replace(/^acp_tool_call(_update)?[>:\s-]*/i, "").trim().slice(0, 50) ||
+      (message.text ?? "").replace(/^acp_tool_call(_update)?[>:\s-]*/i, "").trim().slice(0, 50) ||
       "Tool";
     title = inferred;
   }
@@ -212,7 +212,7 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage) {
     inferTitleFromInput(tool?.input ?? acpUpdate?.input ?? undefined) ||
     (tool?.kind ? getKindDisplayName(tool.kind) : "") ||
     (acpUpdate?.kind ? getKindDisplayName(acpUpdate.kind) : "") ||
-    message.text.replace(/^acp_tool_call(_update)?[>:\s-]*/i, "").trim().slice(0, 80) ||
+    (message.text ?? "").replace(/^acp_tool_call(_update)?[>:\s-]*/i, "").trim().slice(0, 80) ||
     title;
 
   const detailSections: Array<{ label: string; value: string; truncated?: boolean }> = [];

@@ -6,6 +6,7 @@ import codexIconUrl from "../../../../../assets/agent-icons/openai.svg";
 import hermesIconUrl from "../../../../../assets/agent-icons/hermes.png";
 import openclawIconUrl from "../../../../../assets/agent-icons/claw.svg";
 import opencodeIconUrl from "../../../../../assets/agent-icons/opencode-logo-light.svg";
+import geminiIconUrl from "../../../../../assets/agent-icons/gemini.svg";
 
 type AgentIconId = AgentManagementSkillAgent | AgentManagementMcpApp;
 
@@ -14,7 +15,7 @@ export function AgentSkillIcon(props: { agent: AgentIconId }) {
     opencode: opencodeIconUrl,
     codex: codexIconUrl,
     claude: claudeIconUrl,
-    gemini: codexIconUrl,
+    gemini: geminiIconUrl,
     hermes: hermesIconUrl,
     openclaw: openclawIconUrl,
     onmyagent: onmyagentIconUrl,

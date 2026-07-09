@@ -1,16 +1,19 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bot,
   ChevronDown,
   ChevronRight,
   Cloud,
+  Copy,
+  ExternalLink,
   FileText,
   Folder,
-  FolderOpen,
   MoreHorizontal,
   Search,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +27,10 @@ import type {
   OpenworkWorkspaceFileCatalogEntry,
 } from "../../../../../app/lib/onmyagent-server";
 import { t } from "../../../../../i18n";
+import { ArtifactIcon } from "../../artifacts/artifact-icon";
+import type { OpenTarget } from "../../artifacts/open-target";
+import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../artifacts/preview";
+import { workspaceFileOpenTarget } from "../../artifacts/workspace-file-open-target";
 
 const workspaceFilesTextClass = {
   pageTitle: "text-lg font-medium text-dls-text",
@@ -179,6 +186,19 @@ type FileNode = {
   mtimeMs: number;
 };
 
+type FilePreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; content: string }
+  | { status: "external" }
+  | { status: "browser" }
+  | { status: "error"; message: string };
+
+function canPreviewWorkspaceFileInline(target: OpenTarget) {
+  if (target.preview === "markdown" || target.preview === "text") return true;
+  return target.preview === "sheet" && /\.(csv|tsv)$/i.test(target.value);
+}
+
 type TaskGroup = {
   agentName: string;
   taskName: string;
@@ -316,11 +336,151 @@ function buildFileHierarchy(
   return groups;
 }
 
+function FilePreviewDrawer(props: {
+  open: boolean;
+  file: FileNode | null;
+  target: OpenTarget | null;
+  state: FilePreviewState;
+  copied: boolean;
+  onClose: () => void;
+  onCopyPath: () => void;
+  onOpenInFolder?: () => void;
+  onOpenExternally?: () => void;
+}) {
+  const { open, file, target, state, copied, onClose, onCopyPath, onOpenInFolder, onOpenExternally } = props;
+
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "pointer-events-none fixed inset-0 z-[300] transition-opacity duration-200",
+        open && "pointer-events-auto",
+      )}
+    >
+      <div
+        onClick={onClose}
+        className={cn(
+          "absolute inset-0 bg-black/25 opacity-0 transition-opacity duration-200 supports-backdrop-filter:backdrop-blur-[2px]",
+          open && "opacity-100",
+        )}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={!open}
+        aria-label={file?.name ?? t("files.preview_empty")}
+        className={cn(
+          "absolute inset-y-0 right-0 flex w-full max-w-[560px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
+          open && "translate-x-0",
+        )}
+      >
+        {file && target ? (
+          <>
+            <header className="flex items-start gap-3 border-b border-dls-border px-5 py-4">
+              <ArtifactIcon type={target.preview} className="mt-0.5 size-5 shrink-0 text-dls-secondary" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
+                  {file.name}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-dls-secondary">
+                  <span>{formatWorkspaceFileSize(file.size)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatWorkspaceFileTime(file.mtimeMs)}</span>
+                </div>
+                <div
+                  className="mt-1 truncate font-mono text-xs text-dls-secondary/80"
+                  title={file.path}
+                >
+                  {file.path}
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={onClose}
+                aria-label={t("files.close_preview")}
+                title={t("files.close_preview")}
+              >
+                <X className="size-4" />
+              </Button>
+            </header>
+
+            <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
+              {onOpenExternally ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenExternally}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <ExternalLink data-icon="inline-start" className="size-3.5" />
+                  {t("files.open_file")}
+                </Button>
+              ) : null}
+              {onOpenInFolder ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenInFolder}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <Folder data-icon="inline-start" className="size-3.5" />
+                  {t("files.open_in_folder")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onCopyPath}
+                className="text-dls-secondary hover:text-dls-text"
+              >
+                <Copy data-icon="inline-start" className="size-3.5" />
+                {copied ? t("files.copied") : t("files.copy_path")}
+              </Button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden bg-dls-surface">
+              {state.status === "loading" ? (
+                <PreviewLoading />
+              ) : state.status === "error" ? (
+                <PreviewError message={state.message} />
+              ) : state.status === "ready" && target.preview === "markdown" ? (
+                <MarkdownPreview content={state.content} />
+              ) : state.status === "ready" ? (
+                <PlainText content={state.content} />
+              ) : state.status === "browser" ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {t("files.preview_opened_in_browser")}
+                </div>
+              ) : state.status === "external" ? (
+                <PreviewUnavailable />
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {t("files.preview_empty")}
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+      </aside>
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
+}
+
 export function WorkspaceFilesPage(props: {
   client: OpenworkServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
   fileRoot?: string | null;
+  onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
 }) {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<OpenworkWorkspaceFileCatalogEntry[]>(
@@ -333,6 +493,9 @@ export function WorkspaceFilesPage(props: {
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [copiedPath, setCopiedPath] = useState(false);
+  const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(
     () => new Set(),
   );
@@ -343,6 +506,17 @@ export function WorkspaceFilesPage(props: {
     props.fileRoot === undefined ? props.workspaceRoot : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
   const requiresSessionFileRoot = props.fileRoot !== undefined;
+
+  const selectedTarget = useMemo(() => {
+    if (!selectedFile) return null;
+    return workspaceFileOpenTarget({
+      fileRoot,
+      path: selectedFile.path,
+      name: selectedFile.name,
+      size: selectedFile.size,
+      mtimeMs: selectedFile.mtimeMs,
+    });
+  }, [fileRoot, selectedFile]);
 
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim() || !fileRoot.trim()) {
@@ -391,6 +565,47 @@ export function WorkspaceFilesPage(props: {
     };
   }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
 
+  useEffect(() => {
+    setSelectedFile(null);
+    setPreviewState({ status: "idle" });
+  }, [fileRoot, props.workspaceId]);
+
+  useEffect(() => {
+    if (!props.client || !props.workspaceId.trim() || !selectedTarget) {
+      setPreviewState({ status: "idle" });
+      return;
+    }
+
+    if (selectedTarget.preview === "browser") {
+      setPreviewState({ status: "browser" });
+      return;
+    }
+
+    if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+      setPreviewState({ status: "external" });
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewState({ status: "loading" });
+    void props.client
+      .readWorkspaceFile(props.workspaceId, selectedTarget.value)
+      .then((result) => {
+        if (!cancelled) setPreviewState({ status: "ready", content: result.content });
+      })
+      .catch((previewError: unknown) => {
+        if (cancelled) return;
+        setPreviewState({
+          status: "error",
+          message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.client, props.workspaceId, selectedTarget]);
+
   const taskGroups = useMemo(() => {
     const filtered = entries.filter((e) => !shouldHideEntry(e.path));
     let groups = buildFileHierarchy(filtered);
@@ -426,6 +641,20 @@ export function WorkspaceFilesPage(props: {
     return groups;
   }, [entries, query, typeFilter]);
 
+  const openArtifactTarget = useCallback(
+    async (target: OpenTarget) => {
+      try {
+        await props.onOpenArtifact?.(target);
+      } catch (openError) {
+        setPreviewState({
+          status: "error",
+          message: openError instanceof Error ? openError.message : t("files.preview_failed"),
+        });
+      }
+    },
+    [props.onOpenArtifact],
+  );
+
   const handleOpenFile = useCallback(
     async (filePath: string) => {
       const absolutePath = filePath.startsWith("/")
@@ -444,6 +673,57 @@ export function WorkspaceFilesPage(props: {
   const handleDeleteFile = useCallback(async (_filePath: string) => {
     setMenuPath(null);
   }, []);
+
+  const handleSelectFile = useCallback(
+    async (file: FileNode) => {
+      setSelectedFile(file);
+      const target = workspaceFileOpenTarget({
+        fileRoot,
+        path: file.path,
+        name: file.name,
+        size: file.size,
+        mtimeMs: file.mtimeMs,
+      });
+      if (target.preview === "browser") {
+        await openArtifactTarget(target);
+      } else if (!canPreviewWorkspaceFileInline(target)) {
+        await openArtifactTarget(target);
+      }
+    },
+    [fileRoot, openArtifactTarget],
+  );
+
+  const closePreview = useCallback(() => {
+    setSelectedFile(null);
+    setPreviewState({ status: "idle" });
+    setCopiedPath(false);
+  }, []);
+
+  const handleCopyPath = useCallback(async () => {
+    if (!selectedFile) return;
+    const absolute = selectedFile.path.startsWith("/")
+      ? selectedFile.path
+      : `${fileRoot}/${selectedFile.path}`;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopiedPath(true);
+      window.setTimeout(() => setCopiedPath(false), 1600);
+    } catch (copyError) {
+      console.error("Failed to copy path:", copyError);
+    }
+  }, [fileRoot, selectedFile]);
+
+  useEffect(() => {
+    if (!selectedFile) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        closePreview();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [closePreview, selectedFile]);
 
   const toggleAgent = (name: string) => {
     setExpandedAgents((prev) => {
@@ -547,7 +827,8 @@ export function WorkspaceFilesPage(props: {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto bg-transparent">
+          <div className="relative min-h-0 flex-1">
+            <div className="h-full min-h-0 overflow-auto pr-1">
         {loading && entries.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
             {t("files.loading")}
@@ -606,7 +887,18 @@ export function WorkspaceFilesPage(props: {
                           {group.files.map((file) => (
                             <div
                               key={file.path}
-                              className="group relative flex items-center px-12 py-1.5 text-sm transition-colors hover:bg-dls-hover"
+                              role="button"
+                              tabIndex={0}
+                              className={cn(
+                                "group relative flex w-full cursor-pointer items-center px-12 py-1.5 text-left text-sm transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                                selectedFile?.path === file.path && "bg-dls-surface-muted",
+                              )}
+                              onClick={() => void handleSelectFile(file)}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                void handleSelectFile(file);
+                              }}
                             >
                               <FileText className="size-3.5 shrink-0 text-dls-secondary" />
                               <span className="ml-2 truncate">{file.name}</span>
@@ -621,7 +913,10 @@ export function WorkspaceFilesPage(props: {
                                   type="button"
                                   variant="ghost"
                                   size="icon-xs"
-                                  onClick={() => setMenuPath(file.path)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setMenuPath(file.path);
+                                  }}
                                   className="text-dls-secondary"
                                 >
                                   <MoreHorizontal className="size-4" />
@@ -655,7 +950,7 @@ export function WorkspaceFilesPage(props: {
                 </div>
               );
             })}
-          </div>
+            </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
             {typeFilter !== "all" || query.trim()
@@ -665,6 +960,22 @@ export function WorkspaceFilesPage(props: {
                 : t("files.no_files")}
           </div>
         )}
+            </div>
+            <FilePreviewDrawer
+              open={Boolean(selectedFile && selectedTarget)}
+              file={selectedFile}
+              target={selectedTarget}
+              state={previewState}
+              copied={copiedPath}
+              onClose={closePreview}
+              onCopyPath={handleCopyPath}
+              onOpenInFolder={selectedFile ? () => handleOpenFile(selectedFile.path) : undefined}
+              onOpenExternally={
+                selectedTarget && selectedFile
+                  ? () => void openArtifactTarget(selectedTarget)
+                  : undefined
+              }
+            />
           </div>
             </>
           )}

@@ -1,10 +1,16 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { readSession, writeSession } from "./session-store.mjs";
-import { legacyPersonalAgentRoot, personalAgentRoot } from "./runtime-state.mjs";
+import { legacyPersonalAgentRoot, personalAgentRoot, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { readJsonLikeFile, runId, writeJsonFile } from "./utils.mjs";
+// Local import (in addition to the re-export below) so internal callers such as
+// `listConversationsByProvider` can reference `listChannelConversations`. The
+// ESM cycle with `conversation-lookup.mjs` is safe because every cross-module
+// reference is resolved at call time, never during module evaluation.
+import { listChannelConversations } from "./conversation-lookup.mjs";
 
-const CONVERSATION_DIR = "conversations";
+export const CONVERSATION_DIR = "conversations";
 const CONVERSATION_EVENTS_DIR = "conversation-events";
 
 export function conversationRoot(workspaceRoot) {
@@ -28,7 +34,7 @@ function nowTitle(timestamp) {
   return `Conversation ${new Date(timestamp).toISOString().replace("T", " ").slice(0, 19)}`;
 }
 
-function normalizeConversation(item, provider, agentId) {
+export function normalizeConversation(item, provider, agentId) {
   if (!item || typeof item !== "object") return null;
   const id = String(item.id ?? "").trim();
   if (!id) return null;
@@ -106,6 +112,7 @@ export async function listConversations(workspaceRoot, provider, agentId = "defa
   };
 }
 
+
 export async function createConversation(workspaceRoot, provider, agentId = "default", input = {}) {
   const state = await migrateLegacySession(
     workspaceRoot,
@@ -114,8 +121,9 @@ export async function createConversation(workspaceRoot, provider, agentId = "def
     await readConversationState(workspaceRoot, provider, agentId),
   );
   const timestamp = Date.now();
+  const id = String(input.id ?? "").trim() || `conv-${runId()}`;
   const conversation = normalizeConversation({
-    id: `conv-${runId()}`,
+    id,
     title: String(input.title ?? "").trim() || nowTitle(timestamp),
     providerSessionId: input.providerSessionId ?? null,
     resumeKey: input.resumeKey ?? input.providerSessionId ?? null,
@@ -156,6 +164,16 @@ export async function getConversation(workspaceRoot, provider, agentId = "defaul
     ?? null;
   return conversation;
 }
+
+// Cross-workspace conversation lookup (by id + channel-scoped enumeration) is
+// factored into `conversation-lookup.mjs` so this store keeps only IO / atomic
+// write responsibilities. Re-exported here to preserve the public surface used
+// by the runtime facade and IPC handlers.
+export {
+  getConversationById,
+  listChannelConversations,
+  CHANNEL_AGENT_ID_RE,
+} from "./conversation-lookup.mjs";
 
 export async function updateConversation(workspaceRoot, provider, agentId = "default", conversationId, patch = {}) {
   const state = await migrateLegacySession(
@@ -230,4 +248,71 @@ export async function readConversationEvents(workspaceRoot, provider, agentId = 
     events: Array.isArray(raw?.events) ? raw.events : [],
     messages: Array.isArray(raw?.messages) ? raw.messages : [],
   };
+}
+
+/**
+ * Aggregate every conversation that belongs to an agent: the normal sessions
+ * stored under `<provider>-<agentId>.json` plus the communication-channel
+ * sessions (`source:"channel"`, persisted under scoped `<provider>-<platform>-<hash>`
+ * files). Channel sessions are filtered by `provider` so the dropdown for a
+ * given agent shows all of its sessions regardless of which file they live in.
+ */
+export async function listConversationsByProvider(workspaceRoot, provider, agentId = "default") {
+  const [normal, channel] = await Promise.all([
+    listConversations(workspaceRoot, provider, agentId),
+    listChannelConversations(workspaceRoot),
+  ]);
+  const channelForProvider = channel.conversations.filter((conversation) => conversation.provider === provider);
+  const merged = [...normal.conversations, ...channelForProvider].sort((a, b) => b.updatedAt - a.updatedAt);
+  return {
+    conversations: merged,
+    activeConversationId: normal.activeConversationId ?? merged[0]?.id ?? null,
+  };
+}
+
+/**
+ * Import a session's messages (e.g. from the global session archive) into the
+ * local runtime as a durable transcript for `conversationId`. Ensures the
+ * conversation object exists in the target partition (creating it with the
+ * given id when missing) and writes the messages as the conversation's
+ * transcript. Used by "resume from archive" so cross-workspace / server-side
+ * sessions show their chat history in the local agent view.
+ *
+ * Archive messages arrive as `{ id?, role, content }` (content may be a string
+ * or a structured object); they are normalized to the local
+ * `PersonalLocalAgentConversationMessage` shape (`type:"text"`).
+ */
+export async function importConversationFromArchive(workspaceRoot, provider, agentId = "default", input = {}) {
+  const requestedId = String(input.conversationId ?? "").trim();
+  console.log("[runtime] importConversationFromArchive", { workspaceRoot, provider, agentId, conversationId: requestedId, messageCount: Array.isArray(input.messages) ? input.messages.length : 0 });
+  let conversation = requestedId ? await getConversation(workspaceRoot, provider, agentId, requestedId) : null;
+  if (!conversation) {
+    conversation = await createConversation(workspaceRoot, provider, agentId, {
+      id: requestedId || undefined,
+      title: String(input.title ?? "").trim() || "Imported conversation",
+      providerSessionId: input.providerSessionId ?? null,
+      resumeKey: input.providerSessionId ?? null,
+      workdir: input.workdir ?? null,
+      source: input.source ?? "session-archive-resume",
+    });
+  }
+  const conversationId = conversation.id;
+  const rawMessages = Array.isArray(input.messages) ? input.messages : [];
+  const messages = rawMessages.map((raw, index) => {
+    const message = raw && typeof raw === "object" ? raw : {};
+    const role = String(message.role ?? "assistant");
+    const safeRole = role === "user" || role === "assistant" || role === "system" ? role : "assistant";
+    const content = message.content;
+    const text = typeof content === "string" ? content : (content == null ? "" : JSON.stringify(content));
+    return {
+      id: String(message.id ?? `imported-${conversationId}-${index}`),
+      type: "text",
+      role: safeRole,
+      text,
+      createdAt: Number(message.createdAt) || Date.now() + index,
+    };
+  });
+  console.log("[runtime] writing", { conversationId, messageCount: messages.length });
+  await writeConversationEvents(workspaceRoot, provider, agentId, conversationId, [], messages);
+  return { conversation, importedMessageCount: messages.length };
 }

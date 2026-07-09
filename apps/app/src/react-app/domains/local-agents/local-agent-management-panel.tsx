@@ -4,17 +4,21 @@ import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CountBadge } from "@/components/ui/status-badge";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import {
   personalLocalAgentCreateCustomAgent,
   personalLocalAgentDeleteCustomAgent,
+  personalLocalAgentDetectAvailableAgents,
   personalLocalAgentTestConnection,
   personalLocalAgentUpdateCustomAgent,
   type PersonalLocalAgent,
+  type PersonalLocalAgentDetectAvailableAgent,
   type PersonalLocalAgentTestConnectionResult,
 } from "../../../app/lib/desktop";
 import { InlineAgentEditor, type InlineAgentEditorValue } from "./inline-agent-editor";
+import { ExtensionListPanel } from "./extension-list-panel";
 import { LocalAgentCard } from "./local-agent-card";
 import { LocalAgentRepairPanel, type LocalAgentRepairAction } from "./local-agent-repair-panel";
 import {
@@ -57,6 +61,10 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState<PersonalLocalAgentDetectAvailableAgent[] | null>(null);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [addingById, setAddingById] = useState<Record<string, boolean>>({});
 
   const counts = useMemo(() => localAgentFilterCounts(props.agents), [props.agents]);
   const filteredAgents = useMemo(
@@ -114,6 +122,14 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
           description: value.description,
           nativeSkillsDirs: value.nativeSkillsDirs,
           behaviorPolicy: value.behaviorPolicy,
+          connectionType: value.connectionType,
+          acpArgs: value.acpArgs,
+          supportsAcp: value.connectionType === "cli",
+          supportsStreaming: value.supportsStreaming,
+          supportsResume: value.supportsResume,
+          supportsApproval: value.supportsApproval,
+          supportsModelOverride: value.supportsModelOverride,
+          authRequired: value.authRequired,
         },
       };
       const result = editingAgent
@@ -145,6 +161,40 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
       setSaving(false);
     }
   }, [props]);
+
+  const handleDetect = useCallback(async () => {
+    setDetecting(true);
+    setDetectError(null);
+    setDetected(null);
+    try {
+      const result = await personalLocalAgentDetectAvailableAgents({
+        workspaceRoot: props.workspaceRoot,
+        existingIds: props.agents.map((agent) => agent.id),
+      });
+      setDetected(result.agents);
+    } catch (error) {
+      setDetectError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDetecting(false);
+    }
+  }, [props.workspaceRoot, props.agents]);
+
+  const handleAddDetected = useCallback(async (draft: PersonalLocalAgentDetectAvailableAgent) => {
+    setAddingById((current) => ({ ...current, [draft.id]: true }));
+    setEditorError(null);
+    try {
+      const result = await personalLocalAgentCreateCustomAgent({
+        workspaceRoot: props.workspaceRoot,
+        agent: draft,
+      });
+      upsertAgent(result.agent);
+      setDetected((current) => (current ? current.filter((item) => item.id !== draft.id) : current));
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAddingById((current) => ({ ...current, [draft.id]: false }));
+    }
+  }, [props.workspaceRoot, upsertAgent]);
 
   return (
     <section className="flex flex-col gap-4" data-testid="local-agent-management-panel">
@@ -182,6 +232,17 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
           type="button"
           variant="outline"
           size="sm"
+          onClick={() => void handleDetect()}
+          disabled={detecting}
+          data-testid="local-agent-detect"
+        >
+          <RefreshCw className={cn("mr-1.5 size-3.5", detecting && "animate-spin")} />
+          {t("local_agent.detect_available")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => props.onRefresh?.()}
           disabled={props.refreshing}
         >
@@ -199,6 +260,43 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
           onCancel={() => { setCreating(false); setEditingAgent(null); setEditorError(null); }}
           onSave={(value) => void handleSaveAgent(value)}
         />
+      ) : null}
+
+      {detecting ? (
+        <div className="rounded-xl border border-dashed border-dls-border px-4 py-6 text-center text-sm text-dls-secondary">
+          {t("local_agent.detect_available_loading")}
+        </div>
+      ) : detected ? (
+        <div className="space-y-2 rounded-xl border border-dls-border bg-dls-surface-muted/35 p-3" data-testid="local-agent-detected">
+          <div className="text-xs font-medium text-dls-secondary">{t("local_agent.detect_available_title")}</div>
+          {detected.length ? (
+            <ul className="space-y-2">
+              {detected.map((draft) => (
+                <li key={draft.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-dls-border bg-dls-surface px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-dls-primary">{draft.name}</div>
+                    <div className="truncate font-mono text-xs text-dls-secondary">{draft.command}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={Boolean(addingById[draft.id])}
+                    onClick={() => void handleAddDetected(draft)}
+                    data-testid={`local-agent-detected-add-${draft.id}`}
+                  >
+                    {addingById[draft.id] ? t("common.saving") : t("local_agent.detect_available_add")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-sm text-dls-secondary">{t("local_agent.detect_available_none")}</div>
+          )}
+        </div>
+      ) : null}
+
+      {detectError ? (
+        <NoticeBox tone="error">{detectError}</NoticeBox>
       ) : null}
 
       {filteredAgents.length ? (
@@ -232,6 +330,8 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
           {t("local_agent.filter_empty")}
         </div>
       )}
+
+      <ExtensionListPanel />
 
       {selectedAgent ? (
         <LocalAgentRepairPanel

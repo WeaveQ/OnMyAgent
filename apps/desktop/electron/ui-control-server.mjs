@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import path from "node:path";
-import { rm, writeFile } from "node:fs/promises";
+import { rename, rm, writeFile } from "node:fs/promises";
 
 export function createUiControlServer({
   app,
@@ -165,22 +165,23 @@ export function createUiControlServer({
       app.getPath("userData"),
       "onmyagent-ui-control.json",
     );
-    await writeFile(
-      uiControlDiscoveryPath,
-      `${JSON.stringify(
-        {
-          version: 1,
-          app: appName,
-          identifier: appIdentifier,
-          platform: process.platform,
-          baseUrl: `http://127.0.0.1:${port}`,
-          token: uiControlToken,
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
+    const discoveryPayload = `${JSON.stringify(
+      {
+        version: 1,
+        app: appName,
+        identifier: appIdentifier,
+        platform: process.platform,
+        baseUrl: `http://127.0.0.1:${port}`,
+        token: uiControlToken,
+      },
+      null,
+      2,
+    )}\n`;
+    // Atomic write: write to tmp then rename so partial reads never yield a
+    // truncated bridge descriptor to the MCP client.
+    const discoveryTmpPath = `${uiControlDiscoveryPath}.tmp`;
+    await writeFile(discoveryTmpPath, discoveryPayload, "utf8");
+    await rename(discoveryTmpPath, uiControlDiscoveryPath);
   }
 
   async function stopUiControlServer() {

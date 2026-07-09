@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
 const NATIVE_MENU_OPEN_SETTINGS_EVENT = "onmyagent:native-menu:open-settings";
@@ -56,6 +56,15 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       }
       throw error;
     });
+  },
+  files: {
+    getPathForFile(file) {
+      try {
+        return webUtils.getPathForFile(file) || null;
+      } catch {
+        return null;
+      }
+    },
   },
   shell: {
     openExternal(url) {

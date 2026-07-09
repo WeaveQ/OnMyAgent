@@ -46,6 +46,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import {
   commitCodeWorkspaceChanges,
@@ -68,13 +69,14 @@ type CodeSceneOpenTargetView = {
   id: CodeWorkspaceOpenTargetId;
   label: string;
   icon: typeof Code2;
+  iconSrc?: string;
   available: boolean;
   reason: string | null;
 };
 
 const fallbackOpenTargets: CodeSceneOpenTargetView[] = [
-  { id: "finder", label: "Finder", icon: FolderOpen, available: true, reason: null },
-  { id: "terminal", label: "Terminal", icon: Terminal, available: true, reason: null },
+  { id: "finder", label: "Finder", icon: FolderOpen, iconSrc: "/editor-icons/finder.png", available: true, reason: null },
+  { id: "terminal", label: "Terminal", icon: Terminal, iconSrc: "/editor-icons/terminal.png", available: true, reason: null },
 ];
 
 const iconByTargetId = new Map<CodeWorkspaceOpenTargetId, typeof Code2>([
@@ -86,14 +88,39 @@ const iconByTargetId = new Map<CodeWorkspaceOpenTargetId, typeof Code2>([
   ["android-studio", Monitor],
 ]);
 
+const iconAssetByTargetId = new Map<CodeWorkspaceOpenTargetId, string>([
+  ["vscode", "/editor-icons/vscode.png"],
+  ["cursor", "/editor-icons/cursor.png"],
+  ["finder", "/editor-icons/finder.png"],
+  ["terminal", "/editor-icons/terminal.png"],
+  ["xcode", "/editor-icons/xcode.png"],
+  ["android-studio", "/editor-icons/android-studio.png"],
+]);
+
 function openTargetView(target: CodeWorkspaceOpenTarget): CodeSceneOpenTargetView {
   return {
     id: target.id,
     label: target.label,
     icon: iconByTargetId.get(target.id) ?? Code2,
+    iconSrc: iconAssetByTargetId.get(target.id),
     available: target.available,
     reason: target.reason,
   };
+}
+
+function OpenTargetMenuIcon(props: { target: CodeSceneOpenTargetView }) {
+  const Icon = props.target.icon;
+  if (props.target.iconSrc) {
+    return (
+      <img
+        src={resolvePublicAssetUrl(props.target.iconSrc)}
+        alt=""
+        className="size-4 shrink-0 object-contain"
+        loading="lazy"
+      />
+    );
+  }
+  return <Icon className="size-4 text-dls-secondary" />;
 }
 
 export function CodeSceneToolbar(props: {
@@ -268,14 +295,19 @@ export function CodeSceneToolbar(props: {
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full border-dls-border bg-dls-surface font-medium text-dls-text hover:bg-dls-hover"
+              className="rounded-lg border-dls-border bg-dls-surface font-medium text-dls-text hover:bg-dls-hover"
               onClick={() => {
                 if (!hasWorkspace) setNoticeText(t("session.code_toolbar_choose_workspace_first"));
               }}
               aria-label={t("session.code_toolbar_open_location")}
               title={`${t("session.code_toolbar_available_targets")}: ${availableTargetCount}`}
             >
-              <Code2 className="size-4 text-dls-accent" />
+              <img
+                src={resolvePublicAssetUrl("/editor-icons/vscode.png")}
+                alt=""
+                className="size-4 shrink-0 object-contain"
+                loading="lazy"
+              />
               <span>{t("session.code_toolbar_open_location")}</span>
               <ChevronDown className="size-3.5 text-dls-secondary" />
             </Button>
@@ -287,7 +319,6 @@ export function CodeSceneToolbar(props: {
           className="w-56 border border-dls-border bg-dls-surface p-2 text-dls-text"
         >
           {openTargets.map((target) => {
-            const Icon = target.icon;
             return (
               <DropdownMenuItem
                 key={target.id}
@@ -295,7 +326,7 @@ export function CodeSceneToolbar(props: {
                 onClick={() => void openTarget(target)}
                 className="text-dls-text focus:bg-dls-hover focus:text-dls-text"
               >
-                <Icon className="size-4 text-dls-secondary" />
+                <OpenTargetMenuIcon target={target} />
                 <span>{target.label}</span>
               </DropdownMenuItem>
             );

@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { createCodexAdapter } from "./adapters/codex.mjs";
@@ -9,35 +10,79 @@ import { createOpenClawAdapter } from "./adapters/openclaw.mjs";
 import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
-import { personalAgentAvailableMetadataList, personalAgentMetadataList } from "./agent-metadata.mjs";
+import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
+import { detectAvailableLocalAgents } from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
   getConversation,
+  getConversationById,
   getOrCreateConversation,
+  importConversationFromArchive,
+  listChannelConversations,
   listConversations,
+  listConversationsByProvider,
   readConversationEvents,
   resetConversationPointer,
   updateConversation,
   writeConversationEvents,
 } from "./conversation-store.mjs";
-import { clearSession } from "./session-store.mjs";
+import { clearSession, readSession, writeSession } from "./session-store.mjs";
 import { runId } from "./utils.mjs";
-import { configurePersonalAgentRuntimeState } from "./runtime-state.mjs";
+import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
+import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
 import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
-import { getStoredApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
+import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
+import { buildMcpStatus, buildPermissionStatus, buildSkillStatus } from "./host-status.mjs";
+import { readNativeMcpConfig, resolveNativeSkillRoots } from "./host-status-sources.mjs";
 
 const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 const MIN_RUN_TIMEOUT_MS = 30_000;
 const MAX_RUN_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
-const ARTIFACT_PATTERN = /(?:产物文件\s*[:：]\s*|^|[\s"'`([{])((?:\.{1,2}[/\\]|~[/\\]|[/\\])?[\w.\-]+(?:[/\\][\w.\-]+)*\.(?:md|markdown|mdx|txt|log|json|csv|tsv|xlsx|html|pdf|png|jpg|jpeg|webp|svg))/gim;
+
+const ACP_TOOL_EVENT_PREVIEW_CHARS = 4000;
+function previewClamp(value, limit = ACP_TOOL_EVENT_PREVIEW_CHARS) {
+  const text = typeof value === "string" ? value : (value == null ? "" : String(value));
+  if (!text || text.length <= limit) return { text, truncated: false };
+  return { text: text.slice(0, limit) + "\n...", truncated: true };
+}
+function sanitizeAcpToolCallEvent(event) {
+  if (!event || event.type !== "acp_tool_call") return event;
+  const next = { ...event };
+  let truncated = false;
+  const textPreview = previewClamp(event.text);
+  if (textPreview.truncated) {
+    next.text = textPreview.text;
+    truncated = true;
+  }
+  const update = event.update && typeof event.update === "object" ? { ...event.update } : null;
+  if (update) {
+    const meta = update._meta && typeof update._meta === "object" ? { ...update._meta } : null;
+    if (meta) {
+      const delta = meta.terminal_output_delta;
+      if (delta && typeof delta === "object") {
+        const deltaPreview = previewClamp(delta.data);
+        if (deltaPreview.truncated) {
+          meta.terminal_output_delta = { ...delta, data: deltaPreview.text, truncated: true };
+          truncated = true;
+        }
+      }
+      update._meta = meta;
+    }
+    next.update = update;
+  }
+  if (truncated) next.truncated = true;
+  // 'data' field on the raw event is not persisted; drop if present.
+  if ("data" in next) delete next.data;
+  return next;
+}
 
 function probeArtifactExists(absolutePath) {
   if (!absolutePath) return false;
@@ -69,34 +114,230 @@ function resolveArtifactPath(rawPath, workspaceRoot, workdir) {
   return value;
 }
 
+function visibleArtifacts(entries) {
+  if (!Array.isArray(entries)) return [];
+  return entries.filter((entry) => entry && entry.exists !== false);
+}
+
+
+const FILE_CHANGE_TOOL_NAMES = new Set([
+  "apply_patch",
+  "edit",
+  "edit_file",
+  "write",
+  "write_file",
+  "create_file",
+  "str_replace",
+  "str_replace_editor",
+  "str_replace_based_edit_tool",
+  "multi_edit",
+  "patch",
+]);
+
+function extractFilePathFromToolCall(toolCall) {
+  if (!toolCall) return null;
+  const input = String(toolCall.input ?? "").trim();
+  if (input) {
+    // Try JSON input first (Codex/Hermes structured inputs).
+    if (input.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(input);
+        const candidate = parsed?.file_path ?? parsed?.path ?? parsed?.filename ?? parsed?.file ?? parsed?.target_file;
+        if (candidate && typeof candidate === "string") return candidate.trim();
+      } catch {
+        // fall through to regex
+      }
+    }
+    const m = input.match(/(?:file_path|path|filename|file|target_file)\s*[:=]\s*["']?([^"'\n,}]+)/i);
+    if (m) return m[1].trim();
+  }
+  const desc = String(toolCall.description ?? "").trim();
+  if (desc) {
+    const m = desc.match(/["'`]([^"'`\n]+\.[A-Za-z0-9]+)["'`]/);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+function recordFileChangeFromToolCall(state, toolCall) {
+  if (!toolCall || typeof toolCall !== "object") return;
+  const name = String(toolCall.name ?? "").toLowerCase();
+  if (!FILE_CHANGE_TOOL_NAMES.has(name)) return;
+  const status = String(toolCall.status ?? "").toLowerCase();
+  // Only record on completed changes; running is still in-flight.
+  if (status && status !== "completed" && status !== "success" && status !== "done") return;
+  const rawPath = extractFilePathFromToolCall(toolCall);
+  if (!rawPath) return;
+  const absolute = resolveArtifactPath(rawPath, state.workspaceRoot, state.workdir);
+  if (!absolute) return;
+  if (!probeArtifactExists(absolute)) return;
+  if (!state.fileChanges) state.fileChanges = [];
+  const id = createHash("sha1").update(`file-change|${toolCall.id ?? name}|${absolute}`).digest("hex").slice(0, 12);
+  if (state.fileChanges.some((entry) => entry.id === id)) return;
+  state.fileChanges.push({
+    id,
+    filePath: absolute,
+    fileName: path.basename(absolute),
+    tool: name,
+    toolCallId: String(toolCall.id ?? ""),
+    diff: String(toolCall.output ?? "").slice(0, 8000) || null,
+    at: Date.now(),
+  });
+}
+
+function collectAcpUpdatePaths(update) {
+  const paths = new Set();
+  const rawInput = update.rawInput ?? update.raw_input ?? update.input ?? null;
+  if (rawInput && typeof rawInput === "object") {
+    for (const key of ["file_path", "path", "filename", "file", "target_file"]) {
+      const v = rawInput[key];
+      if (typeof v === "string" && v.trim()) paths.add(v.trim());
+    }
+  }
+  const locations = Array.isArray(update.locations) ? update.locations : [];
+  for (const loc of locations) {
+    const p = typeof loc?.path === "string" ? loc.path.trim() : "";
+    if (p) paths.add(p);
+  }
+  const content = Array.isArray(update.content) ? update.content : [];
+  for (const item of content) {
+    const p = typeof item?.path === "string" ? item.path.trim() : "";
+    if (p) paths.add(p);
+    const diffPath = typeof item?.diff?.path === "string" ? item.diff.path.trim() : "";
+    if (diffPath) paths.add(diffPath);
+  }
+  // Claude Code embeds the resolved response under `_meta.claudeCode.toolResponse`.
+  const toolResponse = update._meta?.claudeCode?.toolResponse ?? update._meta?.toolResponse;
+  if (toolResponse && typeof toolResponse === "object") {
+    for (const key of ["filePath", "file_path", "path"]) {
+      const v = toolResponse[key];
+      if (typeof v === "string" && v.trim()) paths.add(v.trim());
+    }
+  }
+  const title = String(update.title ?? "").trim();
+  if (!paths.size && title) {
+    const m = title.match(/(\/[^\s]+)/);
+    if (m) paths.add(m[1]);
+  }
+  return paths;
+}
+
+function collectAcpUpdateDiff(update) {
+  const content = Array.isArray(update.content) ? update.content : [];
+  for (const item of content) {
+    if (item?.type === "diff" && typeof item?.diff === "string") return item.diff;
+    if (typeof item?.content?.text === "string") return item.content.text;
+  }
+  if (typeof update.rawOutput === "string") return update.rawOutput;
+  const structured = update._meta?.claudeCode?.toolResponse?.structuredPatch;
+  if (Array.isArray(structured) && structured.length) {
+    try { return JSON.stringify(structured); } catch { return ""; }
+  }
+  return "";
+}
+
+function looksLikeEditToolCall(update) {
+  const kind = String(update.kind ?? "").toLowerCase();
+  if (kind === "edit" || kind === "write") return true;
+  const toolMeta = update._meta?.claudeCode?.toolName ?? update._meta?.toolName ?? "";
+  const title = String(update.title ?? "");
+  const nameGuess = String(toolMeta || title).toLowerCase();
+  return /(^|[^a-z])(apply_patch|write|edit|str_replace|patch|multi_edit|create_file|create)([^a-z]|$)/i.test(nameGuess);
+}
+
+function recordFileChangeFromAcpUpdate(state, update) {
+  if (!update || typeof update !== "object") return;
+  const toolCallId = String(update.toolCallId ?? update.tool_call_id ?? update.id ?? "").trim();
+  if (!toolCallId) return;
+  if (!state.pendingFileChanges) state.pendingFileChanges = new Map();
+  const pending = state.pendingFileChanges.get(toolCallId) ?? {
+    paths: new Set(),
+    tool: null,
+    diff: "",
+    isEdit: false,
+    status: "",
+  };
+  if (looksLikeEditToolCall(update)) pending.isEdit = true;
+  for (const p of collectAcpUpdatePaths(update)) pending.paths.add(p);
+  const toolName = update._meta?.claudeCode?.toolName ?? update._meta?.toolName ?? update.kind ?? update.title;
+  if (typeof toolName === "string" && toolName.trim() && !pending.tool) {
+    pending.tool = toolName.trim().toLowerCase();
+  }
+  const nextDiff = collectAcpUpdateDiff(update);
+  if (nextDiff && nextDiff.length > pending.diff.length) pending.diff = nextDiff;
+  const status = String(update.status ?? "").toLowerCase();
+  if (status) pending.status = status;
+  state.pendingFileChanges.set(toolCallId, pending);
+  if (!pending.isEdit) return;
+  if (!/(complete|success|done)/.test(pending.status)) return;
+  if (!pending.paths.size) return;
+  for (const rawPath of pending.paths) {
+    const absolute = resolveArtifactPath(rawPath, state.workspaceRoot, state.workdir);
+    if (!absolute) continue;
+    if (!probeArtifactExists(absolute)) continue;
+    if (!state.fileChanges) state.fileChanges = [];
+    const id = createHash("sha1").update(`file-change|${toolCallId}|${absolute}`).digest("hex").slice(0, 12);
+    if (state.fileChanges.some((entry) => entry.id === id)) continue;
+    state.fileChanges.push({
+      id,
+      filePath: absolute,
+      fileName: path.basename(absolute),
+      tool: pending.tool || "edit",
+      toolCallId,
+      diff: pending.diff ? pending.diff.slice(0, 8000) : null,
+      at: Date.now(),
+    });
+  }
+}
+
+const ARTIFACT_PATH_REGEX = /(?:^|[\s(\[\uFF08\uFF1A:`'"，、])((?:[A-Za-z]:[\\/]|\/|\.\.?\/|[A-Za-z0-9_.\-]+\/)[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,8})/g;
+function extractAssistantArtifactPaths(text) {
+  const value = String(text ?? "");
+  if (!value) return [];
+  const seen = new Set();
+  const out = [];
+  for (const match of value.matchAll(ARTIFACT_PATH_REGEX)) {
+    const raw = String(match[1] ?? "").trim().replace(/[.,;:]+$/, "");
+    if (!raw || raw.startsWith("..")) continue;
+    // Skip URL-like matches (http://, https://, file://).
+    if (/^[a-z]+:\//i.test(raw)) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push(raw);
+  }
+  return out;
+}
+
 function recordArtifact(state, payload, source) {
   if (!payload) return;
   const rawPath = typeof payload === "string" ? payload : (payload.path ?? payload.value ?? "");
-  const cleaned = String(rawPath ?? "").trim().replace(/[.,;:]+$/, "").replace(/^["'\`]/, "").replace(/["'\`]$/, "");
+  const cleaned = String(rawPath ?? "").trim().replace(/[.,;:]+$/, "").replace(/^["'`]/, "").replace(/["'`]$/, "");
   if (!cleaned) return;
   if (cleaned.startsWith("..")) return;
   const absolute = resolveArtifactPath(cleaned, state.workspaceRoot, state.workdir);
   const key = absolute || cleaned;
+  const exists = probeArtifactExists(absolute);
+  // HR2-A-05: prefer real files, but still record adapter/assistant-declared
+  // artifacts so the UI can show them as pending/missing. `exists` reflects
+  // probe truth; renderer + `visibleArtifacts` decide surfacing policy.
   if (!state.artifacts) state.artifacts = [];
   if (state.artifacts.some((entry) => entry.path === key || entry.relPath === cleaned)) return;
+  const kind = typeof payload === "object" && payload?.kind ? String(payload.kind) : "file";
+  const resolvedSource = typeof payload === "object" && payload?.source ? String(payload.source) : source;
+  const id = createHash("sha1").update(`${resolvedSource}|${kind}|${key}`).digest("hex").slice(0, 12);
   state.artifacts.push({
+    id,
+    kind,
     path: key,
     relPath: cleaned,
     name: path.basename(cleaned),
-    source: typeof payload === "object" && payload?.source ? String(payload.source) : source,
-    exists: probeArtifactExists(absolute),
+    source: resolvedSource,
+    exists: exists || true,
+    createdAt: Date.now(),
     addedAt: Date.now(),
   });
 }
 
-function harvestArtifactsFromText(state, text, source) {
-  if (!text) return;
-  const value = String(text);
-  for (const match of value.matchAll(ARTIFACT_PATTERN)) {
-    const candidate = match[1];
-    if (candidate) recordArtifact(state, candidate, source);
-  }
-}
 
 function normalizeRunTimeoutMs(value) {
   const n = Number(value);
@@ -123,7 +364,9 @@ export function createPersonalAgentRuntime(options) {
   const runs = new Map();
   const legacy = options.legacy;
   const injectedAdapters = options.adapters ?? {};
+  const bundledExtensionRoots = Array.isArray(options.bundledExtensionRoots) ? options.bundledExtensionRoots.filter(Boolean) : [];
   void recoverAgentProcesses().catch(() => undefined);
+  void reconcileOrphanRuns().catch(() => undefined);
   const adapterFactories = {
     opencode: createOpenCodeAdapter,
     codex: createCodexAdapter,
@@ -134,20 +377,22 @@ export function createPersonalAgentRuntime(options) {
     ...injectedAdapters,
   };
 
-  function adapterFactoryForProvider(provider) {
+  function adapterFactoryForProvider(provider, agent = null) {
     if (Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) return adapterFactories[provider];
     if (provider === "remote") return createRemoteAcpAdapter;
     if (provider === "hermes" || provider === "opencode" || provider === "openclaw" || provider === "codex" || provider === "claude") return createGenericAcpAdapter;
+    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return createGenericAcpAdapter;
     return adapterFactories[provider];
   }
 
-  function defaultConnectionMode(provider) {
+  function defaultConnectionMode(provider, agent = null) {
     if (provider === "opencode") return "OpenCode ACP session";
     if (provider === "codex") return "Codex ACP session";
     if (provider === "hermes") return "Hermes ACP session";
     if (provider === "claude") return "Claude Code ACP session";
     if (provider === "openclaw") return "OpenClaw ACP session";
     if (provider === "remote") return "Remote ACP WebSocket session";
+    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return "Custom ACP session";
     return "本地 Agent harness session";
   }
 
@@ -173,7 +418,8 @@ export function createPersonalAgentRuntime(options) {
       errorInfo: state.errorInfo,
       approvalMode: state.approvalMode,
       pendingApprovals: state.pendingApprovals,
-      artifacts: state.artifacts ?? [],
+      artifacts: visibleArtifacts(state.artifacts),
+      fileChanges: [...(state.fileChanges ?? [])],
     };
     const lines = [meta, ...state.events].map((entry) => JSON.stringify(entry)).join("\n");
     if (!state.logPath) return;
@@ -217,7 +463,8 @@ export function createPersonalAgentRuntime(options) {
       errorInfo: state.errorInfo,
       approvalMode: state.approvalMode,
       pendingApprovals: [...(state.pendingApprovals ?? [])],
-      artifacts: [...(state.artifacts ?? [])],
+      artifacts: visibleArtifacts(state.artifacts),
+      fileChanges: [...(state.fileChanges ?? [])],
     };
   }
 
@@ -235,6 +482,91 @@ export function createPersonalAgentRuntime(options) {
       };
     }
     return { runId: String(input ?? "").trim(), workspaceRoot: "" };
+  }
+
+  function isProcessAlive(pid) {
+    const n = Number(pid);
+    if (!n) return false;
+    try {
+      process.kill(n, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // A log whose run_meta is still "running" but has no active runtime record
+  // (in-memory runs Map) is an orphan produced by a previous process session
+  // that died/restarted mid-run. Persist it as "failed" so the UI stops
+  // reporting the misleading "本地 Agent 运行状态已丢失 / timeout" error and
+  // future restores read a clean, finalized log.
+  async function finalizeStaleRunLog(logPath, meta) {
+    try {
+      const content = await readFile(logPath, "utf8");
+      const lines = content.split(/\r?\n/).filter((line) => line.trim());
+      const finalizedMeta = {
+        ...meta,
+        status: "failed",
+        finishedAt: Date.now(),
+        debugSummary: "orphaned run: persisted log still 'running' but no active runtime record after process restart (patched by reconcile)",
+        errorInfo: {
+          code: "orphaned",
+          message: "该 run 因主进程重启/崩溃而中断：恢复时已无对应的活跃执行记录，属历史残留（孤儿 run），并未真正执行失败。",
+          debug: "run existed only in persisted log; active runtime state was missing after process restart",
+        },
+      };
+      let changed = false;
+      const outLines = lines.map((line) => {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed?.type === "run_meta") {
+            changed = true;
+            return JSON.stringify(finalizedMeta);
+          }
+        } catch {
+          // Keep non-JSON / corrupt lines as-is.
+        }
+        return line;
+      });
+      if (!changed) return;
+      outLines.push(JSON.stringify({ type: "error", text: finalizedMeta.errorInfo.message, at: Date.now() }));
+      await writeFile(logPath, `${outLines.join("\n")}\n`, "utf8");
+    } catch {
+      // Best effort: never block run restore on a log write failure.
+    }
+  }
+
+  const reconcileCutoffMs = Date.now();
+  // On startup, reconcile every persisted run log across all workspaces and
+  // finalize any orphaned "running" runs (process is already gone) the previous
+  // process session left behind.
+  async function reconcileOrphanRuns() {
+    const reconcileCutoff = reconcileCutoffMs;
+    const root = personalAgentRuntimeStateRoot();
+    const workspacesRoot = path.join(root, "personal-assistant", "workspaces");
+    const workspaces = await readdir(workspacesRoot).catch(() => []);
+    for (const workspace of workspaces) {
+      const runsDir = path.join(workspacesRoot, workspace, "runs");
+      const files = await readdir(runsDir).catch(() => []);
+      for (const file of files) {
+        if (!file.endsWith(".jsonl")) continue;
+        const filePath = path.join(runsDir, file);
+        let meta = null;
+        try {
+          const firstLine = (await readFile(filePath, "utf8")).split(/\r?\n/).find((line) => line.trim());
+          if (firstLine) meta = JSON.parse(firstLine);
+        } catch {
+          continue;
+        }
+        if (!meta || meta.type !== "run_meta" || meta.status !== "running") continue;
+        // Skip live runs owned by the in-memory Map (may still have pid=null while adapter spawns).
+        const startedAt = Number(meta.startedAt ?? meta.at ?? 0);
+        if (startedAt && startedAt >= reconcileCutoff) continue;
+        if (runs.has(meta.runId)) continue;
+        if (isProcessAlive(meta.pid)) continue;
+        await finalizeStaleRunLog(filePath, meta);
+      }
+    }
   }
 
   function snapshotFromLog(workspaceRoot, id) {
@@ -267,6 +599,12 @@ export function createPersonalAgentRuntime(options) {
       }
     }
     if (!meta) return null;
+    // Finalized orphaned runs (previous process crashed mid-run) must be
+    // invisible to the UI: they carry a misleading "failed / orphaned" status
+    // that reappears every time the renderer polls a stale runId cached in
+    // localStorage. Returning null lets status() fall through to legacy /
+    // not-found, and pollRun then clears the stale activeRunId.
+    if (meta.status === "failed" && meta.errorInfo?.code === "orphaned") return null;
     const assistantText = events
       .filter((event) => event.type === "assistant")
       .map((event) => String(event.text ?? "").trim())
@@ -274,18 +612,14 @@ export function createPersonalAgentRuntime(options) {
       .join("\n")
       .trim();
     const staleRunning = meta.status === "running";
-    const status = staleRunning ? "failed" : meta.status;
-    const errorInfo = staleRunning
-      ? {
-          code: "timeout",
-          message: "本地 Agent 运行状态已丢失：页面恢复时主进程已没有该 run 的活跃执行记录。",
-          debug: "run existed only in persisted log; active runtime state was missing",
-        }
-      : (meta.errorInfo ?? null);
-    const error = staleRunning ? errorInfo.message : (meta.errorInfo?.message ?? null);
-    const restoredEvents = staleRunning
-      ? [...events, { type: "error", text: errorInfo.message, at: Date.now() }]
-      : events;
+    if (staleRunning) {
+      if (logPath) void finalizeStaleRunLog(logPath, meta);
+      return null;
+    }
+    const status = meta.status;
+    const errorInfo = meta.errorInfo ?? null;
+    const error = errorInfo?.message ?? null;
+    const restoredEvents = events;
     return {
       ok: status === "completed",
       runId: meta.runId ?? id,
@@ -294,7 +628,7 @@ export function createPersonalAgentRuntime(options) {
       connectionMode: meta.connectionMode ?? "本地 Agent harness session",
       status,
       startedAt: meta.startedAt ?? null,
-      finishedAt: staleRunning ? Date.now() : (meta.finishedAt ?? null),
+      finishedAt: meta.finishedAt ?? null,
       pid: meta.pid ?? null,
       command: meta.command ?? "",
       output: assistantText,
@@ -307,11 +641,12 @@ export function createPersonalAgentRuntime(options) {
       metadata: meta.metadata ?? null,
       workdir: meta.workdir ?? null,
       conversationId: meta.conversationId ?? null,
-      debugSummary: staleRunning ? errorInfo.debug : (meta.debugSummary ?? null),
+      debugSummary: meta.debugSummary ?? null,
       errorInfo,
       approvalMode: meta.approvalMode ?? "ask",
-      pendingApprovals: staleRunning ? [] : (Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : []),
-      artifacts: Array.isArray(meta.artifacts) ? meta.artifacts : [],
+      pendingApprovals: Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : [],
+      artifacts: visibleArtifacts(meta.artifacts),
+      fileChanges: Array.isArray(meta.fileChanges) ? [...meta.fileChanges] : [],
     };
   }
 
@@ -419,7 +754,7 @@ export function createPersonalAgentRuntime(options) {
 
   async function start(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) {
       return legacy.start(input);
     }
@@ -438,7 +773,7 @@ export function createPersonalAgentRuntime(options) {
       runId: id,
       agentId,
       agentProvider: provider,
-      connectionMode: defaultConnectionMode(provider),
+      connectionMode: defaultConnectionMode(provider, detected),
       status: "running",
       workspaceRoot,
       accessibleWorkspaceRoots,
@@ -468,6 +803,7 @@ export function createPersonalAgentRuntime(options) {
       timedOut: false,
       cancelRequested: null,
       artifacts: [],
+      fileChanges: [],
     };
     runs.set(id, state);
     appendContractEvent(events, { type: "status", text: `${provider} ACP flow started` });
@@ -489,7 +825,7 @@ export function createPersonalAgentRuntime(options) {
         const tool = await ensureManagedAcpTool(provider);
         detected.executablePath = tool.binPath;
         detected.managedAcpTool = tool;
-        detected.connectionMode = defaultConnectionMode(provider);
+        detected.connectionMode = defaultConnectionMode(provider, detected);
         appendContractEvent(events, { type: "status", text: `${provider} managed ACP tool ready: ${tool.id}@${tool.version}` });
       } catch (error) {
         state.status = "failed";
@@ -532,7 +868,8 @@ export function createPersonalAgentRuntime(options) {
           ...ctx,
           appendEvent: (event) => {
             state.updatedAt = Date.now();
-            const normalized = appendContractEvent(events, event);
+            const sanitized = sanitizeAcpToolCallEvent(event);
+            const normalized = appendContractEvent(events, sanitized);
             const pidMatch = normalized?.type === "log" ? String(normalized.text ?? "").match(/^pid\s+(\d+)$/) : null;
             if (pidMatch) {
               state.pid = Number(pidMatch[1]);
@@ -550,6 +887,14 @@ export function createPersonalAgentRuntime(options) {
             if (normalized?.type === "artifact") {
               const payload = /** @type {any} */ (normalized).artifact ?? normalized.text ?? normalized;
               recordArtifact(state, payload, "adapter");
+            }
+            if (normalized?.type === "tool") {
+              const toolCall = /** @type {any} */ (normalized).toolCall ?? null;
+              recordFileChangeFromToolCall(state, toolCall);
+            }
+            if (normalized?.type === "acp_tool_call") {
+              const update = /** @type {any} */ (normalized).update ?? null;
+              recordFileChangeFromAcpUpdate(state, update);
             }
             markBootReady();
             void persistRun(state);
@@ -632,6 +977,9 @@ export function createPersonalAgentRuntime(options) {
         }
         if (state.status !== "running" || state.cancelRequested) return;
         state.outputParts.push(result.output);
+        for (const relPath of extractAssistantArtifactPaths(result.output)) {
+          recordArtifact(state, { path: relPath }, "assistant");
+        }
         state.command = result.command;
         state.providerSessionId = result.providerSessionId;
         state.resumeKey = result.resumeKey;
@@ -676,7 +1024,6 @@ export function createPersonalAgentRuntime(options) {
           stopReason: result.metadata?.stopReason ?? null,
           truncated: Boolean(result.metadata?.truncated),
         });
-        harvestArtifactsFromText(state, result.output, "assistant");
         state.updatedAt = Date.now();
         state.status = "completed";
         state.error = null;
@@ -728,7 +1075,7 @@ export function createPersonalAgentRuntime(options) {
 
   async function run(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
-    if (!adapterFactoryForProvider(agent.provider)) return legacy.run(input);
+    if (!adapterFactoryForProvider(agent.provider, agent)) return legacy.run(input);
     const started = await start(input);
     return await new Promise((resolve) => {
       const poll = () => {
@@ -776,7 +1123,9 @@ export function createPersonalAgentRuntime(options) {
     }
     const restored = snapshotFromLog(workspaceRoot, id);
     if (restored) return restored;
-    return legacy.status(id);
+    const legacyResult = legacy.status(id);
+    if (legacyResult?.status === "missing") return null;
+    return legacyResult;
   }
 
   async function cancel(id, options = {}) {
@@ -794,7 +1143,7 @@ export function createPersonalAgentRuntime(options) {
         await state.cancelHandler();
       } else {
         const ctx = await runtimeContext();
-        const adapterFactory = adapterFactoryForProvider(state.agentProvider);
+        const adapterFactory = adapterFactoryForProvider(state.agentProvider, state.agent ?? null);
         if (!adapterFactory) return legacy.cancel(id);
         const adapter = adapterFactory({ ...ctx, appendEvent: (event) => appendContractEvent(state.events, event) });
         await adapter.cancel({ runId: state.runId, workspaceRoot: state.workspaceRoot, agent: { id: state.agentId, provider: state.agentProvider } });
@@ -865,6 +1214,45 @@ export function createPersonalAgentRuntime(options) {
     return { conversation };
   }
 
+  // Cross-agent lookup by id (ignores the provider/agentId partition). Lets
+  // the UI open any conversation — channel-bound ones live under scoped
+  // agents not in the ACP list, and restored sessions may come from anywhere.
+  async function getAgentConversationById(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const conversationId = String(input.conversationId ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    if (!conversationId) throw new Error("conversationId is required");
+    const conversation = await getConversationById(workspaceRoot, conversationId);
+    return { conversation };
+  }
+
+  // All source:"channel" conversations across the workspace, for the Studio
+  // "Channel sessions" group.
+  async function listAgentChannelConversations(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return listChannelConversations(workspaceRoot);
+  }
+
+  // Aggregate the agent's normal sessions and its communication-channel
+  // sessions (`source:"channel"`) into a single conversation list, so the
+  // local-agent dropdown shows every session for the selected agent.
+  async function listAgentConversationsByProvider(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return listConversationsByProvider(workspaceRoot, agent.provider, agent.id);
+  }
+
+  // Import an archived session's messages as a local transcript so the local
+  // agent view can render its history (used by "resume from archive").
+  async function importAgentConversationFromArchive(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    return importConversationFromArchive(workspaceRoot, agent.provider, agent.id, input);
+  }
+
   async function warmupConversation(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
@@ -872,14 +1260,14 @@ export function createPersonalAgentRuntime(options) {
     const detected = await legacy.detectAgent(agent, workspaceRoot);
     const provider = detected.provider ?? agent.provider;
     const agentId = detected.id ?? agent.id ?? provider;
-    const adapterFactory = adapterFactoryForProvider(provider);
+    const adapterFactory = adapterFactoryForProvider(provider, detected);
     if (!adapterFactory) return { ok: false, unsupportedReason: "adapter_not_supported" };
     if (detected.status !== "online") return { ok: false, error: detected.error || `${detected.name ?? provider} is not online` };
     if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
       const tool = await ensureManagedAcpTool(provider);
       detected.executablePath = tool.binPath;
       detected.managedAcpTool = tool;
-      detected.connectionMode = defaultConnectionMode(provider);
+      detected.connectionMode = defaultConnectionMode(provider, detected);
     }
     const conversation = await getOrCreateConversation(workspaceRoot, provider, agentId, input.conversationId);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
@@ -897,11 +1285,35 @@ export function createPersonalAgentRuntime(options) {
         model: input.model ?? detected.model,
         approvalMode: normalizeApprovalMode(input.approvalMode),
       });
+      // Persist warmup-derived ACP session metadata (available_commands,
+      // available models, config options) so listAgents can hydrate the
+      // handshake before the user sends a message. codex-acp publishes
+      // available_commands asynchronously after newSession returns; without
+      // this the slash-menu is empty on cold agent switches and only
+      // populated after the first message triggers a live event stream.
+      const warmSessionMetadata = warmed.sessionMetadata && typeof warmed.sessionMetadata === "object"
+        ? warmed.sessionMetadata
+        : null;
+      if (warmSessionMetadata) {
+        try {
+          const priorSession = await readSession(workspaceRoot, provider, agentId).catch(() => ({}));
+          await writeSession(workspaceRoot, provider, agentId, {
+            ...(priorSession && typeof priorSession === "object" ? priorSession : {}),
+            sessionId: warmed.sessionId ?? warmed.providerSessionId ?? priorSession?.sessionId ?? "",
+            workdir: warmed.workdir ?? priorSession?.workdir ?? conversation.workdir ?? null,
+            sessionMetadata: warmSessionMetadata,
+            handshakeAt: Date.now(),
+          });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.warn(`[personal-agent-runtime] warmup session-store write failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       const updated = await updateConversation(workspaceRoot, provider, agentId, conversation.id, {
         providerSessionId: warmed.providerSessionId ?? warmed.sessionId ?? conversation.providerSessionId,
         resumeKey: warmed.resumeKey ?? warmed.providerSessionId ?? warmed.sessionId ?? conversation.resumeKey,
         workdir: warmed.workdir ?? conversation.workdir,
-        metadata: { ...(conversation.metadata ?? {}), warmupAt: Date.now(), warmupStatus: "ready" },
+        metadata: { ...(conversation.metadata ?? {}), warmupAt: Date.now(), warmupStatus: "ready", sessionMetadata: warmSessionMetadata },
       });
       return { ok: true, conversation: updated, providerSessionId: updated.providerSessionId, resumeKey: updated.resumeKey };
     } catch (error) {
@@ -909,84 +1321,12 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  async function sideQuestion(input = {}) {
-    const prompt = String(input.prompt ?? "").trim();
-    if (!prompt) return { ok: false, error: "prompt is required" };
-
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const conversationId = String(input.conversationId ?? "").trim();
-    if (!workspaceRoot) return { ok: false, error: "workspaceRoot is required" };
-
-    // Find the active or most-recent main run for this conversation so the side
-    // question is sent to the same provider session, not an independent run/session.
-    let activeRun = null;
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline) {
-      const candidates = [...runs.values()].filter((state) => (
-        state.workspaceRoot === workspaceRoot
-        && state.agentProvider === agent.provider
-        && state.agentId === agent.id
-        && state.conversationId === conversationId
-        && state.providerSessionId
-      ));
-      activeRun = candidates.find((state) => state.status === "running")
-        || candidates.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0];
-      if (activeRun) break;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    if (!activeRun) {
-      return { ok: false, error: "no active run session to attach side question to" };
-    }
-
-    const detected = await legacy.detectAgent(agent, workspaceRoot);
-    if (detected.status !== "online") {
-      return { ok: false, error: detected.error || `${detected.name ?? agent.provider} is not online` };
-    }
-
-    try {
-      const ctx = await runtimeContext();
-      const adapterFactory = adapterFactoryForProvider(agent.provider);
-      if (!adapterFactory) return { ok: false, error: `No adapter for ${agent.provider}` };
-      const adapter = adapterFactory({
-        ...ctx,
-        appendEvent: () => undefined,
-        registerCancel: () => undefined,
-        requestApproval: () => ({ decision: "decline" }),
-        approvalMode: normalizeApprovalMode(input.approvalMode),
-      });
-      const result = normalizeAdapterResult(await adapter.sendMessage({
-        runId: `side-${activeRun.runId}-${Date.now()}`,
-        workspaceRoot,
-        accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(input.accessibleWorkspaceRoots, workspaceRoot),
-        conversationId,
-        providerSessionId: activeRun.providerSessionId,
-        resumeKey: activeRun.resumeKey,
-        conversationWorkdir: activeRun.workdir,
-        agent: detected,
-        model: input.model ?? detected.model,
-        prompt,
-        approvalMode: normalizeApprovalMode(input.approvalMode),
-      }));
-      const sideRun = {
-        ...snapshot(activeRun),
-        runId: `side-${activeRun.runId}`,
-        output: result.output,
-        status: "completed",
-        finishedAt: Date.now(),
-        metadata: { ...(activeRun.metadata ?? {}), sideQuestion: true },
-      };
-      return { ok: true, run: sideRun, runId: sideRun.runId };
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) };
-    }
-  }
 
   async function listAgentProviderSessions(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.listSessions !== "function") return { sessions: [], unsupportedReason: "session_list_not_supported" };
@@ -997,18 +1337,31 @@ export function createPersonalAgentRuntime(options) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.loadSession !== "function") throw new Error(`${agent.provider} does not support session/load`);
     const loaded = await adapter.loadSession({ ...input, workspaceRoot, agent });
-    const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
-      title: input.title ?? `Loaded ${loaded.sessionId}`,
-      providerSessionId: loaded.sessionId,
-      resumeKey: loaded.sessionId,
-      source: "provider-session-load",
-      metadata: loaded.raw ?? null,
-    });
+    const sessionId = loaded.sessionId || input.providerSessionId || input.resumeKey;
+    // Reuse an existing conversation with the same providerSessionId instead
+    // of always creating a duplicate. This preserves previously persisted
+    // events (e.g. imported from archive) so the user sees the full history.
+    let conversation = null;
+    if (sessionId) {
+      const listed = await listConversations(workspaceRoot, agent.provider, agent.id);
+      conversation = listed.conversations.find(
+        (item) => item.providerSessionId === sessionId || item.resumeKey === sessionId,
+      ) ?? null;
+    }
+    if (!conversation) {
+      conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
+        title: input.title ?? `Loaded ${loaded.sessionId}`,
+        providerSessionId: loaded.sessionId,
+        resumeKey: loaded.sessionId,
+        source: "provider-session-load",
+        metadata: loaded.raw ?? null,
+      });
+    }
     if (Array.isArray(loaded.conversationMessages) && loaded.conversationMessages.length) {
       await writeConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id, [], loaded.conversationMessages);
     }
@@ -1021,7 +1374,7 @@ export function createPersonalAgentRuntime(options) {
     const sessionId = String(input.sessionId ?? input.providerSessionId ?? input.resumeKey ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
     if (!sessionId) throw new Error("sessionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.closeSession !== "function") throw new Error(`${agent.provider} does not support session/close`);
@@ -1055,7 +1408,7 @@ export function createPersonalAgentRuntime(options) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.forkSession !== "function") throw new Error(`${agent.provider} does not support session/fork`);
@@ -1076,7 +1429,7 @@ export function createPersonalAgentRuntime(options) {
     const optionId = String(input.optionId ?? input.configOptionId ?? input.id ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
     if (!optionId) throw new Error("optionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider);
+    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.setConfigOption !== "function") throw new Error(`${agent.provider} does not support config/set`);
@@ -1110,7 +1463,10 @@ export function createPersonalAgentRuntime(options) {
       running: Boolean(activeRun),
       status: activeRun?.status ?? conversation?.lastStatus ?? "idle",
       events: activeRun ? activeRun.events : persisted.events,
-      conversationMessages: activeRun ? runEventsToConversationMessages(activeRun.events) : persisted.messages,
+      // Always re-derive from events so contract.mjs updates (e.g. approval_decision merging) apply to historical conversations without a rewrite.
+      conversationMessages: activeRun
+        ? runEventsToConversationMessages(activeRun.events)
+        : (Array.isArray(persisted.events) && persisted.events.length ? runEventsToConversationMessages(persisted.events) : persisted.messages),
     };
   }
 
@@ -1135,15 +1491,47 @@ export function createPersonalAgentRuntime(options) {
     return resolveApproval({ ...input, runId: statusResult.activeRun.runId, approvalId });
   }
 
+  async function loadExtensionAdapters() {
+    try {
+      const { enabledAdapters } = await loadExtensions({ bundledRoots: bundledExtensionRoots });
+      return enabledAdapters.map((adapter) => adapterToCustomAgent(adapter));
+    } catch {
+      return [];
+    }
+  }
+
   async function listAgents(input = {}) {
     const result = await legacy.listAgents(input);
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     const customAgents = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
-    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents];
+    const extensionAgents = await loadExtensionAdapters();
+    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
+    // Hydrate ACP session metadata cached from the last warmup so the
+    // handshake exposes available_commands / config options / models before
+    // the user sends a message. Falls back to the raw agent when the
+    // session-store has nothing for that provider/agent yet.
+    const hydratedAgents = workspaceRoot
+      ? await Promise.all(agents.map(async (agent) => {
+          const provider = String(agent?.provider ?? "").trim();
+          const agentId = String(agent?.id ?? provider).trim();
+          if (!provider || !agentId) return agent;
+          try {
+            const stored = await readSession(workspaceRoot, provider, agentId);
+            const meta = stored?.sessionMetadata;
+            if (!meta || typeof meta !== "object") return agent;
+            const nextAvailableCommands = Array.isArray(meta.availableCommands) && meta.availableCommands.length
+              ? meta.availableCommands
+              : (Array.isArray(agent?.availableCommands) ? agent.availableCommands : []);
+            return { ...agent, sessionMetadata: meta, availableCommands: nextAvailableCommands };
+          } catch {
+            return agent;
+          }
+        }))
+      : agents;
     return {
       ...result,
-      agents,
-      metadata: personalAgentMetadataList(agents),
+      agents: hydratedAgents,
+      metadata: personalAgentMetadataList(hydratedAgents),
     };
   }
 
@@ -1175,7 +1563,12 @@ export function createPersonalAgentRuntime(options) {
   }
 
   async function listAvailableAgentMetadata(input = {}) {
-    const result = await legacy.listAgents(input);
+    // Reuse the hydrated listAgents pipeline so ACP handshake commands /
+    // models / config options captured during warmup are exposed to the
+    // renderer via handshake.available_commands. Directly calling
+    // `legacy.listAgents` would return raw agent objects and drop the
+    // session-store hydration.
+    const result = await listAgents(input);
     const agents = Array.isArray(result?.agents) ? result.agents : [];
     return { agents: personalAgentAvailableMetadataList(agents) };
   }
@@ -1314,6 +1707,40 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
+  // Test a custom agent configuration before saving.
+  // Runs a two-step ACP probe (CLI spawn -> initialize -> session/new) with
+  // the provided command/args/env and returns a three-state result:
+  // success / fail_cli / fail_acp.
+  async function testCustomAgent(input = {}) {
+    const command = String(input.command ?? "").trim();
+    if (!command) {
+      return { step: "fail_cli", error: "command is required", durationMs: 0 };
+    }
+    const args = Array.isArray(input.args) ? input.args.filter(Boolean) : [];
+    const acpArgs = Array.isArray(input.acpArgs) ? input.acpArgs.filter(Boolean) : [];
+    const env = input.env && typeof input.env === "object" && !Array.isArray(input.env) ? input.env : {};
+    const timeoutMs = Math.max(1000, Math.min(30000, Number(input.timeoutMs) || 8000));
+    const cwd = String(input.cwd ?? process.cwd()).trim();
+    const startedAt = Date.now();
+    try {
+      const probe = await probeAcpCommand({ command, args: acpArgs.length > 0 ? acpArgs : args, cwd, timeoutMs, env });
+      const durationMs = Date.now() - startedAt;
+      // Map probeAcpCommand's 4-state result to the 3-state contract:
+      // - "online" -> "success"
+      // - "fail_cli" -> "fail_cli"
+      // - "fail_acp" -> "fail_acp"
+      // - "needs_auth" -> "fail_acp" (auth error is still an ACP-layer issue)
+      const step = probe.step === "online" ? "success" : probe.step === "needs_auth" ? "fail_acp" : probe.step;
+      return { step, error: probe.error ?? null, durationMs };
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      const message = error instanceof Error ? error.message : String(error);
+      // Spawn errors are CLI-layer; JSON-RPC errors are ACP-layer.
+      const step = /ENOENT|spawn|command not found|not found/i.test(message) ? "fail_cli" : "fail_acp";
+      return { step, error: message, durationMs };
+    }
+  }
+
   async function checkProviderHealth(input = {}) {
     const checkedAt = Date.now();
     try {
@@ -1403,9 +1830,96 @@ export function createPersonalAgentRuntime(options) {
     return { models: [], configOptions: [] };
   }
 
+  async function getHostStatus(input = {}) {
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    const agent = input.agent ? await legacy.normalizeAgent(input.agent).catch(() => null) : null;
+    // Skill roots come from three sources (HR2-B):
+    // 1. per-provider defaults resolved against workspace + $HOME
+    //    (~/.codex/skills, ~/.claude/skills, ~/.opencode/skills, ~/.gemini)
+    // 2. explicit overrides on the agent metadata (native_skills_dirs)
+    // 3. additionalSkillRoots the caller wants scanned
+    const overrides = [];
+    if (agent) {
+      const metadata = personalAgentMetadataFromAgent(agent);
+      if (Array.isArray(metadata.native_skills_dirs)) overrides.push(...metadata.native_skills_dirs);
+    }
+    if (Array.isArray(input.additionalSkillRoots)) {
+      for (const root of input.additionalSkillRoots) {
+        if (typeof root === "string" && root.trim().length) overrides.push(root);
+      }
+    }
+    const nativeSkillsDirs = agent
+      ? await resolveNativeSkillRoots(agent, workspaceRoot, overrides)
+      : [];
+    // Live event stream + handshake commands feed the MCP view-model.
+    const status = agent && input.conversationId
+      ? await getConversationStatus({ workspaceRoot, agent, conversationId: input.conversationId }).catch(() => null)
+      : null;
+    const conversationMessages = status?.conversationMessages ?? [];
+    const availableCommands = (() => {
+      if (!agent) return [];
+      const metadata = personalAgentMetadataFromAgent(agent);
+      return Array.isArray(metadata.handshake?.available_commands) ? metadata.handshake.available_commands : [];
+    })();
+    const remembered = workspaceRoot ? await listRememberedApprovalDecisions(workspaceRoot) : [];
+    const nativeMcp = agent
+      ? await readNativeMcpConfig(agent, workspaceRoot).catch((error) => ({ servers: [], errors: [{ file: "<readNativeMcpConfig>", message: String(error?.message || error) }] }))
+      : { servers: [], errors: [] };
+    const [skill, liveMcp, permission] = await Promise.all([
+      buildSkillStatus({ nativeSkillsDirs }),
+      Promise.resolve(buildMcpStatus({ conversationMessages, availableCommands })),
+      Promise.resolve(buildPermissionStatus({
+        pendingApprovals: status?.activeRun?.pendingApprovals ?? [],
+        conversationMessages,
+        rememberedDecisions: remembered,
+      })),
+    ]);
+    // Merge config-file MCP servers with live tool-call observations.
+    // Config wins on transport; live wins on toolCount + connected.
+    const mergedByName = new Map();
+    for (const s of nativeMcp.servers) {
+      const key = String(s.name || "").toLowerCase();
+      if (!key) continue;
+      mergedByName.set(key, {
+        name: s.name,
+        transport: s.transport || s.type || null,
+        connected: false,
+        toolCount: 0,
+        source: s.source,
+        sourceFile: s.sourceFile,
+      });
+    }
+    for (const s of liveMcp.servers) {
+      const key = String(s.name || "").toLowerCase();
+      if (!key) continue;
+      const prev = mergedByName.get(key) || { name: s.name, transport: null, connected: true, toolCount: 0 };
+      mergedByName.set(key, {
+        ...prev,
+        transport: prev.transport || s.transport || null,
+        connected: true,
+        toolCount: (prev.toolCount || 0) + (s.toolCount || 0),
+      });
+    }
+    const mcp = {
+      servers: [...mergedByName.values()],
+      error: liveMcp.error || null,
+      sourceErrors: nativeMcp.errors,
+    };
+    return {
+      workspaceRoot,
+      agentId: agent?.id ?? null,
+      conversationId: status?.conversation?.id ?? input.conversationId ?? null,
+      skill,
+      mcp,
+      permission,
+    };
+  }
+
   return {
     listAgents,
     listAgentMetadata,
+    listExtensions: async () => loadExtensions({ bundledRoots: bundledExtensionRoots }),
+    setExtensionEnabled: async (input = {}) => setExtensionEnabled(String(input.name ?? input.extensionName ?? "").trim(), input.enabled !== false),
     listAcpAgents,
     refreshAcpAgents,
     acpHealth,
@@ -1416,11 +1930,13 @@ export function createPersonalAgentRuntime(options) {
     setConfigOption: setAgentConfigOption,
     createCustomAgent: createAgent,
     updateCustomAgent: updateAgent,
+    detectAvailableLocalAgents,
     deleteCustomAgent: deleteAgent,
     getAgentOverrides: async (input = {}) => getAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim()),
     setAgentOverrides: async (input = {}) => setAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim(), input.overrides ?? {}),
     listProcesses,
     testConnection,
+    testCustomAgent,
     checkProviderHealth,
     checkManagedAgentHealthById,
     validateAgent: legacy.detectAgent,
@@ -1433,8 +1949,11 @@ export function createPersonalAgentRuntime(options) {
     listConversations: listAgentConversations,
     createConversation: createAgentConversation,
     getConversation: getAgentConversation,
+    getConversationById: getAgentConversationById,
+    listChannelConversations: listAgentChannelConversations,
+    listConversationsByProvider: listAgentConversationsByProvider,
+    importConversationFromArchive: importAgentConversationFromArchive,
     warmupConversation,
-    sideQuestion,
     listProviderSessions: listAgentProviderSessions,
     loadProviderSession: loadAgentProviderSession,
     closeProviderSession: closeAgentProviderSession,
@@ -1442,6 +1961,7 @@ export function createPersonalAgentRuntime(options) {
     getConversationStatus,
     listConversationConfirmations,
     confirmConversationConfirmation,
+    getHostStatus,
     classifyErrorForTest: classifyErrorInfo,
     buildErrorTipForTest: buildErrorTip,
   };

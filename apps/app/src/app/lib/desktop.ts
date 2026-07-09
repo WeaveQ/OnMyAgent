@@ -49,10 +49,6 @@ import type {
   CodeWorkspaceFileEntry,
 } from "./desktop-types";
 import type {
-  AgentManagementSetProviderInput,
-  AgentManagementSetProviderResult,
-  AgentManagementSetProxyInput,
-  AgentManagementSetProxyResult,
   AgentManagementProviderActionInput,
   AgentManagementProviderActionResult,
   AgentManagementFetchModelsInput,
@@ -73,16 +69,26 @@ import type {
   PersonalLocalAgentCustomAgentInput,
   PersonalLocalAgentCustomAgentResult,
   PersonalLocalAgentDeleteCustomAgentResult,
+  PersonalLocalAgentDetectResult,
+  PersonalLocalAgentDetectAvailableAgent,
+  PersonalLocalAgentExtensionListResult,
+  PersonalLocalAgentExtensionSetEnabledResult,
   PersonalLocalAgentOverridesResult,
   PersonalLocalAgentConversationConfirmationsResult,
   PersonalLocalAgentConversationGetResult,
+  PersonalLocalAgentConversationGetByIdResult,
+  PersonalLocalAgentChannelConversationsListResult,
+  PersonalLocalAgentConversationsListByProviderResult,
+  PersonalLocalAgentConversationImportInput,
+  PersonalLocalAgentConversationImportResult,
   PersonalLocalAgentConversationInput,
   PersonalLocalAgentConversationStatusResult,
   PersonalLocalAgentConversationWarmupResult,
-  PersonalLocalAgentSideQuestionResult,
   PersonalLocalAgentConversationTranscriptInput,
   PersonalLocalAgentConversationTranscriptResult,
   PersonalLocalAgentConversationsListResult,
+  PersonalLocalAgentHostStatusInput,
+  PersonalLocalAgentHostStatusResult,
   PersonalLocalAgentHeartbeatCreateInput,
   PersonalLocalAgentHeartbeatCreateResult,
   PersonalLocalAgentHeartbeatDeleteInput,
@@ -926,6 +932,35 @@ export function personalLocalAgentAcpHealth(input?: {
   );
 }
 
+export type LocalAgentComposerFileEntry = {
+  path: string;
+  relativePath: string;
+  name: string;
+  isDirectory: boolean;
+};
+
+export function localAgentComposerListFiles(input: {
+  workspaceRoot: string;
+  query?: string;
+  limit?: number;
+}): Promise<{ files: LocalAgentComposerFileEntry[] }> {
+  return invokeElectronHelper<{ files: LocalAgentComposerFileEntry[] }>(
+    "localAgentComposerListFiles",
+    input,
+  );
+}
+
+export function localAgentComposerSaveAttachment(input: {
+  workspaceRoot: string;
+  name: string;
+  dataUrl: string;
+}): Promise<{ path: string; relativePath: string; name: string; size: number }> {
+  return invokeElectronHelper<{ path: string; relativePath: string; name: string; size: number }>(
+    "localAgentComposerSaveAttachment",
+    input,
+  );
+}
+
 export function personalLocalAgentAcpSend(
   input: PersonalLocalAgentRunInput,
 ): Promise<PersonalLocalAgentRunResult> {
@@ -991,6 +1026,26 @@ export function personalLocalAgentDeleteCustomAgent(input: {
   return invokeElectronHelper<PersonalLocalAgentDeleteCustomAgentResult>("personalLocalAgentDeleteCustomAgent", input);
 }
 
+export function personalLocalAgentDetectAvailableAgents(input: {
+  workspaceRoot: string;
+  existingIds?: string[];
+}): Promise<PersonalLocalAgentDetectResult> {
+  return invokeElectronHelper<PersonalLocalAgentDetectResult>("personalLocalAgentDetectAvailableAgents", input);
+}
+
+
+export function personalLocalAgentListExtensions(): Promise<PersonalLocalAgentExtensionListResult> {
+  return invokeElectronHelper<PersonalLocalAgentExtensionListResult>("personalLocalAgentExtensionsList", {});
+}
+
+export function personalLocalAgentSetExtensionEnabled(input: {
+  name: string;
+  enabled: boolean;
+}): Promise<PersonalLocalAgentExtensionSetEnabledResult> {
+  return invokeElectronHelper<PersonalLocalAgentExtensionSetEnabledResult>("personalLocalAgentExtensionSetEnabled", input);
+}
+
+
 export function personalLocalAgentGetAgentOverrides(input: {
   workspaceRoot: string;
   id: string;
@@ -1039,6 +1094,25 @@ export function personalLocalAgentTestConnection(input: {
 }): Promise<PersonalLocalAgentTestConnectionResult> {
   return invokeElectronHelper<PersonalLocalAgentTestConnectionResult>(
     "personalLocalAgentTestConnection",
+    input,
+  );
+}
+
+export type PersonalLocalAgentTestCustomAgentResult = {
+  step: "success" | "fail_cli" | "fail_acp";
+  error: string | null;
+  durationMs: number;
+};
+
+export function personalLocalAgentTestCustomAgent(input: {
+  command: string;
+  acpArgs?: string[];
+  args?: string[];
+  env?: Record<string, string>;
+  timeoutMs?: number;
+}): Promise<PersonalLocalAgentTestCustomAgentResult> {
+  return invokeElectronHelper<PersonalLocalAgentTestCustomAgentResult>(
+    "personalLocalAgentTestCustomAgent",
     input,
   );
 }
@@ -1151,6 +1225,42 @@ export function personalLocalAgentConversationGet(
   );
 }
 
+export function personalLocalAgentConversationGetById(
+  input: { workspaceRoot: string; conversationId: string },
+): Promise<PersonalLocalAgentConversationGetByIdResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationGetByIdResult>(
+    "personalLocalAgentConversationGetById",
+    input,
+  );
+}
+
+export function personalLocalAgentChannelConversationsList(
+  input: { workspaceRoot: string },
+): Promise<PersonalLocalAgentChannelConversationsListResult> {
+  return invokeElectronHelper<PersonalLocalAgentChannelConversationsListResult>(
+    "personalLocalAgentChannelConversationsList",
+    input,
+  );
+}
+
+export function personalLocalAgentConversationsListByProvider(
+  input: PersonalLocalAgentConversationInput,
+): Promise<PersonalLocalAgentConversationsListByProviderResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationsListByProviderResult>(
+    "personalLocalAgentConversationsListByProvider",
+    input,
+  );
+}
+
+export function personalLocalAgentConversationImportFromArchive(
+  input: PersonalLocalAgentConversationImportInput,
+): Promise<PersonalLocalAgentConversationImportResult> {
+  return invokeElectronHelper<PersonalLocalAgentConversationImportResult>(
+    "personalLocalAgentConversationImportFromArchive",
+    input,
+  );
+}
+
 export function personalLocalAgentConversationStatus(
   input: PersonalLocalAgentConversationInput & { conversationId?: string | null },
 ): Promise<PersonalLocalAgentConversationStatusResult> {
@@ -1169,11 +1279,6 @@ export function personalLocalAgentConversationWarmup(
   );
 }
 
-export function personalLocalAgentSideQuestion(
-  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; prompt: string; approvalMode?: PersonalLocalAgentApprovalMode; model?: string | null },
-): Promise<PersonalLocalAgentSideQuestionResult> {
-  return invokeElectronHelper<PersonalLocalAgentSideQuestionResult>("personalLocalAgentSideQuestion", input);
-}
 
 export function personalLocalAgentProviderSessionsList(
   input: PersonalLocalAgentConversationInput,
@@ -1216,6 +1321,15 @@ export function personalLocalAgentConversationConfirmationsList(
 ): Promise<PersonalLocalAgentConversationConfirmationsResult> {
   return invokeElectronHelper<PersonalLocalAgentConversationConfirmationsResult>(
     "personalLocalAgentConversationConfirmationsList",
+    input,
+  );
+}
+
+export function personalLocalAgentHostStatus(
+  input: PersonalLocalAgentHostStatusInput,
+): Promise<PersonalLocalAgentHostStatusResult> {
+  return invokeElectronHelper<PersonalLocalAgentHostStatusResult>(
+    "personalLocalAgentHostStatus",
     input,
   );
 }
@@ -1532,23 +1646,6 @@ export function agentManagementSnapshot(input: {
   );
 }
 
-export function agentManagementSetProvider(
-  input: AgentManagementSetProviderInput,
-): Promise<AgentManagementSetProviderResult> {
-  return invokeElectronHelper<AgentManagementSetProviderResult>(
-    "agentManagementSetProvider",
-    input,
-  );
-}
-
-export function agentManagementSetProxy(
-  input: AgentManagementSetProxyInput,
-): Promise<AgentManagementSetProxyResult> {
-  return invokeElectronHelper<AgentManagementSetProxyResult>(
-    "agentManagementSetProxy",
-    input,
-  );
-}
 
 export function agentManagementProviderAction(
   input: AgentManagementProviderActionInput,
