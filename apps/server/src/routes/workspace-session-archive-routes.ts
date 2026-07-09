@@ -38,6 +38,59 @@ type SessionArchiveSyncJob = {
 
 const sessionArchiveSyncJobs = new Map<string, SessionArchiveSyncJob>();
 
+const SESSION_ARCHIVE_AUTO_SYNC_INTERVAL_MS = 5_000;
+
+function scheduleSessionArchiveAutoSync(input: {
+  workspace: WorkspaceInfo;
+  paths: SessionArchiveRuntimePaths;
+  sourceRoots?: SessionArchiveSourceRoot[];
+}): void {
+  const jobKey = sessionArchiveSyncJobKey(input.workspace.id, input.paths.dbPath);
+  const existing = sessionArchiveSyncJobs.get(jobKey);
+  if (existing?.status === "running") return;
+  if (existing?.finished_at) {
+    const finishedAtMs = Date.parse(existing.finished_at);
+    if (Number.isFinite(finishedAtMs) && Date.now() - finishedAtMs < SESSION_ARCHIVE_AUTO_SYNC_INTERVAL_MS) {
+      return;
+    }
+  }
+  const startedAt = new Date().toISOString();
+  const job: SessionArchiveSyncJob = {
+    status: "running",
+    started_at: startedAt,
+    finished_at: null,
+    progress: null,
+    stats: null,
+    error: null,
+    promise: Promise.resolve({ total_sessions: 0, synced: 0, skipped: 0, failed: 0 }),
+  };
+  job.promise = syncSessionArchive({
+    workspace: input.workspace,
+    paths: input.paths,
+    sourceRoots: input.sourceRoots,
+    mode: "incremental",
+    onProgress: (progress) => {
+      job.progress = progress;
+    },
+  })
+    .then((stats) => {
+      job.status = "completed";
+      job.finished_at = new Date().toISOString();
+      job.stats = stats;
+      return stats;
+    })
+    .catch((error: unknown) => {
+      job.status = "failed";
+      job.finished_at = new Date().toISOString();
+      job.error = error instanceof Error ? error.message : String(error);
+      job.stats = { total_sessions: 0, synced: 0, skipped: 0, failed: 1, warnings: [job.error], aborted: true };
+      return job.stats;
+    });
+  sessionArchiveSyncJobs.set(jobKey, job);
+  void job.promise;
+}
+
+
 export function registerWorkspaceSessionArchiveRoutes(input: {
   routes: Route[];
   config: ServerConfig;
@@ -70,6 +123,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const paths = resolveArchivePaths(workspace);
+    scheduleSessionArchiveAutoSync({ workspace, paths, sourceRoots });
     const store = await openSessionArchiveStore({ dbPath: paths.dbPath });
     try {
       return systemJsonResponse(store.listSessions({

@@ -1,11 +1,13 @@
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { feishuStatus, type MessagingChannelStatus, weixinStatus } from "../../../../../app/lib/desktop";
+import { feishuStatus, type MessagingChannelStatus, weixinStatus, weixinStart, weixinStop, feishuStart, feishuStop } from "../../../../../app/lib/desktop";
 import { t } from "../../../../../i18n";
 import {
   MESSAGING_CHANNELS,
@@ -44,7 +46,8 @@ function resolveMessagingChannels(statusByChannel: Record<MessagingChannel["id"]
       ...channel,
       status: isChannelConnected(runtimeStatus) ? "connected" as const : "unlinked" as const,
       stats: runtimeStats(runtimeStatus),
-    } satisfies MessagingChannel;
+      runtimeStatus,
+    } satisfies MessagingChannel & { runtimeStatus: MessagingChannelStatus | null };
   });
 }
 
@@ -65,116 +68,169 @@ function ChannelIcon(props: {
   return (
     <div
       className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-lg bg-dls-surface p-1.5",
-        props.connected ? "bg-dls-surface" : "bg-dls-icon-muted-bg",
+        "flex size-5 shrink-0 items-center justify-center rounded",
+        props.connected ? "" : "opacity-50",
       )}
     >
       <img
         src={resolvePublicAssetUrl(iconSrcByChannel[props.channelId])}
         alt=""
-        className={cn(
-          "size-full object-contain",
-          !props.connected && "opacity-35",
-        )}
+        className="size-full object-contain"
         draggable={false}
       />
     </div>
   );
 }
 
-function MessagingChannelCard(props: { channel: MessagingChannel; active: boolean; onSelect: () => void }) {
+// 折叠态头部：图标 + 名称 + 状态徽章 + 开关
+function CollapsibleChannelHeader(props: {
+  channel: MessagingChannel & { runtimeStatus: MessagingChannelStatus | null };
+  expanded: boolean;
+  enabled: boolean;
+  onToggleExpand: () => void;
+  onToggleEnabled: (enabled: boolean) => void;
+}) {
   const { channel } = props;
   const connected = channel.status === "connected";
+
   return (
-    <button
-      type="button"
-      className={cn(
-        "flex w-full flex-col rounded-lg border border-dls-border bg-dls-card p-3 text-left transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-        props.active && "border-dls-accent bg-dls-list-selected",
-      )}
-      onClick={props.onSelect}
+    <div
+      className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer hover:bg-dls-hover transition-colors"
+      onClick={props.onToggleExpand}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <ChannelIcon channelId={channel.id} connected={connected} />
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-medium text-dls-text">
-              {channel.name}
-            </h3>
-            <div className="mt-0.5 truncate text-xs text-dls-secondary">
-              {channel.subtitle}
-            </div>
+      {/* 左侧：图标 + 名称 + 状态 */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <ChannelIcon channelId={channel.id} connected={connected} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-dls-text truncate">{channel.name}</span>
+            <StatusBadge size="sm" tone={connected ? "accent" : "neutral"}>
+              {connected ? t("messaging.connected") : t("messaging.not_linked")}
+            </StatusBadge>
+          </div>
+          <div className="mt-0.5 text-xs text-dls-secondary truncate">
+            {channel.subtitle}
           </div>
         </div>
-        <StatusBadge size="default" tone={connected ? "accent" : "neutral"}>
-          {connected ? t("messaging.connected") : t("messaging.not_linked")}
-        </StatusBadge>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-1.5">
-        {channel.stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="min-w-0 rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5"
-          >
-            <div className="truncate text-xs text-dls-secondary">
-              {stat.label}
-            </div>
-            {stat.value ? (
-              <div className="mt-1 truncate text-xs font-medium text-dls-text">
-                {stat.value}
-              </div>
-            ) : null}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-dls-mist pt-2">
-        <div className="min-w-0 text-xs text-dls-secondary">
-          {t("messaging.channel_panel_config_hint")}
+
+      {/* 右侧：开关 + 展开/折叠箭头 */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={props.enabled}
+            onCheckedChange={props.onToggleEnabled}
+            disabled={!connected && !props.enabled}
+          />
         </div>
-        <ChevronRight className="size-4 shrink-0 text-dls-secondary" />
+        {props.expanded ? (
+          <ChevronDown className="size-4 text-dls-secondary" />
+        ) : (
+          <ChevronRight className="size-4 text-dls-secondary" />
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
-function MessagingChannelDetail(props: { channel: MessagingChannel; workspaceRoot?: string; onWeixinStatusChange?: (status: MessagingChannelStatus) => void; onFeishuStatusChange?: (status: MessagingChannelStatus) => void }) {
+// 展开态内容：配置表单 + 配对面板
+function CollapsibleChannelContent(props: {
+  channel: MessagingChannel & { runtimeStatus: MessagingChannelStatus | null };
+  workspaceRoot?: string;
+  onWeixinStatusChange?: (status: MessagingChannelStatus) => void;
+  onFeishuStatusChange?: (status: MessagingChannelStatus) => void;
+}) {
   return (
-    <section className="rounded-lg border border-dls-border bg-dls-card p-3">
-      <div className="mb-3 flex items-center justify-between gap-3 border-b border-dls-border pb-2.5">
-        <div className="flex min-w-0 items-center gap-3">
-          <ChannelIcon channelId={props.channel.id} connected={props.channel.status === "connected"} />
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-medium text-dls-text">{props.channel.name}</h3>
-            <p className="mt-1 truncate text-sm text-dls-secondary">{props.channel.subtitle}</p>
-          </div>
-        </div>
-        <StatusBadge tone={props.channel.status === "connected" ? "accent" : "neutral"}>
-          {props.channel.status === "connected" ? t("messaging.connected") : t("messaging.not_linked")}
-        </StatusBadge>
-      </div>
+    <div className="px-4 pb-4 pt-2 border-t border-dls-border">
+      {/* 配置提示 */}
       <div className="mb-3 rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
         {t("messaging.channel_panel_config_hint")}
       </div>
-      {props.channel.id === "wechat" ? <WeixinChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onWeixinStatusChange} /> : null}
-      {props.channel.id === "feishu" ? <FeishuChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onFeishuStatusChange} /> : null}
 
-      {/* Pairing & User Management Panel */}
+      {/* 渠道配置表单 */}
+      {props.channel.id === "wechat" ? (
+        <WeixinChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onWeixinStatusChange} />
+      ) : null}
+      {props.channel.id === "feishu" ? (
+        <FeishuChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onFeishuStatusChange} />
+      ) : null}
+
+      {/* 配对与用户管理面板 */}
       <div className="mt-4 pt-4 border-t border-dls-border">
-        <h4 className="text-sm font-medium text-dls-text mb-3">配对与用户管理</h4>
+        <h4 className="text-sm font-medium text-dls-text mb-3">{t("messaging.pairing_management")}</h4>
         <ChannelPairingPanel />
       </div>
-    </section>
+    </div>
+  );
+}
+
+// 可折叠的单个渠道项
+function CollapsibleChannelItem(props: {
+  channel: MessagingChannel & { runtimeStatus: MessagingChannelStatus | null };
+  expanded: boolean;
+  enabled: boolean;
+  workspaceRoot?: string;
+  onToggleExpand: () => void;
+  onToggleEnabled: (enabled: boolean) => void;
+  onWeixinStatusChange?: (status: MessagingChannelStatus) => void;
+  onFeishuStatusChange?: (status: MessagingChannelStatus) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-dls-border bg-dls-card overflow-hidden",
+        props.expanded && "border-dls-accent",
+      )}
+      data-channel-id={props.channel.id}
+      data-channel-status={props.channel.status}
+    >
+      <CollapsibleChannelHeader
+        channel={props.channel}
+        expanded={props.expanded}
+        enabled={props.enabled}
+        onToggleExpand={props.onToggleExpand}
+        onToggleEnabled={props.onToggleEnabled}
+      />
+      {props.expanded ? (
+        <CollapsibleChannelContent
+          channel={props.channel}
+          workspaceRoot={props.workspaceRoot}
+          onWeixinStatusChange={props.onWeixinStatusChange}
+          onFeishuStatusChange={props.onFeishuStatusChange}
+        />
+      ) : null}
+    </div>
   );
 }
 
 export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
-  const [selectedChannelId, setSelectedChannelId] = useState<MessagingChannel["id"]>("wechat");
+  // 折叠状态：true = 折叠，false = 展开
+  const [collapseKeys, setCollapseKeys] = useState<Record<string, boolean>>({
+    wechat: true,   // 默认折叠
+    feishu: true,
+  });
+
+  // 启用状态：true = 启用（服务运行），false = 禁用（服务停止）
+  const [enabledKeys, setEnabledKeys] = useState<Record<string, boolean>>({
+    wechat: false,
+    feishu: false,
+  });
+
   const [weixinRuntimeStatus, setWeixinRuntimeStatus] = useState<MessagingChannelStatus | null>(null);
   const [feishuRuntimeStatus, setFeishuRuntimeStatus] = useState<MessagingChannelStatus | null>(null);
+
   const channels = resolveMessagingChannels({ wechat: weixinRuntimeStatus, feishu: feishuRuntimeStatus });
-  const selectedChannel = channels.find((channel) => channel.id === selectedChannelId) ?? channels[0];
   const connectedCount = channels.filter((channel) => channel.status === "connected").length;
 
+  // 初始化时同步启用状态
+  useEffect(() => {
+    setEnabledKeys({
+      wechat: isChannelConnected(weixinRuntimeStatus),
+      feishu: isChannelConnected(feishuRuntimeStatus),
+    });
+  }, [weixinRuntimeStatus, feishuRuntimeStatus]);
+
+  // 获取运行状态
   useEffect(() => {
     let cancelled = false;
     void Promise.allSettled([weixinStatus(), feishuStatus()])
@@ -188,38 +244,106 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
       cancelled = true;
     };
   }, []);
+
+  // 切换折叠
+  const handleToggleCollapse = (channelId: string) => {
+    setCollapseKeys((prev) => ({
+      ...prev,
+      [channelId]: !prev[channelId],
+    }));
+  };
+
+  // 切换启用（启动/停止服务）
+  const handleToggleEnabled = async (channelId: string, enabled: boolean) => {
+    setEnabledKeys((prev) => ({
+      ...prev,
+      [channelId]: enabled,
+    }));
+
+    try {
+      if (channelId === "wechat") {
+        if (enabled) {
+          await weixinStart({});
+        } else {
+          await weixinStop();
+        }
+        // 启动/停止后刷新状态
+        const status = await weixinStatus();
+        setWeixinRuntimeStatus(status);
+      } else if (channelId === "feishu") {
+        if (enabled) {
+          await feishuStart({});
+        } else {
+          await feishuStop();
+        }
+        const status = await feishuStatus();
+        setFeishuRuntimeStatus(status);
+      }
+    } catch (error) {
+      // 失败时回滚状态
+      setEnabledKeys((prev) => ({
+        ...prev,
+        [channelId]: !enabled,
+      }));
+      console.error(`Failed to toggle ${channelId}:`, error);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <div className="w-full">
+          {/* 页面标题 */}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-            <h2 className={messagingTextClass.pageTitle}>
-              {t("messaging.title")}
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-dls-secondary">
-              {t("messaging.desc")}
-            </p>
+              <div className="flex items-center gap-2">
+                <h2 className={messagingTextClass.pageTitle}>
+                  {t("messaging.title")}
+                </h2>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger render={<button type="button" className="text-dls-secondary hover:text-dls-text transition-colors"><HelpCircle className="size-4" /></button>} />
+                    <TooltipContent side="bottom" className="max-w-sm">
+                      <div className="space-y-2 text-xs">
+                        <div className="font-medium">{t("messaging.command_help_title")}</div>
+                        <div className="text-dls-secondary">
+                          <div><span className="font-mono text-dls-text">#agent</span> - {t("messaging.command_help_agent")}</div>
+                          <div><span className="font-mono text-dls-text">#status</span> - {t("messaging.command_help_status")}</div>
+                          <div><span className="font-mono text-dls-text">#runs</span> - {t("messaging.command_help_runs")}</div>
+                          <div><span className="font-mono text-dls-text">#approve</span> - {t("messaging.command_help_approve")}</div>
+                          <div><span className="font-mono text-dls-text">#new</span> - {t("messaging.command_help_new")}</div>
+                          <div><span className="font-mono text-dls-text">#mode raw</span> / <span className="font-mono text-dls-text">#mode debug</span> - {t("messaging.command_help_mode")}</div>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-dls-secondary">
+                {t("messaging.desc")}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <StatusBadge tone="neutral">{t("messaging.channels_tab")} {channels.length}</StatusBadge>
               <StatusBadge tone={connectedCount > 0 ? "accent" : "neutral"}>{t("messaging.connected")} {connectedCount}</StatusBadge>
             </div>
           </div>
-          <div className="mt-4 grid min-h-0 grid-cols-1 gap-3 xl:grid-cols-3">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-1">
-              {channels.map((channel) => (
-                <MessagingChannelCard
-                  key={channel.id}
-                  channel={channel}
-                  active={selectedChannel.id === channel.id}
-                  onSelect={() => setSelectedChannelId(channel.id)}
-                />
-              ))}
-            </div>
-            <div className="xl:col-span-2">
-              <MessagingChannelDetail channel={selectedChannel} workspaceRoot={props.workspaceRoot} onWeixinStatusChange={setWeixinRuntimeStatus} onFeishuStatusChange={setFeishuRuntimeStatus} />
-            </div>
+
+          {/* 渠道折叠列表 */}
+          <div className="mt-4 space-y-2">
+            {channels.map((channel) => (
+              <CollapsibleChannelItem
+                key={channel.id}
+                channel={channel}
+                expanded={!collapseKeys[channel.id]}
+                enabled={enabledKeys[channel.id]}
+                workspaceRoot={props.workspaceRoot}
+                onToggleExpand={() => handleToggleCollapse(channel.id)}
+                onToggleEnabled={(enabled) => handleToggleEnabled(channel.id, enabled)}
+                onWeixinStatusChange={setWeixinRuntimeStatus}
+                onFeishuStatusChange={setFeishuRuntimeStatus}
+              />
+            ))}
           </div>
         </div>
       </div>

@@ -1,4 +1,6 @@
-const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "error", "exit", "approval_request", "approval_decision", "artifact"]);
+import { normalizeContextUsagePayload } from "./context-usage.mjs";
+
+const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "acp_tool_call", "error", "exit", "approval_request", "approval_decision", "artifact", "plan", "thinking", "tips"]);
 const TOOL_DETAIL_PREVIEW_CHARS = 2000;
 const TOOL_DESCRIPTION_PREVIEW_CHARS = 160;
 
@@ -175,6 +177,17 @@ function statusMessageTypeFromText(text) {
   return "agent_status";
 }
 
+function parseAcpJsonPayload(text, prefixRe) {
+  if (typeof text !== "string") return null;
+  const stripped = text.replace(prefixRe, "").trim();
+  if (!stripped) return null;
+  try {
+    return JSON.parse(stripped);
+  } catch {
+    return null;
+  }
+}
+
 function pushConversationMessage(messages, message) {
   messages.push({ id: nextMessageId(messages), ...message });
 }
@@ -264,10 +277,161 @@ export function runEventsToConversationMessages(events = []) {
     } else if (normalized.type === "approval_request") {
       const approval = "approval" in normalized ? normalized.approval : null;
       pushConversationMessage(messages, { type: "permission", role: "system", text: normalized.text, createdAt: at, sourceEventType: normalized.type, approval: approval ?? null });
+    } else if (normalized.type === "approval_decision") {
+      const approval = "approval" in normalized ? normalized.approval : null;
+      const approvalId = approval && typeof approval === "object" ? String(approval.id ?? "") : "";
+      // Derive the decision label. Prefer explicit approval.decision, then a
+      // "storedApprovalKey" marker (auto-accepted from remembered decisions),
+      // then parse "<kind>: <decision>" out of the event text.
+      let decision = approval && typeof approval === "object" ? String(approval.decision ?? "").trim() : "";
+      if (!decision && normalized.storedApprovalKey) decision = "acceptForSession";
+      if (!decision) {
+        const match = /:\s*([a-zA-Z_]+)(?:\s*\(|\s*$)/.exec(String(normalized.text ?? ""));
+        if (match) decision = match[1];
+      }
+      // Attach decision back onto the existing permission message so the
+      // host-status permission view-model can count it as approved/denied.
+      let targetIndex = -1;
+      if (approvalId) {
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+          const message = messages[i];
+          if (message?.type === "permission" && message?.approval?.id === approvalId) {
+            targetIndex = i;
+            break;
+          }
+        }
+      }
+      if (targetIndex >= 0) {
+        const previous = messages[targetIndex];
+        const mergedApproval = { ...(previous.approval ?? {}), ...(approval ?? {}), decision: decision || previous.approval?.decision || "" };
+        messages[targetIndex] = { ...previous, approval: mergedApproval, createdAt: at, sourceEventType: normalized.type };
+      } else if (approval) {
+        pushConversationMessage(messages, {
+          type: "permission",
+          role: "system",
+          text: normalized.text,
+          createdAt: at,
+          sourceEventType: normalized.type,
+          approval: { ...approval, decision: decision || approval.decision || "" },
+        });
+      }
+    } else if (normalized.type === "plan") {
+      const entries = Array.isArray(event?.plan?.entries)
+        ? event.plan.entries
+        : Array.isArray(event?.entries)
+          ? event.entries
+          : [];
+      pushConversationMessage(messages, {
+        type: "plan",
+        role: "system",
+        text: normalized.text,
+        createdAt: at,
+        sourceEventType: normalized.type,
+        entries,
+      });
+    } else if (normalized.type === "thinking") {
+      const msgId = event?.msgId ?? normalized.msgId ?? null;
+      const status = String(event?.status ?? normalized.status ?? "thinking");
+      const durationMs = typeof event?.durationMs === "number" ? event.durationMs : null;
+      const startedAt = typeof event?.startedAt === "number" ? event.startedAt : null;
+      // Merge streaming chunks by msgId. Same-msgId chunks concatenate into one
+      // message; the status:"done" boundary freezes the final text/duration.
+      let existingIndex = -1;
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const message = messages[i];
+        if (message?.type === "thinking" && (message.msgId ?? null) === msgId) {
+          existingIndex = i;
+          break;
+        }
+      }
+      if (existingIndex >= 0) {
+        const previous = messages[existingIndex];
+        const nextText = status === "done" ? previous.text : previous.text + (normalized.text || "");
+        messages[existingIndex] = {
+          ...previous,
+          text: nextText,
+          status,
+          durationMs: durationMs ?? previous.durationMs ?? null,
+          startedAt: startedAt ?? previous.startedAt ?? null,
+          createdAt: at,
+        };
+      } else {
+        pushConversationMessage(messages, {
+          type: "thinking",
+          role: "assistant",
+          text: normalized.text || "",
+          createdAt: at,
+          sourceEventType: normalized.type,
+          status,
+          msgId,
+          durationMs,
+          startedAt,
+        });
+      }
+    } else if (normalized.type === "acp_tool_call") {
+      const msgId = event?.msgId ?? normalized.msgId ?? null;
+      const update = event?.update ?? normalized.update ?? null;
+      if (!update) continue;
+      let existingIndex = -1;
+      if (msgId) {
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+          const message = messages[i];
+          if (message?.type === "tool_group" && (message.msgId ?? null) === msgId) {
+            existingIndex = i;
+            break;
+          }
+          // Break the run if a non-tool_group message with different type/role interrupts.
+          if (message?.type !== "tool_group") break;
+        }
+      }
+      const entry = { update, at };
+      if (existingIndex >= 0) {
+        const previous = messages[existingIndex];
+        const nextCalls = [...previous.toolCalls];
+        const callId = update?.tool_call_id ?? update?.toolCallId ?? null;
+        const dupIndex = callId
+          ? nextCalls.findIndex((c) => (c.update?.tool_call_id ?? c.update?.toolCallId ?? null) === callId)
+          : -1;
+        if (dupIndex >= 0) nextCalls[dupIndex] = { ...nextCalls[dupIndex], update: { ...nextCalls[dupIndex].update, ...update }, at };
+        else nextCalls.push(entry);
+        messages[existingIndex] = { ...previous, toolCalls: nextCalls, createdAt: at };
+      } else {
+        pushConversationMessage(messages, {
+          type: "tool_group",
+          role: "tool",
+          text: normalized.text || "",
+          createdAt: at,
+          sourceEventType: normalized.type,
+          msgId,
+          toolCalls: [entry],
+        });
+      }
+    } else if (normalized.type === "tips") {
+      pushConversationMessage(messages, {
+        type: "tips",
+        role: "system",
+        text: normalized.text,
+        createdAt: at,
+        sourceEventType: normalized.type,
+        category: event?.category ?? normalized.category ?? null,
+        ownership: event?.ownership ?? normalized.ownership ?? "unknown",
+        resolution: event?.resolution ?? normalized.resolution ?? null,
+      });
     } else if (normalized.type === "error") {
       pushConversationMessage(messages, { type: "error", role: "system", text: normalized.text, createdAt: at, sourceEventType: normalized.type, category: errorCategoryFromText(normalized.text) });
     } else if (normalized.type === "status") {
-      pushConversationMessage(messages, { type: statusMessageTypeFromText(normalized.text), role: "system", text: normalized.text, createdAt: at, sourceEventType: normalized.type });
+      const kind = statusMessageTypeFromText(normalized.text);
+      const message = { type: kind, role: "system", text: normalized.text, createdAt: at, sourceEventType: normalized.type };
+      if (kind === "context_usage") {
+        const payload = parseAcpJsonPayload(normalized.text, /^acp_(?:context_usage|usage_update)>\s*/);
+        const usage = normalizeContextUsagePayload(payload, normalized.model ?? event?.model ?? null);
+        if (usage) message.contextUsage = usage;
+      } else if (kind === "available_commands") {
+        const payload = parseAcpJsonPayload(normalized.text, /^acp_available_commands>\s*/);
+        if (Array.isArray(payload)) message.commands = payload;
+        else if (payload && Array.isArray(payload.commands)) message.commands = payload.commands;
+      }
+      pushConversationMessage(messages, message);
     }
   }
   return messages;

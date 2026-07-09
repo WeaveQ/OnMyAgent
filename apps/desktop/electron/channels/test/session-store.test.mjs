@@ -98,6 +98,22 @@ const updated = sessionStore.getSession(session.id);
 assert.deepEqual(updated.metadata, { key: "value" });
 console.log("✓ Session metadata updated correctly");
 
+// Test 9b: conversationId field + bindConversation + getConversationId (parity S1)
+console.log("Test 9b: conversationId bind + get");
+assert.equal(sessionStore.getConversationId(session.id), null, "fresh session has no conversationId");
+const bound = await sessionStore.bindConversation(session.id, "conv-test-123");
+assert.equal(bound.conversationId, "conv-test-123");
+assert.equal(sessionStore.getConversationId(session.id), "conv-test-123");
+// Idempotent rebind of same id
+await sessionStore.bindConversation(session.id, "conv-test-123");
+assert.equal(sessionStore.getConversationId(session.id), "conv-test-123");
+// Persistence: reload store from disk reflects the binding
+const reloaded = new ChannelSessionStore({ userDataDir: tmpDir });
+await reloaded.initialize();
+assert.equal(reloaded.getConversationId(session.id), "conv-test-123", "conversationId persists across reload");
+await reloaded.dispose();
+console.log("✓ conversationId bound and persisted correctly");
+
 // Test 10: Close session
 console.log("Test 10: Close session");
 const sessionToClose = await sessionStore.getOrCreateSession({

@@ -11,6 +11,7 @@ import type {
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
 import { openSessionArchiveStore, type SessionArchiveStore } from "./session-archive.js";
+import { findOpenCodeSqliteSource, listOpenCodeSqliteSessions, loadOpenCodeSqliteSession, type OpenCodeSqliteSessionMeta, type OpenCodeSqliteSource } from "./session-archive-sqlite-opencode.js";
 import {
   sessionArchiveParserForAgent,
   discoverSessionArchiveSessionFiles,
@@ -191,10 +192,24 @@ export async function syncSessionArchive(
         warnings.push(`${candidate.source.agent}:${candidate.file}: ${message}`);
       }
     }
+    // OpenCode SQLite parity (cc-switch): merge sessions from `<root>/opencode.db`
+    // alongside legacy JSON. Applied after the file candidate loop so its count
+    // rolls into synced/skipped/failed and is reported to the caller.
+    const opencodeSqliteResult = await syncOpenCodeSqliteSources({
+      store,
+      sourceRoots,
+      mode,
+      machine: "local",
+      project: input.workspace.name || input.workspace.id,
+    });
+    synced += opencodeSqliteResult.synced;
+    skipped += opencodeSqliteResult.skipped;
+    failed += opencodeSqliteResult.failed;
+    for (const warning of opencodeSqliteResult.warnings) warnings.push(warning);
     const omittedSessions = Math.max(0, candidates.length - selected.length);
     return {
-      total_sessions: selected.length,
-      discovered_sessions: candidates.length,
+      total_sessions: selected.length + opencodeSqliteResult.discovered,
+      discovered_sessions: candidates.length + opencodeSqliteResult.discovered,
       ...(limit ? { recent_limit: limit, omitted_sessions: omittedSessions } : {}),
       synced,
       skipped,
@@ -497,3 +512,102 @@ function progress(phase: string, values: {
     messages_indexed: values.messagesIndexed ?? 0,
   };
 }
+
+type OpenCodeSqliteSyncResult = {
+  discovered: number;
+  synced: number;
+  skipped: number;
+  failed: number;
+  warnings: string[];
+};
+
+async function syncOpenCodeSqliteSources(input: {
+  store: SessionArchiveStore;
+  sourceRoots: SessionArchiveSourceRoot[];
+  mode: SessionArchiveSyncMode;
+  machine: string;
+  project: string;
+}): Promise<OpenCodeSqliteSyncResult> {
+  const result: OpenCodeSqliteSyncResult = { discovered: 0, synced: 0, skipped: 0, failed: 0, warnings: [] };
+  const seen = new Set<string>();
+  for (const source of input.sourceRoots) {
+    if (source.agent !== "opencode") continue;
+    const sqliteSource = findOpenCodeSqliteSource(source.root);
+    if (!sqliteSource) continue;
+    if (seen.has(sqliteSource.dbPath)) continue;
+    seen.add(sqliteSource.dbPath);
+    let metas: OpenCodeSqliteSessionMeta[];
+    try {
+      metas = listOpenCodeSqliteSessions(sqliteSource);
+    } catch (error) {
+      result.failed += 1;
+      result.warnings.push(`opencode:${sqliteSource.dbPath}: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
+    result.discovered += metas.length;
+    for (const meta of metas) {
+      try {
+        const applied = await upsertOpenCodeSqliteSession({
+          store: input.store,
+          source: sqliteSource,
+          meta,
+          mode: input.mode,
+          machine: input.machine,
+          project: input.project,
+        });
+        if (applied === "synced") result.synced += 1;
+        else if (applied === "skipped") result.skipped += 1;
+      } catch (error) {
+        result.failed += 1;
+        result.warnings.push(`opencode:${meta.sourceKey}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  return result;
+}
+
+async function upsertOpenCodeSqliteSession(input: {
+  store: SessionArchiveStore;
+  source: OpenCodeSqliteSource;
+  meta: OpenCodeSqliteSessionMeta;
+  mode: SessionArchiveSyncMode;
+  machine: string;
+  project: string;
+}): Promise<"synced" | "skipped"> {
+  const existing = input.store.getSourceFile(input.meta.sourceKey);
+  if (input.mode === "incremental" && existing && existing.mtime === input.meta.timeUpdated) {
+    return "skipped";
+  }
+  const parsed = loadOpenCodeSqliteSession({
+    source: input.source,
+    session: input.meta,
+    machine: input.machine,
+    project: input.project,
+  });
+  if (!parsed) {
+    input.store.upsertSkippedFile({
+      path: input.meta.sourceKey,
+      agent: "opencode",
+      size: 0,
+      mtime: input.meta.timeUpdated,
+      hash: input.meta.sourceKey,
+      reason: "parse_empty",
+      skipped_at: new Date().toISOString(),
+    });
+    return "skipped";
+  }
+  input.store.upsertSession(parsed.session);
+  input.store.replaceSessionMessages(parsed.session.id, parsed.messages);
+  input.store.replaceSessionUsageEvents(parsed.session.id, parsed.usageEvents);
+  input.store.upsertSourceFile({
+    path: input.meta.sourceKey,
+    agent: "opencode",
+    session_id: parsed.session.id,
+    size: 0,
+    mtime: input.meta.timeUpdated,
+    hash: input.meta.sourceKey,
+    synced_at: new Date().toISOString(),
+  });
+  return "synced";
+}
+

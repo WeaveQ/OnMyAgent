@@ -144,32 +144,62 @@ export function normalizePersonalLocalAgent(input) {
   const customArgs = Array.isArray(input?.customArgs)
     ? input.customArgs.map((item) => String(item ?? "").trim()).filter(Boolean)
     : [];
-  return { id, name, provider, executablePath, model, customArgs };
+  const result = { id, name, provider, executablePath, model, customArgs };
+  if (provider === "custom") {
+    const connectionType = input?.connectionType === "cli" ? "cli" : "raw";
+    const acpArgs = Array.isArray(input?.acpArgs)
+      ? input.acpArgs.map((item) => String(item ?? "").trim()).filter(Boolean)
+      : [];
+    const supportsAcp = connectionType === "cli" ? input?.supportsAcp !== false : false;
+    result.connectionType = connectionType;
+    result.acpArgs = acpArgs;
+    result.supportsAcp = supportsAcp;
+    result.supportsStreaming = Boolean(input?.supportsStreaming);
+    result.supportsResume = Boolean(input?.supportsResume);
+    result.supportsApproval = Boolean(input?.supportsApproval);
+    result.supportsModelOverride = Boolean(input?.supportsModelOverride);
+    result.supportsPermissionAutoApprove = Boolean(input?.supportsPermissionAutoApprove);
+    result.authRequired = Boolean(input?.authRequired);
+    if (input?.env && typeof input.env === "object" && !Array.isArray(input.env)) result.env = input.env;
+    if (typeof input?.description === "string") result.description = input.description;
+  }
+  return result;
 }
 
 export function personalAgentCapability(provider, status, extra = {}) {
   const base = PERSONAL_LOCAL_AGENT_CAPABILITIES[provider] ?? PERSONAL_LOCAL_AGENT_CAPABILITIES.custom;
+  const customAgent = extra.customAgent && typeof extra.customAgent === "object" ? extra.customAgent : null;
+  const customIsAcp = customAgent && customAgent.connectionType === "cli" && customAgent.supportsAcp !== false;
+  const supportsAcp = extra.supportsAcp ?? (customIsAcp ? true : base.supportsAcp ?? false);
+  const supportsStreaming = customAgent ? Boolean(customAgent.supportsStreaming) : base.supportsStreaming;
+  const supportsResume = customAgent ? Boolean(customAgent.supportsResume) : base.supportsResume;
+  const supportsModelOverride = customAgent ? Boolean(customAgent.supportsModelOverride) : base.supportsModelOverride;
+  const supportsPermissionAutoApprove = customAgent ? Boolean(customAgent.supportsPermissionAutoApprove) : base.supportsPermissionAutoApprove;
+  const supportsApproval = customAgent ? Boolean(customAgent.supportsApproval) : (base.supportsApproval ?? false);
+  const authRequired = customAgent ? Boolean(customAgent.authRequired) : Boolean(extra.authRequired);
   return {
     installed: status === "online",
     authenticated: extra.authenticated ?? "unknown",
     minVersionOk: extra.minVersionOk ?? status === "online",
-    supportsStreaming: base.supportsStreaming,
-    supportsResume: base.supportsResume,
-    supportsModelOverride: base.supportsModelOverride,
-    supportsPermissionAutoApprove: base.supportsPermissionAutoApprove,
-    supportsApproval: base.supportsApproval ?? false,
-    supportsAcp: extra.supportsAcp ?? base.supportsAcp ?? false,
-    targetKind: base.targetKind,
+    supportsStreaming,
+    supportsResume,
+    supportsModelOverride,
+    supportsPermissionAutoApprove,
+    supportsApproval,
+    supportsAcp,
+    authRequired,
+    targetKind: customAgent && customIsAcp ? "model" : base.targetKind,
     smokePrompt: base.smokePrompt,
     warning: extra.warning ?? base.warning,
   };
 }
 
-export function personalLocalAgentConnectionMode(provider) {
+export function personalLocalAgentConnectionMode(provider, extra = null) {
   if (provider === "opencode") return "OpenCode ACP session";
   if (provider === "codex") return "Codex ACP session";
   if (provider === "claude") return "Claude Code ACP session";
   if (provider === "openclaw") return "OpenClaw ACP session";
   if (provider === "hermes") return "Hermes ACP session";
+  if (provider === "custom" && extra && extra.connectionType === "cli" && extra.supportsAcp !== false) return "Custom ACP session";
   return "Custom command";
 }
