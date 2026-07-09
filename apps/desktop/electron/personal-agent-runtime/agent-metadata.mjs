@@ -151,7 +151,7 @@ export function personalAgentMetadataFromAgent(agent) {
   const command = String(agent?.executablePath ?? providerSpec.executable ?? "").trim();
   const args = stringList(agent?.customArgs);
   const env = envList(agent?.env);
-  const connectionMode = agent?.connectionMode ?? personalLocalAgentConnectionMode(provider);
+  const connectionMode = agent?.connectionMode ?? personalLocalAgentConnectionMode(provider, agent ?? null);
   const enabled = agent?.enabled !== false;
   const status = normalizeAgentStatus(agent);
   const available = enabled && status === "online";

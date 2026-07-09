@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageSquare, PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
@@ -8,6 +8,9 @@ import type {
   OpenworkSessionArchiveMessagesResponse,
   OpenworkSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
+import { formatRelativeTime } from "../../../../app/utils";
+import { AgentSkillIcon } from "../components/shared-pages/agent-skill-icon";
+import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -99,6 +102,7 @@ export function SessionArchivePage(props: Props) {
   const [listTick, setListTick] = useState(0);
   const [collapsedAgents, setCollapsedAgents] = useState<Record<string, boolean>>({});
   const [agentCounts, setAgentCounts] = useState<Array<{ agent: string; count: number }>>([]);
+  const [agentFilter, setAgentFilter] = useState<string | null>(null); // null = 全部
 
 
   const trimmedQuery = query.trim();
@@ -242,19 +246,50 @@ export function SessionArchivePage(props: Props) {
   const canResume = Boolean(resumeRequest && props.onResume);
 
   const toggleAgent = (agent: string) => {
-    setCollapsedAgents((current) => ({ ...current, [agent]: !current[agent] }));
+    setCollapsedAgents((current) => ({ ...current, [agent]: current[agent] === true ? false : true }));
   };
+
+  const filteredGroups = useMemo(() => {
+    if (!agentFilter) return groups;
+    return groups.filter((g) => g.agent === agentFilter);
+  }, [groups, agentFilter]);
+
+  // 当选择某个 agent 筛选时自动展开对应分组
+  useEffect(() => {
+    if (agentFilter) {
+      setCollapsedAgents((current) => ({ ...current, [agentFilter]: false }));
+    }
+  }, [agentFilter]);
+
+  // 默认全部折叠：首次有数据时把所有 agent 标记为折叠
+  const didInitCollapse = useRef(false);
+  useEffect(() => {
+    if (!didInitCollapse.current && groups.length > 0) {
+      didInitCollapse.current = true;
+      setCollapsedAgents((current) => {
+        const next = { ...current };
+        let changed = false;
+        for (const g of groups) {
+          if (next[g.agent] === undefined) {
+            next[g.agent] = true;
+            changed = true;
+          }
+        }
+        return changed ? next : current;
+      });
+    }
+  }, [groups]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-3 p-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-dls-secondary" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("session_archive.search_placeholder")}
-            className="pl-8"
+            className="border-dls-border bg-dls-surface pl-9 text-sm"
           />
         </div>
         <Button
@@ -264,29 +299,9 @@ export function SessionArchivePage(props: Props) {
           onClick={refreshList}
           disabled={loadingList}
           aria-label={t("session_archive.sync")}
+          title={t("session_archive.sync")}
         >
           <RefreshCw className={cn("size-4", loadingList && "animate-spin")} />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          onClick={handleResume}
-          disabled={!canResume}
-          aria-label={t("session_archive.resume")}
-          title={t("session_archive.resume")}
-        >
-          <PlayCircle className="size-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          onClick={handleDelete}
-          disabled={!selectedSession}
-          aria-label={t("session_archive.delete")}
-        >
-          <Trash2 className="size-4" />
         </Button>
       </div>
 
@@ -296,64 +311,128 @@ export function SessionArchivePage(props: Props) {
         </div>
       ) : null}
 
+      {/* Agent 筛选栏 */}
+      {groups.length > 0 ? (
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setAgentFilter(null)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              !agentFilter
+                ? "bg-dls-accent text-white"
+                : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+            )}
+          >
+            {t("session_archive.agent_filter_all")}
+          </button>
+          {groups.map((g) => (
+            <button
+              key={g.agent}
+              type="button"
+              onClick={() => setAgentFilter(g.agent === agentFilter ? null : g.agent)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                g.agent === agentFilter
+                  ? "bg-dls-accent text-white"
+                  : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+              )}
+            >
+              <AgentSkillIcon agent={g.agent as AgentManagementSkillAgent} />
+              {agentLabel(g.agent)}
+              <span className="ml-0.5 opacity-70 tabular-nums">
+                {(g as { totalCount?: number }).totalCount ?? g.sessions.length}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 gap-3">
-        <aside className="flex w-72 min-w-56 flex-col overflow-hidden rounded-md border">
-          <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-            {t("session_archive.agent_group_count", { count: totalKnown })}
+        <aside className="flex w-80 min-w-60 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+          <div className="flex items-center justify-between border-b border-dls-border px-3 py-2">
+            <span className="text-xs font-medium text-dls-secondary">
+              {t("session_archive.agent_group_count", { count: totalKnown })}
+            </span>
+            {loadingList ? (
+              <RefreshCw className="size-3.5 animate-spin text-dls-secondary" />
+            ) : null}
           </div>
           <div className="flex-1 overflow-auto">
-            {groups.length === 0 && !loadingList ? (
-              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+            {filteredGroups.length === 0 && !loadingList ? (
+              <div className="px-3 py-8 text-center text-xs text-dls-secondary">
                 {t("session_archive.empty")}
               </div>
             ) : null}
-            {groups.map((group) => {
+            {filteredGroups.map((group) => {
               const collapsed = collapsedAgents[group.agent] === true;
+              const countLabel =
+                "totalCount" in group
+                  ? group.sessions.length === group.totalCount
+                    ? String(group.totalCount)
+                    : `${group.sessions.length}/${group.totalCount}`
+                  : String(group.sessions.length);
               return (
-                <div key={group.agent} className="border-b last:border-b-0">
+                <div key={group.agent} className="border-b border-dls-border last:border-b-0">
                   <button
                     type="button"
                     onClick={() => toggleAgent(group.agent)}
-                    className="flex w-full items-center gap-2 bg-muted/40 px-3 py-1.5 text-left text-xs font-medium hover:bg-muted"
+                    className="flex w-full items-center gap-2 bg-dls-surface-muted px-3 py-2 text-left text-xs font-medium text-dls-text transition-colors hover:bg-dls-hover"
                   >
+                    <span className="flex size-4 items-center justify-center">
+                      <AgentSkillIcon agent={group.agent as AgentManagementSkillAgent} />
+                    </span>
                     {collapsed ? (
-                      <ChevronRight className="size-3.5 text-muted-foreground" />
+                      <ChevronRight className="size-3.5 text-dls-secondary" />
                     ) : (
-                      <ChevronDown className="size-3.5 text-muted-foreground" />
+                      <ChevronDown className="size-3.5 text-dls-secondary" />
                     )}
                     <span className="flex-1 truncate">{agentLabel(group.agent)}</span>
-                    <span className="text-muted-foreground">
-                      {("totalCount" in group)
-                        ? group.sessions.length === group.totalCount
-                          ? group.totalCount
-                          : `${group.sessions.length}/${group.totalCount}`
-                        : group.sessions.length}
+                    <span className="rounded-full bg-dls-hover px-1.5 py-0.5 text-[10px] font-medium text-dls-secondary tabular-nums">
+                      {countLabel}
                     </span>
                   </button>
                   {collapsed ? null : (
-                    <ul>
-                      {group.sessions.map((session) => (
-                        <li key={session.id}>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSessionId(session.id)}
-                            className={cn(
-                              "flex w-full flex-col gap-0.5 border-b px-3 py-2 text-left text-xs hover:bg-muted",
-                              session.id === selectedSessionId && "bg-muted",
-                            )}
-                          >
-                            <div className="truncate text-sm font-medium">
-                              {session.display_name || session.first_message || session.id}
-                            </div>
-                            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                              <span className="truncate">{session.project || agentLabel(session.agent)}</span>
-                              <span>
-                                {t("session_archive.message_count", { count: session.message_count })}
-                              </span>
-                            </div>
-                          </button>
-                        </li>
-                      ))}
+                    <ul className="divide-y divide-dls-border/60">
+                      {group.sessions.map((session) => {
+                        const active = session.id === selectedSessionId;
+                        return (
+                          <li key={session.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSessionId(session.id)}
+                              className={cn(
+                                "flex w-full flex-col gap-1.5 px-3 py-2.5 text-left transition-colors",
+                                active
+                                  ? "bg-dls-hover ring-1 ring-inset ring-dls-accent/20"
+                                  : "hover:bg-dls-hover/60",
+                              )}
+                            >
+                              <div className="flex items-start gap-2">
+                                <MessageSquare
+                                  className={cn(
+                                    "mt-0.5 size-3.5 shrink-0",
+                                    active ? "text-dls-accent" : "text-dls-secondary/50",
+                                  )}
+                                />
+                                <span className="flex-1 truncate text-sm font-medium text-dls-text">
+                                  {session.display_name || session.first_message || session.id}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 pl-5.5 text-[11px] text-dls-secondary">
+                                <span className="truncate">
+                                  {session.project || agentLabel(session.agent)}
+                                </span>
+                                <span className="shrink-0 tabular-nums">
+                                  {session.file_mtime
+                                    ? formatRelativeTime(session.file_mtime)
+                                    : t("session_archive.message_count", { count: session.message_count })}
+                                </span>
+                              </div>
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>
@@ -362,37 +441,81 @@ export function SessionArchivePage(props: Props) {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
           {selectedSession ? (
             <>
-              <header className="border-b px-3 py-2">
-                <div className="truncate text-sm font-medium">
-                  {selectedSession.display_name || selectedSession.first_message || selectedSession.id}
+              <header className="flex items-start justify-between gap-3 border-b border-dls-border px-4 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-4.5 items-center justify-center">
+                      <AgentSkillIcon agent={selectedSession.agent as AgentManagementSkillAgent} />
+                    </span>
+                    <h2 className="truncate text-sm font-semibold text-dls-text">
+                      {selectedSession.display_name || selectedSession.first_message || selectedSession.id}
+                    </h2>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-dls-secondary">
+                    <span>{agentLabel(selectedSession.agent)}</span>
+                    {selectedSession.project ? (
+                      <span className="truncate">{selectedSession.project}</span>
+                    ) : null}
+                    <span>
+                      {t("session_archive.message_count", { count: selectedSession.message_count })}
+                    </span>
+                    {selectedSession.file_mtime ? (
+                      <span>{formatRelativeTime(selectedSession.file_mtime)}</span>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground">
-                  <span>{agentLabel(selectedSession.agent)}</span>
-                  {selectedSession.project ? (
-                    <span className="truncate">{selectedSession.project}</span>
-                  ) : null}
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResume}
+                    disabled={!canResume}
+                  >
+                    <PlayCircle className="size-4" />
+                    {t("session_archive.resume")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={!selectedSession}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                    {t("session_archive.delete")}
+                  </Button>
                 </div>
               </header>
-              <div className="flex-1 overflow-auto p-3">
+              <div className="flex-1 overflow-auto p-4">
                 {loadingMessages ? (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs text-dls-secondary">
+                    <RefreshCw className="size-3 animate-spin" />
                     {t("session_archive.loading_messages")}
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">
-                    {t("session_archive.no_messages")}
+                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-xs text-dls-secondary">
+                    <MessageSquare className="size-8 opacity-30" />
+                    <span>{t("session_archive.no_messages")}</span>
                   </div>
                 ) : (
-                  <ol className="flex flex-col gap-3">
+                  <ol className="flex flex-col gap-4">
                     {messages.map((message) => (
-                      <li key={message.id} className="flex flex-col gap-1">
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                          {message.role}
+                      <li key={message.id} className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "text-[10px] font-semibold uppercase tracking-wider",
+                            message.role === "user" ? "text-dls-accent" : "text-dls-secondary",
+                          )}>
+                            {message.role}
+                          </span>
+                          <span className="h-px flex-1 bg-dls-border/60" />
                         </div>
-                        <div className="whitespace-pre-wrap break-words text-sm">
+                        <div className="whitespace-pre-wrap break-words rounded-lg bg-dls-surface-muted px-3 py-2 text-sm leading-relaxed text-dls-text">
                           {message.content}
                         </div>
                       </li>
@@ -402,8 +525,9 @@ export function SessionArchivePage(props: Props) {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-              {t("session_archive.select_session")}
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-dls-secondary">
+              <MessageSquare className="size-8 opacity-30" />
+              <span>{t("session_archive.select_session")}</span>
             </div>
           )}
         </section>

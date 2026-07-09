@@ -141,10 +141,20 @@ export async function readJsonLikeFile(targetPath) {
 export async function writeJsonFile(targetPath, data) {
   await mkdir(path.dirname(targetPath), { recursive: true });
   // Atomic write: tmp+rename so a crash mid-serialize cannot leave a partial
-  // JSON file on disk that would break the next boot's parse.
-  const tmpPath = `${targetPath}.tmp`;
+  // JSON file on disk that would break the next boot's parse. The tmp
+  // filename is randomized so concurrent writers targeting the same path
+  // do not race on a shared `<target>.tmp` (the previous fixed suffix caused
+  // spurious ENOENT during rename when two writes overlapped).
+  const suffix = randomBytes(6).toString("hex");
+  const tmpPath = `${targetPath}.${suffix}.tmp`;
   await writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  await rename(tmpPath, targetPath);
+  try {
+    await rename(tmpPath, targetPath);
+  } catch (error) {
+    // Best-effort cleanup so a failed rename does not leak temp files.
+    try { const { rm } = await import("node:fs/promises"); await rm(tmpPath, { force: true }); } catch { /* noop */ }
+    throw error;
+  }
 }
 
 export function uniqueModelOptions(options) {

@@ -442,6 +442,10 @@ export type PersonalLocalAgent = {
   handshake?: PersonalLocalAgentMetadata["handshake"];
   behavior_policy?: PersonalLocalAgentMetadata["behavior_policy"];
   lastCheckedAt: number | null;
+  /** Present for custom agents; when false the agent is hidden from runtime dropdowns but kept in management. */
+  enabled?: boolean;
+  /** Source discriminator used by the management UI to split detected vs custom agents. */
+  agentSource?: string;
 };
 
 export type PersonalLocalAgentMetadata = {
@@ -783,11 +787,67 @@ export type PersonalLocalAgentCustomAgentInput = {
     description?: string | null;
     nativeSkillsDirs?: string[];
     behaviorPolicy?: Record<string, unknown>;
+    connectionType?: "cli" | "raw";
+    acpArgs?: string[];
+    supportsAcp?: boolean;
+    supportsStreaming?: boolean;
+    supportsResume?: boolean;
+    supportsApproval?: boolean;
+    supportsModelOverride?: boolean;
+    supportsPermissionAutoApprove?: boolean;
+    authRequired?: boolean;
   };
+};
+
+export type PersonalLocalAgentExtensionAdapterInfo = {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  connectionType: "cli" | "raw";
+  supportsAcp: boolean;
+};
+
+export type PersonalLocalAgentExtensionInfo = {
+  name: string;
+  version: string;
+  displayName: string;
+  description?: string | null;
+  author?: string | null;
+  source: "bundled" | "user";
+  installRoot: string;
+  manifestPath: string;
+  enabled: boolean;
+  errors: Array<{ message: string }>;
+  adapterIds: string[];
+};
+
+export type PersonalLocalAgentExtensionListResult = {
+  extensions: PersonalLocalAgentExtensionInfo[];
+  enabledAdapters: Array<PersonalLocalAgentExtensionAdapterInfo & { extension: { name: string; version: string; source: string } }>;
+};
+
+export type PersonalLocalAgentExtensionSetEnabledResult = {
+  name: string;
+  enabled: boolean;
 };
 
 export type PersonalLocalAgentCustomAgentResult = {
   agent: PersonalLocalAgent;
+};
+
+export type PersonalLocalAgentDetectAvailableAgent = {
+  id: string;
+  name: string;
+  command: string;
+  connectionType: "cli" | "raw";
+  supportsAcp: boolean;
+  acpArgs: string[];
+  nativeSkillsDirs: string[];
+};
+
+export type PersonalLocalAgentDetectResult = {
+  agents: PersonalLocalAgentDetectAvailableAgent[];
 };
 
 export type PersonalLocalAgentDeleteCustomAgentResult = {
@@ -1074,6 +1134,7 @@ export type PersonalLocalAgentProcessRecord = {
   command: string | null;
   startedAt: number;
   updatedAt: number;
+  status?: string;
 };
 
 export type MessagingChannelStatus = {

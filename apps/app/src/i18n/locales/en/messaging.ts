@@ -78,4 +78,13 @@ export default {
   "messaging.weixin_allowed_user_placeholder": "Allowed Weixin user_id",
   "messaging.weixin_simulate_placeholder": "Simulated message",
   "messaging.weixin_simulate": "Simulate inbound",
+  "messaging.pairing_management": "Pairing & User Management",
+  "messaging.command_help_title": "IM Command Help",
+  "messaging.command_help_agent": "List available agents or switch current agent",
+  "messaging.command_help_status": "View current session status",
+  "messaging.command_help_runs": "View historical run records",
+  "messaging.command_help_approve": "Approve pending actions",
+  "messaging.command_help_new": "Start a new session",
+  "messaging.command_help_mode": "Switch between raw message or debug context mode",
+  "messaging.feishu_agent_command_help": "In Feishu, send #agent to list available agents, or send #agent codex to switch the local agent for future replies.",
 } as const;

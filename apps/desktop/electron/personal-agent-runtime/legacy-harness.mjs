@@ -80,6 +80,8 @@ export function createPersonalAgentLegacyHarness(options = {}) {
 
   function personalAgentStatus(agent, status, extra = {}) {
     const error = extra.error ?? null;
+    const customAgentContext = agent.provider === "custom" ? agent : null;
+    const capabilityExtra = customAgentContext ? { ...extra, customAgent: customAgentContext } : extra;
     return {
       id: agent.id,
       name: agent.name,
@@ -87,14 +89,16 @@ export function createPersonalAgentLegacyHarness(options = {}) {
       executablePath: agent.executablePath,
       model: agent.model,
       customArgs: agent.customArgs,
+      acpArgs: agent.acpArgs ?? [],
+      connectionType: agent.connectionType ?? null,
       modelOptions: extra.modelOptions ?? [],
       defaultModel: extra.defaultModel ?? null,
-      connectionMode: extra.connectionMode ?? personalLocalAgentConnectionMode(agent.provider),
+      connectionMode: extra.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, customAgentContext),
       status,
       version: extra.version ?? null,
       error,
       errorInfo: error ? classifyPersonalAgentError(error, extra.errorCode ?? "unknown") : null,
-      capability: personalAgentCapability(agent.provider, status, extra),
+      capability: personalAgentCapability(agent.provider, status, capabilityExtra),
       lastCheckedAt: Date.now(),
     };
   }

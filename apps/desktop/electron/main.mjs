@@ -3980,8 +3980,17 @@ async function handleDesktopInvoke(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
-    case "personalLocalAgentsList":
-      return personalAgentRuntime.listAgents(args[0] ?? {});
+    case "personalLocalAgentsList": {
+      const result = await personalAgentRuntime.listAgents(args[0] ?? {});
+      const agents = Array.isArray(result?.agents) ? result.agents : [];
+      return {
+        ...result,
+        agents: agents.filter((agent) => {
+          if (String(agent?.provider ?? "") !== "custom") return true;
+          return agent?.enabled !== false;
+        }),
+      };
+    }
     case "personalLocalAgentMetadataList":
       return personalAgentRuntime.listAgentMetadata(args[0] ?? {});
     case "personalLocalAgentAcpAgentsList":
@@ -4002,6 +4011,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.setConfigOption(args[0] ?? {});
     case "personalLocalAgentCreateCustomAgent":
       return personalAgentRuntime.createCustomAgent(args[0] ?? {});
+    case "personalLocalAgentDetectAvailableAgents":
+      return personalAgentRuntime.detectAvailableLocalAgents(args[0] ?? {});
     case "personalLocalAgentUpdateCustomAgent":
       return personalAgentRuntime.updateCustomAgent(args[0] ?? {});
     case "personalLocalAgentDeleteCustomAgent":
@@ -4010,10 +4021,16 @@ async function handleDesktopInvoke(event, command, ...args) {
       return personalAgentRuntime.getAgentOverrides(args[0] ?? {});
     case "personalLocalAgentSetAgentOverrides":
       return personalAgentRuntime.setAgentOverrides(args[0] ?? {});
+    case "personalLocalAgentExtensionsList":
+      return personalAgentRuntime.listExtensions();
+    case "personalLocalAgentExtensionSetEnabled":
+      return personalAgentRuntime.setExtensionEnabled(args[0] ?? {});
     case "personalLocalAgentAcpProcessesList":
       return personalAgentRuntime.listProcesses(args[0] ?? {});
     case "personalLocalAgentTestConnection":
       return personalAgentRuntime.testConnection(args[0] ?? {});
+    case "personalLocalAgentTestCustomAgent":
+      return personalAgentRuntime.testCustomAgent(args[0] ?? {});
     case "personalLocalAgentCheckProviderHealth":
       return personalAgentRuntime.checkProviderHealth(args[0] ?? {});
     case "personalLocalAgentCheckManagedAgentHealthById":
@@ -5116,6 +5133,13 @@ async function createMainWindow() {
       mainWindow?.setTitle(APP_NAME);
     }
     mainWindow?.show();
+    if (isDevMode) {
+      try {
+        mainWindow?.webContents.openDevTools({ mode: "detach" });
+      } catch (error) {
+        console.warn("[main] openDevTools failed:", error?.message ?? error);
+      }
+    }
     flushPendingDeepLinks();
   });
 
