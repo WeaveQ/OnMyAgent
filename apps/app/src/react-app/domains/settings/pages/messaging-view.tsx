@@ -446,7 +446,7 @@ export function MessagingView(props: MessagingViewProps) {
                       type="button"
                       onClick={() => props.onToggleExpandedChannel("telegram")}
                     >
-                      <TelegramIcon size={28} />
+                      <TelegramIcon size={24} />
                       <div className="min-w-0 flex-1">
                         <div className={messagingLayoutClass.channelTitleRow}>
                           <span className={messagingTextClass.channelTitle}>Telegram</span>
@@ -683,7 +683,7 @@ export function MessagingView(props: MessagingViewProps) {
                       type="button"
                       onClick={() => props.onToggleExpandedChannel("slack")}
                     >
-                      <SlackIcon size={28} />
+                      <SlackIcon size={24} />
                       <div className="min-w-0 flex-1">
                         <div className={messagingLayoutClass.channelTitleRow}>
                           <span className={messagingTextClass.channelTitle}>Slack</span>

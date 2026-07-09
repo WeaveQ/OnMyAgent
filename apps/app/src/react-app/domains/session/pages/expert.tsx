@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
+  Bot,
   PanelRight,
   Zap,
 } from "lucide-react";
@@ -18,7 +19,7 @@ import {
 } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
-import { NoticeBox } from "@/components/ui/notice-box";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -45,7 +46,6 @@ import {
   ONMYAGENT_EXTENSION_STATE_CHANGED,
 } from "../../shared/extension-state";
 import { cn } from "@/lib/utils";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
@@ -126,7 +126,6 @@ import {
   type StorePrimaryTab,
 } from "../components/shared-pages";
 
-const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
@@ -1275,6 +1274,9 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
+  // SessionSurface only on chat hosts — never under 管理/本地/文件/市场.
+  const isSessionSurfaceHostView =
+    activeSidebarView === "chat" || activeSidebarView === "assistant";
 
   useEffect(() => {
     if (!showSessionLoadingState) {
@@ -1571,7 +1573,8 @@ export function ExpertPage(props: ExpertPageProps) {
                         />
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       showBlockingStartupSkeleton ? (
                         <div
                           className="px-6 py-14"
@@ -1610,24 +1613,32 @@ export function ExpertPage(props: ExpertPageProps) {
                       {!activePlaceholderView &&
                       showNoExpertConversationEmptyState ? (
                         <div className="flex h-full min-h-0 items-center justify-center px-8 py-10">
-                          <div className="flex max-w-md flex-col items-center text-center">
-                            <img
-                              src={resolvePublicAssetUrl(NO_EXPERT_CONVERSATIONS_ASSET)}
-                              alt=""
-                              className="mb-6 w-full max-w-xs select-none object-contain"
-                              draggable={false}
-                            />
-                            <h2 className="text-xl font-medium text-dls-text">
-                              {t("session.no_expert_conversations_title")}
-                            </h2>
-                            <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">
-                              {t("session.no_expert_conversations_desc")}
-                            </p>
-                          </div>
+                          <EmptyStateBox
+                            size="spacious"
+                            tone="surface"
+                            className="flex max-w-md flex-col items-center gap-4 border-dls-border"
+                          >
+                            <div className="flex size-12 items-center justify-center rounded-xl border border-dls-border bg-dls-surface-muted text-dls-secondary">
+                              <Bot className="size-6" aria-hidden="true" />
+                            </div>
+                            <div className="space-y-2">
+                              <h2 className="text-base font-medium text-dls-text">
+                                {t("session.no_expert_conversations_title")}
+                              </h2>
+                              <p className="mx-auto max-w-sm text-sm leading-6 text-dls-secondary">
+                                {t("session.no_expert_conversations_desc")}
+                              </p>
+                            </div>
+                            <Button type="button" size="lg" onClick={openExpertMarket}>
+                              <Bot className="size-4" />
+                              {t("session.choose_expert_agent_tip_action")}
+                            </Button>
+                          </EmptyStateBox>
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       !showNoExpertConversationEmptyState &&
                       showDelayedSessionLoadingState ? (
                         <div className="px-6 py-16">
@@ -1644,7 +1655,8 @@ export function ExpertPage(props: ExpertPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       !showNoExpertConversationEmptyState &&
                       !showDelayedSessionLoadingState &&
                       canRenderReactSurface ? (
@@ -1689,12 +1701,12 @@ export function ExpertPage(props: ExpertPageProps) {
                         />
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isSessionSurfaceHostView &&
+                      !activePlaceholderView &&
                       !showNoExpertConversationEmptyState &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
-                      !showBlockingStartupSkeleton &&
-                      activeSidebarView !== "agentManagement" ? (
+                      !showBlockingStartupSkeleton ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
                         >

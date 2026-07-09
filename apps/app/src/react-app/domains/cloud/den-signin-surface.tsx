@@ -117,7 +117,7 @@ function ShowcasePanel() {
             key={cap.title}
             className="flex flex-col gap-1.5 rounded-xl border border-dls-border bg-dls-surface p-3"
           >
-            <BrandIcon slug={cap.slug} size={18} />
+            <BrandIcon slug={cap.slug} size={16} />
             <div className="text-xs font-medium leading-tight text-dls-text">
               {cap.title}
             </div>

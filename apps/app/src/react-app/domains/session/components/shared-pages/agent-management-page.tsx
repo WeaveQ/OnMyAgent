@@ -143,9 +143,9 @@ function writeAgentManagementUi(cacheKey: string, ui: AgentManagementUiCache) {
 
 function AgentManagementMetric(props: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-dls-border bg-dls-surface px-3 py-2">
-      <div className="text-xs text-dls-secondary">{props.label}</div>
-      <div className="mt-1 text-base font-medium text-dls-text">{props.value}</div>
+    <div className="flex min-w-0 items-baseline gap-2 rounded-md border border-dls-border bg-dls-surface px-2.5 py-1.5">
+      <div className="truncate text-xs text-dls-secondary">{props.label}</div>
+      <div className="ml-auto shrink-0 text-sm font-medium tabular-nums text-dls-text">{props.value}</div>
     </div>
   );
 }
@@ -548,12 +548,14 @@ export function AgentManagementPage(props: {
         <div className={cn("w-full", activePanel === "archive" ? "flex h-full min-h-0 flex-col gap-5" : "space-y-5")}>
           {error ? <NoticeBox size="comfortable" tone="error">{error}</NoticeBox> : null}
 
-          <section className="grid gap-3 sm:grid-cols-4">
-            <AgentManagementMetric label={t("agent_manager.online_agents")} value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`} />
-            <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
-            <AgentManagementMetric label={t("agent_manager.recognized_skills")} value={snapshot?.skills.length ?? 0} />
-            <AgentManagementMetric label={t("agent_manager.managed_providers")} value={managedProviderTotal} />
-          </section>
+          {activePanel === "providers" || activePanel === "agents" ? (
+            <section className="grid gap-2 sm:grid-cols-4">
+              <AgentManagementMetric label={t("agent_manager.online_agents")} value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`} />
+              <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
+              <AgentManagementMetric label={t("agent_manager.recognized_skills")} value={snapshot?.skills.length ?? 0} />
+              <AgentManagementMetric label={t("agent_manager.managed_providers")} value={managedProviderTotal} />
+            </section>
+          ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dls-border pb-3">
             <SegmentedTabGroup>

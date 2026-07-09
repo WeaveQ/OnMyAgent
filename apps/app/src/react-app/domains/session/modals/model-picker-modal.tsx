@@ -312,7 +312,7 @@ function ProviderAccordion({
           onClick={onToggleExpand}
         >
           <Chevron size={14} className="shrink-0 text-dls-secondary" />
-          <ProviderIcon providerId={group.id} size={18} className="shrink-0 text-dls-text" />
+          <ProviderIcon providerId={group.id} size={16} className="shrink-0 text-dls-text" />
           <div className="min-w-0 flex-1">
             <span className="text-sm font-medium text-dls-text">{group.name}</span>
             <span className="ml-2 text-xs text-dls-secondary">

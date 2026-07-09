@@ -35,9 +35,11 @@ that block in the same PR.
 
 Cross-cutting rules that surface most often in review:
 
-- **Tab bars.** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`. Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view.
+- **Tab bars.** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`. Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view. `SegmentedTabGroup` must keep a visible track (`border-dls-border` + muted fill) so active tabs do not read as free-floating pills.
 - **`rounded-full` is a whitelist.** Only avatars, `NavTabButton shape="pill"` (compact filter chips), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11.
 - **Radius scale is flat.** `xs=3 sm=6 md=8 lg=10 xl=14 pill=999`. `2xl/3xl/4xl` are legacy aliases mapped to `xl=14` in Tailwind config so migration is safe, but new code must pick a named tier — not a legacy alias.
+- **Composer host policy.** Global `SessionSurface` composer only on chat host views; never under manage / files / market / local-agent (local has its own ACP composer). See `DESIGN.md` § 11.
+- **Marketplace dialect.** Expert/skill store card grids may stay avatar-forward; do not import that density into workbench panels.
 
 ## Palette, Semantic Tokens, Type Scale, Radius, Buttons, Rows
 

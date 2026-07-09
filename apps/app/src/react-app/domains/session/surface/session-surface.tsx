@@ -1301,7 +1301,7 @@ function GoalRuntimePanel(props: {
       <div className="flex items-center gap-3 px-4 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
           <Goal
-            size={15}
+            size={14}
             strokeWidth={1.8}
             className="shrink-0 text-dls-secondary"
           />

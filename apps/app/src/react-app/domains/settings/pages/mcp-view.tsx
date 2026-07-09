@@ -1100,7 +1100,7 @@ function McpConfiguredServerRow(props: {
       <DisclosureRowButton type="button" onClick={() => props.onSelect(props.selected ? null : props.entry.name)}>
         <div className={mcpViewLayoutClass.rowMain}>
           <div className={`${mcpViewLayoutClass.serverIcon} ${props.status === "connected" ? "border-dls-accent/30 bg-dls-accent/10" : profile.tileClass}`}>
-            <Icon size={15} className={props.status === "connected" ? "text-dls-accent" : profile.iconClass} />
+            <Icon size={14} className={props.status === "connected" ? "text-dls-accent" : profile.iconClass} />
           </div>
           <div className="min-w-0 flex-1">
             <div className={mcpViewTextClass.rowTitle}>{props.displayName(props.entry.name)}</div>
