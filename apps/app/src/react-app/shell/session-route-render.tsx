@@ -129,10 +129,6 @@ import {
   revealSessionWorkspacePath,
   resolveSelectedDesktopSessionWorkspaceId,
 } from "./session-route-workspace-actions";
-import {
-  useDenSessionVersionBump,
-  usePendingModelPickerEvents,
-} from "./session-route-model-picker-events";
 import { useSessionRouteInspector } from "./session-route-inspector";
 import { useRouteEngineInfo } from "./session-route-engine-info";
 import {
@@ -288,12 +284,10 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
-  readSessionGoalRuntimes,
   readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
-  writeSessionGoalRuntimes,
   writeSessionTodos,
   writeWorkspaceOrderIds,
 } from "./session-memory";
@@ -331,6 +325,9 @@ import {
 } from "./session-route-intent";
 import { SessionRouteModals } from "./session-route-modals";
 import { useSessionRouteNavigation } from "./use-session-route-navigation";
+import { useSessionRouteChromeState } from "./use-session-route-chrome-state";
+import { useSessionRouteComposerRuntimeState } from "./use-session-route-composer-runtime-state";
+import { useSessionRouteModelPickerState } from "./use-session-route-model-picker-state";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
 import { useStatusToasts } from "../domains/shell-feedback";
@@ -463,33 +460,46 @@ export function SessionRouteRender() {
     [],
   );
   const launchActivatedWorkspaceIdsRef = useRef(new Set<string>());
-  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
-  const [createWorkspaceBusy, setCreateWorkspaceBusy] = useState(false);
-  const [createWorkspaceError, setCreateWorkspaceError] = useState<
-    string | null
-  >(null);
-  const [createWorkspaceRemoteBusy, setCreateWorkspaceRemoteBusy] =
-    useState(false);
-  const [createWorkspaceRemoteError, setCreateWorkspaceRemoteError] = useState<
-    string | null
-  >(null);
-  const [renameWorkspaceId, setRenameWorkspaceId] = useState<string | null>(
-    null,
-  );
-  const [renameWorkspaceTitle, setRenameWorkspaceTitle] = useState("");
-  const [renameWorkspaceBusy, setRenameWorkspaceBusy] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [paletteAccessibleTargets, setPaletteAccessibleTargets] = useState<
-    OpenTarget[]
-  >([]);
-  // Model picker modal state (ported from settings-route; previously the
-  // session "Pick a model" button navigated to /settings/general, which is a
-  // dead-end). Loads providers lazily when the modal opens.
-  const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  // initialTab removed — model picker no longer has tabs
-  const [compactModelPickerOpen, setCompactModelPickerOpen] = useState(false);
-  const [modelPickerQuery, setModelPickerQuery] = useState("");
-  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const {
+    createWorkspaceOpen,
+    setCreateWorkspaceOpen,
+    createWorkspaceBusy,
+    setCreateWorkspaceBusy,
+    createWorkspaceError,
+    setCreateWorkspaceError,
+    createWorkspaceRemoteBusy,
+    setCreateWorkspaceRemoteBusy,
+    createWorkspaceRemoteError,
+    setCreateWorkspaceRemoteError,
+    renameWorkspaceId,
+    setRenameWorkspaceId,
+    renameWorkspaceTitle,
+    setRenameWorkspaceTitle,
+    renameWorkspaceBusy,
+    setRenameWorkspaceBusy,
+    commandPaletteOpen,
+    setCommandPaletteOpen,
+    paletteAccessibleTargets,
+    setPaletteAccessibleTargets,
+  } = useSessionRouteChromeState({
+    selectedSessionId,
+    selectedWorkspaceId,
+  });
+
+  const {
+    modelPickerOpen,
+    setModelPickerOpen,
+    compactModelPickerOpen,
+    setCompactModelPickerOpen,
+    modelPickerQuery,
+    setModelPickerQuery,
+    modelOptions,
+    setModelOptions,
+    recentProviderIds,
+    setRecentProviderIds,
+    denSessionVersion,
+    bumpDenSessionVersion,
+  } = useSessionRouteModelPickerState();
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<
     Record<string, string>
@@ -498,78 +508,33 @@ export function SessionRouteRender() {
     [],
   );
   const [disabledProviderIds, setDisabledProviderIds] = useState<string[]>([]);
-  // Bump to re-filter provider list when den session changes (sign-in/out)
-  const [denSessionVersion, setDenSessionVersion] = useState(0);
-  const bumpDenSessionVersion = useCallback(() => {
-    setDenSessionVersion((version) => version + 1);
-  }, []);
-  useDenSessionVersionBump(bumpDenSessionVersion);
-  // Provider IDs that were just added — used to highlight them as
-  // "Recently added" in the model picker even after they've been
-  // marked as seen in localStorage.
-  const [recentProviderIds, setRecentProviderIds] = useState<Set<string>>(
-    new Set(),
-  );
-  // Open model picker when the global toast's "Pick a new default?" is clicked
-  const openModelPickerFromPendingProvider = useCallback(() => {
-    setModelPickerOpen(true);
-  }, []);
-  const modelPickerEventHandlers = useMemo(
-    () => ({
-      openModelPicker: openModelPickerFromPendingProvider,
-      setRecentProviderIds,
-    }),
-    [openModelPickerFromPendingProvider],
-  );
-  usePendingModelPickerEvents(modelPickerEventHandlers);
-  useEffect(() => {
-    setPaletteAccessibleTargets([]);
-  }, [selectedSessionId, selectedWorkspaceId]);
+
 
   // Ensure agent registry is loaded when a workspace is selected
   useEnsureAgentRegistry(client, selectedWorkspaceId || undefined);
 
-  const [permissionReplyBusy, setPermissionReplyBusy] = useState(false);
-  const permissionReplyBusyRef = useRef(false);
-  const [sessionAccessModeById, setSessionAccessModeById] = useState<
-    Record<string, ComposerDraft["accessMode"]>
-  >({});
-  const [sessionCollaborationModeById, setSessionCollaborationModeById] =
-    useState<Record<string, ComposerDraft["collaborationMode"]>>({});
-  const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
-    Record<string, CollaborationPlanRuntime>
-  >({});
-  const [sessionGoalRuntimeById, setSessionGoalRuntimeById] = useState<
-    Record<string, CollaborationGoalRuntime>
-  >(() => readSessionGoalRuntimes());
-  const [
+  const {
+    permissionReplyBusy,
+    setPermissionReplyBusy,
+    permissionReplyBusyRef,
+    sessionAccessModeById,
+    setSessionAccessModeById,
+    sessionCollaborationModeById,
+    setSessionCollaborationModeById,
+    sessionPlanRuntimeById,
+    setSessionPlanRuntimeById,
+    sessionGoalRuntimeById,
+    setSessionGoalRuntimeById,
     autoApprovedPermissionNoticeBySessionId,
     setAutoApprovedPermissionNoticeBySessionId,
-  ] = useState<Record<string, string>>({});
-  const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
-  const questionReplyBusyRef = useRef(false);
-  // Subscribe to pending agent so the composer's model selection reflects
-  // the agent's configured model when the user clicks "对话" from the agents page.
-  const pendingAgent = usePendingAgentStore((state) => state.agent);
-  // Tracks the user's manual model override for the current pending agent session.
-  // When the user manually picks a model in the "+新任务" page, we use this for
-  // both display and sending, but NEVER modify the stored pending-agent model.
-  // The agent's configured model can only change via the agent page edit dialog.
-  const [manualModelOverride, setManualModelOverride] =
-    useState<ModelRef | null>(null);
+    questionReplyBusy,
+    setQuestionReplyBusy,
+    questionReplyBusyRef,
+    pendingAgent,
+    manualModelOverride,
+    setManualModelOverride,
+  } = useSessionRouteComposerRuntimeState();
 
-  useEffect(() => {
-    writeSessionGoalRuntimes(sessionGoalRuntimeById);
-  }, [sessionGoalRuntimeById]);
-
-  // Clear the manual override when a fresh "conversation from agent card"
-  // flow begins. We key on `conversationStartId` (a nonce set on every
-  // "对话" click) rather than `pendingAgent.id`, because the user may click
-  // the same agent card multiple times — each click should reset the
-  // composer's model selection back to the agent's configured model.
-  useEffect(() => {
-    setManualModelOverride(null);
-  }, [pendingAgent?.conversationStartId]);
 
   // Provider catalog cache. Used to compute the reasoning/thinking variant
   // options for whichever model is currently selected so the composer's
