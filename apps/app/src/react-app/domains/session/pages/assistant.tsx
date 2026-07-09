@@ -54,7 +54,7 @@ import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
-import { SessionArchivePage } from "../chat/session-page-session-archive-page";
+import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
   expertMarketplaceCategoryLabel,
@@ -170,6 +170,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const consumedAgentManagementIntentRef = useRef<string | null>(null);
   const [activeSidebarView, setActiveSidebarView] =
     useState<OnMyAgentPrimaryView>("assistant");
+  const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
@@ -1022,11 +1023,23 @@ export function AssistantPage(props: AssistantPageProps) {
 
                       {activeSidebarView === "localAgent" ? (
                         <PersonalLocalAgentPage
+                          resumeRequest={pendingArchiveResume}
+                          onResumeConsumed={() => setPendingArchiveResume(null)}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           workspaceName={props.selectedWorkspaceDisplay.name}
+                          onmyagentServerClient={props.onmyagentServerClient}
+                          runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                           headerActions={headerPanelControls}
+                          onOpenAgentManagement={(panel) => {
+                            setAgentManagementPageIntent({
+                              key: `open-panel-${Date.now()}`,
+                              action: "openPanel",
+                              panel: panel ?? "skills",
+                            });
+                            setActiveSidebarView("agentManagement");
+                          }}
                         />
                       ) : null}
 
@@ -1038,6 +1051,10 @@ export function AssistantPage(props: AssistantPageProps) {
                             <SessionArchivePage
                               client={props.onmyagentServerClient}
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                              onResume={(request) => {
+                                setPendingArchiveResume(request);
+                                setActiveSidebarView("localAgent");
+                              }}
                             />
                           )}
                         />

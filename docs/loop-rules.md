@@ -56,6 +56,14 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 - Verifier 默认立场是“找理由拒绝这个变更”。
 - 单 Agent 执行时，也必须在实现后单独进入 Verifier 阶段审 diff、审边界、跑命令。
 
+### Ledger 结构强制（Verifier 阶段）
+
+每个 durable execution ledger（`.loop/plans/*ledger*.md` / `*execution*.md` / `*plan*.md`）必须包含一个**结构上独立**的 `## [VX] Verifier 阶段` 段落，与 Implementer 阶段（Px）明确分开，**不得把验证仅作为实现阶段的尾巴或自查**。Verifier 阶段要求：
+
+- 以「找理由拒绝这个变更」的立场独立执行：重读本次 diff、核对 Denylist 与用户脏文件、独立跑验证命令；
+- 结论写入 ledger 的 Verifier 结论行；Implementer 阶段完成**不得自行标记 done**，须经 Verifier 阶段通过后才可以；
+- 新 ledger 一律从 `.loop/plans/_LEDGER_TEMPLATE.md` 复制骨架（该模板已内置 `[VX] Verifier 阶段` 段）。
+
 ## 验证链
 
 | 层 | 何时 | 做什么 |
@@ -105,6 +113,7 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 - 阶段完成不是任务完成；只完成早期 slice / checkpoint / phase 时，Status 必须是 Partial，并继续下一个 required item。
 - 功能完成但 ledger 要求的架构重构、文档、验证未完成时，Status 必须是 Partial。
 - required verification 未全过时，Status 必须是 Partial 或 Blocked。
+- **无法 live 验证的 required verification 必须标 `blocked-external`**：若某 required 验证项（如 UI CDP live smoke、需真实运行中的桌面 app、需真实凭证/外部服务）在当前环境无法实际运行，该项状态必须为 `blocked-external`（注明具体缺失：实机 / 用户状态 / 凭证 / 外部服务），且整个 ledger 的 Status 必须为 `Partial`，**不得用「预期重启后即生效」「预计无回归」「逻辑上等价」等推断代替真实证据写 `Completed`**。仅当用户明确批准该项 `descoped` / `WONT_PORT` 时，方可从 blocked 移除。
 - 每完成一个子项必须更新 ledger：status、evidence、touched files、verification、next item。
 - required verification 失败必须先 inspect → fix → rerun；只有同一失败连续 3 次、新产品/架构决策、缺外部凭证/账号/线上权限、破坏性/外部副作用/secrets 风险，或 required 目标与技术约束发生客观冲突时，才允许停止。
 - **禁止早停在 Partial**：任何 final report、matrix、ledger、run log、`Next Required Work` 中出现 required item 仍为 `PARTIAL` / `MISSING` / 未解决 `BLOCKED` / unchecked gate 时，这些项不是后续建议，而是 completion blocker；必须把它们转成下一个 atomic task 继续执行，除非用户明确要求停在 Partial、该项被用户批准 `descoped`/`WONT_PORT`，或存在证据充分的真实 blocker。
@@ -129,10 +138,11 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 
 默认流程：
 
-1. 跨模块、架构、启动链路、MCP/i18n/server/Electron、安全面任务：先跑 `graphify query "<问题>" --budget 1200`。
-2. 影响范围不清楚时：跑 `graphify affected "<文件或符号>"`。
-3. 需要串联两个模块时：跑 `graphify path "<A>" "<B>"`。
+1. 跨模块、架构、启动链路、MCP/i18n/server/Electron、安全面任务：先跑 `graphify update .` 构建/增量更新 AST 图谱（无需 LLM/API key；产物在 `graphify-out/graph.json`）。
+2. 影响范围不清楚时：对目标 `文件或符号` 跑 `graphify explain "<文件或符号>"` 看其邻居与依赖。
+3. 需要串联两个模块时：跑 `graphify path "<A>" "<B>"` 看最短调用/依赖路径。
 4. 只解释单个模块/符号时：跑 `graphify explain "<节点>"`。
+5. 图谱异常（同端点边坍缩风险）：跑 `graphify diagnose multigraph`。
 5. 根据图谱结果只打开命中的关键文件，再用 `rg` / 源码阅读做精查。
 6. 修改代码后默认运行增量 `graphify update .`，再跑相关 typecheck/test/build；不要常规使用 `--force`。
 

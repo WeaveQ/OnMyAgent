@@ -10,6 +10,7 @@ function structuredArtifactTargets(run: PersonalLocalAgentRunResult | undefined 
   if (!run?.artifacts?.length) return [];
   const map = new Map<string, OpenTarget>();
   for (const entry of run.artifacts) {
+    if (entry.exists === false) continue;
     const value = entry.path || entry.relPath;
     if (!value) continue;
     const id = `file:${value.toLowerCase()}`;

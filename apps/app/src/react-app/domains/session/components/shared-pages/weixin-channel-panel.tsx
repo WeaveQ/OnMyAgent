@@ -396,6 +396,12 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         setToken("");
         setQrAutoPoll(false);
         await refresh();
+        if (result.autoStartOk === false) {
+          const autoStartError = String((result.autoStart as { error?: unknown })?.error ?? "");
+          setError(t("local_agent.weixin_autostart_failed", {
+            error: autoStartError || t("local_agent.unknown_error"),
+          }));
+        }
       }
     } catch (pollError) {
       setError(pollError instanceof Error ? pollError.message : String(pollError));
@@ -735,31 +741,10 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </div>
       ) : null}
 
-      <PanelSection title={t("config.diagnostics_title")} description={t("messaging.weixin_simulate")}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-xs font-medium text-dls-text">{t("messaging.weixin_simulate")}</div>
-            <div className="mt-1 text-xs leading-5 text-dls-secondary">
-              {t("messaging.weixin_agent_command_help_prefix")} <span className="font-mono text-dls-text">#agent</span> {t("messaging.weixin_agent_command_help_middle")} <span className="font-mono text-dls-text">#agent codex</span>, <span className="font-mono text-dls-text">#agent opencode</span> {t("messaging.weixin_agent_command_help_suffix")}
-              <br />
-              {t("messaging.weixin_mode_command_help_prefix")} <span className="font-mono text-dls-text">#mode raw</span> / <span className="font-mono text-dls-text">#mode debug</span> {t("messaging.weixin_mode_command_help_suffix")}
-            </div>
-          </div>
-          {serviceState.lastRunId ? (
-            <StatusBadge tone="surface" shape="soft" className="max-w-full font-mono">
-              <span className="truncate">runId: {serviceState.lastRunId}</span>
-            </StatusBadge>
-          ) : null}
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <Input value={allowedUser} onChange={(event) => setAllowedUser(event.currentTarget.value)} placeholder={t("messaging.weixin_allowed_user_placeholder")} />
-          <Input value={simulateText} onChange={(event) => setSimulateText(event.currentTarget.value)} placeholder={t("messaging.weixin_simulate_placeholder")} />
-          <Button type="button" variant="secondary" size="sm" onClick={simulateInbound} disabled={!canSimulate || Boolean(busy)}>
-            {busy === "simulate" ? busyIcon : <Send className="size-4" />}
-            {t("messaging.weixin_simulate")}
-          </Button>
-        </div>
-      </PanelSection>
+      {/* Agent 切换提示 */}
+      <div className="rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
+        {t("messaging.weixin_agent_command_help_prefix")} <span className="font-mono text-dls-text">#agent</span> {t("messaging.weixin_agent_command_help_middle")} <span className="font-mono text-dls-text">#agent codex</span> {t("messaging.weixin_agent_command_help_suffix")}
+      </div>
     </div>
   );
 }
