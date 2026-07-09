@@ -52,6 +52,7 @@ const testTargets = new Map([
   ['session-shared-pages-layout', ['bun', ['test', 'scripts/session-shared-pages-layout.test.ts']]],
   ['session-shared-models', ['bun', ['test', 'scripts/session-shared-models.test.ts']]],
   ['session-side-panel-toggle-contract', ['bun', ['test', 'scripts/session-side-panel-toggle-contract.test.ts']]],
+  ['session-visual-files-contract', ['bun', ['test', 'scripts/session-visual-files-contract.test.ts']]],
   ['session-snapshot-error', ['bun', ['test', 'scripts/session-snapshot-error.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['ui-state-store', ['bun', ['test', 'scripts/ui-state-store.test.ts']]],

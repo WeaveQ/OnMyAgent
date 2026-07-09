@@ -24,6 +24,10 @@ import type {
   OpenworkWorkspaceFileCatalogEntry,
 } from "../../../../../app/lib/onmyagent-server";
 import { t } from "../../../../../i18n";
+import { ArtifactIcon } from "../../artifacts/artifact-icon";
+import type { OpenTarget } from "../../artifacts/open-target";
+import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../artifacts/preview";
+import { workspaceFileOpenTarget } from "../../artifacts/workspace-file-open-target";
 
 const workspaceFilesTextClass = {
   pageTitle: "text-lg font-medium text-dls-text",
@@ -179,6 +183,19 @@ type FileNode = {
   mtimeMs: number;
 };
 
+type FilePreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; content: string }
+  | { status: "external" }
+  | { status: "browser" }
+  | { status: "error"; message: string };
+
+function canPreviewWorkspaceFileInline(target: OpenTarget) {
+  if (target.preview === "markdown" || target.preview === "text") return true;
+  return target.preview === "sheet" && /\.(csv|tsv)$/i.test(target.value);
+}
+
 type TaskGroup = {
   agentName: string;
   taskName: string;
@@ -321,6 +338,7 @@ export function WorkspaceFilesPage(props: {
   workspaceId: string;
   workspaceRoot: string;
   fileRoot?: string | null;
+  onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
 }) {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<OpenworkWorkspaceFileCatalogEntry[]>(
@@ -333,6 +351,8 @@ export function WorkspaceFilesPage(props: {
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(
     () => new Set(),
   );
@@ -343,6 +363,17 @@ export function WorkspaceFilesPage(props: {
     props.fileRoot === undefined ? props.workspaceRoot : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
   const requiresSessionFileRoot = props.fileRoot !== undefined;
+
+  const selectedTarget = useMemo(() => {
+    if (!selectedFile) return null;
+    return workspaceFileOpenTarget({
+      fileRoot,
+      path: selectedFile.path,
+      name: selectedFile.name,
+      size: selectedFile.size,
+      mtimeMs: selectedFile.mtimeMs,
+    });
+  }, [fileRoot, selectedFile]);
 
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim() || !fileRoot.trim()) {
@@ -391,6 +422,47 @@ export function WorkspaceFilesPage(props: {
     };
   }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
 
+  useEffect(() => {
+    setSelectedFile(null);
+    setPreviewState({ status: "idle" });
+  }, [fileRoot, props.workspaceId]);
+
+  useEffect(() => {
+    if (!props.client || !props.workspaceId.trim() || !selectedTarget) {
+      setPreviewState({ status: "idle" });
+      return;
+    }
+
+    if (selectedTarget.preview === "browser") {
+      setPreviewState({ status: "browser" });
+      return;
+    }
+
+    if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+      setPreviewState({ status: "external" });
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewState({ status: "loading" });
+    void props.client
+      .readWorkspaceFile(props.workspaceId, selectedTarget.value)
+      .then((result) => {
+        if (!cancelled) setPreviewState({ status: "ready", content: result.content });
+      })
+      .catch((previewError: unknown) => {
+        if (cancelled) return;
+        setPreviewState({
+          status: "error",
+          message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.client, props.workspaceId, selectedTarget]);
+
   const taskGroups = useMemo(() => {
     const filtered = entries.filter((e) => !shouldHideEntry(e.path));
     let groups = buildFileHierarchy(filtered);
@@ -426,6 +498,20 @@ export function WorkspaceFilesPage(props: {
     return groups;
   }, [entries, query, typeFilter]);
 
+  const openArtifactTarget = useCallback(
+    async (target: OpenTarget) => {
+      try {
+        await props.onOpenArtifact?.(target);
+      } catch (openError) {
+        setPreviewState({
+          status: "error",
+          message: openError instanceof Error ? openError.message : t("files.preview_failed"),
+        });
+      }
+    },
+    [props.onOpenArtifact],
+  );
+
   const handleOpenFile = useCallback(
     async (filePath: string) => {
       const absolutePath = filePath.startsWith("/")
@@ -444,6 +530,25 @@ export function WorkspaceFilesPage(props: {
   const handleDeleteFile = useCallback(async (_filePath: string) => {
     setMenuPath(null);
   }, []);
+
+  const handleSelectFile = useCallback(
+    async (file: FileNode) => {
+      setSelectedFile(file);
+      const target = workspaceFileOpenTarget({
+        fileRoot,
+        path: file.path,
+        name: file.name,
+        size: file.size,
+        mtimeMs: file.mtimeMs,
+      });
+      if (target.preview === "browser") {
+        await openArtifactTarget(target);
+      } else if (!canPreviewWorkspaceFileInline(target)) {
+        await openArtifactTarget(target);
+      }
+    },
+    [fileRoot, openArtifactTarget],
+  );
 
   const toggleAgent = (name: string) => {
     setExpandedAgents((prev) => {
@@ -547,7 +652,11 @@ export function WorkspaceFilesPage(props: {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto bg-transparent">
+          <div className={cn(
+            "grid min-h-0 flex-1 gap-4 bg-transparent",
+            selectedFile ? "grid-cols-[minmax(0,1fr)_minmax(320px,420px)]" : "grid-cols-1",
+          )}>
+            <div className="min-h-0 overflow-auto">
         {loading && entries.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
             {t("files.loading")}
@@ -606,7 +715,18 @@ export function WorkspaceFilesPage(props: {
                           {group.files.map((file) => (
                             <div
                               key={file.path}
-                              className="group relative flex items-center px-12 py-1.5 text-sm transition-colors hover:bg-dls-hover"
+                              role="button"
+                              tabIndex={0}
+                              className={cn(
+                                "group relative flex w-full cursor-pointer items-center px-12 py-1.5 text-left text-sm transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                                selectedFile?.path === file.path && "bg-dls-surface-muted",
+                              )}
+                              onClick={() => void handleSelectFile(file)}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                void handleSelectFile(file);
+                              }}
                             >
                               <FileText className="size-3.5 shrink-0 text-dls-secondary" />
                               <span className="ml-2 truncate">{file.name}</span>
@@ -621,7 +741,10 @@ export function WorkspaceFilesPage(props: {
                                   type="button"
                                   variant="ghost"
                                   size="icon-xs"
-                                  onClick={() => setMenuPath(file.path)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setMenuPath(file.path);
+                                  }}
                                   className="text-dls-secondary"
                                 >
                                   <MoreHorizontal className="size-4" />
@@ -655,7 +778,7 @@ export function WorkspaceFilesPage(props: {
                 </div>
               );
             })}
-          </div>
+            </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
             {typeFilter !== "all" || query.trim()
@@ -665,6 +788,45 @@ export function WorkspaceFilesPage(props: {
                 : t("files.no_files")}
           </div>
         )}
+            </div>
+            {selectedFile && selectedTarget ? (
+              <div className="min-h-0 overflow-hidden rounded-lg border border-dls-border bg-dls-surface-muted">
+                <div className="flex items-start gap-3 border-b border-dls-border px-4 py-3">
+                  <ArtifactIcon type={selectedTarget.preview} className="mt-0.5 size-4 shrink-0 text-dls-secondary" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-dls-text">{selectedFile.name}</div>
+                    <div className="mt-1 truncate text-xs text-dls-secondary" title={selectedFile.path}>
+                      {selectedFile.path}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-dls-secondary">
+                    <div>{formatWorkspaceFileSize(selectedFile.size)}</div>
+                    <div className="mt-1">{formatWorkspaceFileTime(selectedFile.mtimeMs)}</div>
+                  </div>
+                </div>
+                <div className="h-[420px] min-h-0 bg-dls-surface">
+                  {previewState.status === "loading" ? (
+                    <PreviewLoading />
+                  ) : previewState.status === "error" ? (
+                    <PreviewError message={previewState.message} />
+                  ) : previewState.status === "ready" && selectedTarget.preview === "markdown" ? (
+                    <MarkdownPreview content={previewState.content} />
+                  ) : previewState.status === "ready" ? (
+                    <PlainText content={previewState.content} />
+                  ) : previewState.status === "browser" ? (
+                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                      {t("files.preview_opened_in_browser")}
+                    </div>
+                  ) : previewState.status === "external" ? (
+                    <PreviewUnavailable />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                      {t("files.preview_empty")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
             </>
           )}

@@ -720,7 +720,7 @@ export function CodeWorkspaceSidePanel(props: {
                   <MenuRowButton
                     key={item.kind}
                     type="button"
-                    className="h-10 bg-dls-hover text-dls-text hover:bg-dls-hover-strong"
+                    className="h-10 bg-dls-surface-muted text-dls-text hover:bg-dls-hover"
                     onClick={() => void addTab(item.kind)}
                   >
                     <Icon className="size-4 text-dls-secondary" />
