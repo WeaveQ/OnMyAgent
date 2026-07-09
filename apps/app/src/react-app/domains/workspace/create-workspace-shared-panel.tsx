@@ -11,7 +11,7 @@ import {
   sectionBodyClass,
   sectionTitleClass,
   surfaceCardClass,
-} from "../shared/modal-styles";
+} from "../../design-system/modal-styles";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";

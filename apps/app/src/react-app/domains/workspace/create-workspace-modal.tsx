@@ -40,7 +40,7 @@ import {
   type CreateWorkspaceLocalState,
 } from "./create-workspace-modal-state";
 import { CreateWorkspaceSharedPanel } from "./create-workspace-shared-panel";
-import { modalBodyClass, tagClass } from "../shared/modal-styles";
+import { modalBodyClass, tagClass } from "../../design-system/modal-styles";
 import { WorkspaceOptionCard } from "../shared/workspace-option-card";
 import { RemoteWorkspaceFields } from "./remote-workspace-fields";
 import type {

@@ -52,7 +52,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import { AddMcpModal } from "../../shared/add-mcp-modal";
+import { AddMcpModal } from "../../connections/add-mcp-modal";
 import {
   isOnMyAgentExtensionEnabled,
   isOnMyAgentExtensionHidden,

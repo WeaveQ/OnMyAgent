@@ -1,4 +1,4 @@
-import type { PendingAgentContext } from "../domains/shared";
+import type { PendingAgentContext } from "../domains/agents";
 
 export function resolvePendingAgentForPrompt(input: {
   currentAgent: PendingAgentContext | null;

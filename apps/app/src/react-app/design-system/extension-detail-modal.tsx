@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { t } from "../../i18n";
 import type { ExtensionKind } from "@/app/constants";
 import { MarkdownBlock } from "../domains/session/surface/markdown";
-import { modalBodyClass } from "../domains/shared/modal-styles";
+import { modalBodyClass } from "./modal-styles";
 import { resolveExtensionIconSrc } from "./extension-icon-src";
 import { ExtensionMeshAvatar } from "./extension-mesh-avatar";
 import { APP_NAME, APP_NAME_LOWER } from "../../i18n/locales/brand";
