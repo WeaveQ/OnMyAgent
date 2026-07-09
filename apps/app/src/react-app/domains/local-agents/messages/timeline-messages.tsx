@@ -180,7 +180,7 @@ function inferTitleFromInput(input?: unknown): string | null {
       str = String(input);
     }
   }
-  if (!str?.trim()) return null;
+  if (!str.trim()) return null;
   const trimmed = str.trim();
   // 尝试解析 JSON，看有没有 command/path/file_path/pattern
   try {

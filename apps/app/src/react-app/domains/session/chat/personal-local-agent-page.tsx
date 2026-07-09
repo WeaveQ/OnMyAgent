@@ -269,7 +269,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // avoiding the case where the chip looks editable but re-picking silently
   // does nothing.
   const selectedConversationHasContent = (messagesByAgent[selectedChatKey] ?? []).some(
-    (message) => (message as { run?: unknown }).run || (message as { role?: string }).role === "user",
+    (message) => Boolean(message.run) || message.role === "user",
   );
   const chipEditable = !selectedConversationWorkdir && !selectedConversationHasContent;
   const handleWarmupResult = useCallback((result: { ok: boolean; providerSessionId?: string | null }) => {
