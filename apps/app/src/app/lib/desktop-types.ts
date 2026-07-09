@@ -419,6 +419,7 @@ export type PersonalLocalAgentErrorInfo = {
     | "acp_bridge_interrupted_after_retry"
     | "acp_tool_failed"
     | "sandbox_or_network_refusal"
+    | "orphaned"
     | "unknown";
   message: string;
   debug?: string | null;
