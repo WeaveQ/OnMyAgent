@@ -15,15 +15,10 @@ interface LayoutSectionProps {
 }
 
 export function LayoutSection({ children }: LayoutSectionProps) {
-  // v6: match SettingsCard chrome so pages using LayoutSection (preferences,
-  // advanced-view-sections, ai-view, environment-view, software-environment)
-  // visually align with SettingsCard-based pages (permissions, mcp, messaging,
-  // memory, workspaces). rounded-xl (14) + p-5 + surface-muted mirrors
-  // SettingsCard defaults. See DESIGN.md § 7 and settings-section.tsx.
   return (
     <div
       data-section
-      className="group/section flex flex-col gap-5 rounded-xl border border-dls-border bg-dls-surface-muted p-5"
+      className="group/section flex flex-col gap-5"
     >
       {children}
     </div>
