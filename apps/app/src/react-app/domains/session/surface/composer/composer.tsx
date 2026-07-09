@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { Check, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Settings, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Settings, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
@@ -213,6 +213,7 @@ type ComposerProps = {
   compactTopSpacing?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
+  hideAccessPermissionSelect?: boolean;
 };
 
 const FLUSH_PROMPT_EVENT = "onmyagent:flushPromptDraft";
@@ -1269,7 +1270,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                     event.currentTarget.value = "";
                   }}
                 />
-                <div ref={toolMenuRef} className="relative">
+                <div ref={toolMenuRef} className="relative -ml-2">
                   <Button
                     type="button"
                     variant="ghost"
@@ -1279,41 +1280,65 @@ export function ReactSessionComposer(props: ComposerProps) {
                       setMentionOpen(false);
                       setMentionItems([]);
                       setSlashOpen(false);
-                      setToolMenuOpen((value) => !value);
+                      setToolMenuOpen((value) => {
+                        const nextOpen = !value;
+                        if (nextOpen) setToolMenuSection("files");
+                        return nextOpen;
+                      });
                     }}
                     aria-expanded={toolMenuOpen}
                     aria-haspopup="dialog"
                     title={t("composer.quick_actions")}
                     aria-label={t("composer.quick_actions")}
                   >
-                    <Plus size={16} />
+                    <Plus
+                      size={16}
+                      className={`transition-transform duration-200 ease-out ${toolMenuOpen ? "rotate-45" : "rotate-0"}`}
+                    />
                   </Button>
                   {toolMenuOpen ? (
-                    <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),36rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                      <div className="grid min-h-64 grid-cols-[144px_minmax(0,1fr)]">
-                        <div className="border-r border-dls-border bg-dls-surface-muted p-2">
-                          {([
-                            ["files", t("composer.add_file"), Paperclip],
-                            ["modes", t("composer.collaboration_mode"), MessageCircle],
-                            ["skills", t("dashboard.skills"), Zap],
-                            ["mcps", t("composer.connectors_label"), Plug],
-                          ] as const).map(([section, label, Icon]) => (
-                            <MenuRowButton
-                              key={section}
-                              type="button"
-                              align="center"
-                              active={toolMenuSection === section}
-                              className="mb-1 justify-between gap-2"
-                              onClick={() => setToolMenuSection(section)}
-                            >
-                              <span className="flex min-w-0 items-center gap-2">
-                                <Icon size={14} className="shrink-0 text-dls-secondary" />
-                                <span className="truncate">{label}</span>
-                              </span>
-                            </MenuRowButton>
-                          ))}
-                        </div>
-                        <div className="flex min-h-0 flex-col">
+                    <div className="absolute bottom-full left-0 z-40 mb-3 h-0 w-0">
+                      <div className="absolute bottom-0 left-0 w-36 rounded-xl border border-dls-border bg-dls-surface p-2">
+                        <MenuRowButton
+                          type="button"
+                          align="center"
+                          active={toolMenuSection === "files"}
+                          className="mb-1 justify-between gap-2"
+                          disabled={!props.attachmentsEnabled}
+                          onMouseEnter={() => setToolMenuSection("files")}
+                          onFocus={() => setToolMenuSection("files")}
+                          onClick={openFilePicker}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Paperclip size={14} className="shrink-0 text-dls-secondary" />
+                            <span className="truncate">{t("composer.add_file")}</span>
+                          </span>
+                        </MenuRowButton>
+                        {([
+                          ["modes", t("composer.collaboration_mode"), MessageCircle],
+                          ["skills", t("dashboard.skills"), Zap],
+                          ["mcps", t("composer.connectors_label"), Plug],
+                        ] as const).map(([section, label, Icon]) => (
+                          <MenuRowButton
+                            key={section}
+                            type="button"
+                            align="center"
+                            active={toolMenuSection === section}
+                            className="mb-1 justify-between gap-2"
+                            onMouseEnter={() => setToolMenuSection(section)}
+                            onFocus={() => setToolMenuSection(section)}
+                            onClick={() => setToolMenuSection(section)}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Icon size={14} className="shrink-0 text-dls-secondary" />
+                              <span className="truncate">{label}</span>
+                            </span>
+                            <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                          </MenuRowButton>
+                        ))}
+                      </div>
+                      {toolMenuSection === "files" ? null : (
+                        <div className="absolute bottom-0 left-[calc(9rem-1px)] flex w-[min(calc(100vw-11.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
                           {toolMenuSection === "skills" ? (
                             <div className="flex min-h-12 items-center justify-between gap-3 border-b border-dls-border px-3 py-2">
                               <div className="text-xs font-medium text-dls-text">{t("dashboard.skills")}</div>
@@ -1333,32 +1358,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                             </div>
                           ) : (
                             <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
-                              {toolMenuSection === "files" ? t("composer.add_file") : null}
                               {toolMenuSection === "modes" ? t("composer.collaboration_choose_mode") : null}
                               {toolMenuSection === "mcps" ? t("composer.connectors_label") : null}
                             </div>
                           )}
                           <div className="max-h-72 overflow-y-auto p-2">
-                            {toolMenuSection === "files" ? (
-                              <div className="grid gap-1">
-                                <MenuRowButton
-                                  type="button"
-                                  align="center"
-                                  disabled={!props.attachmentsEnabled}
-                                  onClick={openFilePicker}
-                                >
-                                  <Paperclip size={14} className="shrink-0 text-dls-secondary" />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="truncate text-xs font-medium text-dls-text">
-                                      {t("composer.attach_files")}
-                                    </div>
-                                    <div className="truncate text-xs text-dls-secondary">
-                                      {props.attachmentsDisabledReason ?? t("composer.any_file_type_supported")}
-                                    </div>
-                                  </div>
-                                </MenuRowButton>
-                              </div>
-                            ) : null}
                             {toolMenuSection === "modes" ? (
                               <div className="grid gap-1">
                                 {modeOptions.map((option) => {
@@ -1478,7 +1482,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -1497,10 +1501,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                     <span className="min-w-0 truncate">{selectedModeOption.label}</span>
                   </Button>
                 ) : null}
-                <AccessPermissionSelect
-                  value={props.accessMode}
-                  onChange={props.onAccessModeChange}
-                />
+                {props.hideAccessPermissionSelect ? null : (
+                  <AccessPermissionSelect
+                    value={props.accessMode}
+                    onChange={props.onAccessModeChange}
+                  />
+                )}
                 {props.modelUnavailable ? (
                   <span className={composerTextClass.modelUnavailable}>
                     {t("settings.model_unavailable")}
