@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { NoticeBox } from "@/components/ui/notice-box";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { t } from "@/i18n";
 import {
   personalLocalAgentListExtensions,
@@ -59,9 +59,9 @@ export function ExtensionListPanel() {
       </div>
       {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
       {extensions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-dls-border px-4 py-6 text-center text-xs text-dls-secondary">
+        <EmptyStateBox size="compact" className="text-xs">
           {t("local_agent.extensions_empty")}
-        </div>
+        </EmptyStateBox>
       ) : (
         <ul className="space-y-2">
           {extensions.map((ext) => (

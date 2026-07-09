@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -177,7 +178,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
   const running = serviceState.status === "running" || serviceState.status === "backoff";
   const canStart = Boolean(effectiveAccountId && effectiveWorkspaceRoot) && !running;
   const canSimulate = Boolean(effectiveAccountId && allowedUser.trim());
-  const busyIcon = useMemo(() => busy ? <Loader2 className="size-4 animate-spin" /> : null, [busy]);
+  const busyIcon = useMemo(() => busy ? <LoadingSpinner size="default" /> : null, [busy]);
   const qrScanValue = qrCodeUrl || qrCode;
   const qrImageUrl = qrImageDataUrl;
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents[0] ?? FALLBACK_AGENT;
@@ -548,7 +549,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         <div className="flex items-center gap-2">
           <StatusBadge tone={statusTone(serviceState.status)}>{serviceState.status ?? "stopped"}</StatusBadge>
           <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={Boolean(busy)} aria-label={t("common.refresh")}>
-            {busy === "refresh" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            {busy === "refresh" ? <LoadingSpinner size="default" /> : <RefreshCw className="size-4" />}
           </Button>
         </div>
       </div>

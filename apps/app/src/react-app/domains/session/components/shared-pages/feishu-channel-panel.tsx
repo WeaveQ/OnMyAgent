@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -210,7 +211,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
   const selectedAgentSupportsApproval = selectedAgent.capability?.supportsApproval !== false;
   const selectedAgentPayload = useMemo(() => agentPayload(selectedAgent), [selectedAgent]);
   const agentsPayload = useMemo(() => agents.map(agentPayload), [agents]);
-  const busyIcon = useMemo(() => busy ? <Loader2 className="size-4 animate-spin" /> : null, [busy]);
+  const busyIcon = useMemo(() => busy ? <LoadingSpinner size="default" /> : null, [busy]);
 
   const refreshAgents = useCallback(async () => {
     try {
@@ -404,7 +405,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
         <div className="flex items-center gap-2">
           <StatusBadge tone={statusTone(serviceState.status)}>{serviceState.status ?? "stopped"}</StatusBadge>
           <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={Boolean(busy)} aria-label={t("common.refresh")}>
-            {busy === "refresh" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            {busy === "refresh" ? <LoadingSpinner size="default" /> : <RefreshCw className="size-4" />}
           </Button>
         </div>
       </div>

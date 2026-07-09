@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -340,7 +341,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
 
         <Alert>
           {status === "checking" ? (
-            <Loader2 className="animate-spin" />
+            <LoadingSpinner size="default" />
           ) : status === "running" ? (
             <CheckCircle2 className="text-dls-accent!" />
           ) : (
@@ -438,7 +439,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
           onClick={handleInstall}
           disabled={props.busy || isPulling || !activeModelId || status !== "running"}
         >
-          {props.busy && <Loader2 className="size-4 animate-spin" />}
+          {props.busy && <LoadingSpinner size="default" />}
           {t("settings.ollama_add_to_workspace")}
         </Button>
       </CardFooter>
@@ -493,7 +494,7 @@ function PullProgressRow({ progress, isPulling }: PullProgressRowProps) {
       <Field orientation="horizontal" size="sm">
         <div className="relative flex aspect-square size-4 shrink-0 items-center justify-center">
           {isPulling ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />
+            <LoadingSpinner size="default" className="text-muted-foreground" aria-hidden />
           ) : null}
         </div>
         <FieldContent className="flex-row justify-between w-full">

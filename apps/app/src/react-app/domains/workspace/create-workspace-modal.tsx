@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import {
   useCallback,
@@ -529,7 +530,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                   >
                     {props.importingConfig ? (
                       <span className="inline-flex items-center gap-2">
-                        <Loader2 size={14} className="animate-spin" />
+                        <LoadingSpinner size="sm" />
                         {t("dashboard.importing")}
                       </span>
                     ) : (
@@ -612,7 +613,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                 >
                   {remoteSubmitting ? (
                     <span className="inline-flex items-center gap-2">
-                      <Loader2 size={16} className="animate-spin" />
+                      <LoadingSpinner size="default" />
                       {t("dashboard.connecting")}
                     </span>
                   ) : (

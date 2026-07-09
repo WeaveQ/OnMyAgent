@@ -120,12 +120,12 @@ migrate when touching a file.
 
 | Current (`shared/`) | Target domain | Notes |
 | --- | --- | --- |
-| `status-toast(s).tsx` | `shell-feedback/` | Toasts already partially live there |
-| `add-mcp-modal.tsx` | `connections/` | Canonical MCP owner |
-| `provider-auth-modal.tsx`, `provider-auth-types.ts`, `provider-list-query.ts` | `connections/` | Collapse with `connections/provider-auth/*` |
+| `status-toast(s).tsx` | **`shell-feedback/`** (moved; shared re-exports) | Prefer shell-feedback imports |
+| `add-mcp-modal.tsx` | `connections/` | Still transitional under shared; prefer connections for auth |
+| `provider-auth-modal.tsx`, `provider-auth-types.ts` | **`connections/`** (moved; shared re-exports) | `provider-list-query` still shared |
 | `share-workspace-*.tsx`, `workspace-modal-types.ts`, `workspace-option-card.tsx` | `workspace/` | Keep workspace flows together |
-| `plugins-page.tsx`, `skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts` | **`plugins/` entry** (re-exports live; move files later) | Import via `domains/plugins` |
-| `agent-registry-*.ts(x)`, `pending-agent-store.ts`, `agent-session-state.ts`, `agent-default-registry.ts`, `agent-prompt-suggestions.tsx` | `agents/` (or `local-agents/` for pending draft) | **Eliminate dual stores** with `agents/*-store` |
+| `plugins-page.tsx`, `skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts` | **`plugins/`** (moved; shared re-exports) | Import via `domains/plugins` |
+| `agent-registry-*`, `pending-agent-store`, `agent-session-state`, … | **`agents/`** (moved; shared re-exports) | Dual store eliminated — agents owns implementation |
 | `onmyagent-server-store.ts`, `extension-state.ts`, `env-context.ts`, `desktop-config-context.ts` | keep in `shared/` until a kernel/infra home is clearer | Low priority |
 | `modal-styles.ts`, `onmyagent-den-help-link.tsx` | design-system / cloud as appropriate | Cosmetic |
 

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useState } from "react";
 import { CheckCircle2, Image, Loader2, PlusIcon, XCircle } from "lucide-react";
@@ -105,7 +106,7 @@ export function OpenAiImageGenConfig(props: OpenAiImageGenConfigProps) {
           onClick={() => void props.onInstall(apiKey)}
           disabled={props.busy || !canSubmit}
         >
-          {props.busy && <Loader2 className="size-4 animate-spin" />}
+          {props.busy && <LoadingSpinner size="default" />}
           Enable
         </Button>
         <Button

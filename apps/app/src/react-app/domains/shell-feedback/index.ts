@@ -1,7 +1,6 @@
 export { FloatingToastFrame, type FloatingToastFrameProps } from "./floating-toast-frame";
 export { ReloadWorkspaceToast, type ReloadWorkspaceToastProps } from "./reload-workspace-toast";
-
-/** Transitional re-export — implementation still under shared/status-toasts. */
+export { TopRightNotifications } from "./top-right-notifications";
 export {
   StatusToastsProvider,
   StatusToastsViewport,
@@ -11,4 +10,5 @@ export {
   type AppStatusToastInput,
   type AppStatusToastTone,
   type StatusToastsStore,
-} from "../shared/status-toasts";
+} from "./status-toasts";
+export type { StatusToastProps } from "./status-toast";

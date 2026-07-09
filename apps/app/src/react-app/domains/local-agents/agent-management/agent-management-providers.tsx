@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -534,7 +535,7 @@ export function AgentManagementProviderModal(props: {
                         aria-busy={fetchingModels}
                         onClick={fetchProviderModels}
                       >
-                        {fetchingModels ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
+                        {fetchingModels ? <LoadingSpinner size="sm" className="mr-1" /> : <Download className="mr-1 size-3" />}
                         {t("agent_manager.provider_modal.fetch_models")}
                       </Button>
                       <Button
@@ -600,7 +601,7 @@ export function AgentManagementProviderModal(props: {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Button type="button" size="xs" variant="outline" disabled={!props.draft.baseUrl.trim()} aria-busy={fetchingModels} onClick={fetchProviderModels}>
-                        {fetchingModels ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
+                        {fetchingModels ? <LoadingSpinner size="sm" className="mr-1" /> : <Download className="mr-1 size-3" />}
                         {t("agent_manager.provider_modal.fetch_models")}
                       </Button>
                       <Button type="button" size="xs" variant="outline" onClick={addCodexCatalogRow}>
@@ -682,7 +683,7 @@ export function AgentManagementProviderModal(props: {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Button type="button" size="xs" variant="outline" disabled={!props.draft.baseUrl.trim()} aria-busy={fetchingModels} onClick={fetchProviderModels}>
-                        {fetchingModels ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
+                        {fetchingModels ? <LoadingSpinner size="sm" className="mr-1" /> : <Download className="mr-1 size-3" />}
                         {t("agent_manager.provider_modal.fetch_models")}
                       </Button>
                       <Button type="button" size="xs" variant="outline" onClick={addModelRow}>
@@ -784,7 +785,7 @@ export function AgentManagementProviderModal(props: {
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-dls-border bg-dls-surface px-5 py-3">
           <Button size="sm" variant="outline" onClick={() => props.onOpenChange(false)} disabled={props.busy}>{t("common.cancel")}</Button>
           <Button size="sm" disabled={!canSubmit || providerKeyInvalid || props.busy} onClick={props.onSubmit}>
-            {props.busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : editing ? <Pencil className="mr-1.5 size-3.5" /> : <Plus className="mr-1.5 size-3.5" />}
+            {props.busy ? <LoadingSpinner size="sm" className="mr-1.5" /> : editing ? <Pencil className="mr-1.5 size-3.5" /> : <Plus className="mr-1.5 size-3.5" />}
             {editing ? t("agent_manager.provider_modal.save_changes") : t("agent_manager.provider_modal.save_and_write")}
           </Button>
         </div>
@@ -935,7 +936,7 @@ export function AgentManagementProviderPanel(props: {
                 disabled={props.busyKey === `provider:${props.selectedApp}:import`}
                 onClick={() => props.onProviderAction({ action: "importLive", appType: props.selectedApp }, `provider:${props.selectedApp}:import`)}
               >
-                {props.busyKey === `provider:${props.selectedApp}:import` ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
+                {props.busyKey === `provider:${props.selectedApp}:import` ? <LoadingSpinner size="sm" className="mr-1.5" /> : <Download className="mr-1.5 size-3.5" />}
                 {t("agent_manager.import_current")}
               </Button>
               <Button size="sm" onClick={props.onCreateProvider}>
@@ -970,13 +971,13 @@ export function AgentManagementProviderPanel(props: {
                         <Pencil className="size-3.5" />
                       </ProviderActionIconButton>
                       <ProviderActionIconButton label={t("agent_manager.provider_modal.enable_provider")} disabled={busy} onClick={() => props.onProviderAction({ action: "switch", appType: provider.appType, providerId: provider.id }, `provider:${provider.appType}:${provider.id}:switch`)}>
-                        {props.busyKey === `provider:${provider.appType}:${provider.id}:switch` ? <Loader2 className="size-3 animate-spin" /> : <Zap className="size-3.5" />}
+                        {props.busyKey === `provider:${provider.appType}:${provider.id}:switch` ? <LoadingSpinner size="sm" /> : <Zap className="size-3.5" />}
                       </ProviderActionIconButton>
                       <ProviderActionIconButton label={t("agent_manager.provider_modal.write_config")} disabled={busy} onClick={() => props.onProviderAction({ action: "syncLive", appType: provider.appType, providerId: provider.id }, `provider:${provider.appType}:${provider.id}:sync`)}>
-                        {props.busyKey === `provider:${provider.appType}:${provider.id}:sync` ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                        {props.busyKey === `provider:${provider.appType}:${provider.id}:sync` ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-3.5" />}
                       </ProviderActionIconButton>
                       <ProviderActionIconButton label={t("agent_manager.provider_modal.delete_provider")} tooltipLabel={provider.isCurrent ? t("agent_manager.provider_modal.current_provider_cannot_delete") : t("agent_manager.provider_modal.delete_provider")} disabled={busy || provider.isCurrent} danger onClick={() => props.onProviderAction({ action: "delete", appType: provider.appType, providerId: provider.id }, `provider:${provider.appType}:${provider.id}:delete`)}>
-                        {props.busyKey === `provider:${provider.appType}:${provider.id}:delete` ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3.5" />}
+                        {props.busyKey === `provider:${provider.appType}:${provider.id}:delete` ? <LoadingSpinner size="sm" /> : <Trash2 className="size-3.5" />}
                       </ProviderActionIconButton>
                     </div>
                   </div>

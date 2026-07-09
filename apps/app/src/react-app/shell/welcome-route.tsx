@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import {
   useCallback,
@@ -502,7 +503,7 @@ export function WelcomeRoute() {
                 }
               >
                 {creatingWorkspace ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <LoadingSpinner size="default" />
                 ) : null}
                 {t("common.next")}
                 <ArrowRight className="size-4" />

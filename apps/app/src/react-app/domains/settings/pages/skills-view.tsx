@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import {
   useCallback,
@@ -1340,7 +1341,7 @@ export function SkillsView(props: SkillsViewProps) {
                               }
                             >
                               {installingCloudSkillId === skill.id ? (
-                                <Loader2 data-icon="inline-start" size={14} className="animate-spin" />
+                                <LoadingSpinner size="sm" data-icon="inline-start" />
                               ) : (
                                 <Plus data-icon="inline-start" size={14} />
                               )}
@@ -1546,7 +1547,7 @@ export function SkillsView(props: SkillsViewProps) {
                         })}
                       >
                         {installingHubSkill === skill.name ? (
-                          <Loader2 data-icon="inline-start" size={14} className="animate-spin" />
+                          <LoadingSpinner size="sm" data-icon="inline-start" />
                         ) : (
                           <Plus data-icon="inline-start" size={14} />
                         )}
@@ -1715,7 +1716,7 @@ export function SkillsView(props: SkillsViewProps) {
                 ) : null}
                 {shareCloudSignedIn && shareHubsLoading ? (
                   <div className="mt-3 flex items-center gap-2 text-xs text-dls-secondary">
-                    <Loader2 size={14} className="animate-spin" />
+                    <LoadingSpinner size="sm" />
                     {t("skills.share_team_hubs_loading")}
                   </div>
                 ) : null}

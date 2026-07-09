@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { HeartPulse, Loader2, Pencil, Trash2, Wrench } from "lucide-react";
 
@@ -137,7 +138,7 @@ export function AgentManagementAgentCard(props: {
               disabled={props.agent.status !== "online" || props.checking}
               onClick={() => props.onHealthCheck(props.agent)}
             >
-              {props.checking ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <HeartPulse className="mr-1.5 size-3.5" />}
+              {props.checking ? <LoadingSpinner size="sm" className="mr-1.5" /> : <HeartPulse className="mr-1.5 size-3.5" />}
               {t("session.agent_mgmt_health_check")}
             </Button>
           </div>

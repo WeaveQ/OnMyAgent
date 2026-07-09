@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronRight, Clock3, Loader2 } from "lucide-react";
@@ -307,7 +308,7 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
   return (
     <div className="max-w-full">
       <div className="inline-flex w-auto max-w-full cursor-default items-center gap-1.5 text-sm leading-none text-dls-accent">
-        {hasRunning ? <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
+        {hasRunning ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
         <span className="truncate">{t("local_agent.timeline_tool_group_title", { count: props.messages.length })}</span>
       </div>
       <div className="mt-1.5 ml-5 flex max-w-full flex-col gap-2 rounded-lg bg-dls-surface-muted/60 px-3.5 py-2.5">
@@ -334,7 +335,7 @@ function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationM
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
       >
-        {hasActive ? <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
+        {hasActive ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
         <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{t("local_agent.plan_title", { defaultValue: "Plan" })}</span>
         <span className="shrink-0 text-xs text-dls-tertiary" data-testid="local-agent-plan-count">{completedCount}/{entries.length}</span>
         <ChevronRight className={cn("size-3 shrink-0 text-dls-tertiary transition-transform", expanded && "rotate-90")} />
@@ -347,7 +348,7 @@ function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationM
             const label = entry.title || entry.content || props.message.text || t("local_agent.plan_title", { defaultValue: "Plan" });
             return (
               <div key={entry.id} className="flex min-w-0 items-center gap-2">
-                {completed ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : running ? <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" /> : <Clock3 className="size-3.5 shrink-0 text-dls-tertiary" />}
+                {completed ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : running ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <Clock3 className="size-3.5 shrink-0 text-dls-tertiary" />}
                 <span className="min-w-0 flex-1 truncate text-dls-text">{label}</span>
                 {entry.priority ? <StatusBadge tone="neutral" size="tiny">{entry.priority}</StatusBadge> : null}
               </div>
@@ -386,7 +387,7 @@ function LocalAgentThinkingMessage(props: { message: PersonalLocalAgentConversat
         aria-expanded={expanded}
         data-status={done ? "done" : "running"}
       >
-        {done ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" />}
+        {done ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" />}
         <span className="min-w-0 flex-1 truncate" data-testid="local-agent-thinking-status">{summary}</span>
         <ChevronRight className={cn("size-3 shrink-0 text-dls-tertiary transition-transform", expanded && "rotate-90")} />
       </button>
