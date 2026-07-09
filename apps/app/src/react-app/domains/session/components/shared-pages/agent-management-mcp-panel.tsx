@@ -61,9 +61,9 @@ function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; bus
           <button
             type="button"
             className={cn(
-              "group/mcp-app relative flex size-8 items-center justify-center rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-60",
+              "group/mcp-app relative flex size-8 items-center justify-center rounded-lg transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dls-surface disabled:cursor-not-allowed disabled:opacity-60",
               props.enabled
-                ? cn("border-2 shadow-sm ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
+                ? cn("border-2 ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
                 : "border border-dashed border-dls-border bg-dls-surface-muted text-dls-secondary opacity-70 grayscale hover:bg-dls-hover hover:opacity-100 hover:grayscale-0 hover:text-dls-text",
             )}
             aria-label={label}
@@ -139,7 +139,7 @@ export function AgentManagementMcpPanel(props: {
             {servers.map((server) => (
               <div key={server.id} className="grid gap-3 border-b border-dls-border p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{server.name}</span><span className="rounded bg-dls-muted px-1.5 py-0.5 text-xs text-dls-secondary">{server.server.type ?? "stdio"}</span></div>
+                  <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{server.name}</span><span className="rounded bg-dls-surface-muted px-1.5 py-0.5 text-xs text-dls-secondary">{server.server.type === "sse" ? t("agent_manager.mcp.type_sse") : server.server.type === "http" ? t("agent_manager.mcp.type_http") : t("agent_manager.mcp.type_stdio")}</span></div>
                   <div className="mt-1 truncate text-xs text-dls-secondary">{server.description || server.id}</div>
                 </div>
                 <div className="flex items-center gap-1">

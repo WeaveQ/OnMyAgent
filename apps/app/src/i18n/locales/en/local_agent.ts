@@ -382,4 +382,5 @@ export default {
   "local_agent.extensions_adapters": "{count} ACP adapter(s)",
   "local_agent.extensions_enabled": "Enabled",
   "local_agent.extensions_disabled": "Disabled",
+  "local_agent.heartbeat_task_completed": "Scheduled task \"{title}\" finished.\nStatus: {status}\nRun: {run}\n\n{output}",
 } as const;

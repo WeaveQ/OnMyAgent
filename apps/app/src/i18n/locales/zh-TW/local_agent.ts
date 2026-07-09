@@ -368,6 +368,7 @@ export default {
   "local_agent.extensions_adapters": "{count} 個 ACP 轉接器",
   "local_agent.extensions_enabled": "啟用中",
   "local_agent.extensions_disabled": "停用",
+  "local_agent.heartbeat_task_completed": "定時任務「{title}」執行完成。\n狀態：{status}\nRun：{run}\n\n{output}",
   "local_agent.active_runs_title": "後台執行總覽",
   "local_agent.channel_session_no_workdir": "無工作目錄",
   "local_agent.channel_session_readonly": "該對話由通訊平台驅動，暫不支援在本地傳送訊息",
