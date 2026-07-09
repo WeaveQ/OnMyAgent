@@ -14,82 +14,38 @@ import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
+import {
+  agentLabel,
+  VISIBLE_AGENTS,
+  groupSessionsByAgent,
+  buildResumeRequest,
+} from "./session-archive-helpers";
+
+// Pure helpers + the `SessionArchiveResumeRequest` type live in
+// `session-archive-helpers.ts` to keep this page focused on rendering.
+// They are re-exported here so existing import sites
+// (expert.tsx / assistant.tsx / personal-local-agent-page.tsx /
+// session-archive-page.test.ts) keep working unchanged.
+export type {
+  SessionArchiveResumeRequest,
+} from "./session-archive-helpers";
+export {
+  agentLabel,
+  VISIBLE_AGENTS,
+  RESUMABLE_AGENTS,
+  groupSessionsByAgent,
+  buildResumeRequest,
+} from "./session-archive-helpers";
 
 const PAGE_LIMIT = 2000;
 const MESSAGE_LIMIT = 500;
-
-export type SessionArchiveResumeRequest = {
-  agent: string;
-  providerSessionId: string;
-  project: string | null;
-  sessionId: string;
-  title: string;
-};
 
 type Props = {
   client: OpenworkServerClient | null;
   workspaceId: string;
   onResume?: (request: SessionArchiveResumeRequest) => void;
 };
-
-const AGENT_LABEL: Record<string, string> = {
-  opencode: "OpenCode",
-  codex: "Codex",
-  claude: "Claude Code",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
-  gemini: "Gemini",
-  copilot: "GitHub Copilot",
-  cursor: "Cursor",
-  aider: "Aider",
-  qwen: "Qwen Code",
-  iflow: "iFlow",
-  onmyagent: "OnMyAgent",
-};
-
-export function agentLabel(agent: string): string {
-  return AGENT_LABEL[agent] ?? agent;
-}
-
-export const VISIBLE_AGENTS = new Set([
-  "opencode",
-  "codex",
-  "claude",
-  "openclaw",
-  "hermes",
-]);
-
-export const RESUMABLE_AGENTS = new Set(["opencode", "codex", "claude", "openclaw", "hermes"]);
-
-
-export function groupSessionsByAgent(
-  sessions: ReadonlyArray<OpenworkSessionArchiveSession>,
-): Array<{ agent: string; sessions: OpenworkSessionArchiveSession[] }> {
-  const byAgent = new Map<string, OpenworkSessionArchiveSession[]>();
-  for (const session of sessions) {
-    const list = byAgent.get(session.agent) ?? [];
-    list.push(session);
-    byAgent.set(session.agent, list);
-  }
-  return Array.from(byAgent.entries())
-    .map(([agent, items]) => ({ agent, sessions: items }))
-    .sort((a, b) => b.sessions.length - a.sessions.length);
-}
-
-export function buildResumeRequest(
-  session: OpenworkSessionArchiveSession | null,
-): SessionArchiveResumeRequest | null {
-  if (!session || !RESUMABLE_AGENTS.has(session.agent)) return null;
-  const providerSessionId = session.id;
-  if (!providerSessionId) return null;
-  return {
-    agent: session.agent,
-    providerSessionId,
-    project: session.project || null,
-    sessionId: session.id,
-    title: session.display_name || session.first_message || session.id,
-  };
-}
 
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
