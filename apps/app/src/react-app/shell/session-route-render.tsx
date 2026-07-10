@@ -2620,7 +2620,6 @@ export function SessionRouteRender() {
             : undefined;
         const combinedSystem = joinSystemParts([
           envSystemContext,
-          buildLanguageSystemPrompt(localeSnapshot),
           skillCommandPrompt?.systemPrompt,
           buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
             undefined,
@@ -2634,6 +2633,7 @@ export function SessionRouteRender() {
           ) || undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
           draft.hiddenSystemPrompt,
+          buildLanguageSystemPrompt(localeSnapshot),
         ]);
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({

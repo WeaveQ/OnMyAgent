@@ -113,6 +113,7 @@ import {
   shouldShowGoalPreview,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
+  hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
 import {
   getComposerAttachments,
@@ -1340,7 +1341,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }
     setSending(true);
     const startedAt = Date.now();
-    delete stoppedRunStartedAtRef.current[props.sessionId];
     setActiveRunStartedAt(startedAt);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
@@ -1513,7 +1513,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       : null;
     if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
     const now = Date.now();
-    delete stoppedRunStartedAtRef.current[props.sessionId];
     const totalPausedMs =
       runtime.status === "paused" && runtime.pauseStartedAt
         ? runtime.totalPausedMs + Math.max(0, now - runtime.pauseStartedAt)
@@ -1608,6 +1607,25 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.workspaceId,
     snapshotQuery.refetch,
   ]);
+
+  useEffect(() => {
+    const runtime = props.goalRuntime;
+    if (!isGoalIntentRuntime(runtime) || runtime.status !== "running") return;
+    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
+    const assistantTexts = renderedMessages
+      .slice(baseline)
+      .filter((message) => message.role === "assistant")
+      .map(messageToReadableText);
+    if (!hasRepeatedGoalAssistantOutput(assistantTexts)) return;
+
+    props.onGoalRuntimeChange?.({
+      ...runtime,
+      status: "waiting",
+      waitingReason: "idle",
+      updatedAt: Date.now(),
+    });
+    void stopActiveRun();
+  }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
 
   const pauseGoalRuntime = useCallback(async () => {
     const runtime = isGoalIntentRuntime(goalRuntimeRef.current)

@@ -5,6 +5,7 @@ import {
   applySessionScopedValue,
   removeSessionScopedValue,
   buildCollaborationModeSystemPrompt,
+  buildGoalRuntimeSystemPrompt,
   buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
   draftHasSendableContent,
@@ -149,7 +150,17 @@ describe("session route composer", () => {
 
   test("keeps the interface locale authoritative even when the input is another language", () => {
     expect(buildLanguageSystemPrompt("zh")).toContain("必须使用简体中文");
+    expect(buildLanguageSystemPrompt("zh")).toContain("不得因用户输入或引用的语言而改变");
     expect(buildLanguageSystemPrompt("en")).toContain("must be written in English");
+    expect(buildLanguageSystemPrompt("en")).toContain("must not change because of the language used in the user's input");
+  });
+
+  test("bounds each goal runtime request to one agent turn", () => {
+    setLocale("zh");
+    const prompt = buildGoalRuntimeSystemPrompt({ objective: "完成确认" });
+    expect(prompt).toContain("仅执行一轮");
+    expect(prompt).not.toContain("跨轮次持续围绕目标推进");
+    setLocale("en");
   });
 
   test("resolves assistant send plans for new and existing sessions", () => {
