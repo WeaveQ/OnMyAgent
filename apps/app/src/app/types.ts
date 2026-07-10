@@ -124,6 +124,8 @@ export type ComposerDraft = {
   collaborationMode?: ComposerCollaborationMode;
   planningIntent?: ComposerPlanningIntent;
   goalIntent?: ComposerGoalIntent;
+  /** Stable ID for an internal control turn that must not render as user input. */
+  messageID?: string;
   hiddenSystemPrompt?: string;
   /** Editor-visible text (may include collapsed paste placeholders). */
   text: string;
@@ -143,7 +145,7 @@ export type SessionStartIntent =
   | { mode: "assistant"; assistantCategory: "code" | "office" }
   | { mode: "expert" };
 
-export type ComposerAccessMode = "default" | "full";
+export type ComposerAccessMode = "default" | "delegate" | "full";
 
 export type ComposerCollaborationMode = {
   kind?: "craft" | "ask" | "plan";

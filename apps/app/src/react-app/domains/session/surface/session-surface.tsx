@@ -22,6 +22,11 @@ import {
 } from "lucide-react";
 
 import { createClient, unwrap } from "../../../../app/lib/opencode";
+import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
+import {
+  readSessionTranscriptNotices,
+  writeSessionTranscriptNotices,
+} from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { currentLocale, t } from "../../../../i18n";
 import {
@@ -103,10 +108,12 @@ import {
   deriveGoalSummary,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowSessionActivity,
   settleGoalRuntimeAfterRun,
   shouldShowGoalPreview,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
+  hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
 import {
   getComposerAttachments,
@@ -181,7 +188,10 @@ import {
   GoalRuntimePanel,
   isGoalIntentRuntime,
   normalizedTodoItems,
+  preferLatestGoalRuntime,
   removeRecordKey,
+  shouldRecordSessionInterruption,
+  shouldSuppressCancelledAfterStop,
   transcriptNoticeLabel,
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
@@ -577,13 +587,33 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
     useState<Record<string, number>>({});
   const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
-    useState<Record<string, SessionTranscriptNotice[]>>({});
+    useState<Record<string, SessionTranscriptNotice[]>>(
+      readSessionTranscriptNotices,
+    );
   const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
     useState<Record<string, boolean>>({});
   const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
   const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    writeSessionTranscriptNotices(transcriptNoticesBySessionId);
+  }, [transcriptNoticesBySessionId]);
+  const stoppedRunStartedAtRef = useRef<Record<string, number>>({});
+  const goalRuntimeRef = useRef<CollaborationGoalRuntime | null>(
+    props.goalRuntime ?? null,
+  );
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
+
+  useEffect(() => {
+    goalRuntimeRef.current = props.goalRuntime ?? null;
+  }, [props.sessionId]);
+
+  useEffect(() => {
+    goalRuntimeRef.current = preferLatestGoalRuntime(
+      goalRuntimeRef.current,
+      props.goalRuntime,
+    );
+  }, [props.goalRuntime]);
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -927,8 +957,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
     liveStatus.type,
     props.sessionId,
   ]);
-  const activityVisible =
-    chatStreaming || effectiveActivityStatus !== "idle";
+  const activityVisible = shouldShowSessionActivity({
+    chatStreaming,
+    activityStatus: effectiveActivityStatus,
+    goalRuntime: props.goalRuntime ?? null,
+  });
   useEffect(() => {
     if (!activityVisible) return;
     const id = window.setInterval(() => setActivityNow(Date.now()), 1000);
@@ -1209,24 +1242,33 @@ export function SessionSurface(props: SessionSurfaceProps) {
       const now = Date.now();
       const afterMessageCount = renderedMessages.length;
       const runStartedAt =
-        activeRunStartedAt ?? props.goalRuntime?.lastRunStartedAt ?? now;
+        activeRunStartedAt ??
+        goalRuntimeRef.current?.lastRunStartedAt ??
+        stoppedRunStartedAtRef.current[props.sessionId] ??
+        now;
       const notice: SessionTranscriptNotice = {
         id: `${props.sessionId}:${kind}:${afterMessageCount}:${now}`,
         kind,
         afterMessageCount,
+        runStartedAt,
         elapsedMs:
           kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
       };
 
+      if (
+        kind === "cancelled" &&
+        shouldSuppressCancelledAfterStop(
+          stoppedRunStartedAtRef.current[props.sessionId],
+        )
+      ) {
+        return;
+      }
+
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
-        const alreadyRecorded = existing.some(
-          (item) =>
-            item.afterMessageCount === afterMessageCount &&
-            (item.kind === kind ||
-              (kind === "cancelled" && item.kind === "stopped")),
-        );
-        if (alreadyRecorded) return current;
+        if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
+          return current;
+        }
         return {
           ...current,
           [props.sessionId]: [...existing, notice].slice(
@@ -1234,10 +1276,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ),
         };
       });
+      if (kind === "stopped") {
+        stoppedRunStartedAtRef.current = {
+          ...stoppedRunStartedAtRef.current,
+          [props.sessionId]: runStartedAt,
+        };
+      }
     },
     [
       activeRunStartedAt,
-      props.goalRuntime?.lastRunStartedAt,
       props.sessionId,
       renderedMessages.length,
     ],
@@ -1357,9 +1404,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
-      if (isUserCancelledError(parsed)) {
-        recordSessionInterruption("cancelled");
-      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1428,6 +1472,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await props.onSendDraft({
         ...buildDraft(executionPrompt, []),
+        messageID: `msg_onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
         collaborationMode: executionMode,
         hiddenSystemPrompt: executionSystemPrompt,
       });
@@ -1435,9 +1480,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
-      if (isUserCancelledError(parsed)) {
-        recordSessionInterruption("cancelled");
-      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1466,8 +1508,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
 
   const resumeGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(props.goalRuntime)
-      ? props.goalRuntime
+    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
+      ? goalRuntimeRef.current
       : null;
     if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
     const now = Date.now();
@@ -1505,10 +1547,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(goalMode);
+    goalRuntimeRef.current = nextRuntime;
     props.onGoalRuntimeChange?.(nextRuntime);
     try {
       await props.onSendDraft({
         ...buildDraft(t("session.goal_runtime_continue_prompt"), []),
+        messageID: `msg_onmyagent-internal-goal-resume-${crypto.randomUUID()}`,
         collaborationMode: goalMode,
         hiddenSystemPrompt: buildGoalHiddenSystemPrompt(nextRuntime),
       });
@@ -1516,9 +1560,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
-      if (isUserCancelledError(parsed)) {
-        recordSessionInterruption("cancelled");
-      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1526,6 +1567,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           .getState()
           .setError(props.workspaceId, props.sessionId, parsed.message);
       }
+      goalRuntimeRef.current = runtime;
       props.onGoalRuntimeChange?.(runtime);
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
@@ -1534,7 +1576,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [
     buildDraft,
     props.draftOnly,
-    props.goalRuntime,
     props.onDraftChange,
     props.onGoalRuntimeChange,
     props.onSendDraft,
@@ -1567,9 +1608,28 @@ export function SessionSurface(props: SessionSurfaceProps) {
     snapshotQuery.refetch,
   ]);
 
+  useEffect(() => {
+    const runtime = props.goalRuntime;
+    if (!isGoalIntentRuntime(runtime) || runtime.status !== "running") return;
+    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
+    const assistantTexts = renderedMessages
+      .slice(baseline)
+      .filter((message) => message.role === "assistant")
+      .map(messageToReadableText);
+    if (!hasRepeatedGoalAssistantOutput(assistantTexts)) return;
+
+    props.onGoalRuntimeChange?.({
+      ...runtime,
+      status: "waiting",
+      waitingReason: "idle",
+      updatedAt: Date.now(),
+    });
+    void stopActiveRun();
+  }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
+
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(props.goalRuntime)
-      ? props.goalRuntime
+    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
+      ? goalRuntimeRef.current
       : null;
     if (
       runtime &&
@@ -1577,20 +1637,22 @@ export function SessionSurface(props: SessionSurfaceProps) {
     ) {
       const now = Date.now();
       recordSessionInterruption("stopped");
-      props.onGoalRuntimeChange?.({
+      const pausedRuntime = {
         ...runtime,
         status: "paused",
         waitingReason: "user",
         updatedAt: now,
         pauseStartedAt: now,
-      });
+      } satisfies CollaborationGoalRuntime;
+      goalRuntimeRef.current = pausedRuntime;
+      props.onGoalRuntimeChange?.(pausedRuntime);
     }
     await stopActiveRun();
-  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
+  }, [props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
-    if (isGoalIntentRuntime(props.goalRuntime)) {
+    if (isGoalIntentRuntime(goalRuntimeRef.current)) {
       await pauseGoalRuntime();
       return;
     }
@@ -1610,7 +1672,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [
     chatStreaming,
     pauseGoalRuntime,
-    props.goalRuntime,
     props.onPlanRuntimeChange,
     props.planRuntime,
     recordSessionInterruption,
@@ -2133,8 +2194,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }) && isGoalIntentRuntime(props.goalRuntime)
     ? props.goalRuntime
     : null;
+  const activePermissionNeedsApproval = Boolean(
+    props.activePermission &&
+      !resolveAccessModePermissionReply(
+        effectiveAccessMode,
+        props.activePermission.permission,
+      ),
+  );
   const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
-    effectiveAccessMode !== "full" && props.activePermission
+    activePermissionNeedsApproval
       ? "permission"
       : props.activeQuestion
         ? "question"
@@ -2162,8 +2230,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     categoryId: assistantFeatureCategoryId,
     activityStatus: effectiveActivityStatus,
     assistantActive: activityVisible,
-    hasActivePermission:
-      effectiveAccessMode !== "full" && Boolean(props.activePermission),
+    hasActivePermission: activePermissionNeedsApproval,
     hasActiveQuestion: Boolean(props.activeQuestion),
     planRuntime: visiblePlanRuntime,
     goalRuntime: visibleGoalRuntimeForUi,
@@ -2266,6 +2333,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     goalRuntime: props.goalRuntime ?? null,
     planRuntime: visiblePlanRuntime,
     dismissed: goalDismissedForSession,
+    hasCreatedSession: !props.draftOnly,
   }) ? (
     <GoalPreviewPanel
       onClear={() => {
@@ -2285,7 +2353,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     />
   ) : null;
   const permissionAccessory =
-    props.activePermission && effectiveAccessMode !== "full" ? (
+    props.activePermission && activePermissionNeedsApproval ? (
       <PermissionApprovalPanel
         permission={props.activePermission}
         busy={props.permissionReplyBusy}

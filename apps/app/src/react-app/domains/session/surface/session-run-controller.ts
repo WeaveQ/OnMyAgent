@@ -34,6 +34,15 @@ export type SessionRunPolicy = {
   canClearGoal: boolean;
 };
 
+export function shouldShowSessionActivity(input: {
+  chatStreaming: boolean;
+  activityStatus: SessionActivityStatus;
+  goalRuntime: CollaborationGoalRuntime | null;
+}): boolean {
+  if (input.goalRuntime?.status === "paused") return false;
+  return input.chatStreaming || input.activityStatus !== "idle";
+}
+
 export function resolveSessionCollaborationKind(
   mode: ComposerCollaborationMode,
   _categoryId: AssistantCategoryId,
@@ -64,8 +73,10 @@ export function shouldShowGoalPreview(input: {
   goalRuntime: CollaborationGoalRuntime | null;
   planRuntime: CollaborationPlanRuntime | null;
   dismissed: boolean;
+  hasCreatedSession: boolean;
 }) {
   return (
+    input.hasCreatedSession &&
     !input.dismissed &&
     input.goalRuntime === null &&
     input.planRuntime === null &&
@@ -97,6 +108,17 @@ export function settleGoalRuntimeAfterRun(input: {
     ...(progressLog?.length ? { progressLog } : {}),
     ...(todos.length ? { lastKnownTodos: todos } : {}),
   };
+}
+
+export function hasRepeatedGoalAssistantOutput(texts: string[]): boolean {
+  let previous = "";
+  for (const text of texts) {
+    const normalized = text.replace(/\s+/g, " ").trim();
+    if (!normalized) continue;
+    if (normalized === previous) return true;
+    previous = normalized;
+  }
+  return false;
 }
 
 export function summarizeGoalObjective(input: {

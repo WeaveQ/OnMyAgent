@@ -19,7 +19,6 @@ import {
   readLocalAuthUser,
 } from "../../app/lib/local-auth";
 import {
-  compactSession,
   forkSession,
   listCommands,
   revertSession,
@@ -91,7 +90,6 @@ import {
   moveSessionModelOverride,
   moveSessionScopedValue,
   removeSessionScopedValue,
-  resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
   resolveAttachmentUploadTarget,
@@ -1852,6 +1850,7 @@ export function SessionRouteRender() {
     if (!activePermission || !selectedSessionId) return;
     const permissionReply = resolveAccessModePermissionReply(
       sessionAccessModeById[selectedSessionId],
+      activePermission.permission,
     );
     if (!permissionReply) return;
     if (permissionReplyBusy) return;
@@ -2612,36 +2611,6 @@ export function SessionRouteRender() {
           pendingAgentSnapshot?.model ??
           local.prefs.defaultModel ??
           undefined;
-        if (
-          selectedPromptModel &&
-          isComposerGoalMode(draft.collaborationMode) &&
-          !draft.goalIntent
-        ) {
-          const activityStore = useSessionActivityStore.getState();
-          const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
-          activityStore.setCompacting(selectedWorkspaceId, sessionId, true);
-          if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
-            activityStore.setCompacting(runtimeWorkspaceId, sessionId, true);
-          }
-          try {
-            await compactSession(opencodeClient, sessionId, selectedPromptModel, {
-              auto: true,
-              directory: taskWorkspaceRoot || undefined,
-            });
-          } catch {
-            // Best-effort: if the preflight compact check fails, preserve the
-            // user's send path and let the normal prompt request report errors.
-          } finally {
-            activityStore.setCompacting(selectedWorkspaceId, sessionId, false);
-            if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
-              activityStore.setCompacting(runtimeWorkspaceId, sessionId, false);
-            }
-          }
-        }
-        const responseLanguage = resolveLanguageForUserInput(
-          resolveDraftText(promptDraft),
-          currentLocale(),
-        );
         const storedRuntimeForGoalPrompt =
           sessionGoalRuntimeById[composerModeSessionId] ??
           sessionGoalRuntimeById[sessionId];
@@ -2651,7 +2620,6 @@ export function SessionRouteRender() {
             : undefined;
         const combinedSystem = joinSystemParts([
           envSystemContext,
-          buildLanguageSystemPrompt(responseLanguage, "user-input"),
           skillCommandPrompt?.systemPrompt,
           buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
             undefined,
@@ -2665,11 +2633,13 @@ export function SessionRouteRender() {
           ) || undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
           draft.hiddenSystemPrompt,
+          buildLanguageSystemPrompt(localeSnapshot),
         ]);
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({
             sessionID: sessionId,
             parts,
+            ...(draft.messageID ? { messageID: draft.messageID } : {}),
             // Priority: user's manual override > agent's configured model > global default.
             // Never modify `pendingAgentSnapshot.model` — the agent's configured model
             // is owned by the agent page edit dialog.
