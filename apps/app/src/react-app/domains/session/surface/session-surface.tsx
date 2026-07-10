@@ -1440,6 +1440,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await props.onSendDraft({
         ...buildDraft(executionPrompt, []),
+        messageID: `onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
         collaborationMode: executionMode,
         hiddenSystemPrompt: executionSystemPrompt,
       });
