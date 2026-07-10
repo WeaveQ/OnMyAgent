@@ -22,9 +22,38 @@ export type SessionTranscriptNotice = {
     | "permission-rejected"
     | "permission-auto-approved";
   afterMessageCount: number;
+  runStartedAt?: number;
   elapsedMs?: number;
 };
 
+export function shouldRecordSessionInterruption(input: {
+  existing: SessionTranscriptNotice[];
+  candidate: SessionTranscriptNotice;
+}) {
+  return !input.existing.some((notice) =>
+    notice.runStartedAt === input.candidate.runStartedAt &&
+    (notice.kind === input.candidate.kind ||
+      (input.candidate.kind === "cancelled" && notice.kind === "stopped")),
+  );
+}
+
+export function shouldSuppressCancelledAfterStop(
+  stoppedRunStartedAt: number | undefined,
+): boolean {
+  return stoppedRunStartedAt !== undefined;
+}
+
+export function preferLatestGoalRuntime(
+  current: CollaborationGoalRuntime | null,
+  incoming: CollaborationGoalRuntime | null | undefined,
+) {
+  if (!incoming) return null;
+  if (!current || incoming.updatedAt > current.updatedAt) return incoming;
+  if (incoming.updatedAt === current.updatedAt && incoming.status === current.status) {
+    return incoming;
+  }
+  return current;
+}
 
 export const GOAL_RUNTIME_TICK_MS = 1000;
 
@@ -71,15 +100,13 @@ export function buildGoalHiddenSystemPrompt(runtime: CollaborationGoalRuntime) {
   return [
     buildLocaleRuntimeInstruction(),
     "",
-    t("session.goal_hidden_continue"),
-    "",
     t("session.goal_hidden_objective_label"),
     runtime.objective,
     details.length ? `\n${details.join("\n\n")}` : "",
     "",
     t("session.goal_hidden_success_criterion"),
     t("session.goal_hidden_next_step"),
-    t("session.goal_hidden_continue_when_safe"),
+    t("session.goal_runtime_system_turn_boundary"),
     t("session.goal_hidden_track_progress"),
     t("session.goal_hidden_stall_recovery"),
     t("session.goal_hidden_blocker"),
@@ -111,6 +138,12 @@ export function goalElapsedMs(runtime: CollaborationGoalRuntime, now: number) {
     );
   }
   if (runtime.status === "waiting") {
+    if (runtime.waitingReason === "compacting") {
+      return Math.max(
+        0,
+        now - runtime.startedAt - runtime.totalPausedMs,
+      );
+    }
     if (runtime.waitingReason === "user") {
       const pauseStartedAt = runtime.pauseStartedAt ?? runtime.updatedAt;
       return Math.max(
@@ -328,4 +361,3 @@ export function GoalRuntimePanel(props: {
     </div>
   );
 }
-

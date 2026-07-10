@@ -5,6 +5,7 @@ import {
   applySessionScopedValue,
   removeSessionScopedValue,
   buildCollaborationModeSystemPrompt,
+  buildGoalRuntimeSystemPrompt,
   buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
   draftHasSendableContent,
@@ -14,10 +15,10 @@ import {
   joinSystemParts,
   moveSessionModelOverride,
   moveSessionScopedValue,
-  resolveLanguageForUserInput,
   resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
+  isLowRiskPermission,
   resolveDraftSendPlan,
   routeForSettingsSection,
   sanitizeUploadFilename,
@@ -147,12 +148,19 @@ describe("session route composer", () => {
     expect(buildLanguageSystemPrompt("en")).toContain("English");
   });
 
-  test("prefers the latest user input language over the interface locale", () => {
-    expect(resolveLanguageForUserInput("创建一个项目管理工具", "en")).toBe("zh");
-    expect(resolveLanguageForUserInput("建立一個專案管理工具", "zh-TW")).toBe("zh-TW");
-    expect(resolveLanguageForUserInput("Build a project manager", "en")).toBe("en");
-    expect(buildLanguageSystemPrompt("zh", "user-input")).toContain("用户本轮输入");
-    expect(buildLanguageSystemPrompt("zh", "user-input")).toContain("Todo 项");
+  test("keeps the interface locale authoritative even when the input is another language", () => {
+    expect(buildLanguageSystemPrompt("zh")).toContain("必须使用简体中文");
+    expect(buildLanguageSystemPrompt("zh")).toContain("不得因用户输入或引用的语言而改变");
+    expect(buildLanguageSystemPrompt("en")).toContain("must be written in English");
+    expect(buildLanguageSystemPrompt("en")).toContain("must not change because of the language used in the user's input");
+  });
+
+  test("bounds each goal runtime request to one agent turn", () => {
+    setLocale("zh");
+    const prompt = buildGoalRuntimeSystemPrompt({ objective: "完成确认" });
+    expect(prompt).toContain("仅执行一轮");
+    expect(prompt).not.toContain("跨轮次持续围绕目标推进");
+    setLocale("en");
   });
 
   test("resolves assistant send plans for new and existing sessions", () => {
@@ -216,9 +224,21 @@ describe("session route composer", () => {
     expect(applySessionAccessMode(current, "ses_1", undefined)).toEqual({ ses_1: "default" });
   });
 
-  test("uses session-scoped permission replies for full access", () => {
+  test("uses session-scoped permission replies for each access mode", () => {
     expect(resolveAccessModePermissionReply("default")).toBeNull();
+    expect(resolveAccessModePermissionReply("delegate", "read")).toBe("always");
+    expect(resolveAccessModePermissionReply("delegate", "bash")).toBeNull();
+    expect(resolveAccessModePermissionReply("delegate", "unknown")).toBeNull();
     expect(resolveAccessModePermissionReply("full")).toBe("always");
+  });
+
+  test("classifies only non-mutating known requests as low risk", () => {
+    expect(isLowRiskPermission("read")).toBe(true);
+    expect(isLowRiskPermission("skill")).toBe(true);
+    expect(isLowRiskPermission("bash")).toBe(false);
+    expect(isLowRiskPermission("edit")).toBe(false);
+    expect(isLowRiskPermission("external_directory")).toBe(false);
+    expect(isLowRiskPermission(undefined)).toBe(false);
   });
 
   test("clears consumed auto-approved permission notices only after the active request disappears", () => {

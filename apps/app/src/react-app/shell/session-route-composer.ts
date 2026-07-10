@@ -5,6 +5,10 @@ import type {
   ComposerDraft,
   ModelRef,
 } from "../../app/types";
+export {
+  isLowRiskSessionPermission as isLowRiskPermission,
+  resolveAccessModePermissionReply,
+} from "../../app/lib/access-mode";
 import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
@@ -96,35 +100,8 @@ export function joinSystemParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
 }
 
-const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
-const HIRAGANA_KATAKANA_RE = /[\u3040-\u30ff]/;
-const HANGUL_RE = /[\uac00-\ud7af]/;
-const LATIN_RE = /[A-Za-z]/;
-
-export function resolveLanguageForUserInput(
-  text: string,
-  fallbackLocale: Language,
-): Language {
-  if (CJK_RE.test(text)) {
-    return fallbackLocale === "zh-TW" ? "zh-TW" : "zh";
-  }
-  if (HIRAGANA_KATAKANA_RE.test(text) || HANGUL_RE.test(text)) {
-    return fallbackLocale;
-  }
-  if (LATIN_RE.test(text)) return fallbackLocale;
-  return fallbackLocale;
-}
-
-export function buildLanguageSystemPrompt(
-  locale: Language,
-  source: "interface" | "user-input" = "interface",
-) {
-  return t(
-    source === "user-input"
-      ? "session.language_system_prompt_from_input"
-      : "session.language_system_prompt",
-    locale,
-  );
+export function buildLanguageSystemPrompt(locale: Language) {
+  return t("session.language_system_prompt", locale);
 }
 
 export function deriveGoalSummary(objective: string) {
@@ -490,9 +467,8 @@ export function buildGoalRuntimeSystemPrompt(
     t("session.goal_runtime_system_title"),
     t("session.goal_runtime_system_objective", { objective }),
     t("session.goal_runtime_system_success"),
-    t("session.goal_runtime_system_persist"),
     t("session.goal_runtime_system_next_step"),
-    t("session.goal_runtime_system_continue"),
+    t("session.goal_runtime_system_turn_boundary"),
     t("session.goal_runtime_system_progress"),
     `- ${t("session.goal_hidden_stall_recovery")}`,
     t("session.goal_runtime_system_blocker"),
@@ -508,16 +484,16 @@ export function buildAccessModeSystemPrompt(
       t("session.access_mode_full_system_body"),
     ].join("\n");
   }
+  if (mode === "delegate") {
+    return [
+      t("session.access_mode_delegate_system_title"),
+      t("session.access_mode_delegate_system_body"),
+    ].join("\n");
+  }
   return [
     t("session.access_mode_default_system_title"),
     t("session.access_mode_default_system_body"),
   ].join("\n");
-}
-
-export function resolveAccessModePermissionReply(
-  mode: ComposerDraft["accessMode"],
-): "always" | null {
-  return mode === "full" ? "always" : null;
 }
 
 export async function draftToParts(
