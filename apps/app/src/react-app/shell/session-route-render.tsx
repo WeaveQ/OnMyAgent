@@ -91,7 +91,6 @@ import {
   moveSessionModelOverride,
   moveSessionScopedValue,
   removeSessionScopedValue,
-  resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
   resolveAttachmentUploadTarget,
@@ -2639,10 +2638,6 @@ export function SessionRouteRender() {
             }
           }
         }
-        const responseLanguage = resolveLanguageForUserInput(
-          resolveDraftText(promptDraft),
-          currentLocale(),
-        );
         const storedRuntimeForGoalPrompt =
           sessionGoalRuntimeById[composerModeSessionId] ??
           sessionGoalRuntimeById[sessionId];
@@ -2652,7 +2647,7 @@ export function SessionRouteRender() {
             : undefined;
         const combinedSystem = joinSystemParts([
           envSystemContext,
-          buildLanguageSystemPrompt(responseLanguage, "user-input"),
+          buildLanguageSystemPrompt(localeSnapshot),
           skillCommandPrompt?.systemPrompt,
           buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
             undefined,
