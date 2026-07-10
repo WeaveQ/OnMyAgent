@@ -2,6 +2,7 @@ import type {
   CollaborationGoalRuntime,
   ComposerAccessMode,
   TodoItem,
+  ComposerCollaborationMode,
 } from "../../app/types";
 import { deriveGoalSummary } from "./session-route-composer";
 
@@ -17,6 +18,8 @@ const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 const TODOS_BY_SESSION_KEY = "onmyagent.react.todosBySession.v1";
 const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
+const COLLABORATION_MODE_BY_SESSION_KEY =
+  "onmyagent.react.collaborationModeBySession.v1";
 
 function safeGet(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -149,6 +152,63 @@ export function writeSessionAccessModes(
   });
   safeSet(
     ACCESS_MODE_BY_SESSION_KEY,
+    entries.length ? JSON.stringify(Object.fromEntries(entries)) : null,
+  );
+}
+
+function parseCollaborationMode(
+  value: unknown,
+): ComposerCollaborationMode | null {
+  if (!isRecord(value)) return null;
+  const kind = value.kind;
+  if (kind !== undefined && kind !== "craft" && kind !== "ask" && kind !== "plan") {
+    return null;
+  }
+  if (typeof value.planning !== "boolean" || typeof value.pursueGoal !== "boolean") {
+    return null;
+  }
+  return {
+    ...(kind ? { kind } : {}),
+    planning: value.planning,
+    pursueGoal: value.pursueGoal,
+  };
+}
+
+export function readSessionCollaborationModes(): Record<
+  string,
+  ComposerCollaborationMode
+> {
+  const raw = safeGet(COLLABORATION_MODE_BY_SESSION_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).flatMap(([sessionId, value]) => {
+        const normalizedSessionId = sessionId.trim();
+        const mode = parseCollaborationMode(value);
+        return normalizedSessionId && mode
+          ? [[normalizedSessionId, mode] as const]
+          : [];
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function writeSessionCollaborationModes(
+  modes: Record<string, ComposerCollaborationMode | undefined>,
+): void {
+  const entries = Object.entries(modes).flatMap(([sessionId, mode]) => {
+    const normalizedSessionId = sessionId.trim();
+    const normalizedMode = parseCollaborationMode(mode);
+    return normalizedSessionId && normalizedMode
+      ? [[normalizedSessionId, normalizedMode] as const]
+      : [];
+  });
+  safeSet(
+    COLLABORATION_MODE_BY_SESSION_KEY,
     entries.length ? JSON.stringify(Object.fromEntries(entries)) : null,
   );
 }

@@ -5,11 +5,13 @@ import {
   readActiveWorkspaceId,
   readLastSessionFor,
   readSessionAccessModes,
+  readSessionCollaborationModes,
   readSessionGoalRuntimes,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
   writeSessionAccessModes,
+  writeSessionCollaborationModes,
   writeSessionGoalRuntimes,
   writeWorkspaceOrderIds,
 } from "../src/react-app/shell/session-memory";
@@ -19,6 +21,7 @@ const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
+const COLLABORATION_MODE_BY_SESSION_KEY = "onmyagent.react.collaborationModeBySession.v1";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -109,6 +112,29 @@ describe("session memory", () => {
 
     writeSessionAccessModes({});
     expect(window.localStorage.getItem(ACCESS_MODE_BY_SESSION_KEY)).toBeNull();
+  });
+
+  test("persists only valid session collaboration modes", () => {
+    writeSessionCollaborationModes({
+      ses_ask: { kind: "ask", planning: false, pursueGoal: false },
+      ses_plan: { kind: "plan", planning: true, pursueGoal: false },
+    });
+
+    expect(readSessionCollaborationModes()).toEqual({
+      ses_ask: { kind: "ask", planning: false, pursueGoal: false },
+      ses_plan: { kind: "plan", planning: true, pursueGoal: false },
+    });
+
+    window.localStorage.setItem(
+      COLLABORATION_MODE_BY_SESSION_KEY,
+      JSON.stringify({
+        ses_valid: { kind: "craft", planning: false, pursueGoal: true },
+        ses_invalid: { kind: "other", planning: false, pursueGoal: false },
+      }),
+    );
+    expect(readSessionCollaborationModes()).toEqual({
+      ses_valid: { kind: "craft", planning: false, pursueGoal: true },
+    });
   });
 
   test("persists goal runtimes with checkpoints, logs, and cached todos by session", () => {
