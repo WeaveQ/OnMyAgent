@@ -190,6 +190,7 @@ import {
   preferLatestGoalRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
+  shouldSuppressCancelledAfterStop,
   transcriptNoticeLabel,
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
@@ -1253,6 +1254,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
           kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
       };
 
+      if (
+        kind === "cancelled" &&
+        shouldSuppressCancelledAfterStop(
+          stoppedRunStartedAtRef.current[props.sessionId],
+          runStartedAt,
+        )
+      ) {
+        return;
+      }
+
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
         if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
@@ -1270,13 +1281,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ...stoppedRunStartedAtRef.current,
           [props.sessionId]: runStartedAt,
         };
-      } else {
-        const stoppedRunStartedAt = stoppedRunStartedAtRef.current[props.sessionId];
-        if (stoppedRunStartedAt === runStartedAt) {
-          const next = { ...stoppedRunStartedAtRef.current };
-          delete next[props.sessionId];
-          stoppedRunStartedAtRef.current = next;
-        }
       }
     },
     [

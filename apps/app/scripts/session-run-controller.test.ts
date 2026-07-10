@@ -15,7 +15,10 @@ import {
   shouldShowGoalRuntime,
   summarizeGoalObjective,
 } from "../src/react-app/domains/session/surface/session-run-controller";
-import { shouldRecordSessionInterruption } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
+import {
+  shouldRecordSessionInterruption,
+  shouldSuppressCancelledAfterStop,
+} from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { goalElapsedMs } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { preferLatestGoalRuntime } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { setLocale } from "../src/i18n";
@@ -313,6 +316,12 @@ describe("session run controller", () => {
         },
       }),
     ).toBe(false);
+  });
+
+  test("suppresses late cancellation events from a manually stopped run", () => {
+    expect(shouldSuppressCancelledAfterStop(100, 100)).toBe(true);
+    expect(shouldSuppressCancelledAfterStop(100, 200)).toBe(false);
+    expect(shouldSuppressCancelledAfterStop(undefined, 200)).toBe(false);
   });
 
   test("keeps elapsed goal time moving while the runtime is compacting", () => {
