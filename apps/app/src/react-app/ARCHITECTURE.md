@@ -52,7 +52,7 @@ Domain ownership gives every feature one obvious home.
 - `connections/` owns MCP and provider auth UI (**canonical**; do not add new auth modals under `shared/`).
 - `cloud/` owns organization and Den authentication flows.
 - `shell-feedback/` owns reload banners and top-right notification chrome.
-- `shared/` is **transitional** — re-exports and leftovers only; no new product features.
+- `shared/` is **infra only** (env/extension/desktop-config/server-store). Product features must not land here.
 
 Cross-domain imports go through domain public entrypoints (`domains/<name>/index.ts`
 where present) or explicit paths — not a growing shared blob.
