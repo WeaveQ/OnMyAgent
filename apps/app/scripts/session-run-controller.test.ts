@@ -8,6 +8,7 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
@@ -97,7 +98,7 @@ describe("session run controller", () => {
     expect(policy.canResumeGoal).toBe(false);
   });
 
-  test("shows goal runtime only for explicit code goal mode", () => {
+  test("shows goal runtime for an explicit goal in every assistant category", () => {
     expect(
       shouldShowGoalRuntime({
         mode: executeMode,
@@ -119,6 +120,43 @@ describe("session run controller", () => {
         mode: { planning: false, pursueGoal: true },
         categoryId: "office",
         goalRuntime: explicitGoalRuntime("waiting"),
+        dismissed: false,
+      }),
+    ).toBe(true);
+    expect(
+      resolveSessionCollaborationKind(
+        { planning: false, pursueGoal: true },
+        "office",
+      ),
+    ).toBe("goal");
+  });
+
+  test("shows a goal preview only for the current session before its first send", () => {
+    const goalMode: ComposerCollaborationMode = {
+      planning: false,
+      pursueGoal: true,
+    };
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: null,
+        dismissed: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: explicitGoalRuntime("running"),
+        planRuntime: null,
+        dismissed: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: planRuntime("drafting"),
         dismissed: false,
       }),
     ).toBe(false);

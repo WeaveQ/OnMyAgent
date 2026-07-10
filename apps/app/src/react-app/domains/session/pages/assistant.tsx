@@ -59,10 +59,6 @@ import type {
   SessionPageProps,
 } from "./index";
 
-import {
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-} from "../../shared/agent-session-state";
 import { usePendingAgentStore } from "../../shared/pending-agent-store";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
@@ -447,13 +443,16 @@ export function AssistantPage(props: AssistantPageProps) {
     async (draft: ComposerDraft) => {
       if (!props.selectedSessionId) {
         usePendingAgentStore.getState().setAgent(null);
-        setPendingAssistantTask(true);
-        setPendingAssistantSessionCategory(assistantCategoryId);
         if (props.onCreateSessionForAgent) {
           props.onCreateSessionForAgent();
         }
       }
-      return props.surface?.onSendDraft(draft);
+      return props.surface?.onSendDraft({
+        ...draft,
+        sessionStartIntent: props.selectedSessionId
+          ? undefined
+          : { mode: "assistant", assistantCategory: assistantCategoryId },
+      });
     },
     [assistantCategoryId, props.selectedSessionId, props.onCreateSessionForAgent, props.surface],
   );

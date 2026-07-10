@@ -35,14 +35,13 @@ export type SessionRunPolicy = {
 
 export function resolveSessionCollaborationKind(
   mode: ComposerCollaborationMode,
-  categoryId: AssistantCategoryId,
+  _categoryId: AssistantCategoryId,
 ): SessionCollaborationKind {
   if (mode.kind === "ask") return "ask";
   if (mode.kind === "plan" || mode.planning) return "plan";
   if (
     mode.pursueGoal &&
     !mode.planning &&
-    categoryId === "code" &&
     mode.kind !== "craft"
   ) {
     return "goal";
@@ -60,6 +59,22 @@ export function shouldShowGoalRuntime(input: {
     !input.dismissed &&
     input.goalRuntime?.source === "goal_intent" &&
     resolveSessionCollaborationKind(input.mode, input.categoryId) === "goal"
+  );
+}
+
+export function shouldShowGoalPreview(input: {
+  mode: ComposerCollaborationMode;
+  goalRuntime: CollaborationGoalRuntime | null;
+  planRuntime: CollaborationPlanRuntime | null;
+  dismissed: boolean;
+}) {
+  return (
+    !input.dismissed &&
+    input.goalRuntime === null &&
+    input.planRuntime === null &&
+    input.mode.pursueGoal === true &&
+    !input.mode.planning &&
+    input.mode.kind !== "craft"
   );
 }
 

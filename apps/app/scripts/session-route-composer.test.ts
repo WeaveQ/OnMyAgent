@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   applySessionAccessMode,
+  applySessionScopedValue,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
@@ -10,8 +11,11 @@ import {
   inboxAbsolutePath,
   inboxRelativePath,
   joinSystemParts,
+  moveSessionModelOverride,
   resolveLanguageForUserInput,
+  resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
+  resolveAccessModePermissionReply,
   resolveDraftSendPlan,
   routeForSettingsSection,
   sanitizeUploadFilename,
@@ -66,6 +70,49 @@ describe("session route composer", () => {
       defaultModel: { providerID: "anthropic", modelID: "claude" },
       modelVariant: null,
     });
+  });
+
+  test("moves a draft model override to its created session", () => {
+    const current = {
+      "draft:ws_1": { providerID: "openai", modelID: "gpt-5" },
+      ses_existing: { providerID: "anthropic", modelID: "claude" },
+    };
+
+    expect(moveSessionModelOverride(current, "draft:ws_1", "ses_new")).toEqual({
+      ses_new: { providerID: "openai", modelID: "gpt-5" },
+      ses_existing: { providerID: "anthropic", modelID: "claude" },
+    });
+    expect(moveSessionModelOverride(current, "draft:missing", "ses_new")).toBe(current);
+  });
+
+  test("updates and clears only the targeted session-scoped value", () => {
+    const current = { ses_one: "goal", ses_two: "plan" };
+    expect(applySessionScopedValue(current, "ses_one", "paused")).toEqual({
+      ses_one: "paused",
+      ses_two: "plan",
+    });
+    expect(applySessionScopedValue(current, "ses_one", null)).toEqual({
+      ses_two: "plan",
+    });
+  });
+
+  test("uses the resolved workspace endpoint for attachment uploads", () => {
+    expect(
+      resolveAttachmentUploadTarget({
+        fallbackClient: "local-client",
+        fallbackWorkspaceId: "ws_local",
+        workspaceClient: "remote-client",
+        workspaceId: "rem_1",
+      }),
+    ).toEqual({ client: "remote-client", workspaceId: "rem_1" });
+    expect(
+      resolveAttachmentUploadTarget({
+        fallbackClient: "local-client",
+        fallbackWorkspaceId: " ws_local ",
+        workspaceClient: null,
+        workspaceId: null,
+      }),
+    ).toEqual({ client: "local-client", workspaceId: "ws_local" });
   });
 
   test("joins non-empty system prompt parts", () => {
@@ -146,6 +193,11 @@ describe("session route composer", () => {
     const current = { ses_1: "full" as const };
     expect(applySessionAccessMode(current, "ses_1", "full")).toBe(current);
     expect(applySessionAccessMode(current, "ses_1", undefined)).toEqual({ ses_1: "default" });
+  });
+
+  test("uses session-scoped permission replies for full access", () => {
+    expect(resolveAccessModePermissionReply("default")).toBeNull();
+    expect(resolveAccessModePermissionReply("full")).toBe("always");
   });
 
   test("clears consumed auto-approved permission notices only after the active request disappears", () => {
