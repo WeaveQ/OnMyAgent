@@ -43,10 +43,6 @@ function toolCallStatusTone(status: "completed" | "error" | "running"): StatusBa
   return "accent";
 }
 
-function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function toToolStateValue(value: unknown) {
   return isRecordStringUnknown(value) ? value : {};
 }

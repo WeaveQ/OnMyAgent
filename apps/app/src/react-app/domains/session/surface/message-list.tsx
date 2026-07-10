@@ -975,7 +975,7 @@ function StepRow(props: {
   onToggle: () => void;
 }) {
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
-  const toolState = useMemo(() => {
+  const toolState = useMemo<Record<string, unknown>>(() => {
     if (props.part.type !== "tool") return {};
     if (!isRecordStringUnknown(props.part)) return {};
     const state = props.part.state;

@@ -117,48 +117,18 @@ export type AssistantPageProps = SessionPageProps & {
   onAgentManagementIntentConsumed?: (key: string) => void;
 };
 
+import {
+  isVisibleExpertPackageEntry,
+  packageEntryToMarketplaceExpert,
+  isTrackableAccessibleTarget,
+  setComposerDraftAfterNewTask,
+} from "./shared-page-utils";
+
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_EXPERT_PROMPT =
   "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
-
-function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
-  const values = [entry.packageName, entry.displayName, entry.packagePath];
-  return values.every((value) => !value.split(/[\\/]/).includes(".expert-plugin"));
-}
-
-function packageEntryToMarketplaceExpert(
-  entry: ExpertPackageListEntry,
-): ExpertMarketplaceEntry {
-  const categoryId = normalizeExpertMarketplaceCategoryId(entry.categoryId);
-  return {
-    ...entry,
-    categoryId,
-    categoryIds: categoryId === "all" ? [] : [categoryId],
-    categoryLabel: expertMarketplaceCategoryLabel(categoryId),
-    categoryLabels:
-      categoryId === "all" ? [] : [expertMarketplaceCategoryLabel(categoryId)],
-  };
-}
-
-function isTrackableAccessibleTarget(target: OpenTarget) {
-  return (
-    isCollectibleArtifactTarget(target) || isLocalhostBrowserTarget(target)
-  );
-}
-
-function setComposerDraftAfterNewTask(workspaceId: string, draft: string) {
-  const sessionId = `draft:${workspaceId}`;
-  const apply = () => {
-    useComposerStateStore.getState().setDraft(sessionId, draft);
-  };
-  apply();
-  window.setTimeout(apply, 0);
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(apply);
-  });
-}
 
 export function AssistantPage(props: AssistantPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
