@@ -89,6 +89,7 @@ import {
   isComposerPlanningMode,
   joinSystemParts,
   moveSessionModelOverride,
+  removeSessionScopedValue,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
@@ -2221,12 +2222,9 @@ export function SessionRoute() {
         );
       },
       onClearSessionProgress: () => {
-        setLastVisibleTodosBySessionId((current) => {
-          const next = { ...current };
-          delete next[composerModeSessionId];
-          delete next[draftComposerModeSessionId];
-          return next;
-        });
+        setLastVisibleTodosBySessionId((current) =>
+          removeSessionScopedValue(current, composerModeSessionId),
+        );
         if (selectedSessionId) {
           const currentTodoQueryKey = todoQueryKeyForSession(
             selectedWorkspaceId,
@@ -2239,18 +2237,12 @@ export function SessionRoute() {
             );
           }
         }
-        setSessionPlanRuntimeById((current) => {
-          const next = { ...current };
-          delete next[composerModeSessionId];
-          delete next[draftComposerModeSessionId];
-          return next;
-        });
-        setSessionGoalRuntimeById((current) => {
-          const next = { ...current };
-          delete next[composerModeSessionId];
-          delete next[draftComposerModeSessionId];
-          return next;
-        });
+        setSessionPlanRuntimeById((current) =>
+          removeSessionScopedValue(current, composerModeSessionId),
+        );
+        setSessionGoalRuntimeById((current) =>
+          removeSessionScopedValue(current, composerModeSessionId),
+        );
       },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
