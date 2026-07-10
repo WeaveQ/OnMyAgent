@@ -7,12 +7,14 @@ import {
   readSessionAccessModes,
   readSessionCollaborationModes,
   readSessionGoalRuntimes,
+  readSessionModelOverrides,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
   writeSessionAccessModes,
   writeSessionCollaborationModes,
   writeSessionGoalRuntimes,
+  writeSessionModelOverrides,
   writeWorkspaceOrderIds,
 } from "../src/react-app/shell/session-memory";
 
@@ -22,6 +24,7 @@ const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
 const COLLABORATION_MODE_BY_SESSION_KEY = "onmyagent.react.collaborationModeBySession.v1";
+const MODEL_OVERRIDE_BY_SESSION_KEY = "onmyagent.react.modelOverrideBySession.v1";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -135,6 +138,34 @@ describe("session memory", () => {
     expect(readSessionCollaborationModes()).toEqual({
       ses_valid: { kind: "craft", planning: false, pursueGoal: true },
     });
+  });
+
+  test("persists only valid per-session model overrides", () => {
+    writeSessionModelOverrides({
+      ses_openai: { providerID: "openai", modelID: "gpt-5" },
+      ses_anthropic: { providerID: "anthropic", modelID: "claude" },
+      " ": { providerID: "openai", modelID: "gpt-5" },
+    });
+
+    expect(readSessionModelOverrides()).toEqual({
+      ses_openai: { providerID: "openai", modelID: "gpt-5" },
+      ses_anthropic: { providerID: "anthropic", modelID: "claude" },
+    });
+
+    window.localStorage.setItem(
+      MODEL_OVERRIDE_BY_SESSION_KEY,
+      JSON.stringify({
+        ses_valid: { providerID: "openai", modelID: "gpt-5" },
+        ses_missing_provider: { modelID: "gpt-5" },
+        ses_blank_model: { providerID: "openai", modelID: " " },
+      }),
+    );
+    expect(readSessionModelOverrides()).toEqual({
+      ses_valid: { providerID: "openai", modelID: "gpt-5" },
+    });
+
+    writeSessionModelOverrides({});
+    expect(window.localStorage.getItem(MODEL_OVERRIDE_BY_SESSION_KEY)).toBeNull();
   });
 
   test("persists goal runtimes with checkpoints, logs, and cached todos by session", () => {

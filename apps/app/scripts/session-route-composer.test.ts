@@ -10,6 +10,7 @@ import {
   inboxAbsolutePath,
   inboxRelativePath,
   joinSystemParts,
+  moveSessionModelOverride,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
@@ -67,6 +68,19 @@ describe("session route composer", () => {
       defaultModel: { providerID: "anthropic", modelID: "claude" },
       modelVariant: null,
     });
+  });
+
+  test("moves a draft model override to its created session", () => {
+    const current = {
+      "draft:ws_1": { providerID: "openai", modelID: "gpt-5" },
+      ses_existing: { providerID: "anthropic", modelID: "claude" },
+    };
+
+    expect(moveSessionModelOverride(current, "draft:ws_1", "ses_new")).toEqual({
+      ses_new: { providerID: "openai", modelID: "gpt-5" },
+      ses_existing: { providerID: "anthropic", modelID: "claude" },
+    });
+    expect(moveSessionModelOverride(current, "draft:missing", "ses_new")).toBe(current);
   });
 
   test("joins non-empty system prompt parts", () => {

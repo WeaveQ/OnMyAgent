@@ -87,6 +87,7 @@ import {
   isComposerGoalMode,
   isComposerPlanningMode,
   joinSystemParts,
+  moveSessionModelOverride,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
@@ -297,6 +298,7 @@ import {
   readSessionAccessModes,
   readSessionCollaborationModes,
   readSessionGoalRuntimes,
+  readSessionModelOverrides,
   readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
@@ -304,6 +306,7 @@ import {
   writeSessionAccessModes,
   writeSessionCollaborationModes,
   writeSessionGoalRuntimes,
+  writeSessionModelOverrides,
   writeSessionTodos,
   writeWorkspaceOrderIds,
 } from "./session-memory";
@@ -621,6 +624,9 @@ export function SessionRoute() {
     useState<Record<string, ComposerDraft["collaborationMode"]>>(
       () => readSessionCollaborationModes(),
     );
+  const [sessionModelOverrideById, setSessionModelOverrideById] = useState<
+    Record<string, ModelRef>
+  >(() => readSessionModelOverrides());
   const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
     Record<string, CollaborationPlanRuntime>
   >({});
@@ -636,12 +642,6 @@ export function SessionRoute() {
   // Subscribe to pending agent so the composer's model selection reflects
   // the agent's configured model when the user clicks "对话" from the agents page.
   const pendingAgent = usePendingAgentStore((state) => state.agent);
-  // Tracks the user's manual model override for the current pending agent session.
-  // When the user manually picks a model in the "+新任务" page, we use this for
-  // both display and sending, but NEVER modify the stored pending-agent model.
-  // The agent's configured model can only change via the agent page edit dialog.
-  const [manualModelOverride, setManualModelOverride] =
-    useState<ModelRef | null>(null);
 
   useEffect(() => {
     writeSessionGoalRuntimes(sessionGoalRuntimeById);
@@ -655,14 +655,21 @@ export function SessionRoute() {
     writeSessionCollaborationModes(sessionCollaborationModeById);
   }, [sessionCollaborationModeById]);
 
-  // Clear the manual override when a fresh "conversation from agent card"
-  // flow begins. We key on `conversationStartId` (a nonce set on every
-  // "对话" click) rather than `pendingAgent.id`, because the user may click
-  // the same agent card multiple times — each click should reset the
-  // composer's model selection back to the agent's configured model.
   useEffect(() => {
-    setManualModelOverride(null);
-  }, [pendingAgent?.conversationStartId]);
+    writeSessionModelOverrides(sessionModelOverrideById);
+  }, [sessionModelOverrideById]);
+
+  // A fresh agent-card conversation must begin with the agent's configured
+  // model, not a model picked for an earlier draft in the same workspace.
+  useEffect(() => {
+    const draftSessionId = `draft:${selectedWorkspaceId}`;
+    setSessionModelOverrideById((current) => {
+      if (!(draftSessionId in current)) return current;
+      const next = { ...current };
+      delete next[draftSessionId];
+      return next;
+    });
+  }, [pendingAgent?.conversationStartId, selectedWorkspaceId]);
 
   // Provider catalog cache. Used to compute the reasoning/thinking variant
   // options for whichever model is currently selected so the composer's
@@ -1989,11 +1996,13 @@ export function SessionRoute() {
     denSessionVersion,
   ]);
 
-  // Priority: 1) user's manual model override, 2) pending agent's configured model, 3) global default.
-  // Never modify the stored pending-agent model — the user can only change the agent's
-  // configured model from the agent page's edit dialog.
+  const modelScopeSessionId = selectedSessionId ?? `draft:${selectedWorkspaceId}`;
+  // Priority: 1) this session's override, 2) pending agent's configured model,
+  // 3) global default. Session controls must never rewrite the global default.
   const effectiveModelRef =
-    manualModelOverride ?? pendingAgent?.model ?? local.prefs.defaultModel;
+    sessionModelOverrideById[modelScopeSessionId] ??
+    pendingAgent?.model ??
+    local.prefs.defaultModel;
   const modelLabel = effectiveModelRef
     ? resolveModelDisplayName(effectiveModelRef.modelID)
     : t("session.default_model");
@@ -2256,12 +2265,10 @@ export function SessionRoute() {
       },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
-        local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
-        // Record manual override for THIS session only. If a pending agent
-        // exists, we do NOT touch its stored model — the agent's configured
-        // model is owned by the agent page edit dialog. The override ensures
-        // the user's manual choice is used when the first prompt is sent.
-        setManualModelOverride(model);
+        setSessionModelOverrideById((current) => ({
+          ...current,
+          [composerModeSessionId]: model,
+        }));
         setCompactModelPickerOpen(false);
       },
       onOpenSettingsSection: (section: SettingsSection) => {
@@ -2400,6 +2407,11 @@ export function SessionRoute() {
           ...current,
           [sessionId]: draft.collaborationMode,
         }));
+        if (createdSession) {
+          setSessionModelOverrideById((current) =>
+            moveSessionModelOverride(current, composerModeSessionId, sessionId),
+          );
+        }
         const planningIntent = draft.planningIntent;
         if (planningIntent) {
           setSessionPlanRuntimeById((current) => {
@@ -2596,7 +2608,7 @@ export function SessionRoute() {
           );
         }
         const selectedPromptModel =
-          manualModelOverride ??
+          sessionModelOverrideById[composerModeSessionId] ??
           pendingAgentSnapshot?.model ??
           local.prefs.defaultModel ??
           undefined;
@@ -2764,8 +2776,10 @@ export function SessionRoute() {
         })();
       },
       onChangeModel: (model: { providerID: string; modelID: string }) => {
-        local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
-        setManualModelOverride(model);
+        setSessionModelOverrideById((current) => ({
+          ...current,
+          [composerModeSessionId]: model,
+        }));
       },
       draftWorkspaceDirectory:
         pageMode === "assistant" || pageMode === "expert"
@@ -2795,7 +2809,6 @@ export function SessionRoute() {
     handleOpenSettings,
     local,
     listSlashCommands,
-    manualModelOverride,
     modelAvailabilityBlocksTask,
     modelBehaviorOptions,
     modelLabel,
@@ -2814,6 +2827,7 @@ export function SessionRoute() {
     sessionAccessModeById,
     sessionCollaborationModeById,
     sessionGoalRuntimeById,
+    sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
