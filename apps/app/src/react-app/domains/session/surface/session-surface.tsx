@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { createClient, unwrap } from "../../../../app/lib/opencode";
+import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { currentLocale, t } from "../../../../i18n";
 import {
@@ -2157,8 +2158,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }) && isGoalIntentRuntime(props.goalRuntime)
     ? props.goalRuntime
     : null;
+  const activePermissionNeedsApproval = Boolean(
+    props.activePermission &&
+      !resolveAccessModePermissionReply(
+        effectiveAccessMode,
+        props.activePermission.permission,
+      ),
+  );
   const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
-    effectiveAccessMode !== "full" && props.activePermission
+    activePermissionNeedsApproval
       ? "permission"
       : props.activeQuestion
         ? "question"
@@ -2186,8 +2194,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     categoryId: assistantFeatureCategoryId,
     activityStatus: effectiveActivityStatus,
     assistantActive: activityVisible,
-    hasActivePermission:
-      effectiveAccessMode !== "full" && Boolean(props.activePermission),
+    hasActivePermission: activePermissionNeedsApproval,
     hasActiveQuestion: Boolean(props.activeQuestion),
     planRuntime: visiblePlanRuntime,
     goalRuntime: visibleGoalRuntimeForUi,
@@ -2310,7 +2317,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     />
   ) : null;
   const permissionAccessory =
-    props.activePermission && effectiveAccessMode !== "full" ? (
+    props.activePermission && activePermissionNeedsApproval ? (
       <PermissionApprovalPanel
         permission={props.activePermission}
         busy={props.permissionReplyBusy}

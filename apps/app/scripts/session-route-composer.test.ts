@@ -18,6 +18,7 @@ import {
   resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
+  isLowRiskPermission,
   resolveDraftSendPlan,
   routeForSettingsSection,
   sanitizeUploadFilename,
@@ -216,9 +217,21 @@ describe("session route composer", () => {
     expect(applySessionAccessMode(current, "ses_1", undefined)).toEqual({ ses_1: "default" });
   });
 
-  test("uses session-scoped permission replies for full access", () => {
+  test("uses session-scoped permission replies for each access mode", () => {
     expect(resolveAccessModePermissionReply("default")).toBeNull();
+    expect(resolveAccessModePermissionReply("delegate", "read")).toBe("always");
+    expect(resolveAccessModePermissionReply("delegate", "bash")).toBeNull();
+    expect(resolveAccessModePermissionReply("delegate", "unknown")).toBeNull();
     expect(resolveAccessModePermissionReply("full")).toBe("always");
+  });
+
+  test("classifies only non-mutating known requests as low risk", () => {
+    expect(isLowRiskPermission("read")).toBe(true);
+    expect(isLowRiskPermission("skill")).toBe(true);
+    expect(isLowRiskPermission("bash")).toBe(false);
+    expect(isLowRiskPermission("edit")).toBe(false);
+    expect(isLowRiskPermission("external_directory")).toBe(false);
+    expect(isLowRiskPermission(undefined)).toBe(false);
   });
 
   test("clears consumed auto-approved permission notices only after the active request disappears", () => {

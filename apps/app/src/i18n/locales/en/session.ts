@@ -394,6 +394,8 @@ export default {
   "session.goal_runtime_system_blocker": "- If you cannot continue without user input or an external change, say what is blocking the goal and what is needed next.",
   "session.access_mode_full_system_title": "Access mode: full access.",
   "session.access_mode_full_system_body": "The user has selected a high-trust mode. You may proceed with file edits, local commands, and network access when needed for the task, while still obeying the host runtime safety boundaries and asking before destructive or irreversible operations.",
+  "session.access_mode_delegate_system_title": "Access mode: let me approve.",
+  "session.access_mode_delegate_system_body": "Proceed with low-risk reading, task tracking, questions, and skills without interruption. The host will request approval before shell commands, file edits, external directory access, or any unrecognized operation.",
   "session.access_mode_default_system_title": "Access mode: default.",
   "session.access_mode_default_system_body": "Treat file writes, local commands, network access, and external state changes as actions that may require host approval. Explain the need before taking high-risk or irreversible actions.",
   "session.plan_hidden_execute_now": "Execute the approved plan now.",

@@ -375,6 +375,8 @@ export default {
   "session.goal_runtime_system_blocker": "- 如果没有用户输入或外部状态变化就无法继续，说明阻塞原因和下一步需要什么。",
   "session.access_mode_full_system_title": "权限模式：完全访问权限。",
   "session.access_mode_full_system_body": "用户选择了高信任模式。你可以在任务需要时自主进行文件编辑、本地命令和联网访问，但仍必须遵守宿主运行时安全边界，并在破坏性或不可逆操作前先请求确认。",
+  "session.access_mode_delegate_system_title": "权限模式：替我审批。",
+  "session.access_mode_delegate_system_body": "可不中断地进行低风险读取、任务跟踪、提问和技能操作。执行命令、编辑文件、访问外部目录或未识别操作前，宿主会请求批准。",
   "session.access_mode_default_system_title": "权限模式：默认权限。",
   "session.access_mode_default_system_body": "文件写入、本地命令、联网访问和外部状态变更都可能需要宿主审批。执行高风险或不可逆操作前，先说明需要并等待审批。",
   "session.plan_hidden_execute_now": "现在执行已经批准的计划。",

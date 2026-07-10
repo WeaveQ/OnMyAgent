@@ -145,7 +145,7 @@ export type SessionStartIntent =
   | { mode: "assistant"; assistantCategory: "code" | "office" }
   | { mode: "expert" };
 
-export type ComposerAccessMode = "default" | "full";
+export type ComposerAccessMode = "default" | "delegate" | "full";
 
 export type ComposerCollaborationMode = {
   kind?: "craft" | "ask" | "plan";

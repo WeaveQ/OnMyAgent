@@ -1852,6 +1852,7 @@ export function SessionRouteRender() {
     if (!activePermission || !selectedSessionId) return;
     const permissionReply = resolveAccessModePermissionReply(
       sessionAccessModeById[selectedSessionId],
+      activePermission.permission,
     );
     if (!permissionReply) return;
     if (permissionReplyBusy) return;
