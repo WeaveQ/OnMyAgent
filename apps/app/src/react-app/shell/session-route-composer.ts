@@ -43,6 +43,20 @@ export function moveSessionModelOverride(
   return next;
 }
 
+export function moveSessionScopedValue<T>(
+  current: Record<string, T>,
+  sourceSessionId: string,
+  targetSessionId: string,
+  value: T,
+): Record<string, T> {
+  const source = sourceSessionId.trim();
+  const target = targetSessionId.trim();
+  if (!target) return current;
+  const next = { ...current, [target]: value };
+  if (source && source !== target) delete next[source];
+  return next;
+}
+
 export function applySessionScopedValue<T>(
   current: Record<string, T>,
   sessionId: string,
