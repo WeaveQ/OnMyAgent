@@ -167,7 +167,7 @@ describe("deriveRenderedSessionMessages", () => {
   it("does not render internal goal resume control messages as user input", () => {
     const messages = deriveRenderedSessionMessages({
       transcriptState: [
-        uiMessage("onmyagent-internal-goal-resume-1", "user", "Continue", 1),
+        uiMessage("msg_onmyagent-internal-goal-resume-1", "user", "Continue", 1),
         uiMessage("msg_assistant", "assistant", "Working again", 2),
       ],
       snapshot: null,

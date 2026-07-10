@@ -1258,7 +1258,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
         kind === "cancelled" &&
         shouldSuppressCancelledAfterStop(
           stoppedRunStartedAtRef.current[props.sessionId],
-          runStartedAt,
         )
       ) {
         return;
@@ -1341,6 +1340,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }
     setSending(true);
     const startedAt = Date.now();
+    delete stoppedRunStartedAtRef.current[props.sessionId];
     setActiveRunStartedAt(startedAt);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
@@ -1472,7 +1472,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await props.onSendDraft({
         ...buildDraft(executionPrompt, []),
-        messageID: `onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
+        messageID: `msg_onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
         collaborationMode: executionMode,
         hiddenSystemPrompt: executionSystemPrompt,
       });
@@ -1513,6 +1513,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       : null;
     if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
     const now = Date.now();
+    delete stoppedRunStartedAtRef.current[props.sessionId];
     const totalPausedMs =
       runtime.status === "paused" && runtime.pauseStartedAt
         ? runtime.totalPausedMs + Math.max(0, now - runtime.pauseStartedAt)
@@ -1552,7 +1553,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await props.onSendDraft({
         ...buildDraft(t("session.goal_runtime_continue_prompt"), []),
-        messageID: `onmyagent-internal-goal-resume-${crypto.randomUUID()}`,
+        messageID: `msg_onmyagent-internal-goal-resume-${crypto.randomUUID()}`,
         collaborationMode: goalMode,
         hiddenSystemPrompt: buildGoalHiddenSystemPrompt(nextRuntime),
       });
