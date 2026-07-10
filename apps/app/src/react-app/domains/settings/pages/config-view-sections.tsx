@@ -5,7 +5,7 @@ import type { OpenworkServerInfo } from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { SettingsActionRow, SettingsCard, SettingsNotice } from "../settings-section";
 import type { OpenworkTestState, TokenVisibilityKey } from "./config-view-state";
 
@@ -197,10 +197,10 @@ export function ConfigServerConnectionSection(props: {
         <StatusBadge tone={props.onmyagentStatusTone}>{props.onmyagentStatusLabel}</StatusBadge>
       </div>
       <div className="grid gap-3">
-        <TextInput label={t("config.server_url_input_label")} value={props.onmyagentUrl} onChange={(event) => props.onUrlChange(event.currentTarget.value)} placeholder="http://127.0.0.1:<port>" hint={t("config.server_url_hint")} disabled={props.busy} />
+        <LabeledInput label={t("config.server_url_input_label")} value={props.onmyagentUrl} onChange={(event) => props.onUrlChange(event.currentTarget.value)} placeholder="http://127.0.0.1:<port>" hint={t("config.server_url_hint")} disabled={props.busy} />
         <div>
           <div className="flex items-center gap-2">
-            <TextInput
+            <LabeledInput
               label={t("config.token_label")}
               type={props.tokenVisible ? "text" : "password"}
               value={props.onmyagentToken}

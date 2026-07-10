@@ -7,7 +7,7 @@ import {
   pillPrimaryClass,
   surfaceCardClass,
   tagClass,
-} from "../src/react-app/domains/shared/modal-styles";
+} from "../src/react-app/design-system/modal-styles";
 
 describe("shared modal styles contract", () => {
   test("keeps modal body scrollable inside fixed-height dialogs", () => {

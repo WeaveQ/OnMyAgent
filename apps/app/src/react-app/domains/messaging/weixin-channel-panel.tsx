@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { MonoLogBox } from "@/components/ui/mono-log-box";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { SelectMenu } from "../../../../design-system/select-menu";
-import { AccessibleRootRow } from "./accessible-root-row";
-import { t } from "../../../../../i18n";
+import { SelectMenu } from "../../design-system/select-menu";
+import { AccessibleRootRow } from "../session/components/shared-pages/accessible-root-row";
+import { t } from "../../../i18n";
 import {
   openDesktopUrl,
   personalLocalAgentsList,
@@ -28,7 +28,7 @@ import {
   weixinStart,
   weixinStatus,
   weixinStop,
-} from "../../../../../app/lib/desktop";
+} from "../../../app/lib/desktop";
 
 type WeixinPanelState = {
   status?: string;

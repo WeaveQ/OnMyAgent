@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { SelectMenu } from "../../../design-system/select-menu";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { SettingsActionRow, SettingsNotice, SettingsPanel } from "../settings-section";
 
 const agentFilePath = ".opencode/agents/opencode-router.md";
@@ -571,7 +571,7 @@ export function MessagingView(props: MessagingViewProps) {
                             </SettingsNotice>
                           ) : null}
 
-                          <TextInput
+                          <LabeledInput
                             label={t("identities.bot_token_label")}
                             placeholder={t("identities.bot_token_placeholder")}
                             type="password"
@@ -782,14 +782,14 @@ export function MessagingView(props: MessagingViewProps) {
                           ) : null}
 
                           <div className="space-y-2">
-                            <TextInput
+                            <LabeledInput
                               label={t("identities.bot_token_label")}
                               placeholder="xoxb-..."
                               type="password"
                               value={props.slack.botToken}
                               onChange={(event) => props.onSlackBotTokenChange(event.currentTarget.value)}
                             />
-                            <TextInput
+                            <LabeledInput
                               label={t("identities.app_token_label")}
                               placeholder="xapp-..."
                               type="password"
@@ -960,7 +960,7 @@ export function MessagingView(props: MessagingViewProps) {
                       onChange={(value) => props.onChangeSendChannel(value === "slack" ? "slack" : "telegram")}
                     />
                   </div>
-                  <TextInput
+                  <LabeledInput
                     label={t("identities.peer_id_label")}
                     placeholder={
                       props.sendTest.channel === "telegram"
@@ -973,7 +973,7 @@ export function MessagingView(props: MessagingViewProps) {
                 </div>
 
                 <div className={messagingLayoutClass.twoColumnGrid}>
-                  <TextInput
+                  <LabeledInput
                     label={t("identities.directory_label")}
                     placeholder={defaultRoutingDirectory}
                     value={props.sendTest.directory}

@@ -81,7 +81,7 @@ import {
 } from "../status/session-activity-store";
 import { usePendingAgentStore } from "../../agents/pending-agent-store";
 import type { PendingAgentContext } from "../../agents/pending-agent-store";
-import { AgentPromptSuggestions } from "../../shared/agent-prompt-suggestions";
+import { AgentPromptSuggestions } from "../../agents/agent-prompt-suggestions";
 import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
 import {
   readCustomAgentIdForSession,

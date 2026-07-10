@@ -24,6 +24,7 @@ const requiredDirs = [
   "shared",
   "shell-feedback",
   "plugins",
+  "messaging",
 ];
 
 const requiredFiles = [

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { ALL_SKILLS, LEGACY_SKILLS } from "../src/react-app/domains/shared/skills-catalog";
+import { ALL_SKILLS, LEGACY_SKILLS } from "../src/react-app/domains/plugins/skills-catalog";
 
 describe("shared skills catalog", () => {
   test("exposes the legacy skills through the shared domain contract", () => {

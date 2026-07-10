@@ -32,7 +32,7 @@ import {
   filterProviderList,
 } from "../../../../app/utils/providers";
 import { getReactQueryClient } from "../../../infra/query-client";
-import { ensureProviderListQuery } from "../../shared/provider-list-query";
+import { ensureProviderListQuery } from "../../connections/provider-list-query";
 import type { OpenworkServerStore } from "../../shared/onmyagent-server-store";
 import {
   denSessionUpdatedEvent,
@@ -52,7 +52,7 @@ import type {
   ProviderAuthMethod,
   ProviderAuthProvider,
   ProviderOAuthStartResult,
-} from "../../shared/provider-auth-types";
+} from "../../connections/provider-auth-types";
 
 type ProviderReturnFocusTarget = "none" | "composer";
 type CloudProviderSyncReason = "sign_in" | "app_launch" | "interval" | "settings_cloud_opened";

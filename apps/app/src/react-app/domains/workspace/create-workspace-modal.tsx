@@ -41,13 +41,13 @@ import {
 } from "./create-workspace-modal-state";
 import { CreateWorkspaceSharedPanel } from "./create-workspace-shared-panel";
 import { modalBodyClass, tagClass } from "../../design-system/modal-styles";
-import { WorkspaceOptionCard } from "../shared/workspace-option-card";
+import { WorkspaceOptionCard } from "./workspace-option-card";
 import { RemoteWorkspaceFields } from "./remote-workspace-fields";
 import type {
   CreateWorkspaceModalProps,
   CreateWorkspaceScreen,
   RemoteWorkspaceInput,
-} from "../shared/workspace-modal-types";
+} from "./workspace-modal-types";
 
 function workerStatusMeta(status: string) {
   const normalized = status.trim().toLowerCase();

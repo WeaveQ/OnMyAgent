@@ -27,7 +27,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ProviderIcon } from "../../design-system/provider-icon";
-import { TextInput } from "../../design-system/text-input";
+import { LabeledInput } from "../../design-system/labeled-input";
 import { t } from "@/i18n";
 import type {
   ProviderAuthMethod,
@@ -1037,7 +1037,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       </Button>
                     </NoticeBox>
                   ) : null}
-                  <TextInput
+                  <LabeledInput
                     label={t("provider_auth.api_key")}
                     type="password"
                     placeholder={
@@ -1194,7 +1194,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       {oauthInstructions}
                     </CodeToken>
                   ) : null}
-                  <TextInput
+                  <LabeledInput
                     label={t("provider_auth.authorization_code")}
                     type="text"
                     placeholder={t("provider_auth.paste_code")}

@@ -4,7 +4,7 @@ import {
   statusToastDurationForTone,
   type AppStatusToastInput,
   type AppStatusToastTone,
-} from "../src/react-app/domains/shared/status-toasts";
+} from "../src/react-app/domains/shell-feedback/status-toasts";
 
 describe("shared status toasts contract", () => {
   test("keeps warning and error toasts visible longer than neutral toasts", () => {

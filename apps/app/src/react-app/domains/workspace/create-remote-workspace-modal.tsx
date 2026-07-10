@@ -16,7 +16,7 @@ import {
   errorBannerClass,
 } from "../../design-system/modal-styles";
 import { RemoteWorkspaceFields } from "./remote-workspace-fields";
-import type { CreateRemoteWorkspaceModalProps } from "../shared/workspace-modal-types";
+import type { CreateRemoteWorkspaceModalProps } from "./workspace-modal-types";
 
 type RemoteWorkspaceFormState = {
   onmyagentHostUrl: string;

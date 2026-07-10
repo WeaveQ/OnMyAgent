@@ -7,12 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { feishuStatus, type MessagingChannelStatus, weixinStatus, weixinStart, weixinStop, feishuStart, feishuStop } from "../../../../../app/lib/desktop";
-import { t } from "../../../../../i18n";
+import { feishuStatus, type MessagingChannelStatus, weixinStatus, weixinStart, weixinStop, feishuStart, feishuStop } from "../../../app/lib/desktop";
+import { t } from "../../../i18n";
 import {
   MESSAGING_CHANNELS,
   type MessagingChannel,
-} from "../../chat/session-page-messaging-model";
+} from "../session/chat/session-page-messaging-model";
 import { FeishuChannelPanel } from "./feishu-channel-panel";
 import { ChannelPairingPanel } from "./ChannelPairingPanel";
 import { WeixinChannelPanel } from "./weixin-channel-panel";

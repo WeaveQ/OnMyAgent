@@ -22,7 +22,7 @@ import { t } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StepMarker } from "@/components/ui/status-badge";
-import { TextInput } from "../../design-system/text-input";
+import { LabeledInput } from "../../design-system/labeled-input";
 
 const MCP_AUTH_POLL_INTERVAL_MS = 2_000;
 const MCP_AUTH_TIMEOUT_MS = 90_000;
@@ -798,7 +798,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
                   {authUrlCopied ? t("mcp.auth.copied") : t("mcp.auth.copy_link")}
                 </Button>
               </div>
-              <TextInput
+              <LabeledInput
                 label={t("mcp.auth.callback_label")}
                 placeholder={t("mcp.auth.callback_placeholder")}
                 value={callbackInput}

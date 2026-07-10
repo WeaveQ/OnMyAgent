@@ -1,9 +1,9 @@
-import type { OpenworkAutomationTaskItem } from "../../../../../app/lib/onmyagent-server";
+import type { OpenworkAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import {
   dispatchAssistantSessionWorkspacesChanged,
   writeAssistantSessionWorkspace,
-} from "../../sync/assistant-session-workspaces";
-import { writeCustomAgentIdForSession } from "../../../shared/agent-registry-store";
+} from "../session/sync/assistant-session-workspaces";
+import { writeCustomAgentIdForSession } from "../agents/agent-registry-store";
 
 export type AutomationSessionRecord = {
   sessionId: string;

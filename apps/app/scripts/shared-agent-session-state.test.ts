@@ -16,7 +16,7 @@ import {
   setPendingAssistantTask,
   setPendingExpertTask,
   writeAssistantSessionCategory,
-} from "../src/react-app/domains/shared/agent-session-state";
+} from "../src/react-app/domains/agents/agent-session-state";
 import {
   removeAutomationSessionRecord,
   readAutomationSessionRecords,

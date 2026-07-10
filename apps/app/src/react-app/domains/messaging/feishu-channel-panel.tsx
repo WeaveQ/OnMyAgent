@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { MonoLogBox } from "@/components/ui/mono-log-box";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { AccessibleRootRow } from "./accessible-root-row";
-import { SelectMenu } from "../../../../design-system/select-menu";
-import { t } from "../../../../../i18n";
+import { AccessibleRootRow } from "../session/components/shared-pages/accessible-root-row";
+import { SelectMenu } from "../../design-system/select-menu";
+import { t } from "../../../i18n";
 import {
   feishuAccountStatus,
   feishuAutoStart,
@@ -26,7 +26,7 @@ import {
   pickDirectory,
   type PersonalLocalAgent,
   type PersonalLocalAgentApprovalMode,
-} from "../../../../../app/lib/desktop";
+} from "../../../app/lib/desktop";
 
 type FeishuPanelState = {
   status?: string;

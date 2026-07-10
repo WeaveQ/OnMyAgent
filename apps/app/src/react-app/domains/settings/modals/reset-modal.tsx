@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { t } from "@/i18n";
 
 const RESET_CONFIRM_PLACEHOLDER = "{resetWord}";
@@ -75,7 +75,7 @@ export function ResetModal(props: ResetModalProps) {
               </div>
             ) : null}
 
-            <TextInput
+            <LabeledInput
               disabled={props.busy}
               label={t("settings.reset_confirmation_label")}
               onChange={(event) => props.onTextChange(event.currentTarget.value)}
