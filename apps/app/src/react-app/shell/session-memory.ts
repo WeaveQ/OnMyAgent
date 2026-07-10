@@ -133,7 +133,8 @@ export function readSessionAccessModes(): Record<string, ComposerAccessMode> {
     return Object.fromEntries(
       Object.entries(parsed).flatMap(([sessionId, mode]) => {
         const normalizedSessionId = sessionId.trim();
-        return normalizedSessionId && (mode === "default" || mode === "full")
+        return normalizedSessionId &&
+          (mode === "default" || mode === "delegate" || mode === "full")
           ? [[normalizedSessionId, mode] as const]
           : [];
       }),
@@ -148,7 +149,8 @@ export function writeSessionAccessModes(
 ): void {
   const entries = Object.entries(modes).flatMap(([sessionId, mode]) => {
     const normalizedSessionId = sessionId.trim();
-    return normalizedSessionId && (mode === "default" || mode === "full")
+    return normalizedSessionId &&
+      (mode === "default" || mode === "delegate" || mode === "full")
       ? [[normalizedSessionId, mode] as const]
       : [];
   });

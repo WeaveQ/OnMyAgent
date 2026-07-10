@@ -29,10 +29,11 @@ export default {
   "composer.uploaded_single_file":
     "Uploaded {name} to the shared folder and inserted a link.",
   "composer.access_default": "Default permissions",
-  "composer.access_default_desc": "Ask for approval only when needed",
+  "composer.access_default_desc": "Always ask before editing external files or using the internet",
+  "composer.access_delegate": "Let me approve",
+  "composer.access_delegate_desc": "Ask only for detected risky operations",
   "composer.access_full": "Full access",
-  "composer.access_full_desc":
-    "Automatically approve permission requests for this task",
+  "composer.access_full_desc": "Access the internet and any file on your computer without limits",
   "composer.access_high_risk": "High risk",
   "composer.add_file": "Add file",
   "composer.collaboration_choose_mode": "Choose collaboration modes",

@@ -5,6 +5,10 @@ import type {
   ComposerDraft,
   ModelRef,
 } from "../../app/types";
+export {
+  isLowRiskSessionPermission as isLowRiskPermission,
+  resolveAccessModePermissionReply,
+} from "../../app/lib/access-mode";
 import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
@@ -508,16 +512,16 @@ export function buildAccessModeSystemPrompt(
       t("session.access_mode_full_system_body"),
     ].join("\n");
   }
+  if (mode === "delegate") {
+    return [
+      t("session.access_mode_delegate_system_title"),
+      t("session.access_mode_delegate_system_body"),
+    ].join("\n");
+  }
   return [
     t("session.access_mode_default_system_title"),
     t("session.access_mode_default_system_body"),
   ].join("\n");
-}
-
-export function resolveAccessModePermissionReply(
-  mode: ComposerDraft["accessMode"],
-): "always" | null {
-  return mode === "full" ? "always" : null;
 }
 
 export async function draftToParts(

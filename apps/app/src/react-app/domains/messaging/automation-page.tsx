@@ -1104,7 +1104,7 @@ export function AutomationPage(props: {
           model: pendingAgent.model,
         }
         : null,
-      accessMode: form.accessMode,
+      accessMode: form.accessMode === "delegate" ? "default" : form.accessMode,
       schedule: {
         mode: form.frequencyMode,
         day: form.day,
