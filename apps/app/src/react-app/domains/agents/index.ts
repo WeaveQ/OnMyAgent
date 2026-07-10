@@ -13,4 +13,10 @@ export {
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "./agent-registry-store";
-export * from "../shared/agent-session-state";
+export * from "./agent-session-state";
+
+export * from "./pending-agent-store";
+export { AgentPromptSuggestions } from "./agent-prompt-suggestions";
+export * from "./agent-registry-types";
+export * from "./agent-registry-helpers";
+export { createDefaultAgentRegistry } from "./agent-default-registry";

@@ -295,7 +295,7 @@ describe("expert marketplace UI contract", () => {
 
   test("expert sessions persist agent metadata snapshots for restart restore", () => {
     const sessionRoute = readWorkspaceFile("apps/app/src/react-app/shell/session-route.tsx");
-    const store = readWorkspaceFile("apps/app/src/react-app/domains/shared/agent-registry-store.ts");
+    const store = readWorkspaceFile("apps/app/src/react-app/domains/agents/agent-registry-store.ts");
     const model = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts");
 
     expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, pendingAgentSnapshot)");

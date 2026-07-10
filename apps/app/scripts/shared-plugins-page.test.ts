@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { ConnectorsPage, SkillsPage } from "../src/react-app/domains/shared/plugins-page";
+import { ConnectorsPage, SkillsPage } from "../src/react-app/domains/plugins/plugins-page";
 
 describe("shared plugins page contract", () => {
   test("exports reusable skills and connectors pages for session side panels", () => {

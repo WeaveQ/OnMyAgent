@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -246,7 +247,7 @@ export function SoftwareEnvironmentSection() {
                   <td className={softwareEnvLayoutClass.statusCell}>
                     {isStatusLoading ? (
                       <span className={softwareEnvLayoutClass.loadingLabel}>
-                        <Loader2 className="size-4 animate-spin" />
+                        <LoadingSpinner size="default" />
                         {t("settings.software_env.loading")}
                       </span>
                     ) : state === "installed" ? (
@@ -266,7 +267,7 @@ export function SoftwareEnvironmentSection() {
                     ) : state === "installing" ? (
                       <div className={softwareEnvLayoutClass.installingStack}>
                         <span className={softwareEnvLayoutClass.installingLabel}>
-                          <Loader2 className="size-4 animate-spin" />
+                          <LoadingSpinner size="default" />
                           {installProgress?.message ?? t("settings.software_env.installing")}
                         </span>
                         <div className={softwareEnvLayoutClass.progressTrack}>

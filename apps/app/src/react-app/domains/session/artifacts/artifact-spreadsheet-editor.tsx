@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -90,7 +91,7 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
+        <LoadingSpinner size="default" />
       </div>
     );
   }

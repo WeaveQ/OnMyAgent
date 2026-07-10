@@ -1,5 +1,5 @@
-import type { PendingAgentContext } from "../domains/shared";
 import type { SessionStartIntent } from "../../app/types";
+import type { PendingAgentContext } from "../domains/agents";
 
 export function resolvePendingAgentForPrompt(input: {
   currentAgent: PendingAgentContext | null;

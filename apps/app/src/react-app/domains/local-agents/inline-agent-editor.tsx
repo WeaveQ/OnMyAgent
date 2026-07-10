@@ -1,11 +1,14 @@
 /** @jsxImportSource react */
 import { useCallback, useMemo, useState } from "react";
-import { CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { SelectMenu } from "../../design-system/select-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { t } from "@/i18n";
 import type { PersonalLocalAgent, PersonalLocalAgentTestCustomAgentResult } from "../../../app/lib/desktop";
@@ -200,10 +203,17 @@ export function InlineAgentEditor(props: {
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-xs text-dls-secondary">
             <span>{t("local_agent.editor_connection_type")}</span>
-            <select data-testid="local-agent-editor-connection-type" className="h-8 w-full rounded-md border border-dls-border bg-dls-surface px-2 text-xs" value={connectionType} disabled={props.busy} onChange={(event) => setConnectionType(event.target.value === "cli" ? "cli" : "raw")}>
-              <option value="raw">{t("local_agent.editor_connection_raw")}</option>
-              <option value="cli">{t("local_agent.editor_connection_cli")}</option>
-            </select>
+            <SelectMenu
+              size="compact"
+              ariaLabel={t("local_agent.editor_connection_type")}
+              options={[
+                { value: "raw", label: t("local_agent.editor_connection_raw") },
+                { value: "cli", label: t("local_agent.editor_connection_cli") },
+              ]}
+              value={connectionType}
+              onChange={(value) => setConnectionType(value === "cli" ? "cli" : "raw")}
+              disabled={props.busy}
+            />
           </label>
           <label className="space-y-1 text-xs text-dls-secondary">
             <span>{t("local_agent.editor_acp_args")}</span>
@@ -212,23 +222,23 @@ export function InlineAgentEditor(props: {
         </div>
         <div className="grid gap-2 md:grid-cols-2">
           <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <input type="checkbox" checked={supportsStreaming} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsStreaming(event.target.checked)} />
+            <Checkbox checked={supportsStreaming} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsStreaming(checked === true)} />
             <span>{t("local_agent.editor_supports_streaming")}</span>
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <input type="checkbox" checked={supportsResume} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsResume(event.target.checked)} />
+            <Checkbox checked={supportsResume} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsResume(checked === true)} />
             <span>{t("local_agent.editor_supports_resume")}</span>
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <input type="checkbox" checked={supportsApproval} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsApproval(event.target.checked)} />
+            <Checkbox checked={supportsApproval} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsApproval(checked === true)} />
             <span>{t("local_agent.editor_supports_approval")}</span>
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <input type="checkbox" checked={supportsModelOverride} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setSupportsModelOverride(event.target.checked)} />
+            <Checkbox checked={supportsModelOverride} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsModelOverride(checked === true)} />
             <span>{t("local_agent.editor_supports_model_override")}</span>
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <input type="checkbox" checked={authRequired} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAuthRequired(event.target.checked)} />
+            <Checkbox checked={authRequired} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setAuthRequired(checked === true)} />
             <span>{t("local_agent.editor_auth_required")}</span>
           </label>
         </div>
@@ -247,7 +257,7 @@ export function InlineAgentEditor(props: {
         >
           {testStatus === "testing" ? (
             <>
-              <Loader2 className="size-4 animate-spin" />
+              <LoadingSpinner size="default" />
               {t("local_agent.test_connection_testing")}
             </>
           ) : (
@@ -255,7 +265,7 @@ export function InlineAgentEditor(props: {
           )}
         </Button>
         {testStatus === "success" && (
-          <Alert className="border-green-500/50 bg-green-50 text-green-900 [&>svg]:text-green-600">
+          <Alert className="border-dls-status-success/40 bg-dls-status-success-soft text-dls-status-success-fg [&>svg]:text-dls-status-success-fg">
             <CheckCircle2 className="size-4" />
             <AlertTitle>{t("local_agent.test_connection_success")}</AlertTitle>
             <AlertDescription className="text-xs">
@@ -275,7 +285,7 @@ export function InlineAgentEditor(props: {
           </Alert>
         )}
         {testStatus === "fail_acp" && (
-          <Alert className="border-orange-500/50 bg-orange-50 text-orange-900 [&>svg]:text-orange-600">
+          <Alert className="border-dls-status-warning/40 bg-dls-status-warning-soft text-dls-status-warning-fg [&>svg]:text-dls-status-warning-fg">
             <AlertTriangle className="size-4" />
             <AlertTitle>{t("local_agent.test_connection_fail_acp")}</AlertTitle>
             {testError && (

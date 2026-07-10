@@ -4,7 +4,7 @@ import {
   buildAgentSystemPrompt,
   buildAgentToolAccess,
   usePendingAgentStore,
-} from "../src/react-app/domains/shared/pending-agent-store";
+} from "../src/react-app/domains/agents/pending-agent-store";
 
 describe("shared pending agent store contract", () => {
   test("builds first-message system prompts from persona fields", () => {

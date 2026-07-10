@@ -36,7 +36,7 @@ import type {
   WorkspaceConnectionState,
   WorkspaceSessionGroup,
 } from "../../../../app/types";
-import type { ShareWorkspaceModalProps } from "../../shared/workspace-modal-types";
+import type { ShareWorkspaceModalProps } from "../../workspace/workspace-modal-types";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -45,7 +45,7 @@ import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import ProviderAuthModal, {
   type ProviderAuthModalProps,
-} from "../../shared/provider-auth-modal";
+} from "../../connections/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import {
   type SidebarAccountInfo,
@@ -61,25 +61,25 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
+import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
 import type { StatusBarProps } from "../components/status-bar";
 import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
-import type { AgentCardItem, AgentRegistry } from "../../shared/agent-registry-types";
+import type { AgentCardItem, AgentRegistry } from "../../agents/agent-registry-types";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
   usePendingAgentStore,
-} from "../../shared/pending-agent-store";
-import { buildPendingAgentFromRecord } from "../../shared/agent-registry-store";
+} from "../../agents/pending-agent-store";
+import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
 import {
   readCustomAgentIdForSession,
   useAgentRegistryStore,
-} from "../../shared/agent-registry-store";
+} from "../../agents/agent-registry-store";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../../shared/agent-registry-helpers";
+} from "../../agents/agent-registry-helpers";
 
 import { isElectronRuntime } from "../../../../app/utils";
 import { BrowserPanel } from "../browser/browser-panel";

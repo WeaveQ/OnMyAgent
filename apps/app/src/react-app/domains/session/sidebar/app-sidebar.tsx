@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import * as React from "react";
 import {
@@ -179,7 +180,7 @@ function SessionStatusIndicator(props: {
         title={title}
         aria-label={title}
       >
-        <Loader2 className="size-3.5 animate-spin" />
+        <LoadingSpinner size="sm" />
       </span>
     );
   }

@@ -15,6 +15,7 @@ import {
 } from "@shikijs/transformers";
 import { bundledLanguages, codeToHtml } from "shiki";
 
+import { StreamingCursor } from "@/components/ui/streaming-cursor";
 import { applyTextHighlights } from "./text-highlights";
 
 function escapeHtml(value: string) {
@@ -289,14 +290,18 @@ function MarkdownBlockInner(props: {
 
   const html = highlightedHtml?.text === props.text ? highlightedHtml.html : syncHtml;
 
-  if (!html) return null;
+  if (!html && !props.streaming) return null;
 
   return (
-    <div
-      ref={rootRef}
-      className="markdown-content max-w-none text-foreground"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <div className="markdown-content max-w-none text-dls-text">
+      {html ? (
+        <div
+          ref={rootRef}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : null}
+      {props.streaming ? <StreamingCursor className="ml-0.5" /> : null}
+    </div>
   );
 }
 

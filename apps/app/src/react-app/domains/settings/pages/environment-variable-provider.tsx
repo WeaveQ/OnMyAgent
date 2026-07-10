@@ -7,7 +7,7 @@ import {
   writeOpenworkEnvPendingChanges,
 } from "@/app/lib/onmyagent-env-runtime";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shared/status-toasts";
+import { useStatusToasts } from "../../shell-feedback/status-toasts";
 import { clearOpenworkEnvSystemContextCache } from "../../shared/env-context";
 import type { EnvironmentVariableItem } from "./environment-variable-table";
 

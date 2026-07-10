@@ -22,13 +22,13 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import ProviderAuthModal from "../../shared/provider-auth-modal";
+import ProviderAuthModal from "../../connections/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import {
   SessionSurface,
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
-import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
+import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
 import { OwDotTicker, type OpenworkControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
@@ -67,26 +67,26 @@ import { writeAssistantSelectionMemory } from "../components/shared-pages/assist
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../components/shared-pages/conversation-model";
 
-import type { AgentCardItem } from "../../shared/agent-registry-types";
+import type { AgentCardItem } from "../../agents/agent-registry-types";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
   type PendingAgentContext,
   usePendingAgentStore,
-} from "../../shared/pending-agent-store";
-import { buildPendingAgentFromRecord } from "../../shared/agent-registry-store";
+} from "../../agents/pending-agent-store";
+import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
 import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
   useAgentRegistryStore,
-} from "../../shared/agent-registry-store";
-import { isExpertSession } from "../../shared/agent-session-state";
+} from "../../agents/agent-registry-store";
+import { isExpertSession } from "../../agents/agent-session-state";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../../shared/agent-registry-helpers";
-import type { AgentRegistry } from "../../shared/agent-registry-types";
+} from "../../agents/agent-registry-helpers";
+import type { AgentRegistry } from "../../agents/agent-registry-types";
 import {
   buildAgentConversationGroups,
   ensureAgentSessionGroupVisible,

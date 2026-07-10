@@ -1,15 +1,18 @@
 import type { OpenworkWorkspaceInfo } from "../../app/lib/onmyagent-server";
 import type { WorkspaceInfo, WorkspaceList } from "../../app/lib/desktop";
 import type {
+  ProviderListItem,
   SettingsTab,
   SidebarSessionItem,
   WorkspaceConnectionState,
   WorkspaceSessionGroup,
 } from "../../app/types";
+// ProviderListItem used by normalizeSettingsProviderSource
 import { normalizeDirectoryPath, safeStringify } from "../../app/utils";
 import { t } from "../../i18n";
 import { resolveWorkspaceListSelectedId } from "../../app/lib/desktop";
 import type { OnboardingProfile } from "../kernel/local-provider";
+import type { AiSettingsConnectedProvider } from "../domains/settings";
 
 export type RouteWorkspace = OpenworkWorkspaceInfo & {
   displayNameResolved: string;
@@ -411,3 +414,18 @@ export function settingsPathForRoute(route: SettingsRoutePath) {
   }
   return route.tab;
 }
+
+export function normalizeSettingsProviderSource(
+  source: ProviderListItem["source"],
+): AiSettingsConnectedProvider["source"] | undefined {
+  if (
+    source === "env" ||
+    source === "api" ||
+    source === "config" ||
+    source === "custom"
+  ) {
+    return source;
+  }
+  return undefined;
+}
+

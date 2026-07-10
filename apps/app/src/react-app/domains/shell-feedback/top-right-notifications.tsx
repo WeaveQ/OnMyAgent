@@ -2,7 +2,7 @@
 import type { ReloadTrigger } from "../../../app/types";
 
 import { ReloadWorkspaceToast } from "./reload-workspace-toast";
-import { StatusToastsViewport } from "../shared/status-toasts";
+import { StatusToastsViewport } from "./status-toasts";
 
 export type TopRightNotificationsProps = {
   reloadOpen: boolean;

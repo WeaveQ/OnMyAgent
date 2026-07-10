@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import {
   useCallback,
@@ -53,12 +54,12 @@ import {
   pillSecondaryClass,
   surfaceCardClass,
   tagClass,
-} from "../../shared/modal-styles";
+} from "../../../design-system/modal-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Textarea } from "@/components/ui/textarea";
-import { IconTile, NavTabButton } from "@/components/ui/action-row";
+import { IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { SettingsListEmptyState } from "../settings-list";
@@ -1039,7 +1040,7 @@ export function SkillsView(props: SkillsViewProps) {
             </div>
           </div>
 
-          <div className="inline-flex w-fit rounded-xl bg-dls-hover p-1">
+          <SegmentedTabGroup className="w-fit">
             {(["builtin", "mine"] as InstalledSkillFilter[]).map((view) => {
               const active = installedSkillFilter === view;
               const count = view === "builtin" ? builtInSkillCount : mySkillCount;
@@ -1047,6 +1048,8 @@ export function SkillsView(props: SkillsViewProps) {
                 <NavTabButton
                   key={view}
                   active={active}
+                  size="tab"
+                  shape="tab"
                   onClick={() => setInstalledSkillFilter(view)}
                   className="px-4 py-2 text-sm font-medium"
                 >
@@ -1057,7 +1060,7 @@ export function SkillsView(props: SkillsViewProps) {
                 </NavTabButton>
               );
             })}
-          </div>
+          </SegmentedTabGroup>
 
           {visibleInstalledSkills.length === 0 ? (
             <SettingsListEmptyState size="spacious" className="text-left">
@@ -1338,7 +1341,7 @@ export function SkillsView(props: SkillsViewProps) {
                               }
                             >
                               {installingCloudSkillId === skill.id ? (
-                                <Loader2 data-icon="inline-start" size={14} className="animate-spin" />
+                                <LoadingSpinner size="sm" data-icon="inline-start" />
                               ) : (
                                 <Plus data-icon="inline-start" size={14} />
                               )}
@@ -1544,7 +1547,7 @@ export function SkillsView(props: SkillsViewProps) {
                         })}
                       >
                         {installingHubSkill === skill.name ? (
-                          <Loader2 data-icon="inline-start" size={14} className="animate-spin" />
+                          <LoadingSpinner size="sm" data-icon="inline-start" />
                         ) : (
                           <Plus data-icon="inline-start" size={14} />
                         )}
@@ -1713,7 +1716,7 @@ export function SkillsView(props: SkillsViewProps) {
                 ) : null}
                 {shareCloudSignedIn && shareHubsLoading ? (
                   <div className="mt-3 flex items-center gap-2 text-xs text-dls-secondary">
-                    <Loader2 size={14} className="animate-spin" />
+                    <LoadingSpinner size="sm" />
                     {t("skills.share_team_hubs_loading")}
                   </div>
                 ) : null}

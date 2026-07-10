@@ -20,7 +20,7 @@ describe("session shared page layouts", () => {
       "apps/app/src/react-app/domains/session/components/shared-pages/messaging-channels-page.tsx",
     );
     const toolsPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/shared/plugins-page.tsx",
+      "apps/app/src/react-app/domains/plugins/plugins-page.tsx",
     );
 
     expect(filesPage).toContain('className="flex h-full w-full flex-col"');
