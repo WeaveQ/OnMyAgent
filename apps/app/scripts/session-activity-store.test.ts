@@ -76,6 +76,18 @@ describe("session activity store", () => {
     expect(state.recordsByWorkspaceId.ws_1?.ses_1?.assistantOutput).toBe(false);
   });
 
+  test("keeps a locally stopped session idle when a stale running snapshot arrives", () => {
+    useSessionActivityStore.getState().startRun("ws_1", "ses_1");
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("thinking");
+
+    useSessionActivityStore.getState().markRunStopped("ws_1", "ses_1");
+    useSessionActivityStore
+      .getState()
+      .seedWorkspaceSessions("ws_1", [{ id: "ses_1", status: "busy" }]);
+
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("idle");
+  });
+
   test("removes sessions from records and status maps", () => {
     useSessionActivityStore.getState().seedSessionRun("ws_1", "ses_1", { type: "busy" }, false);
     expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("thinking");
