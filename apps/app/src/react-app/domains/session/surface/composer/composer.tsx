@@ -71,7 +71,7 @@ const EMPTY_COLLABORATION_MODE: ComposerCollaborationMode = {
 const DEFAULT_OFFICE_COLLABORATION_MODE: ComposerCollaborationMode = {
   kind: "craft",
   planning: false,
-  pursueGoal: true,
+  pursueGoal: false,
 };
 
 function collaborationModeValue(
@@ -95,6 +95,9 @@ function selectedCollaborationModeKey(
   variant: "office" | "legacy",
 ): CollaborationModeOption["key"] | null {
   if (variant === "office") {
+    if (value.pursueGoal && !value.planning && value.kind !== "craft") {
+      return "pursueGoal";
+    }
     if (value.kind === "craft" || value.kind === "ask" || value.kind === "plan") return value.kind;
     if (value.planning) return "plan";
     return null;
@@ -124,6 +127,12 @@ function collaborationModeOptions(variant: "office" | "legacy"): CollaborationMo
         get label() { return t("composer.collaboration_plan"); },
         get description() { return t("composer.collaboration_plan_desc"); },
         Icon: ClipboardList,
+      },
+      {
+        key: "pursueGoal",
+        get label() { return t("composer.collaboration_pursue_goal"); },
+        get description() { return t("composer.collaboration_pursue_goal_desc"); },
+        Icon: Target,
       },
     ];
   }

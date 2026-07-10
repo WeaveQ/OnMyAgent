@@ -62,6 +62,22 @@ export function shouldShowGoalRuntime(input: {
   );
 }
 
+export function shouldShowGoalPreview(input: {
+  mode: ComposerCollaborationMode;
+  goalRuntime: CollaborationGoalRuntime | null;
+  planRuntime: CollaborationPlanRuntime | null;
+  dismissed: boolean;
+}) {
+  return (
+    !input.dismissed &&
+    input.goalRuntime === null &&
+    input.planRuntime === null &&
+    input.mode.pursueGoal === true &&
+    !input.mode.planning &&
+    input.mode.kind !== "craft"
+  );
+}
+
 export function summarizeGoalObjective(input: {
   objective: string;
   summary?: string;

@@ -45,10 +45,10 @@
 - Consumes: normalized collaboration mode and `CollaborationGoalRuntime` keyed by current session.
 - Produces: goal preview before first send and runtime panel after a goal exists.
 
-- [ ] Write a failing visibility test for goal preview and goal runtime isolation.
-- [ ] Run the focused test and confirm it fails because preview state is absent.
-- [ ] Render a small preview panel only for the active session when goal mode is selected without a runtime; keep plan panel precedence.
-- [ ] Re-run focused tests and app typecheck.
+- [x] Write a failing visibility test for goal preview and goal runtime isolation.
+- [x] Run the focused test and confirm it fails because preview state is absent.
+- [x] Render a small preview panel only for the active session when goal mode is selected without a runtime; keep plan panel precedence.
+- [x] Re-run focused tests and app typecheck.
 - [ ] Commit and push `feat(session): show goal lifecycle in composer`.
 
 ### Task 3: Verify session isolation and user flow

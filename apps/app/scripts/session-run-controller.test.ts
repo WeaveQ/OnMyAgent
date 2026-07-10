@@ -8,6 +8,7 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
@@ -128,6 +129,37 @@ describe("session run controller", () => {
         "office",
       ),
     ).toBe("goal");
+  });
+
+  test("shows a goal preview only for the current session before its first send", () => {
+    const goalMode: ComposerCollaborationMode = {
+      planning: false,
+      pursueGoal: true,
+    };
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: null,
+        dismissed: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: explicitGoalRuntime("running"),
+        planRuntime: null,
+        dismissed: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: planRuntime("drafting"),
+        dismissed: false,
+      }),
+    ).toBe(false);
   });
 
   test("full access does not treat permission requests as blocking", () => {
