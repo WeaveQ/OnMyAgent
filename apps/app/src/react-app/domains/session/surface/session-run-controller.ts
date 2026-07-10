@@ -3,6 +3,7 @@ import type {
   CollaborationPlanRuntime,
   ComposerAccessMode,
   ComposerCollaborationMode,
+  TodoItem,
 } from "../../../../app/types";
 import type { AssistantCategoryId } from "./personal-assistant-config";
 import type { SessionActivityStatus } from "../status/session-activity-store";
@@ -72,6 +73,30 @@ export function shouldShowGoalPreview(input: {
     !input.mode.planning &&
     input.mode.kind !== "craft"
   );
+}
+
+export function settleGoalRuntimeAfterRun(input: {
+  runtime: CollaborationGoalRuntime;
+  todos: TodoItem[];
+  runText: string;
+  now: number;
+}): CollaborationGoalRuntime {
+  const todos = input.todos.filter((todo) => todo.content.trim());
+  const todosCompleted =
+    todos.length > 0 && todos.every((todo) => todo.status === "completed");
+  const currentCheckpoint = goalCheckpointFromTodos(todos);
+  const progressLog = appendGoalProgressLog(input.runtime, input.runText);
+
+  return {
+    ...input.runtime,
+    status: todosCompleted ? "completed" : "waiting",
+    waitingReason: todosCompleted ? undefined : "idle",
+    updatedAt: input.now,
+    completedAt: todosCompleted ? input.now : input.runtime.completedAt,
+    ...(currentCheckpoint ? { currentCheckpoint } : {}),
+    ...(progressLog?.length ? { progressLog } : {}),
+    ...(todos.length ? { lastKnownTodos: todos } : {}),
+  };
 }
 
 export function summarizeGoalObjective(input: {
@@ -144,6 +169,29 @@ function stripGoalSummaryPrefixes(value: string) {
     if (next === previous) return next;
   }
   return next;
+}
+
+function goalCheckpointFromTodos(todos: TodoItem[]) {
+  const active = todos.find((todo) => todo.status === "in_progress");
+  if (active) return active.content.trim();
+  const pending = todos.find((todo) => todo.status === "pending");
+  if (pending) return pending.content.trim();
+  const completed = [...todos]
+    .reverse()
+    .find((todo) => todo.status === "completed");
+  return completed?.content.trim() ?? "";
+}
+
+function appendGoalProgressLog(
+  runtime: CollaborationGoalRuntime,
+  runText: string,
+) {
+  const trimmed = runText.replace(/\s+/g, " ").trim();
+  if (!trimmed) return runtime.progressLog;
+  const entry = trimmed.length > 400 ? `${trimmed.slice(0, 400).trimEnd()}...` : trimmed;
+  const existing = runtime.progressLog ?? [];
+  if (existing[existing.length - 1] === entry) return existing;
+  return [...existing, entry].slice(-8);
 }
 
 export function resolveSessionRunPolicy(input: {
