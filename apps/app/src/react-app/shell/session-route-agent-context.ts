@@ -1,4 +1,5 @@
 import type { PendingAgentContext } from "../domains/shared";
+import type { SessionStartIntent } from "../../app/types";
 
 export function resolvePendingAgentForPrompt(input: {
   currentAgent: PendingAgentContext | null;
@@ -27,17 +28,24 @@ export function bindPendingAgentToSession(input: {
   };
 }
 
-export function registerCreatedSessionAgentCategory(input: {
+export function registerCreatedSessionStartIntent(input: {
   sessionId: string;
-  consumePendingAssistantTask: () => boolean;
-  consumePendingExpertTask: () => boolean;
+  intent?: SessionStartIntent;
   addAssistantSession: (sessionId: string) => void;
   addExpertSession: (sessionId: string) => void;
+  writeAssistantSessionCategory: (
+    sessionId: string,
+    category: "code" | "office",
+  ) => void;
 }) {
-  if (input.consumePendingAssistantTask()) {
+  if (input.intent?.mode === "assistant") {
     input.addAssistantSession(input.sessionId);
+    input.writeAssistantSessionCategory(
+      input.sessionId,
+      input.intent.assistantCategory,
+    );
   }
-  if (input.consumePendingExpertTask()) {
+  if (input.intent?.mode === "expert") {
     input.addExpertSession(input.sessionId);
   }
 }
