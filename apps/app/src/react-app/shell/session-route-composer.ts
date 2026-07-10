@@ -467,8 +467,8 @@ export function buildAccessModeSystemPrompt(
 
 export function resolveAccessModePermissionReply(
   mode: ComposerDraft["accessMode"],
-): "once" | null {
-  return mode === "full" ? "once" : null;
+): "always" | null {
+  return mode === "full" ? "always" : null;
 }
 
 export async function draftToParts(
