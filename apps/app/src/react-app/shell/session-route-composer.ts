@@ -31,6 +31,18 @@ export function updateDefaultModelPrefs<T extends {
   };
 }
 
+export function moveSessionModelOverride(
+  current: Record<string, ModelRef>,
+  sourceSessionId: string,
+  targetSessionId: string,
+): Record<string, ModelRef> {
+  const override = current[sourceSessionId];
+  if (!override || !targetSessionId.trim()) return current;
+  const next = { ...current, [targetSessionId]: override };
+  delete next[sourceSessionId];
+  return next;
+}
+
 export function joinSystemParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
 }

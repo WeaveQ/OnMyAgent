@@ -1,6 +1,7 @@
 import type {
   CollaborationGoalRuntime,
   ComposerAccessMode,
+  ModelRef,
   TodoItem,
   ComposerCollaborationMode,
 } from "../../app/types";
@@ -20,6 +21,7 @@ const TODOS_BY_SESSION_KEY = "onmyagent.react.todosBySession.v1";
 const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
 const COLLABORATION_MODE_BY_SESSION_KEY =
   "onmyagent.react.collaborationModeBySession.v1";
+const MODEL_OVERRIDE_BY_SESSION_KEY = "onmyagent.react.modelOverrideBySession.v1";
 
 function safeGet(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -209,6 +211,49 @@ export function writeSessionCollaborationModes(
   });
   safeSet(
     COLLABORATION_MODE_BY_SESSION_KEY,
+    entries.length ? JSON.stringify(Object.fromEntries(entries)) : null,
+  );
+}
+
+function parseModelRef(value: unknown): ModelRef | null {
+  if (!isRecord(value)) return null;
+  const providerID = typeof value.providerID === "string" ? value.providerID.trim() : "";
+  const modelID = typeof value.modelID === "string" ? value.modelID.trim() : "";
+  return providerID && modelID ? { providerID, modelID } : null;
+}
+
+export function readSessionModelOverrides(): Record<string, ModelRef> {
+  const raw = safeGet(MODEL_OVERRIDE_BY_SESSION_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).flatMap(([sessionId, model]) => {
+        const normalizedSessionId = sessionId.trim();
+        const normalizedModel = parseModelRef(model);
+        return normalizedSessionId && normalizedModel
+          ? [[normalizedSessionId, normalizedModel] as const]
+          : [];
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function writeSessionModelOverrides(
+  overrides: Record<string, ModelRef | undefined>,
+): void {
+  const entries = Object.entries(overrides).flatMap(([sessionId, model]) => {
+    const normalizedSessionId = sessionId.trim();
+    const normalizedModel = parseModelRef(model);
+    return normalizedSessionId && normalizedModel
+      ? [[normalizedSessionId, normalizedModel] as const]
+      : [];
+  });
+  safeSet(
+    MODEL_OVERRIDE_BY_SESSION_KEY,
     entries.length ? JSON.stringify(Object.fromEntries(entries)) : null,
   );
 }
