@@ -2583,7 +2583,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+        .startRun(props.workspaceId, props.sessionId);
     }
     setSending(true);
     const startedAt = Date.now();
@@ -2705,7 +2705,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+        .startRun(props.workspaceId, props.sessionId);
     }
     setSending(true);
     setActiveRunStartedAt(Date.now());
@@ -2791,7 +2791,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+        .startRun(props.workspaceId, props.sessionId);
     }
     setSending(true);
     setActiveRunStartedAt(now);
@@ -2848,7 +2848,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "idle" });
+        .markRunStopped(props.workspaceId, props.sessionId);
     }
     await abortSessionSafe(opencodeClient, props.sessionId);
     await snapshotQuery.refetch();
