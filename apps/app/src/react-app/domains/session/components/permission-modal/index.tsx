@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
+import { ToolApprovalCard } from "@/components/ui/tool-approval-card";
 import { t } from "@/i18n";
 import type { PendingPermission } from "@/app/types";
 
@@ -297,7 +298,7 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
         <AlertDialogHeader>
           <div className="flex items-start gap-4 text-left">
             <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
-              <Icon size={23} strokeWidth={1.9} />
+              <Icon size={24} strokeWidth={1.9} />
             </div>
             <div className="min-w-0 flex-1">
               <AlertDialogTitle>
@@ -406,6 +407,14 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
   );
 }
 
+function permissionRiskTier(permission: PendingPermission, isDoomLoop: boolean): "safe" | "careful" | "destructive" {
+  if (isDoomLoop) return "destructive";
+  const kind = permission.permission;
+  if (kind === "bash" || kind === "edit" || kind === "external_directory") return "careful";
+  if (kind === "read" || kind === "todowrite" || kind === "question" || kind === "skill") return "safe";
+  return "careful";
+}
+
 export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
   const presentation = useMemo(() => describePermissionRequest(props.permission), [props.permission]);
   const metadata =
@@ -415,8 +424,10 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
   const hasMetadata = Object.keys(metadata).length > 0;
   const Icon = presentation.isDoomLoop ? RefreshCcw : ShieldCheck;
 
+  const risk = permissionRiskTier(props.permission, presentation.isDoomLoop);
+
   return (
-    <div className={permissionLayoutClass.panelShell}>
+    <ToolApprovalCard risk={risk} className={permissionLayoutClass.panelShell}>
         <div className={permissionLayoutClass.panelHeader}>
           <div className={permissionLayoutClass.panelTitleWrap}>
             <IconTile className="mt-0.5" shape="xl" tone="neutral" border>
@@ -497,6 +508,6 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
             </details>
           ) : null}
         </div>
-    </div>
+    </ToolApprovalCard>
   );
 }

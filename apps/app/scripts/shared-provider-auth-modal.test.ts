@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import ProviderAuthModal, { type ProviderAuthModalProps } from "../src/react-app/domains/shared/provider-auth-modal";
+import ProviderAuthModal, { type ProviderAuthModalProps } from "../src/react-app/domains/connections/provider-auth-modal";
 import type {
   ProviderAuthMethod,
   ProviderAuthProvider,
-} from "../src/react-app/domains/shared/provider-auth-types";
+} from "../src/react-app/domains/connections/provider-auth-types";
 
 const provider = {
   id: "openai",

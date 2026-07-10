@@ -28,7 +28,7 @@ import {
 } from "../../expert-marketplace/expert-marketplace-dialog";
 import type { ExpertMarketplaceEntry } from "../../expert-marketplace/types";
 import { SkillsMarketplacePage } from "../../skills-marketplace/skills-marketplace-page";
-import { useStatusToasts } from "../../../shared/status-toasts";
+import { useStatusToasts } from "../../../shell-feedback/status-toasts";
 import { FeaturePreviewPlaceholder } from "../feature-preview-placeholder";
 
 const sidePanelTextClass = {

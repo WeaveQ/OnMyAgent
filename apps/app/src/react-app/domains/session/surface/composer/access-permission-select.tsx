@@ -100,7 +100,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                   setOpen(false);
                 }}
               >
-                <Icon size={18} className="mt-0.5 shrink-0 text-dls-secondary" />
+                <Icon size={16} className="mt-0.5 shrink-0 text-dls-secondary" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <span>{option.label}</span>

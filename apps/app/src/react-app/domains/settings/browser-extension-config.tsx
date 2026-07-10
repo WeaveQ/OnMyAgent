@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { MonitorSmartphone } from "lucide-react";
 
-import { surfaceCardClass } from "../shared/modal-styles";
+import { surfaceCardClass } from "../../design-system/modal-styles";
 import { registerExtensionConfig } from "./extension-registry";
 import { APP_NAME } from "../../../i18n/locales/brand";
 

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -36,7 +37,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../shared/status-toasts";
+import { useStatusToasts } from "../shell-feedback/status-toasts";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
   AGENT_AVATAR_STYLES,
@@ -71,15 +72,15 @@ import { cn } from "@/lib/utils";
 import {
   ensureProviderListQuery,
   getConnectedProviderItems,
-} from "../shared/provider-list-query";
+} from "../connections/provider-list-query";
 import type { ProviderListItem } from "../../../app/types";
 import { useAgentRegistryStore } from "./agent-registry-store";
 import {
   classifySkillScope,
   SKILL_SCOPE_LABELS,
   type SkillScope,
-} from "../shared/skill-scope";
-import { resolveBundledSkillDisplay } from "../shared/bundled-skill-locale";
+} from "../plugins/skill-scope";
+import { resolveBundledSkillDisplay } from "../plugins/bundled-skill-locale";
 import { SelectionMark } from "./agents-selection-mark";
 import { renderAvatar, renderGeneratedAvatar } from "./agents-avatar-rendering";
 import { TemplateTile, ToolCategoryCard } from "./agents-wizard-cards";
@@ -1944,7 +1945,7 @@ export function AgentsPage(props: AgentsPageProps) {
               {registryState.loading ? (
                 <div className={agentsLayoutClass.loadingState}>
                   <div className="flex items-center gap-3 text-dls-secondary">
-                    <Loader2 className="size-5 animate-spin" />
+                    <LoadingSpinner size="default" />
                     {t("agents.loading")}
                   </div>
                 </div>

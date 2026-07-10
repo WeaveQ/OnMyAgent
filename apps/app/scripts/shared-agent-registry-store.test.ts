@@ -8,8 +8,8 @@ import {
   useAgentRegistryStore,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
-} from "../src/react-app/domains/shared/agent-registry-store";
-import type { AgentRegistry } from "../src/react-app/domains/shared/agent-registry-types";
+} from "../src/react-app/domains/agents/agent-registry-store";
+import type { AgentRegistry } from "../src/react-app/domains/agents/agent-registry-types";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();

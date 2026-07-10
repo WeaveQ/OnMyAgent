@@ -7,8 +7,8 @@ import type {
   AgentRegistry,
   AgentSkillItem,
   AgentTemplate,
-} from "../shared/agent-registry-types";
-export type { AgentCardItem } from "../shared/agent-registry-types";
+} from "./agent-registry-types";
+export type { AgentCardItem } from "./agent-registry-types";
 
 export type WizardStep = 0 | 1 | 2 | 3 | 4 | 5;
 

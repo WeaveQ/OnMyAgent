@@ -1,18 +1,18 @@
 import { t } from "@/i18n";
-import { createDefaultAgentRegistry } from "../shared/agent-default-registry";
-export { createDefaultAgentRegistry } from "../shared/agent-default-registry";
+import { createDefaultAgentRegistry } from "./agent-default-registry";
+export { createDefaultAgentRegistry } from "./agent-default-registry";
 import {
   buildAgentAvatarDataUri,
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../shared/agent-registry-helpers";
+} from "./agent-registry-helpers";
 export {
   buildAgentAvatarDataUri,
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../shared/agent-registry-helpers";
+} from "./agent-registry-helpers";
 import type {
   AgentAvatarOption,
   AgentModelProvider,
@@ -23,7 +23,7 @@ import type {
   AgentTone,
   AgentToolCategory,
   AgentWizardDraft,
-} from "../shared/agent-registry-types";
+} from "./agent-registry-types";
 export type {
   AgentAvatarOption,
   AgentModelProvider,
@@ -34,7 +34,7 @@ export type {
   AgentTone,
   AgentToolCategory,
   AgentWizardDraft,
-} from "../shared/agent-registry-types";
+} from "./agent-registry-types";
 
 export const AGENT_REGISTRY_PATH = ".onmyagent/agents/registry.json";
 export const LEGACY_AGENT_REGISTRY_PATH = "onmyagent-agents/registry.json";

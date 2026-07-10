@@ -1,1 +1,1 @@
-export { MessagingChannelsPage } from "../components/shared-pages/messaging-channels-page";
+export { MessagingChannelsPage } from "../../messaging/messaging-channels-page";

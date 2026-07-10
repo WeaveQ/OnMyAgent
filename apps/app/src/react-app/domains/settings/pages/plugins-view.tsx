@@ -5,7 +5,7 @@ import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { SettingsListEmptyState } from "../settings-list";
 import { SettingsActionRow, SettingsCard, SettingsPanel } from "../settings-section";
 
@@ -278,7 +278,7 @@ export function PluginsView(props: PluginsViewProps) {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1">
-              <TextInput
+              <LabeledInput
                 label={t("plugins.add_label")}
                 placeholder="opencode-wakatime"
                 value={extensions.pluginInput()}

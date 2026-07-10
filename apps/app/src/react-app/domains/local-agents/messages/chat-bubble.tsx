@@ -3,8 +3,16 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Bot, CheckCircle2, ChevronRight, Clipboard, Copy, ExternalLink, FileText, Globe, Loader2, TerminalSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { MessageRoleRow } from "@/components/ui/message-role";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  ToolApprovalCard,
+  ToolApprovalCardBody,
+  ToolApprovalCardFooter,
+  ToolApprovalCardHeader,
+} from "@/components/ui/tool-approval-card";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage, type PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
@@ -214,15 +222,15 @@ export const ChatBubble = memo(function ChatBubble(props: {
         )}
 
         {!isUser && throttledThought ? (
-          <div className="mt-2 rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
+          <MessageRoleRow role="thinking" className="mt-2 px-3 py-2" data-testid="local-agent-thought-hint">
             <div className="flex items-center gap-2">
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" />
-              <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{throttledThought.subject}</span>
+              <LoadingSpinner size="sm" className="text-dls-signal" />
+              <span className="min-w-0 flex-1 truncate font-medium not-italic text-dls-text">{throttledThought.subject}</span>
             </div>
             {throttledThought.description ? (
-              <div className="mt-1 line-clamp-3 text-xs text-dls-tertiary">{throttledThought.description}</div>
+              <div className="mt-1 line-clamp-3 text-xs not-italic text-dls-tertiary">{throttledThought.description}</div>
             ) : null}
-          </div>
+          </MessageRoleRow>
         ) : null}
 
         {!isUser && timelineItems.length ? (
@@ -234,7 +242,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
               onClick={() => setTimelineExpanded((value) => !value)}
               aria-expanded={timelineExpanded}
             >
-              {run?.status === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+              {run?.status === "running" ? <LoadingSpinner size="sm" /> : <CheckCircle2 className="size-3.5" />}
               <span>{t("local_agent.timeline_title", { count: timelineItems.length })}</span>
               <ChevronRight className={cn("size-3 text-dls-secondary transition-transform", timelineExpanded && "rotate-90")} />
             </button>
@@ -256,26 +264,32 @@ export const ChatBubble = memo(function ChatBubble(props: {
           <div className="mt-3 space-y-2 text-xs text-dls-secondary">
             {run.errorInfo ? <NoticeBox tone="error">{classifiedRunFailureMessage(run)}<span className={`ml-2 ${localAgentTextClass.debugMeta}`}>{run.errorInfo.code}</span></NoticeBox> : run.error ? <NoticeBox tone="error">{run.error}</NoticeBox> : null}
             {run.pendingApprovals?.length ? (
-              <div className={approvalClass.panel}>
+              <div className="space-y-2">
                 <div className={localAgentTextClass.approvalTitle}>{t("local_agent.approval_required")}</div>
-                {run.pendingApprovals.map((approval) => (
-                  <div key={approval.id} className={approvalClass.item}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-xs font-medium">{approval.title}</div>
-                        <div className={approvalClass.meta}>{approval.readonly ? t("local_agent.approval_readonly") : t("local_agent.approval_side_effect")}  {approval.method}</div>
-                      </div>
-                      <div className="flex shrink-0 gap-1.5">
-                        <Button size="xs" variant="outline" className="bg-dls-surface" onClick={() => props.onResolveApproval?.(approval, "accept")}>{t("local_agent.approval_allow_once")}</Button>
-                        <Button size="xs" onClick={() => props.onResolveApproval?.(approval, "acceptForSession")}>{t("local_agent.approval_allow_session")}</Button>
-                        <Button size="xs" variant="outline" className="bg-dls-surface" onClick={() => props.onResolveApproval?.(approval, "acceptForSession", { alwaysAllow: true })}>{t("local_agent.approval_always_allow")}</Button>
-                        <Button size="xs" variant="destructive" onClick={() => props.onResolveApproval?.(approval, "decline")}>{t("local_agent.approval_decline")}</Button>
-                      </div>
-                    </div>
-                    <pre className={approvalClass.command}>{approval.command || approval.summary}</pre>
-                    <div className={approvalClass.cwd}>cwd: {approval.cwd || "--"}</div>
-                  </div>
-                ))}
+                {run.pendingApprovals.map((approval) => {
+                  const risk = approval.readonly ? "safe" as const : "careful" as const;
+                  return (
+                  <ToolApprovalCard key={approval.id} risk={risk}>
+                    <ToolApprovalCardHeader className="flex-col gap-1 pb-0">
+                      <div className="truncate text-xs font-medium text-dls-text">{approval.title}</div>
+                      <div className={approvalClass.meta}>{approval.readonly ? t("local_agent.approval_readonly") : t("local_agent.approval_side_effect")}  {approval.method}</div>
+                    </ToolApprovalCardHeader>
+                    <ToolApprovalCardBody>
+                      <pre className={approvalClass.command}>{approval.command || approval.summary}</pre>
+                      <div className={approvalClass.cwd}>cwd: {approval.cwd || "--"}</div>
+                    </ToolApprovalCardBody>
+                    <ToolApprovalCardFooter
+                      risk={risk}
+                      denyLabel={t("local_agent.approval_decline")}
+                      allowOnceLabel={t("local_agent.approval_allow_once")}
+                      allowAlwaysLabel={t("local_agent.approval_allow_session")}
+                      onDeny={() => props.onResolveApproval?.(approval, "decline")}
+                      onAllowOnce={() => props.onResolveApproval?.(approval, "accept")}
+                      onAllowAlways={() => props.onResolveApproval?.(approval, "acceptForSession")}
+                    />
+                  </ToolApprovalCard>
+                  );
+                })}
               </div>
             ) : null}
             {run?.fileChanges?.length ? (

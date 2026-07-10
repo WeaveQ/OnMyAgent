@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { Check, FolderPlus, Loader2, XCircle } from "lucide-react";
 
@@ -15,7 +16,7 @@ import {
   surfaceCardClass,
   tagClass,
   warningBannerClass,
-} from "../shared/modal-styles";
+} from "../../design-system/modal-styles";
 
 export type CreateWorkspaceProgressStep = {
   key: string;
@@ -91,7 +92,7 @@ function stepIcon(status: CreateWorkspaceProgressStep["status"]) {
   if (status === "done")
     return <XCircle size={16} className={localPanelStateClass.successIcon} />;
   if (status === "active")
-    return <Loader2 size={16} className="animate-spin text-dls-accent" />;
+    return <LoadingSpinner size="default" className="text-dls-accent" />;
   if (status === "error") return <XCircle size={16} className={localPanelStateClass.errorIcon} />;
   return <div className="size-4 rounded-full border-2 border-dls-border" />;
 }
@@ -166,7 +167,7 @@ export function CreateWorkspaceLocalPanel(
                 size="sm"
               >
                 {props.pickingFolder ? (
-                  <Loader2 size={14} className="animate-spin" />
+                  <LoadingSpinner size="sm" />
                 ) : (
                   <FolderPlus size={14} />
                 )}
@@ -345,7 +346,7 @@ export function CreateWorkspaceLocalPanel(
             >
               {props.workerSubmitting ? (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin" />
+                  <LoadingSpinner size="default" />
                   {t("dashboard.sandbox_checking_docker")}
                 </span>
               ) : (
@@ -365,7 +366,7 @@ export function CreateWorkspaceLocalPanel(
           >
             {props.submitting ? (
               <span className="inline-flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin" />
+                <LoadingSpinner size="default" />
                 Creating…
               </span>
             ) : (

@@ -9,7 +9,7 @@ import { ModelSelectView } from "@/components/model-select";
 import { t } from "@/i18n";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { useCheckDesktopRestriction } from "@/react-app/domains/shared/desktop-config-context";
-import { getConnectedProviderItems, useProviderListQuery } from "@/react-app/domains/shared/provider-list-query";
+import { getConnectedProviderItems, useProviderListQuery } from "@/react-app/domains/connections/provider-list-query";
 import { readHiddenModels } from "../../sync/hidden-models-store";
 import { openModelPickerEvent, useWorkspace } from "@/react-app/shell";
 

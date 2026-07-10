@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createDefaultAgentRegistry } from "../src/react-app/domains/shared/agent-default-registry";
+import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
 import {
   isAgentTemplateVisible,
   isAgentTemplateWizardVisible,

@@ -14,7 +14,7 @@ import { t } from "../../i18n";
 import {
   getConnectedProviderItems,
   isModelAvailableInConnectedProviders,
-} from "../domains/shared";
+} from "../domains/connections";
 
 export type ProviderModelCatalog = Record<
   string,

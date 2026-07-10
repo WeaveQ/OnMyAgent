@@ -13,7 +13,7 @@ import {
 import type { ReloadReason, ReloadTrigger } from "../../app/types";
 import { t } from "../../i18n";
 import { ReloadWorkspaceToast } from "../domains/shell-feedback";
-import { StatusToastsViewport } from "../domains/shared";
+import { StatusToastsViewport } from "../domains/shell-feedback";
 import { useSystemState } from "../kernel/system-state";
 
 type ReloadSession = { id: string; title: string };

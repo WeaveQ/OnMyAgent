@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useReducer, useRef, useState, type SetStateAction } from "react";
 import {
@@ -51,7 +52,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import { AddMcpModal } from "../../shared/add-mcp-modal";
+import { AddMcpModal } from "../../connections/add-mcp-modal";
 import {
   isOnMyAgentExtensionEnabled,
   isOnMyAgentExtensionHidden,
@@ -1100,7 +1101,7 @@ function McpConfiguredServerRow(props: {
       <DisclosureRowButton type="button" onClick={() => props.onSelect(props.selected ? null : props.entry.name)}>
         <div className={mcpViewLayoutClass.rowMain}>
           <div className={`${mcpViewLayoutClass.serverIcon} ${props.status === "connected" ? "border-dls-accent/30 bg-dls-accent/10" : profile.tileClass}`}>
-            <Icon size={15} className={props.status === "connected" ? "text-dls-accent" : profile.iconClass} />
+            <Icon size={14} className={props.status === "connected" ? "text-dls-accent" : profile.iconClass} />
           </div>
           <div className="min-w-0 flex-1">
             <div className={mcpViewTextClass.rowTitle}>{props.displayName(props.entry.name)}</div>
@@ -1258,7 +1259,7 @@ function McpAdvancedConfigSection(props: {
               <Button variant="outline" onClick={() => void props.onReveal()} disabled={!props.canRevealConfig}>
                 {props.revealBusy ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <LoadingSpinner size="sm" />
                     {t("mcp.opening_label")}
                   </>
                 ) : (
