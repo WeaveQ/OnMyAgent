@@ -33,7 +33,7 @@
 - [x] Run `pnpm --dir apps/app exec bun test scripts/session-route-composer.test.ts scripts/session-run-controller.test.ts` and confirm the new expectations fail.
 - [x] Implement minimal normalized goal detection and remove category gating from goal visibility.
 - [x] Re-run the focused tests and confirm they pass.
-- [ ] Commit and push `fix(session): normalize goal mode lifecycle`.
+- [x] Commit and push `fix(session): normalize goal mode lifecycle`.
 
 ### Task 2: Show the session-scoped goal lifecycle above the composer
 
@@ -49,7 +49,7 @@
 - [x] Run the focused test and confirm it fails because preview state is absent.
 - [x] Render a small preview panel only for the active session when goal mode is selected without a runtime; keep plan panel precedence.
 - [x] Re-run focused tests and app typecheck.
-- [ ] Commit and push `feat(session): show goal lifecycle in composer`.
+- [x] Commit and push `feat(session): show goal lifecycle in composer`.
 
 ### Task 3: Verify session isolation and user flow
 
@@ -57,7 +57,7 @@
 - Test: `apps/app/scripts/session-memory.test.ts`
 - Test: `apps/app/scripts/session-run-controller.test.ts`
 
-- [ ] Add a regression test proving goal, plan, and access records for one session do not alter another session.
-- [ ] Run all session-focused tests, `pnpm --dir apps/app typecheck`, and `git diff --check`.
-- [ ] Run `pnpm check:type` as the final cross-package gate.
-- [ ] Commit and push any dedicated regression change.
+- [x] Add a regression test proving goal, plan, and access records for one session do not alter another session.
+- [x] Run all session-focused tests, `pnpm --dir apps/app typecheck`, and `git diff --check`.
+- [x] Run `pnpm check:type` as the final cross-package gate.
+- [x] Commit and push any dedicated regression change.

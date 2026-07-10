@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   applySessionAccessMode,
+  applySessionScopedValue,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
@@ -82,6 +83,17 @@ describe("session route composer", () => {
       ses_existing: { providerID: "anthropic", modelID: "claude" },
     });
     expect(moveSessionModelOverride(current, "draft:missing", "ses_new")).toBe(current);
+  });
+
+  test("updates and clears only the targeted session-scoped value", () => {
+    const current = { ses_one: "goal", ses_two: "plan" };
+    expect(applySessionScopedValue(current, "ses_one", "paused")).toEqual({
+      ses_one: "paused",
+      ses_two: "plan",
+    });
+    expect(applySessionScopedValue(current, "ses_one", null)).toEqual({
+      ses_two: "plan",
+    });
   });
 
   test("uses the resolved workspace endpoint for attachment uploads", () => {

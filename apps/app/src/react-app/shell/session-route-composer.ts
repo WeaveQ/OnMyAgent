@@ -43,6 +43,23 @@ export function moveSessionModelOverride(
   return next;
 }
 
+export function applySessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+  value: T | null,
+): Record<string, T> {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) return current;
+  if (value === null) {
+    if (!(normalizedSessionId in current)) return current;
+    const next = { ...current };
+    delete next[normalizedSessionId];
+    return next;
+  }
+  if (current[normalizedSessionId] === value) return current;
+  return { ...current, [normalizedSessionId]: value };
+}
+
 export function resolveAttachmentUploadTarget<TClient>(input: {
   fallbackClient: TClient | null | undefined;
   fallbackWorkspaceId: string;
