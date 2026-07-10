@@ -43,6 +43,20 @@ export function moveSessionModelOverride(
   return next;
 }
 
+export function moveSessionScopedValue<T>(
+  current: Record<string, T>,
+  sourceSessionId: string,
+  targetSessionId: string,
+  value: T,
+): Record<string, T> {
+  const source = sourceSessionId.trim();
+  const target = targetSessionId.trim();
+  if (!target) return current;
+  const next = { ...current, [target]: value };
+  if (source && source !== target) delete next[source];
+  return next;
+}
+
 export function applySessionScopedValue<T>(
   current: Record<string, T>,
   sessionId: string,
@@ -58,6 +72,13 @@ export function applySessionScopedValue<T>(
   }
   if (current[normalizedSessionId] === value) return current;
   return { ...current, [normalizedSessionId]: value };
+}
+
+export function removeSessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+): Record<string, T> {
+  return applySessionScopedValue(current, sessionId, null);
 }
 
 export function resolveAttachmentUploadTarget<TClient>(input: {

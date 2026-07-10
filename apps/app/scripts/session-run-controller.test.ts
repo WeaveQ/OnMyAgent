@@ -8,6 +8,7 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  settleGoalRuntimeAfterRun,
   shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
@@ -98,7 +99,7 @@ describe("session run controller", () => {
     expect(policy.canResumeGoal).toBe(false);
   });
 
-  test("shows goal runtime for an explicit goal in every assistant category", () => {
+  test("keeps an explicit goal runtime visible after the composer mode changes", () => {
     expect(
       shouldShowGoalRuntime({
         mode: executeMode,
@@ -106,7 +107,7 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldShowGoalRuntime({
         mode: { planning: false, pursueGoal: true },
@@ -160,6 +161,19 @@ describe("session run controller", () => {
         dismissed: false,
       }),
     ).toBe(false);
+  });
+
+  test("settles an idle goal run even when it produced no assistant text", () => {
+    const settled = settleGoalRuntimeAfterRun({
+      runtime: explicitGoalRuntime("running"),
+      todos: [],
+      runText: "",
+      now: 200,
+    });
+
+    expect(settled.status).toBe("waiting");
+    expect(settled.waitingReason).toBe("idle");
+    expect(settled.updatedAt).toBe(200);
   });
 
   test("full access does not treat permission requests as blocking", () => {

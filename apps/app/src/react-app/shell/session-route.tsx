@@ -89,6 +89,8 @@ import {
   isComposerPlanningMode,
   joinSystemParts,
   moveSessionModelOverride,
+  moveSessionScopedValue,
+  removeSessionScopedValue,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
@@ -2221,12 +2223,9 @@ export function SessionRoute() {
         );
       },
       onClearSessionProgress: () => {
-        setLastVisibleTodosBySessionId((current) => {
-          const next = { ...current };
-          delete next[composerModeSessionId];
-          delete next[draftComposerModeSessionId];
-          return next;
-        });
+        setLastVisibleTodosBySessionId((current) =>
+          removeSessionScopedValue(current, composerModeSessionId),
+        );
         if (selectedSessionId) {
           const currentTodoQueryKey = todoQueryKeyForSession(
             selectedWorkspaceId,
@@ -2239,18 +2238,12 @@ export function SessionRoute() {
             );
           }
         }
-        setSessionPlanRuntimeById((current) => {
-          const next = { ...current };
-          delete next[composerModeSessionId];
-          delete next[draftComposerModeSessionId];
-          return next;
-        });
-        setSessionGoalRuntimeById((current) => {
-          const next = { ...current };
-          delete next[composerModeSessionId];
-          delete next[draftComposerModeSessionId];
-          return next;
-        });
+        setSessionPlanRuntimeById((current) =>
+          removeSessionScopedValue(current, composerModeSessionId),
+        );
+        setSessionGoalRuntimeById((current) =>
+          removeSessionScopedValue(current, composerModeSessionId),
+        );
       },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
@@ -2343,14 +2336,10 @@ export function SessionRoute() {
               dispatchAssistantSessionWorkspacesChanged(selectedWorkspaceId);
             }
             const activityStore = useSessionActivityStore.getState();
-            activityStore.setRunStatus(selectedWorkspaceId, sessionId, {
-              type: "busy",
-            });
+            activityStore.startRun(selectedWorkspaceId, sessionId);
             const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
             if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
-              activityStore.setRunStatus(runtimeWorkspaceId, sessionId, {
-                type: "busy",
-              });
+              activityStore.startRun(runtimeWorkspaceId, sessionId);
             }
           } finally {
             creatingSessionWorkspaceIdsRef.current.delete(selectedWorkspaceId);
@@ -2390,12 +2379,25 @@ export function SessionRoute() {
           });
         }
         setSessionAccessModeById((current) =>
-          applySessionAccessMode(current, sessionId, draft.accessMode),
+          createdSession
+            ? moveSessionScopedValue(
+                current,
+                composerModeSessionId,
+                sessionId,
+                draft.accessMode ?? "default",
+              )
+            : applySessionAccessMode(current, sessionId, draft.accessMode),
         );
-        setSessionCollaborationModeById((current) => ({
-          ...current,
-          [sessionId]: draft.collaborationMode,
-        }));
+        setSessionCollaborationModeById((current) =>
+          createdSession
+            ? moveSessionScopedValue(
+                current,
+                composerModeSessionId,
+                sessionId,
+                draft.collaborationMode,
+              )
+            : applySessionScopedValue(current, sessionId, draft.collaborationMode),
+        );
         if (createdSession) {
           setSessionModelOverrideById((current) =>
             moveSessionModelOverride(current, composerModeSessionId, sessionId),
@@ -3382,7 +3384,7 @@ export function SessionRoute() {
               );
               useSessionActivityStore
                 .getState()
-                .setRunStatus(workspaceId, newSession.id, { type: "busy" });
+                .startRun(workspaceId, newSession.id);
             } finally {
               creatingSessionWorkspaceIdsRef.current.delete(workspaceId);
             }

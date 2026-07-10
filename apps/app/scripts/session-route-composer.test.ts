@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   applySessionAccessMode,
   applySessionScopedValue,
+  removeSessionScopedValue,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
@@ -12,6 +13,7 @@ import {
   inboxRelativePath,
   joinSystemParts,
   moveSessionModelOverride,
+  moveSessionScopedValue,
   resolveLanguageForUserInput,
   resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
@@ -85,6 +87,17 @@ describe("session route composer", () => {
     expect(moveSessionModelOverride(current, "draft:missing", "ses_new")).toBe(current);
   });
 
+  test("moves new-session settings without leaving them on the draft", () => {
+    const current = { "draft:ws_1": "full", ses_existing: "default" };
+
+    expect(
+      moveSessionScopedValue(current, "draft:ws_1", "ses_new", "full"),
+    ).toEqual({
+      ses_new: "full",
+      ses_existing: "default",
+    });
+  });
+
   test("updates and clears only the targeted session-scoped value", () => {
     const current = { ses_one: "goal", ses_two: "plan" };
     expect(applySessionScopedValue(current, "ses_one", "paused")).toEqual({
@@ -93,6 +106,14 @@ describe("session route composer", () => {
     });
     expect(applySessionScopedValue(current, "ses_one", null)).toEqual({
       ses_two: "plan",
+    });
+  });
+
+  test("clearing a session-scoped value preserves another draft session", () => {
+    const current = { "draft:ws_1": "draft goal", ses_one: "active goal" };
+
+    expect(removeSessionScopedValue(current, "ses_one")).toEqual({
+      "draft:ws_1": "draft goal",
     });
   });
 
