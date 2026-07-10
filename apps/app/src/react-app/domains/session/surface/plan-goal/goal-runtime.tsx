@@ -22,9 +22,20 @@ export type SessionTranscriptNotice = {
     | "permission-rejected"
     | "permission-auto-approved";
   afterMessageCount: number;
+  runStartedAt?: number;
   elapsedMs?: number;
 };
 
+export function shouldRecordSessionInterruption(input: {
+  existing: SessionTranscriptNotice[];
+  candidate: SessionTranscriptNotice;
+}) {
+  return !input.existing.some((notice) =>
+    notice.runStartedAt === input.candidate.runStartedAt &&
+    (notice.kind === input.candidate.kind ||
+      (input.candidate.kind === "cancelled" && notice.kind === "stopped")),
+  );
+}
 
 export const GOAL_RUNTIME_TICK_MS = 1000;
 
@@ -328,4 +339,3 @@ export function GoalRuntimePanel(props: {
     </div>
   );
 }
-
