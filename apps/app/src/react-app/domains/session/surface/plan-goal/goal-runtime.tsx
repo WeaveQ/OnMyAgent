@@ -42,7 +42,10 @@ export function preferLatestGoalRuntime(
   incoming: CollaborationGoalRuntime | null | undefined,
 ) {
   if (!incoming) return null;
-  if (!current || incoming.updatedAt >= current.updatedAt) return incoming;
+  if (!current || incoming.updatedAt > current.updatedAt) return incoming;
+  if (incoming.updatedAt === current.updatedAt && incoming.status === current.status) {
+    return incoming;
+  }
   return current;
 }
 
