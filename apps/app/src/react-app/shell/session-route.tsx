@@ -91,6 +91,7 @@ import {
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
+  resolveAttachmentUploadTarget,
   resolveDraftSendPlan,
   resolveDraftText,
   routeForSettingsSection,
@@ -2555,13 +2556,22 @@ export function SessionRoute() {
             }
           : draft;
 
+        const attachmentUploadTarget = resolveAttachmentUploadTarget({
+          fallbackClient: client,
+          fallbackWorkspaceId: selectedWorkspaceId,
+          workspaceClient: selectedWorkspaceEndpoint?.client,
+          workspaceId: selectedWorkspaceEndpoint?.workspaceId,
+        });
+
         const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
           uploadAttachment:
-            client && selectedWorkspaceId.trim()
+            attachmentUploadTarget
               ? (attachment, uploadPath) =>
-                  client.uploadInbox(selectedWorkspaceId, attachment.file, {
-                    path: uploadPath,
-                  })
+                  attachmentUploadTarget.client.uploadInbox(
+                    attachmentUploadTarget.workspaceId,
+                    attachment.file,
+                    { path: uploadPath },
+                  )
               : undefined,
         });
         const envRuntimeKey = buildOpenworkEnvRuntimeKey({
