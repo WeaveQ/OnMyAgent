@@ -370,9 +370,13 @@ async function ensureOpenClawGateway({ executablePath, workdir, env, appendEvent
 }
 
 function codexModeForApprovalMode(approvalMode) {
-  if (approvalMode === "auto") return "agent-full-access";
+  // Aligned with AionCore normalize_requested_mode + acp_launch_policy:
+  // Codex native modes are `full-access` (yolo / danger-full-access) and
+  // `auto` (workspace-write + network). `read-only` remains as an
+  // opt-in strict mode.
+  if (approvalMode === "auto") return "full-access";
   if (approvalMode === "read-only-auto") return "read-only";
-  return "agent";
+  return "auto";
 }
 
 function supportsSessionSetModel(provider) {
