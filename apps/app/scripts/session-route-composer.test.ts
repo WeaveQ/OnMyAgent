@@ -163,9 +163,9 @@ describe("session route composer", () => {
     expect(applySessionAccessMode(current, "ses_1", undefined)).toEqual({ ses_1: "default" });
   });
 
-  test("uses one-time permission replies for full access", () => {
+  test("uses session-scoped permission replies for full access", () => {
     expect(resolveAccessModePermissionReply("default")).toBeNull();
-    expect(resolveAccessModePermissionReply("full")).toBe("once");
+    expect(resolveAccessModePermissionReply("full")).toBe("always");
   });
 
   test("clears consumed auto-approved permission notices only after the active request disappears", () => {
