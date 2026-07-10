@@ -104,6 +104,7 @@ import {
   deriveGoalSummary,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowSessionActivity,
   settleGoalRuntimeAfterRun,
   shouldShowGoalPreview,
   shouldShowGoalRuntime,
@@ -945,8 +946,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
     liveStatus.type,
     props.sessionId,
   ]);
-  const activityVisible =
-    chatStreaming || effectiveActivityStatus !== "idle";
+  const activityVisible = shouldShowSessionActivity({
+    chatStreaming,
+    activityStatus: effectiveActivityStatus,
+    goalRuntime: props.goalRuntime ?? null,
+  });
   useEffect(() => {
     if (!activityVisible) return;
     const id = window.setInterval(() => setActivityNow(Date.now()), 1000);

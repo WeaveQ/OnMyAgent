@@ -34,6 +34,15 @@ export type SessionRunPolicy = {
   canClearGoal: boolean;
 };
 
+export function shouldShowSessionActivity(input: {
+  chatStreaming: boolean;
+  activityStatus: SessionActivityStatus;
+  goalRuntime: CollaborationGoalRuntime | null;
+}): boolean {
+  if (input.goalRuntime?.status === "paused") return false;
+  return input.chatStreaming || input.activityStatus !== "idle";
+}
+
 export function resolveSessionCollaborationKind(
   mode: ComposerCollaborationMode,
   _categoryId: AssistantCategoryId,

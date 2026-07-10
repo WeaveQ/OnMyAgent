@@ -8,6 +8,7 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowSessionActivity,
   settleGoalRuntimeAfterRun,
   shouldShowGoalPreview,
   deriveGoalSummary,
@@ -207,6 +208,23 @@ describe("session run controller", () => {
 
     expect(policy.runState).toBe("paused");
     expect(policy.canResumeGoal).toBe(true);
+  });
+
+  test("a paused goal suppresses a stale streaming indicator", () => {
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "thinking",
+        goalRuntime: goalRuntime("paused"),
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "thinking",
+        goalRuntime: goalRuntime("running"),
+      }),
+    ).toBe(true);
   });
 
   test("paused goals can resume only when the run is otherwise idle", () => {
