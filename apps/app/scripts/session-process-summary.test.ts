@@ -7,7 +7,8 @@ import {
   resolveDisplayedPastedText,
   summarizeStepCluster,
 } from "../src/react-app/domains/session/surface/message-list";
-import { groupMessageParts } from "../src/app/utils";
+import { groupMessageParts, summarizeStep } from "../src/app/utils";
+import { setLocale } from "../src/i18n";
 
 type MergeBlock = Parameters<typeof canMergeStepClusters>[1];
 type TimelineBlock = Parameters<typeof mergeLeadingAssistantStepClusters>[0][number];
@@ -137,5 +138,13 @@ describe("session process summary", () => {
         new Map([["9flg · 77 lines", "创建项目管理工具并完成自测"]]),
       ),
     ).toBe("目标：创建项目管理工具并完成自测");
+  });
+
+  test("uses the interface language for tool process titles", () => {
+    setLocale("zh");
+    const title = summarizeStep(toolPart("write-a", "write")).title;
+    setLocale("en");
+
+    expect(title).toBe("已写入 write-a.ts");
   });
 });
