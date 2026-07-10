@@ -181,6 +181,13 @@ export type SessionTranscriptDivider = {
   afterMessageCount: number;
 };
 
+export function isTranscriptDividerReady(
+  divider: SessionTranscriptDivider | undefined,
+  messageCount: number,
+): boolean {
+  return Boolean(divider && divider.afterMessageCount <= messageCount);
+}
+
 /**
  * Stable-key used to match a block across renders. For message blocks the
  * messageId is stable. For step clusters we reuse the cluster id (which is
@@ -1573,7 +1580,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const pushReadyDividers = (afterMessageCount: number) => {
       while (
         nextDividerIndex < dividers.length &&
-        dividers[nextDividerIndex]?.afterMessageCount === afterMessageCount
+        isTranscriptDividerReady(dividers[nextDividerIndex], afterMessageCount)
       ) {
         const divider = dividers[nextDividerIndex];
         if (divider) {

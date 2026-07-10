@@ -23,6 +23,10 @@ import {
 
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
+import {
+  readSessionTranscriptNotices,
+  writeSessionTranscriptNotices,
+} from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { currentLocale, t } from "../../../../i18n";
 import {
@@ -581,12 +585,17 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
     useState<Record<string, number>>({});
   const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
-    useState<Record<string, SessionTranscriptNotice[]>>({});
+    useState<Record<string, SessionTranscriptNotice[]>>(
+      readSessionTranscriptNotices,
+    );
   const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
     useState<Record<string, boolean>>({});
   const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
   const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    writeSessionTranscriptNotices(transcriptNoticesBySessionId);
+  }, [transcriptNoticesBySessionId]);
   const stoppedRunStartedAtRef = useRef<Record<string, number>>({});
   const goalRuntimeRef = useRef<CollaborationGoalRuntime | null>(
     props.goalRuntime ?? null,
