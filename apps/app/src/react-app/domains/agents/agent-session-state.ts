@@ -62,19 +62,6 @@ export function writeAssistantSessionCategory(
   }
 }
 
-let pendingAssistantSessionCategory: AssistantSessionCategory = "office";
-export function setPendingAssistantSessionCategory(
-  category: AssistantSessionCategory,
-): void {
-  pendingAssistantSessionCategory = category;
-}
-
-export function consumePendingAssistantSessionCategory(): AssistantSessionCategory {
-  const value = pendingAssistantSessionCategory;
-  pendingAssistantSessionCategory = "office";
-  return value;
-}
-
 export function removeAssistantSession(sessionId: string): void {
   if (typeof localStorage === "undefined") return;
   try {
@@ -154,26 +141,4 @@ export function removeExpertSession(sessionId: string): void {
     localStorage.setItem(EXPERT_SESSION_KEY, JSON.stringify(Array.from(ids)));
   } catch {
   }
-}
-
-let pendingAssistantTask = false;
-export function setPendingAssistantTask(value: boolean): void {
-  pendingAssistantTask = value;
-}
-
-export function consumePendingAssistantTask(): boolean {
-  const value = pendingAssistantTask;
-  pendingAssistantTask = false;
-  return value;
-}
-
-let pendingExpertTask = false;
-export function setPendingExpertTask(value: boolean): void {
-  pendingExpertTask = value;
-}
-
-export function consumePendingExpertTask(): boolean {
-  const value = pendingExpertTask;
-  pendingExpertTask = false;
-  return value;
 }

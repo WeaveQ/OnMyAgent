@@ -1,5 +1,10 @@
 import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
-import type { ComposerAttachment, ComposerDraft, ModelRef } from "../../app/types";
+import type {
+  ComposerAccessMode,
+  ComposerAttachment,
+  ComposerDraft,
+  ModelRef,
+} from "../../app/types";
 import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
@@ -24,6 +29,67 @@ export function updateDefaultModelPrefs<T extends {
         ? previous.modelVariant
         : null,
   };
+}
+
+export function moveSessionModelOverride(
+  current: Record<string, ModelRef>,
+  sourceSessionId: string,
+  targetSessionId: string,
+): Record<string, ModelRef> {
+  const override = current[sourceSessionId];
+  if (!override || !targetSessionId.trim()) return current;
+  const next = { ...current, [targetSessionId]: override };
+  delete next[sourceSessionId];
+  return next;
+}
+
+export function moveSessionScopedValue<T>(
+  current: Record<string, T>,
+  sourceSessionId: string,
+  targetSessionId: string,
+  value: T,
+): Record<string, T> {
+  const source = sourceSessionId.trim();
+  const target = targetSessionId.trim();
+  if (!target) return current;
+  const next = { ...current, [target]: value };
+  if (source && source !== target) delete next[source];
+  return next;
+}
+
+export function applySessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+  value: T | null,
+): Record<string, T> {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) return current;
+  if (value === null) {
+    if (!(normalizedSessionId in current)) return current;
+    const next = { ...current };
+    delete next[normalizedSessionId];
+    return next;
+  }
+  if (current[normalizedSessionId] === value) return current;
+  return { ...current, [normalizedSessionId]: value };
+}
+
+export function removeSessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+): Record<string, T> {
+  return applySessionScopedValue(current, sessionId, null);
+}
+
+export function resolveAttachmentUploadTarget<TClient>(input: {
+  fallbackClient: TClient | null | undefined;
+  fallbackWorkspaceId: string;
+  workspaceClient: TClient | null | undefined;
+  workspaceId: string | null | undefined;
+}): { client: TClient; workspaceId: string } | null {
+  const client = input.workspaceClient ?? input.fallbackClient;
+  const workspaceId = (input.workspaceId ?? input.fallbackWorkspaceId).trim();
+  return client && workspaceId ? { client, workspaceId } : null;
 }
 
 export function joinSystemParts(parts: Array<string | null | undefined>) {
@@ -123,10 +189,10 @@ export function draftHasSendableContent(draft: Pick<ComposerDraft, "attachments"
 }
 
 export function applySessionAccessMode(
-  current: Record<string, ComposerDraft["accessMode"] | "default">,
+  current: Record<string, ComposerAccessMode>,
   sessionId: string,
-  accessMode: ComposerDraft["accessMode"] | undefined,
-) {
+  accessMode: ComposerAccessMode | undefined,
+): Record<string, ComposerAccessMode> {
   const nextAccessMode = accessMode ?? "default";
   return current[sessionId] === nextAccessMode
     ? current
@@ -446,6 +512,12 @@ export function buildAccessModeSystemPrompt(
     t("session.access_mode_default_system_title"),
     t("session.access_mode_default_system_body"),
   ].join("\n");
+}
+
+export function resolveAccessModePermissionReply(
+  mode: ComposerDraft["accessMode"],
+): "always" | null {
+  return mode === "full" ? "always" : null;
 }
 
 export async function draftToParts(

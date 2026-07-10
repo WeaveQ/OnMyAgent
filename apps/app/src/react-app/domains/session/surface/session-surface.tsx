@@ -103,6 +103,8 @@ import {
   deriveGoalSummary,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  settleGoalRuntimeAfterRun,
+  shouldShowGoalPreview,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
 } from "./session-run-controller";
@@ -175,6 +177,7 @@ import {
   buildPlanExecutionHiddenSystemPrompt,
   formatInterruptionElapsed,
   goalCheckpointFromTodos,
+  GoalPreviewPanel,
   GoalRuntimePanel,
   isGoalIntentRuntime,
   normalizedTodoItems,
@@ -342,7 +345,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     useState<ComposerCollaborationMode>({
       kind: "craft",
       planning: false,
-      pursueGoal: true,
+      pursueGoal: false,
     });
   const effectiveAccessMode = props.sessionAccessMode ?? accessMode;
   const baseCollaborationMode =
@@ -360,6 +363,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const updateCollaborationMode = useCallback(
     (nextMode: ComposerCollaborationMode) => {
+      if (nextMode.planning || nextMode.kind === "plan") {
+        props.onGoalRuntimeChange?.(null);
+      } else if (
+        nextMode.pursueGoal === true &&
+        nextMode.kind !== "craft"
+      ) {
+        props.onPlanRuntimeChange?.(null);
+      }
       if (assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office") {
         setOfficeCollaborationMode(nextMode);
       } else {
@@ -370,6 +381,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [
       assistantFeatureCategoryId,
       assistantOfficeFeaturesActive,
+      props.onGoalRuntimeChange,
+      props.onPlanRuntimeChange,
       props.onSessionCollaborationModeChange,
     ],
   );
@@ -813,24 +826,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }
     const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
     const runText = planTextFromMessages(renderedMessages.slice(baseline));
-    if (!runText) return;
-    const lastKnownTodos = normalizedTodoItems(props.todos);
-    const currentCheckpoint = goalCheckpointFromTodos(lastKnownTodos);
-    const progressLog = appendGoalProgressLog(runtime, runText);
-    const todosCompleted =
-      lastKnownTodos.length > 0 &&
-      lastKnownTodos.every((todo) => todo.status === "completed");
-    const now = Date.now();
-    props.onGoalRuntimeChange?.({
-      ...runtime,
-      status: todosCompleted ? "completed" : "waiting",
-      waitingReason: todosCompleted ? undefined : "idle",
-      updatedAt: now,
-      completedAt: todosCompleted ? now : runtime.completedAt,
-      ...(currentCheckpoint ? { currentCheckpoint } : {}),
-      ...(progressLog?.length ? { progressLog } : {}),
-      ...(lastKnownTodos.length ? { lastKnownTodos } : {}),
-    });
+    props.onGoalRuntimeChange?.(settleGoalRuntimeAfterRun({
+      runtime,
+      todos: normalizedTodoItems(props.todos),
+      runText,
+      now: Date.now(),
+    }));
   }, [
     chatStreaming,
     props.goalRuntime,
@@ -1289,7 +1290,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+        .startRun(props.workspaceId, props.sessionId);
     }
     setSending(true);
     const startedAt = Date.now();
@@ -1411,7 +1412,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+        .startRun(props.workspaceId, props.sessionId);
     }
     setSending(true);
     setActiveRunStartedAt(Date.now());
@@ -1497,7 +1498,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "busy" });
+        .startRun(props.workspaceId, props.sessionId);
     }
     setSending(true);
     setActiveRunStartedAt(now);
@@ -1554,7 +1555,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .setRunStatus(props.workspaceId, props.sessionId, { type: "idle" });
+        .markRunStopped(props.workspaceId, props.sessionId);
     }
     await abortSessionSafe(opencodeClient, props.sessionId);
     await snapshotQuery.refetch();
@@ -2260,6 +2261,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
       }}
     />
   ) : null;
+  const goalPreviewAccessory = shouldShowGoalPreview({
+    mode: effectiveCollaborationMode,
+    goalRuntime: props.goalRuntime ?? null,
+    planRuntime: visiblePlanRuntime,
+    dismissed: goalDismissedForSession,
+  }) ? (
+    <GoalPreviewPanel
+      onClear={() => {
+        updateCollaborationMode({ planning: false, pursueGoal: false });
+      }}
+    />
+  ) : null;
   const questionAccessory = props.activeQuestion ? (
     <QuestionPanel
       questions={props.activeQuestion.questions}
@@ -2283,6 +2296,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const sessionComposerAccessory =
     planOrTodoAccessory ||
     goalAccessory ||
+    goalPreviewAccessory ||
     questionAccessory ||
     permissionAccessory ? (
       <div>
@@ -2290,6 +2304,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         {questionAccessory}
         {planOrTodoAccessory}
         {goalAccessory}
+        {goalPreviewAccessory}
       </div>
     ) : null;
 
