@@ -216,7 +216,7 @@ export function GoalPreviewPanel(props: { onClear: () => void }) {
   return (
     <div className="border-b border-dls-border bg-transparent px-4 py-2">
       <div className="flex items-center gap-2">
-        <Goal size={15} strokeWidth={1.8} className="shrink-0 text-dls-secondary" />
+        <Goal size={14} strokeWidth={1.8} className="shrink-0 text-dls-secondary" />
         <span className="text-sm font-medium text-dls-text">
           {t("session.goal_runtime_title")}
         </span>
