@@ -166,6 +166,10 @@ const sessionSurfaceTextClass = {
   openingSession: "text-sm text-dls-secondary",
 };
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function AssistantDraftHomeMark(props: { categoryId: AssistantCategoryId }) {
   const Icon = props.categoryId === "code" ? Code2 : BookOpenCheck;
 
@@ -732,10 +736,9 @@ function messageActivityFingerprint(messages: UIMessage[]) {
           if ("text" in part && typeof part.text === "string") {
             return `${part.type}:${part.text.length}`;
           }
-          if (part.type === "dynamic-tool") {
-            const record = part as Record<string, unknown>;
-            const state = typeof record.state === "string" ? record.state : "";
-            const toolName = typeof record.toolName === "string" ? record.toolName : "";
+          if (part.type === "dynamic-tool" && isRecordStringUnknown(part)) {
+            const state = typeof part.state === "string" ? part.state : "";
+            const toolName = typeof part.toolName === "string" ? part.toolName : "";
             return `${part.type}:${toolName}:${state}`;
           }
           return part.type;

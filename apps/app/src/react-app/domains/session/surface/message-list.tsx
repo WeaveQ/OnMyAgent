@@ -569,12 +569,16 @@ function formatStructuredValue(value: unknown) {
   }
 }
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function hasStructuredValue(value: unknown) {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") {
-    return Object.keys(value as Record<string, unknown>).length > 0;
+  if (isRecordStringUnknown(value)) {
+    return Object.keys(value).length > 0;
   }
   return true;
 }
@@ -972,12 +976,12 @@ function StepRow(props: {
 }) {
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
   const toolState = useMemo(() => {
-    if (props.part.type !== "tool") return {} as Record<string, unknown>;
-    return (((props.part as { state?: unknown }).state ?? {}) as Record<string, unknown>);
+    if (props.part.type !== "tool") return {};
+    if (!isRecordStringUnknown(props.part)) return {};
+    const state = props.part.state;
+    return isRecordStringUnknown(state) ? state : {};
   }, [props.part]);
-  const toolInput = toolState.input && typeof toolState.input === "object"
-    ? (toolState.input as Record<string, unknown>)
-    : undefined;
+  const toolInput = isRecordStringUnknown(toolState.input) ? toolState.input : undefined;
   const toolOutput = toolState.output;
   const toolError = typeof toolState.error === "string" ? toolState.error : null;
   const expandable =
@@ -986,10 +990,8 @@ function StepRow(props: {
   const headline = summary.title?.trim() || "Step updates progress";
   const statusText = toolStatusText(summary.status);
 
-  if (props.part.type === "reasoning") {
-    const raw = typeof (props.part as { text?: unknown }).text === "string"
-      ? (props.part as { text: string }).text
-      : "";
+  if (props.part.type === "reasoning" && isRecordStringUnknown(props.part)) {
+    const raw = typeof props.part.text === "string" ? props.part.text : "";
     const preview = splitReasoningPreview(raw);
     if (!preview.headline && !preview.body) return null;
 
@@ -1631,13 +1633,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       const groups = groupMessageParts(nonAttachmentParts, message.id);
       const isStepsOnly = groups.length > 0 && groups.every((group) => group.kind === "steps");
       const stepGroups = isStepsOnly
-        ? (groups as Array<{
-            kind: "steps";
-            id: string;
-            parts: TranscriptPart[];
-            segment: "execution";
-            mode: StepGroupMode;
-          }>).map((group) => ({
+        ? groups.filter((group): group is { kind: "steps"; id: string; parts: TranscriptPart[]; segment: "execution"; mode: StepGroupMode } => group.kind === "steps").map((group) => ({
             id: group.id,
             parts: group.parts,
             mode: group.mode,
