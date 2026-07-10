@@ -9,6 +9,16 @@
             "command": "graphify hook-check"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/check-english-git.mjs\"",
+            "statusMessage": "Checking commit/PR language"
+          }
+        ]
       }
     ]
   }

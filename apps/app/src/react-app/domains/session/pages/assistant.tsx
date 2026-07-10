@@ -59,10 +59,6 @@ import type {
   SessionPageProps,
 } from "./index";
 
-import {
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-} from "../../agents/agent-session-state";
 import { usePendingAgentStore } from "../../agents/pending-agent-store";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
@@ -447,13 +443,16 @@ export function AssistantPage(props: AssistantPageProps) {
     async (draft: ComposerDraft) => {
       if (!props.selectedSessionId) {
         usePendingAgentStore.getState().setAgent(null);
-        setPendingAssistantTask(true);
-        setPendingAssistantSessionCategory(assistantCategoryId);
         if (props.onCreateSessionForAgent) {
           props.onCreateSessionForAgent();
         }
       }
-      return props.surface?.onSendDraft(draft);
+      return props.surface?.onSendDraft({
+        ...draft,
+        sessionStartIntent: props.selectedSessionId
+          ? undefined
+          : { mode: "assistant", assistantCategory: assistantCategoryId },
+      });
     },
     [assistantCategoryId, props.selectedSessionId, props.onCreateSessionForAgent, props.surface],
   );
@@ -773,10 +772,6 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
-  // SessionSurface (global assistant composer) only on chat hosts — never
-  // stack under 管理/本地/文件/市场 etc. DESIGN: composer host policy.
-  const isSessionSurfaceHostView =
-    activeSidebarView === "chat" || activeSidebarView === "assistant";
   const railActiveView =
     activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
 
@@ -1115,8 +1110,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {isSessionSurfaceHostView &&
-                      !activePlaceholderView &&
+                      {!activePlaceholderView &&
+                      activeSidebarView !== "scheduledTasks" &&
                       showBlockingStartupSkeleton ? (
                         <div
                           className="px-6 py-14"
@@ -1152,8 +1147,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
-                      {isSessionSurfaceHostView &&
-                      !activePlaceholderView &&
+                      {!activePlaceholderView &&
+                      activeSidebarView !== "scheduledTasks" &&
                       showDelayedSessionLoadingState ? (
                         <div className="px-6 py-16">
                           <div
@@ -1169,8 +1164,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
-                      {isSessionSurfaceHostView &&
-                      !activePlaceholderView &&
+                      {!activePlaceholderView &&
+                      activeSidebarView !== "scheduledTasks" &&
                       !showDelayedSessionLoadingState &&
                       canRenderReactSurface ? (
                         <SessionSurface
@@ -1216,11 +1211,12 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {isSessionSurfaceHostView &&
-                      !activePlaceholderView &&
+                      {!activePlaceholderView &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
-                      !showStartupSkeleton ? (
+                      !showStartupSkeleton &&
+                      activeSidebarView !== "scheduledTasks" &&
+                      activeSidebarView !== "agentManagement" ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
                         >

@@ -8,6 +8,8 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  settleGoalRuntimeAfterRun,
+  shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
@@ -97,7 +99,7 @@ describe("session run controller", () => {
     expect(policy.canResumeGoal).toBe(false);
   });
 
-  test("shows goal runtime only for explicit code goal mode", () => {
+  test("keeps an explicit goal runtime visible after the composer mode changes", () => {
     expect(
       shouldShowGoalRuntime({
         mode: executeMode,
@@ -105,7 +107,7 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldShowGoalRuntime({
         mode: { planning: false, pursueGoal: true },
@@ -121,7 +123,57 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
+    ).toBe(true);
+    expect(
+      resolveSessionCollaborationKind(
+        { planning: false, pursueGoal: true },
+        "office",
+      ),
+    ).toBe("goal");
+  });
+
+  test("shows a goal preview only for the current session before its first send", () => {
+    const goalMode: ComposerCollaborationMode = {
+      planning: false,
+      pursueGoal: true,
+    };
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: null,
+        dismissed: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: explicitGoalRuntime("running"),
+        planRuntime: null,
+        dismissed: false,
+      }),
     ).toBe(false);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: planRuntime("drafting"),
+        dismissed: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("settles an idle goal run even when it produced no assistant text", () => {
+    const settled = settleGoalRuntimeAfterRun({
+      runtime: explicitGoalRuntime("running"),
+      todos: [],
+      runText: "",
+      now: 200,
+    });
+
+    expect(settled.status).toBe("waiting");
+    expect(settled.waitingReason).toBe("idle");
+    expect(settled.updatedAt).toBe(200);
   });
 
   test("full access does not treat permission requests as blocking", () => {
