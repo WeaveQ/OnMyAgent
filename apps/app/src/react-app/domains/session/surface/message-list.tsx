@@ -188,6 +188,13 @@ export function isTranscriptDividerReady(
   return Boolean(divider && divider.afterMessageCount <= messageCount);
 }
 
+export function isInternalAssistantNarration(text: string): boolean {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  return /^(?:the user wants|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will)|now,? i(?:'ll| will)|next,? i(?:'ll| will))/i.test(
+    normalized,
+  );
+}
+
 /**
  * Stable-key used to match a block across renders. For message blocks the
  * messageId is stable. For step clusters we reuse the cluster id (which is
@@ -1599,6 +1606,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     pushReadyDividers(0);
     transcriptMessages.forEach((message, messageIndex) => {
       const renderableParts = message.parts.filter((part) => {
+        if (
+          message.role === "assistant" &&
+          part.type === "text" &&
+          isInternalAssistantNarration(part.text)
+        ) {
+          return false;
+        }
         if (part.type === "reasoning") {
           return showThinking;
         }
