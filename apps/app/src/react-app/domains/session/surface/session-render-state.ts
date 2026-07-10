@@ -5,6 +5,12 @@ import { mergeSnapshotAndLiveMessages } from "../sync/message-merge";
 import { applyRevertCursor } from "../sync/transcript-reconcile";
 import { snapshotToUIMessages } from "../sync/usechat-adapter";
 
+export const INTERNAL_SESSION_MESSAGE_ID_PREFIX = "onmyagent-internal-";
+
+function isInternalSessionControlMessage(message: UIMessage) {
+  return message.id.startsWith(INTERNAL_SESSION_MESSAGE_ID_PREFIX);
+}
+
 function readRevertMessageId(session: OpenworkSessionSnapshot["session"] | null | undefined) {
   if (!session || !("revert" in session)) return null;
   const revert = session.revert;
@@ -48,5 +54,7 @@ export function deriveRenderedSessionMessages(input: {
     ? mergeSnapshotAndLiveMessages(snapshotMessages, liveMessages, { appendLiveOnlyMessages: true })
     : liveMessages;
 
-  return applyRevertCursor(messages, revertMessageId);
+  return applyRevertCursor(messages, revertMessageId).filter(
+    (message) => !isInternalSessionControlMessage(message),
+  );
 }

@@ -124,6 +124,8 @@ export type ComposerDraft = {
   collaborationMode?: ComposerCollaborationMode;
   planningIntent?: ComposerPlanningIntent;
   goalIntent?: ComposerGoalIntent;
+  /** Stable ID for an internal control turn that must not render as user input. */
+  messageID?: string;
   hiddenSystemPrompt?: string;
   /** Editor-visible text (may include collapsed paste placeholders). */
   text: string;
