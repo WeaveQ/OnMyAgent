@@ -64,8 +64,10 @@ export function shouldShowGoalPreview(input: {
   goalRuntime: CollaborationGoalRuntime | null;
   planRuntime: CollaborationPlanRuntime | null;
   dismissed: boolean;
+  hasCreatedSession: boolean;
 }) {
   return (
+    input.hasCreatedSession &&
     !input.dismissed &&
     input.goalRuntime === null &&
     input.planRuntime === null &&

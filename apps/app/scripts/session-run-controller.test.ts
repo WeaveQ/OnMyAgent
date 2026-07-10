@@ -135,7 +135,7 @@ describe("session run controller", () => {
     ).toBe("goal");
   });
 
-  test("shows a goal preview only for the current session before its first send", () => {
+  test("shows a goal preview only after the session has been created", () => {
     const goalMode: ComposerCollaborationMode = {
       planning: false,
       pursueGoal: true,
@@ -146,6 +146,16 @@ describe("session run controller", () => {
         goalRuntime: null,
         planRuntime: null,
         dismissed: false,
+        hasCreatedSession: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: null,
+        dismissed: false,
+        hasCreatedSession: true,
       }),
     ).toBe(true);
     expect(
@@ -154,6 +164,7 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("running"),
         planRuntime: null,
         dismissed: false,
+        hasCreatedSession: true,
       }),
     ).toBe(false);
     expect(
@@ -162,6 +173,7 @@ describe("session run controller", () => {
         goalRuntime: null,
         planRuntime: planRuntime("drafting"),
         dismissed: false,
+        hasCreatedSession: true,
       }),
     ).toBe(false);
   });
