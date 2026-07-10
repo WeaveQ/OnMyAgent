@@ -2290,6 +2290,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     goalRuntime: props.goalRuntime ?? null,
     planRuntime: visiblePlanRuntime,
     dismissed: goalDismissedForSession,
+    hasCreatedSession: !props.draftOnly,
   }) ? (
     <GoalPreviewPanel
       onClear={() => {
