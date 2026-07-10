@@ -8,6 +8,7 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  settleGoalRuntimeAfterRun,
   shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
@@ -160,6 +161,19 @@ describe("session run controller", () => {
         dismissed: false,
       }),
     ).toBe(false);
+  });
+
+  test("settles an idle goal run even when it produced no assistant text", () => {
+    const settled = settleGoalRuntimeAfterRun({
+      runtime: explicitGoalRuntime("running"),
+      todos: [],
+      runText: "",
+      now: 200,
+    });
+
+    expect(settled.status).toBe("waiting");
+    expect(settled.waitingReason).toBe("idle");
+    expect(settled.updatedAt).toBe(200);
   });
 
   test("full access does not treat permission requests as blocking", () => {

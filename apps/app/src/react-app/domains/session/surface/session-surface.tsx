@@ -103,6 +103,7 @@ import {
   deriveGoalSummary,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  settleGoalRuntimeAfterRun,
   shouldShowGoalPreview,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
@@ -1239,29 +1240,6 @@ function normalizedTodoItems(todos: TodoItem[] | undefined) {
   return (todos ?? []).filter((todo) => todo.content.trim());
 }
 
-function goalCheckpointFromTodos(todos: TodoItem[]) {
-  const active = todos.find((todo) => todo.status === "in_progress");
-  if (active) return active.content.trim();
-  const pending = todos.find((todo) => todo.status === "pending");
-  if (pending) return pending.content.trim();
-  const completed = [...todos]
-    .reverse()
-    .find((todo) => todo.status === "completed");
-  return completed?.content.trim() ?? "";
-}
-
-function appendGoalProgressLog(
-  runtime: CollaborationGoalRuntime,
-  runText: string,
-) {
-  const trimmed = runText.replace(/\s+/g, " ").trim();
-  if (!trimmed) return runtime.progressLog;
-  const entry = trimmed.length > 400 ? `${trimmed.slice(0, 400).trimEnd()}...` : trimmed;
-  const existing = runtime.progressLog ?? [];
-  if (existing[existing.length - 1] === entry) return existing;
-  return [...existing, entry].slice(-8);
-}
-
 function isGoalIntentRuntime(
   runtime: CollaborationGoalRuntime | null | undefined,
 ): runtime is CollaborationGoalRuntime {
@@ -2107,24 +2085,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }
     const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
     const runText = planTextFromMessages(renderedMessages.slice(baseline));
-    if (!runText) return;
-    const lastKnownTodos = normalizedTodoItems(props.todos);
-    const currentCheckpoint = goalCheckpointFromTodos(lastKnownTodos);
-    const progressLog = appendGoalProgressLog(runtime, runText);
-    const todosCompleted =
-      lastKnownTodos.length > 0 &&
-      lastKnownTodos.every((todo) => todo.status === "completed");
-    const now = Date.now();
-    props.onGoalRuntimeChange?.({
-      ...runtime,
-      status: todosCompleted ? "completed" : "waiting",
-      waitingReason: todosCompleted ? undefined : "idle",
-      updatedAt: now,
-      completedAt: todosCompleted ? now : runtime.completedAt,
-      ...(currentCheckpoint ? { currentCheckpoint } : {}),
-      ...(progressLog?.length ? { progressLog } : {}),
-      ...(lastKnownTodos.length ? { lastKnownTodos } : {}),
-    });
+    props.onGoalRuntimeChange?.(settleGoalRuntimeAfterRun({
+      runtime,
+      todos: normalizedTodoItems(props.todos),
+      runText,
+      now: Date.now(),
+    }));
   }, [
     chatStreaming,
     props.goalRuntime,
