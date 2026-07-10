@@ -5133,7 +5133,7 @@ async function createMainWindow() {
       mainWindow?.setTitle(APP_NAME);
     }
     mainWindow?.show();
-    if (isDevMode) {
+    if (isDevMode && process.env.ONMYAGENT_OPEN_DEVTOOLS === "1") {
       try {
         mainWindow?.webContents.openDevTools({ mode: "detach" });
       } catch (error) {
