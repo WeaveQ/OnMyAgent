@@ -89,6 +89,7 @@ import {
   joinSystemParts,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
+  resolveAccessModePermissionReply,
   resolveDraftSendPlan,
   resolveDraftText,
   routeForSettingsSection,
@@ -293,11 +294,13 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
+  readSessionAccessModes,
   readSessionGoalRuntimes,
   readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
+  writeSessionAccessModes,
   writeSessionGoalRuntimes,
   writeSessionTodos,
   writeWorkspaceOrderIds,
@@ -610,8 +613,8 @@ export function SessionRoute() {
   const [permissionReplyBusy, setPermissionReplyBusy] = useState(false);
   const permissionReplyBusyRef = useRef(false);
   const [sessionAccessModeById, setSessionAccessModeById] = useState<
-    Record<string, ComposerDraft["accessMode"]>
-  >({});
+    Record<string, NonNullable<ComposerDraft["accessMode"]>>
+  >(() => readSessionAccessModes());
   const [sessionCollaborationModeById, setSessionCollaborationModeById] =
     useState<Record<string, ComposerDraft["collaborationMode"]>>({});
   const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
@@ -639,6 +642,10 @@ export function SessionRoute() {
   useEffect(() => {
     writeSessionGoalRuntimes(sessionGoalRuntimeById);
   }, [sessionGoalRuntimeById]);
+
+  useEffect(() => {
+    writeSessionAccessModes(sessionAccessModeById);
+  }, [sessionAccessModeById]);
 
   // Clear the manual override when a fresh "conversation from agent card"
   // flow begins. We key on `conversationStartId` (a nonce set on every
@@ -1824,13 +1831,16 @@ export function SessionRoute() {
   );
   useEffect(() => {
     if (!activePermission || !selectedSessionId) return;
-    if (sessionAccessModeById[selectedSessionId] !== "full") return;
+    const permissionReply = resolveAccessModePermissionReply(
+      sessionAccessModeById[selectedSessionId],
+    );
+    if (!permissionReply) return;
     if (permissionReplyBusy) return;
     setAutoApprovedPermissionNoticeBySessionId((current) => ({
       ...current,
       [selectedSessionId]: activePermission.id,
     }));
-    void respondPermission(activePermission.id, "always");
+    void respondPermission(activePermission.id, permissionReply);
   }, [
     activePermission,
     permissionReplyBusy,

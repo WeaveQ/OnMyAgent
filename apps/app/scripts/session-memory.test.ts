@@ -4,10 +4,12 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
+  readSessionAccessModes,
   readSessionGoalRuntimes,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
+  writeSessionAccessModes,
   writeSessionGoalRuntimes,
   writeWorkspaceOrderIds,
 } from "../src/react-app/shell/session-memory";
@@ -16,6 +18,7 @@ const ACTIVE_WORKSPACE_KEY = "onmyagent.react.activeWorkspace";
 const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
+const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -88,6 +91,24 @@ describe("session memory", () => {
     window.localStorage.setItem(SESSION_BY_WORKSPACE_KEY, JSON.stringify({ ws_a: "ses_1", ws_b: 42 }));
     expect(readLastSessionFor("ws_a")).toBe("ses_1");
     expect(readLastSessionFor("ws_b")).toBeNull();
+  });
+
+  test("persists only valid session access modes", () => {
+    writeSessionAccessModes({ ses_default: "default", ses_full: "full", " ": "full" });
+
+    expect(readSessionAccessModes()).toEqual({
+      ses_default: "default",
+      ses_full: "full",
+    });
+
+    window.localStorage.setItem(
+      ACCESS_MODE_BY_SESSION_KEY,
+      JSON.stringify({ ses_default: "default", ses_invalid: "unsafe" }),
+    );
+    expect(readSessionAccessModes()).toEqual({ ses_default: "default" });
+
+    writeSessionAccessModes({});
+    expect(window.localStorage.getItem(ACCESS_MODE_BY_SESSION_KEY)).toBeNull();
   });
 
   test("persists goal runtimes with checkpoints, logs, and cached todos by session", () => {

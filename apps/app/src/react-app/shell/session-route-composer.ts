@@ -1,5 +1,10 @@
 import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
-import type { ComposerAttachment, ComposerDraft, ModelRef } from "../../app/types";
+import type {
+  ComposerAccessMode,
+  ComposerAttachment,
+  ComposerDraft,
+  ModelRef,
+} from "../../app/types";
 import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
@@ -123,10 +128,10 @@ export function draftHasSendableContent(draft: Pick<ComposerDraft, "attachments"
 }
 
 export function applySessionAccessMode(
-  current: Record<string, ComposerDraft["accessMode"] | "default">,
+  current: Record<string, ComposerAccessMode>,
   sessionId: string,
-  accessMode: ComposerDraft["accessMode"] | undefined,
-) {
+  accessMode: ComposerAccessMode | undefined,
+): Record<string, ComposerAccessMode> {
   const nextAccessMode = accessMode ?? "default";
   return current[sessionId] === nextAccessMode
     ? current
@@ -446,6 +451,12 @@ export function buildAccessModeSystemPrompt(
     t("session.access_mode_default_system_title"),
     t("session.access_mode_default_system_body"),
   ].join("\n");
+}
+
+export function resolveAccessModePermissionReply(
+  mode: ComposerDraft["accessMode"],
+): "once" | null {
+  return mode === "full" ? "once" : null;
 }
 
 export async function draftToParts(
