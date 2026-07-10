@@ -328,6 +328,7 @@ import { useSessionRouteNavigation } from "./use-session-route-navigation";
 import { useSessionRouteChromeState } from "./use-session-route-chrome-state";
 import { useSessionRouteComposerRuntimeState } from "./use-session-route-composer-runtime-state";
 import { useSessionRouteModelPickerState } from "./use-session-route-model-picker-state";
+import { shouldBlockSurfaceForForeignSession } from "./session-route-surface-guards";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
 import { useStatusToasts } from "../domains/shell-feedback";
@@ -2003,12 +2004,14 @@ export function SessionRouteRender() {
     // belongs to a different workspace (i.e., it exists in another
     // workspace's list). A brand-new session that hasn't been refreshed
     // into any list yet must still render so "New task" feels instant.
-    const sessionOwnedByOtherWorkspace = sessionBelongsToAnotherWorkspace({
-      sessionsByWorkspaceId,
-      selectedSessionId,
-      selectedWorkspaceId,
-    });
-    if (sessionOwnedByOtherWorkspace) {
+    if (
+      shouldBlockSurfaceForForeignSession({
+        sessionsByWorkspaceId,
+        selectedSessionId,
+        selectedWorkspaceId,
+        sessionBelongsToAnotherWorkspace: sessionBelongsToAnotherWorkspace as any,
+      })
+    ) {
       return null;
     }
 
