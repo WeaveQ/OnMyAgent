@@ -12,6 +12,7 @@ import {
   joinSystemParts,
   moveSessionModelOverride,
   resolveLanguageForUserInput,
+  resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
   resolveDraftSendPlan,
@@ -81,6 +82,25 @@ describe("session route composer", () => {
       ses_existing: { providerID: "anthropic", modelID: "claude" },
     });
     expect(moveSessionModelOverride(current, "draft:missing", "ses_new")).toBe(current);
+  });
+
+  test("uses the resolved workspace endpoint for attachment uploads", () => {
+    expect(
+      resolveAttachmentUploadTarget({
+        fallbackClient: "local-client",
+        fallbackWorkspaceId: "ws_local",
+        workspaceClient: "remote-client",
+        workspaceId: "rem_1",
+      }),
+    ).toEqual({ client: "remote-client", workspaceId: "rem_1" });
+    expect(
+      resolveAttachmentUploadTarget({
+        fallbackClient: "local-client",
+        fallbackWorkspaceId: " ws_local ",
+        workspaceClient: null,
+        workspaceId: null,
+      }),
+    ).toEqual({ client: "local-client", workspaceId: "ws_local" });
   });
 
   test("joins non-empty system prompt parts", () => {

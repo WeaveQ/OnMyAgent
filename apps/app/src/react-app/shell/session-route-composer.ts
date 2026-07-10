@@ -43,6 +43,17 @@ export function moveSessionModelOverride(
   return next;
 }
 
+export function resolveAttachmentUploadTarget<TClient>(input: {
+  fallbackClient: TClient | null | undefined;
+  fallbackWorkspaceId: string;
+  workspaceClient: TClient | null | undefined;
+  workspaceId: string | null | undefined;
+}): { client: TClient; workspaceId: string } | null {
+  const client = input.workspaceClient ?? input.fallbackClient;
+  const workspaceId = (input.workspaceId ?? input.fallbackWorkspaceId).trim();
+  return client && workspaceId ? { client, workspaceId } : null;
+}
+
 export function joinSystemParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
 }
