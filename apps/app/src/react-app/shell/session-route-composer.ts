@@ -60,6 +60,13 @@ export function applySessionScopedValue<T>(
   return { ...current, [normalizedSessionId]: value };
 }
 
+export function removeSessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+): Record<string, T> {
+  return applySessionScopedValue(current, sessionId, null);
+}
+
 export function resolveAttachmentUploadTarget<TClient>(input: {
   fallbackClient: TClient | null | undefined;
   fallbackWorkspaceId: string;

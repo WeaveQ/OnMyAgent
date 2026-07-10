@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   applySessionAccessMode,
   applySessionScopedValue,
+  removeSessionScopedValue,
   buildCollaborationModeSystemPrompt,
   buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
@@ -93,6 +94,14 @@ describe("session route composer", () => {
     });
     expect(applySessionScopedValue(current, "ses_one", null)).toEqual({
       ses_two: "plan",
+    });
+  });
+
+  test("clearing a session-scoped value preserves another draft session", () => {
+    const current = { "draft:ws_1": "draft goal", ses_one: "active goal" };
+
+    expect(removeSessionScopedValue(current, "ses_one")).toEqual({
+      "draft:ws_1": "draft goal",
     });
   });
 
