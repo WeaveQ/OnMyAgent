@@ -190,7 +190,7 @@ export function isTranscriptDividerReady(
 
 export function isInternalAssistantNarration(text: string): boolean {
   const normalized = text.trim().replace(/\s+/g, " ");
-  return /^(?:the user(?: wants|['’]s| is)|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will)|now,? i(?:'ll| will)|next,? i(?:'ll| will))/i.test(
+  return /^(?:the user(?: wants|['’]s| is| said| has| just| seems)|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will| need to)|now,? i(?:'ll| will| need to)|next,? i(?:'ll| will| need to))/i.test(
     normalized,
   );
 }
@@ -1608,7 +1608,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       const renderableParts = message.parts.filter((part) => {
         if (
           message.role === "assistant" &&
-          part.type === "text" &&
+          (part.type === "text" || part.type === "reasoning") &&
           isInternalAssistantNarration(part.text)
         ) {
           return false;

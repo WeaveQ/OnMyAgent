@@ -110,6 +110,17 @@ export function settleGoalRuntimeAfterRun(input: {
   };
 }
 
+export function hasRepeatedGoalAssistantOutput(texts: string[]): boolean {
+  let previous = "";
+  for (const text of texts) {
+    const normalized = text.replace(/\s+/g, " ").trim();
+    if (!normalized) continue;
+    if (normalized === previous) return true;
+    previous = normalized;
+  }
+  return false;
+}
+
 export function summarizeGoalObjective(input: {
   objective: string;
   summary?: string;

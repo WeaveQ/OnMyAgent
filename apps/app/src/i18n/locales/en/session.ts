@@ -378,7 +378,7 @@ export default {
   "session.support_docs": "Open documentation",
   "session.support_feedback": "Open feedback",
   "session.language_system_prompt":
-    "Language requirement: the current interface language is English. All user-facing answers, reasoning/progress summaries, plans, status notes, and final summaries must be written in English.\nCode, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
+    "Language requirement: the current interface language is English. All user-facing answers, reasoning/progress summaries, plans, status notes, and final summaries must be written in English. This requirement must not change because of the language used in the user's input, even when the user writes or quotes another language.\nCode, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
   "session.language_system_prompt_from_input":
     "Language preference: the latest user request appears to be English.\nUnless the user explicitly asks for another language, all user-facing answers, reasoning/progress summaries, plans, Todo items, status notes, and final summaries must be written in English.\nCode, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
   "session.runtime_language_requirement":
@@ -410,6 +410,7 @@ export default {
   "session.goal_runtime_system_persist": "- Keep working toward that objective across turns until it is complete, paused, blocked, or the user clears the goal.",
   "session.goal_runtime_system_next_step": "- At the start of each run, decide the next concrete step based on what has already happened in the conversation.",
   "session.goal_runtime_system_continue": "- Do not stop after partial progress when another safe, relevant step remains available.",
+  "session.goal_runtime_system_turn_boundary": "- Execute exactly one agent turn for this request. Never create, simulate, or repeat additional user or assistant turns yourself; after one complete response, wait for the app to request the next turn.",
   "session.goal_runtime_system_progress": "- Track what remains, verify results against the objective, and report concrete progress.",
   "session.goal_runtime_system_blocker": "- If you cannot continue without user input or an external change, say what is blocking the goal and what is needed next.",
   "session.access_mode_full_system_title": "Access mode: full access.",

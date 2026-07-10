@@ -10,6 +10,7 @@ import {
   resolveSessionRunPolicy,
   shouldShowSessionActivity,
   settleGoalRuntimeAfterRun,
+  hasRepeatedGoalAssistantOutput,
   shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
@@ -193,6 +194,11 @@ describe("session run controller", () => {
     expect(settled.status).toBe("waiting");
     expect(settled.waitingReason).toBe("idle");
     expect(settled.updatedAt).toBe(200);
+  });
+
+  test("detects repeated final output within a single goal run", () => {
+    expect(hasRepeatedGoalAssistantOutput(["已确认。", "已确认。"])).toBe(true);
+    expect(hasRepeatedGoalAssistantOutput(["已确认。", "下一步继续验证。"])).toBe(false);
   });
 
   test("full access does not treat permission requests as blocking", () => {
