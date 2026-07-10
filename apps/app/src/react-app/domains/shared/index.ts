@@ -1,17 +1,11 @@
 export {
   addAssistantSession,
   addExpertSession,
-  consumePendingAssistantSessionCategory,
-  consumePendingAssistantTask,
-  consumePendingExpertTask,
   isAssistantSession,
   isExpertSession,
   readAssistantSessionCategory,
   removeAssistantSession,
   removeExpertSession,
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-  setPendingExpertTask,
   writeAssistantSessionCategory,
 } from "./agent-session-state";
 export type { AssistantSessionCategory } from "./agent-session-state";

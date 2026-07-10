@@ -135,7 +135,13 @@ export type ComposerDraft = {
   resolvedText?: string;
   /** When set, draft starts with a slash command or skill reference. */
   command?: { name: string; arguments: string; source?: "command" | "mcp" | "skill" } | undefined;
+  /** Classifies the session created by this draft without shared mutable state. */
+  sessionStartIntent?: SessionStartIntent;
 };
+
+export type SessionStartIntent =
+  | { mode: "assistant"; assistantCategory: "code" | "office" }
+  | { mode: "expert" };
 
 export type ComposerAccessMode = "default" | "full";
 
