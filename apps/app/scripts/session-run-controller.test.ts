@@ -14,6 +14,7 @@ import {
   shouldShowGoalRuntime,
   summarizeGoalObjective,
 } from "../src/react-app/domains/session/surface/session-run-controller";
+import { shouldRecordSessionInterruption } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { setLocale } from "../src/i18n";
 
 const executeMode: ComposerCollaborationMode = {
@@ -259,6 +260,27 @@ describe("session run controller", () => {
 
     expect(policy.runState).toBe("stalled");
     expect(policy.canResumeGoal).toBe(false);
+  });
+
+  test("does not append a cancelled notice after the same run was explicitly stopped", () => {
+    expect(
+      shouldRecordSessionInterruption({
+        existing: [
+          {
+            id: "ses_1:stopped",
+            kind: "stopped",
+            afterMessageCount: 4,
+            runStartedAt: 100,
+          },
+        ],
+        candidate: {
+          id: "ses_1:cancelled",
+          kind: "cancelled",
+          afterMessageCount: 5,
+          runStartedAt: 100,
+        },
+      }),
+    ).toBe(false);
   });
 
   test("summarizes pasted goal objectives as readable text", () => {

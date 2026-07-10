@@ -182,6 +182,7 @@ import {
   isGoalIntentRuntime,
   normalizedTodoItems,
   removeRecordKey,
+  shouldRecordSessionInterruption,
   transcriptNoticeLabel,
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
@@ -583,6 +584,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
   const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
+  const stoppedRunStartedAtRef = useRef<Record<string, number>>({});
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
   useEffect(() => {
@@ -1209,24 +1211,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
       const now = Date.now();
       const afterMessageCount = renderedMessages.length;
       const runStartedAt =
-        activeRunStartedAt ?? props.goalRuntime?.lastRunStartedAt ?? now;
+        activeRunStartedAt ??
+        props.goalRuntime?.lastRunStartedAt ??
+        stoppedRunStartedAtRef.current[props.sessionId] ??
+        now;
       const notice: SessionTranscriptNotice = {
         id: `${props.sessionId}:${kind}:${afterMessageCount}:${now}`,
         kind,
         afterMessageCount,
+        runStartedAt,
         elapsedMs:
           kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
       };
 
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
-        const alreadyRecorded = existing.some(
-          (item) =>
-            item.afterMessageCount === afterMessageCount &&
-            (item.kind === kind ||
-              (kind === "cancelled" && item.kind === "stopped")),
-        );
-        if (alreadyRecorded) return current;
+        if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
+          return current;
+        }
         return {
           ...current,
           [props.sessionId]: [...existing, notice].slice(
@@ -1234,6 +1236,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ),
         };
       });
+      if (kind === "stopped") {
+        stoppedRunStartedAtRef.current = {
+          ...stoppedRunStartedAtRef.current,
+          [props.sessionId]: runStartedAt,
+        };
+      } else {
+        const stoppedRunStartedAt = stoppedRunStartedAtRef.current[props.sessionId];
+        if (stoppedRunStartedAt === runStartedAt) {
+          const next = { ...stoppedRunStartedAtRef.current };
+          delete next[props.sessionId];
+          stoppedRunStartedAtRef.current = next;
+        }
+      }
     },
     [
       activeRunStartedAt,
@@ -1357,9 +1372,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
-      if (isUserCancelledError(parsed)) {
-        recordSessionInterruption("cancelled");
-      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1435,9 +1447,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
-      if (isUserCancelledError(parsed)) {
-        recordSessionInterruption("cancelled");
-      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
@@ -1516,9 +1525,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
-      if (isUserCancelledError(parsed)) {
-        recordSessionInterruption("cancelled");
-      }
       setError(parsed);
       setDismissedErrorMessage(null);
       if (!props.draftOnly) {
