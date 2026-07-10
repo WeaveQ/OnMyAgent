@@ -12,6 +12,7 @@ import {
   joinSystemParts,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
+  resolveAccessModePermissionReply,
   resolveDraftSendPlan,
   routeForSettingsSection,
   sanitizeUploadFilename,
@@ -146,6 +147,11 @@ describe("session route composer", () => {
     const current = { ses_1: "full" as const };
     expect(applySessionAccessMode(current, "ses_1", "full")).toBe(current);
     expect(applySessionAccessMode(current, "ses_1", undefined)).toEqual({ ses_1: "default" });
+  });
+
+  test("uses one-time permission replies for full access", () => {
+    expect(resolveAccessModePermissionReply("default")).toBeNull();
+    expect(resolveAccessModePermissionReply("full")).toBe("once");
   });
 
   test("clears consumed auto-approved permission notices only after the active request disappears", () => {

@@ -1,4 +1,8 @@
-import type { CollaborationGoalRuntime, TodoItem } from "../../app/types";
+import type {
+  CollaborationGoalRuntime,
+  ComposerAccessMode,
+  TodoItem,
+} from "../../app/types";
 import { deriveGoalSummary } from "./session-route-composer";
 
 /**
@@ -12,6 +16,7 @@ const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 const TODOS_BY_SESSION_KEY = "onmyagent.react.todosBySession.v1";
+const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
 
 function safeGet(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -112,6 +117,40 @@ export function writeLastSessionFor(workspaceId: string, sessionId: string | nul
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function readSessionAccessModes(): Record<string, ComposerAccessMode> {
+  const raw = safeGet(ACCESS_MODE_BY_SESSION_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).flatMap(([sessionId, mode]) => {
+        const normalizedSessionId = sessionId.trim();
+        return normalizedSessionId && (mode === "default" || mode === "full")
+          ? [[normalizedSessionId, mode] as const]
+          : [];
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function writeSessionAccessModes(
+  modes: Record<string, ComposerAccessMode>,
+): void {
+  const entries = Object.entries(modes).flatMap(([sessionId, mode]) => {
+    const normalizedSessionId = sessionId.trim();
+    return normalizedSessionId && (mode === "default" || mode === "full")
+      ? [[normalizedSessionId, mode] as const]
+      : [];
+  });
+  safeSet(
+    ACCESS_MODE_BY_SESSION_KEY,
+    entries.length ? JSON.stringify(Object.fromEntries(entries)) : null,
+  );
 }
 
 function readStringField(record: Record<string, unknown>, key: string) {
