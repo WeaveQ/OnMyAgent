@@ -1518,6 +1518,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await props.onSendDraft({
         ...buildDraft(t("session.goal_runtime_continue_prompt"), []),
+        messageID: `onmyagent-internal-goal-resume-${crypto.randomUUID()}`,
         collaborationMode: goalMode,
         hiddenSystemPrompt: buildGoalHiddenSystemPrompt(nextRuntime),
       });

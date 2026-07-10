@@ -2670,6 +2670,7 @@ export function SessionRouteRender() {
           opencodeClient.session.promptAsync({
             sessionID: sessionId,
             parts,
+            ...(draft.messageID ? { messageID: draft.messageID } : {}),
             // Priority: user's manual override > agent's configured model > global default.
             // Never modify `pendingAgentSnapshot.model` — the agent's configured model
             // is owned by the agent page edit dialog.
