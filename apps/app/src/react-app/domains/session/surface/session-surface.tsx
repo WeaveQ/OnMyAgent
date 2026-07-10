@@ -103,6 +103,7 @@ import {
   deriveGoalSummary,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowGoalPreview,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
 } from "./session-run-controller";
@@ -1359,6 +1360,31 @@ function GoalRuntimePanel(props: {
   );
 }
 
+function GoalPreviewPanel(props: { onClear: () => void }) {
+  return (
+    <div className="border-b border-dls-border bg-transparent px-4 py-2">
+      <div className="flex items-center gap-2">
+        <Goal size={15} strokeWidth={1.8} className="shrink-0 text-dls-secondary" />
+        <span className="text-sm font-medium text-dls-text">
+          {t("session.goal_runtime_title")}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-dls-secondary">
+          {t("session.goal_runtime_hint")}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="shrink-0 text-dls-secondary hover:text-dls-text"
+          onClick={props.onClear}
+        >
+          {t("session.goal_runtime_clear")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function PersonalAssistantHero() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-6 pb-6 pt-14 text-center">
@@ -1600,7 +1626,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     useState<ComposerCollaborationMode>({
       kind: "craft",
       planning: false,
-      pursueGoal: true,
+      pursueGoal: false,
     });
   const effectiveAccessMode = props.sessionAccessMode ?? accessMode;
   const baseCollaborationMode =
@@ -1618,6 +1644,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const updateCollaborationMode = useCallback(
     (nextMode: ComposerCollaborationMode) => {
+      if (nextMode.planning || nextMode.kind === "plan") {
+        props.onGoalRuntimeChange?.(null);
+      } else if (
+        nextMode.pursueGoal === true &&
+        nextMode.kind !== "craft"
+      ) {
+        props.onPlanRuntimeChange?.(null);
+      }
       if (assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office") {
         setOfficeCollaborationMode(nextMode);
       } else {
@@ -1628,6 +1662,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [
       assistantFeatureCategoryId,
       assistantOfficeFeaturesActive,
+      props.onGoalRuntimeChange,
+      props.onPlanRuntimeChange,
       props.onSessionCollaborationModeChange,
     ],
   );
@@ -3518,6 +3554,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
       }}
     />
   ) : null;
+  const goalPreviewAccessory = shouldShowGoalPreview({
+    mode: effectiveCollaborationMode,
+    goalRuntime: props.goalRuntime ?? null,
+    planRuntime: visiblePlanRuntime,
+    dismissed: goalDismissedForSession,
+  }) ? (
+    <GoalPreviewPanel
+      onClear={() => {
+        updateCollaborationMode({ planning: false, pursueGoal: false });
+      }}
+    />
+  ) : null;
   const questionAccessory = props.activeQuestion ? (
     <QuestionPanel
       questions={props.activeQuestion.questions}
@@ -3541,6 +3589,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const sessionComposerAccessory =
     planOrTodoAccessory ||
     goalAccessory ||
+    goalPreviewAccessory ||
     questionAccessory ||
     permissionAccessory ? (
       <div>
@@ -3548,6 +3597,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         {questionAccessory}
         {planOrTodoAccessory}
         {goalAccessory}
+        {goalPreviewAccessory}
       </div>
     ) : null;
 
