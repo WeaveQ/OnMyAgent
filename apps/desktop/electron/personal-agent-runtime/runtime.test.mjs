@@ -2679,17 +2679,20 @@ describe("Codex app-server adapter approvals", () => {
   });
 
   it("maps Studio approval modes to explicit Codex approval and sandbox policy", () => {
+    // Aligned with AionCore acp_launch_policy: non-auto sessions default to
+    // Codex workspace-write with network access; only `auto` escalates to
+    // danger-full-access.
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("ask"), {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      threadSandbox: "read-only",
-      turnSandboxPolicy: { type: "readOnly", networkAccess: false },
+      threadSandbox: "workspace-write",
+      turnSandboxPolicy: { type: "workspaceWrite", networkAccess: true },
     });
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("read-only-auto"), {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      threadSandbox: "read-only",
-      turnSandboxPolicy: { type: "readOnly", networkAccess: false },
+      threadSandbox: "workspace-write",
+      turnSandboxPolicy: { type: "workspaceWrite", networkAccess: true },
     });
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("auto"), {
       approvalPolicy: "never",
@@ -2959,8 +2962,8 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(acpGenericTest.normalizeModelId("codex", "gpt-5.5"), "gpt-5.5[medium]");
     assert.equal(acpGenericTest.normalizeModelId("codex", "gpt-5.5[low]"), "gpt-5.5[low]");
     assert.equal(acpGenericTest.normalizeModelId("hermes", "ark/model"), "ark:model");
-    assert.equal(acpGenericTest.codexModeForApprovalMode("ask"), "agent");
-    assert.equal(acpGenericTest.codexModeForApprovalMode("auto"), "agent-full-access");
+    assert.equal(acpGenericTest.codexModeForApprovalMode("ask"), "auto");
+    assert.equal(acpGenericTest.codexModeForApprovalMode("auto"), "full-access");
     assert.equal(acpGenericTest.codexModeForApprovalMode("read-only-auto"), "read-only");
     assert.equal(acpGenericTest.supportsSessionSetModel("codex"), true);
     assert.equal(acpGenericTest.supportsSessionSetModel("hermes"), true);

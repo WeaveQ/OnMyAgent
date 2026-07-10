@@ -39,6 +39,11 @@ function buildDeveloperInstructions(workspaceRoot, accessibleWorkspaceRoots = []
 }
 
 function codexRunPolicyForApprovalMode(approvalMode) {
+  // Aligned with AionCore acp_launch_policy: non-auto sessions run under
+  // Codex `workspace-write` sandbox with outbound network access enabled;
+  // only the explicit `auto` (yolo/full-access) mode escalates to
+  // `danger-full-access`. Approvals still gate sensitive actions in
+  // non-auto modes via `on-request`.
   if (approvalMode === "auto") {
     return {
       approvalPolicy: "never",
@@ -50,8 +55,8 @@ function codexRunPolicyForApprovalMode(approvalMode) {
   return {
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
-    threadSandbox: "read-only",
-    turnSandboxPolicy: { type: "readOnly", networkAccess: false },
+    threadSandbox: "workspace-write",
+    turnSandboxPolicy: { type: "workspaceWrite", networkAccess: true },
   };
 }
 
