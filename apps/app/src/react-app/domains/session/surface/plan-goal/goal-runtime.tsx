@@ -122,6 +122,12 @@ export function goalElapsedMs(runtime: CollaborationGoalRuntime, now: number) {
     );
   }
   if (runtime.status === "waiting") {
+    if (runtime.waitingReason === "compacting") {
+      return Math.max(
+        0,
+        now - runtime.startedAt - runtime.totalPausedMs,
+      );
+    }
     if (runtime.waitingReason === "user") {
       const pauseStartedAt = runtime.pauseStartedAt ?? runtime.updatedAt;
       return Math.max(
