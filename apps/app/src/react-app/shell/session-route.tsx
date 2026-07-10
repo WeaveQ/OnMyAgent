@@ -295,12 +295,14 @@ import {
   readActiveWorkspaceId,
   readLastSessionFor,
   readSessionAccessModes,
+  readSessionCollaborationModes,
   readSessionGoalRuntimes,
   readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
   writeSessionAccessModes,
+  writeSessionCollaborationModes,
   writeSessionGoalRuntimes,
   writeSessionTodos,
   writeWorkspaceOrderIds,
@@ -616,7 +618,9 @@ export function SessionRoute() {
     Record<string, NonNullable<ComposerDraft["accessMode"]>>
   >(() => readSessionAccessModes());
   const [sessionCollaborationModeById, setSessionCollaborationModeById] =
-    useState<Record<string, ComposerDraft["collaborationMode"]>>({});
+    useState<Record<string, ComposerDraft["collaborationMode"]>>(
+      () => readSessionCollaborationModes(),
+    );
   const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
     Record<string, CollaborationPlanRuntime>
   >({});
@@ -646,6 +650,10 @@ export function SessionRoute() {
   useEffect(() => {
     writeSessionAccessModes(sessionAccessModeById);
   }, [sessionAccessModeById]);
+
+  useEffect(() => {
+    writeSessionCollaborationModes(sessionCollaborationModeById);
+  }, [sessionCollaborationModeById]);
 
   // Clear the manual override when a fresh "conversation from agent card"
   // flow begins. We key on `conversationStartId` (a nonce set on every
