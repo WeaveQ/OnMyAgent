@@ -319,9 +319,8 @@ describe("session run controller", () => {
   });
 
   test("suppresses late cancellation events from a manually stopped run", () => {
-    expect(shouldSuppressCancelledAfterStop(100, 100)).toBe(true);
-    expect(shouldSuppressCancelledAfterStop(100, 200)).toBe(false);
-    expect(shouldSuppressCancelledAfterStop(undefined, 200)).toBe(false);
+    expect(shouldSuppressCancelledAfterStop(100)).toBe(true);
+    expect(shouldSuppressCancelledAfterStop(undefined)).toBe(false);
   });
 
   test("keeps elapsed goal time moving while the runtime is compacting", () => {

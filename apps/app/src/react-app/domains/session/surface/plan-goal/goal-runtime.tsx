@@ -39,9 +39,8 @@ export function shouldRecordSessionInterruption(input: {
 
 export function shouldSuppressCancelledAfterStop(
   stoppedRunStartedAt: number | undefined,
-  candidateRunStartedAt: number,
 ): boolean {
-  return stoppedRunStartedAt === candidateRunStartedAt;
+  return stoppedRunStartedAt !== undefined;
 }
 
 export function preferLatestGoalRuntime(

@@ -5,7 +5,7 @@ import { mergeSnapshotAndLiveMessages } from "../sync/message-merge";
 import { applyRevertCursor } from "../sync/transcript-reconcile";
 import { snapshotToUIMessages } from "../sync/usechat-adapter";
 
-export const INTERNAL_SESSION_MESSAGE_ID_PREFIX = "onmyagent-internal-";
+export const INTERNAL_SESSION_MESSAGE_ID_PREFIX = "msg_onmyagent-internal-";
 
 function isInternalSessionControlMessage(message: UIMessage) {
   return message.id.startsWith(INTERNAL_SESSION_MESSAGE_ID_PREFIX);

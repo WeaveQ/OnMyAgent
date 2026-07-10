@@ -190,7 +190,7 @@ export function isTranscriptDividerReady(
 
 export function isInternalAssistantNarration(text: string): boolean {
   const normalized = text.trim().replace(/\s+/g, " ");
-  return /^(?:the user wants|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will)|now,? i(?:'ll| will)|next,? i(?:'ll| will))/i.test(
+  return /^(?:the user(?: wants|['’]s| is)|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will)|now,? i(?:'ll| will)|next,? i(?:'ll| will))/i.test(
     normalized,
   );
 }
