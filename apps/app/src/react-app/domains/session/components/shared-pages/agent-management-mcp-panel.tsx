@@ -36,12 +36,16 @@ function draftFromServer(server: AgentManagementMcpServer): McpDraft {
   };
 }
 
+function isRecordStringString(value: unknown): value is Record<string, string> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function parseJsonObject(text: string) {
   const trimmed = text.trim();
   if (!trimmed) return {};
-  const parsed = JSON.parse(trimmed) as unknown;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("JSON must be an object");
-  return parsed as Record<string, string>;
+  const parsed = JSON.parse(trimmed);
+  if (!isRecordStringString(parsed)) throw new Error("JSON must be an object");
+  return parsed;
 }
 
 function inputFromDraft(draft: McpDraft): AgentManagementMcpActionInput {

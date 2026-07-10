@@ -98,17 +98,20 @@ function agentManagerUiStorageKey(cacheKey: string) {
   return `${AGENT_MANAGER_PANEL_STORAGE_KEY}:${encodeURIComponent(cacheKey)}`;
 }
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function coerceAgentManagementUiCache(input: unknown): AgentManagementUiCache {
   const fallback = defaultAgentManagementUiCache();
-  if (!input || typeof input !== "object") return fallback;
-  const record = input as Record<string, unknown>;
+  if (!isRecordStringUnknown(input)) return fallback;
   return {
-    activePanel: isAgentManagementPanel(record.activePanel) ? record.activePanel : fallback.activePanel,
-    providerApp: isAgentManagementProviderApp(record.providerApp) ? record.providerApp : fallback.providerApp,
-    skillColumnFilter: Array.isArray(record.skillColumnFilter) ? record.skillColumnFilter.filter(isAgentManagementSkillAgent) : fallback.skillColumnFilter,
-    skillSearch: typeof record.skillSearch === "string" ? record.skillSearch : fallback.skillSearch,
-    selectedSkillKey: typeof record.selectedSkillKey === "string" ? record.selectedSkillKey : null,
-    healthResults: record.healthResults && typeof record.healthResults === "object" ? record.healthResults as Record<string, AgentManagementHealthResult> : fallback.healthResults,
+    activePanel: isAgentManagementPanel(input.activePanel) ? input.activePanel : fallback.activePanel,
+    providerApp: isAgentManagementProviderApp(input.providerApp) ? input.providerApp : fallback.providerApp,
+    skillColumnFilter: Array.isArray(input.skillColumnFilter) ? input.skillColumnFilter.filter(isAgentManagementSkillAgent) : fallback.skillColumnFilter,
+    skillSearch: typeof input.skillSearch === "string" ? input.skillSearch : fallback.skillSearch,
+    selectedSkillKey: typeof input.selectedSkillKey === "string" ? input.selectedSkillKey : null,
+    healthResults: isRecordStringUnknown(input.healthResults) ? input.healthResults as Record<string, AgentManagementHealthResult> : fallback.healthResults,
   };
 }
 

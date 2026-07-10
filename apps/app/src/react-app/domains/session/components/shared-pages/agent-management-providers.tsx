@@ -213,16 +213,19 @@ function extractCodexBaseUrlFromToml(config: string) {
   return config.match(/^\s*base_url\s*=\s*["']([^"']+)["']/m)?.[1] ?? "";
 }
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function formatCodexCatalog(settings: Record<string, unknown>) {
-  const modelCatalog = settings.modelCatalog && typeof settings.modelCatalog === "object" ? settings.modelCatalog as Record<string, unknown> : null;
+  const modelCatalog = isRecordStringUnknown(settings.modelCatalog) ? settings.modelCatalog : null;
   const rows = Array.isArray(modelCatalog?.models) ? modelCatalog.models : [];
   return rows
     .map((row) => {
-      if (!row || typeof row !== "object") return "";
-      const item = row as Record<string, unknown>;
-      const displayName = String(item.displayName ?? item.display_name ?? "").trim();
-      const model = String(item.model ?? "").trim();
-      const contextWindow = String(item.contextWindow ?? item.context_window ?? "").trim();
+      if (!isRecordStringUnknown(row)) return "";
+      const displayName = String(row.displayName ?? row.display_name ?? "").trim();
+      const model = String(row.model ?? "").trim();
+      const contextWindow = String(row.contextWindow ?? row.context_window ?? "").trim();
       if (!model) return "";
       return `${displayName || model} | ${model} | ${contextWindow}`.trimEnd();
     })
@@ -242,9 +245,9 @@ function codexCatalogRowsFromSettings(settings: Record<string, unknown>, fallbac
 
 export function providerDraftFromProvider(provider: AgentManagementManagedProvider): ProviderDraft {
   const settings = provider.settingsConfig ?? {};
-  const options = typeof settings.options === "object" && settings.options ? settings.options as Record<string, unknown> : {};
-  const env = typeof settings.env === "object" && settings.env ? settings.env as Record<string, unknown> : {};
-  const codexAuth = typeof settings.auth === "object" && settings.auth ? settings.auth as Record<string, unknown> : {};
+  const options = isRecordStringUnknown(settings.options) ? settings.options : {};
+  const env = isRecordStringUnknown(settings.env) ? settings.env : {};
+  const codexAuth = isRecordStringUnknown(settings.auth) ? settings.auth : {};
   const codexConfig = typeof settings.config === "string" ? settings.config : "";
   const baseUrl =
     provider.appType === "codex"
