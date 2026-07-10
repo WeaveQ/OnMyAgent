@@ -89,6 +89,7 @@ import {
   isComposerPlanningMode,
   joinSystemParts,
   moveSessionModelOverride,
+  moveSessionScopedValue,
   removeSessionScopedValue,
   resolveLanguageForUserInput,
   resolveComposerRuntimeTools,
@@ -2378,12 +2379,25 @@ export function SessionRoute() {
           });
         }
         setSessionAccessModeById((current) =>
-          applySessionAccessMode(current, sessionId, draft.accessMode),
+          createdSession
+            ? moveSessionScopedValue(
+                current,
+                composerModeSessionId,
+                sessionId,
+                draft.accessMode ?? "default",
+              )
+            : applySessionAccessMode(current, sessionId, draft.accessMode),
         );
-        setSessionCollaborationModeById((current) => ({
-          ...current,
-          [sessionId]: draft.collaborationMode,
-        }));
+        setSessionCollaborationModeById((current) =>
+          createdSession
+            ? moveSessionScopedValue(
+                current,
+                composerModeSessionId,
+                sessionId,
+                draft.collaborationMode,
+              )
+            : applySessionScopedValue(current, sessionId, draft.collaborationMode),
+        );
         if (createdSession) {
           setSessionModelOverrideById((current) =>
             moveSessionModelOverride(current, composerModeSessionId, sessionId),

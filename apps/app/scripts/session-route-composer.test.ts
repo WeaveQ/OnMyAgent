@@ -13,6 +13,7 @@ import {
   inboxRelativePath,
   joinSystemParts,
   moveSessionModelOverride,
+  moveSessionScopedValue,
   resolveLanguageForUserInput,
   resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
@@ -84,6 +85,17 @@ describe("session route composer", () => {
       ses_existing: { providerID: "anthropic", modelID: "claude" },
     });
     expect(moveSessionModelOverride(current, "draft:missing", "ses_new")).toBe(current);
+  });
+
+  test("moves new-session settings without leaving them on the draft", () => {
+    const current = { "draft:ws_1": "full", ses_existing: "default" };
+
+    expect(
+      moveSessionScopedValue(current, "draft:ws_1", "ses_new", "full"),
+    ).toEqual({
+      ses_new: "full",
+      ses_existing: "default",
+    });
   });
 
   test("updates and clears only the targeted session-scoped value", () => {
