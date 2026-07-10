@@ -134,8 +134,8 @@ migrate when touching a file.
 | Current area | Target | Phase |
 | --- | --- | --- |
 | `agent-management-*` | **`local-agents/agent-management/`** (moved) | P4 done; session re-exports for compat |
-| `automation-*`, channel panels (`weixin`, `feishu`, …) | `settings/` or future `messaging/` | After P4 |
-| `workspace-files-page.tsx` | `workspace/` | After P4 |
+| `automation-*`, channel panels | **`messaging/`** (moved) | shared-pages re-exports for compat |
+| `workspace-files-page.tsx` | **`workspace/`** (moved) | shared-pages re-exports |
 | Conversation lists / true session chrome | stay in `session/` | — |
 
 ## File size / route rules (engineering)

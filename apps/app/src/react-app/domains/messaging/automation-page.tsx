@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { ComposerAccessMode, ModelRef } from "@/app/types";
 import { pickDirectory } from "@/app/lib/desktop";
-import { ModelSelectContainer } from "../model-select";
+import { ModelSelectContainer } from "../session/components/model-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,12 +53,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/react-app/shell";
-import { AccessPermissionSelect } from "../../surface/composer/access-permission-select";
+import { AccessPermissionSelect } from "../session/surface/composer/access-permission-select";
 import type {
   OpenworkAutomationTaskItem,
   OpenworkServerClient,
-} from "../../../../../app/lib/onmyagent-server";
-import { t } from "../../../../../i18n";
+} from "../../../app/lib/onmyagent-server";
+import { t } from "../../../i18n";
 import {
   getAutomationTemplatesForScene,
   isAutomationScheduleTime,
@@ -75,7 +75,7 @@ import {
   useAgentRegistryStore,
   type AgentRegistry,
   type AgentTemplate,
-} from "./conversation-model";
+} from "../session/components/shared-pages/conversation-model";
 import { syncAutomationSessionRecords } from "./automation-session-groups";
 
 type IntervalUnit = "minutes" | "hours" | "days";

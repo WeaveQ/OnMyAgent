@@ -5,7 +5,7 @@ import {
   registerCreatedSessionAgentCategory,
   resolvePendingAgentForPrompt,
 } from "../src/react-app/shell/session-route-agent-context";
-import type { PendingAgentContext } from "../src/react-app/domains/shared/pending-agent-store";
+import type { PendingAgentContext } from "../src/react-app/domains/agents/pending-agent-store";
 
 function pendingAgent(input: Partial<PendingAgentContext> = {}): PendingAgentContext {
   return {

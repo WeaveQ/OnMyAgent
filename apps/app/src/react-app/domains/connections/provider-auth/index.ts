@@ -13,7 +13,7 @@ export type {
   ProviderAuthMethod,
   ProviderAuthProvider,
   ProviderOAuthStartResult,
-} from "../../shared/provider-auth-types";
+} from "../../connections/provider-auth-types";
 export type {
   ProviderAuthStoreSnapshot,
   ProviderAuthStore,

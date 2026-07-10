@@ -15,8 +15,8 @@ import {
   type ChannelPairingRequest,
   type ChannelAuthorizedUser,
   type ChannelSession,
-} from "../../../../../app/lib/desktop";
-import { t } from "../../../../../i18n";
+} from "../../../app/lib/desktop";
+import { t } from "../../../i18n";
 
 function shortDate(value: number | undefined): string {
   if (!value) return "--";

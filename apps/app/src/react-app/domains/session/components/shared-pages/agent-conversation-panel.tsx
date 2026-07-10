@@ -9,14 +9,14 @@ import { cn } from "@/lib/utils";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
 import {
   useAgentRegistryStore,
-} from "../../../shared/agent-registry-store";
-import { useStatusToasts } from "../../../shared/status-toasts";
+} from "../../../agents/agent-registry-store";
+import { useStatusToasts } from "../../../shell-feedback/status-toasts";
 import {
   addAssistantSession,
   isAssistantSession,
   readAssistantSessionCategory,
   writeAssistantSessionCategory,
-} from "../../../shared/agent-session-state";
+} from "../../../agents/agent-session-state";
 import { AssistantConversationSections } from "./assistant-conversation-sections";
 import { AgentConversationPanelHeader } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
@@ -36,7 +36,7 @@ import {
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
   syncAutomationSessionRecords,
-} from "./automation-session-groups";
+} from "../../../messaging/automation-session-groups";
 
 function registerAutomationAssistantSessions(workspaceId: string) {
   for (const record of readAutomationSessionRecords(workspaceId)) {

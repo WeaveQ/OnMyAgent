@@ -16,7 +16,7 @@ import { SegmentedTabButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { TextInput } from "../../design-system/text-input";
+import { LabeledInput } from "../../design-system/labeled-input";
 import type { McpDirectoryInfo } from "@/app/constants";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -143,7 +143,7 @@ export function AddMcpModal(props: AddMcpModalProps) {
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-          <TextInput
+          <LabeledInput
             label={t("mcp.server_name")}
             placeholder={t("mcp.server_name_placeholder")}
             value={state.name}
@@ -188,7 +188,7 @@ export function AddMcpModal(props: AddMcpModalProps) {
 
           {state.serverType === "remote" ? (
             <div className="space-y-3">
-              <TextInput
+              <LabeledInput
                 label={t("mcp.server_url")}
                 placeholder={t("mcp.server_url_placeholder")}
                 value={state.url}
@@ -221,7 +221,7 @@ export function AddMcpModal(props: AddMcpModalProps) {
           ) : null}
 
           {state.serverType === "local" ? (
-            <TextInput
+            <LabeledInput
               label={t("mcp.server_command")}
               placeholder={t("mcp.server_command_placeholder")}
               hint={t("mcp.server_command_hint")}

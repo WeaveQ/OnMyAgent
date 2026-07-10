@@ -21,16 +21,16 @@ import { MenuRowButton, NavTabButton, SegmentedTabGroup, TreeRowButton } from "@
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
-import { revealDesktopItemInDir } from "../../../../../app/lib/desktop";
+import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import type {
   OpenworkServerClient,
   OpenworkWorkspaceFileCatalogEntry,
-} from "../../../../../app/lib/onmyagent-server";
-import { t } from "../../../../../i18n";
-import { ArtifactIcon } from "../../artifacts/artifact-icon";
-import type { OpenTarget } from "../../artifacts/open-target";
-import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../artifacts/preview";
-import { workspaceFileOpenTarget } from "../../artifacts/workspace-file-open-target";
+} from "../../../app/lib/onmyagent-server";
+import { t } from "../../../i18n";
+import { ArtifactIcon } from "../session/artifacts/artifact-icon";
+import type { OpenTarget } from "../session/artifacts/open-target";
+import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../session/artifacts/preview";
+import { workspaceFileOpenTarget } from "../session/artifacts/workspace-file-open-target";
 
 const workspaceFilesTextClass = {
   pageTitle: "text-lg font-medium text-dls-text",

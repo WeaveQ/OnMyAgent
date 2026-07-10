@@ -12,7 +12,7 @@ import type {
   WorkspaceConnectionState,
   WorkspaceSessionGroup,
 } from "../../../../app/types";
-import type { ShareWorkspaceModalProps } from "../../shared/workspace-modal-types";
+import type { ShareWorkspaceModalProps } from "../../workspace/workspace-modal-types";
 import type { AgentCardItem, AgentRegistry } from "../../agents/agent-registry-types";
 import type {
   SidebarAccountInfo,
@@ -106,7 +106,7 @@ export type SessionPageProps = {
   todos: TodoItem[];
   sessionLoadingById: (sessionId: string | null) => boolean;
   shareWorkspaceModal?: ShareWorkspaceModalProps | null;
-  providerAuthModal?: import("../../shared/provider-auth-modal").ProviderAuthModalProps | null;
+  providerAuthModal?: import("../../connections/provider-auth-modal").ProviderAuthModalProps | null;
   activePermission?: PendingPermission | null;
   permissionReplyBusy?: boolean;
   respondPermission?: (

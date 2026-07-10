@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
-import type { OpenworkAutomationTaskItem } from "../../../../../app/lib/onmyagent-server";
-import { t } from "../../../../../i18n";
+import type { OpenworkAutomationTaskItem } from "../../../app/lib/onmyagent-server";
+import { t } from "../../../i18n";
 import type { AutomationTemplate } from "./automation-model";
 
 export type CompletedRun = {

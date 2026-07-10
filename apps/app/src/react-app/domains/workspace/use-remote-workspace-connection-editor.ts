@@ -7,7 +7,7 @@ import {
 } from "../../../app/lib/desktop";
 import { buildOpenworkWorkspaceBaseUrl } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
-import type { RemoteWorkspaceInput } from "../shared/workspace-modal-types";
+import type { RemoteWorkspaceInput } from "./workspace-modal-types";
 
 function describeEditorError(error: unknown) {
   if (error instanceof Error) return error.message;
