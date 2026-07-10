@@ -312,6 +312,12 @@ describe("session run controller", () => {
     expect(preferLatestGoalRuntime(optimisticRunning, stalePaused)).toBe(
       optimisticRunning,
     );
+    expect(
+      preferLatestGoalRuntime(optimisticRunning, {
+        ...stalePaused,
+        updatedAt: optimisticRunning.updatedAt,
+      }),
+    ).toBe(optimisticRunning);
   });
 
   test("summarizes pasted goal objectives as readable text", () => {
