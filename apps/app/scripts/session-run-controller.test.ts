@@ -98,7 +98,7 @@ describe("session run controller", () => {
     expect(policy.canResumeGoal).toBe(false);
   });
 
-  test("shows goal runtime for an explicit goal in every assistant category", () => {
+  test("keeps an explicit goal runtime visible after the composer mode changes", () => {
     expect(
       shouldShowGoalRuntime({
         mode: executeMode,
@@ -106,7 +106,7 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldShowGoalRuntime({
         mode: { planning: false, pursueGoal: true },

@@ -55,11 +55,7 @@ export function shouldShowGoalRuntime(input: {
   goalRuntime: CollaborationGoalRuntime | null;
   dismissed: boolean;
 }) {
-  return (
-    !input.dismissed &&
-    input.goalRuntime?.source === "goal_intent" &&
-    resolveSessionCollaborationKind(input.mode, input.categoryId) === "goal"
-  );
+  return !input.dismissed && input.goalRuntime?.source === "goal_intent";
 }
 
 export function shouldShowGoalPreview(input: {
