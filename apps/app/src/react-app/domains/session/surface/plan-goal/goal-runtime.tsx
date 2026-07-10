@@ -37,6 +37,15 @@ export function shouldRecordSessionInterruption(input: {
   );
 }
 
+export function preferLatestGoalRuntime(
+  current: CollaborationGoalRuntime | null,
+  incoming: CollaborationGoalRuntime | null | undefined,
+) {
+  if (!incoming) return null;
+  if (!current || incoming.updatedAt >= current.updatedAt) return incoming;
+  return current;
+}
+
 export const GOAL_RUNTIME_TICK_MS = 1000;
 
 export function buildLocaleRuntimeInstruction() {

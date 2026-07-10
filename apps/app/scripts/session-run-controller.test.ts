@@ -16,6 +16,7 @@ import {
 } from "../src/react-app/domains/session/surface/session-run-controller";
 import { shouldRecordSessionInterruption } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { goalElapsedMs } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
+import { preferLatestGoalRuntime } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { setLocale } from "../src/i18n";
 
 const executeMode: ComposerCollaborationMode = {
@@ -296,6 +297,21 @@ describe("session run controller", () => {
         500,
       ),
     ).toBe(400);
+  });
+
+  test("does not let a stale paused prop overwrite an optimistic goal resume", () => {
+    const optimisticRunning = {
+      ...explicitGoalRuntime("running"),
+      updatedAt: 200,
+    };
+    const stalePaused = {
+      ...explicitGoalRuntime("paused"),
+      updatedAt: 100,
+    };
+
+    expect(preferLatestGoalRuntime(optimisticRunning, stalePaused)).toBe(
+      optimisticRunning,
+    );
   });
 
   test("summarizes pasted goal objectives as readable text", () => {
