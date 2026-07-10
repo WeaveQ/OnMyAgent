@@ -4,17 +4,11 @@ import type { OpenworkAutomationTaskItem } from "../src/app/lib/onmyagent-server
 import {
   addAssistantSession,
   addExpertSession,
-  consumePendingAssistantSessionCategory,
-  consumePendingAssistantTask,
-  consumePendingExpertTask,
   isAssistantSession,
   isExpertSession,
   readAssistantSessionCategory,
   removeAssistantSession,
   removeExpertSession,
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-  setPendingExpertTask,
   writeAssistantSessionCategory,
 } from "../src/react-app/domains/shared/agent-session-state";
 import {
@@ -82,9 +76,6 @@ Object.defineProperty(globalThis, "window", {
 
 afterEach(() => {
   for (const key of storageKeys) localStorage.removeItem(key);
-  consumePendingAssistantSessionCategory();
-  consumePendingAssistantTask();
-  consumePendingExpertTask();
 });
 
 describe("shared agent session state", () => {
@@ -134,19 +125,6 @@ describe("shared agent session state", () => {
     expect(localStorage.getItem("onmyagent:expertSessionIds")).toBe(
       JSON.stringify(["expert-existing", "expert-restored"]),
     );
-  });
-
-  test("consumes one-shot pending task flags", () => {
-    setPendingAssistantTask(true);
-    setPendingExpertTask(true);
-    setPendingAssistantSessionCategory("code");
-
-    expect(consumePendingAssistantTask()).toBe(true);
-    expect(consumePendingAssistantTask()).toBe(false);
-    expect(consumePendingExpertTask()).toBe(true);
-    expect(consumePendingExpertTask()).toBe(false);
-    expect(consumePendingAssistantSessionCategory()).toBe("code");
-    expect(consumePendingAssistantSessionCategory()).toBe("office");
   });
 
   test("indexes each automation run as its own assistant session record", () => {

@@ -181,7 +181,7 @@ import {
 } from "./session-route-sessions";
 import {
   bindPendingAgentToSession,
-  registerCreatedSessionAgentCategory,
+  registerCreatedSessionStartIntent,
   resolvePendingAgentForPrompt,
 } from "./session-route-agent-context";
 import { SessionCloudAccountBridge } from "./session-cloud-account-bridge";
@@ -195,9 +195,6 @@ import {
 import {
   addAssistantSession,
   addExpertSession,
-  consumePendingAssistantSessionCategory,
-  consumePendingAssistantTask,
-  consumePendingExpertTask,
   isAssistantSession,
   isExpertSession,
   removeAssistantSession,
@@ -2345,23 +2342,13 @@ export function SessionRoute() {
             creatingSessionWorkspaceIdsRef.current.delete(selectedWorkspaceId);
           }
           if (sessionId) {
-            let assistantTaskCreated = false;
-            registerCreatedSessionAgentCategory({
+            registerCreatedSessionStartIntent({
               sessionId,
-              consumePendingAssistantTask: () => {
-                assistantTaskCreated = consumePendingAssistantTask();
-                return assistantTaskCreated;
-              },
-              consumePendingExpertTask,
+              intent: draft.sessionStartIntent,
               addAssistantSession,
               addExpertSession,
+              writeAssistantSessionCategory,
             });
-            if (assistantTaskCreated) {
-              writeAssistantSessionCategory(
-                sessionId,
-                consumePendingAssistantSessionCategory(),
-              );
-            }
           }
         }
         if (!sessionId) return;

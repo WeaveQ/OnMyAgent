@@ -80,10 +80,7 @@ import {
   readCustomAgentSessionEntries,
   useAgentRegistryStore,
 } from "../../shared/agent-registry-store";
-import {
-  isExpertSession,
-  setPendingExpertTask,
-} from "../../shared/agent-session-state";
+import { isExpertSession } from "../../shared/agent-session-state";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
@@ -944,11 +941,15 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const wrappedOnSendDraft = useCallback(
     async (draft: ComposerDraft) => {
-      setPendingExpertTask(true);
       if (draftSessionActive && props.onCreateSessionForAgent) {
         props.onCreateSessionForAgent();
       }
-      return props.surface?.onSendDraft(draft);
+      return props.surface?.onSendDraft({
+        ...draft,
+        sessionStartIntent: props.selectedSessionId
+          ? undefined
+          : { mode: "expert" },
+      });
     },
     [draftSessionActive, props.onCreateSessionForAgent, props.surface],
   );
