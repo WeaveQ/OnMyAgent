@@ -15,6 +15,7 @@ import {
   summarizeGoalObjective,
 } from "../src/react-app/domains/session/surface/session-run-controller";
 import { shouldRecordSessionInterruption } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
+import { goalElapsedMs } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { setLocale } from "../src/i18n";
 
 const executeMode: ComposerCollaborationMode = {
@@ -281,6 +282,20 @@ describe("session run controller", () => {
         },
       }),
     ).toBe(false);
+  });
+
+  test("keeps elapsed goal time moving while the runtime is compacting", () => {
+    expect(
+      goalElapsedMs(
+        {
+          ...explicitGoalRuntime("waiting"),
+          startedAt: 100,
+          updatedAt: 200,
+          waitingReason: "compacting",
+        },
+        500,
+      ),
+    ).toBe(400);
   });
 
   test("summarizes pasted goal objectives as readable text", () => {
