@@ -35,14 +35,13 @@ export type SessionRunPolicy = {
 
 export function resolveSessionCollaborationKind(
   mode: ComposerCollaborationMode,
-  categoryId: AssistantCategoryId,
+  _categoryId: AssistantCategoryId,
 ): SessionCollaborationKind {
   if (mode.kind === "ask") return "ask";
   if (mode.kind === "plan" || mode.planning) return "plan";
   if (
     mode.pursueGoal &&
     !mode.planning &&
-    categoryId === "code" &&
     mode.kind !== "craft"
   ) {
     return "goal";
