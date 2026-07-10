@@ -82,6 +82,7 @@ import {
   clearConsumedPermissionNotice,
   deriveGoalSummary,
   applySessionAccessMode,
+  applySessionScopedValue,
   draftHasSendableContent,
   draftToParts,
   isComposerGoalMode,
@@ -2203,34 +2204,21 @@ export function SessionRoute() {
       onSessionCollaborationModeChange: (
         mode: ComposerDraft["collaborationMode"],
       ) => {
-        setSessionCollaborationModeById((current) => ({
-          ...current,
-          [composerModeSessionId]: mode,
-        }));
+        setSessionCollaborationModeById((current) =>
+          applySessionScopedValue(current, composerModeSessionId, mode),
+        );
       },
       planRuntime,
       onPlanRuntimeChange: (runtime: CollaborationPlanRuntime | null) => {
-        setSessionPlanRuntimeById((current) => {
-          const next = { ...current };
-          if (!runtime) {
-            delete next[composerModeSessionId];
-          } else {
-            next[composerModeSessionId] = runtime;
-          }
-          return next;
-        });
+        setSessionPlanRuntimeById((current) =>
+          applySessionScopedValue(current, composerModeSessionId, runtime),
+        );
       },
       goalRuntime,
       onGoalRuntimeChange: (runtime: CollaborationGoalRuntime | null) => {
-        setSessionGoalRuntimeById((current) => {
-          const next = { ...current };
-          if (!runtime) {
-            delete next[composerModeSessionId];
-          } else {
-            next[composerModeSessionId] = runtime;
-          }
-          return next;
-        });
+        setSessionGoalRuntimeById((current) =>
+          applySessionScopedValue(current, composerModeSessionId, runtime),
+        );
       },
       onClearSessionProgress: () => {
         setLastVisibleTodosBySessionId((current) => {
