@@ -14,7 +14,6 @@ import {
   joinSystemParts,
   moveSessionModelOverride,
   moveSessionScopedValue,
-  resolveLanguageForUserInput,
   resolveAttachmentUploadTarget,
   resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
@@ -148,12 +147,9 @@ describe("session route composer", () => {
     expect(buildLanguageSystemPrompt("en")).toContain("English");
   });
 
-  test("prefers the latest user input language over the interface locale", () => {
-    expect(resolveLanguageForUserInput("创建一个项目管理工具", "en")).toBe("zh");
-    expect(resolveLanguageForUserInput("建立一個專案管理工具", "zh-TW")).toBe("zh-TW");
-    expect(resolveLanguageForUserInput("Build a project manager", "en")).toBe("en");
-    expect(buildLanguageSystemPrompt("zh", "user-input")).toContain("用户本轮输入");
-    expect(buildLanguageSystemPrompt("zh", "user-input")).toContain("Todo 项");
+  test("keeps the interface locale authoritative even when the input is another language", () => {
+    expect(buildLanguageSystemPrompt("zh")).toContain("必须使用简体中文");
+    expect(buildLanguageSystemPrompt("en")).toContain("must be written in English");
   });
 
   test("resolves assistant send plans for new and existing sessions", () => {
