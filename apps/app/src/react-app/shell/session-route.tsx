@@ -2343,14 +2343,10 @@ export function SessionRoute() {
               dispatchAssistantSessionWorkspacesChanged(selectedWorkspaceId);
             }
             const activityStore = useSessionActivityStore.getState();
-            activityStore.setRunStatus(selectedWorkspaceId, sessionId, {
-              type: "busy",
-            });
+            activityStore.startRun(selectedWorkspaceId, sessionId);
             const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
             if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
-              activityStore.setRunStatus(runtimeWorkspaceId, sessionId, {
-                type: "busy",
-              });
+              activityStore.startRun(runtimeWorkspaceId, sessionId);
             }
           } finally {
             creatingSessionWorkspaceIdsRef.current.delete(selectedWorkspaceId);
@@ -3382,7 +3378,7 @@ export function SessionRoute() {
               );
               useSessionActivityStore
                 .getState()
-                .setRunStatus(workspaceId, newSession.id, { type: "busy" });
+                .startRun(workspaceId, newSession.id);
             } finally {
               creatingSessionWorkspaceIdsRef.current.delete(workspaceId);
             }

@@ -10,6 +10,7 @@ type SessionMessageRole = "assistant" | "system" | "user";
 type SessionActivityRecord = {
   status: SessionActivityStatus;
   runActive: boolean;
+  stopRequested: boolean;
   assistantOutput: boolean;
   errorActive: boolean;
   errorMessage: string | null;
@@ -34,6 +35,8 @@ type SessionActivityStore = {
   getErrorMessage: (workspaceId: string, sessionId: string) => string | null;
   seedWorkspaceSessions: (workspaceId: string, sessions: SessionLike[]) => void;
   seedSessionRun: (workspaceId: string, sessionId: string, status: unknown, assistantOutput: boolean) => void;
+  startRun: (workspaceId: string, sessionId: string) => void;
+  markRunStopped: (workspaceId: string, sessionId: string) => void;
   setRunStatus: (workspaceId: string, sessionId: string, status: unknown) => void;
   markMessageRole: (workspaceId: string, sessionId: string, messageId: string, role: SessionMessageRole) => void;
   markAssistantOutput: (workspaceId: string, sessionId: string, messageId?: string, options?: { allowUnknownMessageRole?: boolean }) => void;
@@ -48,6 +51,7 @@ type SessionActivityStore = {
 const createRecord = (): SessionActivityRecord => ({
   status: "idle",
   runActive: false,
+  stopRequested: false,
   assistantOutput: false,
   errorActive: false,
   errorMessage: null,
@@ -74,6 +78,27 @@ function normalizeRunStatus(status: unknown): "idle" | "running" | "retry" {
 
 function sessionRunStatus(session: SessionLike) {
   return session.status ?? session.state ?? session.runStatus;
+}
+
+function applyRuntimeStatus(
+  record: SessionActivityRecord,
+  status: unknown,
+  assistantOutput: boolean,
+) {
+  const normalized = normalizeRunStatus(status);
+  const runActive = normalized === "running" || normalized === "retry";
+  if (record.stopRequested && runActive) return record;
+  return {
+    ...record,
+    runActive,
+    stopRequested: false,
+    assistantOutput: runActive && assistantOutput,
+    errorActive: runActive ? false : record.errorActive,
+    errorMessage: runActive ? null : record.errorMessage,
+    compacting: runActive ? record.compacting : false,
+    waitingPermissionIds: record.waitingPermissionIds,
+    waitingQuestionIds: record.waitingQuestionIds,
+  };
 }
 
 function statusForRecord(record: SessionActivityRecord): SessionActivityStatus {
@@ -153,18 +178,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
           nextState = {
             ...nextState,
             ...updateRecord(nextState, id, sessionId, (record) => {
-              const normalized = normalizeRunStatus(status);
-              const runActive = normalized === "running" || normalized === "retry";
-              return {
-                ...record,
-                runActive,
-                assistantOutput: runActive && record.runActive ? record.assistantOutput : false,
-                errorActive: runActive ? false : record.errorActive,
-                errorMessage: runActive ? null : record.errorMessage,
-                compacting: runActive ? record.compacting : false,
-                waitingPermissionIds: record.waitingPermissionIds,
-                waitingQuestionIds: record.waitingQuestionIds,
-              };
+              return applyRuntimeStatus(record, status, record.assistantOutput);
             }),
           };
       }
@@ -176,37 +190,45 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     const session = sessionId.trim();
     if (!workspace || !session) return;
     set((state) => updateRecord(state, workspace, session, (record) => {
-      const normalized = normalizeRunStatus(status);
-      const runActive = normalized === "running" || normalized === "retry";
-      return {
-        ...record,
-        runActive,
-        assistantOutput: runActive && assistantOutput,
-        errorActive: runActive ? false : record.errorActive,
-        errorMessage: runActive ? null : record.errorMessage,
-        compacting: runActive ? record.compacting : false,
-        waitingPermissionIds: record.waitingPermissionIds,
-        waitingQuestionIds: record.waitingQuestionIds,
-      };
+      return applyRuntimeStatus(record, status, assistantOutput);
     }));
+  },
+  startRun: (workspaceId, sessionId) => {
+    const workspace = workspaceId.trim();
+    const session = sessionId.trim();
+    if (!workspace || !session) return;
+    set((state) => updateRecord(state, workspace, session, (record) => ({
+      ...record,
+      runActive: true,
+      stopRequested: false,
+      assistantOutput: false,
+      errorActive: false,
+      errorMessage: null,
+      compacting: false,
+      waitingPermissionIds: [],
+      waitingQuestionIds: [],
+    })));
+  },
+  markRunStopped: (workspaceId, sessionId) => {
+    const workspace = workspaceId.trim();
+    const session = sessionId.trim();
+    if (!workspace || !session) return;
+    set((state) => updateRecord(state, workspace, session, (record) => ({
+      ...record,
+      runActive: false,
+      stopRequested: true,
+      assistantOutput: false,
+      compacting: false,
+      waitingPermissionIds: [],
+      waitingQuestionIds: [],
+    })));
   },
   setRunStatus: (workspaceId, sessionId, status) => {
     const workspace = workspaceId.trim();
     const session = sessionId.trim();
     if (!workspace || !session) return;
     set((state) => updateRecord(state, workspace, session, (record) => {
-      const normalized = normalizeRunStatus(status);
-      const runActive = normalized === "running" || normalized === "retry";
-      return {
-        ...record,
-        runActive,
-        assistantOutput: runActive && record.runActive ? record.assistantOutput : false,
-        errorActive: runActive ? false : record.errorActive,
-        errorMessage: runActive ? null : record.errorMessage,
-        compacting: runActive ? record.compacting : false,
-        waitingPermissionIds: runActive ? record.waitingPermissionIds : [],
-        waitingQuestionIds: runActive ? record.waitingQuestionIds : [],
-      };
+      return applyRuntimeStatus(record, status, record.assistantOutput);
     }));
   },
   markMessageRole: (workspaceId, sessionId, messageId, role) => {
