@@ -54,7 +54,7 @@ export function createExtensionsWorkspaceConfigGateway(options: ExtensionsWorksp
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      return await workspaceOnMyAgentRead({ workspacePath: root }) as unknown as Record<string, unknown>;
+      return await workspaceOnMyAgentRead({ workspacePath: root });
     }
 
     return {};

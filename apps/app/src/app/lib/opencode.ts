@@ -358,7 +358,9 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     onmyagentMount && auth?.token
       ? createOnMyAgentServerClient({ baseUrl: onmyagentMount.baseUrl, token: auth.token })
       : null;
-  const sessionOverrides = session as any as {
+  // Writable session surface used to install OnMyAgent workspace routing and
+  // reasoning_effort passthrough without widening through `any`.
+  type MutableSessionApi = {
     list: (parameters?: SessionListParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session[]>>;
     get: (parameters: SessionLookupParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session>>;
     messages: (parameters: SessionMessagesParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Array<{ info: Message; parts: Part[] }>>>;
@@ -366,6 +368,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     promptAsync: (parameters: PromptAsyncParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<{}>>;
     command: (parameters: CommandParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<{}>>;
   };
+  const sessionOverrides = session as MutableSessionApi;
 
   const listOriginal = sessionOverrides.list.bind(session);
   sessionOverrides.list = (parameters?: SessionListParameters, options?: { throwOnError?: boolean }) => {

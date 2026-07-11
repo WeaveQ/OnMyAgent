@@ -57,6 +57,23 @@ import type {
 type ProviderReturnFocusTarget = "none" | "composer";
 type CloudProviderSyncReason = "sign_in" | "app_launch" | "interval" | "settings_cloud_opened";
 
+type OpencodeTransportClient = {
+  delete: (options: { url: string }) => Promise<unknown>;
+};
+
+/** Read the SDK's protected HTTP transport via Reflect (no double-cast). */
+function readOpencodeTransportClient(client: Client): OpencodeTransportClient | null {
+  if (!client || typeof client !== "object") return null;
+  const transport = Reflect.get(client, "client");
+  if (!transport || typeof transport !== "object") return null;
+  const deleteFn = Reflect.get(transport, "delete");
+  if (typeof deleteFn !== "function") return null;
+  return {
+    delete: (options) =>
+      (deleteFn as (options: { url: string }) => Promise<unknown>).call(transport, options),
+  };
+}
+
 export type ProviderAuthStoreSnapshot = {
   providerAuthModalOpen: boolean;
   providerAuthBusy: boolean;
@@ -322,9 +339,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      return (await workspaceOnMyAgentRead({
+      return await workspaceOnMyAgentRead({
         workspacePath: root,
-      })) as unknown as Record<string, unknown>;
+      });
     }
 
     return {};
@@ -627,9 +644,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     localProviderId: string,
     previousProviderId?: string | null,
   ) => {
-    const nextProviderConfig = buildCloudProviderConfig(
-      provider,
-    ) as unknown as Record<string, unknown>;
+    const nextProviderConfig = buildCloudProviderConfig(provider);
     let updated = raw.trim()
       ? raw
       : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
@@ -888,26 +903,22 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       throw new Error(t("providers.not_connected"));
     }
 
-    const authClient = c.auth as unknown as {
-      remove?: (options: { providerID: string }) => Promise<unknown>;
-      set?: (options: { providerID: string; auth: unknown }) => Promise<unknown>;
-    };
-    if (typeof authClient.remove === "function") {
-      const result = await authClient.remove({ providerID: providerId });
+    // Prefer the typed Auth API; fall back to raw transport DELETE for older
+    // OpenCode clients that only expose credential removal via HTTP.
+    if (typeof c.auth.remove === "function") {
+      const result = await c.auth.remove({ providerID: providerId });
       assertNoClientError(result);
       return;
     }
 
-    const rawClient = (c as unknown as {
-      client?: { delete?: (options: { url: string }) => Promise<unknown> };
-    }).client;
-    if (rawClient?.delete) {
-      await rawClient.delete({ url: `/auth/${encodeURIComponent(providerId)}` });
+    const transport = readOpencodeTransportClient(c);
+    if (transport) {
+      await transport.delete({ url: `/auth/${encodeURIComponent(providerId)}` });
       return;
     }
 
-    if (typeof authClient.set === "function") {
-      const result = await authClient.set({ providerID: providerId, auth: null });
+    if (typeof c.auth.set === "function") {
+      const result = await c.auth.set({ providerID: providerId });
       assertNoClientError(result);
       return;
     }

@@ -1150,14 +1150,9 @@ export function createExtensionsStore(options: {
     refreshSkillsAborted = false;
     try {
       setStateField("skillsStatus", null);
-      const rawClient = client as unknown as { _client?: { get: (input: { url: string }) => Promise<unknown> } };
-      if (!rawClient._client) throw new Error("OpenCode client unavailable.");
-      const result = await rawClient._client.get({ url: "/skill" }) as {
-        data?: Array<{ name: string; description: string; location: string }>;
-        error?: unknown;
-      };
-      if (result?.data === undefined) {
-        const err = result?.error;
+      const result = await client.app.skills();
+      if (result.data === undefined) {
+        const err = result.error;
         const message = err instanceof Error ? err.message : typeof err === "string" ? err : t("skills.failed_to_load");
         throw new Error(message);
       }

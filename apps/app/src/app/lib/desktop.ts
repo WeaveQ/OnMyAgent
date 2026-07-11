@@ -727,7 +727,6 @@ const {
   workspaceExportConfig,
   workspaceImportConfig,
   // IPC channel names remain Openwork* (desktop main process); alias to OnMyAgent* for app API.
-  workspaceOpenworkRead: workspaceOnMyAgentRead,
   workspaceOpenworkWrite: workspaceOnMyAgentWrite,
   opencodeCommandList,
   opencodeCommandWrite,
@@ -1690,6 +1689,14 @@ export function agentManagementMcpAction(
   );
 }
 
+// Typed wrappers for workspace OnMyAgent config IPC (channel kept as Openwork*
+// for desktop main-process compatibility).
+export function workspaceOnMyAgentRead(input: {
+  workspacePath: string;
+}): Promise<Record<string, unknown>> {
+  return invokeElectronHelper<Record<string, unknown>>("workspaceOpenworkRead", input);
+}
+
 export {
   engineStart,
   workspaceBootstrap,
@@ -1703,7 +1710,6 @@ export {
   workspaceAddAuthorizedRoot,
   workspaceExportConfig,
   workspaceImportConfig,
-  workspaceOnMyAgentRead,
   workspaceOnMyAgentWrite,
   opencodeCommandList,
   opencodeCommandWrite,
