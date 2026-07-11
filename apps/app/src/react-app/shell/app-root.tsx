@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { readDenBootstrapConfig, readDenSettings } from "../../app/lib/den";
@@ -9,15 +9,43 @@ import { useDenAuth, ForcedSigninPage, OrgOnboardingPage } from "../domains/clou
 import { NewProvidersToast } from "./new-providers-toast";
 import { useDesktopFontZoomBehavior } from "./font-zoom";
 import { LoadingOverlay } from "./loading-overlay";
+import { OwDotTicker } from "./dot-ticker";
 import { DevProfiler, DevProfilerOverlay } from "./dev-profiler";
 import { ReactRenderWatchdogOverlay } from "./react-render-watchdog-overlay";
 import { AppMenuProvider } from "./app-menu";
 import { OnMyAgentControlProvider, OnMyAgentRouteControlActions } from "./control/control-provider";
 import { SessionRoute } from "./session-route";
-import { SettingsRoute } from "./settings-route";
 import { ShellConfigProvider } from "./shell-config";
-import { WelcomeRoute } from "./welcome-route";
-import { currentLocale, subscribeToLocale } from "../../i18n";
+import { currentLocale, subscribeToLocale, t } from "../../i18n";
+
+// Heavy secondary routes: code-split so the main session UX stays on the eager path.
+// Cloud sign-in/onboarding stay eager (gate + shared barrel already on critical path).
+const SettingsRoute = lazy(() =>
+  import("./settings-route").then((module) => ({ default: module.SettingsRoute })),
+);
+const WelcomeRoute = lazy(() =>
+  import("./welcome-route").then((module) => ({ default: module.WelcomeRoute })),
+);
+
+const routeSuspenseFallbackClass = {
+  shell: "fixed inset-0 z-[1000] flex items-center justify-center bg-dls-surface",
+  content: "flex w-full max-w-[320px] flex-col items-center gap-4 px-6 text-center",
+  message: "text-xs leading-5 text-dls-secondary",
+};
+
+/** Lightweight route-level fallback (same visual language as boot LoadingOverlay). */
+function RouteSuspenseFallback() {
+  return (
+    <div className={routeSuspenseFallbackClass.shell} aria-live="polite" aria-busy="true" role="status">
+      <div className={routeSuspenseFallbackClass.content}>
+        <OwDotTicker size="md" />
+        <div className={routeSuspenseFallbackClass.message}>
+          {t("system.boot_preparing_workspace")}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 
 type DenSigninGateProps = {
@@ -198,115 +226,118 @@ export function AppRoot() {
         <OnMyAgentControlProvider>
           <OnMyAgentRouteControlActions />
           <DenSigninGate>
-            <Routes>
-              <Route
-                path="/signin"
-                element={
-                  <DevProfiler id="SigninRoute">
-                    <ForcedSigninPage developerMode={false} />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/onboarding"
-                element={
-                  <DevProfiler id="OrgOnboarding">
-                    <OrgOnboardingPage />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/welcome"
-                element={
-                  <DevProfiler id="WelcomeRoute">
-                    <WelcomeRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/session"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/session/:sessionId"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/workspace/:workspaceId/session"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/workspace/:workspaceId/session/:sessionId"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/assistant"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/assistant/:sessionId"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/workspace/:workspaceId/assistant"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/workspace/:workspaceId/assistant/:sessionId"
-                element={
-                  <DevProfiler id="SessionRoute">
-                    <SessionRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/workspace/:workspaceId/settings/*"
-                element={
-                  <DevProfiler id="SettingsRoute">
-                    <SettingsRoute />
-                  </DevProfiler>
-                }
-              />
-              <Route
-                path="/settings/*"
-                element={
-                  <DevProfiler id="SettingsRoute">
-                    <SettingsRoute />
-                  </DevProfiler>
-                }
-              />
-              {/* Default + fallback: land on the assistant view. */}
-              <Route path="/" element={<Navigate to="/assistant" replace />} />
-              <Route path="*" element={<Navigate to="/assistant" replace />} />
-            </Routes>
+            <Suspense fallback={<RouteSuspenseFallback />}>
+              <Routes>
+                <Route
+                  path="/signin"
+                  element={
+                    <DevProfiler id="SigninRoute">
+                      <ForcedSigninPage developerMode={false} />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/onboarding"
+                  element={
+                    <DevProfiler id="OrgOnboarding">
+                      <OrgOnboardingPage />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/welcome"
+                  element={
+                    <DevProfiler id="WelcomeRoute">
+                      <WelcomeRoute />
+                    </DevProfiler>
+                  }
+                />
+                {/* Session stays eager — primary UX path. */}
+                <Route
+                  path="/session"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/session/:sessionId"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/workspace/:workspaceId/session"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/workspace/:workspaceId/session/:sessionId"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/assistant"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/assistant/:sessionId"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/workspace/:workspaceId/assistant"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/workspace/:workspaceId/assistant/:sessionId"
+                  element={
+                    <DevProfiler id="SessionRoute">
+                      <SessionRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/workspace/:workspaceId/settings/*"
+                  element={
+                    <DevProfiler id="SettingsRoute">
+                      <SettingsRoute />
+                    </DevProfiler>
+                  }
+                />
+                <Route
+                  path="/settings/*"
+                  element={
+                    <DevProfiler id="SettingsRoute">
+                      <SettingsRoute />
+                    </DevProfiler>
+                  }
+                />
+                {/* Default + fallback: land on the assistant view. */}
+                <Route path="/" element={<Navigate to="/assistant" replace />} />
+                <Route path="*" element={<Navigate to="/assistant" replace />} />
+              </Routes>
+            </Suspense>
           </DenSigninGate>
         </OnMyAgentControlProvider>
         </AppMenuProvider>

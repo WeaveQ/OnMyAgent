@@ -1,0 +1,17 @@
+# Ripgrep defaults for agent/human code search (does not affect git).
+# Prefer excluding product content packs and generated graphs unless
+# intentionally working on those paths.
+
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-electron/
+**/dist-electron/
+.turbo/
+out/
+.next/
+tmp/
+graphify-out/
+apps/desktop/resources/marketplace/
+apps/desktop/resources/bundled-skills/
