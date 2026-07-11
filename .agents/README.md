@@ -42,8 +42,6 @@ OpenCode product/workspace config stays under `.opencode/` (not a mirror of this
 | `documentation-audit` | Stale docs, old commands, broken links, doc map drift |
 | `ui-regression-audit` | Theme / i18n / screenshot UI regression |
 | `frontend-primitive-refactor` | Primitive reuse, size/token consistency while coding UI |
-| `self-improving` | Capture learnings / corrections (external-style self-improve pack) |
-| `self-improving-agent` | Log errors/learnings into `.learnings/` |
 | `skills-audit` | Audit this catalog for overlap / stale skills |
 
 ## Maintenance
