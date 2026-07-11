@@ -153,12 +153,12 @@ Do not add product pages, modals, or registries here.
 
 | Current area | Target | Phase |
 | --- | --- | --- |
-| `agent-management-*` | **`local-agents/agent-management/`** (moved) | Done; session re-exports for compat |
-| `automation-*`, channel panels | **`messaging/`** (moved) | Done; shared-pages re-exports for compat |
-| `workspace-files-page.tsx` | **`workspace/`** (moved) | Done; shared-pages re-exports |
+| `agent-management-*` | **`local-agents/agent-management/`** (moved) | Done; import from `domains/local-agents` |
+| `automation-*`, channel panels | **`messaging/`** (moved) | Done; import from `domains/messaging` |
+| `workspace-files-page.tsx` | **`workspace/`** (moved) | Done; import from `domains/workspace` |
 | Conversation lists / true session chrome | stay in `session/` | — |
 
-Prefer importing from the target domain, not from `shared-pages` re-exports, when adding new call sites.
+Import these pages from the owning domain barrel, not from `shared-pages`.
 
 ## Session goal lifecycle
 

@@ -20,6 +20,7 @@ export type {
 export { useRemoteAccessRestart } from "./remote-access-restart";
 export type { RemoteAccessRestartPhase } from "./remote-access-restart";
 export { ShareWorkspaceModal } from "./share-workspace-modal";
+export { WorkspaceFilesPage } from "./workspace-files-page";
 export * from "./workspace-modal-types";
 export * from "./workspace-option-card";
 export * from "./share-workspace-access-panel";
