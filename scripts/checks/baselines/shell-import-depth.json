@@ -1,13 +1,8 @@
 {
   "$schema": "./shell-import-depth.schema.json",
   "description": "Frozen shell -> domain deep imports, keyed by shellFile::domain::subPath with an occurrence count. Only shrink this list. Regenerate with `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline` only after refactoring shells to use domain barrels.",
-  "generatedAt": "2026-07-11T08:06:30.556Z",
+  "generatedAt": "2026-07-11T08:27:53.868Z",
   "entries": {
-    "apps/app/src/react-app/shell/session-route-intent.ts::agents::pending-agent-store.ts": 1,
-    "apps/app/src/react-app/shell/session-route-render.tsx::agents::agent-session-state.ts": 1,
-    "apps/app/src/react-app/shell/session-route-render.tsx::connections::provider-list-query.ts": 1,
-    "apps/app/src/react-app/shell/session-route-surface-props-hook.ts::agents::agent-session-state.ts": 1,
-    "apps/app/src/react-app/shell/session-route-surface-props-hook.ts::session::pages": 1,
     "apps/app/src/react-app/shell/session-route-surface-props-hook.ts::shared::env-context.ts": 1,
     "apps/app/src/react-app/shell/settings-route-render.tsx::shared::extension-state.ts": 1,
     "apps/app/src/react-app/shell/settings-route-render.tsx::shared::onmyagent-server-store.ts": 1

@@ -31,12 +31,12 @@ import { isSandboxWorkspace } from "../../app/utils";
 import { t, type Language } from "../../i18n";
 import type { LocalPreferences } from "../kernel/local-provider";
 import type { PageMode } from "../domains/session";
-import type { SessionPageSurfaceProps } from "../domains/session/pages";
+import type { SessionPageSurfaceProps } from "../domains/session";
 import {
   addAssistantSession,
   addExpertSession,
   writeAssistantSessionCategory,
-} from "../domains/agents/agent-session-state";
+} from "../domains/agents";
 import {
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
