@@ -52,41 +52,21 @@ const packageRules = [
 ]
 
 const allowedDomainImports = new Set([
-  // session <-> local-agents: PR #22 introduced domains/local-agents as a
-  // sibling extract of session's local-agent code. Both pages still need
-  // direct imports across the boundary until we agree whether to fold
-  // local-agents back under session/ or promote a kernel/shared contract.
+  // session <-> local-agents: reverse edges (local-agents still reaches into
+  // session for markdown/open-target/scheduled-tasks/skill icons). Session host
+  // pages import the local-agents barrel only (one entry per file).
   "apps/app/src/react-app/domains/local-agents/local-agent-page-model.ts|../session/chat/personal-local-agent-scheduled-tasks",
   "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/artifacts/open-target",
   "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/surface/markdown",
   "apps/app/src/react-app/domains/local-agents/messages/message-utils.ts|../../session/artifacts/open-target",
   "apps/app/src/react-app/domains/local-agents/messages/timeline-messages.tsx|../../session/surface/markdown",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-initial-message",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-model-info",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-conversation-history-hydration",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-draft-composer",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-formatters",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-management-panel",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-model",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-page-types",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-repair-panel",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/chat-bubble",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/workspace-picker/workspace-footnote",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/workspace-picker/recent-workspaces",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-types",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/message-utils",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/messages/timeline-messages",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/local-agent-status-rail",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/context-usage-indicator",
-  // Extracted parts of personal-local-agent-page.tsx keep the same
-  // session <-> local-agents imports as the page they were pulled from.
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents/local-agent-page-model",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents/messages/message-types",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents/local-agent-formatters",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents/messages/timeline-messages",
-  "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx|../../../local-agents/extension-list-panel",
-  "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx|../../../local-agents/inline-agent-editor",
-  "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx|../../../local-agents/agent-management-repair-dialog",
+  "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-mcp-panel.tsx|../../session/components/shared-pages/agent-skill-icon",
+  "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-skill-matrix.tsx|../../session/components/shared-pages/agent-skill-icon",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents",
+  "apps/app/src/react-app/domains/session/components/shared-pages/index.tsx|../../../local-agents",
+  "apps/app/src/react-app/domains/session/index.ts|../local-agents",
   // Transitional cross-domain edges after PR #49 domain extraction
   // (agents / messaging / workspace / shell-feedback / connections).
   // Prefer kernel/shared barrels; shrink this list over time.
@@ -95,8 +75,6 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/agents/agents-page.tsx|../plugins/bundled-skill-locale",
   "apps/app/src/react-app/domains/agents/agents-page.tsx|../plugins/skill-scope",
   "apps/app/src/react-app/domains/agents/agents-page.tsx|../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-mcp-panel.tsx|../../session/components/shared-pages/agent-skill-icon",
-  "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-skill-matrix.tsx|../../session/components/shared-pages/agent-skill-icon",
   "apps/app/src/react-app/domains/messaging/automation-page.tsx|../session/components/model-select",
   "apps/app/src/react-app/domains/messaging/automation-page.tsx|../session/components/shared-pages/conversation-model",
   "apps/app/src/react-app/domains/messaging/automation-page.tsx|../session/surface/composer/access-permission-select",
@@ -124,13 +102,11 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-registry-store",
   "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-registry-types",
   "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-session-state",
-  "apps/app/src/react-app/domains/session/components/shared-pages/index.tsx|../../../local-agents/agent-management/agent-management-page",
   "apps/app/src/react-app/domains/session/components/shared-pages/index.tsx|../../../messaging/automation-page",
   "apps/app/src/react-app/domains/session/components/shared-pages/index.tsx|../../../messaging/messaging-channels-page",
   "apps/app/src/react-app/domains/session/components/shared-pages/index.tsx|../../../workspace/workspace-files-page",
   "apps/app/src/react-app/domains/session/components/shared-pages/side-panel-pages.tsx|../../../shell-feedback/status-toasts",
   "apps/app/src/react-app/domains/session/expert-marketplace/pending-agent.ts|../../agents/pending-agent-store",
-  "apps/app/src/react-app/domains/session/index.ts|../local-agents/agent-management/agent-management-providers",
   "apps/app/src/react-app/domains/session/index.ts|../messaging/automation-session-groups",
   "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../agents/pending-agent-store",
   "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../connections/provider-auth-modal",
