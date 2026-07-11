@@ -1,15 +1,6 @@
 {
   "$schema": "./forbidden-types.schema.json",
   "description": "Frozen occurrences of forbidden type escapes, keyed by file+rule+excerpt with a count of how many places currently match. Only shrink this list (delete entries, or lower counts). Never bump counts by hand. Regenerate with `node scripts/checks/check-forbidden-types.mjs --write` only after the workspace has genuinely stopped regressing.",
-  "generatedAt": "2026-07-04T01:06:50.686Z",
-  "entries": {
-    "apps/app/src/app/lib/migration.ts::as-unknown-as::const bridge = (window as unknown as {": 1,
-    "apps/app/src/app/lib/opencode.ts::as-any::const sessionOverrides = session as any as {": 1,
-    "apps/app/src/react-app/domains/connections/provider-auth/store.ts::as-unknown-as::) as unknown as Record<string, unknown>;": 1,
-    "apps/app/src/react-app/domains/connections/provider-auth/store.ts::as-unknown-as::const authClient = c.auth as unknown as {": 1,
-    "apps/app/src/react-app/domains/connections/provider-auth/store.ts::as-unknown-as::const rawClient = (c as unknown as {": 1,
-    "apps/app/src/react-app/domains/connections/provider-auth/store.ts::as-unknown-as::})) as unknown as Record<string, unknown>;": 1,
-    "apps/app/src/react-app/domains/settings/state/extensions-store-workspace-config.ts::as-unknown-as::return await workspaceOpenworkRead({ workspacePath: root }) as unknown as Record<string, unknown>;": 1,
-    "apps/app/src/react-app/domains/settings/state/extensions-store.ts::as-unknown-as::const rawClient = client as unknown as { _client?: { get: (input: { url: string }) => Promise<unknown> } };": 1
-  }
+  "generatedAt": "2026-07-11T08:14:14.363Z",
+  "entries": {}
 }
