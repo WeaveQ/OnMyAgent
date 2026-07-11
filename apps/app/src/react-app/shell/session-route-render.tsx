@@ -8,21 +8,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type {
   ProviderListResponse,
 } from "@opencode-ai/sdk/v2/client";
 
 import { createClient, unwrap } from "../../app/lib/opencode";
 import {
-  clearLocalAuthUser,
-  readLocalAuthUser,
-} from "../../app/lib/local-auth";
-import {
-  forkSession,
   listCommands,
-  revertSession,
-  shellInSession,
 } from "../../app/lib/opencode-session";
 import {
   buildOnMyAgentWorkspaceBaseUrl,
@@ -34,13 +26,10 @@ import {
   workspaceServerId,
   type ResolvedWorkspaceEndpoint,
 } from "../../app/lib/workspace-endpoint";
-import { buildOnMyAgentEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
-import { buildOnboardingProfileSystemPrompt } from "./onboarding-profile";
 import {
   describeRouteError,
   describeWorkspaceSessionLoadError,
   describeTaskCreateError,
-  describeWorkspaceCreateError,
   buildConnectedRouteRefreshPlan,
   buildDisconnectedRouteState,
   buildRouteRefreshErrorFallbackWorkspaces,
@@ -48,11 +37,8 @@ import {
   buildRouteRefreshErrorEvent,
   buildSettingsNavigationTarget,
   buildSelectedWorkspaceRouteState,
-  buildWorkspaceReorderIds,
   emptyWorkspaceDisplay,
   findRouteWorkspace,
-  localUserToSidebarAccount,
-  normalizePickedDirectory,
   isRemoteOnMyAgentWorkspace,
   orderRouteWorkspaces,
   removeRetryingWorkspaceId,
@@ -74,30 +60,8 @@ import {
   type SessionSidebarAccount,
 } from "./session-route-model";
 import {
-  buildAccessModeSystemPrompt,
-  buildCollaborationModeSystemPrompt,
-  buildGoalRuntimeSystemPrompt,
-  buildLanguageSystemPrompt,
   clearConsumedPermissionNotice,
-  deriveGoalSummary,
-  applySessionAccessMode,
-  applySessionScopedValue,
-  draftHasSendableContent,
-  draftToParts,
-  isComposerGoalMode,
-  isComposerPlanningMode,
-  joinSystemParts,
-  moveSessionModelOverride,
-  moveSessionScopedValue,
-  removeSessionScopedValue,
-  resolveComposerRuntimeTools,
   resolveAccessModePermissionReply,
-  resolveAttachmentUploadTarget,
-  resolveDraftSendPlan,
-  resolveDraftText,
-  routeForSettingsSection,
-  updateDefaultModelPrefs,
-  type SettingsSection,
 } from "./session-route-composer";
 import {
   emptyModelBehaviorOptions,
@@ -130,19 +94,9 @@ import {
 } from "./session-route-storage";
 import {
   activateDesktopSessionWorkspaceInBackground,
-  createLocalSessionWorkspaceAndRefresh,
-  createRemoteSessionWorkspaceAndRefresh,
-  exportSessionWorkspaceConfig,
-  forgetSessionWorkspaceAndRefresh,
   loadDesktopSessionWorkspaces,
-  renameSessionWorkspaceAndRefresh,
-  revealSessionWorkspacePath,
   resolveSelectedDesktopSessionWorkspaceId,
 } from "./session-route-workspace-actions";
-import {
-  useDenSessionVersionBump,
-  usePendingModelPickerEvents,
-} from "./session-route-model-picker-events";
 import { useSessionRouteInspector } from "./session-route-inspector";
 import { useRouteEngineInfo } from "./session-route-engine-info";
 import {
@@ -158,7 +112,6 @@ import {
   buildSidebarSessionStatusById,
   buildWorkspaceConnectionDiagnosticPlan,
   buildWorkspaceConnectionStateById,
-  clearWorkspaceConnectionCheckRun,
   pruneWorkspaceConnectionStateById,
   removeWorkspaceConnectionStateById,
   resolveSidebarActiveWorkspaceId,
@@ -170,12 +123,10 @@ import {
   collectWorkspaceSessionItems,
   findFirstSessionIdMatching,
   findWorkspaceIdOwningSession,
-  insertCreatedSessionForWorkspace,
   insertSidebarSession,
   maxSequence,
   mergeFetchedSessionsWithPending as mergeFetchedSessionsWithPendingState,
   mergeWorkspaceFetchedSessions,
-  sessionBelongsToAnotherWorkspace,
   sessionListOwnsSession,
   toControlSessionEntries,
   toSidebarSessionItems,
@@ -184,26 +135,21 @@ import {
   type PendingCreatedSessionMap,
 } from "./session-route-sessions";
 import {
-  bindPendingAgentToSession,
-  registerCreatedSessionStartIntent,
-  resolvePendingAgentForPrompt,
-} from "./session-route-agent-context";
+  installMarketplaceExpertAfterSessionCreated,
+} from "./session-route-intent";
 import { SessionCloudAccountBridge } from "./session-cloud-account-bridge";
 import { usePendingAgentStore } from "../domains/agents";
-import type { PendingAgentContext } from "../domains/agents";
 import {
   readCustomAgentIdForSession,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "../domains/agents";
 import {
-  addAssistantSession,
   addExpertSession,
   isAssistantSession,
   isExpertSession,
   removeAssistantSession,
   removeExpertSession,
-  writeAssistantSessionCategory,
 } from "../domains/agents/agent-session-state";
 import {
   removeAutomationSessionRecord,
@@ -211,8 +157,6 @@ import {
 } from "../domains/session";
 import { useEnsureAgentRegistry } from "../domains/agents";
 import {
-  installExpertPackage,
-  pickDirectory,
   type OnMyAgentServerInfo,
   type WorkspaceList,
 } from "../../app/lib/desktop";
@@ -220,7 +164,6 @@ import type {
   CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   ComposerDraft,
-  ComposerPart,
   ModelOption,
   ModelRef,
   PendingPermission,
@@ -228,7 +171,6 @@ import type {
   SidebarSessionItem,
   SlashCommandOption,
   TodoItem,
-  WorkspacePreset,
   WorkspaceConnectionState,
   Client,
   ProviderListItem,
@@ -238,13 +180,11 @@ import type {
 import { buildFeedbackUrl } from "../../app/lib/feedback";
 import {
   isDesktopRuntime,
-  isSandboxWorkspace,
   normalizeDirectoryPath,
   resolveModelDisplayName,
   safeStringify,
 } from "../../app/utils";
 import { currentLocale, subscribeToLocale, t } from "../../i18n";
-import { useLocal } from "../kernel/local-provider";
 import { usePlatform } from "../kernel/platform";
 import {
   SessionPage,
@@ -256,7 +196,6 @@ import { legacyAssistantRoute } from "./workspace-routes";
 import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
 import { useCheckDesktopRestriction, useRestrictionNotice } from "../domains/cloud";
 import { ReactSessionRuntime, useSessionActivityStore } from "../domains/session";
-import { buildOnMyAgentEnvSystemContext } from "../domains/shared/env-context";
 import {
   assistantSessionWorkspacesChangedEvent,
   dispatchAssistantSessionWorkspacesChanged,
@@ -267,48 +206,25 @@ import {
   seedPermissionState,
   seedQuestionState,
   seedSessionState,
-  trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
 } from "../domains/session";
 import {
-  CreateRemoteWorkspaceModal,
-  CreateWorkspaceModal,
-  RenameWorkspaceModal,
   diagnoseRemoteWorkspaceTaskLoadFailure,
   useRemoteAccessRestart,
   useRemoteWorkspaceConnectionEditor,
 } from "../domains/workspace";
 import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections";
 import { useCloudProviderAutoSync } from "../domains/cloud";
-import {
-  buildSessionRemoteWorkspaceConnectingState,
-  resolveSessionRemoteWorkspaceConnectionCheckTarget,
-  runSessionRemoteWorkspaceConnectionCheckTarget,
-  sessionRemoteWorkspaceConnectionCheckIsCurrent,
-} from "./session-route-remote-workspace-actions";
 import { useShareWorkspaceState } from "../domains/workspace";
-import { ModelPickerModal } from "../domains/session";
-import {
-  CommandPalette,
-  type AccessibleTargetOption,
-} from "./command-palette";
 import { useBootState } from "./boot-state";
 import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
-  readSessionAccessModes,
-  readSessionCollaborationModes,
-  readSessionGoalRuntimes,
-  readSessionModelOverrides,
   readSessionTodos,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
-  writeSessionAccessModes,
-  writeSessionCollaborationModes,
-  writeSessionGoalRuntimes,
-  writeSessionModelOverrides,
   writeSessionTodos,
   writeWorkspaceOrderIds,
 } from "./session-memory";
@@ -319,21 +235,13 @@ import {
 } from "./control/control-provider";
 import {
   buildCommandPaletteControlAction,
-  resolveCreateTaskWorkspaceNavigation,
   resolveControlSessionWorkspaceId,
   resolveSessionRouteModeSwitchPath,
   resolveSessionRouteRestoreNavigation,
   resolveSessionRouteGlobalShortcut,
-  resolveRenameWorkspaceTarget,
-  resolveWorkspaceExportTarget,
-  resolveWorkspaceRevealTarget,
   resolveWorkspaceSelectionSessionTarget,
-  resolveWorkspaceSessionRoute,
-  shouldBlockCreateWorkspaceForRestriction,
-  shouldNavigateAfterForgettingWorkspace,
   shouldRedirectSessionRouteToWelcome,
 } from "./session-route-control";
-import { activateCreatedSessionRoute } from "./session-route-created-session-actions";
 import { useReactRenderWatchdog } from "./react-render-watchdog";
 
 import { filterProviderList } from "../../app/utils/providers";
@@ -356,110 +264,38 @@ import {
   refreshProviderListQueries,
   useProviderListQuery,
 } from "../domains/connections/provider-list-query";
-
-function readStringStateField(state: unknown, key: string) {
-  if (!state || typeof state !== "object") return null;
-  const value = Reflect.get(state, key);
-  return typeof value === "string" ? value.trim() || null : null;
-}
-
-function readSessionAgentManagementIntent(
-  state: unknown,
-): SessionAgentManagementIntent | null {
-  const action = readStringStateField(state, "agentManagementAction");
-  if (action !== "createProvider") return null;
-  return {
-    action,
-    key: readStringStateField(state, "agentManagementActionKey") ?? action,
-  };
-}
-
-function clearSessionAgentManagementIntentState(state: unknown) {
-  if (!state || typeof state !== "object") return undefined;
-  const next: Record<string, unknown> = {};
-  for (const key of Object.keys(state)) {
-    if (
-      key === "agentManagementAction" ||
-      key === "agentManagementActionKey"
-    ) {
-      continue;
-    }
-    next[key] = Reflect.get(state, key);
-  }
-  return next;
-}
-
-async function installMarketplaceExpertAfterSessionCreated(
-  agent: PendingAgentContext,
-) {
-  const marketplaceExpert = agent.marketplaceExpert;
-  if (!marketplaceExpert || marketplaceExpert.source !== "builtin") return;
-  try {
-    await installExpertPackage({
-      source: "builtin",
-      marketplace: "experts",
-      packageName: marketplaceExpert.packageName,
-    });
-  } catch (error) {
-    console.warn("[expert-marketplace] failed to install expert package", error);
-  }
-}
+import { useSessionRouteNavigation } from "./session-route-navigation-hook";
+import { useSessionRouteChromeState } from "./session-route-chrome-state-hook";
+import { useSessionRouteModelPickerState } from "./session-route-model-picker-state-hook";
+import { useSessionRouteComposerRuntimeState } from "./session-route-composer-runtime-state-hook";
+import { useSessionRouteSurfaceProps } from "./session-route-surface-props-hook";
+import { useSessionRouteWorkspaceInteraction } from "./session-route-workspace-interaction-hook";
+import { SessionRouteModals } from "./session-route-modals";
+import { useSessionRoutePermissionQuestionHandlers } from "./session-route-permission-question-hook";
+import { useSessionRouteGlobalShortcuts } from "./session-route-global-shortcuts-hook";
 
 export function SessionRouteRender() {
-  const navigate = useNavigate();
+  const {
+    navigate,
+    local,
+    sidebarAccount,
+    setSidebarAccount,
+    localUserSignedIn,
+    routeWorkspaceId,
+    selectedSessionId,
+    isAssistantMode,
+    pageMode,
+    agentManagementIntent,
+    clearAgentManagementIntent,
+    handleSignOut,
+    navigateToWorkspaceSession,
+    location,
+  } = useSessionRouteNavigation();
   const platform = usePlatform();
-  const local = useLocal();
   const reloadCoordinator = useReloadCoordinator();
   const { showToast } = useStatusToasts();
   const checkDesktopRestriction = useCheckDesktopRestriction();
   const restrictionNotice = useRestrictionNotice();
-  const [sidebarAccount, setSidebarAccount] =
-    useState<SessionSidebarAccount | null>(() =>
-      localUserToSidebarAccount(readLocalAuthUser()),
-    );
-  const localUserSignedIn = sidebarAccount !== null;
-  const params = useParams<{ workspaceId?: string; sessionId?: string }>();
-  const location = useLocation();
-  const routeWorkspaceId = params.workspaceId?.trim() || "";
-  const selectedSessionId = params.sessionId?.trim() || null;
-  const isAssistantMode = location.pathname.includes("/assistant");
-  const pageMode: PageMode = isAssistantMode ? "assistant" : "expert";
-  const agentManagementIntent = useMemo(
-    () => readSessionAgentManagementIntent(location.state),
-    [location.state],
-  );
-  const clearAgentManagementIntent = useCallback(
-    (key: string) => {
-      const current = readSessionAgentManagementIntent(location.state);
-      if (!current || current.key !== key) return;
-      navigate(`${location.pathname}${location.search}${location.hash}`, {
-        replace: true,
-        state: clearSessionAgentManagementIntentState(location.state),
-      });
-    },
-    [location.hash, location.pathname, location.search, location.state, navigate],
-  );
-  const handleSignOut = useCallback(() => {
-    clearLocalAuthUser();
-    setSidebarAccount(null);
-    local.setPrefs((prev) => ({ ...prev, hasCompletedOnboarding: false }));
-    navigate("/welcome", { replace: true });
-  }, [local, navigate]);
-  const navigateToWorkspaceSession = useCallback(
-    (
-      workspaceId: string,
-      sessionId?: string | null,
-      options?: { replace?: boolean },
-    ) => {
-      const route = resolveWorkspaceSessionRoute({
-        assistantMode: isAssistantMode,
-        sessionId,
-        workspaceId,
-      });
-      navigate(route, options);
-    },
-    [navigate, isAssistantMode],
-  );
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
@@ -551,33 +387,45 @@ export function SessionRouteRender() {
     [],
   );
   const launchActivatedWorkspaceIdsRef = useRef(new Set<string>());
-  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
-  const [createWorkspaceBusy, setCreateWorkspaceBusy] = useState(false);
-  const [createWorkspaceError, setCreateWorkspaceError] = useState<
-    string | null
-  >(null);
-  const [createWorkspaceRemoteBusy, setCreateWorkspaceRemoteBusy] =
-    useState(false);
-  const [createWorkspaceRemoteError, setCreateWorkspaceRemoteError] = useState<
-    string | null
-  >(null);
-  const [renameWorkspaceId, setRenameWorkspaceId] = useState<string | null>(
-    null,
-  );
-  const [renameWorkspaceTitle, setRenameWorkspaceTitle] = useState("");
-  const [renameWorkspaceBusy, setRenameWorkspaceBusy] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [paletteAccessibleTargets, setPaletteAccessibleTargets] = useState<
-    OpenTarget[]
-  >([]);
-  // Model picker modal state (ported from settings-route; previously the
-  // session "Pick a model" button navigated to /settings/general, which is a
-  // dead-end). Loads providers lazily when the modal opens.
-  const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  // initialTab removed — model picker no longer has tabs
-  const [compactModelPickerOpen, setCompactModelPickerOpen] = useState(false);
-  const [modelPickerQuery, setModelPickerQuery] = useState("");
-  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const {
+    createWorkspaceOpen,
+    setCreateWorkspaceOpen,
+    createWorkspaceBusy,
+    setCreateWorkspaceBusy,
+    createWorkspaceError,
+    setCreateWorkspaceError,
+    createWorkspaceRemoteBusy,
+    setCreateWorkspaceRemoteBusy,
+    createWorkspaceRemoteError,
+    setCreateWorkspaceRemoteError,
+    renameWorkspaceId,
+    setRenameWorkspaceId,
+    renameWorkspaceTitle,
+    setRenameWorkspaceTitle,
+    renameWorkspaceBusy,
+    setRenameWorkspaceBusy,
+    commandPaletteOpen,
+    setCommandPaletteOpen,
+    paletteAccessibleTargets,
+    setPaletteAccessibleTargets,
+  } = useSessionRouteChromeState({
+    selectedSessionId,
+    selectedWorkspaceId,
+  });
+  const {
+    modelPickerOpen,
+    setModelPickerOpen,
+    compactModelPickerOpen,
+    setCompactModelPickerOpen,
+    modelPickerQuery,
+    setModelPickerQuery,
+    modelOptions,
+    setModelOptions,
+    recentProviderIds,
+    setRecentProviderIds,
+    denSessionVersion,
+    bumpDenSessionVersion,
+  } = useSessionRouteModelPickerState();
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<
     Record<string, string>
@@ -586,92 +434,31 @@ export function SessionRouteRender() {
     [],
   );
   const [disabledProviderIds, setDisabledProviderIds] = useState<string[]>([]);
-  // Bump to re-filter provider list when den session changes (sign-in/out)
-  const [denSessionVersion, setDenSessionVersion] = useState(0);
-  const bumpDenSessionVersion = useCallback(() => {
-    setDenSessionVersion((version) => version + 1);
-  }, []);
-  useDenSessionVersionBump(bumpDenSessionVersion);
-  // Provider IDs that were just added — used to highlight them as
-  // "Recently added" in the model picker even after they've been
-  // marked as seen in localStorage.
-  const [recentProviderIds, setRecentProviderIds] = useState<Set<string>>(
-    new Set(),
-  );
-  // Open model picker when the global toast's "Pick a new default?" is clicked
-  const openModelPickerFromPendingProvider = useCallback(() => {
-    setModelPickerOpen(true);
-  }, []);
-  const modelPickerEventHandlers = useMemo(
-    () => ({
-      openModelPicker: openModelPickerFromPendingProvider,
-      setRecentProviderIds,
-    }),
-    [openModelPickerFromPendingProvider],
-  );
-  usePendingModelPickerEvents(modelPickerEventHandlers);
-  useEffect(() => {
-    setPaletteAccessibleTargets([]);
-  }, [selectedSessionId, selectedWorkspaceId]);
 
   // Ensure agent registry is loaded when a workspace is selected
   useEnsureAgentRegistry(client, selectedWorkspaceId || undefined);
 
-  const [permissionReplyBusy, setPermissionReplyBusy] = useState(false);
-  const permissionReplyBusyRef = useRef(false);
-  const [sessionAccessModeById, setSessionAccessModeById] = useState<
-    Record<string, NonNullable<ComposerDraft["accessMode"]>>
-  >(() => readSessionAccessModes());
-  const [sessionCollaborationModeById, setSessionCollaborationModeById] =
-    useState<Record<string, ComposerDraft["collaborationMode"]>>(
-      () => readSessionCollaborationModes(),
-    );
-  const [sessionModelOverrideById, setSessionModelOverrideById] = useState<
-    Record<string, ModelRef>
-  >(() => readSessionModelOverrides());
-  const [sessionPlanRuntimeById, setSessionPlanRuntimeById] = useState<
-    Record<string, CollaborationPlanRuntime>
-  >({});
-  const [sessionGoalRuntimeById, setSessionGoalRuntimeById] = useState<
-    Record<string, CollaborationGoalRuntime>
-  >(() => readSessionGoalRuntimes());
-  const [
+  const {
+    permissionReplyBusy,
+    setPermissionReplyBusy,
+    permissionReplyBusyRef,
+    sessionAccessModeById,
+    setSessionAccessModeById,
+    sessionCollaborationModeById,
+    setSessionCollaborationModeById,
+    sessionModelOverrideById,
+    setSessionModelOverrideById,
+    sessionPlanRuntimeById,
+    setSessionPlanRuntimeById,
+    sessionGoalRuntimeById,
+    setSessionGoalRuntimeById,
     autoApprovedPermissionNoticeBySessionId,
     setAutoApprovedPermissionNoticeBySessionId,
-  ] = useState<Record<string, string>>({});
-  const [questionReplyBusy, setQuestionReplyBusy] = useState(false);
-  const questionReplyBusyRef = useRef(false);
-  // Subscribe to pending agent so the composer's model selection reflects
-  // the agent's configured model when the user clicks "对话" from the agents page.
-  const pendingAgent = usePendingAgentStore((state) => state.agent);
-
-  useEffect(() => {
-    writeSessionGoalRuntimes(sessionGoalRuntimeById);
-  }, [sessionGoalRuntimeById]);
-
-  useEffect(() => {
-    writeSessionAccessModes(sessionAccessModeById);
-  }, [sessionAccessModeById]);
-
-  useEffect(() => {
-    writeSessionCollaborationModes(sessionCollaborationModeById);
-  }, [sessionCollaborationModeById]);
-
-  useEffect(() => {
-    writeSessionModelOverrides(sessionModelOverrideById);
-  }, [sessionModelOverrideById]);
-
-  // A fresh agent-card conversation must begin with the agent's configured
-  // model, not a model picked for an earlier draft in the same workspace.
-  useEffect(() => {
-    const draftSessionId = `draft:${selectedWorkspaceId}`;
-    setSessionModelOverrideById((current) => {
-      if (!(draftSessionId in current)) return current;
-      const next = { ...current };
-      delete next[draftSessionId];
-      return next;
-    });
-  }, [pendingAgent?.conversationStartId, selectedWorkspaceId]);
+    questionReplyBusy,
+    setQuestionReplyBusy,
+    questionReplyBusyRef,
+    pendingAgent,
+  } = useSessionRouteComposerRuntimeState({ selectedWorkspaceId });
 
   // Provider catalog cache. Used to compute the reasoning/thinking variant
   // options for whichever model is currently selected so the composer's
@@ -1807,118 +1594,29 @@ export function SessionRouteRender() {
     sessionWorkspaceRoot,
   ]);
 
-  const activePermission = pendingPermissions[0] ?? null;
-  const respondPermission = useCallback(
-    async (requestID: string, reply: "once" | "always" | "reject") => {
-      if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
-      if (permissionReplyBusyRef.current) return;
-      permissionReplyBusyRef.current = true;
-      setPermissionReplyBusy(true);
-      try {
-        unwrap(
-          await opencodeClient.permission.reply({
-            requestID,
-            reply,
-            directory: sessionWorkspaceRoot || undefined,
-          }),
-        );
-        getReactQueryClient().setQueryData<PendingPermission[]>(
-          requiredPermissionQueryKey(selectedWorkspaceId, selectedSessionId),
-          (current = []) =>
-            current.filter((permission) => permission.id !== requestID),
-        );
-      } catch (error) {
-        showToast({
-          title: t("app.error_request_failed"),
-          description: describeRouteError(error),
-          tone: "error",
-        });
-      } finally {
-        permissionReplyBusyRef.current = false;
-        setPermissionReplyBusy(false);
-      }
-    },
-    [
-      opencodeClient,
-      selectedSessionId,
-      selectedWorkspaceId,
-      sessionWorkspaceRoot,
-      showToast,
-    ],
-  );
-  useEffect(() => {
-    if (!activePermission || !selectedSessionId) return;
-    const permissionReply = resolveAccessModePermissionReply(
-      sessionAccessModeById[selectedSessionId],
-      activePermission.permission,
-    );
-    if (!permissionReply) return;
-    if (permissionReplyBusy) return;
-    setAutoApprovedPermissionNoticeBySessionId((current) => ({
-      ...current,
-      [selectedSessionId]: activePermission.id,
-    }));
-    void respondPermission(activePermission.id, permissionReply);
-  }, [
+  const {
     activePermission,
-    permissionReplyBusy,
     respondPermission,
+    activeQuestion,
+    respondQuestion,
+  } = useSessionRoutePermissionQuestionHandlers({
+    opencodeClient,
+    pendingPermissions,
+    pendingQuestions,
+    permissionReplyBusy,
+    permissionReplyBusyRef,
+    questionReplyBusyRef,
     selectedSessionId,
+    selectedWorkspaceId,
     sessionAccessModeById,
-  ]);
-  useEffect(() => {
-    if (!selectedSessionId) return;
-    setAutoApprovedPermissionNoticeBySessionId((current) => {
-      return clearConsumedPermissionNotice(
-        current,
-        selectedSessionId,
-        activePermission?.id,
-      );
-    });
-  }, [
-    activePermission?.id,
+    sessionWorkspaceRoot,
+    setAutoApprovedPermissionNoticeBySessionId,
+    setPermissionReplyBusy,
+    setQuestionReplyBusy,
+    showToast,
     autoApprovedPermissionNoticeBySessionId,
-    selectedSessionId,
-  ]);
-  const activeQuestion = pendingQuestions[0] ?? null;
-  const respondQuestion = useCallback(
-    async (requestID: string, answers: string[][]) => {
-      if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
-      if (questionReplyBusyRef.current) return;
-      questionReplyBusyRef.current = true;
-      setQuestionReplyBusy(true);
-      try {
-        unwrap(
-          await opencodeClient.question.reply({
-            requestID,
-            answers,
-            directory: sessionWorkspaceRoot || undefined,
-          }),
-        );
-        getReactQueryClient().setQueryData<PendingQuestion[]>(
-          requiredQuestionQueryKey(selectedWorkspaceId, selectedSessionId),
-          (current = []) =>
-            current.filter((question) => question.id !== requestID),
-        );
-      } catch (error) {
-        showToast({
-          title: t("app.error_request_failed"),
-          description: describeRouteError(error),
-          tone: "error",
-        });
-      } finally {
-        questionReplyBusyRef.current = false;
-        setQuestionReplyBusy(false);
-      }
-    },
-    [
-      opencodeClient,
-      selectedSessionId,
-      selectedWorkspaceId,
-      sessionWorkspaceRoot,
-      showToast,
-    ],
-  );
+  });
+
   const showPreparingStatus =
     effectiveLoading ||
     (!canCreateTask && !routeError && !selectedWorkspaceError);
@@ -2129,666 +1827,32 @@ export function SessionRouteRender() {
     [navigate, selectedSessionId, sidebarActiveWorkspaceId],
   );
 
-  const surfaceProps = useMemo(() => {
-    if (
-      !client ||
-      !selectedWorkspaceId ||
-      !opencodeBaseUrl ||
-      !token ||
-      !opencodeClient
-    ) {
-      return null;
-    }
-
-    // Transient-safety: when the user switches workspaces the URL-driven
-    // selectedSessionId may still point at a session from the old workspace
-    // for one render tick. Only block rendering when we KNOW the session
-    // belongs to a different workspace (i.e., it exists in another
-    // workspace's list). A brand-new session that hasn't been refreshed
-    // into any list yet must still render so "New task" feels instant.
-    const sessionOwnedByOtherWorkspace = sessionBelongsToAnotherWorkspace({
-      sessionsByWorkspaceId,
-      selectedSessionId,
-      selectedWorkspaceId,
-    });
-    if (sessionOwnedByOtherWorkspace) {
-      return null;
-    }
-
-    const draftComposerModeSessionId = `draft:${selectedWorkspaceId}`;
-    const composerModeSessionId = selectedSessionId ?? draftComposerModeSessionId;
-    const sessionAccessMode =
-      sessionAccessModeById[composerModeSessionId] ?? "default";
-    const sessionCollaborationMode =
-      sessionCollaborationModeById[composerModeSessionId];
-    const draftOnlyRuntimeFallback = selectedSessionId ? null : draftComposerModeSessionId;
-    const planRuntime =
-      sessionPlanRuntimeById[composerModeSessionId] ??
-      (draftOnlyRuntimeFallback
-        ? sessionPlanRuntimeById[draftOnlyRuntimeFallback]
-        : undefined) ??
-      null;
-    const storedGoalRuntime =
-      sessionGoalRuntimeById[composerModeSessionId] ??
-      (draftOnlyRuntimeFallback
-        ? sessionGoalRuntimeById[draftOnlyRuntimeFallback]
-        : undefined) ??
-      null;
-    const goalRuntime =
-      storedGoalRuntime?.source === "goal_intent" ? storedGoalRuntime : null;
-
-    // Note: do NOT include `client`, `workspaceId`, `sessionId`,
-    // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
-    // explicitly to SessionSurface from the per-workspace endpoint resolved
-    // by `resolveWorkspaceEndpoint`. If we leak them in here, the spread of
-    // `surfaceProps` in SessionPage overrides those correct values with the
-    // local server's, and remote workspaces silently end up calling the
-    // local server with the local `rem_*` id.
-    return {
-      workspaceRoot: sessionWorkspaceRoot,
-      developerMode: false,
-      modelLabel,
-      onModelClick: () => {
-        setModelPickerQuery("");
-        setModelPickerOpen(true);
-      },
-      modelPickerOpen: compactModelPickerOpen,
-      modelUnavailable: modelAvailabilityBlocksTask,
-      selectedModel: effectiveModelRef ?? { providerID: "", modelID: "" },
-      sessionAccessMode,
-      onSessionAccessModeChange: (mode: ComposerDraft["accessMode"]) => {
-        setSessionAccessModeById((current) =>
-          applySessionAccessMode(current, composerModeSessionId, mode),
-        );
-      },
-      sessionCollaborationMode,
-      onSessionCollaborationModeChange: (
-        mode: ComposerDraft["collaborationMode"],
-      ) => {
-        setSessionCollaborationModeById((current) =>
-          applySessionScopedValue(current, composerModeSessionId, mode),
-        );
-      },
-      planRuntime,
-      onPlanRuntimeChange: (runtime: CollaborationPlanRuntime | null) => {
-        setSessionPlanRuntimeById((current) =>
-          applySessionScopedValue(current, composerModeSessionId, runtime),
-        );
-      },
-      goalRuntime,
-      onGoalRuntimeChange: (runtime: CollaborationGoalRuntime | null) => {
-        setSessionGoalRuntimeById((current) =>
-          applySessionScopedValue(current, composerModeSessionId, runtime),
-        );
-      },
-      onClearSessionProgress: () => {
-        setLastVisibleTodosBySessionId((current) =>
-          removeSessionScopedValue(current, composerModeSessionId),
-        );
-        if (selectedSessionId) {
-          const currentTodoQueryKey = todoQueryKeyForSession(
-            selectedWorkspaceId,
-            selectedSessionId,
-          );
-          if (currentTodoQueryKey) {
-            getReactQueryClient().setQueryData<TodoItem[]>(
-              currentTodoQueryKey,
-              [],
-            );
-          }
-        }
-        setSessionPlanRuntimeById((current) =>
-          removeSessionScopedValue(current, composerModeSessionId),
-        );
-        setSessionGoalRuntimeById((current) =>
-          removeSessionScopedValue(current, composerModeSessionId),
-        );
-      },
-      onModelPickerOpenChange: setCompactModelPickerOpen,
-      onModelChange: (model: ModelRef) => {
-        setSessionModelOverrideById((current) => ({
-          ...current,
-          [composerModeSessionId]: model,
-        }));
-        setCompactModelPickerOpen(false);
-      },
-      onOpenSettingsSection: (section: SettingsSection) => {
-        handleOpenSettings(routeForSettingsSection(section));
-      },
-      onSendDraft: async (draft: ComposerDraft) => {
-        const text = resolveDraftText(draft);
-        if (!draftHasSendableContent(draft)) return;
-        if (modelAvailabilityBlocksTask)
-          throw new Error(
-            "Selected model is unavailable. Choose another model before sending.",
-          );
-        const planningMode = isComposerPlanningMode(draft.collaborationMode);
-
-        // Honor the "click +新会话 then send" flow: if the user activated
-        // draft mode in `SessionPage`, `forceNewSessionOnNextSendRef` is
-        // true — always create a new session even when a real session is
-        // currently selected.
-        const sendPlan = resolveDraftSendPlan({
-          selectedSessionId,
-          forceNewSession: forceNewSessionOnNextSendRef.current,
-          pageMode,
-          assistantDraftWorkspaceRoot,
-          sessionWorkspaceRoot,
-        });
-        forceNewSessionOnNextSendRef.current = false;
-        const { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
-
-        let skillCommandPrompt: {
-          systemPrompt: string;
-          visiblePrompt: string;
-        } | null = null;
-        if (draft.command) {
-          const command = draft.command;
-          const commandSource =
-            command.source ??
-            (await listCommands(opencodeClient, taskWorkspaceRoot || undefined))
-              .find((item) => item.name === command.name)?.source;
-          const isSkillCommand =
-            commandSource === "skill" || command.name === "expert-manager";
-          if (isSkillCommand) {
-            const skillClient = selectedWorkspaceEndpoint?.client ?? client;
-            const skillWorkspaceId =
-              selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
-            const skill = await skillClient.getSkill(skillWorkspaceId, command.name, {
-              includeGlobal: true,
-            });
-            const skillArguments = command.arguments.trim();
-            skillCommandPrompt = {
-              systemPrompt: [
-                `The user invoked the /${command.name} skill. Read and follow this SKILL.md content for this turn.`,
-                "The user-facing prompt may start with a [[skill:name]] marker; treat it as UI metadata and focus on the arguments after it.",
-                "",
-                "```markdown",
-                skill.content,
-                "```",
-              ].join("\n"),
-              visiblePrompt: `[[skill:${command.name}]] ${skillArguments || command.name}`.trim(),
-            };
-          }
-        }
-
-        let sessionId = sendPlan.initialSessionId;
-        let createdSession: { id: string; directory?: string } | null = null;
-        if (!sessionId) {
-          if (creatingSessionWorkspaceIdsRef.current.has(selectedWorkspaceId))
-            return;
-          creatingSessionWorkspaceIdsRef.current.add(selectedWorkspaceId);
-          try {
-            createdSession = unwrap(
-              await opencodeClient.session.create({
-                directory: taskWorkspaceRoot || undefined,
-              }),
-            );
-            sessionId = createdSession.id;
-            createdSession.directory = taskWorkspaceRoot;
-            if (explicitAssistantWorkspace) {
-              writeAssistantSessionWorkspace({
-                sessionId,
-                ownerWorkspaceId: selectedWorkspaceId,
-                directory: explicitAssistantWorkspace,
-              });
-              dispatchAssistantSessionWorkspacesChanged(selectedWorkspaceId);
-            }
-            const activityStore = useSessionActivityStore.getState();
-            activityStore.startRun(selectedWorkspaceId, sessionId);
-            const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
-            if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
-              activityStore.startRun(runtimeWorkspaceId, sessionId);
-            }
-          } finally {
-            creatingSessionWorkspaceIdsRef.current.delete(selectedWorkspaceId);
-          }
-          if (sessionId) {
-            registerCreatedSessionStartIntent({
-              sessionId,
-              intent: draft.sessionStartIntent,
-              addAssistantSession,
-              addExpertSession,
-              writeAssistantSessionCategory,
-            });
-          }
-        }
-        if (!sessionId) return;
-        if (createdSession) {
-          setSessionsByWorkspaceId((current) => {
-            const next = insertCreatedSessionForWorkspace({
-              current,
-              createdSession,
-              workspaceId: selectedWorkspaceId,
-            });
-            sessionsByWorkspaceIdRef.current = next;
-            return next;
-          });
-          activateCreatedSessionRoute({
-            selectedWorkspaceId,
-            sessionId,
-            setLegacySelectedWorkspaceId,
-            writeActiveWorkspaceId,
-            writeLastSessionFor,
-            rememberPendingCreatedSession,
-            suppressRestoreSessionRef,
-            navigateToWorkspaceSession,
-            setAssistantDraftWorkspaceRoot,
-            focusPromptSoon,
-          });
-        }
-        setSessionAccessModeById((current) =>
-          createdSession
-            ? moveSessionScopedValue(
-                current,
-                composerModeSessionId,
-                sessionId,
-                draft.accessMode ?? "default",
-              )
-            : applySessionAccessMode(current, sessionId, draft.accessMode),
-        );
-        setSessionCollaborationModeById((current) =>
-          createdSession
-            ? moveSessionScopedValue(
-                current,
-                composerModeSessionId,
-                sessionId,
-                draft.collaborationMode,
-              )
-            : applySessionScopedValue(current, sessionId, draft.collaborationMode),
-        );
-        if (createdSession) {
-          setSessionModelOverrideById((current) =>
-            moveSessionModelOverride(current, composerModeSessionId, sessionId),
-          );
-        }
-        const planningIntent = draft.planningIntent;
-        if (planningIntent) {
-          setSessionPlanRuntimeById((current) => {
-            const next = { ...current };
-            delete next[composerModeSessionId];
-            next[sessionId] = {
-              status: "drafting",
-              originalPrompt: planningIntent.originalPrompt,
-              messageBaseline: planningIntent.messageBaseline,
-              createdAt: Date.now(),
-            };
-            return next;
-          });
-        }
-        const goalIntent = draft.goalIntent;
-        if (goalIntent) {
-          const now = Date.now();
-          setSessionGoalRuntimeById((current) => {
-            const next = { ...current };
-            delete next[composerModeSessionId];
-            next[sessionId] = {
-              source: "goal_intent",
-              status: "running",
-              waitingReason: undefined,
-              objective: goalIntent.objective,
-              summary: deriveGoalSummary(goalIntent.objective),
-              messageBaseline: goalIntent.messageBaseline,
-              lastRunMessageBaseline: goalIntent.messageBaseline,
-              startedAt: now,
-              updatedAt: now,
-              totalPausedMs: 0,
-              lastRunStartedAt: now,
-            };
-            return next;
-          });
-        } else if (isComposerGoalMode(draft.collaborationMode)) {
-          const existingGoal =
-            sessionGoalRuntimeById[composerModeSessionId] ??
-            sessionGoalRuntimeById[sessionId];
-          if (existingGoal?.source === "goal_intent") {
-            const now = Date.now();
-            setSessionGoalRuntimeById((current) => {
-              const currentGoal =
-                current[composerModeSessionId] ??
-                current[sessionId] ??
-                existingGoal;
-              const next = { ...current };
-              delete next[composerModeSessionId];
-              next[sessionId] = {
-                ...currentGoal,
-                summary:
-                  currentGoal.summary || deriveGoalSummary(currentGoal.objective),
-                status: "running",
-                waitingReason: undefined,
-                updatedAt: now,
-                lastRunStartedAt: now,
-                completedAt: undefined,
-              };
-              return next;
-            });
-          }
-        }
-
-        const runWithCreatedSessionRuntimeSync = async <T,>(
-          action: () => Promise<T>,
-        ) => {
-          const release =
-            createdSession && selectedWorkspaceEndpoint
-              ? trackWorkspaceSessionSync(
-                  {
-                    workspaceId: selectedWorkspaceEndpoint.workspaceId,
-                    baseUrl: selectedWorkspaceEndpoint.opencodeBaseUrl,
-                    directory: taskWorkspaceRoot,
-                    onmyagentToken: selectedWorkspaceEndpoint.token,
-                    onSessionUpdated: handleRuntimeSessionUpdated,
-                  },
-                  sessionId,
-                )
-              : null;
-          try {
-            return await action();
-          } finally {
-            release?.();
-          }
-        };
-
-        if (draft.mode === "shell") {
-          if (planningMode) {
-            throw new Error(
-              "Plan mode cannot run shell commands. Send a normal prompt to draft the plan first.",
-            );
-          }
-          await runWithCreatedSessionRuntimeSync(async () => {
-            await shellInSession(opencodeClient, sessionId, text, {
-              directory: taskWorkspaceRoot || undefined,
-            });
-          });
-          if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
-          }
-          return;
-        }
-
-        if (draft.command && !skillCommandPrompt) {
-          if (planningMode) {
-            throw new Error(
-              "Plan mode cannot run slash commands directly. Send a normal prompt to draft the plan first.",
-            );
-          }
-          const command = draft.command;
-          const result = await runWithCreatedSessionRuntimeSync(() =>
-            opencodeClient.session.command({
-              sessionID: sessionId,
-              command: command.name,
-              arguments: command.arguments,
-              directory: taskWorkspaceRoot || undefined,
-            }),
-          );
-          if (result.error) {
-            throw new Error(serializeSDKError(result.error));
-          }
-          if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
-          }
-          return;
-        }
-
-        const promptDraft: ComposerDraft = skillCommandPrompt
-          ? {
-              ...draft,
-              command: undefined,
-              text: skillCommandPrompt.visiblePrompt,
-              resolvedText: skillCommandPrompt.visiblePrompt,
-              parts: [
-                { type: "text", text: skillCommandPrompt.visiblePrompt },
-                ...draft.parts.filter(
-                  (part): part is Extract<ComposerPart, { type: "agent" | "file" }> =>
-                    part.type === "agent" || part.type === "file",
-                ),
-              ],
-            }
-          : draft;
-
-        const attachmentUploadTarget = resolveAttachmentUploadTarget({
-          fallbackClient: client,
-          fallbackWorkspaceId: selectedWorkspaceId,
-          workspaceClient: selectedWorkspaceEndpoint?.client,
-          workspaceId: selectedWorkspaceEndpoint?.workspaceId,
-        });
-
-        const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
-          uploadAttachment:
-            attachmentUploadTarget
-              ? (attachment, uploadPath) =>
-                  attachmentUploadTarget.client.uploadInbox(
-                    attachmentUploadTarget.workspaceId,
-                    attachment.file,
-                    { path: uploadPath },
-                  )
-              : undefined,
-        });
-        const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
-          baseUrl: client?.baseUrl ?? null,
-          pid: onmyagentServerHostInfoState?.pid ?? null,
-          port: onmyagentServerHostInfoState?.port ?? null,
-        });
-        const envSystemContext = await buildOnMyAgentEnvSystemContext(client, {
-          cacheKey: sessionId,
-          runtimeKey: envRuntimeKey,
-        });
-        // When the session was started from an agent card, the pending
-        // agent store carries a system prompt (persona, tone, constraints).
-        // Merge it with the env context so both reach the model in one
-        // `system` field. Only applied on the first prompt for a new session
-        // — the store is kept intact for subsequent turns so the transcript
-        // still renders the agent avatar next to assistant messages.
-        const { pendingAgentSnapshot, agentToolAccess } =
-          resolvePendingAgentForPrompt({
-            currentAgent: usePendingAgentStore.getState().getAgent(),
-            createdSession: Boolean(createdSession),
-            sessionId,
-          });
-        const runtimeToolAccess = resolveComposerRuntimeTools(
-          agentToolAccess,
-          draft.collaborationMode,
-        );
-        // Bind the pending agent to the session we just created so the
-        // avatar/system prompt don't bleed into unrelated sessions the
-        // user may navigate to later.
-        if (pendingAgentSnapshot && sessionId) {
-          usePendingAgentStore.getState().setAgent(
-            bindPendingAgentToSession({
-              agent: pendingAgentSnapshot,
-              sessionId,
-            }),
-          );
-          // Persist the custom agent ID so we can restore the agent's avatar
-          // and name when the user re-opens this session later.
-          writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id);
-          writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
-          await installMarketplaceExpertAfterSessionCreated(
-            pendingAgentSnapshot,
-          );
-        }
-        const selectedPromptModel =
-          sessionModelOverrideById[composerModeSessionId] ??
-          pendingAgentSnapshot?.model ??
-          local.prefs.defaultModel ??
-          undefined;
-        const storedRuntimeForGoalPrompt =
-          sessionGoalRuntimeById[composerModeSessionId] ??
-          sessionGoalRuntimeById[sessionId];
-        const runtimeForGoalPrompt =
-          storedRuntimeForGoalPrompt?.source === "goal_intent"
-            ? storedRuntimeForGoalPrompt
-            : undefined;
-        const combinedSystem = joinSystemParts([
-          envSystemContext,
-          skillCommandPrompt?.systemPrompt,
-          buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
-            undefined,
-          pendingAgentSnapshot?.systemPrompt || undefined,
-          buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
-            undefined,
-          buildGoalRuntimeSystemPrompt(
-            draft.goalIntent
-              ? { objective: draft.goalIntent.objective }
-              : runtimeForGoalPrompt,
-          ) || undefined,
-          buildAccessModeSystemPrompt(draft.accessMode) || undefined,
-          draft.hiddenSystemPrompt,
-          buildLanguageSystemPrompt(localeSnapshot),
-        ]);
-        const result = await runWithCreatedSessionRuntimeSync(() =>
-          opencodeClient.session.promptAsync({
-            sessionID: sessionId,
-            parts,
-            ...(draft.messageID ? { messageID: draft.messageID } : {}),
-            // Priority: user's manual override > agent's configured model > global default.
-            // Never modify `pendingAgentSnapshot.model` — the agent's configured model
-            // is owned by the agent page edit dialog.
-            model: selectedPromptModel,
-            agent: selectedAgent ?? undefined,
-            ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-            ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
-            ...(combinedSystem ? { system: combinedSystem } : {}),
-            directory: taskWorkspaceRoot || undefined,
-          }),
-        );
-        if (result.error) {
-          throw new Error(serializeSDKError(result.error));
-        }
-        if (createdSession) {
-          refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
-        }
-      },
-      onDraftChange: () => {
-        // Draft persistence will be wired once the full React shell owns session state.
-      },
-      attachmentsEnabled: true,
-      attachmentsDisabledReason: null,
-      modelVariantLabel,
-      modelVariant: modelVariantValue,
-      modelBehaviorOptions,
-      onModelVariantChange: (value: string | null) => {
-        local.setPrefs((previous) => ({ ...previous, modelVariant: value }));
-      },
-      agentLabel: selectedAgent
-        ? selectedAgent.charAt(0).toUpperCase() + selectedAgent.slice(1)
-        : t("session.default_agent"),
-      selectedAgent,
-      listAgents: async () => {
-        const list = unwrap(await opencodeClient.app.agents());
-        return list.filter(
-          (agent) => !agent.hidden && agent.mode !== "subagent",
-        );
-      },
-      onSelectAgent: (agent: string | null) => setSelectedAgent(agent),
-      listCommands: listSlashCommands,
-      recentFiles: [],
-      searchFiles: async (query: string) => {
-        const trimmed = query.trim();
-        if (!trimmed) return [];
-        const result = unwrap(
-          await opencodeClient.find.files({
-            query: trimmed,
-            dirs: "true",
-            limit: 50,
-            directory: sessionWorkspaceRoot || undefined,
-          }),
-        );
-        return result;
-      },
-      isRemoteWorkspace: selectedWorkspace?.workspaceType === "remote",
-      isSandboxWorkspace: selectedWorkspace
-        ? isSandboxWorkspace(selectedWorkspace)
-        : false,
-      onRevertToMessage: (messageId: string) => {
-        void (async () => {
-          if (!selectedSessionId) return;
-          try {
-            // Abort any running generation first, like the actions-store does
-            try {
-              await opencodeClient.session.abort({
-                sessionID: selectedSessionId,
-              });
-            } catch {
-              /* ok if not running */
-            }
-            await revertSession(opencodeClient, selectedSessionId, messageId);
-            // Force a full reload of the session to pick up reverted state
-            navigateToWorkspaceSession(selectedWorkspaceId, selectedSessionId);
-            void refreshRouteState();
-          } catch (error) {
-            console.warn("[revert] failed", error);
-          }
-        })();
-      },
-      onForkAtMessage: (messageId: string) => {
-        void (async () => {
-          if (!selectedSessionId) return;
-          try {
-            const forked = await forkSession(
-              opencodeClient,
-              selectedSessionId,
-              messageId,
-            );
-            writeLastSessionFor(selectedWorkspaceId, forked.id);
-            rememberPendingCreatedSession(selectedWorkspaceId, forked.id);
-            setSessionsByWorkspaceId((current) =>
-              insertSidebarSession({
-                current,
-                workspaceId: selectedWorkspaceId,
-                session: forked,
-              }),
-            );
-            navigateToWorkspaceSession(selectedWorkspaceId, forked.id);
-            void refreshRouteState();
-          } catch (error) {
-            console.warn("[fork] failed", error);
-          }
-        })();
-      },
-      onChangeModel: (model: { providerID: string; modelID: string }) => {
-        setSessionModelOverrideById((current) => ({
-          ...current,
-          [composerModeSessionId]: model,
-        }));
-      },
-      draftWorkspaceDirectory:
-        pageMode === "assistant" || pageMode === "expert"
-          ? assistantDraftWorkspaceRoot
-          : null,
-      onPickDraftWorkspace:
-        pageMode === "assistant" || pageMode === "expert"
-          ? () => {
-              void pickDirectory({ title: t("session.choose_workspace") }).then((directory) => {
-                if (typeof directory === "string" && directory.trim()) {
-                  setAssistantDraftWorkspaceRoot(directory.trim());
-                }
-              });
-            }
-          : undefined,
-      onClearDraftWorkspace:
-        pageMode === "assistant" || pageMode === "expert"
-          ? () => setAssistantDraftWorkspaceRoot("")
-          : undefined,
-    };
-  }, [
-    client,
+  const surfaceProps = useSessionRouteSurfaceProps({
     assistantDraftWorkspaceRoot,
+    client,
     compactModelPickerOpen,
+    creatingSessionWorkspaceIdsRef,
     effectiveModelRef,
-    handleRuntimeSessionUpdated,
+    forceNewSessionOnNextSendRef,
     handleOpenSettings,
-    local,
+    handleRuntimeSessionUpdated,
     listSlashCommands,
+    local,
+    localeSnapshot,
     modelAvailabilityBlocksTask,
     modelBehaviorOptions,
     modelLabel,
     modelVariantLabel,
     modelVariantValue,
     navigate,
+    navigateToWorkspaceSession,
+    onmyagentServerHostInfoState,
     opencodeBaseUrl,
     opencodeClient,
     pageMode,
     refreshCreatedSessionSnapshot,
+    refreshRouteState,
+    rememberPendingCreatedSession,
     selectedAgent,
     selectedSessionId,
     selectedWorkspace,
@@ -2801,252 +1865,82 @@ export function SessionRouteRender() {
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
     sessionsByWorkspaceId,
+    sessionsByWorkspaceIdRef,
+    setAssistantDraftWorkspaceRoot,
+    setCompactModelPickerOpen,
+    setLastVisibleTodosBySessionId,
+    setLegacySelectedWorkspaceId,
+    setModelPickerOpen,
+    setModelPickerQuery,
+    setSelectedAgent,
+    setSessionAccessModeById,
+    setSessionCollaborationModeById,
+    setSessionGoalRuntimeById,
+    setSessionModelOverrideById,
+    setSessionPlanRuntimeById,
+    setSessionsByWorkspaceId,
+    suppressRestoreSessionRef,
     token,
-  ]);
-
-  const handleOpenCreateWorkspace = useCallback(() => {
-    // Respect the org-level `allowMultipleWorkspaces` restriction (dev
-    // #1505). If the checker returns true, the admin has disabled
-    // adding further workspaces; surface a friendly notice instead of
-    // opening the modal.
-    if (shouldBlockCreateWorkspaceForRestriction({
-      multipleWorkspacesRestricted: checkDesktopRestriction({ restriction: "allowMultipleWorkspaces" }),
-      workspaceCount: workspaces.length,
-    })) {
-      restrictionNotice.show({
-        title: t("workspace_list.restricted_workspaces_title"),
-        message:
-          t("workspace_list.restricted_workspaces_message"),
-      });
-      return;
-    }
-    setCreateWorkspaceRemoteError(null);
-    setCreateWorkspaceOpen(true);
-  }, [checkDesktopRestriction, restrictionNotice, workspaces.length]);
-
-  const handleOpenRenameWorkspace = useCallback(
-    (workspaceId: string) => {
-      const target = resolveRenameWorkspaceTarget({ workspaceId, workspaces });
-      if (!target) return;
-      setRenameWorkspaceId(target.workspaceId);
-      setRenameWorkspaceTitle(target.title);
-    },
-    [workspaces],
-  );
-
-  const handleSaveRenameWorkspace = useCallback(async () => {
-    if (!renameWorkspaceId) return;
-    const trimmed = renameWorkspaceTitle.trim();
-    if (!trimmed) return;
-    setRenameWorkspaceBusy(true);
-    try {
-      await renameSessionWorkspaceAndRefresh({
-        workspaceId: renameWorkspaceId,
-        displayName: trimmed,
-        onmyagentClient: client,
-        refreshRouteState,
-      });
-      setRenameWorkspaceId(null);
-      setRenameWorkspaceTitle("");
-    } finally {
-      setRenameWorkspaceBusy(false);
-    }
-  }, [client, refreshRouteState, renameWorkspaceId, renameWorkspaceTitle]);
-
-  const handleRevealWorkspace = useCallback(
-    async (workspaceId: string) => {
-      const path = resolveWorkspaceRevealTarget({ workspaceId, workspaces });
-      if (!path || !isDesktopRuntime()) return;
-      await revealSessionWorkspacePath(path);
-    },
-    [workspaces],
-  );
-
-  const handleShareWorkspace = useCallback(
-    (workspaceId: string) => {
-      shareWorkspaceState.openShareWorkspace(workspaceId);
-    },
-    [shareWorkspaceState],
-  );
-
-  const handleSaveShareRemoteAccess = useCallback(
-    async (enabled: boolean) => {
-      if (!isDesktopRuntime()) return;
-      await remoteAccessRestart.save(enabled);
-    },
-    [remoteAccessRestart],
-  );
-
-  const handleExportWorkspaceConfig = useCallback(
-    async (workspaceId: string) => {
-      if (!isDesktopRuntime()) return;
-      const target = resolveWorkspaceExportTarget({ workspaceId, workspaces });
-      if (!target) return;
-      const outputPath = await pickDirectory({
-        title: target.title,
-      });
-      const targetPath = normalizePickedDirectory(outputPath);
-      if (!targetPath) return;
-      await exportSessionWorkspaceConfig({ workspaceId: target.workspaceId, outputPath: targetPath });
-    },
-    [workspaces],
-  );
-
-  const handleForgetWorkspace = useCallback(
-    async (workspaceId: string) => {
-      if (typeof window !== "undefined") {
-        const message =
-          t("workspace_list.remove_confirm") ||
-          "Remove this workspace from the sidebar?";
-        if (!window.confirm(message)) return;
-      }
-      await forgetSessionWorkspaceAndRefresh({ workspaceId, onmyagentClient: client, refreshRouteState });
-      if (shouldNavigateAfterForgettingWorkspace({ selectedWorkspaceId, workspaceId })) {
-        setLegacySelectedWorkspaceId("");
-        writeActiveWorkspaceId(null);
-        navigate(legacySessionRoute());
-      }
-      forgetWorkspaceMemory(workspaceId);
-    },
-    [client, navigate, refreshRouteState, selectedWorkspaceId],
-  );
-
-  const runRemoteWorkspaceConnectionCheck = useCallback(
-    async (workspaceId: string, mode: "test" | "recover") => {
-      remoteWorkspaceCheckRunCounterRef.current += 1;
-      const runId = String(remoteWorkspaceCheckRunCounterRef.current);
-      const target = resolveSessionRemoteWorkspaceConnectionCheckTarget({
-        runId,
-        workspaceId,
-        workspaces: workspacesRef.current,
-      });
-      if (!target) return false;
-      remoteWorkspaceCheckRunRef.current[workspaceId] = runId;
-
-      setWorkspaceConnectionOverrides((current) =>
-        setWorkspaceConnectionStateById({
-          states: current,
-          workspaceId,
-          state: buildSessionRemoteWorkspaceConnectingState(),
-        }),
-      );
-
-      const check = await runSessionRemoteWorkspaceConnectionCheckTarget(target);
-      if (!check) return false;
-      const currentWorkspace = findRouteWorkspace(workspacesRef.current, workspaceId);
-      if (!sessionRemoteWorkspaceConnectionCheckIsCurrent({
-        activeRunByWorkspaceId: remoteWorkspaceCheckRunRef.current,
-        check,
-        currentWorkspace,
-      })) {
-        clearWorkspaceConnectionCheckRun({
-          activeRunByWorkspaceId: remoteWorkspaceCheckRunRef.current,
-          workspaceId,
-          runId: check.runId,
-        });
-        return false;
-      }
-      setWorkspaceConnectionOverrides((current) =>
-        setWorkspaceConnectionStateById({
-          states: current,
-          workspaceId,
-          state: check.result.state,
-        }),
-      );
-
-      if (!check.result.ok) {
-        setErrorsByWorkspaceId((current) => ({
-          ...current,
-          [workspaceId]:
-            check.result.state.message ?? t("app.error_remote_worker_connection_failed"),
-        }));
-        clearWorkspaceConnectionCheckRun({
-          activeRunByWorkspaceId: remoteWorkspaceCheckRunRef.current,
-          workspaceId,
-          runId: check.runId,
-        });
-        return false;
-      }
-
-      setErrorsByWorkspaceId((current) => ({
-        ...current,
-        [workspaceId]: null,
-      }));
-      setRetryingWorkspaceIds((current) =>
-        current.filter((id) => id !== workspaceId),
-      );
-      if (mode === "recover") {
-        await refreshRouteState();
-      }
-      clearWorkspaceConnectionCheckRun({
-        activeRunByWorkspaceId: remoteWorkspaceCheckRunRef.current,
-        workspaceId,
-        runId: check.runId,
-      });
-      return true;
-    },
-    [refreshRouteState],
-  );
-
-  const handleCreateTaskInWorkspace = useCallback(
-    async (workspaceId: string) => {
-      const navigation = resolveCreateTaskWorkspaceNavigation({
-        workspaces,
-        workspaceId,
-        loading,
-        retryingWorkspaceIds,
-      });
-      if (!navigation) return;
-      // Clear any stale pending-agent context so a plain "+新任务" navigation
-      // doesn't inherit the previous agent card's persona/welcome card. The
-      // agent card flow re-sets `pendingAgent` immediately after calling
-      // `onCreateTaskInWorkspace`, so this clear is always "overridden" in
-      // that path.
-      usePendingAgentStore.getState().setAgent(null);
-      setAssistantDraftWorkspaceRoot("");
-      setLegacySelectedWorkspaceId(navigation.workspaceId);
-      writeActiveWorkspaceId(navigation.activeWorkspaceId);
-      suppressRestoreSessionRef.current = true;
-      navigateToWorkspaceSession(navigation.workspaceId, null);
-      focusPromptSoon();
-    },
-    [loading, navigateToWorkspaceSession, retryingWorkspaceIds, workspaces],
-  );
-
-  // Global shortcuts:
-  //   Cmd/Ctrl+N  -> new task in selected workspace
-  //   Cmd/Ctrl+K  -> toggle command palette
-  const handleGlobalShortcut = useEffectEvent((event: KeyboardEvent) => {
-    const shortcut = resolveSessionRouteGlobalShortcut({
-      key: event.key,
-      metaKey: event.metaKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      altKey: event.altKey,
-      platform: typeof navigator !== "undefined" ? navigator.platform : null,
-      target: event.target,
-      canCreateTask,
-      selectedWorkspaceId,
-    });
-
-    if (shortcut.action === "create-task") {
-      event.preventDefault();
-      if (shortcut.workspaceId) {
-        void handleCreateTaskInWorkspace(shortcut.workspaceId);
-      }
-      return;
-    }
-    if (shortcut.action === "toggle-command-palette") {
-      event.preventDefault();
-      setCommandPaletteOpen((value) => !value);
-    }
   });
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => handleGlobalShortcut(event);
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+  const {
+    handleOpenCreateWorkspace,
+    handleOpenRenameWorkspace,
+    handleSaveRenameWorkspace,
+    handleRevealWorkspace,
+    handleShareWorkspace,
+    handleSaveShareRemoteAccess,
+    handleExportWorkspaceConfig,
+    handleForgetWorkspace,
+    runRemoteWorkspaceConnectionCheck,
+    handleCreateTaskInWorkspace,
+    handleReorderWorkspaces,
+    handleCreateWorkspace,
+    handleCreateRemoteWorkspace,
+  } = useSessionRouteWorkspaceInteraction({
+    checkDesktopRestriction,
+    client,
+    loading,
+    local,
+    navigate,
+    navigateToWorkspaceSession,
+    refreshRouteState,
+    remoteAccessRestart,
+    remoteWorkspaceCheckRunCounterRef,
+    remoteWorkspaceCheckRunRef,
+    renameWorkspaceId,
+    renameWorkspaceTitle,
+    restrictionNotice,
+    retryingWorkspaceIds,
+    selectedWorkspaceId,
+    setAssistantDraftWorkspaceRoot,
+    setCreateWorkspaceBusy,
+    setCreateWorkspaceError,
+    setCreateWorkspaceOpen,
+    setCreateWorkspaceRemoteBusy,
+    setCreateWorkspaceRemoteError,
+    setErrorsByWorkspaceId,
+    setLegacySelectedWorkspaceId,
+    setRenameWorkspaceBusy,
+    setRenameWorkspaceId,
+    setRenameWorkspaceTitle,
+    setRetryingWorkspaceIds,
+    setWorkspaceConnectionOverrides,
+    setWorkspaceOrderIds,
+    setWorkspaces,
+    shareWorkspaceState,
+    suppressRestoreSessionRef,
+    workspaces,
+    workspacesRef,
+    workspaceOrderIdsRef,
+  });
+
+  useSessionRouteGlobalShortcuts({
+    canCreateTask,
+    handleCreateTaskInWorkspace,
+    selectedWorkspaceId,
+    setCommandPaletteOpen,
+  });
 
   const navigateToSessionForControl = useCallback(
     (sessionId: string) => {
@@ -3104,84 +1998,6 @@ export function SessionRouteRender() {
       selectedWorkspaceId,
     }),
     [sessionsByWorkspaceId, selectedWorkspaceId, workspaces],
-  );
-
-  const handleReorderWorkspaces = useCallback((workspaceIds: string[]) => {
-    const nextOrderIds = buildWorkspaceReorderIds({
-      workspaces: workspacesRef.current,
-      requestedWorkspaceIds: workspaceIds,
-    });
-
-    workspaceOrderIdsRef.current = nextOrderIds;
-    setWorkspaceOrderIds(nextOrderIds);
-    writeWorkspaceOrderIds(nextOrderIds);
-    setWorkspaces((current) => orderRouteWorkspaces(current, nextOrderIds));
-  }, []);
-
-  const handleCreateWorkspace = useCallback(
-    async (preset: WorkspacePreset, folder: string | null) => {
-      if (!folder) return;
-      setCreateWorkspaceBusy(true);
-      setCreateWorkspaceError(null);
-      try {
-        const targetWorkspaceId = await createLocalSessionWorkspaceAndRefresh({
-          folder,
-          preset,
-          onmyagentClient: client,
-          refreshRouteState,
-        });
-        setCreateWorkspaceOpen(false);
-        // Mark onboarding complete so the /welcome redirect never fires again.
-        local.setPrefs((prev) => ({ ...prev, hasCompletedOnboarding: true }));
-        if (targetWorkspaceId) {
-          setLegacySelectedWorkspaceId(targetWorkspaceId);
-          writeActiveWorkspaceId(targetWorkspaceId);
-          navigateToWorkspaceSession(targetWorkspaceId, null, {
-            replace: true,
-          });
-        }
-      } catch (error) {
-        setCreateWorkspaceError(describeWorkspaceCreateError(error));
-      } finally {
-        setCreateWorkspaceBusy(false);
-      }
-    },
-    [
-      client,
-      local,
-      navigateToWorkspaceSession,
-      refreshRouteState,
-    ],
-  );
-
-  const handleCreateRemoteWorkspace = useCallback(
-    async (input: {
-      onmyagentHostUrl?: string | null;
-      onmyagentToken?: string | null;
-      directory?: string | null;
-      displayName?: string | null;
-    }) => {
-      const baseUrlValue = input.onmyagentHostUrl?.trim() ?? "";
-      if (!baseUrlValue) return false;
-      setCreateWorkspaceRemoteBusy(true);
-      setCreateWorkspaceRemoteError(null);
-      try {
-        const created = await createRemoteSessionWorkspaceAndRefresh({ ...input, refreshRouteState });
-        if (!created) return false;
-        setCreateWorkspaceOpen(false);
-        // Mark onboarding complete so the /welcome redirect never fires again.
-        local.setPrefs((prev) => ({ ...prev, hasCompletedOnboarding: true }));
-        return true;
-      } catch (error) {
-        setCreateWorkspaceRemoteError(
-          error instanceof Error ? error.message : t("app.unknown_error"),
-        );
-        return false;
-      } finally {
-        setCreateWorkspaceRemoteBusy(false);
-      }
-    },
-    [local, refreshRouteState],
   );
 
   const developerMode = readDeveloperModeEnabled();
@@ -3657,133 +2473,42 @@ export function SessionRouteRender() {
           }
           onSignOut={handleSignOut}
         />
-        <CreateWorkspaceModal
-          open={createWorkspaceOpen}
-          onClose={() => {
-            setCreateWorkspaceOpen(false);
-            setCreateWorkspaceError(null);
-          }}
-          onConfirm={handleCreateWorkspace}
-          onConfirmRemote={handleCreateRemoteWorkspace}
-          onPickFolder={() =>
-            pickDirectory({
-              title: t("onboarding.authorize_folder"),
-            }) as Promise<string | null>
-          }
-          submitting={createWorkspaceBusy}
-          localError={createWorkspaceError}
-          remoteSubmitting={createWorkspaceRemoteBusy}
-          remoteError={createWorkspaceRemoteError}
-        />
-        <CreateRemoteWorkspaceModal
-          open={remoteWorkspaceConnectionEditor.workspace !== null}
-          onClose={remoteWorkspaceConnectionEditor.close}
-          onConfirm={(input) =>
-            void remoteWorkspaceConnectionEditor.save(input)
-          }
-          initialValues={remoteWorkspaceConnectionEditor.initialValues}
-          submitting={remoteWorkspaceConnectionEditor.busy}
-          error={remoteWorkspaceConnectionEditor.error}
-          title={t("dashboard.edit_remote_workspace_title")}
-          subtitle={t("dashboard.edit_remote_workspace_subtitle")}
-          confirmLabel={t("dashboard.edit_remote_workspace_confirm")}
-        />
-        <RenameWorkspaceModal
-          open={renameWorkspaceId !== null}
-          title={renameWorkspaceTitle}
-          busy={renameWorkspaceBusy}
-          canSave={
-            !renameWorkspaceBusy && renameWorkspaceTitle.trim().length > 0
-          }
-          onClose={() => {
-            if (renameWorkspaceBusy) return;
-            setRenameWorkspaceId(null);
-            setRenameWorkspaceTitle("");
-          }}
-          onSave={() => void handleSaveRenameWorkspace()}
-          onTitleChange={setRenameWorkspaceTitle}
-        />
-        <CommandPalette
-          open={commandPaletteOpen}
-          onClose={() => setCommandPaletteOpen(false)}
-          onCreateNewSession={() => {
-            if (selectedWorkspaceId) {
-              void handleCreateTaskInWorkspace(selectedWorkspaceId);
-            }
-          }}
-          onOpenSession={(workspaceId, sessionId) =>
-            navigateToWorkspaceSession(workspaceId, sessionId)
-          }
-          onOpenSettings={(route) =>
-            handleOpenSettings(route ?? "/settings/general")
-          }
-          accessibleTargets={paletteAccessibleTargets}
-          onOpenAccessibleTarget={(target) => {
-            try {
-              window.dispatchEvent(
-                new CustomEvent("onmyagent-open-accessible-target", {
-                  detail: target,
-                }),
-              );
-            } catch {
-              // ignore event dispatch failures
-            }
-          }}
-          onHideAccessibleTarget={(target) => {
-            try {
-              window.dispatchEvent(
-                new CustomEvent("onmyagent-hide-accessible-target", {
-                  detail: target,
-                }),
-              );
-            } catch {
-              // ignore event dispatch failures
-            }
-          }}
-          sessions={paletteSessionOptions}
-        />
-        <ModelPickerModal
-          open={modelPickerOpen}
-          options={allowedModelOptions}
-          query={modelPickerQuery}
-          setQuery={setModelPickerQuery}
-          target="default"
-          current={
-            local.prefs.defaultModel ??
-            ({ providerID: "", modelID: "" } satisfies ModelRef)
-          }
-          onSelect={(next: ModelRef) => {
-            local.setPrefs((previous) => updateDefaultModelPrefs(previous, next));
-            setModelPickerOpen(false);
-          }}
-          disabledProviders={disabledProviderIds}
-          onBehaviorChange={() => {}}
-          onToggleProvider={async (providerId, enable) => {
-            if (!opencodeClient) return;
-            try {
-              const config = unwrap(await opencodeClient.config.get()) as {
-                disabled_providers?: string[];
-              };
-              const current = Array.isArray(config.disabled_providers)
-                ? config.disabled_providers
-                : [];
-              const next = enable
-                ? current.filter((id: string) => id !== providerId)
-                : [...current, providerId];
-              await opencodeClient.config.update({
-                config: { ...config, disabled_providers: next },
-              });
-              setDisabledProviderIds(next);
-            } catch {}
-          }}
-          onOpenSettings={() => {
-            setModelPickerOpen(false);
-            handleOpenSettings("/settings/general");
-          }}
-          onClose={() => {
-            setModelPickerOpen(false);
-            setRecentProviderIds(new Set());
-          }}
+        <SessionRouteModals
+          createWorkspaceOpen={createWorkspaceOpen}
+          setCreateWorkspaceOpen={setCreateWorkspaceOpen}
+          setCreateWorkspaceError={setCreateWorkspaceError}
+          handleCreateWorkspace={handleCreateWorkspace}
+          handleCreateRemoteWorkspace={handleCreateRemoteWorkspace}
+          createWorkspaceBusy={createWorkspaceBusy}
+          createWorkspaceError={createWorkspaceError}
+          createWorkspaceRemoteBusy={createWorkspaceRemoteBusy}
+          createWorkspaceRemoteError={createWorkspaceRemoteError}
+          remoteWorkspaceConnectionEditor={remoteWorkspaceConnectionEditor}
+          renameWorkspaceId={renameWorkspaceId}
+          renameWorkspaceTitle={renameWorkspaceTitle}
+          renameWorkspaceBusy={renameWorkspaceBusy}
+          setRenameWorkspaceId={setRenameWorkspaceId}
+          setRenameWorkspaceTitle={setRenameWorkspaceTitle}
+          handleSaveRenameWorkspace={handleSaveRenameWorkspace}
+          commandPaletteOpen={commandPaletteOpen}
+          setCommandPaletteOpen={setCommandPaletteOpen}
+          selectedWorkspaceId={selectedWorkspaceId}
+          handleCreateTaskInWorkspace={handleCreateTaskInWorkspace}
+          navigateToWorkspaceSession={navigateToWorkspaceSession}
+          handleOpenSettings={handleOpenSettings}
+          paletteAccessibleTargets={paletteAccessibleTargets}
+          paletteSessionOptions={paletteSessionOptions}
+          modelPickerOpen={modelPickerOpen}
+          setModelPickerOpen={setModelPickerOpen}
+          allowedModelOptions={allowedModelOptions}
+          modelPickerQuery={modelPickerQuery}
+          setModelPickerQuery={setModelPickerQuery}
+          defaultModel={local.prefs.defaultModel}
+          setPrefs={local.setPrefs}
+          disabledProviderIds={disabledProviderIds}
+          setDisabledProviderIds={setDisabledProviderIds}
+          setRecentProviderIds={setRecentProviderIds}
+          opencodeClient={opencodeClient}
         />
       </WorkspaceProvider>
     </CloudSessionProvider>
