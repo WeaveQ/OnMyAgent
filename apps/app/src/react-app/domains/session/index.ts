@@ -15,6 +15,7 @@ export {
   SessionPage,
   type PageMode,
   type SessionAgentManagementIntent,
+  type SessionPageSurfaceProps,
 } from "./pages";
 export {
   MAX_SESSIONS_PREVIEW,
