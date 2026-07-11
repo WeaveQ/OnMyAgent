@@ -100,7 +100,6 @@ import {
   sessionTitleForId,
   type TaskStatusIndicator,
 } from "./session-page-model";
-import { MessagingChannelsPage } from "./session-page-messaging-page";
 import { OnMyAgentRail } from "./session-page-rail";
 import { useSessionPageSessionActions } from "./session-page-session-actions";
 import { useSessionPageSidePanel } from "./session-page-side-panel";
@@ -108,7 +107,9 @@ import {
   buildSessionPageViewModel,
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
-import { StorePage, WorkspaceFilesPage, type StorePrimaryTab } from "../components/shared-pages";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
+import { StorePage, type StorePrimaryTab } from "../components/shared-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {

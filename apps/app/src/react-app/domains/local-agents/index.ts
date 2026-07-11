@@ -4,7 +4,7 @@
  * Internal modules may keep deep relative imports.
  */
 
-// Agent management page + OpenCode provider dialog (session re-exports for compat)
+// Agent management page + OpenCode provider dialog
 export { AgentManagementPage } from "./agent-management/agent-management-page";
 export { OpenCodeProviderConfigDialog } from "./agent-management/agent-management-providers";
 

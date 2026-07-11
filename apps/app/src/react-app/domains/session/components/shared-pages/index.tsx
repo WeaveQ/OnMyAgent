@@ -35,14 +35,10 @@ export {
 } from "./side-panel-pages";
 export type { StorePrimaryTab } from "./side-panel-pages";
 
-export { AgentManagementPage } from "../../../local-agents";
-export { WorkspaceFilesPage } from "../../../workspace/workspace-files-page";
-export { MessagingChannelsPage } from "../../../messaging/messaging-channels-page";
 export { EmptyArtifactsPanel } from "./empty-artifacts-panel";
 export { AgentConversationPanel } from "./agent-conversation-panel";
 export { SidebarPaneCollapseToggle } from "./sidebar-pane-collapse-toggle";
 export { AgentSessionTabs } from "./agent-session-tabs";
-export { AutomationPage } from "../../../messaging/automation-page";
 
 export {
   ResizableHandle,

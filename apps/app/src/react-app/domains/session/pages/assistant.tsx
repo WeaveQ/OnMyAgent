@@ -62,12 +62,13 @@ import type {
 import { usePendingAgentStore } from "../../agents/pending-agent-store";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
+import { AgentManagementPage } from "../../local-agents";
+import { AutomationPage, MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
 import {
   AgentConversationPanel,
-  AgentManagementPage,
   BillingPage,
   DevicesPage,
-  MessagingChannelsPage,
   ProjectsComingSoonPage,
   ResizableHandle,
   ResizablePanel,
@@ -77,11 +78,9 @@ import {
   STARTUP_SKELETON_ROWS,
   StorePage,
   OnMyAgentRail,
-  WorkspaceFilesPage,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
-  AutomationPage,
   GLOBAL_VOICE_SIDE_PANEL_KEY,
   hiddenAccessibleTargetsStorageKey,
   readHiddenAccessibleTargetIds,

@@ -87,6 +87,9 @@ import {
   resolveAgentAvatarUrl,
 } from "../../agents/agent-registry-helpers";
 import type { AgentRegistry } from "../../agents/agent-registry-types";
+import { AgentManagementPage } from "../../local-agents";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
 import {
   buildAgentConversationGroups,
   ensureAgentSessionGroupVisible,
@@ -94,12 +97,10 @@ import {
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
   AgentConversationPanel,
-  AgentManagementPage,
   AgentSessionTabs,
   BillingPage,
   DevicesPage,
   EmptyArtifactsPanel,
-  MessagingChannelsPage,
   ProjectsComingSoonPage,
   ResizableHandle,
   ResizablePanel,
@@ -109,7 +110,6 @@ import {
   STARTUP_SKELETON_ROWS,
   StorePage,
   OnMyAgentRail,
-  WorkspaceFilesPage,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
