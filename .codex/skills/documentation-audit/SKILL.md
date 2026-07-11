@@ -43,7 +43,7 @@ For non-trivial Loop work, read `docs/loop/rules.md` after `AGENTS.md`.
 docs/
   README.md  Architecture.md  release.md
   loop/rules.md  loop/incidents.md
-  design/*  features/*.md
+  design/*
 ```
 
 ## Core Sources Of Truth
@@ -61,10 +61,9 @@ docs/
 | Local packaging | `BUILD.md` |
 | Release / tags | `docs/release.md` |
 | Package docs | `apps/*/README.md`, `packages/*/README.md` |
-| Feature designs | `docs/features/*.md` |
 | Project skills | `.codex/skills/*/SKILL.md`, `.opencode/skills/*/SKILL.md` |
-| Local execution plans | `.loop/plans/` only |
-| Ignored paths | `docs/plans/`, `docs/archive/`, `.loop/*` |
+| Local execution plans / feature drafts | `.loop/` only |
+| Ignored paths | `docs/plans/`, `docs/archive/`, `docs/features/`, `.loop/*` |
 | Skill sync strategy | `references/skills-sync.md` |
 
 ## Audit Commands
@@ -75,7 +74,7 @@ Run focused scans before editing:
 CORE_DOCS=(
   README.md README-zh.md BUILD.md CONTRIBUTING.md AGENTS.md
   docs/README.md docs/Architecture.md docs/release.md
-  docs/loop/rules.md docs/loop/incidents.md docs/features/session-goal.md
+  docs/loop/rules.md docs/loop/incidents.md
   apps/server/README.md apps/orchestrator/README.md
   packages/ui/README.md packages/handsfree/README.md
   apps/app/src/react-app/ARCHITECTURE.md
@@ -96,26 +95,23 @@ git ls-files '*.md' '*.mdx' | awk -F/ '{print $1"/"$2}' | sort | uniq -c | sort 
 # large docs
 git ls-files '*.md' '*.mdx' | grep -v '^apps/desktop/dist-electron/' | xargs wc -l | sort -nr | head -n 50
 
-# Plan ledgers must not be tracked
-if git ls-files 'docs/plans/**' 'docs/archive/**' 2>/dev/null | grep -q .; then
-  echo 'WARN: tracked plan/archive files found; remove them and keep plans in .loop/plans/'
-  git ls-files 'docs/plans/**' 'docs/archive/**'
+# Plan / feature draft trees must not be tracked
+if git ls-files 'docs/plans/**' 'docs/archive/**' 'docs/features/**' 2>/dev/null | grep -q .; then
+  echo 'WARN: tracked plan/feature draft files found; keep drafts in .loop/'
+  git ls-files 'docs/plans/**' 'docs/archive/**' 'docs/features/**'
 fi
 ```
 
 Scan local `.loop/archive/**` only when investigating history.
 
-Compatibility references in tracked pointer docs may be valid when they explicitly describe read-only migration behavior. Classify them before editing.
-
-Execution plans stay in `.loop/plans/` (gitignored). `docs/plans/` and `docs/archive/` are gitignored. Feature **design** contracts may live under `docs/features/`; do not commit plan ledgers there.
+Execution plans and feature design drafts stay in `.loop/` (gitignored). Do not reintroduce `docs/plans/`, `docs/archive/`, or `docs/features/`.
 
 ## Local Loop State Policy
 
 - `.loop/state/PROGRESS.md` holds current local handoff when needed.
 - `.loop/runs/YYYY-MM-DD.md` holds current-day local run history.
-- Do not add progress / run-log / plan stubs under `docs/`.
-- Feature behavior contracts may live as `docs/features/*.md`.
-- Put execution plans and evidence under `.loop/`.
+- Do not add progress / run-log / plan / feature-draft trees under `docs/`.
+- Put execution plans, feature drafts, and evidence under `.loop/`.
 
 Use a link smoke for core docs:
 
@@ -123,7 +119,7 @@ Use a link smoke for core docs:
 python3 - <<'PY'
 from pathlib import Path
 import re
-files = [Path(p) for p in ['README.md','README-zh.md','BUILD.md','CONTRIBUTING.md','AGENTS.md','docs/README.md','docs/Architecture.md','docs/release.md','docs/loop/rules.md','docs/loop/incidents.md','docs/features/session-goal.md','apps/server/README.md','apps/orchestrator/README.md','packages/ui/README.md','packages/handsfree/README.md','apps/app/src/react-app/ARCHITECTURE.md']]
+files = [Path(p) for p in ['README.md','README-zh.md','BUILD.md','CONTRIBUTING.md','AGENTS.md','docs/README.md','docs/Architecture.md','docs/release.md','docs/loop/rules.md','docs/loop/incidents.md','apps/server/README.md','apps/orchestrator/README.md','packages/ui/README.md','packages/handsfree/README.md','apps/app/src/react-app/ARCHITECTURE.md']]
 missing=[]
 for f in files:
     if not f.exists():
@@ -147,7 +143,7 @@ PY
 - Keep `.loop/state/PROGRESS.md` short when local handoff is useful.
 - Keep `docs/README.md` as the only full map; do not reintroduce stub pointer files.
 - Write routine validation/history to `.loop/runs/YYYY-MM-DD.md`.
-- Keep execution plans in `.loop/plans/` only. Never commit `docs/plans/` or `docs/archive/`.
+- Keep execution plans in `.loop/plans/` only. Never commit `docs/plans/`, `docs/archive/`, or `docs/features/`.
 - Update `README.md` and `README-zh.md` together for public capability or roadmap changes.
 - Update package README files when root command wrappers supersede package-private commands.
 - Do not edit generated/runtime docs under `apps/desktop/dist-electron/**`, `graphify-out/**`, or runtime cache paths.
@@ -156,7 +152,7 @@ PY
 ## Recommended Fix Order
 
 1. Loop rules: load `AGENTS.md` and `docs/loop/rules.md`; keep dynamic state in `.loop/`.
-2. Plans cleanup: ensure no tracked files under `docs/plans/` or `docs/archive/`; AI ledgers only in `.loop/plans/`.
+2. Plans cleanup: ensure no tracked files under `docs/plans/`, `docs/archive/`, or `docs/features/`; AI ledgers only in `.loop/plans/`.
 3. Public docs: align `README.md`, `README-zh.md`, `CONTRIBUTING.md`, and `BUILD.md` with current commands and capabilities.
 4. Architecture docs: align `docs/Architecture.md` and `apps/app/src/react-app/ARCHITECTURE.md` with actual package boundaries.
 5. Package docs: update `apps/*/README.md` and `packages/*/README.md` with root command wrappers and valid links.

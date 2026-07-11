@@ -162,7 +162,8 @@ Prefer importing from the target domain, not from `shared-pages` re-exports, whe
 
 ## Session goal lifecycle
 
-Design: `docs/features/session-goal.md`. Implementation plans stay in local `.loop/plans/`.
+Behavior lives in code under `session/surface/` and related composer modules.
+Temporary design notes / execution plans stay in local `.loop/` only (not under `docs/`).
 
 Summary for implementers:
 
