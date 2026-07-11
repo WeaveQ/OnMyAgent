@@ -98,8 +98,12 @@ opencode.jsonc
 .loop/*
 .memsearch/*
 
+# Plan / feature draft trees — keep out of git (use .loop/ for local work)
+docs/plans/
+docs/archive/
+docs/features/
+
 # Native/build caches
 **/.build/
 **/__pycache__/
 *.pyc
-

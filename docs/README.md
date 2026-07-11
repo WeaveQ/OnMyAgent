@@ -1,48 +1,83 @@
-# Documentation Index
+# Documentation Map
 
-This directory contains durable OnMyAgent project documentation. Keep transient runtime output and generated reports out of `docs/` unless they are intentionally curated.
+**Only full index for `docs/`.** Link here instead of copying nav tables.
 
-## Entry Points
+## Layout
 
-| Document | Purpose |
+```text
+docs/
+  README.md                 ← this map
+  Architecture.md           ← monorepo / runtime / commands / boundaries
+  release.md                ← GitHub release / tags / signing
+  loop/
+    rules.md                ← non-trivial Loop / ledger / kill switch / graphify
+    incidents.md            ← severe incident log only
+  design/
+    theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
+    ui-primitive-refactor-best-practices.md
+    preview.html / preview-dark.html / preview.css
+```
+
+Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, …
+
+## Read by role
+
+| You are… | Start here |
 | --- | --- |
-| `../README.md` | Public project overview, quick start, architecture summary, and contribution guide. |
-| `../README-zh.md` | Simplified Chinese project overview, quick start, architecture summary, and contribution guide. |
-| `../AGENTS.md` | Agent/Loop operating manual and repository rules. |
-| `../DESIGN.md` | Authoritative visual contract for tokens, components, Do's / Don'ts. Machine-readable YAML front matter for AI agents plus narrative for humans. |
-| `Architecture.md` | System architecture, package boundaries, command surface, data flow, and test gates. |
-| `loop-rules.md` | Detailed Loop, durable ledger, kill switch, Reference Parity, and graphify rules. |
-| `../BUILD.md` | Desktop packaging and release build runbook. |
-| `../SECURITY.md` | Vulnerability reporting, security scope, and safe harbor. |
-| `../CODE_OF_CONDUCT.md` | Community behavior expectations and reporting path. |
+| New user | [`../README.md`](../README.md) / [`../README-zh.md`](../README-zh.md) |
+| Contributor | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |
+| AI coding agent | [`../AGENTS.md`](../AGENTS.md) |
+| Architecture change | [`Architecture.md`](Architecture.md) |
+| React domain change | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
+| UI / tokens | [`../DESIGN.md`](../DESIGN.md) |
+| Local packaging | [`../BUILD.md`](../BUILD.md) |
+| Release / tags | [`release.md`](release.md) |
+| Heavy Loop work | [`loop/rules.md`](loop/rules.md) |
 
-## Directory Map
+## Sources of truth
 
-| Area | Path | Contents |
-| --- | --- | --- |
-| Architecture | `Architecture.md` | Durable architecture and command-surface source of truth. |
-| Loop rules | `loop-rules.md` | Detailed operating rules loaded from `../AGENTS.md` for non-trivial loop work. |
-| Design | `../DESIGN.md`, `design/` | `../DESIGN.md` at repo root is the authoritative visual contract; `design/` holds design-philosophy narrative and UI primitive refactor best practices. |
-| Design tooling | `../scripts/design/` | Local scripts backing the design contract. `extract-tokens.mjs` diffs `DESIGN.md` YAML against code-side token sources; invoke via `pnpm task check design`. |
-| Optional tracked plans | `plans/` when present | Human-reviewable product or architecture plans only; AI execution ledgers belong in `.loop/plans/`. |
-| Local loop state | `.loop/state/`, `.loop/runs/`, `.loop/plans/` | Local-only progress, run logs, intent debt, evidence, and execution ledgers. |
-| Incident log | `loop-incidents.md` | Severe repo-wide, unsafe, production, or cost-risk incidents only. |
-| Local archive | `.loop/archive/` | Local-only historical snapshots and superseded AI run docs. |
-| Skill strategy | `../.codex/skills/documentation-audit/references/skills-sync.md` | Source-of-truth and sync policy for Codex/OpenCode/bundled skills. |
+| Topic | Authoritative file |
+| --- | --- |
+| Commands (`dev` / `task` / checks) | root `package.json`, `scripts/cli/*`, summarized in `Architecture.md` |
+| Monorepo & package boundaries | `Architecture.md` |
+| React domains | `apps/app/src/react-app/ARCHITECTURE.md` + `domains/*/README.md` |
+| Visual tokens / components | `../DESIGN.md` |
+| Design philosophy only | `design/theme-system.md` |
+| Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
+| Local packaging | `../BUILD.md` |
+| Release | `release.md` |
+| Security reporting | `../SECURITY.md` |
+| Handoff / run log / plans / feature drafts | **local** `.loop/` only (gitignored) |
+| Severe incidents | `loop/incidents.md` |
 
-## State Rules
+### Update when
 
-- Read `.loop/state/PROGRESS.md` for current local handoff when it exists.
-- Append current-day validation history to `.loop/runs/YYYY-MM-DD.md`.
-- Put temporary execution plans and durable ledgers in `.loop/plans/` unless the user explicitly asks for a tracked product or architecture plan.
-- Keep remaining tracked state docs such as `LOOP-RUN-LOG.md`, `intent-debt.md`, and `STATE.md` as compatibility pointers only.
-- Keep `loop-incidents.md` for severe incidents only; ordinary TODOs, local failures, and routine validation notes stay in `.loop/`.
-- Do not add routine progress, run-log, plan, or archive material to tracked `docs/`; use local `.loop/` instead.
+| Change | Update |
+| --- | --- |
+| Root command surface | `Architecture.md` + `AGENTS.md` + `README*` |
+| New domain folder | `Architecture.md` + `react-app/ARCHITECTURE.md` + domain `README.md` |
+| Tokens / UI contract | `DESIGN.md` only → `pnpm task check design` |
+| Packaging steps | `BUILD.md` |
+| Release flow | `release.md` |
+| Agent hard rules | `AGENTS.md` / `loop/rules.md` |
+| Execution / design drafts | `.loop/` only — never under `docs/features`, `docs/plans`, `docs/archive` |
 
-## Maintenance Rules
+## Not in git
 
-- Keep root-level public docs limited to entry points: `../README.md`, `../README-zh.md`, `../BUILD.md`, `../SECURITY.md`, `../CODE_OF_CONDUCT.md`, `../LICENSE`, and repository governance files.
-- Put reusable design rules under `docs/design/`.
-- Create `docs/plans/` only for durable human-facing product or architecture plans; keep AI execution plans under `.loop/plans/`.
-- Put documentation and skill synchronization strategy in `../.codex/skills/documentation-audit/references/skills-sync.md` rather than repeating it in every skill.
-- When command names change, update `../AGENTS.md`, `../README.md`, `../README-zh.md`, `../BUILD.md`, `Architecture.md`, and relevant package README files together.
+| Path | Why |
+| --- | --- |
+| `.loop/*` | Local loop state, AI plans, drafts |
+| `docs/plans/`, `docs/archive/`, `docs/features/` | gitignored; do not reintroduce |
+
+## Not engineering docs
+
+- `apps/desktop/resources/marketplace/**`
+- `apps/desktop/resources/bundled-skills/**`
+- `graphify-out/**`
+
+## Maintenance
+
+1. Keep this folder to the layout above — no plan/feature draft trees under `docs/`.
+2. Prefer one SoT update over copying paragraphs.
+3. After edits: link smoke + `git diff --check`.
+4. Audit workflow: `.codex/skills/documentation-audit/SKILL.md`.

@@ -1,13 +1,11 @@
-# Contributing to 
-
-
-
+# Contributing to OnMyAgent
 
 Thanks for helping improve OnMyAgent. This project is a local-first agent workspace, so changes should stay focused, auditable, and safe by default.
 
 ## Before You Start
 
 - Read `README.md`, `AGENTS.md`, and `docs/Architecture.md`.
+- Full documentation map and sources-of-truth table: `docs/README.md`.
 - Open an issue first for large features, architecture changes, or security-sensitive work.
 - Keep pull requests small and focused on one outcome.
 - Do not include secrets, local credentials, customer data, private workspace paths, or generated runtime artifacts.

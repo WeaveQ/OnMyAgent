@@ -1,5 +1,9 @@
 # Release Process
 
+**Source of truth** for PR merge → tag → GitHub Release → signing / notarize / sidecar publish.
+
+Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc map: [`README.md`](README.md).
+
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
 ## Daily PR Flow
