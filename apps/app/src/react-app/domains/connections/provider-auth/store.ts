@@ -18,8 +18,8 @@ import { unwrap, waitForHealthy } from "../../../../app/lib/opencode";
 import {
   readOpencodeConfig,
   writeOpencodeConfig,
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  workspaceOnMyAgentRead,
+  workspaceOnMyAgentWrite,
 } from "../../../../app/lib/desktop";
 import type {
   Client,
@@ -33,7 +33,7 @@ import {
 } from "../../../../app/utils/providers";
 import { getReactQueryClient } from "../../../infra/query-client";
 import { ensureProviderListQuery } from "../../connections/provider-list-query";
-import type { OpenworkServerStore } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../../shared/onmyagent-server-store";
 import {
   denSessionUpdatedEvent,
   type DenSessionUpdatedDetail,
@@ -79,7 +79,7 @@ type CreateProviderAuthStoreOptions = {
   selectedWorkspaceDisplay: () => WorkspaceDisplay;
   selectedWorkspaceRoot: () => string;
   runtimeWorkspaceId: () => string | null;
-  onmyagentServer: OpenworkServerStore;
+  onmyagentServer: OnMyAgentServerStore;
   setProviders: (value: ProviderListItem[]) => void;
   setProviderDefaults: (value: Record<string, string>) => void;
   setProviderConnectedIds: (value: string[]) => void;
@@ -300,7 +300,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     return next;
   };
 
-  const readWorkspaceOpenworkConfigRecord = async (): Promise<
+  const readWorkspaceOnMyAgentConfigRecord = async (): Promise<
     Record<string, unknown>
   > => {
     const root = options.selectedWorkspaceRoot().trim();
@@ -310,19 +310,19 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.read;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       const config = await onmyagentClient.getConfig(onmyagentWorkspaceId);
       return config.onmyagent ?? {};
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      return (await workspaceOpenworkRead({
+      return (await workspaceOnMyAgentRead({
         workspacePath: root,
       })) as unknown as Record<string, unknown>;
     }
@@ -330,7 +330,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     return {};
   };
 
-  const writeWorkspaceOpenworkConfigRecord = async (
+  const writeWorkspaceOnMyAgentConfigRecord = async (
     config: Record<string, unknown>,
   ) => {
     const root = options.selectedWorkspaceRoot().trim();
@@ -340,19 +340,19 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.write;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       await onmyagentClient.patchConfig(onmyagentWorkspaceId, { onmyagent: config });
       return true;
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      const result = await workspaceOpenworkWrite({
+      const result = await workspaceOnMyAgentWrite({
         workspacePath: root,
         config: config as never,
       });
@@ -370,7 +370,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
 
   const refreshImportedCloudProviders = async () => {
     try {
-      const config = await readWorkspaceOpenworkConfigRecord();
+      const config = await readWorkspaceOnMyAgentConfigRecord();
       const cloudImports = readWorkspaceCloudImports(config);
       setStateField("importedCloudProviders", cloudImports.providers);
       return cloudImports.providers;
@@ -383,13 +383,13 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   const persistImportedCloudProviders = async (
     nextProviders: Record<string, CloudImportedProvider>,
   ) => {
-    const config = await readWorkspaceOpenworkConfigRecord();
+    const config = await readWorkspaceOnMyAgentConfigRecord();
     const cloudImports = readWorkspaceCloudImports(config);
     const nextConfig = withWorkspaceCloudImports(config, {
       ...cloudImports,
       providers: nextProviders,
     });
-    const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
+    const persisted = await writeWorkspaceOnMyAgentConfigRecord(nextConfig);
     if (!persisted) {
       throw new Error(
         "OnMyAgent server unavailable. Connect to manage imported cloud providers.",
@@ -406,14 +406,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.read &&
       typeof onmyagentClient.readOpencodeConfigFile === "function";
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       return await onmyagentClient.readOpencodeConfigFile(onmyagentWorkspaceId, "project");
     }
 
@@ -432,14 +432,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.write &&
       typeof onmyagentClient.writeOpencodeConfigFile === "function";
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       const result = await onmyagentClient.writeOpencodeConfigFile(
         onmyagentWorkspaceId,
         "project",

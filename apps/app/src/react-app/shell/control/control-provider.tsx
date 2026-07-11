@@ -12,67 +12,67 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../../i18n";
 
-export type OpenworkControlSideEffect = "none" | "navigation" | "mutation" | "external";
+export type OnMyAgentControlSideEffect = "none" | "navigation" | "mutation" | "external";
 
-export type OpenworkControlActionArg = {
+export type OnMyAgentControlActionArg = {
   name: string;
   type?: "string" | "number" | "boolean" | "object" | "array" | "unknown";
   required?: boolean;
   description?: string;
 };
 
-export type OpenworkControlActionMetadata = {
+export type OnMyAgentControlActionMetadata = {
   id: string;
   label: string;
   description?: string;
-  sideEffect: OpenworkControlSideEffect;
+  sideEffect: OnMyAgentControlSideEffect;
   requiresConfirmation: boolean;
   requiresArgs: boolean;
   hasPreviewArgs: boolean;
   previewArgs?: unknown;
-  args?: OpenworkControlActionArg[];
+  args?: OnMyAgentControlActionArg[];
   disabled: boolean;
   busy: boolean;
 };
 
-export type OpenworkControlSnapshot = {
+export type OnMyAgentControlSnapshot = {
   version: number;
   enabled: boolean;
   route: string;
   status: "off" | "ready" | "acting";
   busyActionId: string | null;
   narration: string;
-  actions: OpenworkControlActionMetadata[];
+  actions: OnMyAgentControlActionMetadata[];
 };
 
-export type OpenworkControlResult =
+export type OnMyAgentControlResult =
   | { ok: true; actionId: string; result?: unknown }
   | { ok: false; actionId: string; error: string };
 
-export type OpenworkControlHelpers = {
+export type OnMyAgentControlHelpers = {
   setNarration: (text: string) => void;
 };
 
-export type OpenworkControlTargetRef = {
+export type OnMyAgentControlTargetRef = {
   readonly current: HTMLElement | null;
 };
 
-export type OpenworkControlAction = {
+export type OnMyAgentControlAction = {
   id: string;
   label: string;
   description?: string;
-  sideEffect?: OpenworkControlSideEffect;
+  sideEffect?: OnMyAgentControlSideEffect;
   requiresConfirmation?: boolean;
   requiresArgs?: boolean;
-  args?: OpenworkControlActionArg[];
+  args?: OnMyAgentControlActionArg[];
   previewArgs?: unknown;
   disabled?: boolean;
-  targetRef?: OpenworkControlTargetRef;
-  execute: (args: unknown, helpers: OpenworkControlHelpers) => unknown | Promise<unknown>;
+  targetRef?: OnMyAgentControlTargetRef;
+  execute: (args: unknown, helpers: OnMyAgentControlHelpers) => unknown | Promise<unknown>;
 };
 
 type ControlActionRef = {
-  readonly current: OpenworkControlAction | null;
+  readonly current: OnMyAgentControlAction | null;
 };
 
 type RegisteredAction = {
@@ -88,35 +88,35 @@ type SpotlightState = {
   rect: { x: number; y: number; width: number; height: number } | null;
 };
 
-type OpenworkControlContextValue = {
+type OnMyAgentControlContextValue = {
   enabled: boolean;
   setEnabled: (enabled: boolean) => void;
   route: string;
   narration: string;
   busyActionId: string | null;
-  actions: OpenworkControlActionMetadata[];
+  actions: OnMyAgentControlActionMetadata[];
   registerAction: (actionId: string, actionRef: ControlActionRef) => () => void;
-  executeAction: (actionId: string, args?: unknown) => Promise<OpenworkControlResult>;
-  snapshot: () => OpenworkControlSnapshot;
+  executeAction: (actionId: string, args?: unknown) => Promise<OnMyAgentControlResult>;
+  snapshot: () => OnMyAgentControlSnapshot;
 };
 
-type OpenworkControlAPI = {
+type OnMyAgentControlAPI = {
   version: number;
-  snapshot: () => OpenworkControlSnapshot;
-  listActions: () => OpenworkControlActionMetadata[];
-  execute: (actionId: string, args?: unknown) => Promise<OpenworkControlResult>;
+  snapshot: () => OnMyAgentControlSnapshot;
+  listActions: () => OnMyAgentControlActionMetadata[];
+  execute: (actionId: string, args?: unknown) => Promise<OnMyAgentControlResult>;
   setEnabled: (enabled: boolean) => void;
-  subscribe: (listener: (snapshot: OpenworkControlSnapshot) => void) => () => void;
+  subscribe: (listener: (snapshot: OnMyAgentControlSnapshot) => void) => () => void;
 };
 
 declare global {
   interface Window {
-    __onmyagentControl?: OpenworkControlAPI;
+    __onmyagentControl?: OnMyAgentControlAPI;
   }
 }
 
 const CONTROL_API_VERSION = 1;
-const OpenworkControlContext = createContext<OpenworkControlContextValue | null>(null);
+const OnMyAgentControlContext = createContext<OnMyAgentControlContextValue | null>(null);
 const SPOTLIGHT_TIMING_MS = Object.freeze({
   missingTarget: 80,
   scrollIntoView: 180,
@@ -145,7 +145,7 @@ function isBrowser() {
   return typeof window !== "undefined" && typeof document !== "undefined";
 }
 
-function metadataForAction(registered: RegisteredAction, busyActionId: string | null): OpenworkControlActionMetadata {
+function metadataForAction(registered: RegisteredAction, busyActionId: string | null): OnMyAgentControlActionMetadata {
   const action = registered.ref.current;
   return {
     id: registered.id,
@@ -181,10 +181,10 @@ function ControlModeSpotlight({ spotlight }: { spotlight: SpotlightState }) {
   );
 }
 
-export function OpenworkControlProvider({ children }: { children: ReactNode }) {
+export function OnMyAgentControlProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const actionsRef = useRef(new Map<string, RegisteredAction>());
-  const listenersRef = useRef(new Set<(snapshot: OpenworkControlSnapshot) => void>());
+  const listenersRef = useRef(new Set<(snapshot: OnMyAgentControlSnapshot) => void>());
   const nextOrderRef = useRef(1);
   const [version, setVersion] = useState(0);
   const [enabledState, setEnabledState] = useState(false);
@@ -196,7 +196,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
 
   const route = `${location.pathname}${location.search}${location.hash}`;
   const enabled = enabledState;
-  const status: OpenworkControlSnapshot["status"] = !enabled ? "off" : busyActionId ? "acting" : "ready";
+  const status: OnMyAgentControlSnapshot["status"] = !enabled ? "off" : busyActionId ? "acting" : "ready";
 
   const setEnabled = useCallback((nextEnabled: boolean) => {
     setEnabledState(nextEnabled);
@@ -212,7 +212,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
     return listActionMetadata();
   }, [listActionMetadata]);
 
-  const snapshot = useCallback((): OpenworkControlSnapshot => ({
+  const snapshot = useCallback((): OnMyAgentControlSnapshot => ({
     version: CONTROL_API_VERSION,
     enabled,
     route,
@@ -242,7 +242,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const playTargetChoreography = useCallback(async (action: OpenworkControlAction, runId: number) => {
+  const playTargetChoreography = useCallback(async (action: OnMyAgentControlAction, runId: number) => {
     if (!isBrowser()) return;
     const stillCurrent = () => spotlightRunRef.current === runId;
     const target = action.targetRef?.current;
@@ -274,7 +274,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
     await wait(SPOTLIGHT_TIMING_MS.release);
   }, []);
 
-  const executeAction = useCallback(async (actionId: string, args?: unknown): Promise<OpenworkControlResult> => {
+  const executeAction = useCallback(async (actionId: string, args?: unknown): Promise<OnMyAgentControlResult> => {
     const registered = actionsRef.current.get(actionId);
     const action = registered?.ref.current;
     if (!registered || !action) return { ok: false, actionId, error: `Unknown action: ${actionId}` };
@@ -325,7 +325,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
     }
   }, [playTargetChoreography, setEnabled]);
 
-  const value = useMemo<OpenworkControlContextValue>(() => ({
+  const value = useMemo<OnMyAgentControlContextValue>(() => ({
     enabled,
     setEnabled,
     route,
@@ -348,7 +348,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isBrowser()) return;
 
-    const api: OpenworkControlAPI = {
+    const api: OnMyAgentControlAPI = {
       version: CONTROL_API_VERSION,
       snapshot,
       listActions: () => snapshot().actions,
@@ -381,21 +381,21 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
   }, [snapshot, version]);
 
   return (
-    <OpenworkControlContext.Provider value={value}>
+    <OnMyAgentControlContext.Provider value={value}>
       {children}
       <ControlModeSpotlight spotlight={spotlight} />
-    </OpenworkControlContext.Provider>
+    </OnMyAgentControlContext.Provider>
   );
 }
 
-export function useOpenworkControl() {
-  return use(OpenworkControlContext);
+export function useOnMyAgentControl() {
+  return use(OnMyAgentControlContext);
 }
 
-export function useControlAction(action: OpenworkControlAction | null | false | undefined) {
-  const control = useOpenworkControl();
+export function useControlAction(action: OnMyAgentControlAction | null | false | undefined) {
+  const control = useOnMyAgentControl();
   const registerAction = control?.registerAction;
-  const latestActionRef = useRef<OpenworkControlAction | null>(action || null);
+  const latestActionRef = useRef<OnMyAgentControlAction | null>(action || null);
   latestActionRef.current = action || null;
   const actionId = action ? action.id : null;
 
@@ -405,10 +405,10 @@ export function useControlAction(action: OpenworkControlAction | null | false | 
   }, [actionId, registerAction]);
 }
 
-export function OpenworkRouteControlActions() {
+export function OnMyAgentRouteControlActions() {
   const navigate = useNavigate();
 
-  const actions = useMemo<OpenworkControlAction[]>(() => [
+  const actions = useMemo<OnMyAgentControlAction[]>(() => [
     {
       id: "route.session",
       label: t("system.control_open_sessions"),

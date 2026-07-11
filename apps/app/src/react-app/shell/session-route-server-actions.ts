@@ -1,23 +1,23 @@
-import type { OpenworkServerInfo } from "../../app/lib/desktop";
+import type { OnMyAgentServerInfo } from "../../app/lib/desktop";
 import {
-  createOpenworkServerClient,
-  type OpenworkServerClient,
-  type OpenworkWorkspaceInfo,
+  createOnMyAgentServerClient,
+  type OnMyAgentServerClient,
+  type OnMyAgentWorkspaceInfo,
 } from "../../app/lib/onmyagent-server";
-import { resolveOpenworkConnection } from "./onmyagent-connection";
+import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 
-export type SessionOpenworkConnectionState = {
-  hostInfo: OpenworkServerInfo | null;
+export type SessionOnMyAgentConnectionState = {
+  hostInfo: OnMyAgentServerInfo | null;
   normalizedBaseUrl: string;
-  onmyagentClient: OpenworkServerClient | null;
+  onmyagentClient: OnMyAgentServerClient | null;
   resolvedToken: string;
   serverActiveId: string | null;
-  serverWorkspaces: OpenworkWorkspaceInfo[];
+  serverWorkspaces: OnMyAgentWorkspaceInfo[];
 };
 
-export async function loadSessionOpenworkConnectionState(): Promise<SessionOpenworkConnectionState> {
+export async function loadSessionOnMyAgentConnectionState(): Promise<SessionOnMyAgentConnectionState> {
   const { normalizedBaseUrl, resolvedToken, resolvedHostToken, hostInfo } =
-    await resolveOpenworkConnection();
+    await resolveOnMyAgentConnection();
   if (!normalizedBaseUrl || !resolvedToken) {
     return {
       hostInfo,
@@ -28,7 +28,7 @@ export async function loadSessionOpenworkConnectionState(): Promise<SessionOpenw
       serverWorkspaces: [],
     };
   }
-  const onmyagentClient = createOpenworkServerClient({
+  const onmyagentClient = createOnMyAgentServerClient({
     baseUrl: normalizedBaseUrl,
     token: resolvedToken,
     hostToken: resolvedHostToken || undefined,

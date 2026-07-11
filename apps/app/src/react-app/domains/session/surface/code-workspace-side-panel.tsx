@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 
 import type {
-  OpenworkServerClient,
-  OpenworkWorkspaceFileCatalogEntry,
+  OnMyAgentServerClient,
+  OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../../app/lib/onmyagent-server";
 import {
   closeCodeWorkspaceTerminal,
@@ -79,7 +79,7 @@ function toolIcon(kind: ToolKind) {
 
 function flattenWorkspaceFileTree(
   node: WorkspaceFileTreeNode,
-): OpenworkWorkspaceFileCatalogEntry[] {
+): OnMyAgentWorkspaceFileCatalogEntry[] {
   return node.children.flatMap((child) => [
     {
       path: child.path,
@@ -94,7 +94,7 @@ function flattenWorkspaceFileTree(
 
 function openTargetsToCatalogEntries(
   targets: OpenTarget[] | undefined,
-): OpenworkWorkspaceFileCatalogEntry[] {
+): OnMyAgentWorkspaceFileCatalogEntry[] {
   return (targets ?? []).flatMap((target) => {
     if (target.kind !== "file" || !target.value.trim()) return [];
     return [{
@@ -160,7 +160,7 @@ function WorkspaceTreeRow(props: {
 }
 
 function WorkspaceFilesPanel(props: {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string | null;
   workspaceCatalogRoot: string;
   workspacePath: string;
@@ -535,7 +535,7 @@ export function CodeWorkspaceSidePanel(props: {
   fileTargets?: OpenTarget[];
   workspaceId: string | null;
   sessionId: string | null;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   initialKind?: ToolKind | null;
   onClose: () => void;
   hiddenKinds?: ToolKind[];

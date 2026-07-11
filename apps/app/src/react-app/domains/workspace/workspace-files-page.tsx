@@ -23,8 +23,8 @@ import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import type {
-  OpenworkServerClient,
-  OpenworkWorkspaceFileCatalogEntry,
+  OnMyAgentServerClient,
+  OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../session/artifacts/artifact-icon";
@@ -207,7 +207,7 @@ type TaskGroup = {
 
 function addWorkspaceFileTreeEntry(
   root: WorkspaceFileTreeNode,
-  entry: OpenworkWorkspaceFileCatalogEntry,
+  entry: OnMyAgentWorkspaceFileCatalogEntry,
 ) {
   const parts = entry.path.split("/").filter(Boolean);
   let parent = root;
@@ -246,7 +246,7 @@ function sortWorkspaceFileTree(node: WorkspaceFileTreeNode) {
 }
 
 function buildWorkspaceFileTree(
-  entries: OpenworkWorkspaceFileCatalogEntry[],
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): WorkspaceFileTreeNode {
   const root: WorkspaceFileTreeNode = {
     name: t("files.workspace"),
@@ -280,7 +280,7 @@ function flattenDirFiles(node: WorkspaceFileTreeNode): FileNode[] {
 }
 
 function buildFileHierarchy(
-  entries: OpenworkWorkspaceFileCatalogEntry[],
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): TaskGroup[] {
   const filtered = entries.filter((e) => !shouldHideEntry(e.path));
   const rawTree = buildWorkspaceFileTree(filtered);
@@ -476,14 +476,14 @@ function FilePreviewDrawer(props: {
 }
 
 export function WorkspaceFilesPage(props: {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
   fileRoot?: string | null;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
 }) {
   const [query, setQuery] = useState("");
-  const [entries, setEntries] = useState<OpenworkWorkspaceFileCatalogEntry[]>(
+  const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>(
     [],
   );
   const [loading, setLoading] = useState(false);

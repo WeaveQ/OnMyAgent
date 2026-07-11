@@ -1,10 +1,10 @@
 /** @jsxImportSource react */
-import type { OpenworkSessionSnapshot } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type { SessionRenderModel } from "../sync/transition-controller";
 
 export function SessionDebugPanel(props: {
   model: SessionRenderModel;
-  snapshot: OpenworkSessionSnapshot | null;
+  snapshot: OnMyAgentSessionSnapshot | null;
 }) {
   return (
     <div className="fixed bottom-20 right-4 z-30 w-[280px] rounded-xl border border-dls-border bg-dls-surface p-3 text-xs text-dls-secondary backdrop-blur-md">

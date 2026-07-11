@@ -2,15 +2,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  buildOpenworkWorkspaceBaseUrl,
-  OpenworkServerError,
-  type OpenworkOpenCodeRouterHealthSnapshot,
-  type OpenworkOpenCodeRouterIdentityItem,
-  type OpenworkOpenCodeRouterIdentityWriteResult,
-  type OpenworkOpenCodeRouterSendResult,
-  type OpenworkServerClient,
-  type OpenworkServerStatus,
-  type OpenworkWorkspaceFileContent,
+  buildOnMyAgentWorkspaceBaseUrl,
+  OnMyAgentServerError,
+  type OnMyAgentOpenCodeRouterHealthSnapshot,
+  type OnMyAgentOpenCodeRouterIdentityItem,
+  type OnMyAgentOpenCodeRouterIdentityWriteResult,
+  type OnMyAgentOpenCodeRouterSendResult,
+  type OnMyAgentServerClient,
+  type OnMyAgentServerStatus,
+  type OnMyAgentWorkspaceFileContent,
 } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
 import type {
@@ -35,7 +35,7 @@ Examples:
 `;
 
 function formatRequestError(error: unknown): string {
-  if (error instanceof OpenworkServerError) {
+  if (error instanceof OnMyAgentServerError) {
     return `${error.message} (${error.status})`;
   }
   return error instanceof Error ? error.message : String(error);
@@ -43,7 +43,7 @@ function formatRequestError(error: unknown): string {
 
 function isOpenCodeRouterSnapshot(
   value: unknown,
-): value is OpenworkOpenCodeRouterHealthSnapshot {
+): value is OnMyAgentOpenCodeRouterHealthSnapshot {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   return (
@@ -56,7 +56,7 @@ function isOpenCodeRouterSnapshot(
 
 function isOpenCodeRouterIdentities(
   value: unknown,
-): value is { ok: boolean; items: OpenworkOpenCodeRouterIdentityItem[] } {
+): value is { ok: boolean; items: OnMyAgentOpenCodeRouterIdentityItem[] } {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   return typeof record.ok === "boolean" && Array.isArray(record.items);
@@ -73,14 +73,14 @@ function getTelegramUsernameFromResult(value: unknown): string | null {
   return normalized || null;
 }
 
-function getTelegramUsernameFromWriteResult(result: OpenworkOpenCodeRouterIdentityWriteResult): string | null {
+function getTelegramUsernameFromWriteResult(result: OnMyAgentOpenCodeRouterIdentityWriteResult): string | null {
   const username = result.telegram?.bot?.username;
   if (typeof username !== "string") return null;
   const normalized = username.trim().replace(/^@+/, "");
   return normalized || null;
 }
 
-function readMessagingEnabledFromOpenworkConfig(value: unknown): boolean {
+function readMessagingEnabledFromOnMyAgentConfig(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   const messaging = record.messaging;
@@ -92,11 +92,11 @@ function readMessagingEnabledFromOpenworkConfig(value: unknown): boolean {
 
 type UseMessagingViewPropsOptions = {
   busy: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerUrl: string;
-  onmyagentServerClient: OpenworkServerClient | null;
+  onmyagentServerClient: OnMyAgentServerClient | null;
   onmyagentReconnectBusy: boolean;
-  reconnectOpenworkServer: () => Promise<boolean>;
+  reconnectOnMyAgentServer: () => Promise<boolean>;
   restartMessagingWorker: () => Promise<boolean>;
   workspaceId: string | null;
   selectedWorkspaceRoot: string;
@@ -106,11 +106,11 @@ export function useMessagingViewProps(
   options: UseMessagingViewPropsOptions,
 ): MessagingViewProps {
   const [refreshing, setRefreshing] = useState(false);
-  const [health, setHealth] = useState<OpenworkOpenCodeRouterHealthSnapshot | null>(null);
+  const [health, setHealth] = useState<OnMyAgentOpenCodeRouterHealthSnapshot | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
-  const [telegramIdentities, setTelegramIdentities] = useState<OpenworkOpenCodeRouterIdentityItem[]>([]);
+  const [telegramIdentities, setTelegramIdentities] = useState<OnMyAgentOpenCodeRouterIdentityItem[]>([]);
   const [telegramIdentitiesError, setTelegramIdentitiesError] = useState<string | null>(null);
-  const [slackIdentities, setSlackIdentities] = useState<OpenworkOpenCodeRouterIdentityItem[]>([]);
+  const [slackIdentities, setSlackIdentities] = useState<OnMyAgentOpenCodeRouterIdentityItem[]>([]);
   const [slackIdentitiesError, setSlackIdentitiesError] = useState<string | null>(null);
 
   const [telegramToken, setTelegramToken] = useState("");
@@ -152,7 +152,7 @@ export function useMessagingViewProps(
   const [sendStatus, setSendStatus] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendResult, setSendResult] =
-    useState<OpenworkOpenCodeRouterSendResult | null>(null);
+    useState<OnMyAgentOpenCodeRouterSendResult | null>(null);
 
   const [reconnectStatus, setReconnectStatus] = useState<string | null>(null);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
@@ -172,10 +172,10 @@ export function useMessagingViewProps(
   >("enable");
 
   const workspaceId = options.workspaceId?.trim() || null;
-  const scopedOpenworkBaseUrl = useMemo(() => {
+  const scopedOnMyAgentBaseUrl = useMemo(() => {
     const baseUrl = options.onmyagentServerUrl.trim();
     if (!baseUrl) return "";
-    return buildOpenworkWorkspaceBaseUrl(baseUrl, workspaceId) ?? baseUrl;
+    return buildOnMyAgentWorkspaceBaseUrl(baseUrl, workspaceId) ?? baseUrl;
   }, [options.onmyagentServerUrl, workspaceId]);
   const serverReady =
     options.onmyagentServerStatus === "connected" &&
@@ -212,7 +212,7 @@ export function useMessagingViewProps(
       const result = (await client.readWorkspaceFile(
         id,
         OPENCODE_ROUTER_AGENT_FILE_PATH,
-      )) as OpenworkWorkspaceFileContent;
+      )) as OnMyAgentWorkspaceFileContent;
       const nextContent = result.content ?? "";
       setAgentExists(true);
       setAgentContent(nextContent);
@@ -221,7 +221,7 @@ export function useMessagingViewProps(
         typeof result.updatedAt === "number" ? result.updatedAt : null,
       );
     } catch (error) {
-      if (error instanceof OpenworkServerError && error.status === 404) {
+      if (error instanceof OnMyAgentServerError && error.status === 404) {
         setAgentExists(false);
         setAgentContent("");
         setAgentDraft("");
@@ -308,7 +308,7 @@ export function useMessagingViewProps(
       );
       setAgentStatus(t("identities.agent_saved"));
     } catch (error) {
-      if (error instanceof OpenworkServerError && error.status === 409) {
+      if (error instanceof OnMyAgentServerError && error.status === 409) {
         setAgentError(t("identities.agent_file_changed"));
       } else {
         setAgentError(formatRequestError(error));
@@ -396,7 +396,7 @@ export function useMessagingViewProps(
       }
 
       const config = await client.getConfig(id).catch(() => null);
-      const isModuleEnabled = readMessagingEnabledFromOpenworkConfig(config?.onmyagent);
+      const isModuleEnabled = readMessagingEnabledFromOnMyAgentConfig(config?.onmyagent);
       setMessagingEnabled(isModuleEnabled);
 
       if (!isModuleEnabled) {
@@ -497,7 +497,7 @@ export function useMessagingViewProps(
     setReconnectStatus(null);
     setReconnectError(null);
 
-    const ok = await options.reconnectOpenworkServer();
+    const ok = await options.reconnectOnMyAgentServer();
     if (!ok) {
       setReconnectError(t("identities.reconnect_failed"));
       return;
@@ -832,7 +832,7 @@ export function useMessagingViewProps(
     setMessagingRestartAction("enable");
     setActiveTab("general");
     setExpandedChannel("telegram");
-  }, [resetAgentState, scopedOpenworkBaseUrl, workspaceId]);
+  }, [resetAgentState, scopedOnMyAgentBaseUrl, workspaceId]);
 
   useEffect(() => {
     void refreshAllRef.current({ force: true });
@@ -840,14 +840,14 @@ export function useMessagingViewProps(
       void refreshAllRef.current();
     }, 10_000);
     return () => window.clearInterval(interval);
-  }, [scopedOpenworkBaseUrl, serverReady, workspaceId]);
+  }, [scopedOnMyAgentBaseUrl, serverReady, workspaceId]);
 
   return {
     busy: options.busy,
     showHeader: false,
     onmyagentServerStatus: options.onmyagentServerStatus,
     onmyagentServerUrl: options.onmyagentServerUrl,
-    scopedOpenworkBaseUrl,
+    scopedOnMyAgentBaseUrl,
     workspaceId,
     selectedWorkspaceRoot: options.selectedWorkspaceRoot,
     refreshing,

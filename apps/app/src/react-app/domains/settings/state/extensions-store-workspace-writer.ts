@@ -5,16 +5,16 @@ import {
   uninstallSkill as uninstallSkillCommand,
 } from "../../../../app/lib/desktop";
 import type {
-  OpenworkServerCapabilities,
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentServerCapabilities,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 
 export type ExtensionsWorkspaceWriterOptions = {
   onmyagentServerConnection: () => {
-    onmyagentServerCapabilities: OpenworkServerCapabilities | null;
-    onmyagentServerClient: OpenworkServerClient | null;
-    onmyagentServerStatus: OpenworkServerStatus;
+    onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
+    onmyagentServerClient: OnMyAgentServerClient | null;
+    onmyagentServerStatus: OnMyAgentServerStatus;
   };
   runtimeWorkspaceId: () => string | null;
   selectedWorkspaceRoot: () => string;

@@ -12,7 +12,7 @@ import { LoadingOverlay } from "./loading-overlay";
 import { DevProfiler, DevProfilerOverlay } from "./dev-profiler";
 import { ReactRenderWatchdogOverlay } from "./react-render-watchdog-overlay";
 import { AppMenuProvider } from "./app-menu";
-import { OpenworkControlProvider, OpenworkRouteControlActions } from "./control/control-provider";
+import { OnMyAgentControlProvider, OnMyAgentRouteControlActions } from "./control/control-provider";
 import { SessionRoute } from "./session-route";
 import { SettingsRoute } from "./settings-route";
 import { ShellConfigProvider } from "./shell-config";
@@ -195,8 +195,8 @@ export function AppRoot() {
       <DevProfiler id="AppRoot">
         <ShellConfigProvider>
         <AppMenuProvider>
-        <OpenworkControlProvider>
-          <OpenworkRouteControlActions />
+        <OnMyAgentControlProvider>
+          <OnMyAgentRouteControlActions />
           <DenSigninGate>
             <Routes>
               <Route
@@ -308,7 +308,7 @@ export function AppRoot() {
               <Route path="*" element={<Navigate to="/assistant" replace />} />
             </Routes>
           </DenSigninGate>
-        </OpenworkControlProvider>
+        </OnMyAgentControlProvider>
         </AppMenuProvider>
         </ShellConfigProvider>
         <LoadingOverlay />

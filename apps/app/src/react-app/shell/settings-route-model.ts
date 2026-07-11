@@ -1,4 +1,4 @@
-import type { OpenworkWorkspaceInfo } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentWorkspaceInfo } from "../../app/lib/onmyagent-server";
 import type { WorkspaceInfo, WorkspaceList } from "../../app/lib/desktop";
 import type {
   ProviderListItem,
@@ -14,7 +14,7 @@ import { resolveWorkspaceListSelectedId } from "../../app/lib/desktop";
 import type { OnboardingProfile } from "../kernel/local-provider";
 import type { AiSettingsConnectedProvider } from "../domains/settings";
 
-export type RouteWorkspace = OpenworkWorkspaceInfo & {
+export type RouteWorkspace = OnMyAgentWorkspaceInfo & {
   displayNameResolved: string;
 };
 
@@ -97,7 +97,7 @@ export function describeWorkspaceCreateError(error: unknown) {
   return message;
 }
 
-export function workspaceLabel(workspace: OpenworkWorkspaceInfo) {
+export function workspaceLabel(workspace: OnMyAgentWorkspaceInfo) {
   return (
     workspace.displayName?.trim() ||
     workspace.onmyagentWorkspaceName?.trim() ||
@@ -108,7 +108,7 @@ export function workspaceLabel(workspace: OpenworkWorkspaceInfo) {
 }
 
 export function mergeRouteWorkspaces(
-  serverWorkspaces: OpenworkWorkspaceInfo[],
+  serverWorkspaces: OnMyAgentWorkspaceInfo[],
   desktopWorkspaces: RouteWorkspace[],
 ): RouteWorkspace[] {
   const desktopById = new Map(desktopWorkspaces.map((workspace) => [workspace.id, workspace]));

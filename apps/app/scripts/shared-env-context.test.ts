@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  buildOpenworkEnvSystemContext,
-  clearOpenworkEnvSystemContextCache,
+  buildOnMyAgentEnvSystemContext,
+  clearOnMyAgentEnvSystemContextCache,
 } from "../src/react-app/domains/shared/env-context";
 
 type ListUserEnvKeysClient = {
@@ -24,18 +24,18 @@ function createClient(keys: string[]) {
 
 describe("shared env context contract", () => {
   test("returns an empty context without a client", async () => {
-    await expect(buildOpenworkEnvSystemContext(null)).resolves.toBeUndefined();
+    await expect(buildOnMyAgentEnvSystemContext(null)).resolves.toBeUndefined();
   });
 
   test("normalizes env keys and caches by runtime key", async () => {
-    clearOpenworkEnvSystemContextCache();
+    clearOnMyAgentEnvSystemContextCache();
     const { client, calls } = createClient(["OPENAI_API_KEY", " bad-key ", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
 
-    const first = await buildOpenworkEnvSystemContext(client, {
+    const first = await buildOnMyAgentEnvSystemContext(client, {
       runtimeKey: "runtime-a",
       readPendingChanges: () => false,
     });
-    const second = await buildOpenworkEnvSystemContext(client, {
+    const second = await buildOnMyAgentEnvSystemContext(client, {
       runtimeKey: "runtime-a",
       readPendingChanges: () => false,
     });

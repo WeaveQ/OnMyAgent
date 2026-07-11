@@ -1,4 +1,4 @@
-import type { OpenworkWorkspaceFileContent } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentWorkspaceFileContent } from "../../../app/lib/onmyagent-server";
 import { t } from "@/i18n";
 import type {
   AgentAvatarOption,
@@ -123,7 +123,7 @@ export function describeRequestError(error: unknown) {
   return String(error);
 }
 
-export function readWorkspaceFileUpdatedAt(result: OpenworkWorkspaceFileContent) {
+export function readWorkspaceFileUpdatedAt(result: OnMyAgentWorkspaceFileContent) {
   return typeof result.updatedAt === "number" ? result.updatedAt : null;
 }
 

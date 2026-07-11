@@ -5,7 +5,7 @@ import {
   workspaceUpdateRemote,
   type WorkspaceInfo,
 } from "../../../app/lib/desktop";
-import { buildOpenworkWorkspaceBaseUrl } from "../../../app/lib/onmyagent-server";
+import { buildOnMyAgentWorkspaceBaseUrl } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import type { RemoteWorkspaceInput } from "./workspace-modal-types";
 
@@ -44,7 +44,7 @@ export function useRemoteWorkspaceConnectionEditor<TWorkspace extends WorkspaceI
     () => {
       const hostUrl = workspace?.onmyagentHostUrl ?? workspace?.baseUrl ?? "";
       const mountedUrl = workspace?.remoteType === "onmyagent"
-        ? buildOpenworkWorkspaceBaseUrl(hostUrl, workspace.onmyagentWorkspaceId) ?? hostUrl
+        ? buildOnMyAgentWorkspaceBaseUrl(hostUrl, workspace.onmyagentWorkspaceId) ?? hostUrl
         : hostUrl;
       return {
         onmyagentHostUrl: mountedUrl,

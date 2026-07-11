@@ -17,7 +17,7 @@ export type EngineInfo = {
   lastStderr: string | null;
 };
 
-export type OpenworkServerInfo = {
+export type OnMyAgentServerInfo = {
   running: boolean;
   remoteAccessEnabled: boolean;
   host: string | null;
@@ -92,7 +92,7 @@ export type OpencodeCommandDraft = {
   subtask?: boolean;
 };
 
-export type WorkspaceOpenworkConfig = {
+export type WorkspaceOnMyAgentConfig = {
   version: number;
   workspace?: {
     name?: string | null;
@@ -156,7 +156,7 @@ export type SandboxDoctorResult = {
   } | null;
 };
 
-export type OpenworkDockerCleanupResult = {
+export type OnMyAgentDockerCleanupResult = {
   candidates: string[];
   removed: string[];
   errors: string[];

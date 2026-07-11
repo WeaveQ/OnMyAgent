@@ -62,7 +62,7 @@ const GlobalSDKContext = createContext<GlobalSDKContextValue | undefined>(
   undefined,
 );
 
-function readOpenworkToken(): string {
+function readOnMyAgentToken(): string {
   if (typeof window === "undefined") return "";
   try {
     return (window.localStorage.getItem("onmyagent.server.token") ?? "").trim();
@@ -84,7 +84,7 @@ export function GlobalSDKProvider({ children }: GlobalSDKProviderProps) {
   }
   const emitter = emitterRef.current;
 
-  const token = readOpenworkToken();
+  const token = readOnMyAgentToken();
   const headers =
     token && server.url.includes("/opencode")
       ? { Authorization: `Bearer ${token}` }

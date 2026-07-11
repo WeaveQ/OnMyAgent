@@ -6,12 +6,12 @@ import { SUGGESTED_PLUGINS } from "../../app/constants";
 import type { EnablementContext } from "../../app/enablement";
 import { createClient } from "../../app/lib/opencode";
 import {
-  createOpenworkServerClient,
-  type OpenworkServerCapabilities,
-  type OpenworkServerClient,
+  createOnMyAgentServerClient,
+  type OnMyAgentServerCapabilities,
+  type OnMyAgentServerClient,
 } from "../../app/lib/onmyagent-server";
 import { resolveWorkspaceEndpoint } from "../../app/lib/workspace-endpoint";
-import { buildOpenworkEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
+import { buildOnMyAgentEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
 import type {
   Client,
   ProviderListItem,
@@ -25,7 +25,7 @@ import { t } from "../../i18n";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "../domains/connections";
-import { createOpenworkServerStore, useOpenworkServerStoreSnapshot } from "../domains/shared/onmyagent-server-store";
+import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../domains/shared/onmyagent-server-store";
 import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections";
 import { ProviderAuthModal } from "../domains/connections";
 import { ConnectionsModals } from "../domains/connections";
@@ -143,18 +143,18 @@ import {
   renameSettingsWorkspaceAndRefresh,
   revealSettingsWorkspacePath,
 } from "./settings-route-workspace-actions";
-import { ensureDesktopLocalOpenworkConnection } from "./desktop-local-onmyagent";
-import { resolveOpenworkConnection } from "./onmyagent-connection";
+import { ensureDesktopLocalOnMyAgentConnection } from "./desktop-local-onmyagent";
+import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 import {
   useSettingsEmbeddedRedirect,
   useSettingsPathNavigator,
 } from "./settings-route-embedded-path";
 import { useSettingsWorkspaceRefs } from "./settings-route-refs";
 import {
-  reconnectOpenworkServerAndRefresh,
-  resolveOpenworkServerStartupPreference,
-  restartLocalOpenworkServer,
-  restartOpenworkServerAndRefresh,
+  reconnectOnMyAgentServerAndRefresh,
+  resolveOnMyAgentServerStartupPreference,
+  restartLocalOnMyAgentServer,
+  restartOnMyAgentServerAndRefresh,
 } from "./settings-route-server-actions";
 import {
   buildRemoteWorkspaceConnectingState,
@@ -191,7 +191,7 @@ import {
   type LocalProviderInstallInput,
 } from "../domains/settings";
 
-const ROUTE_ONMYAGENT_CAPABILITIES: OpenworkServerCapabilities = {
+const ROUTE_ONMYAGENT_CAPABILITIES: OnMyAgentServerCapabilities = {
   skills: { read: true, write: true, source: "onmyagent" },
   plugins: { read: true, write: true },
   mcp: { read: true, write: true },
@@ -247,7 +247,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   });
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
-  const [onmyagentClient, setOpenworkClient] = useState<OpenworkServerClient | null>(null);
+  const [onmyagentClient, setOnMyAgentClient] = useState<OnMyAgentServerClient | null>(null);
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
@@ -363,9 +363,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot: "",
     selectedWorkspaceType: "local" as "local" | "remote",
     runtimeWorkspaceId: null as string | null,
-    onmyagentServerClient: null as OpenworkServerClient | null,
+    onmyagentServerClient: null as OnMyAgentServerClient | null,
     onmyagentServerStatus: "disconnected" as "connected" | "disconnected",
-    onmyagentServerCapabilities: null as OpenworkServerCapabilities | null,
+    onmyagentServerCapabilities: null as OnMyAgentServerCapabilities | null,
     selectedWorkspaceDisplay: emptyWorkspaceDisplay as WorkspaceDisplay,
     providerItems: [] as ProviderListItem[],
     providerDefaults: {} as Record<string, string>,
@@ -489,8 +489,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const onmyagentServerStore = useMemo(
     () =>
-      createOpenworkServerStore({
-        startupPreference: resolveOpenworkServerStartupPreference,
+      createOnMyAgentServerStore({
+        startupPreference: resolveOnMyAgentServerStartupPreference,
         documentVisible: () => typeof document === "undefined" || document.visibilityState === "visible",
         developerMode: () => routeStateRef.current.developerMode,
         runtimeWorkspaceId: () => routeStateRef.current.runtimeWorkspaceId,
@@ -498,7 +498,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         selectedWorkspaceDisplay: () => routeStateRef.current.selectedWorkspaceDisplay,
         restartLocalServer: async () => {
           try {
-            return await restartLocalOpenworkServer();
+            return await restartLocalOnMyAgentServer();
           } catch {
             return false;
           }
@@ -577,7 +577,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       }),
     [onmyagentServerStore, reloadCoordinator.markReloadRequired],
   );
-  const onmyagentServerSnapshot = useOpenworkServerStoreSnapshot(onmyagentServerStore);
+  const onmyagentServerSnapshot = useOnMyAgentServerStoreSnapshot(onmyagentServerStore);
   const connectionsSnapshot = useConnectionsStoreSnapshot(connectionsStore);
   const providerAuthSnapshot = useProviderAuthStoreSnapshot(providerAuthStore);
   useExtensionsStoreSnapshot(extensionsStore);
@@ -1027,10 +1027,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         recordInspectorEvent("route.workspace_bootstrap.error", bootstrapError);
         desktopWorkspaces = workspacesRef.current;
       }
-      const { normalizedBaseUrl, resolvedToken, resolvedHostToken } = await resolveOpenworkConnection();
+      const { normalizedBaseUrl, resolvedToken, resolvedHostToken } = await resolveOnMyAgentConnection();
 
       if (!normalizedBaseUrl || !resolvedToken) {
-        setOpenworkClient(null);
+        setOnMyAgentClient(null);
         setBaseUrl("");
         setToken("");
         setWorkspaces(desktopWorkspaces);
@@ -1049,7 +1049,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         return;
       }
 
-      const client = createOpenworkServerClient({
+      const client = createOnMyAgentServerClient({
         baseUrl: normalizedBaseUrl,
         token: resolvedToken,
         hostToken: resolvedHostToken || undefined,
@@ -1066,7 +1066,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         remoteConnectionFailedError: t("app.error_remote_worker_connection_failed"),
       });
 
-      setOpenworkClient(client);
+      setOnMyAgentClient(client);
       setBaseUrl(normalizedBaseUrl);
       setToken(resolvedToken);
       setWorkspaces(nextWorkspaces);
@@ -1228,7 +1228,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     if (!workspaceId || reconnectAttemptedWorkspaceIdRef.current === workspaceId) return;
     reconnectAttemptedWorkspaceIdRef.current = workspaceId;
 
-    void ensureDesktopLocalOpenworkConnection({
+    void ensureDesktopLocalOnMyAgentConnection({
       route: "settings",
       workspace: selectedWorkspace,
       allWorkspaces: workspaces,
@@ -1461,14 +1461,14 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       },
     };
   }, [connectionsSnapshot, providerConnectedIds, userEnvKeys, imageExtensionInstalled]);
-  const routeOpenworkStatus = onmyagentClient ? "connected" : "disconnected";
+  const routeOnMyAgentStatus = onmyagentClient ? "connected" : "disconnected";
   const notFoundRouteError = !loading && routeWorkspaceId && !selectedWorkspace
     ? t("workspace_list.not_found_route_error")
     : null;
-  const routeOpenworkCapabilities: OpenworkServerCapabilities | null = onmyagentClient
+  const routeOnMyAgentCapabilities: OnMyAgentServerCapabilities | null = onmyagentClient
     ? ROUTE_ONMYAGENT_CAPABILITIES
     : null;
-  const environmentRuntimeKey = buildOpenworkEnvRuntimeKey({
+  const environmentRuntimeKey = buildOnMyAgentEnvRuntimeKey({
     baseUrl: onmyagentServerSnapshot.onmyagentServerBaseUrl || onmyagentServerSnapshot.onmyagentServerUrl,
     pid: onmyagentServerSnapshot.onmyagentServerHostInfo?.pid ?? null,
     port: onmyagentServerSnapshot.onmyagentServerHostInfo?.port ?? null,
@@ -1480,7 +1480,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       selectedWorkspaceRoot,
       workspacePaths: buildSettingsEnvironmentWorkspacePaths({ selectedWorkspaceRoot, workspaces }),
       onmyagentRemoteAccess: onmyagentServerSnapshot.onmyagentServerSettings.remoteAccessEnabled === true,
-      reconnectOpenworkServer: onmyagentServerStore.reconnectOpenworkServer,
+      reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
       refreshRouteState,
     });
   };
@@ -1608,21 +1608,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   };
 
   const handleReconnectMessagingServer = useCallback(async () => {
-    return reconnectOpenworkServerAndRefresh({
-      reconnectOpenworkServer: onmyagentServerStore.reconnectOpenworkServer,
+    return reconnectOnMyAgentServerAndRefresh({
+      reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
       refreshRouteState,
     });
   }, [onmyagentServerStore, refreshRouteState]);
 
-  const handleRestartOpenworkServerAndRefresh = useCallback(async () => {
-    return restartOpenworkServerAndRefresh({
-      reconnectOpenworkServer: onmyagentServerStore.reconnectOpenworkServer,
+  const handleRestartOnMyAgentServerAndRefresh = useCallback(async () => {
+    return restartOnMyAgentServerAndRefresh({
+      reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
       refreshRouteState,
     });
   }, [onmyagentServerStore, refreshRouteState]);
 
-  const handleRestartLocalServer = handleRestartOpenworkServerAndRefresh;
-  const handleRestartMessagingWorker = handleRestartOpenworkServerAndRefresh;
+  const handleRestartLocalServer = handleRestartOnMyAgentServerAndRefresh;
+  const handleRestartMessagingWorker = handleRestartOnMyAgentServerAndRefresh;
 
   const messagingViewProps = useMessagingViewProps({
     busy,
@@ -1631,7 +1631,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     onmyagentServerClient:
       onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient,
     onmyagentReconnectBusy: onmyagentServerSnapshot.onmyagentReconnectBusy,
-    reconnectOpenworkServer: handleReconnectMessagingServer,
+    reconnectOnMyAgentServer: handleReconnectMessagingServer,
     restartMessagingWorker: handleRestartMessagingWorker,
     workspaceId: runtimeWorkspaceId,
     selectedWorkspaceRoot,
@@ -1668,8 +1668,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           <SettingsStack>
             <AuthorizedFoldersPanel
               onmyagentServerClient={onmyagentClient}
-              onmyagentServerStatus={routeOpenworkStatus}
-              onmyagentServerCapabilities={routeOpenworkCapabilities}
+              onmyagentServerStatus={routeOnMyAgentStatus}
+              onmyagentServerCapabilities={routeOnMyAgentCapabilities}
               runtimeWorkspaceId={runtimeWorkspaceId}
               selectedWorkspaceRoot={selectedWorkspaceRoot}
               activeWorkspaceType={workspaceType}
@@ -1868,7 +1868,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                   void connectionsStore.removeMcp(name);
                 }}
                 setMcpEnabled={
-                  routeOpenworkStatus === "connected" && routeOpenworkCapabilities?.mcp?.write
+                  routeOnMyAgentStatus === "connected" && routeOnMyAgentCapabilities?.mcp?.write
                     ? (name, enabled) => connectionsStore.setMcpEnabled(name, enabled)
                     : undefined
                 }
@@ -1928,7 +1928,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             onmyagentServerStatus={onmyagentServerSnapshot.onmyagentServerStatus}
             onmyagentServerUrl={onmyagentServerSnapshot.onmyagentServerUrl}
             onmyagentReconnectBusy={onmyagentServerSnapshot.onmyagentReconnectBusy}
-            reconnectOpenworkServer={onmyagentServerStore.reconnectOpenworkServer}
+            reconnectOnMyAgentServer={onmyagentServerStore.reconnectOnMyAgentServer}
             engineInfo={null}
             restartLocalServer={handleRestartLocalServer}
             stopHost={() => {}}
@@ -1961,9 +1961,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               onmyagentServerSettings: onmyagentServerSnapshot.onmyagentServerSettings,
               onmyagentServerHostInfo: onmyagentServerSnapshot.onmyagentServerHostInfo,
               runtimeWorkspaceId,
-              updateOpenworkServerSettings: onmyagentServerStore.updateOpenworkServerSettings,
-              resetOpenworkServerSettings: onmyagentServerStore.resetOpenworkServerSettings,
-              testOpenworkServerConnection: onmyagentServerStore.testOpenworkServerConnection,
+              updateOnMyAgentServerSettings: onmyagentServerStore.updateOnMyAgentServerSettings,
+              resetOnMyAgentServerSettings: onmyagentServerStore.resetOnMyAgentServerSettings,
+              testOnMyAgentServerConnection: onmyagentServerStore.testOnMyAgentServerConnection,
               canReloadWorkspace: reloadCoordinator.canReloadWorkspaceEngine,
               reloadWorkspaceEngine: reloadCoordinator.reloadWorkspaceEngine,
               reloadBusy: false,
@@ -2036,7 +2036,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         workspaces={workspaceOptions}
         onSelectWorkspace={handleSelectSettingsWorkspace}
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
-        headerStatus={routeOpenworkStatus}
+        headerStatus={routeOnMyAgentStatus}
         busyHint={loading ? t("session.loading_detail") : busyLabel}
         onClose={props.onClose ?? (() => navigate(selectedWorkspaceId ? workspaceSessionRoute(selectedWorkspaceId) : "/session"))}
         error={routeError ?? notFoundRouteError}

@@ -16,8 +16,8 @@ import {
 import { t } from "../../../../i18n";
 import { openDesktopPath } from "../../../../app/lib/desktop";
 import type {
-  OpenworkServerClient,
-  OpenworkWorkspaceFileCatalogEntry,
+  OnMyAgentServerClient,
+  OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../../app/lib/onmyagent-server";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -62,13 +62,13 @@ function CloudDriveEmptyState() {
 }
 
 export function WorkspaceFilesPage(props: {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
   fileRoot?: string | null;
 }) {
   const [query, setQuery] = useState("");
-  const [entries, setEntries] = useState<OpenworkWorkspaceFileCatalogEntry[]>(
+  const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>(
     [],
   );
   const [loading, setLoading] = useState(false);

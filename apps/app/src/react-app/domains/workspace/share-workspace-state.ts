@@ -2,16 +2,16 @@
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 import {
-  buildOpenworkWorkspaceBaseUrl,
-  createOpenworkServerClient,
-  parseOpenworkWorkspaceIdFromUrl,
+  buildOnMyAgentWorkspaceBaseUrl,
+  createOnMyAgentServerClient,
+  parseOnMyAgentWorkspaceIdFromUrl,
 } from "../../../app/lib/onmyagent-server";
 import type {
   EngineInfo,
-  OpenworkServerInfo,
+  OnMyAgentServerInfo,
   WorkspaceInfo,
 } from "../../../app/lib/desktop";
-import type { OpenworkServerSettings } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerSettings } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import { isDesktopRuntime, normalizeDirectoryPath } from "../../../app/utils";
 
@@ -19,8 +19,8 @@ export type ShareWorkspaceState = ReturnType<typeof useShareWorkspaceState>;
 
 type UseShareWorkspaceStateOptions = {
   workspaces: WorkspaceInfo[];
-  onmyagentServerHostInfo: OpenworkServerInfo | null;
-  onmyagentServerSettings: OpenworkServerSettings;
+  onmyagentServerHostInfo: OnMyAgentServerInfo | null;
+  onmyagentServerSettings: OnMyAgentServerSettings;
   engineInfo: EngineInfo | null;
   exportWorkspaceBusy: boolean;
   openLink: (url: string) => void;
@@ -29,17 +29,17 @@ type UseShareWorkspaceStateOptions = {
 
 type ShareWorkspaceLocalState = {
   shareWorkspaceId: string | null;
-  shareLocalOpenworkWorkspaceId: string | null;
+  shareLocalOnMyAgentWorkspaceId: string | null;
 };
 
 type ShareWorkspaceLocalAction =
   | { type: "open"; workspaceId: string }
   | { type: "close" }
-  | { type: "localOpenworkWorkspace"; workspaceId: string | null };
+  | { type: "localOnMyAgentWorkspace"; workspaceId: string | null };
 
 const initialShareWorkspaceLocalState: ShareWorkspaceLocalState = {
   shareWorkspaceId: null,
-  shareLocalOpenworkWorkspaceId: null,
+  shareLocalOnMyAgentWorkspaceId: null,
 };
 
 function shareWorkspaceLocalReducer(
@@ -51,13 +51,13 @@ function shareWorkspaceLocalReducer(
       return { ...state, shareWorkspaceId: action.workspaceId };
     case "close":
       return { ...state, shareWorkspaceId: null };
-    case "localOpenworkWorkspace":
-      return { ...state, shareLocalOpenworkWorkspaceId: action.workspaceId };
+    case "localOnMyAgentWorkspace":
+      return { ...state, shareLocalOnMyAgentWorkspaceId: action.workspaceId };
   }
 }
 
 export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
-  const [{ shareWorkspaceId, shareLocalOpenworkWorkspaceId }, dispatchShareWorkspace] = useReducer(
+  const [{ shareWorkspaceId, shareLocalOnMyAgentWorkspaceId }, dispatchShareWorkspace] = useReducer(
     shareWorkspaceLocalReducer,
     initialShareWorkspaceLocalState,
   );
@@ -86,7 +86,7 @@ export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
     if (workspace.workspaceType === "remote") {
       if (workspace.remoteType === "onmyagent") {
         const hostUrl = workspace.onmyagentHostUrl?.trim() || workspace.baseUrl?.trim() || "";
-        const mounted = buildOpenworkWorkspaceBaseUrl(
+        const mounted = buildOnMyAgentWorkspaceBaseUrl(
           hostUrl,
           workspace.onmyagentWorkspaceId,
         );
@@ -117,16 +117,16 @@ export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
       !baseUrl ||
       !token
     ) {
-      dispatchShareWorkspace({ type: "localOpenworkWorkspace", workspaceId: null });
+      dispatchShareWorkspace({ type: "localOnMyAgentWorkspace", workspaceId: null });
       return;
     }
 
     let cancelled = false;
-    dispatchShareWorkspace({ type: "localOpenworkWorkspace", workspaceId: null });
+    dispatchShareWorkspace({ type: "localOnMyAgentWorkspace", workspaceId: null });
 
     void (async () => {
       try {
-        const client = createOpenworkServerClient({ baseUrl, token });
+        const client = createOnMyAgentServerClient({ baseUrl, token });
         const response = await client.listWorkspaces();
         if (cancelled) return;
         const items = Array.isArray(response.items) ? response.items : [];
@@ -134,10 +134,10 @@ export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
         const match = items.find(
           (entry) => normalizeDirectoryPath(entry.path) === targetPath,
         );
-        dispatchShareWorkspace({ type: "localOpenworkWorkspace", workspaceId: match?.id ?? null });
+        dispatchShareWorkspace({ type: "localOnMyAgentWorkspace", workspaceId: match?.id ?? null });
       } catch {
         if (!cancelled) {
-          dispatchShareWorkspace({ type: "localOpenworkWorkspace", workspaceId: null });
+          dispatchShareWorkspace({ type: "localOnMyAgentWorkspace", workspaceId: null });
         }
       }
     })();
@@ -169,8 +169,8 @@ export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
         options.onmyagentServerHostInfo?.mdnsUrl?.trim() ||
         options.onmyagentServerHostInfo?.baseUrl?.trim() ||
         "";
-      const mountedUrl = shareLocalOpenworkWorkspaceId
-        ? buildOpenworkWorkspaceBaseUrl(hostUrl, shareLocalOpenworkWorkspaceId)
+      const mountedUrl = shareLocalOnMyAgentWorkspaceId
+        ? buildOnMyAgentWorkspaceBaseUrl(hostUrl, shareLocalOnMyAgentWorkspaceId)
         : null;
       const url = mountedUrl || hostUrl;
       const collaboratorToken = options.onmyagentServerHostInfo?.clientToken?.trim() || "";
@@ -213,7 +213,7 @@ export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
     if (workspace.remoteType === "onmyagent") {
       const hostUrl = workspace.onmyagentHostUrl?.trim() || workspace.baseUrl?.trim() || "";
       const url =
-        buildOpenworkWorkspaceBaseUrl(hostUrl, workspace.onmyagentWorkspaceId) ||
+        buildOnMyAgentWorkspaceBaseUrl(hostUrl, workspace.onmyagentWorkspaceId) ||
         hostUrl;
       const token =
         workspace.onmyagentToken?.trim() ||
@@ -250,7 +250,7 @@ export function useShareWorkspaceState(options: UseShareWorkspaceStateOptions) {
   }, [
     options.onmyagentServerHostInfo,
     options.onmyagentServerSettings,
-    shareLocalOpenworkWorkspaceId,
+    shareLocalOnMyAgentWorkspaceId,
     shareWorkspace,
   ]);
 

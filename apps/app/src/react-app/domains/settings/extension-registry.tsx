@@ -2,14 +2,14 @@
 import type { ReactNode } from "react";
 import type { McpDirectoryInfo } from "../../../app/constants";
 import { extensionContribution } from "../../../app/extensions";
-import type { OpenworkServerClient } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 
 /**
  * Context bag that the settings route passes to extension config factories.
  * Each extension picks what it needs; unused fields are ignored.
  */
 export type ExtensionConfigContext = {
-  onmyagentServerClient?: OpenworkServerClient | null;
+  onmyagentServerClient?: OnMyAgentServerClient | null;
   extensionConnections?: Record<string, boolean>;
   onExtensionConnectionChange?: (extensionId: string, connected: boolean) => void;
   computerUse?: {

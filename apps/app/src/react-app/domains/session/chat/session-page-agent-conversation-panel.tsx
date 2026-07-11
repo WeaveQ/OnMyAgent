@@ -5,8 +5,8 @@ import { Bot, Plus, Search } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionSnapshot,
+  OnMyAgentServerClient,
+  OnMyAgentSessionSnapshot,
 } from "../../../../app/lib/onmyagent-server";
 import type { WorkspaceSessionGroup } from "../../../../app/types";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export type AgentConversationDisplay = {
 
 export function AgentConversationPanel(props: {
   width: number;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   taskStatusVariant: TaskStatusIndicator["variant"];
   collapsed: boolean;
   groups: WorkspaceSessionGroup[];
@@ -100,7 +100,7 @@ export function AgentConversationPanel(props: {
     })),
   });
   const snapshotBySessionId = useMemo(() => {
-    const byId = new Map<string, OpenworkSessionSnapshot>();
+    const byId = new Map<string, OnMyAgentSessionSnapshot>();
     filteredSessions.forEach((session, index) => {
       const snapshot = snapshotQueries[index]?.data;
       if (snapshot) byId.set(session.id, snapshot);
@@ -173,7 +173,7 @@ function AgentConversationItem(props: {
   status?: string;
   taskStatusVariant: TaskStatusIndicator["variant"];
   display: AgentConversationDisplay;
-  snapshot?: OpenworkSessionSnapshot;
+  snapshot?: OnMyAgentSessionSnapshot;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
 }) {

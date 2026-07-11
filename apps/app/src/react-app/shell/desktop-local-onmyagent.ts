@@ -3,9 +3,9 @@ import {
   engineStart,
   onmyagentServerInfo,
   type EngineInfo,
-  type OpenworkServerInfo,
+  type OnMyAgentServerInfo,
 } from "../../app/lib/desktop";
-import { readOpenworkServerSettings, writeOpenworkServerSettings } from "../../app/lib/onmyagent-server";
+import { readOnMyAgentServerSettings, writeOnMyAgentServerSettings } from "../../app/lib/onmyagent-server";
 import { safeStringify } from "../../app/utils";
 import { recordInspectorEvent } from "./app-inspector";
 
@@ -17,13 +17,13 @@ type LocalWorkspaceLike = {
   workspaceType?: "local" | "remote" | string | null;
 };
 
-type EnsureDesktopLocalOpenworkOptions = {
+type EnsureDesktopLocalOnMyAgentOptions = {
   route: "session" | "settings";
   workspace: LocalWorkspaceLike | null | undefined;
   allWorkspaces: LocalWorkspaceLike[];
 };
 
-function emitOpenworkSettingsChanged() {
+function emitOnMyAgentSettingsChanged() {
   try {
     window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
   } catch {
@@ -37,8 +37,8 @@ function describeError(error: unknown) {
   return serialized && serialized !== "{}" ? serialized : "Unknown error";
 }
 
-export async function ensureDesktopLocalOpenworkConnection(
-  options: EnsureDesktopLocalOpenworkOptions,
+export async function ensureDesktopLocalOnMyAgentConnection(
+  options: EnsureDesktopLocalOnMyAgentOptions,
 ) {
   const workspace = options.workspace;
   const workspaceRoot = workspace?.path?.trim() ?? "";
@@ -70,23 +70,23 @@ export async function ensureDesktopLocalOpenworkConnection(
       await engineStart(workspaceRoot, {
         runtime: "direct",
         workspacePaths,
-        onmyagentRemoteAccess: readOpenworkServerSettings().remoteAccessEnabled === true,
+        onmyagentRemoteAccess: readOnMyAgentServerSettings().remoteAccessEnabled === true,
       });
     }
 
-    const info = await onmyagentServerInfo() as OpenworkServerInfo | null;
+    const info = await onmyagentServerInfo() as OnMyAgentServerInfo | null;
     if (!info?.baseUrl) {
       throw new Error("OnMyAgent server did not report a base URL after activation.");
     }
 
-    writeOpenworkServerSettings({
+    writeOnMyAgentServerSettings({
       urlOverride: info.baseUrl,
       token: info.ownerToken?.trim() || info.clientToken?.trim() || undefined,
       hostToken: info.hostToken?.trim() || undefined,
       portOverride: info.port ?? undefined,
       remoteAccessEnabled: info.remoteAccessEnabled === true,
     });
-    emitOpenworkSettingsChanged();
+    emitOnMyAgentSettingsChanged();
 
     recordInspectorEvent("route.local_onmyagent.ensure.success", {
       route: options.route,

@@ -8,7 +8,7 @@ import {
   openDesktopPath,
 } from "@/app/lib/desktop";
 import type { LocalSkillCard } from "@/app/lib/desktop";
-import type { OpenworkServerClient } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -430,7 +430,7 @@ function ImportSkillDialog(props: {
 export function SkillsMarketplacePage(props: {
   workspaceId: string;
   workspaceRoot?: string | null;
-  client?: OpenworkServerClient | null;
+  client?: OnMyAgentServerClient | null;
   query?: string;
   view?: "market" | "installed";
   importOpen?: boolean;

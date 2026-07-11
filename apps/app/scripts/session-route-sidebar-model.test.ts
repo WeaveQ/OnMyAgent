@@ -148,7 +148,7 @@ describe("session route sidebar model", () => {
     const remoteLoaded = applyWorkspaceSessionLoadSuccessConnectionState({
       states: missing,
       workspaceId: "ws_remote",
-      isRemoteOpenworkWorkspace: true,
+      isRemoteOnMyAgentWorkspace: true,
       taskCount: 2,
       loadedMessage: "Loaded tasks",
       emptyMessage: "No tasks",
@@ -159,7 +159,7 @@ describe("session route sidebar model", () => {
     const localRecovered = applyWorkspaceSessionLoadSuccessConnectionState({
       states: { ws_local: { status: "error", message: "Local failed", checkedAt: 1 } },
       workspaceId: "ws_local",
-      isRemoteOpenworkWorkspace: false,
+      isRemoteOnMyAgentWorkspace: false,
       taskCount: 0,
       loadedMessage: "Loaded",
       emptyMessage: "Empty",

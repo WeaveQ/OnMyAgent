@@ -23,7 +23,7 @@ import {
 import { PaperGrainGradient } from "@onmyagent/ui/react";
 
 import { desktopFetch } from "../../../../app/lib/desktop";
-import type { OpenworkServerClient } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyStateBox } from "@/components/ui/notice-box";
@@ -37,7 +37,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { DisclosureRowButton } from "@/components/ui/action-row";
-import { publishInspectorSlice, recordInspectorEvent, type OpenworkControlAction, useControlAction } from "../../../shell";
+import { publishInspectorSlice, recordInspectorEvent, type OnMyAgentControlAction, useControlAction } from "../../../shell";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 
 import { t } from "../../../../i18n";
@@ -68,7 +68,7 @@ type VoiceRuntimeSnapshot = {
 };
 
 type VoicePanelProps = {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   sessionId: string | null;
   onClose: () => void;
 };
@@ -866,7 +866,7 @@ export function VoicePanel(props: VoicePanelProps) {
     textCommand.length,
   ]);
 
-  const startAction = useMemo<OpenworkControlAction>(
+  const startAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.start",
       label: t("session.voice_start"),
@@ -880,7 +880,7 @@ export function VoicePanel(props: VoicePanelProps) {
   );
   useControlAction(startAction);
 
-  const stopAction = useMemo<OpenworkControlAction>(
+  const stopAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.stop",
       label: t("session.voice_stop"),
@@ -894,7 +894,7 @@ export function VoicePanel(props: VoicePanelProps) {
   );
   useControlAction(stopAction);
 
-  const muteAction = useMemo<OpenworkControlAction>(
+  const muteAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.toggle_mute",
       label: micMuted ? t("session.voice_unmute") : t("session.voice_mute"),
@@ -908,7 +908,7 @@ export function VoicePanel(props: VoicePanelProps) {
   );
   useControlAction(muteAction);
 
-  const injectTranscriptAction = useMemo<OpenworkControlAction>(
+  const injectTranscriptAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.inject_transcript",
       label: t("session.voice_inject_transcript"),
@@ -931,7 +931,7 @@ export function VoicePanel(props: VoicePanelProps) {
   );
   useControlAction(injectTranscriptAction);
 
-  const sendTextAction = useMemo<OpenworkControlAction>(
+  const sendTextAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.send_text",
       label: t("session.voice_send_text"),
@@ -954,7 +954,7 @@ export function VoicePanel(props: VoicePanelProps) {
   );
   useControlAction(sendTextAction);
 
-  const injectAudioAction = useMemo<OpenworkControlAction>(
+  const injectAudioAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.inject_audio",
       label: t("session.voice_inject_audio"),
@@ -976,7 +976,7 @@ export function VoicePanel(props: VoicePanelProps) {
   );
   useControlAction(injectAudioAction);
 
-  const statusAction = useMemo<OpenworkControlAction>(
+  const statusAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "voice.status",
       label: t("session.voice_read_status"),
