@@ -16,8 +16,6 @@ docs/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
     preview.html / preview-dark.html / preview.css
-  features/
-    session-goal.md         ← session goal lifecycle behavior contract
 ```
 
 Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, …
@@ -49,9 +47,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Local packaging | `../BUILD.md` |
 | Release | `release.md` |
 | Security reporting | `../SECURITY.md` |
-| Handoff / run log / plans / intent debt | **local** `.loop/` only (gitignored) |
+| Handoff / run log / plans / feature drafts | **local** `.loop/` only (gitignored) |
 | Severe incidents | `loop/incidents.md` |
-| Feature behavior contracts | `features/*.md` |
 
 ### Update when
 
@@ -63,15 +60,14 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Packaging steps | `BUILD.md` |
 | Release flow | `release.md` |
 | Agent hard rules | `AGENTS.md` / `loop/rules.md` |
-| Feature behavior | `features/<name>.md` |
-| Execution plans | `.loop/plans/` only — never under `docs/` |
+| Execution / design drafts | `.loop/` only — never under `docs/features`, `docs/plans`, `docs/archive` |
 
 ## Not in git
 
 | Path | Why |
 | --- | --- |
-| `.loop/*` | Local loop state and AI plans |
-| `docs/plans/`, `docs/archive/` | gitignored; do not reintroduce |
+| `.loop/*` | Local loop state, AI plans, drafts |
+| `docs/plans/`, `docs/archive/`, `docs/features/` | gitignored; do not reintroduce |
 
 ## Not engineering docs
 
@@ -81,7 +77,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 
 ## Maintenance
 
-1. Keep this folder to the layout above — no stub pointer files at `docs/` root.
+1. Keep this folder to the layout above — no plan/feature draft trees under `docs/`.
 2. Prefer one SoT update over copying paragraphs.
 3. After edits: link smoke + `git diff --check`.
 4. Audit workflow: `.codex/skills/documentation-audit/SKILL.md`.

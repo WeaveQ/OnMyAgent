@@ -206,11 +206,10 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 ## Session Goal Lifecycle
 
-会话内「追求目标」运行时（预览 → 发送创建 → 暂停/继续/结束、与规划模式互斥、按 `sessionId` 隔离）的设计与实现计划：
+会话内「追求目标」运行时（预览 → 发送创建 → 暂停/继续/结束、与规划模式互斥、按 `sessionId` 隔离）：
 
-- 设计契约：`docs/features/session-goal.md`
 - 实现主要落在 `domains/session/surface/` 与 composer / goal runtime 相关模块。
-- 执行 plan 只写本地 `.loop/plans/`，不进仓库。
+- 行为细节以代码与测试为准；临时设计/执行 plan 只写本地 `.loop/`，不进 `docs/`。
 
 ## Graphify Baseline
 

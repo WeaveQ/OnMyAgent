@@ -100,7 +100,7 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 1. 用户明确指定的 ledger / plan 文件。
 2. 当前任务已创建或已存在的 `.loop/plans/*ledger*.md`、`.loop/plans/*execution*.md`、`.loop/plans/*plan*.md`。
 3. 如果没有现成文件，先在 `.loop/plans/<task-name>-execution-ledger.md` 创建一个。
-4. 不要把执行 ledger 写入 `docs/`；行为契约如需长期保留用 `docs/features/*.md`。
+4. 不要把执行 ledger 或 feature design draft 写入 `docs/`；稳定架构事实写入 `docs/Architecture.md` 或对应代码旁 README。
 
 执行任何 durable ledger 任务时：
 
