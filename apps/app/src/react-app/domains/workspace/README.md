@@ -1,10 +1,13 @@
 # domains/workspace
 
-Workspace 创建 / 重命名 / 分享 / 远程 workspace 连接编辑与诊断。
+Workspace create / rename / share / remote connection editor / diagnostics / files page.
 
-## 对外符号
-`./index.ts` barrel：CreateWorkspaceModal / CreateRemoteWorkspaceModal / RenameWorkspaceModal / useShareWorkspaceState / useRemoteWorkspaceConnectionEditor / useRemoteAccessRestart + remote-workspace-diagnostics 全套函数。
+## Public surface
 
-## 横向依赖
-允许：`domains/shared`、`app/lib`。
-禁止：`domains/session`、`domains/settings`。
+`./index.ts` barrel: create/share/rename modals, remote connection helpers, diagnostics,
+and workspace files page exports as maintained in the barrel.
+
+## Lateral dependencies
+
+- Allowed: `domains/shared` (infra), `app/lib`, `packages/types`.
+- Forbidden: growing product imports from `session` / `settings` without a barrel or kernel contract.

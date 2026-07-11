@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-04
+last-reviewed: 2026-07-11
 
 colors:
   light:
@@ -663,6 +663,32 @@ flags:
 > When code disagrees with this file, code is wrong — fix the code, not the
 > contract, unless the contract itself is demonstrably outdated (in that
 > case update this file first, then align code).
+
+## Task router (30 seconds)
+
+| You are changing… | Read |
+| --- | --- |
+| Colors, signal, surfaces, artifact hues | YAML `colors` + § 2 |
+| Fonts, type scale, mono | YAML `typography` + § 3 |
+| Buttons, tabs, cards, badges, empty states | § 4 + YAML `components` / `components.contracts` |
+| Loading / disabled / error timing | YAML `state-timings` + § 4a |
+| Toasts / notifications | YAML `notifications` + § 4b |
+| User / assistant / tool / system message chrome | YAML `message-roles` + § 4c |
+| Streaming cursor / partial output | YAML `streaming` + § 4d |
+| Presence / activity dots | YAML `presence` + § 4e |
+| Tool approval surfaces | YAML `tool-approval` + § 4f |
+| Code / diff blocks | § 4g |
+| Session / artifact cards | YAML `artifact-hue` + § 4h |
+| Shell rail, titlebar, composer host density | YAML shell chrome + **§ 4i** |
+| Layout / spacing | YAML `spacing` + § 5 |
+| Keyboard chips (`⌘K`) | YAML `kbd` + § 5a |
+| Elevation / z-index | YAML `z-layers` + § 6 |
+| Radii / shapes (`rounded-full` rules) | YAML `rounded` + § 7–8 |
+| Focus rings / a11y | YAML `focus` + § 9 |
+| CJK / i18n space budget | § 10 |
+| Intentional exceptions | § 11 |
+
+Drift check: `pnpm task check design`. Philosophy narrative only: `docs/design/theme-system.md`. Doc map: `docs/README.md`.
 
 ## 1. Visual Theme
 
@@ -1965,9 +1991,8 @@ primitive" rule.
 
 **The extension workflow.** For any non-trivial DESIGN.md change:
 
-1. Write a plan doc: `docs/plans/YYYY-MM-DD-NNN-feat-design-md-vN-plan.md`.
-   Use the compound-engineering `ce-plan` skill; v1, v2, and v3 plans
-   under `docs/plans/` are worked examples.
+1. Optional local plan under `.loop/plans/` (gitignored). Do **not** commit
+   plan ledgers under `docs/plans/` or `docs/archive/` (also gitignored).
 2. Update `DESIGN.md` — YAML front matter first, then the narrative
    section that consumes it. Keep the two in lockstep so
    `extract-tokens.mjs` can diff cleanly.

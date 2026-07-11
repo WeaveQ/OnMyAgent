@@ -98,6 +98,11 @@ opencode.jsonc
 .loop/*
 .memsearch/*
 
+# Execution / historical plan ledgers — keep out of git
+# (use local .loop/plans/ for AI day-to-day plans)
+docs/plans/
+docs/archive/
+
 # Native/build caches
 **/.build/
 **/__pycache__/

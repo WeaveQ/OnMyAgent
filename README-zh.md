@@ -2,6 +2,17 @@
 
 [中文](./README-zh.md) | [English](./README.md)
 
+## 文档入口
+
+| 需求 | 文档 |
+| --- | --- |
+| 快速开始（本页） | 继续往下读 |
+| 贡献 / PR | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
+| AI Agent 规则 | [`AGENTS.md`](./AGENTS.md) |
+| 架构 | [`docs/Architecture.md`](./docs/Architecture.md) |
+| UI / 视觉契约 | [`DESIGN.md`](./DESIGN.md) |
+| 文档总目录 | [`docs/README.md`](./docs/README.md) |
+
 **一个工作台，管理好你本地所有 Agent。**
 
 OnMyAgent 是开源桌面工作区，也是面向 agentic 工作流的本地控制平面。
@@ -174,7 +185,7 @@ apps/app            React UI、会话工作区、设置、Artifacts、i18n
 apps/server         本地 HTTP API，用于 workspace/session/skill/MCP 操作
 apps/orchestrator   启动 OpenCode、server、sandbox 的宿主进程
 packages/types      共享 Zod schema 和类型边界
-packages/ui         共享视觉组件
+packages/ui         共享 React 视觉组件（`@onmyagent/ui/react`）
 packages/handsfree  本地 Computer Use runner
 packages/onmyagent-ui-mcp 让 Agent 检查/控制 UI 的 MCP server
 ```

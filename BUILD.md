@@ -1,15 +1,17 @@
 # Build Guide
 
-This file is the desktop packaging runbook for OnMyAgent. Keep everyday development commands in `README.md` and release orchestration in `scripts/release/*`.
+This file is the **local desktop packaging** runbook only (prepare sidecars, `package:electron`, `package:electron:dir`).
 
-## Related Docs
+| Topic | Doc |
+| --- | --- |
+| Everyday dev commands | `README.md` |
+| GitHub release / tags / signing / notarize | **`docs/release-process.md`** (SoT) |
+| Release scripts | `scripts/release/*` |
+| Full doc map | `docs/README.md` |
+| Architecture | `docs/Architecture.md` |
+| Security | `SECURITY.md` |
 
-- `README.md` — project overview and common commands.
-- `README-zh.md` — Simplified Chinese project overview.
-- `docs/README.md` — full documentation index.
-- `SECURITY.md` — security reporting and project security boundaries.
-- `CODE_OF_CONDUCT.md` — community behavior expectations and reporting path.
-- `docs/Architecture.md` — package boundaries and runtime architecture.
+Do not document production release secrets or tag flows here — keep them in `docs/release-process.md`.
 
 ## Prerequisites
 
