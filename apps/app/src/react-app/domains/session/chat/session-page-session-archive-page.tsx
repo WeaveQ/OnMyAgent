@@ -267,7 +267,7 @@ export function SessionArchivePage(props: Props) {
         </div>
       ) : null}
 
-      {/* Agent 筛选栏 */}
+      {/* Agent filter bar */}
       {groups.length > 0 ? (
         <div className="flex items-center gap-1.5">
           <button

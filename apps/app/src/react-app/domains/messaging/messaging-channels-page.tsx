@@ -98,7 +98,7 @@ function CollapsibleChannelHeader(props: {
       className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer hover:bg-dls-hover transition-colors"
       onClick={props.onToggleExpand}
     >
-      {/* 左侧：图标 + 名称 + 状态 */}
+      {/* Left: icon + name + status */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <ChannelIcon channelId={channel.id} connected={connected} />
         <div className="min-w-0 flex-1">
@@ -114,7 +114,7 @@ function CollapsibleChannelHeader(props: {
         </div>
       </div>
 
-      {/* 右侧：开关 + 展开/折叠箭头 */}
+      {/* Right: toggle + expand/collapse */}
       <div className="flex items-center gap-3 shrink-0">
         <div onClick={(e) => e.stopPropagation()}>
           <Switch
@@ -142,12 +142,12 @@ function CollapsibleChannelContent(props: {
 }) {
   return (
     <div className="px-4 pb-4 pt-2 border-t border-dls-border">
-      {/* 配置提示 */}
+      {/* Config tip */}
       <div className="mb-3 rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
         {t("messaging.channel_panel_config_hint")}
       </div>
 
-      {/* 渠道配置表单 */}
+      {/* Channel config form */}
       {props.channel.id === "wechat" ? (
         <WeixinChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onWeixinStatusChange} />
       ) : null}
@@ -155,7 +155,7 @@ function CollapsibleChannelContent(props: {
         <FeishuChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onFeishuStatusChange} />
       ) : null}
 
-      {/* 配对与用户管理面板 */}
+      {/* Pairing and user management */}
       <div className="mt-4 pt-4 border-t border-dls-border">
         <h4 className="text-sm font-medium text-dls-text mb-3">{t("messaging.pairing_management")}</h4>
         <ChannelPairingPanel />
@@ -293,7 +293,7 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <div className="w-full">
-          {/* 页面标题 */}
+          {/* Page title */}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -329,7 +329,7 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
             </div>
           </div>
 
-          {/* 渠道折叠列表 */}
+          {/* Channel accordion list */}
           <div className="mt-4 space-y-2">
             {channels.map((channel) => (
               <CollapsibleChannelItem

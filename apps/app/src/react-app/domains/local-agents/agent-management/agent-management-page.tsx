@@ -51,7 +51,8 @@ import {
 import { AgentManagementMcpPanel } from "./agent-management-mcp-panel";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
 
-const AGENT_MANAGER_HEALTH_PROMPT = "Agent 管理健康检查：请只回复 HEALTH_CHECK_OK。";
+const AGENT_MANAGER_HEALTH_PROMPT =
+  "Agent management health check: reply with HEALTH_CHECK_OK only and keep it short.";
 
 type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive";
 
