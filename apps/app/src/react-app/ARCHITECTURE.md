@@ -162,7 +162,7 @@ Prefer importing from the target domain, not from `shared-pages` re-exports, whe
 
 ## Session goal lifecycle
 
-Design: `docs/features/session-goal/design.md`. Implementation plans stay in local `.loop/plans/`.
+Design: `docs/features/session-goal.md`. Implementation plans stay in local `.loop/plans/`.
 
 Summary for implementers:
 
@@ -232,3 +232,28 @@ tree when a domain-scoped import path is clearer:
 
 - `shell/session-route.tsx` and `shell/settings-route.tsx` must stay thin re-exports
   (implementation in `*-route-render.tsx`). Guard: `node scripts/checks/architecture-paths.mjs`.
+
+## Domain README template
+
+When adding `domains/<name>/README.md`, use:
+
+```markdown
+# domains/<name>
+
+One-line purpose.
+
+## Ownership
+- Owns …
+- Does not own …
+
+## Public surface
+- Prefer `./index.ts` barrel. Note if no barrel yet.
+
+## Lateral dependencies
+- Allowed: …
+- Forbidden: …
+
+## Do not
+- Product features in `domains/shared`
+- Import `shell/*` from a domain
+```

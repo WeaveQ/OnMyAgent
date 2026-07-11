@@ -1,6 +1,6 @@
 # Loop Rules
 
-Detailed loop, durable ledger, safety, and graphify rules for OnMyAgent agents. `../AGENTS.md` is the short entrypoint; this file is the required detailed rule source for non-trivial loop work.
+Detailed loop, durable ledger, safety, and graphify rules for OnMyAgent agents. `../../AGENTS.md` is the short entrypoint; this file is the required detailed rule source for non-trivial loop work.
 
 ## Loop 设计
 
@@ -84,13 +84,12 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 | `.loop/state/PROGRESS.md` | 本地当前任务、观察项、下一步和 handoff，不提交 |
 | `.loop/runs/YYYY-MM-DD.md` | 本地当前日运行日志、验证结果、下一步，不提交 |
 | `.loop/plans/*.md` | 本地执行计划、临时 ledger、AI 运行用 acceptance ledger，不提交 |
-| `.loop/state/intent-debt.md` | 本地 AI 猜错、边界模糊和临时债务，不提交；稳定规则再提升到 `../AGENTS.md` 或 skill |
-| `docs/loop-incidents.md` | 仅记录严重事故：误删、越权、真实资源/生产/成本风险 |
-| `docs/legacy-loop-pointers.md` (+ thin `STATE.md` / `intent-debt.md` / `LOOP-RUN-LOG.md` stubs) | 兼容指针入口，不再写入动态 loop 状态 |
-| `docs/plans/`（按需创建） | 只保留人类需要长期 review 的产品/架构计划；不存 AI 临时执行 ledger |
-| `.loop/archive/` | 本地历史归档和 legacy state 快照，不提交 |
+| `.loop/state/intent-debt.md` | 本地 AI 猜错、边界模糊和临时债务，不提交；稳定规则再提升到 `../../AGENTS.md` 或 skill |
+| `docs/loop/incidents.md` | 仅记录严重事故：误删、越权、真实资源/生产/成本风险 |
+| `docs/README.md` | 文档地图；不写动态 loop 状态 |
+| `.loop/archive/` | 本地历史归档，不提交 |
 
-卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续，不自动创建 repo 状态文件）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；repo 内动态 loop 状态只写 `.loop/`，兼容指针见 `docs/legacy-loop-pointers.md`；重复问题回写 `../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。
+卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；动态 loop 状态只写 `.loop/`；重复问题回写 `../../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。执行 plan 只写 `.loop/plans/`（`docs/plans/` / `docs/archive/` 已 gitignore，禁止提交）。
 
 ### Durable Long Task / Plan Ledger Rule
 
@@ -101,12 +100,12 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 1. 用户明确指定的 ledger / plan 文件。
 2. 当前任务已创建或已存在的 `.loop/plans/*ledger*.md`、`.loop/plans/*execution*.md`、`.loop/plans/*plan*.md`。
 3. 如果没有现成文件，先在 `.loop/plans/<task-name>-execution-ledger.md` 创建一个。
-4. 只有用户明确要求长期保留、或计划本身是产品/架构 review 文档时，才放入 `docs/plans/`。
+4. 不要把执行 ledger 写入 `docs/`；行为契约如需长期保留用 `docs/features/*.md`。
 
 执行任何 durable ledger 任务时：
 
 - 该 ledger 是当前任务唯一权威 Execution Packet + Acceptance Ledger，不是参考文档。
-- 每轮开始必须先读本 `../AGENTS.md`、对应 ledger，以及本地 `.loop/state/PROGRESS.md` / `.loop/runs/` 最近日志（不存在则继续）。
+- 每轮开始必须先读本 `../../AGENTS.md`、对应 ledger，以及本地 `.loop/state/PROGRESS.md` / `.loop/runs/` 最近日志（不存在则继续）。
 - 必须从 ledger 中第一个 `pending` / `in_progress` 的 required item 继续。
 - 不得重新规划成更小任务，不得静默缩小 scope，不得只执行当前 prompt 里最显眼的局部事项。
 - ledger 中标为 required 的 phase / item 全部 required；`descoped` 必须由用户明确批准。

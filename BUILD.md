@@ -5,13 +5,13 @@ This file is the **local desktop packaging** runbook only (prepare sidecars, `pa
 | Topic | Doc |
 | --- | --- |
 | Everyday dev commands | `README.md` |
-| GitHub release / tags / signing / notarize | **`docs/release-process.md`** (SoT) |
+| GitHub release / tags / signing / notarize | **`docs/release.md`** (SoT) |
 | Release scripts | `scripts/release/*` |
 | Full doc map | `docs/README.md` |
 | Architecture | `docs/Architecture.md` |
 | Security | `SECURITY.md` |
 
-Do not document production release secrets or tag flows here — keep them in `docs/release-process.md`.
+Do not document production release secrets or tag flows here — keep them in `docs/release.md`.
 
 ## Prerequisites
 

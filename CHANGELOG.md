@@ -18,7 +18,7 @@ This project follows a lightweight changelog format during early development. Re
 
 - React app domain extraction: plugins, messaging, local-agents, workspace, shell-feedback, and connections ownership clarified; `shared/` reduced to infra only.
 - `@onmyagent/ui` is React-only (`@onmyagent/ui/react`); Solid export and unused Paper mesh helpers removed.
-- Documentation structure: single map in `docs/README.md`, SoT update table, DESIGN task router, session-goal design under `docs/features/session-goal/`, loop pointers collapsed to `docs/legacy-loop-pointers.md`. Plan ledgers removed from git (`docs/plans/`, `docs/archive/` gitignored; use `.loop/plans/`).
+- Documentation layout under `docs/`: map (`README.md`), `Architecture.md`, `release.md`, `loop/{rules,incidents}.md`, `design/`, `features/*.md`. Plan ledgers and loop stubs removed from git; use `.loop/`.
 
 ### Security
 
