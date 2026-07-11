@@ -83,4 +83,6 @@ export default {
   "messaging.command_help_new": "開始新會話",
   "messaging.command_help_mode": "切換原文直通或調試上下文模式",
   "messaging.feishu_agent_command_help": "在飛書內發送 #agent 查看可用 Agent，發送 #agent codex 等切換當前聊天後續回覆的本地 Agent。",
+  "messaging.wechat_clawbot": "微信 ClawBot",
+  "messaging.feishu_bot": "飛書機器人",
 } as const;

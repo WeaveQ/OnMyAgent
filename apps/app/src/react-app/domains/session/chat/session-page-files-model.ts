@@ -180,7 +180,7 @@ export function buildFileHierarchy(
       if (agentFiles.length > 0) {
         groups.push({
           agentName: topLevel.name,
-          taskName: "未分组",
+          taskName: t("files.ungrouped"),
           files: agentFiles.map((file) => ({
             name: file.name,
             path: file.path,
@@ -203,8 +203,8 @@ export function buildFileHierarchy(
       }
     } else {
       groups.push({
-        agentName: "工作区根目录",
-        taskName: "未分组",
+        agentName: t("files.workspace_root"),
+        taskName: t("files.ungrouped"),
         files: [
           {
             name: topLevel.name,

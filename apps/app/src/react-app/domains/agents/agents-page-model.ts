@@ -188,14 +188,27 @@ export function createGeneratedAvatarOption(
   };
 }
 
+const GENERATED_AVATAR_ID_RE =
+  /^generated:(pixel|adventurer|robot|lorelei|\u50CF\u7D20\u98CE|\u5192\u9669\u5BB6|\u673A\u5668\u4EBA|\u6D1B\u857E\u83B1):(\d+):(\d+)$/;
+
+const LEGACY_AVATAR_STYLE_MAP: Record<string, AgentAvatarOption["style"]> = {
+  pixel: "pixel",
+  adventurer: "adventurer",
+  robot: "robot",
+  lorelei: "lorelei",
+  "\u50CF\u7D20\u98CE": "pixel",
+  "\u5192\u9669\u5BB6": "adventurer",
+  "\u673A\u5668\u4EBA": "robot",
+  "\u6D1B\u857E\u83B1": "lorelei",
+};
+
 export function parseGeneratedAvatarOptionId(id: string) {
-  const match = /^generated:(像素风|冒险家|机器人|洛蕾莱):(\d+):(\d+)$/.exec(
-    id,
-  );
+  const match = GENERATED_AVATAR_ID_RE.exec(id);
   if (!match) return null;
-  const style = match[1] as AgentAvatarOption["style"];
-  const page = Number.parseInt(match[2], 10);
-  const index = Number.parseInt(match[3], 10);
+  const style = LEGACY_AVATAR_STYLE_MAP[match[1]!] ?? null;
+  if (!style) return null;
+  const page = Number.parseInt(match[2]!, 10);
+  const index = Number.parseInt(match[3]!, 10);
   if (Number.isNaN(page) || Number.isNaN(index)) return null;
   return { style, page, index };
 }

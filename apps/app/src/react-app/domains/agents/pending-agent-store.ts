@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { create } from "zustand";
 
-export type AgentAvatarStyle = "像素风" | "冒险家" | "机器人" | "洛蕾莱";
+export type AgentAvatarStyle = "pixel" | "adventurer" | "robot" | "lorelei";
 
 export type AgentToolCategoryId =
   | "filesystem"
@@ -94,30 +94,30 @@ export function buildAgentSystemPrompt(agent: {
   const parts: string[] = [];
   if (agent.name)
     parts.push(
-      `【身份覆盖】你现在的身份是：${agent.name}。你不是 OnMyAgent，不是 OnMyAgent，而是 ${agent.name}。当用户问你"你是谁"时，用 ${agent.name} 来回答，例如："你好，我是${agent.name}。"`,
+      `[Identity override] Your identity is now: ${agent.name}. You are not OnMyAgent; you are ${agent.name}. When the user asks who you are, answer as ${agent.name}, for example: "Hi, I am ${agent.name}."`,
     );
-  if (agent.quote) parts.push(`你的核心定位：${agent.quote}`);
-  if (agent.tone) parts.push(`语气风格：${agent.tone}`);
-  if (agent.preferredName) parts.push(`称呼用户为：${agent.preferredName}`);
-  if (agent.userBackground) parts.push(`用户背景：${agent.userBackground}`);
-  if (agent.userNote) parts.push(`特殊要求：${agent.userNote}`);
+  if (agent.quote) parts.push(`Core positioning: ${agent.quote}`);
+  if (agent.tone) parts.push(`Tone: ${agent.tone}`);
+  if (agent.preferredName) parts.push(`Address the user as: ${agent.preferredName}`);
+  if (agent.userBackground) parts.push(`User background: ${agent.userBackground}`);
+  if (agent.userNote) parts.push(`Special instructions: ${agent.userNote}`);
   const agentMemoryTrimmed = agent.agentMemory?.trim();
   if (agentMemoryTrimmed) {
     parts.push(
-      `【智能体记忆】这是你需要一直牢记的关于自身的长期记忆：\n${agentMemoryTrimmed}`,
+      `[Agent memory] Long-term memory about yourself that you must retain:\n${agentMemoryTrimmed}`,
     );
   }
   const userMemoryTrimmed = agent.userMemory?.trim();
   if (userMemoryTrimmed) {
     parts.push(
-      `【用户记忆】这是你需要一直牢记的关于用户的长期记忆（请勿在对话中主动复述这些条目，仅在必要时参考）：\n${userMemoryTrimmed}`,
+      `[User memory] Long-term memory about the user (do not proactively recap these items; use only when needed):\n${userMemoryTrimmed}`,
     );
   }
   if (agent.enabledToolIds && agent.enabledToolIds.length > 0) {
-    parts.push(`可用工具类别：${agent.enabledToolIds.join("、")}`);
+    parts.push(`Available tool categories: ${agent.enabledToolIds.join(", ")}`);
   }
   if (agent.preferredLanguage)
-    parts.push(`回复语言：${agent.preferredLanguage}`);
+    parts.push(`Reply language: ${agent.preferredLanguage}`);
   return parts.join("\n\n");
 }
 

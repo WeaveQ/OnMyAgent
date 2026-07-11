@@ -175,13 +175,13 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     sanitizedMessagesByAgent[key] = (messages ?? []).filter((message) => {
       const run = message.run;
       if (run?.errorInfo?.code === "orphaned") return false;
-      if (run?.status === "failed" && typeof message.text === "string" && message.text.includes("该 run 因主进程重启")) return false;
+      if (run?.status === "failed" && typeof message.text === "string" && message.text.includes("\u8BE5 run \u56E0\u4E3B\u8FDB\u7A0B\u91CD\u542F")) return false;
       return true;
     });
   }
   const sanitizedErrorsByAgent: Record<string, string | null> = {};
   for (const [key, value] of Object.entries(persistedState.errorsByAgent ?? {})) {
-    sanitizedErrorsByAgent[key] = typeof value === "string" && value.includes("该 run 因主进程重启") ? null : value;
+    sanitizedErrorsByAgent[key] = typeof value === "string" && value.includes("\u8BE5 run \u56E0\u4E3B\u8FDB\u7A0B\u91CD\u542F") ? null : value;
   }
   const initialAgents = initialAgentsRef.current;
   const [agents, setAgents] = useState<PersonalLocalAgent[]>(initialAgents);

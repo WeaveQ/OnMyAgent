@@ -2758,7 +2758,7 @@ export function SessionRouteRender() {
       onPickDraftWorkspace:
         pageMode === "assistant" || pageMode === "expert"
           ? () => {
-              void pickDirectory({ title: "选择工作空间" }).then((directory) => {
+              void pickDirectory({ title: t("session.choose_workspace") }).then((directory) => {
                 if (typeof directory === "string" && directory.trim()) {
                   setAssistantDraftWorkspaceRoot(directory.trim());
                 }

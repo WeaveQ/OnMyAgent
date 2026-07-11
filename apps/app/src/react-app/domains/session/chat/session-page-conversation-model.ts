@@ -1,3 +1,4 @@
+import { t } from "../../../../i18n";
 import type {
   OnMyAgentSessionMessage,
   OnMyAgentSessionSnapshot,
@@ -25,7 +26,7 @@ export function formatConversationTime(value: number | null | undefined) {
   );
   const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   if (dayDelta === 0) return time;
-  if (dayDelta === 1) return "昨天";
+  if (dayDelta === 1) return t("time.yesterday");
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
@@ -44,9 +45,10 @@ function messagePartPreview(part: OnMyAgentSessionMessage["parts"][number]) {
     return part.text.trim();
   }
   if (part.type === "reasoning") return part.text.trim();
-  if (part.type === "tool") return `[工具] ${part.tool}`;
-  if (part.type === "agent") return part.name ? `@${part.name}` : "@智能体";
-  if (part.type === "file") return "[文件]";
+  if (part.type === "tool") return t("session.preview_tool", { tool: part.tool });
+  if (part.type === "agent")
+    return part.name ? `@${part.name}` : t("session.preview_agent_mention");
+  if (part.type === "file") return t("session.preview_file");
   return "";
 }
 
@@ -65,7 +67,7 @@ export function snapshotConversationSummary(
 ) {
   if (!snapshot) {
     return {
-      preview: "新建会话",
+      preview: t("session.default_title"),
       time: formatConversationTime(fallbackTime),
     };
   }
@@ -88,7 +90,7 @@ export function snapshotConversationSummary(
   }
 
   return {
-    preview: "新建会话",
+    preview: t("session.default_title"),
     time: formatConversationTime(
       snapshot.session.time?.updated ??
         snapshot.session.time?.created ??

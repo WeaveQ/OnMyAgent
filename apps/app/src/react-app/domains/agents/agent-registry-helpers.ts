@@ -7,19 +7,43 @@ import * as pixelArt from "@dicebear/pixel-art";
 import type { AgentAvatarStyle } from "./pending-agent-store";
 import type { AgentModelProvider, AgentRegistry } from "./agent-registry-types";
 
+/** Legacy Chinese avatar style ids still present in stored registry/generated ids. */
+const LEGACY_AVATAR_STYLE_ALIASES: Record<string, AgentAvatarStyle> = {
+  pixel: "pixel",
+  adventurer: "adventurer",
+  robot: "robot",
+  lorelei: "lorelei",
+  // 像素风 / 冒险家 / 机器人 / 洛蕾莱
+  "\u50CF\u7D20\u98CE": "pixel",
+  "\u5192\u9669\u5BB6": "adventurer",
+  "\u673A\u5668\u4EBA": "robot",
+  "\u6D1B\u857E\u83B1": "lorelei",
+};
+
+const GENERATED_AVATAR_ID_RE =
+  /^generated:(pixel|adventurer|robot|lorelei|\u50CF\u7D20\u98CE|\u5192\u9669\u5BB6|\u673A\u5668\u4EBA|\u6D1B\u857E\u83B1):(\d+):(\d+)$/;
+
+export function normalizeAgentAvatarStyle(
+  value: unknown,
+): AgentAvatarStyle | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_AVATAR_STYLE_ALIASES[value] ?? null;
+}
+
 export function buildAgentAvatarDataUri(
   style: AgentAvatarStyle,
   seed: string,
 ): string {
   const options = { seed, radius: 50 };
-  switch (style) {
-    case "像素风":
+  const normalized = normalizeAgentAvatarStyle(style) ?? style;
+  switch (normalized) {
+    case "pixel":
       return createAvatar(pixelArt, options).toDataUri();
-    case "冒险家":
+    case "adventurer":
       return createAvatar(adventurer, options).toDataUri();
-    case "机器人":
+    case "robot":
       return createAvatar(bottts, options).toDataUri();
-    case "洛蕾莱":
+    case "lorelei":
       return createAvatar(lorelei, options).toDataUri();
   }
 }
@@ -35,6 +59,8 @@ export function resolveAgentAvatarUrl(
   if (input.customAvatarDataUrl) {
     return { url: input.customAvatarDataUrl, background: null };
   }
+  const avatarStyle =
+    normalizeAgentAvatarStyle(input.avatarStyle) ?? input.avatarStyle;
   const matchedOption = registry?.avatars.find(
     (item) => item.id === input.avatarOptionId,
   );
@@ -42,12 +68,12 @@ export function resolveAgentAvatarUrl(
     matchedOption?.label ??
     lookupGeneratedSeed(input.avatarOptionId) ??
     input.avatarOptionId ??
-    input.avatarStyle;
+    avatarStyle;
   const background =
     matchedOption?.background ??
     lookupGeneratedBackground(input.avatarOptionId) ??
     null;
-  return { url: buildAgentAvatarDataUri(input.avatarStyle, seed), background };
+  return { url: buildAgentAvatarDataUri(avatarStyle, seed), background };
 }
 
 function lookupGeneratedBackground(id: string): string | null {
@@ -58,9 +84,7 @@ function lookupGeneratedBackground(id: string): string | null {
     { background: "#cceaf5" },
     { background: "#ddefc8" },
   ];
-  const match = /^generated:(像素风|冒险家|机器人|洛蕾莱):(\d+):(\d+)$/.exec(
-    id,
-  );
+  const match = GENERATED_AVATAR_ID_RE.exec(id);
   if (!match) return null;
   const page = Number.parseInt(match[2]!, 10);
   const index = Number.parseInt(match[3]!, 10);
@@ -74,11 +98,9 @@ function lookupGeneratedBackground(id: string): string | null {
 }
 
 function lookupGeneratedSeed(id: string): string | null {
-  const match = /^generated:(像素风|冒险家|机器人|洛蕾莱):(\d+):(\d+)$/.exec(
-    id,
-  );
+  const match = GENERATED_AVATAR_ID_RE.exec(id);
   if (!match) return null;
-  const style = match[1];
+  const style = normalizeAgentAvatarStyle(match[1]) ?? match[1];
   const page = Number.parseInt(match[2]!, 10);
   const index = Number.parseInt(match[3]!, 10);
   if (Number.isNaN(page) || Number.isNaN(index)) return null;
@@ -86,12 +108,14 @@ function lookupGeneratedSeed(id: string): string | null {
   return `${style}-${page * AVATARS_PER_STYLE + index + 1}`;
 }
 
+const AUTO_PROVIDER_IDS = new Set(["auto", "\u81EA\u52A8"]);
+
 export function isValidSdkModelRef(
   providerID: string | undefined,
   modelID: string | undefined,
 ): providerID is string {
   if (!providerID || !modelID) return false;
-  if (providerID === "自动") return false;
+  if (AUTO_PROVIDER_IDS.has(providerID)) return false;
   if (modelID.toLowerCase() === "auto") return false;
   return true;
 }
@@ -100,12 +124,13 @@ export function friendlyModelNameToModelRef(
   provider: AgentModelProvider,
   model: string,
 ): { providerID: string; modelID: string } | null {
-  if (provider === "自动" || model === "Auto") {
+  if (AUTO_PROVIDER_IDS.has(provider) || model === "Auto") {
     return null;
   }
 
-  const providerMap: Record<AgentModelProvider, string> = {
-    自动: "auto",
+  const providerMap: Record<string, string> = {
+    auto: "auto",
+    "\u81EA\u52A8": "auto",
     Gemini: "google",
     OpenAI: "openai",
     Claude: "anthropic",

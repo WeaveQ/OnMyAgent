@@ -52,7 +52,7 @@ function AgentStarterRow(props: {
               draggable={false}
             />
           ) : (
-            props.item.name.charAt(0).toUpperCase() || "新"
+            props.item.name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
         <span

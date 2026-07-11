@@ -123,7 +123,7 @@ export function WorkspaceFilesPage(props: {
       .catch((loadError: unknown) => {
         if (cancelled) return;
         setError(
-          loadError instanceof Error ? loadError.message : "文件列表加载失败",
+          loadError instanceof Error ? loadError.message : t("files.load_failed"),
         );
       })
       .finally(() => {

@@ -1,3 +1,4 @@
+import { t } from "../../../../i18n";
 import { getDisplaySessionTitle } from "../../../../app/lib/session-title";
 import type { BootPhase } from "../../../../app/lib/startup-boot";
 import type {
@@ -26,12 +27,12 @@ export function workspaceTaskStatus(
   onmyagentServerStatus: OnMyAgentServerStatus,
   loading: boolean,
 ): TaskStatusIndicator {
-  if (loading) return { label: "正在准备工作区", variant: "loading" };
-  if (clientConnected) return { label: "可接受新任务", variant: "available" };
+  if (loading) return { label: t("session.preparing_workspace"), variant: "loading" };
+  if (clientConnected) return { label: t("status.ready_for_tasks"), variant: "available" };
   if (onmyagentServerStatus === "limited") {
-    return { label: "受限模式", variant: "limited" };
+    return { label: t("status.limited_mode"), variant: "limited" };
   }
-  return { label: "暂不可接受任务", variant: "offline" };
+  return { label: t("status.unavailable_for_tasks"), variant: "offline" };
 }
 
 export function getSidebarInitialLoading(input: {

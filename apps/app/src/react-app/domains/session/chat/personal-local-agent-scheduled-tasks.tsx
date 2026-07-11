@@ -100,7 +100,7 @@ export function scheduledRunMessage(job: PersonalLocalAgentHeartbeatJob, run: Pe
     id: `scheduled-task-${job.id}-${run.id}`,
     role: "assistant" as const,
     createdAt: run.finishedAt ?? run.startedAt,
-    text: `定时任务“${title}”执行完成。\n状态：${status}\nRun：${runIdValue}\n\n${output}`,
+    text: t("local_agent.scheduled_task_completed", { title, status, runId: runIdValue, output }),
     run: null,
   };
 }

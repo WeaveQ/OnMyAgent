@@ -128,7 +128,7 @@ const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_EXPERT_PROMPT =
-  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
   const values = [entry.packageName, entry.displayName, entry.packagePath];
@@ -456,7 +456,7 @@ export function ExpertPage(props: ExpertPageProps) {
         name: marketplaceExpert.displayName,
         description: marketplaceExpert.description,
         avatar: {
-          avatarStyle: "机器人",
+          avatarStyle: "robot",
           avatarOptionId: "marketplace-expert",
           customAvatarDataUrl: null,
           avatarUrl: marketplaceExpert.avatarUrl,
@@ -477,7 +477,7 @@ export function ExpertPage(props: ExpertPageProps) {
       name: activeConversationGroup.name,
       description: activeConversationGroup.description,
       avatar: {
-        avatarStyle: "机器人",
+        avatarStyle: "robot",
         avatarOptionId: "marketplace-expert",
         customAvatarDataUrl: null,
         avatarUrl: activeConversationGroup.avatarUrl,
