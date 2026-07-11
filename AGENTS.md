@@ -161,11 +161,28 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 动态状态只写 `.loop/`。文档目录见 `docs/README.md`。
 
-## 项目内 Codex Skills
+## 项目 Skills（多 harness）
 
-- 发现规则：本仓库专属 Codex skill 放在 `.codex/skills/<name>/SKILL.md`，不要同步到 `~/.codex/skills/`，避免变成全局技能。
-- `documentation-audit`：当用户要求扫描、优化、整理或更新项目文档，检查旧命令、旧品牌、断链、状态文档膨胀、路线图漂移时，先读取 `.codex/skills/documentation-audit/SKILL.md` 并按其中流程执行；同名副本保留在 `.opencode/skills/documentation-audit/`。
-- `ui-regression-audit`：当用户要求全局 UI 扫描、主题一致性、设置页截图巡检、中英文/i18n 检查、视觉回归报告时，先读取 `.codex/skills/ui-regression-audit/SKILL.md` 并按其中流程执行。
-- `frontend-primitive-refactor`：当用户要求前端组件重构、组件复用、统一同类组件大小、design token 防偏移时，先读取 `.codex/skills/frontend-primitive-refactor/SKILL.md` 并按其中流程执行。
-- OpenCode 兼容：同名副本保留在 `.opencode/skills/`；改动 `documentation-audit`、`ui-regression-audit`、`frontend-primitive-refactor` 时同步更新 `.codex/skills/` 与 `.opencode/skills/` 对应副本。
-- 桌面 bundled skills：`apps/desktop/resources/bundled-skills/**` 是产品分发内容，不和项目内 `.codex/skills/**` 自动同步；来源与同步策略见 `.codex/skills/documentation-audit/references/skills-sync.md`。
+**唯一编辑源：`.agents/skills/<name>/SKILL.md`。**
+工具适配层是 symlink（不要复制第二份实体文件）：
+
+```text
+.agents/skills/          ← source of truth
+.codex/skills  → ../.agents/skills
+.claude/skills → ../.agents/skills
+.grok/skills   → ../.agents/skills
+```
+
+说明与新增流程见 `.agents/README.md`。同步策略见 `.agents/skills/documentation-audit/references/skills-sync.md`。
+
+| Skill | 何时读取 |
+|------|----------|
+| `documentation-audit` | 扫描/整理文档、旧命令、断链、状态文档膨胀 |
+| `ui-regression-audit` | UI 主题/i18n/截图回归巡检 |
+| `frontend-primitive-refactor` | 组件复用、尺寸统一、design token 防偏移 |
+| `skills-audit` | 审计 skill 目录本身（重复、过期、断链） |
+| `self-improving` / `self-improving-agent` | 捕获错误与学习记录（按需） |
+
+- 不要把仓库 skill 同步到 `~/.codex/skills/` / `~/.grok/skills/` 等全局目录。
+- 桌面 **产品** bundled skills：`apps/desktop/resources/bundled-skills/**` 是分发内容，与工程 skill 分离，保持真实文件、不走 symlink。
+- `.opencode/` 是 OpenCode 工作区/产品配置，不是本目录的镜像。

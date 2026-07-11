@@ -80,4 +80,4 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 1. Keep this folder to the layout above — no plan/feature draft trees under `docs/`.
 2. Prefer one SoT update over copying paragraphs.
 3. After edits: link smoke + `git diff --check`.
-4. Audit workflow: `.codex/skills/documentation-audit/SKILL.md`.
+4. Audit workflow: `.agents/skills/documentation-audit/SKILL.md`.
