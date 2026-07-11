@@ -12,10 +12,10 @@ Cross-harness skill catalog for OnMyAgent coding agents (Grok, Claude Code, Code
 .grok/skills   → ../.agents/skills   (symlink)
 ```
 
-Do **not** create a second copy under `.codex/`, `.claude/`, or `.grok/`.  
+Do **not** create a second copy under `.codex/`, `.claude/`, or `.grok/`.
 Do **not** add `.cursor/` in this repo (not used).
 
-Desktop **product** skills stay in `apps/desktop/resources/bundled-skills/` as real files (packaging).  
+Desktop **product** skills stay in `apps/desktop/resources/bundled-skills/` as real files (packaging).
 OpenCode product/workspace config stays under `.opencode/` (not a mirror of this tree).
 
 ## When to add a skill

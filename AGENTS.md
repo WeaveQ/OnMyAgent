@@ -163,7 +163,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 ## 项目 Skills（多 harness）
 
-**唯一编辑源：`.agents/skills/<name>/SKILL.md`。**  
+**唯一编辑源：`.agents/skills/<name>/SKILL.md`。**
 工具适配层是 symlink（不要复制第二份实体文件）：
 
 ```text
