@@ -21,15 +21,17 @@ pnpm monorepo，Turbo 编排构建。核心边界：
 ```text
 apps/desktop      Electron shell，IPC，sidecar 管理，打包
 apps/app          React UI，src/app/lib 兼容层 + src/react-app 域架构
+                  domains: session, local-agents, messaging, agents, plugins,
+                  workspace, settings, connections, cloud, shell-feedback, shared(infra)
 apps/server       本地 HTTP API，workspace/session/skill/MCP/审批，SQLite，SSE
 apps/orchestrator 进程编排，嵌入 server，spawn opencode，sandbox
 packages/types    Zod schema，共享类型边界
-packages/ui       视觉组件，不依赖 app 状态
+packages/ui       React-only 视觉组件（@onmyagent/ui/react），不依赖 app 状态
 packages/handsfree macOS Computer Use
 packages/onmyagent-ui-mcp UI 控制面 MCP server
 ```
 
-默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`。
+默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`；React 域细节只维护在 `apps/app/src/react-app/ARCHITECTURE.md`。
 
 ## 构建与启动
 
@@ -129,46 +131,35 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 默认运行级别为 **L2 辅助期**：可修改 docs、低风险代码、补测试脚本；不能无人确认地改高风险路径。
 
-非平凡 loop、跨阶段任务、durable ledger、Reference Parity、Kill Switch、graphify 和恢复流程的完整规则必须读取并遵循 `docs/loop-rules.md`。本文件只保留硬入口：
+非平凡 loop、跨阶段任务、durable ledger、Reference Parity、Kill Switch、graphify 和恢复流程的完整规则必须读取并遵循 `docs/loop/rules.md`。本文件只保留硬入口：
 
 - 可自动继续：代码实现、文档更新、运行/修复明确的 lint/typecheck/test。
 - 必须跳出问用户：schema/数据结构变更、线上/真实资源、push/deploy/外部消息、超出当前边界、连续 3 次同错失败、需要产品/架构取舍。
-- 本地状态：动态 progress/run log/intent debt/执行 plan 写 `.loop/`，不写 repo pointer docs 或临时 `docs/plans`。
+- 本地状态：动态 progress/run log/intent debt/执行 plan 只写 `.loop/`（gitignored）。禁止把 plan ledger 提交到 `docs/plans/` 或 `docs/archive/`（亦已 ignore）。
 
 ## 验证入口
 
 - 每次代码变更至少跑相关 typecheck/test/import smoke 和 `git diff --check`；默认优先 `pnpm check:type` 或对应 `pnpm task check <target>`。
 - 文档变更至少跑旧命令/旧引用扫描、核心链接 smoke 和 `git diff --check`。
-- 详细 Maker/Checker、验证分层、失败重试和终止规则见 `docs/loop-rules.md`。
+- 详细 Maker/Checker、验证分层、失败重试和终止规则见 `docs/loop/rules.md`。
 
 
-## 文档导航
+## 文档导航（精简）
 
-| 文档 | 内容 |
+**完整地图只维护一份：`docs/README.md`。** 需要目录、SoT 规则、归档位置时读那里。
+
+| 任务 | 先读 |
 |------|------|
-| `README.md` | 人类入口、快速启动、项目说明 |
-| `README-zh.md` | 中文人类入口、快速启动、项目说明 |
-| `DESIGN.md` | 视觉契约唯一事实来源：tokens、组件、Do's/Don'ts。含机器可读 YAML front matter，供 AI agent 生成/修改 UI 时读取。 |
-| `docs/README.md` | 文档索引，按类型说明 docs 目录组织 |
-| `docs/Architecture.md` | 架构、数据流、目录边界、核心契约唯一事实来源 |
-| `docs/loop-rules.md` | Loop 细则：durable ledger、Reference Parity、Kill Switch、graphify |
-| `docs/design/theme-system.md` | 设计哲学叙事（Flat first / Decision first / Blunt geometry / Signal cyan / Exceptions）；具体 token 表见 `DESIGN.md`。 |
-| `docs/design/ui-primitive-refactor-best-practices.md` | UI primitive 复用、尺寸统一、design token 防偏移最佳实践 |
-| `scripts/design/extract-tokens.mjs` | 本地脚本：diff `DESIGN.md` YAML 与 `apps/app/src/app/index.css`。用 `pnpm task check design` 触发。 |
-| `BUILD.md` | 桌面端打包流程 |
-| `SECURITY.md` | 安全边界、漏洞报告和 safe harbor |
-| `CODE_OF_CONDUCT.md` | 开源社区行为准则和反馈入口 |
-| `apps/app/src/react-app/ARCHITECTURE.md` | React UI 域架构详细说明 |
-| `.loop/state/PROGRESS.md` | 本地当前任务和 handoff，不提交 |
-| `.loop/runs/` | 本地运行日志，不提交 |
-| `.loop/plans/` | 本地执行计划和临时 ledger，不提交 |
-| `.loop/state/intent-debt.md` | 本地 intent debt，不提交 |
-| `docs/loop-incidents.md` | 严重事故复盘 |
-| `.loop/archive/` | 本地历史归档，不提交 |
-| `.codex/skills/documentation-audit/references/skills-sync.md` | Codex/OpenCode/桌面 bundled skills 来源与同步策略 |
-| `.codex/skills/documentation-audit/SKILL.md` | 文档一致性巡检、旧命令/旧引用/状态文档治理流程 |
-| `.opencode/skills/*/SKILL.md` | 项目内 OpenCode Skill 操作说明 |
-| `.codex/skills/*/SKILL.md` | 项目内 Codex Skill 操作说明，仅在本仓库使用 |
+| 人类快速开始 / 贡献 | `README.md` · `CONTRIBUTING.md` |
+| 本文件之后的系统架构 | `docs/Architecture.md` |
+| React 域 / 路由身份 | `apps/app/src/react-app/ARCHITECTURE.md` |
+| UI 视觉契约 | `DESIGN.md` |
+| 重 loop / kill switch / graphify | `docs/loop/rules.md` |
+| 本地打包 | `BUILD.md` |
+| 发版 / tag | `docs/release.md` |
+| 本地 handoff / run log | `.loop/state/PROGRESS.md` · `.loop/runs/`（不进 git） |
+
+动态状态只写 `.loop/`。文档目录见 `docs/README.md`。
 
 ## 项目内 Codex Skills
 

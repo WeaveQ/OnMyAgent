@@ -32,7 +32,7 @@ Use this skill when the user asks for any of these:
 | Evidence | `rg` scan output summary, `pnpm task check app`, optional `reports/.../*.png`. |
 | State | Update local `.loop/state/PROGRESS.md` only when a local handoff is useful; do not write tracked state docs for routine UI work. |
 
-For non-trivial UI loops, long-running visual sweeps, repeated validation failures, or work that needs durable resumption, read `docs/loop-rules.md` after `AGENTS.md`. Store temporary screenshots, CDP transcripts, and validation evidence under `.loop/evidence/` or ignored report paths; do not add them to tracked `docs/`.
+For non-trivial UI loops, long-running visual sweeps, repeated validation failures, or work that needs durable resumption, read `docs/loop/rules.md` after `AGENTS.md`. Store temporary screenshots, CDP transcripts, and validation evidence under `.loop/evidence/` or ignored report paths; do not add them to tracked `docs/`.
 
 ## 🔴 CHECKPOINTS
 
