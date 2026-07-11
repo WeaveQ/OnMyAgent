@@ -181,7 +181,6 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 | `ui-regression-audit` | UI 主题/i18n/截图回归巡检 |
 | `frontend-primitive-refactor` | 组件复用、尺寸统一、design token 防偏移 |
 | `skills-audit` | 审计 skill 目录本身（重复、过期、断链） |
-| `self-improving` / `self-improving-agent` | 捕获错误与学习记录（按需） |
 
 - 不要把仓库 skill 同步到 `~/.codex/skills/` / `~/.grok/skills/` 等全局目录。
 - 桌面 **产品** bundled skills：`apps/desktop/resources/bundled-skills/**` 是分发内容，与工程 skill 分离，保持真实文件、不走 symlink。
