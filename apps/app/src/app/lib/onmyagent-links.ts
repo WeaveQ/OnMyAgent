@@ -1,5 +1,5 @@
 import { DEFAULT_DEN_BASE_URL, normalizeDenBaseUrl } from "./den";
-import { normalizeOpenworkServerUrl } from "./onmyagent-server";
+import { normalizeOnMyAgentServerUrl } from "./onmyagent-server";
 
 export type RemoteWorkspaceDefaults = {
   onmyagentHostUrl?: string | null;
@@ -42,7 +42,7 @@ export function parseRemoteConnectDeepLink(rawUrl: string): RemoteWorkspaceDefau
 
   const hostUrlRaw = url.searchParams.get("onmyagentHostUrl") ?? url.searchParams.get("onmyagentUrl") ?? "";
   const tokenRaw = url.searchParams.get("onmyagentToken") ?? url.searchParams.get("accessToken") ?? "";
-  const normalizedHostUrl = normalizeOpenworkServerUrl(hostUrlRaw);
+  const normalizedHostUrl = normalizeOnMyAgentServerUrl(hostUrlRaw);
   const token = tokenRaw.trim();
   if (!normalizedHostUrl || !token) {
     return null;

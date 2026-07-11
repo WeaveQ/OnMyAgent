@@ -4,7 +4,7 @@ import { useReducer } from "react";
 import { Separator } from "@/components/ui/separator";
 
 import type { OpencodeConnectStatus } from "@/app/types";
-import type { OpenworkServerStatus } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerStatus } from "@/app/lib/onmyagent-server";
 import type { EngineInfo } from "@/app/lib/desktop-types";
 import { t } from "@/i18n";
 import { LayoutStack } from "../settings-layout";
@@ -25,10 +25,10 @@ export type AdvancedViewProps = {
   headerStatus: string;
   clientConnected: boolean;
   opencodeConnectStatus: OpencodeConnectStatus | null;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerUrl: string;
   onmyagentReconnectBusy: boolean;
-  reconnectOpenworkServer: () => Promise<boolean>;
+  reconnectOnMyAgentServer: () => Promise<boolean>;
   engineInfo: EngineInfo | null;
   restartLocalServer: () => Promise<boolean>;
   stopHost: () => void;
@@ -100,11 +100,11 @@ export function AdvancedView(props: AdvancedViewProps) {
 
   const isLocalEngineRunning = Boolean(props.engineInfo?.running);
 
-  const handleReconnectOpenworkServer = async () => {
+  const handleReconnectOnMyAgentServer = async () => {
     if (props.busy || props.onmyagentReconnectBusy || !props.onmyagentServerUrl.trim()) return;
     dispatchLocal({ type: "reconnectStart" });
     try {
-      const ok = await props.reconnectOpenworkServer();
+      const ok = await props.reconnectOnMyAgentServer();
       if (!ok) {
         dispatchLocal({ type: "reconnectError", error: t("settings.reconnect_failed") });
         return;
@@ -206,7 +206,7 @@ export function AdvancedView(props: AdvancedViewProps) {
         reconnectError={onmyagentReconnectError}
         restartStatus={onmyagentRestartStatus}
         restartError={onmyagentRestartError}
-        onReconnect={handleReconnectOpenworkServer}
+        onReconnect={handleReconnectOnMyAgentServer}
         onRestart={handleRestartLocalServer}
         onStopHost={props.stopHost}
       />

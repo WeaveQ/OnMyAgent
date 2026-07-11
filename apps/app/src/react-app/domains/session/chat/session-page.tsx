@@ -22,8 +22,8 @@ import {
 import { t } from "../../../../i18n";
 import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import {
-  type OpenworkServerClient,
-  type OpenworkServerStatus,
+  type OnMyAgentServerClient,
+  type OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import type { BootPhase } from "../../../../app/lib/startup-boot";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
@@ -100,7 +100,6 @@ import {
   sessionTitleForId,
   type TaskStatusIndicator,
 } from "./session-page-model";
-import { MessagingChannelsPage } from "./session-page-messaging-page";
 import { OnMyAgentRail } from "./session-page-rail";
 import { useSessionPageSessionActions } from "./session-page-session-actions";
 import { useSessionPageSidePanel } from "./session-page-side-panel";
@@ -108,7 +107,9 @@ import {
   buildSessionPageViewModel,
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
-import { StorePage, WorkspaceFilesPage, type StorePrimaryTab } from "../components/shared-pages";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
+import { StorePage, type StorePrimaryTab } from "../components/shared-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -307,8 +308,8 @@ export type SessionPageProps = {
   opencodeBaseUrl?: string | null;
   workspaces: WorkspaceInfo[];
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerClient: OpenworkServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerClient: OnMyAgentServerClient | null;
   onmyagentServerToken?: string | null;
   developerMode: boolean;
   headerStatus: string;
@@ -348,7 +349,7 @@ export type SessionPageProps = {
   renderAgentsPage: (props: {
     workspaceId: string;
     workspaceRoot: string;
-    client: OpenworkServerClient | null;
+    client: OnMyAgentServerClient | null;
     providers?: ProviderListItem[];
     connectedProviderIds?: string[];
     initialEditingAgentId?: string | null;
@@ -425,7 +426,7 @@ export function SessionPage(props: SessionPageProps) {
       const fallbackTitle = sessionTitleForId(
         props.sidebar.workspaceSessionGroups,
         session.id,
-      ) || "新建会话";
+      ) || t("session.default_title");
       const agentId = readCustomAgentIdForSession(session.id);
       const agent =
         agentRegistry && agentId
@@ -723,8 +724,8 @@ export function SessionPage(props: SessionPageProps) {
                   variant="ghost"
                   size="icon-xs"
                   onClick={agentPanel.expandAgentPanel}
-                  title="展开会话列表"
-                  aria-label="展开会话列表"
+                  title={t("session.expand_session_list")}
+                  aria-label={t("session.expand_session_list")}
                 >
                   <PanelLeft className="size-3.5" />
                 </Button>
@@ -733,7 +734,7 @@ export function SessionPage(props: SessionPageProps) {
             {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
               <div
                 role="separator"
-                aria-label="调整智能体列表宽度"
+                aria-label={t("session.resize_agent_list")}
                 aria-orientation="vertical"
                 tabIndex={0}
                 onPointerDown={agentPanel.startAgentPanelResize}
@@ -920,7 +921,7 @@ export function SessionPage(props: SessionPageProps) {
                               localAuthUser?.username ||
                               props.account?.name ||
                               props.account?.email ||
-                              "我",
+                              t("session.user_initial"),
                           }}
                           onPersonalAssistantCategoryActive={setActiveAssistantCategoryId}
                           onOpenAgentSettings={agentPanel.openAgentsDialog}

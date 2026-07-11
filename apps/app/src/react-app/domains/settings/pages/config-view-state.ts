@@ -1,25 +1,25 @@
-export type OpenworkTestState = "idle" | "testing" | "success" | "error";
+export type OnMyAgentTestState = "idle" | "testing" | "success" | "error";
 
-export type OpenworkConnectionState = {
+export type OnMyAgentConnectionState = {
   url: string;
   token: string;
-  testState: OpenworkTestState;
+  testState: OnMyAgentTestState;
   testMessage: string | null;
 };
 
 export type TokenVisibilityKey = "onmyagent" | "client" | "owner" | "host";
 
 type ConfigLocalState = {
-  onmyagentConnection: OpenworkConnectionState;
+  onmyagentConnection: OnMyAgentConnectionState;
   tokenVisible: Record<TokenVisibilityKey, boolean>;
   copyingField: string | null;
 };
 
 type ConfigLocalAction =
-  | { type: "serverSettings"; connection: OpenworkConnectionState }
+  | { type: "serverSettings"; connection: OnMyAgentConnectionState }
   | { type: "url"; url: string }
   | { type: "token"; token: string }
-  | { type: "testState"; testState: OpenworkTestState; testMessage: string | null }
+  | { type: "testState"; testState: OnMyAgentTestState; testMessage: string | null }
   | { type: "toggleToken"; key: TokenVisibilityKey }
   | { type: "copyingField"; field: string | null };
 

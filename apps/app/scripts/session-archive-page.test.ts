@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { OpenworkSessionArchiveSession } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentSessionArchiveSession } from "../src/app/lib/onmyagent-server";
 import {
   agentLabel,
   buildResumeRequest,
@@ -7,7 +7,7 @@ import {
   RESUMABLE_AGENTS,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
 
-function session(overrides: Partial<OpenworkSessionArchiveSession> & { id: string; agent: string }): OpenworkSessionArchiveSession {
+function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: string; agent: string }): OnMyAgentSessionArchiveSession {
   return {
     id: overrides.id,
     project: overrides.project ?? "/tmp/proj",
@@ -19,7 +19,7 @@ function session(overrides: Partial<OpenworkSessionArchiveSession> & { id: strin
     ended_at: overrides.ended_at ?? null,
     message_count: overrides.message_count ?? 1,
     user_message_count: overrides.user_message_count ?? 1,
-  } as OpenworkSessionArchiveSession;
+  } as OnMyAgentSessionArchiveSession;
 }
 
 describe("session archive page helpers", () => {

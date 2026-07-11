@@ -3,13 +3,13 @@ import { useMemo } from "react";
 
 import type { createClient } from "../../../../app/lib/opencode";
 import type {
-  OpenworkServerClient,
-  OpenworkWorkspaceInfo,
+  OnMyAgentServerClient,
+  OnMyAgentWorkspaceInfo,
 } from "../../../../app/lib/onmyagent-server";
 import { getDisplaySessionTitle } from "../../../../app/lib/session-title";
 import {
   useControlAction,
-  type OpenworkControlAction,
+  type OnMyAgentControlAction,
 } from "../../../shell";
 import { t } from "../../../../i18n";
 import { APP_NAME } from "../../../../i18n/locales/brand";
@@ -23,7 +23,7 @@ type SessionLike = {
   };
 };
 
-type SessionControlWorkspace = OpenworkWorkspaceInfo & {
+type SessionControlWorkspace = OnMyAgentWorkspaceInfo & {
   displayNameResolved?: string;
 };
 
@@ -34,7 +34,7 @@ type UseSessionControlActionsInput = {
   selectedWorkspaceRoot: string;
   selectedSessionId: string | null;
   canCreateTask: boolean;
-  onmyagentClient: OpenworkServerClient | null;
+  onmyagentClient: OnMyAgentServerClient | null;
   opencodeClient: ReturnType<typeof createClient> | null;
   navigateToSession: (sessionId: string) => void;
   navigateToSessionRoot: () => void;
@@ -96,7 +96,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
     workspaces,
   } = input;
 
-  const createTaskControlAction = useMemo<OpenworkControlAction>(
+  const createTaskControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.create_task",
       label: t("session.control_create_task"),
@@ -113,7 +113,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
   );
   useControlAction(createTaskControlAction);
 
-  const listSessionsControlAction = useMemo<OpenworkControlAction>(
+  const listSessionsControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.list_sessions",
       label: t("session.control_list_sessions"),
@@ -150,7 +150,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
   );
   useControlAction(listSessionsControlAction);
 
-  const openSessionControlAction = useMemo<OpenworkControlAction>(
+  const openSessionControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.open",
       label: t("session.control_open_session"),
@@ -176,7 +176,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
   );
   useControlAction(openSessionControlAction);
 
-  const renameSessionControlAction = useMemo<OpenworkControlAction>(
+  const renameSessionControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.rename",
       label: t("session.control_rename_session"),
@@ -231,7 +231,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
   );
   useControlAction(renameSessionControlAction);
 
-  const deleteSessionControlAction = useMemo<OpenworkControlAction>(
+  const deleteSessionControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.delete",
       label: t("session.control_delete_session"),
@@ -295,7 +295,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
   );
   useControlAction(deleteSessionControlAction);
 
-  const modelPickerControlAction = useMemo<OpenworkControlAction>(
+  const modelPickerControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.model_picker.open",
       label: t("session.control_open_model_picker"),

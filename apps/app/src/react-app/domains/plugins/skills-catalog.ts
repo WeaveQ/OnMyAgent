@@ -11,127 +11,145 @@ export type SkillItem = {
 export const LEGACY_SKILLS: SkillItem[] = [
   {
     id: "1688-buying",
-    name: "1688采购",
-    description: "使用图像搜索在 1688 平台上查找匹配商品，并整理供货线索。",
+    name: "1688 Sourcing",
+    description:
+      "Use image search on the 1688 platform to find matching products and gather supplier leads.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "supplier-sourcing",
-    name: "产品供应商寻源",
-    description: "在各大全球采购平台搜索产品与供应商，寻找最优货源候选。",
+    name: "Product Supplier Sourcing",
+    description:
+      "Search global procurement platforms for products and suppliers to surface the best source candidates.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "sales-negotiation",
-    name: "销售谈判专家",
-    description: "为 B2B 销售谈判做准备并提供指导，涵盖定价与议价策略。",
+    name: "Sales Negotiation Expert",
+    description:
+      "Prepare and guide B2B sales negotiations, including pricing and bargaining strategy.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "cj-api",
-    name: "CJ代发货API集成",
-    description: "集成 CJ Dropshipping API，用于商品管理、库存跟踪与订单联动。",
+    name: "CJ Dropshipping API Integration",
+    description:
+      "Integrate the CJ Dropshipping API for product management, inventory tracking, and order sync.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "product-sourcing",
-    name: "商品图搜货源",
-    description: "根据图片或关键词快速查找相似商品、供应商与价格区间。",
+    name: "Image-based Product Sourcing",
+    description:
+      "Quickly find similar products, suppliers, and price ranges from images or keywords.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "listing-optimizer",
-    name: "商品标题优化",
-    description: "生成更适合平台搜索和转化的商品标题、卖点与关键词组合。",
+    name: "Listing Title Optimizer",
+    description:
+      "Generate product titles, selling points, and keyword sets optimized for search and conversion.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "supplier-shortlist",
-    name: "供应商短名单",
-    description: "比较供应商资质、价格、交期与风险，整理候选名单。",
+    name: "Supplier Shortlist",
+    description:
+      "Compare supplier credentials, pricing, lead times, and risk to produce a shortlist.",
     category: "sourcing",
     enabled: false,
   },
   {
     id: "product-trend-finder",
-    name: "趋势商品发现",
-    description: "结合公开市场信号和用户需求，识别潜在爆品方向。",
+    name: "Trending Product Discovery",
+    description:
+      "Combine public market signals and user demand to identify potential breakout product directions.",
     category: "research",
     enabled: false,
   },
   {
     id: "review-summary",
-    name: "评论洞察",
-    description: "汇总用户评论，提炼痛点、好评原因和产品改进建议。",
+    name: "Review Insights",
+    description:
+      "Aggregate user reviews to extract pain points, praise drivers, and product improvement ideas.",
     category: "research",
     enabled: false,
   },
   {
     id: "campaign-planner",
-    name: "营销活动规划",
-    description: "围绕目标用户、渠道和预算设计营销活动方案。",
+    name: "Campaign Planner",
+    description:
+      "Design marketing campaigns around target audience, channels, and budget.",
     category: "research",
     enabled: false,
   },
   {
     id: "copy-variants",
-    name: "文案变体",
-    description: "为商品、活动或社媒内容生成多风格文案候选。",
+    name: "Copy Variants",
+    description:
+      "Generate multi-style copy candidates for products, campaigns, or social content.",
     category: "research",
     enabled: false,
   },
   {
     id: "prd-outline",
-    name: "PRD 大纲",
-    description: "根据目标和约束生成产品需求文档结构与关键问题。",
+    name: "PRD Outline",
+    description:
+      "Generate a product requirements document structure and key questions from goals and constraints.",
     category: "research",
     enabled: false,
   },
   {
     id: "bug-triage",
-    name: "Bug 分诊",
-    description: "帮助分析问题严重性、复现路径和初步排查建议。",
+    name: "Bug Triage",
+    description:
+      "Help assess severity, reproduction paths, and initial troubleshooting suggestions.",
     category: "research",
     enabled: false,
   },
   {
     id: "refactor-checklist",
-    name: "重构检查清单",
-    description: "梳理重构前后的风险点、验证路径和回归测试建议。",
+    name: "Refactor Checklist",
+    description:
+      "Outline pre/post-refactor risks, verification paths, and regression testing suggestions.",
     category: "research",
     enabled: false,
   },
   {
     id: "pr-brief",
-    name: "PR 摘要",
-    description: "根据变更内容整理合并请求摘要、风险和测试建议。",
+    name: "PR Brief",
+    description:
+      "Summarize merge request changes, risks, and testing recommendations.",
     category: "research",
     enabled: false,
   },
   {
     id: "project-radar",
-    name: "项目雷达",
-    description: "持续追踪项目风险、阻塞项和关键里程碑状态。",
+    name: "Project Radar",
+    description:
+      "Continuously track project risks, blockers, and key milestone status.",
     category: "research",
     enabled: false,
   },
   {
     id: "ux-critique",
-    name: "UX 走查",
-    description: "从可用性、信息层级和交互细节检查产品体验。",
+    name: "UX Walkthrough",
+    description:
+      "Review product experience for usability, information hierarchy, and interaction details.",
     category: "research",
     enabled: false,
   },
   {
     id: "meeting-followup",
-    name: "会议跟进",
-    description: "整理会议结论、待办负责人和后续推进计划。",
+    name: "Meeting Follow-up",
+    description:
+      "Capture meeting outcomes, owners, and follow-up action plans.",
     category: "research",
     enabled: false,
   },

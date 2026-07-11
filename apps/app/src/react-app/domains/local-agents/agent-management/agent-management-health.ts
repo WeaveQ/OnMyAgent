@@ -1,4 +1,5 @@
 import type { StatusBadgeTone } from "@/components/ui/status-badge";
+import { t } from "@/i18n";
 import type {
   AgentManagementAgent,
   PersonalLocalAgentRunResult,
@@ -55,11 +56,15 @@ export function formatAgentManagerDuration(value: number) {
 }
 
 export function agentManagerHealthLabel(agent: AgentManagementAgent, health?: AgentManagementHealthResult) {
-  if (health?.status === "running") return "检查中";
-  if (health?.status === "passed") return `通过 · ${formatAgentManagerTime(health.at)}`;
-  if (health?.status === "failed") return `失败 · ${formatAgentManagerTime(health.at)}`;
-  if (agent.status === "online") return "可检查";
-  return "不可检查";
+  if (health?.status === "running") return t("agent_manager.health_checking");
+  if (health?.status === "passed") {
+    return t("agent_manager.health_passed", { time: formatAgentManagerTime(health.at) });
+  }
+  if (health?.status === "failed") {
+    return t("agent_manager.health_failed", { time: formatAgentManagerTime(health.at) });
+  }
+  if (agent.status === "online") return t("agent_manager.health_checkable");
+  return t("agent_manager.health_not_checkable");
 }
 
 export function agentManagerHealthTone(agent: AgentManagementAgent, health?: AgentManagementHealthResult): StatusBadgeTone {

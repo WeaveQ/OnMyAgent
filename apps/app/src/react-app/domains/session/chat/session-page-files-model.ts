@@ -1,5 +1,5 @@
 import { t } from "../../../../i18n";
-import type { OpenworkWorkspaceFileCatalogEntry } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentWorkspaceFileCatalogEntry } from "../../../../app/lib/onmyagent-server";
 
 export type WorkspaceFileTreeNode = {
   name: string;
@@ -55,7 +55,7 @@ export function formatWorkspaceFileTime(value: number) {
 
 function addWorkspaceFileTreeEntry(
   root: WorkspaceFileTreeNode,
-  entry: OpenworkWorkspaceFileCatalogEntry,
+  entry: OnMyAgentWorkspaceFileCatalogEntry,
 ) {
   const parts = entry.path.split("/").filter(Boolean);
   let parent = root;
@@ -95,7 +95,7 @@ function sortWorkspaceFileTree(node: WorkspaceFileTreeNode) {
 }
 
 export function buildWorkspaceFileTree(
-  entries: OpenworkWorkspaceFileCatalogEntry[],
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): WorkspaceFileTreeNode {
   const root: WorkspaceFileTreeNode = {
     name: t("files.workspace"),
@@ -165,7 +165,7 @@ export function filterHiddenFromTree(
 }
 
 export function buildFileHierarchy(
-  entries: OpenworkWorkspaceFileCatalogEntry[],
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): TaskGroup[] {
   const filtered = entries.filter((entry) => !shouldHideEntry(entry.path));
   const rawTree = buildWorkspaceFileTree(filtered);
@@ -180,7 +180,7 @@ export function buildFileHierarchy(
       if (agentFiles.length > 0) {
         groups.push({
           agentName: topLevel.name,
-          taskName: "未分组",
+          taskName: t("files.ungrouped"),
           files: agentFiles.map((file) => ({
             name: file.name,
             path: file.path,
@@ -203,8 +203,8 @@ export function buildFileHierarchy(
       }
     } else {
       groups.push({
-        agentName: "工作区根目录",
-        taskName: "未分组",
+        agentName: t("files.workspace_root"),
+        taskName: t("files.ungrouped"),
         files: [
           {
             name: topLevel.name,

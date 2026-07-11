@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type {
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
 import type {
@@ -88,8 +88,8 @@ export type SessionPageProps = {
   opencodeBaseUrl?: string | null;
   workspaces: WorkspaceInfo[];
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerClient: OpenworkServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerClient: OnMyAgentServerClient | null;
   onmyagentServerToken?: string | null;
   developerMode: boolean;
   headerStatus: string;
@@ -131,7 +131,7 @@ export type SessionPageProps = {
   renderAgentsPage: (props: {
     workspaceId: string;
     workspaceRoot: string;
-    client: OpenworkServerClient | null;
+    client: OnMyAgentServerClient | null;
     providers?: ProviderListItem[];
     connectedProviderIds?: string[];
     initialEditingAgentId?: string | null;

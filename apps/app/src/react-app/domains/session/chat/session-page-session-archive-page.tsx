@@ -4,9 +4,9 @@ import { ChevronDown, ChevronRight, MessageSquare, PlayCircle, RefreshCw, Search
 
 import { t } from "../../../../i18n";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionArchiveMessagesResponse,
-  OpenworkSessionArchiveSession,
+  OnMyAgentServerClient,
+  OnMyAgentSessionArchiveMessagesResponse,
+  OnMyAgentSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
 import { formatRelativeTime } from "../../../../app/utils";
 import { AgentSkillIcon } from "../components/shared-pages/agent-skill-icon";
@@ -42,16 +42,16 @@ const PAGE_LIMIT = 2000;
 const MESSAGE_LIMIT = 500;
 
 type Props = {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   onResume?: (request: SessionArchiveResumeRequest) => void;
 };
 
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
-  const [sessions, setSessions] = useState<OpenworkSessionArchiveSession[]>([]);
+  const [sessions, setSessions] = useState<OnMyAgentSessionArchiveSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<OpenworkSessionArchiveMessagesResponse["messages"]>([]);
+  const [messages, setMessages] = useState<OnMyAgentSessionArchiveMessagesResponse["messages"]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -267,7 +267,7 @@ export function SessionArchivePage(props: Props) {
         </div>
       ) : null}
 
-      {/* Agent 筛选栏 */}
+      {/* Agent filter bar */}
       {groups.length > 0 ? (
         <div className="flex items-center gap-1.5">
           <button

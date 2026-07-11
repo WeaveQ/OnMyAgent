@@ -5,19 +5,19 @@ import {
   appBuildInfo as appBuildInfoCmd,
   engineInfo as engineInfoCmd,
   engineStart as engineStartCmd,
-  nukeOpenworkAndOpencodeConfigAndExit,
+  nukeOnMyAgentAndOpencodeConfigAndExit,
   openDesktopUrl,
   onmyagentServerInfo as onmyagentServerInfoCmd,
   onmyagentServerRestart as onmyagentServerRestartCmd,
   pickFile,
   revealDesktopItemInDir,
-  resetOpenworkState,
+  resetOnMyAgentState,
   sandboxDebugProbe as sandboxDebugProbeCmd,
   updaterEnvironment as updaterEnvironmentCmd,
   workspaceBootstrap as workspaceBootstrapCmd,
   type AppBuildInfo,
   type EngineInfo,
-  type OpenworkServerInfo,
+  type OnMyAgentServerInfo,
   type SandboxDebugProbeResult,
 } from "../../../../app/lib/desktop";
 import {
@@ -26,7 +26,7 @@ import {
 } from "../../../../app/lib/electron-alpha";
 
 import {
-  writeOpenworkServerSettings,
+  writeOnMyAgentServerSettings,
 } from "../../../../app/lib/onmyagent-server";
 import {
   clearStartupPreference,
@@ -38,7 +38,7 @@ import {
 import { t } from "../../../../i18n";
 import type { DebugViewProps } from "../pages/debug-view";
 import type { ReleaseChannel } from "../../../../app/types";
-import type { OpenworkServerStore, OpenworkServerStoreSnapshot } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore, OnMyAgentServerStoreSnapshot } from "../../shared/onmyagent-server-store";
 
 const STARTUP_PREFERENCE_KEY = "onmyagent.startupPreference";
 const ENGINE_SOURCE_KEY = "onmyagent.engineSource";
@@ -56,8 +56,8 @@ const ONBOARDING_LOCAL_STORAGE_KEYS = [
 
 type UseDebugViewModelOptions = {
   developerMode: boolean;
-  onmyagentServerStore: OpenworkServerStore;
-  onmyagentServerSnapshot: OpenworkServerStoreSnapshot;
+  onmyagentServerStore: OnMyAgentServerStore;
+  onmyagentServerSnapshot: OnMyAgentServerStoreSnapshot;
   runtimeWorkspaceId: string | null;
   selectedWorkspaceRoot: string;
   setRouteError: (value: string | null) => void;
@@ -90,7 +90,7 @@ function clearStoredString(key: string): void {
   }
 }
 
-function clearOpenworkLocalStorageForReset(mode: ResetModalMode): void {
+function clearOnMyAgentLocalStorageForReset(mode: ResetModalMode): void {
   if (typeof window === "undefined") return;
   try {
     if (mode === "all") {
@@ -197,7 +197,7 @@ function formatOpencodeBinary(info: EngineInfo | null) {
   return formatBinaryWithSource(info?.opencodeBinPath, info?.opencodeBinSource);
 }
 
-function formatManagedOpencodeBinary(info: OpenworkServerInfo | null) {
+function formatManagedOpencodeBinary(info: OnMyAgentServerInfo | null) {
   return formatBinaryWithSource(
     info?.managedOpencodeBinPath,
     info?.managedOpencodeBinSource,
@@ -211,7 +211,7 @@ function formatBinaryWithSource(path: string | null | undefined, source: string 
   return sourceLabel ? `${binary} (${sourceLabel})` : binary;
 }
 
-function describeOpenworkServer(info: OpenworkServerInfo | null) {
+function describeOnMyAgentServer(info: OnMyAgentServerInfo | null) {
   const running = Boolean(info?.running);
   return {
     ...statusPill(running),
@@ -266,17 +266,17 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
   const [sandboxProbeResult, setSandboxProbeResult] = useState<SandboxDebugProbeResult | null>(null);
   const [sandboxProbeStatus, setSandboxProbeStatus] = useState<string | null>(null);
   const [opencodeRestarting, setOpencodeRestarting] = useState(false);
-  const [onmyagentServerRestarting, setOpenworkServerRestarting] = useState(false);
+  const [onmyagentServerRestarting, setOnMyAgentServerRestarting] = useState(false);
   const [opencodeServiceStatus, setOpencodeServiceStatus] = useState<{
     tone: "success" | "error";
     message: string;
   } | null>(null);
-  const [onmyagentServiceStatus, setOpenworkServiceStatus] = useState<{
+  const [onmyagentServiceStatus, setOnMyAgentServiceStatus] = useState<{
     tone: "success" | "error";
     message: string;
   } | null>(null);
   const [opencodeLogStatus, setOpencodeLogStatus] = useState<string | null>(null);
-  const [onmyagentLogStatus, setOpenworkLogStatus] = useState<string | null>(null);
+  const [onmyagentLogStatus, setOnMyAgentLogStatus] = useState<string | null>(null);
   const [serviceRestartError, setServiceRestartError] = useState<string | null>(null);
   const [resetModalBusy, setResetModalBusy] = useState(false);
   const [nukeConfigBusy, setNukeConfigBusy] = useState(false);
@@ -388,7 +388,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const engineCard = useMemo(() => describeEngine(engineInfoState), [engineInfoState]);
   const onmyagentCard = useMemo(
-    () => describeOpenworkServer(onmyagentServerSnapshot.onmyagentServerHostInfo),
+    () => describeOnMyAgentServer(onmyagentServerSnapshot.onmyagentServerHostInfo),
     [onmyagentServerSnapshot.onmyagentServerHostInfo],
   );
   const opencodeConnectCard = useMemo(
@@ -694,7 +694,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
         remoteAccessEnabled?: boolean;
       } | null;
       if (hostInfo?.baseUrl) {
-        writeOpenworkServerSettings({
+        writeOnMyAgentServerSettings({
           urlOverride: hostInfo.baseUrl,
           token: hostInfo.ownerToken?.trim() || hostInfo.clientToken?.trim() || undefined,
           hostToken: hostInfo.hostToken?.trim() || undefined,
@@ -709,7 +709,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       // best-effort: if this fails, the host-info poller will catch up in ~10s.
     }
 
-    await onmyagentServerStore.reconnectOpenworkServer();
+    await onmyagentServerStore.reconnectOnMyAgentServer();
     await refreshEngineInfo();
     return info;
   }, [onmyagentServerStore, refreshEngineInfo]);
@@ -738,30 +738,30 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
   }, [bootFullEngineStack, pushDeveloperLog]);
 
-  const onRestartOpenworkServer = useCallback(async () => {
+  const onRestartOnMyAgentServer = useCallback(async () => {
     if (!isDesktopRuntime()) return;
-    setOpenworkServerRestarting(true);
-    setOpenworkServiceStatus(null);
+    setOnMyAgentServerRestarting(true);
+    setOnMyAgentServiceStatus(null);
     setServiceRestartError(null);
     try {
       await onmyagentServerRestartCmd({
         remoteAccessEnabled: onmyagentServerSnapshot.onmyagentServerSettings.remoteAccessEnabled === true,
       });
-      setOpenworkServiceStatus({
+      setOnMyAgentServiceStatus({
         tone: "success",
         message: t("settings.restart_succeeded_template", { service: "OnMyAgent server" }),
       });
       pushDeveloperLog("Restarted onmyagent-server");
-      await onmyagentServerStore.reconnectOpenworkServer();
+      await onmyagentServerStore.reconnectOnMyAgentServer();
     } catch (error) {
       const message = error instanceof Error ? error.message : safeStringify(error);
-      setOpenworkServiceStatus({
+      setOnMyAgentServiceStatus({
         tone: "error",
         message: `${t("settings.restart_failed_template", { service: "OnMyAgent server" })} ${message}`,
       });
       setServiceRestartError(message);
     } finally {
-      setOpenworkServerRestarting(false);
+      setOnMyAgentServerRestarting(false);
     }
   }, [
     onmyagentServerSnapshot.onmyagentServerSettings.remoteAccessEnabled,
@@ -813,26 +813,26 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
   }, [engineInfoState?.lastStderr, engineInfoState?.lastStdout, formatServiceLogs]);
 
-  const onCopyOpenworkLogs = useCallback(async () => {
+  const onCopyOnMyAgentLogs = useCallback(async () => {
     const info = onmyagentServerSnapshot.onmyagentServerHostInfo;
     const text = formatServiceLogs(info?.lastStdout, info?.lastStderr);
     if (!text) {
-      setOpenworkLogStatus(t("settings.no_logs_captured"));
+      setOnMyAgentLogStatus(t("settings.no_logs_captured"));
       return;
     }
     try {
       await navigator.clipboard.writeText(text);
-      setOpenworkLogStatus(t("settings.copied_service_logs", { service: "OnMyAgent server" }));
+      setOnMyAgentLogStatus(t("settings.copied_service_logs", { service: "OnMyAgent server" }));
     } catch (error) {
-      setOpenworkLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setOnMyAgentLogStatus(error instanceof Error ? error.message : safeStringify(error));
     }
   }, [formatServiceLogs, onmyagentServerSnapshot.onmyagentServerHostInfo]);
 
-  const onExportOpenworkLogs = useCallback(async () => {
+  const onExportOnMyAgentLogs = useCallback(async () => {
     const info = onmyagentServerSnapshot.onmyagentServerHostInfo;
     const text = formatServiceLogs(info?.lastStdout, info?.lastStderr);
     if (!text) {
-      setOpenworkLogStatus(t("settings.no_logs_captured"));
+      setOnMyAgentLogStatus(t("settings.no_logs_captured"));
       return;
     }
     try {
@@ -841,9 +841,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
         text,
         "text/plain",
       );
-      setOpenworkLogStatus(t("settings.exported_developer_log"));
+      setOnMyAgentLogStatus(t("settings.exported_developer_log"));
     } catch (error) {
-      setOpenworkLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setOnMyAgentLogStatus(error instanceof Error ? error.message : safeStringify(error));
     }
   }, [formatServiceLogs, onmyagentServerSnapshot.onmyagentServerHostInfo]);
 
@@ -861,9 +861,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       }
       setResetModalBusy(true);
       setResetStatus(null);
-      void resetOpenworkState(mode)
+      void resetOnMyAgentState(mode)
         .then(async () => {
-          clearOpenworkLocalStorageForReset(mode);
+          clearOnMyAgentLocalStorageForReset(mode);
           setResetStatus(
             mode === "all"
               ? "Reset OnMyAgent state. Restart the app to see changes."
@@ -881,7 +881,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     [pushDeveloperLog, setRouteError],
   );
 
-  const onNukeOpenworkAndOpencodeConfig = useCallback(async () => {
+  const onNukeOnMyAgentAndOpencodeConfig = useCallback(async () => {
     if (!isDesktopRuntime()) return;
     const confirmed =
       typeof window === "undefined"
@@ -893,7 +893,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     setNukeConfigBusy(true);
     setNukeConfigStatus(null);
     try {
-      await nukeOpenworkAndOpencodeConfigAndExit();
+      await nukeOnMyAgentAndOpencodeConfigAndExit();
     } catch (error) {
       setNukeConfigStatus(error instanceof Error ? error.message : safeStringify(error));
     } finally {
@@ -974,11 +974,11 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       onmyagentLogStatus,
       onCopyOpencodeLogs,
       onExportOpencodeLogs,
-      onCopyOpenworkLogs,
-      onExportOpenworkLogs,
+      onCopyOnMyAgentLogs,
+      onExportOnMyAgentLogs,
       serviceRestartError,
       onRestartOpencode,
-      onRestartOpenworkServer,
+      onRestartOnMyAgentServer,
       engineCard,
       opencodeConnectCard,
       onmyagentCard,
@@ -997,7 +997,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       opencodeDevModeEnabled: appBuild?.onmyagentDevMode === true,
       nukeConfigBusy,
       nukeConfigStatus,
-      onNukeOpenworkAndOpencodeConfig,
+      onNukeOnMyAgentAndOpencodeConfig,
     }),
     [
       appBuild?.onmyagentDevMode,
@@ -1027,7 +1027,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       onExportRuntimeDebugReport,
       onInstallElectronPreviewFromLegacy,
       onCheckElectronAlphaUpdates,
-      onNukeOpenworkAndOpencodeConfig,
+      onNukeOnMyAgentAndOpencodeConfig,
       onOpenElectronPreviewRelease,
       onOpenResetModal,
       onPrepareElectronMigrationSnapshot,
@@ -1036,7 +1036,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       onRevealElectronMigrationBackup,
       onResetStartupPreference,
       onRestartOpencode,
-      onRestartOpenworkServer,
+      onRestartOnMyAgentServer,
       onRunSandboxDebugProbe,
       onSetElectronAlphaUpdaterChannel,
       onSetElectronMigrationSha512,
@@ -1044,9 +1044,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       onSetEngineSource,
       onStopHost,
       onCopyOpencodeLogs,
-      onCopyOpenworkLogs,
+      onCopyOnMyAgentLogs,
       onExportOpencodeLogs,
-      onExportOpenworkLogs,
+      onExportOnMyAgentLogs,
       opencodeConnectCard,
       opencodeLogStatus,
       opencodeRestarting,

@@ -69,8 +69,8 @@ function providerStatusTone(
   if (
     lower.includes("error") ||
     lower.includes("fail") ||
-    lower.includes("失败") ||
-    lower.includes("错误")
+    lower.includes("\u5931\u8D25") ||
+    lower.includes("\u9519\u8BEF")
   )
     return "warning";
   return "neutral";

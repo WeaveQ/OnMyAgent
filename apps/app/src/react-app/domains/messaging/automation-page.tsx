@@ -55,8 +55,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/react-app/shell";
 import { AccessPermissionSelect } from "../session/surface/composer/access-permission-select";
 import type {
-  OpenworkAutomationTaskItem,
-  OpenworkServerClient,
+  OnMyAgentAutomationTaskItem,
+  OnMyAgentServerClient,
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import {
@@ -101,8 +101,8 @@ type AutomationFormState = {
 };
 
 type CompletedRun = {
-  task: OpenworkAutomationTaskItem;
-  run: OpenworkAutomationTaskItem["runs"][number];
+  task: OnMyAgentAutomationTaskItem;
+  run: OnMyAgentAutomationTaskItem["runs"][number];
 };
 
 const frequencyModes: AutomationFrequencyMode[] = ["weekly", "interval", "once"];
@@ -228,7 +228,7 @@ function formStateFromTemplate(template: AutomationTemplate): AutomationFormStat
   };
 }
 
-function formStateFromAutomation(item: OpenworkAutomationTaskItem): AutomationFormState {
+function formStateFromAutomation(item: OnMyAgentAutomationTaskItem): AutomationFormState {
   return {
     title: item.title,
     prompt: item.prompt,
@@ -289,7 +289,7 @@ function isScheduleValid(form: AutomationFormState) {
   return true;
 }
 
-function scheduleLabel(schedule: OpenworkAutomationTaskItem["schedule"]) {
+function scheduleLabel(schedule: OnMyAgentAutomationTaskItem["schedule"]) {
   if (schedule.mode === "once") {
     return schedule.onceAt
       ? t("automation.schedule_once_datetime", { time: new Date(schedule.onceAt).toLocaleString() })
@@ -308,7 +308,7 @@ function scheduleLabel(schedule: OpenworkAutomationTaskItem["schedule"]) {
   return automationScheduleLabel(schedule.day, schedule.time);
 }
 
-function nextRunLabel(item: OpenworkAutomationTaskItem) {
+function nextRunLabel(item: OnMyAgentAutomationTaskItem) {
   if (!item.enabled) return t("automation.status_paused");
   if (!item.nextRunAt) return t("automation.no_next_run");
   const delta = Math.max(0, item.nextRunAt - Date.now());
@@ -318,9 +318,14 @@ function nextRunLabel(item: OpenworkAutomationTaskItem) {
   return t("automation.starts_in_minutes", { minutes: Math.max(1, Math.ceil(delta / 60_000)) });
 }
 
-function automationDisplayId(item: OpenworkAutomationTaskItem, groupName?: string) {
-  if (groupName?.startsWith("自动化任务-")) {
-    return `automation-${groupName.slice("自动化任务-".length)}`;
+function automationDisplayId(item: OnMyAgentAutomationTaskItem, groupName?: string) {
+  const LEGACY_AUTOMATION_GROUP_PREFIX = "\u81EA\u52A8\u5316\u4EFB\u52A1-"; // 自动化任务-
+  const AUTOMATION_GROUP_PREFIX = "automation-task-";
+  if (groupName?.startsWith(LEGACY_AUTOMATION_GROUP_PREFIX)) {
+    return `automation-${groupName.slice(LEGACY_AUTOMATION_GROUP_PREFIX.length)}`;
+  }
+  if (groupName?.startsWith(AUTOMATION_GROUP_PREFIX)) {
+    return `automation-${groupName.slice(AUTOMATION_GROUP_PREFIX.length)}`;
   }
   const date = new Date(item.createdAt);
   const values = [
@@ -334,7 +339,7 @@ function automationDisplayId(item: OpenworkAutomationTaskItem, groupName?: strin
   return `automation-${values.join("-")}`;
 }
 
-function effectiveRangeLabel(item: OpenworkAutomationTaskItem) {
+function effectiveRangeLabel(item: OnMyAgentAutomationTaskItem) {
   const { startDate, endDate } = item.effectiveRange;
   if (startDate && endDate) {
     return t("automation.effective_range_between", { startDate, endDate });
@@ -532,7 +537,7 @@ function AutomationTemplateCard(props: {
 }
 
 function AutomationTaskMeta(props: {
-  item: OpenworkAutomationTaskItem;
+  item: OnMyAgentAutomationTaskItem;
   groupName?: string;
 }) {
   return (
@@ -548,8 +553,8 @@ function AutomationTaskMeta(props: {
 }
 
 function ScheduledAutomationRow(props: {
-  item: OpenworkAutomationTaskItem;
-  onEdit: (item: OpenworkAutomationTaskItem) => void;
+  item: OnMyAgentAutomationTaskItem;
+  onEdit: (item: OnMyAgentAutomationTaskItem) => void;
 }) {
   const rangeLabel = effectiveRangeLabel(props.item);
   return (
@@ -577,7 +582,7 @@ function ScheduledAutomationRow(props: {
 }
 
 function RunningAutomationRow(props: {
-  item: OpenworkAutomationTaskItem;
+  item: OnMyAgentAutomationTaskItem;
   onOpenSession: (sessionId: string) => void;
 }) {
   return (
@@ -806,7 +811,7 @@ function AutomationDialog(props: {
   open: boolean;
   mode: AutomationDialogMode;
   form: AutomationFormState;
-  item: OpenworkAutomationTaskItem | null;
+  item: OnMyAgentAutomationTaskItem | null;
   registry: AgentRegistry;
   workspaceRoot: string;
   onOpenChange: (open: boolean) => void;
@@ -995,13 +1000,13 @@ function AutomationRiskDialog(props: {
 
 export function AutomationPage(props: {
   scene: AutomationScene;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
 }) {
   const workspace = useWorkspace();
   const registry = useAgentRegistryStore((state) => state.registry) ?? createDefaultAgentRegistry();
-  const [automations, setAutomations] = useState<OpenworkAutomationTaskItem[]>([]);
+  const [automations, setAutomations] = useState<OnMyAgentAutomationTaskItem[]>([]);
   const [templateViewOpen, setTemplateViewOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<AutomationDialogMode>("create");
@@ -1076,7 +1081,7 @@ export function AutomationPage(props: {
     setDialogOpen(true);
   };
 
-  const openEditDialog = (item: OpenworkAutomationTaskItem) => {
+  const openEditDialog = (item: OnMyAgentAutomationTaskItem) => {
     setDialogMode("edit");
     setEditingAutomationId(item.id);
     setForm(formStateFromAutomation(item));
@@ -1160,7 +1165,7 @@ export function AutomationPage(props: {
     persistAutomation();
   };
 
-  const updateItem = (item: OpenworkAutomationTaskItem, update: { enabled: boolean }) => {
+  const updateItem = (item: OnMyAgentAutomationTaskItem, update: { enabled: boolean }) => {
     if (!props.client || !props.workspaceId.trim()) return;
     setBusy(true);
     void props.client.updateAutomation(props.workspaceId, item.id, update)
@@ -1172,7 +1177,7 @@ export function AutomationPage(props: {
       .finally(() => setBusy(false));
   };
 
-  const deleteItem = (item: OpenworkAutomationTaskItem) => {
+  const deleteItem = (item: OnMyAgentAutomationTaskItem) => {
     if (!props.client || !props.workspaceId.trim()) return;
     setBusy(true);
     void props.client.deleteAutomation(props.workspaceId, item.id)
@@ -1185,7 +1190,7 @@ export function AutomationPage(props: {
       .finally(() => setBusy(false));
   };
 
-  const runNow = (item: OpenworkAutomationTaskItem) => {
+  const runNow = (item: OnMyAgentAutomationTaskItem) => {
     if (!props.client || !props.workspaceId.trim()) return;
     setBusy(true);
     setDialogOpen(false);

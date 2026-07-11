@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { OpenworkServerClient } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { t } from "@/i18n";
 import {
   EnvironmentVariableProvider,
@@ -67,7 +67,7 @@ const environmentLayoutClass = {
 };
 
 export type EnvironmentViewProps = {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   isRemoteWorkspace: boolean;
   onApplyChanges?: () => Promise<ApplyEnvironmentChangesResult>;
   applyBlocked?: boolean;
@@ -122,7 +122,7 @@ function EnvironmentViewContent(props: EnvironmentViewProps) {
 }
 
 type EnvironmentSettingsPanelProps = {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   isRemoteWorkspace: boolean;
   canEdit: boolean;
   runtimeKey?: string | null;

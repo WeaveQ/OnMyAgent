@@ -111,6 +111,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 | Allowlist | `apps/**`, `packages/**`, `docs/**`, `AGENTS.md`, `README.md`, `README-zh.md`, `BUILD.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` | 可在任务范围内修改 |
 | Human gate | `package.json`, `pnpm-lock.yaml`, `apps/server/src/**`, `apps/desktop/electron/**`, `apps/orchestrator/src/**` | 修改前说明原因，修改后完整验证 |
 | Denylist | `.env*`, secrets, `node_modules/**`, `graphify-out/**`, generated runtime/cache 输出 | 默认不改、不提交 |
+| Search noise (default ignore when grepping) | `apps/desktop/resources/marketplace/**`, `apps/desktop/resources/bundled-skills/**`（除有意产品/分发内容工作外）、`graphify-out/**` | 搜代码时优先排除；见根目录 `.rgignore` |
 | Dirty guard | 用户已有脏文件 | 先识别，禁止覆盖或顺手清理非本轮变更 |
 
 ## 多人协作安全规则
@@ -141,6 +142,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 - 每次代码变更至少跑相关 typecheck/test/import smoke 和 `git diff --check`；默认优先 `pnpm check:type` 或对应 `pnpm task check <target>`。
 - 文档变更至少跑旧命令/旧引用扫描、核心链接 smoke 和 `git diff --check`。
+- Desktop messaging **channel unit gate**（纯本地、无飞书/微信凭证）：`node --test apps/desktop/electron/channels/test/*.test.mjs`（亦可包含 `apps/desktop/electron/channels/AgentReplyHeader.test.mjs`）。不要用需要 live credentials 的 E2E 代替。
 - 详细 Maker/Checker、验证分层、失败重试和终止规则见 `docs/loop/rules.md`。
 
 
@@ -181,7 +183,6 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 | `ui-regression-audit` | UI 主题/i18n/截图回归巡检 |
 | `frontend-primitive-refactor` | 组件复用、尺寸统一、design token 防偏移 |
 | `skills-audit` | 审计 skill 目录本身（重复、过期、断链） |
-| `self-improving` / `self-improving-agent` | 捕获错误与学习记录（按需） |
 
 - 不要把仓库 skill 同步到 `~/.codex/skills/` / `~/.grok/skills/` 等全局目录。
 - 桌面 **产品** bundled skills：`apps/desktop/resources/bundled-skills/**` 是分发内容，与工程 skill 分离，保持真实文件、不走 symlink。

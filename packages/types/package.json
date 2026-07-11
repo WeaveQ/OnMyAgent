@@ -38,6 +38,11 @@
       "types": "./src/channel.ts",
       "development": "./src/channel.ts",
       "default": "./src/channel.ts"
+    },
+    "./desktop-ipc": {
+      "types": "./src/desktop-ipc.ts",
+      "development": "./src/desktop-ipc.ts",
+      "default": "./src/desktop-ipc.ts"
     }
   },
   "files": [

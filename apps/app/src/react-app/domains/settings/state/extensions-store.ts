@@ -37,10 +37,10 @@ import {
   type OpencodeConfigFile,
 } from "../../../../app/lib/desktop";
 import type {
-  OpenworkHubRepo,
-  OpenworkServerCapabilities,
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentHubRepo,
+  OnMyAgentServerCapabilities,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import {
   createDenClient,
@@ -57,7 +57,7 @@ import {
   type CloudImportedSkill,
   type CloudImportedSkillHub,
 } from "../../../../app/cloud/import-state";
-import type { OpenworkServerStore } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../../shared/onmyagent-server-store";
 import {
   applyCloudPluginToWorkspace,
   applyCloudSkillHubToWorkspace,
@@ -116,11 +116,11 @@ export function createExtensionsStore(options: {
   selectedWorkspaceId: () => string;
   selectedWorkspaceRoot: () => string;
   workspaceType: () => "local" | "remote";
-  onmyagentServer: OpenworkServerStore;
+  onmyagentServer: OnMyAgentServerStore;
   onmyagentServerConnection?: () => {
-    onmyagentServerClient: OpenworkServerClient | null;
-    onmyagentServerStatus: OpenworkServerStatus;
-    onmyagentServerCapabilities: OpenworkServerCapabilities | null;
+    onmyagentServerClient: OnMyAgentServerClient | null;
+    onmyagentServerStatus: OnMyAgentServerStatus;
+    onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
   };
   runtimeWorkspaceId: () => string | null;
   setBusy: (value: boolean) => void;
@@ -133,7 +133,7 @@ export function createExtensionsStore(options: {
 
   let disposed = false;
   let started = false;
-  let stopOpenworkSubscription: (() => void) | null = null;
+  let stopOnMyAgentSubscription: (() => void) | null = null;
   let stopDenSessionListener: (() => void) | null = null;
   let lastWorkspaceContextKey = "";
   let snapshot: ExtensionsStoreSnapshot;
@@ -215,7 +215,7 @@ export function createExtensionsStore(options: {
   const findLoadedSkill = (name: string) =>
     state.skills.find((skill) => skill.name === name);
 
-  const getOpenworkServerSnapshot = () => {
+  const getOnMyAgentServerSnapshot = () => {
     const snapshot = options.onmyagentServer.getSnapshot();
     const connection = options.onmyagentServerConnection?.();
     if (!connection?.onmyagentServerClient) return snapshot;
@@ -254,15 +254,15 @@ export function createExtensionsStore(options: {
   const formatSkillPath = (location: string) => location.replace(/[/\\]SKILL\.md$/i, "");
 
   const workspaceConfigGateway = createExtensionsWorkspaceConfigGateway({
-    onmyagentServerConnection: getOpenworkServerSnapshot,
+    onmyagentServerConnection: getOnMyAgentServerSnapshot,
     runtimeWorkspaceId: options.runtimeWorkspaceId,
     selectedWorkspaceRoot: options.selectedWorkspaceRoot,
     workspaceType: options.workspaceType,
   });
-  const readWorkspaceOpenworkConfigRecord = workspaceConfigGateway.readRecord;
-  const writeWorkspaceOpenworkConfigRecord = workspaceConfigGateway.writeRecord;
+  const readWorkspaceOnMyAgentConfigRecord = workspaceConfigGateway.readRecord;
+  const writeWorkspaceOnMyAgentConfigRecord = workspaceConfigGateway.writeRecord;
   const workspaceWriter = createExtensionsWorkspaceWriter({
-    onmyagentServerConnection: getOpenworkServerSnapshot,
+    onmyagentServerConnection: getOnMyAgentServerSnapshot,
     runtimeWorkspaceId: options.runtimeWorkspaceId,
     selectedWorkspaceRoot: options.selectedWorkspaceRoot,
     workspaceType: options.workspaceType,
@@ -412,9 +412,9 @@ export function createExtensionsStore(options: {
     const root = options.selectedWorkspaceRoot().trim();
     const repo = snapshot.hubRepo;
     const loadKey = buildExtensionsHubSkillsLoadKey({ repo, workspaceRoot: root });
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentSnapshot.onmyagentServerCapabilities?.hub?.skills?.read;
@@ -443,7 +443,7 @@ export function createExtensionsStore(options: {
         return;
       }
 
-      if (canUseOpenworkServer) {
+      if (canUseOnMyAgentServer) {
         const response = await onmyagentClient.listHubSkills({
           repo: {
             owner: repo.owner,
@@ -918,16 +918,16 @@ export function createExtensionsStore(options: {
     if (!repo) return { ok: false, message: t("skills.select_hub_repo_before_install") };
 
     const isRemoteWorkspace = options.workspaceType() === "remote";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.hub?.skills?.install;
 
-    if (!canUseOpenworkServer) {
+    if (!canUseOnMyAgentServer) {
       if (isRemoteWorkspace) return { ok: false, message: t("skills.onmyagent_server_unavailable") };
       return { ok: false, message: t("skills.hub_install_requires_server") };
     }
@@ -937,7 +937,7 @@ export function createExtensionsStore(options: {
     setStateField("skillsStatus", null);
 
     try {
-      const repoOverride: OpenworkHubRepo = { owner: repo.owner, repo: repo.repo, ref: repo.ref };
+      const repoOverride: OnMyAgentHubRepo = { owner: repo.owner, repo: repo.repo, ref: repo.ref };
       const result = await onmyagentClient.installHubSkill(onmyagentWorkspaceId, trimmed, { repo: repoOverride });
       await refreshHubSkillImports();
       if (!result?.ok) return { ok: false, message: t("skills.install_failed") };
@@ -1044,10 +1044,10 @@ export function createExtensionsStore(options: {
     const root = options.selectedWorkspaceRoot().trim();
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
@@ -1062,7 +1062,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       if (shouldResetExtensionsLoadedForKey(skillsRoot, root)) skillsLoaded = false;
       if (shouldSkipExtensionsRefresh({ force: optionsOverride?.force, loaded: skillsLoaded })) return;
       if (refreshSkillsInFlight) return;
@@ -1150,14 +1150,9 @@ export function createExtensionsStore(options: {
     refreshSkillsAborted = false;
     try {
       setStateField("skillsStatus", null);
-      const rawClient = client as unknown as { _client?: { get: (input: { url: string }) => Promise<unknown> } };
-      if (!rawClient._client) throw new Error("OpenCode client unavailable.");
-      const result = await rawClient._client.get({ url: "/skill" }) as {
-        data?: Array<{ name: string; description: string; location: string }>;
-        error?: unknown;
-      };
-      if (result?.data === undefined) {
-        const err = result?.error;
+      const result = await client.app.skills();
+      if (result.data === undefined) {
+        const err = result.error;
         const message = err instanceof Error ? err.message : typeof err === "string" ? err : t("skills.failed_to_load");
         throw new Error(message);
       }
@@ -1198,10 +1193,10 @@ export function createExtensionsStore(options: {
   async function refreshPlugins(scopeOverride?: PluginScope) {
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
@@ -1226,7 +1221,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (scope === "project" && canUseOpenworkServer) {
+    if (scope === "project" && canUseOnMyAgentServer) {
       mutateState((current) => ({
         ...current,
         pluginConfig: null,
@@ -1275,7 +1270,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (!isLocalWorkspace && !canUseOpenworkServer) {
+    if (!isLocalWorkspace && !canUseOnMyAgentServer) {
       mutateState((current) => ({
         ...current,
         pluginStatus: "OnMyAgent server unavailable. Connect to manage plugins.",
@@ -1369,10 +1364,10 @@ export function createExtensionsStore(options: {
 
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
@@ -1388,7 +1383,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (snapshot.pluginScope === "project" && canUseOpenworkServer) {
+    if (snapshot.pluginScope === "project" && canUseOnMyAgentServer) {
       try {
         setStateField("pluginStatus", null);
         await onmyagentClient.addPlugin(onmyagentWorkspaceId, pluginName);
@@ -1406,7 +1401,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (!isLocalWorkspace && !canUseOpenworkServer) {
+    if (!isLocalWorkspace && !canUseOnMyAgentServer) {
       setStateField("pluginStatus", "OnMyAgent server unavailable. Connect to manage plugins.");
       return;
     }
@@ -1463,10 +1458,10 @@ export function createExtensionsStore(options: {
     }
 
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
@@ -1477,7 +1472,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (snapshot.pluginScope === "project" && canUseOpenworkServer) {
+    if (snapshot.pluginScope === "project" && canUseOnMyAgentServer) {
       try {
         setStateField("pluginStatus", null);
         await onmyagentClient.removePlugin(onmyagentWorkspaceId, name);
@@ -1494,7 +1489,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (!isLocalWorkspace && !canUseOpenworkServer) {
+    if (!isLocalWorkspace && !canUseOnMyAgentServer) {
       setStateField("pluginStatus", "OnMyAgent server unavailable. Connect to manage plugins.");
       return;
     }
@@ -1576,16 +1571,16 @@ export function createExtensionsStore(options: {
   async function installSkillCreator(): Promise<{ ok: boolean; message: string }> {
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.skills?.write;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       options.setBusy(true);
       options.setError(null);
       setStateField("skillsStatus", t("skills.installing_skill_creator"));
@@ -1727,16 +1722,16 @@ export function createExtensionsStore(options: {
 
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.skills?.read;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       try {
         setStateField("skillsStatus", null);
         const result = await onmyagentClient.getSkill(onmyagentWorkspaceId, trimmed, { includeGlobal: isLocalWorkspace });
@@ -1785,16 +1780,16 @@ export function createExtensionsStore(options: {
 
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
-    const onmyagentSnapshot = getOpenworkServerSnapshot();
+    const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.skills?.write;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       options.setBusy(true);
       options.setError(null);
       setStateField("skillsStatus", null);
@@ -1946,7 +1941,7 @@ export function createExtensionsStore(options: {
       stopDenSessionListener = () => window.removeEventListener("onmyagent-den-session-updated", onDenSessionUpdated);
     }
 
-    stopOpenworkSubscription = options.onmyagentServer.subscribe(() => {
+    stopOnMyAgentSubscription = options.onmyagentServer.subscribe(() => {
       syncFromOptions();
     });
 
@@ -1958,8 +1953,8 @@ export function createExtensionsStore(options: {
     disposed = true;
     started = false;
     abortRefreshes();
-    stopOpenworkSubscription?.();
-    stopOpenworkSubscription = null;
+    stopOnMyAgentSubscription?.();
+    stopOnMyAgentSubscription = null;
     stopDenSessionListener?.();
     stopDenSessionListener = null;
     listeners.clear();

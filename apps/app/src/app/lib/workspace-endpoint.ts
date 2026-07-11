@@ -10,7 +10,7 @@
  * prefix is stripped, or `onmyagentWorkspaceId` is used when present).
  *
  * Always go through {@link resolveWorkspaceEndpoint} when you need:
- *   - an `OpenworkServerClient` for a workspace
+ *   - an `OnMyAgentServerClient` for a workspace
  *   - a mounted `/workspace/<id>` URL prefix
  *   - the `/opencode` URL for the OpenCode SDK
  *
@@ -21,9 +21,9 @@
 
 import type { WorkspaceInfo } from "./desktop";
 import {
-  buildOpenworkWorkspaceBaseUrl,
-  createOpenworkServerClient,
-  type OpenworkServerClient,
+  buildOnMyAgentWorkspaceBaseUrl,
+  createOnMyAgentServerClient,
+  type OnMyAgentServerClient,
 } from "./onmyagent-server";
 
 export type ResolvedWorkspaceEndpoint = {
@@ -35,8 +35,8 @@ export type ResolvedWorkspaceEndpoint = {
   workspaceId: string;
   /** True when the workspace lives on a remote OnMyAgent worker, not the user's local server. */
   isRemote: boolean;
-  /** OpenworkServerClient bound to {@link baseUrl}/{@link token}. */
-  client: OpenworkServerClient;
+  /** OnMyAgentServerClient bound to {@link baseUrl}/{@link token}. */
+  client: OnMyAgentServerClient;
   /** Mounted base url: `<baseUrl>/workspace/<workspaceId>`. No trailing slash. */
   mountedBaseUrl: string;
   /** OpenCode SDK base url: `<mountedBaseUrl>/opencode`. */
@@ -117,12 +117,12 @@ export function resolveWorkspaceEndpoint(
     if (!baseUrl) return null;
     const token = pickRemoteToken(workspace);
     const workspaceId = workspaceServerId(workspace);
-    const client = createOpenworkServerClient({
+    const client = createOnMyAgentServerClient({
       baseUrl,
       token: token || undefined,
     });
     const mountedBaseUrl = (
-      buildOpenworkWorkspaceBaseUrl(baseUrl, workspaceId) ?? baseUrl
+      buildOnMyAgentWorkspaceBaseUrl(baseUrl, workspaceId) ?? baseUrl
     ).replace(/\/+$/, "");
     return {
       baseUrl,
@@ -139,12 +139,12 @@ export function resolveWorkspaceEndpoint(
   if (!localBaseUrl) return null;
   const localToken = (localServer.token ?? "").trim();
   const workspaceId = workspace.id.trim();
-  const client = createOpenworkServerClient({
+  const client = createOnMyAgentServerClient({
     baseUrl: localBaseUrl,
     token: localToken || undefined,
   });
   const mountedBaseUrl = (
-    buildOpenworkWorkspaceBaseUrl(localBaseUrl, workspaceId) ?? localBaseUrl
+    buildOnMyAgentWorkspaceBaseUrl(localBaseUrl, workspaceId) ?? localBaseUrl
   ).replace(/\/+$/, "");
   return {
     baseUrl: localBaseUrl,

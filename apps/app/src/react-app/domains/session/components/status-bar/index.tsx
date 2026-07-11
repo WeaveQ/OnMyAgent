@@ -11,9 +11,9 @@ import { t } from "@/i18n";
 import { usePlatform } from "../../../../kernel/platform";
 import {
   useControlAction,
-  type OpenworkControlAction,
+  type OnMyAgentControlAction,
 } from "../../../../shell";
-import type { OpenworkServerStatus } from "../../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerStatus } from "../../../../../app/lib/onmyagent-server";
 import { APP_NAME } from "../../../../../i18n/locales/brand";
 
 const DOCS_URL = "https://onmyagentlabs.com/docs";
@@ -47,7 +47,7 @@ function StatusDot({ variant }: StatusDotProps) {
 
 type StatusIndicatorProps = {
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   developerMode: boolean;
   mcpConnectedCount: number;
   loading?: boolean;
@@ -130,7 +130,7 @@ function StatusIndicator(props: StatusIndicatorProps) {
 
 export type StatusBarProps = {
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   developerMode: boolean;
   settingsOpen: boolean;
   onSendFeedback: () => void;
@@ -160,7 +160,7 @@ export function StatusBar(props: StatusBarProps) {
     return () => window.clearTimeout(timeout);
   }, [initializing]);
 
-  const docsControlAction = useMemo<OpenworkControlAction>(
+  const docsControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "status.docs.open",
       label: `Open ${APP_NAME} docs`,
@@ -173,7 +173,7 @@ export function StatusBar(props: StatusBarProps) {
   );
   useControlAction(docsControlAction);
 
-  const feedbackControlAction = useMemo<OpenworkControlAction>(
+  const feedbackControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "status.feedback.open",
       label: t("status.send_feedback"),

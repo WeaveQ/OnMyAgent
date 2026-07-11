@@ -15,9 +15,9 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import type {
-  OpenworkServerCapabilities,
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentServerCapabilities,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import { pickDirectory } from "../../../../app/lib/desktop";
 import {
@@ -47,9 +47,9 @@ import {
 } from "../settings-layout";
 
 export type AuthorizedFoldersPanelProps = {
-  onmyagentServerClient: OpenworkServerClient | null;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerCapabilities: OpenworkServerCapabilities | null;
+  onmyagentServerClient: OnMyAgentServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
   runtimeWorkspaceId: string | null;
   selectedWorkspaceRoot: string;
   activeWorkspaceType: "local" | "remote";

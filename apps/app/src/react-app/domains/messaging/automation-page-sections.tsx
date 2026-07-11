@@ -7,16 +7,16 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
-import type { OpenworkAutomationTaskItem } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import type { AutomationTemplate } from "./automation-model";
 
 export type CompletedRun = {
-  task: OpenworkAutomationTaskItem;
-  run: OpenworkAutomationTaskItem["runs"][number];
+  task: OnMyAgentAutomationTaskItem;
+  run: OnMyAgentAutomationTaskItem["runs"][number];
 };
 
-export function scheduleLabel(schedule: OpenworkAutomationTaskItem["schedule"]) {
+export function scheduleLabel(schedule: OnMyAgentAutomationTaskItem["schedule"]) {
   if (schedule.mode === "once") {
     return schedule.onceAt
       ? t("automation.schedule_once_datetime", { time: new Date(schedule.onceAt).toLocaleString() })
@@ -30,7 +30,7 @@ export function scheduleLabel(schedule: OpenworkAutomationTaskItem["schedule"]) 
     : t("automation.schedule_daily_at", { time: schedule.time });
 }
 
-export function nextRunLabel(item: OpenworkAutomationTaskItem) {
+export function nextRunLabel(item: OnMyAgentAutomationTaskItem) {
   if (!item.enabled) return t("automation.status_paused");
   if (!item.nextRunAt) return t("automation.no_next_run");
   const delta = Math.max(0, item.nextRunAt - Date.now());
@@ -91,7 +91,7 @@ export function AutomationTemplateCard(props: {
   );
 }
 
-function AutomationTaskMeta(props: { item: OpenworkAutomationTaskItem }) {
+function AutomationTaskMeta(props: { item: OnMyAgentAutomationTaskItem }) {
   return (
     <>
       <StatusBadge tone="surface" size="sm" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
@@ -105,8 +105,8 @@ function AutomationTaskMeta(props: { item: OpenworkAutomationTaskItem }) {
 }
 
 export function ScheduledAutomationRow(props: {
-  item: OpenworkAutomationTaskItem;
-  onEdit: (item: OpenworkAutomationTaskItem) => void;
+  item: OnMyAgentAutomationTaskItem;
+  onEdit: (item: OnMyAgentAutomationTaskItem) => void;
 }) {
   return (
     <button
@@ -128,7 +128,7 @@ export function ScheduledAutomationRow(props: {
 }
 
 export function RunningAutomationRow(props: {
-  item: OpenworkAutomationTaskItem;
+  item: OnMyAgentAutomationTaskItem;
   onOpenSession: (sessionId: string) => void;
 }) {
   return (

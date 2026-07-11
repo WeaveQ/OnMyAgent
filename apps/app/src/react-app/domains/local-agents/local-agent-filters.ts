@@ -19,8 +19,8 @@ export function localAgentStatus(agent: Pick<PersonalLocalAgent, "status" | "err
   }
   // Legacy "error" collapses to offline unless the message points at auth/missing.
   const text = (agent.error ?? "").toLowerCase();
-  if (/not found|command not found|no such file|未配置|命令不可用/.test(text)) return "missing";
-  if (/auth|login|unauthorized|forbidden|认证|登录/.test(text)) return "needs_auth";
+  if (/not found|command not found|no such file|\u672A\u914D\u7F6E|\u547D\u4EE4\u4E0D\u53EF\u7528/.test(text)) return "missing";
+  if (/auth|login|unauthorized|forbidden|\u8BA4\u8BC1|\u767B\u5F55/.test(text)) return "needs_auth";
   return "offline";
 }
 

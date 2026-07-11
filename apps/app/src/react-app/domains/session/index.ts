@@ -15,6 +15,7 @@ export {
   SessionPage,
   type PageMode,
   type SessionAgentManagementIntent,
+  type SessionPageSurfaceProps,
 } from "./pages";
 export {
   MAX_SESSIONS_PREVIEW,
@@ -72,4 +73,4 @@ export {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
 } from "../messaging/automation-session-groups";
-export { OpenCodeProviderConfigDialog } from "../local-agents/agent-management/agent-management-providers";
+export { OpenCodeProviderConfigDialog } from "../local-agents";

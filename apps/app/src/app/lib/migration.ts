@@ -36,12 +36,38 @@ type ElectronMigrationBridge = {
   ackSnapshot: () => Promise<{ ok: boolean; moved: boolean }>;
 };
 
+function isMigrationSnapshot(value: unknown): value is MigrationSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const record = value as {
+    version?: unknown;
+    writtenAt?: unknown;
+    source?: unknown;
+    keys?: unknown;
+  };
+  return (
+    record.version === MIGRATION_SNAPSHOT_VERSION &&
+    typeof record.writtenAt === "number" &&
+    record.source === "tauri" &&
+    !!record.keys &&
+    typeof record.keys === "object"
+  );
+}
+
 function electronMigrationBridge(): ElectronMigrationBridge | null {
   if (typeof window === "undefined") return null;
-  const bridge = (window as unknown as {
-    __ONMYAGENT_ELECTRON__?: { migration?: ElectronMigrationBridge };
-  }).__ONMYAGENT_ELECTRON__;
-  return bridge?.migration ?? null;
+  const migration = window.__ONMYAGENT_ELECTRON__?.migration;
+  const readSnapshot = migration?.readSnapshot;
+  const ackSnapshot = migration?.ackSnapshot;
+  if (typeof readSnapshot !== "function" || typeof ackSnapshot !== "function") {
+    return null;
+  }
+  return {
+    readSnapshot: async () => {
+      const snapshot = await readSnapshot();
+      return isMigrationSnapshot(snapshot) ? snapshot : null;
+    },
+    ackSnapshot: () => ackSnapshot(),
+  };
 }
 
 /**

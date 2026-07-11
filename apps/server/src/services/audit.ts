@@ -11,14 +11,14 @@ function expandHome(value: string): string {
   return value;
 }
 
-function resolveOpenworkDataDir(): string {
+function resolveOnMyAgentDataDir(): string {
   const override = process.env.ONMYAGENT_DATA_DIR?.trim();
   if (override) return expandHome(override);
   return join(homedir(), ".onmyagent", "onmyagent-server");
 }
 
 export function auditLogPath(workspaceId: string): string {
-  return join(resolveOpenworkDataDir(), "audit", `${workspaceId}.jsonl`);
+  return join(resolveOnMyAgentDataDir(), "audit", `${workspaceId}.jsonl`);
 }
 
 export function legacyAuditLogPath(workspaceRoot: string): string {

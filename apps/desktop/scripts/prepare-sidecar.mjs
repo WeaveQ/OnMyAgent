@@ -329,7 +329,7 @@ const parseChecksum = (content, assetName) => {
 
 // onmyagent-server is no longer compiled as a sidecar binary — it runs
 // in-process inside Electron via a direct import of the server library.
-const didBuildOpenworkServer = false;
+const didBuildOnMyAgentServer = false;
 
 // Server binary copy/sign skipped — runs in-process.
 

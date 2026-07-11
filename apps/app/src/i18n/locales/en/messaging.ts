@@ -87,4 +87,6 @@ export default {
   "messaging.command_help_new": "Start a new session",
   "messaging.command_help_mode": "Switch between raw message or debug context mode",
   "messaging.feishu_agent_command_help": "In Feishu, send #agent to list available agents, or send #agent codex to switch the local agent for future replies.",
+  "messaging.wechat_clawbot": "WeChat ClawBot",
+  "messaging.feishu_bot": "Feishu bot",
 } as const;

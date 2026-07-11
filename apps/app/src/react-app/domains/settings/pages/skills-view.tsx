@@ -124,7 +124,7 @@ const SKILL_SOURCE_LABELS: Record<NonNullable<SkillCard["scope"]>, string> = {
   get local() { return t("skills.source_local"); },
 };
 
-function isOpenworkInjectedSkill(skill: SkillCard) {
+function isOnMyAgentInjectedSkill(skill: SkillCard) {
   const normalizedName = skill.name.trim().toLowerCase();
   const normalizedPath = skill.path.replace(/\\/g, "/").toLowerCase();
   return (
@@ -526,8 +526,8 @@ export function SkillsView(props: SkillsViewProps) {
     () =>
       filteredSkills.filter((skill) =>
         installedSkillFilter === "builtin"
-          ? skill.scope === "builtin" || isOpenworkInjectedSkill(skill)
-          : skill.scope !== "builtin" && !isOpenworkInjectedSkill(skill),
+          ? skill.scope === "builtin" || isOnMyAgentInjectedSkill(skill)
+          : skill.scope !== "builtin" && !isOnMyAgentInjectedSkill(skill),
       ),
     [filteredSkills, installedSkillFilter],
   );
@@ -535,7 +535,7 @@ export function SkillsView(props: SkillsViewProps) {
   const builtInSkillCount = useMemo(
     () =>
       filteredSkills.filter(
-        (skill) => skill.scope === "builtin" || isOpenworkInjectedSkill(skill),
+        (skill) => skill.scope === "builtin" || isOnMyAgentInjectedSkill(skill),
       ).length,
     [filteredSkills],
   );
@@ -1089,7 +1089,7 @@ export function SkillsView(props: SkillsViewProps) {
                           <h4 className={skillTextClass.cardTitle}>
                             {skill.name}
                           </h4>
-                          {isOpenworkInjectedSkill(skill) ? (
+                          {isOnMyAgentInjectedSkill(skill) ? (
                             <span className={tagClass}>{APP_NAME}</span>
                           ) : null}
                           {skill.scope ? (
