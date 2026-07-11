@@ -78,7 +78,7 @@ export async function fetchOpenCodeRouterHealth(
   );
 }
 
-export async function fetchOpenCodeRouterHealthViaOpenwork(
+export async function fetchOpenCodeRouterHealthViaOnMyAgent(
   onmyagentUrl: string,
   token: string,
 ): Promise<OpenCodeRouterHealthSnapshot> {
@@ -112,7 +112,7 @@ export async function waitForOpenCodeRouterHealthy(
   throw new Error(lastError ?? "Timed out waiting for opencodeRouter health");
 }
 
-export async function waitForOpenCodeRouterHealthyViaOpenwork(
+export async function waitForOpenCodeRouterHealthyViaOnMyAgent(
   onmyagentUrl: string,
   token: string,
   timeoutMs = 10_000,

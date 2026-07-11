@@ -43,7 +43,7 @@ ${APP_NAME} can preview, edit, and download standard artifacts when you create o
  * auto-generated titles, replies and summaries default to English and
  * show up as英文 in the ${APP_NAME} sidebar.
  *
- * Wrapped in ${APP_NAME} comment markers so `ensureOpenworkAgent` can
+ * Wrapped in ${APP_NAME} comment markers so `ensureOnMyAgentAgent` can
  * keep this block in sync on every workspace reload without touching
  * user-editable content outside the markers.
  */
@@ -104,7 +104,7 @@ Hard rule: never copy private memory into repo files. Store only redacted summar
 ${ONMYAGENT_ARTIFACT_GUIDANCE}
 `;
 
-type WorkspaceOpenworkConfig = {
+type WorkspaceOnMyAgentConfig = {
   version: number;
   workspace?: {
     name?: string | null;
@@ -133,14 +133,14 @@ function isSchemaOnlyOpencodeConfig(config: Record<string, unknown>): boolean {
   return Object.keys(config).every((key) => key === "$schema");
 }
 
-async function ensureWorkspaceOpenworkConfig(
+async function ensureWorkspaceOnMyAgentConfig(
   workspaceRoot: string,
   preset: string,
 ): Promise<boolean> {
   const path = onmyagentConfigPath(workspaceRoot);
   if (await exists(path)) return false;
   const now = Date.now();
-  const config: WorkspaceOpenworkConfig = {
+  const config: WorkspaceOnMyAgentConfig = {
     version: 1,
     workspace: {
       name: basename(workspaceRoot) || "Workspace",
@@ -176,7 +176,7 @@ function resolveAgentTemplate(): string {
   return ONMYAGENT_AGENT.replace("{{BROWSER_CDP_PORT}}", cdpPort);
 }
 
-async function ensureOpenworkAgent(workspaceRoot: string): Promise<boolean> {
+async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
   const agentsDir = join(workspaceRoot, ".opencode", "agents");
   const agentPath = join(agentsDir, `${DEFAULT_OPENCODE_AGENT}.md`);
   const agentContent = resolveAgentTemplate();
@@ -382,8 +382,8 @@ export async function ensureWorkspaceFiles(
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
   if (await ensureBrowserPlugin(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureOpenworkAgent(workspaceRoot)) reloadReasons.add("agents");
-  const onmyagentConfigChanged = await ensureWorkspaceOpenworkConfig(
+  if (await ensureOnMyAgentAgent(workspaceRoot)) reloadReasons.add("agents");
+  const onmyagentConfigChanged = await ensureWorkspaceOnMyAgentConfig(
     workspaceRoot,
     preset,
   );

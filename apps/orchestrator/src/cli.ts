@@ -61,11 +61,11 @@ import {
 } from "./runtime-auth.js";
 import {
   fetchOpenCodeRouterHealth,
-  fetchOpenCodeRouterHealthViaOpenwork,
+  fetchOpenCodeRouterHealthViaOnMyAgent,
   waitForHealthy,
   waitForHealthyViaProxy,
   waitForOpenCodeRouterHealthy,
-  waitForOpenCodeRouterHealthyViaOpenwork,
+  waitForOpenCodeRouterHealthyViaOnMyAgent,
   waitForOpencodeHealthy,
   waitForRouterHealthy,
   type OpenCodeRouterHealthSnapshot,
@@ -77,7 +77,7 @@ import {
   spawnProcess,
   startOpenCodeRouter,
   startOpencode,
-  startOpenworkServer,
+  startOnMyAgentServer,
   stopChild,
 } from "./runtime-services.js";
 import {
@@ -607,7 +607,7 @@ function resolveOpencodeLogLevel(requested?: string): string | undefined {
   return normalized;
 }
 
-function resolveOpenworkRemoteAccess(args: ParsedArgs): boolean {
+function resolveOnMyAgentRemoteAccess(args: ParsedArgs): boolean {
   const explicitHost =
     readFlag(args.flags, "onmyagent-host") ?? process.env.ONMYAGENT_HOST;
   const remoteAccessRequested =
@@ -1289,7 +1289,7 @@ async function assertSandboxBinaryFile(
   }
 }
 
-async function resolveOpenworkServerBin(options: {
+async function resolveOnMyAgentServerBin(options: {
   explicit?: string;
   manifest: VersionManifest | null;
   allowExternal: boolean;
@@ -1615,7 +1615,7 @@ async function resolveOpenCodeRouterBin(options: {
   return resolveExternal();
 }
 
-function resolveWorkspaceOpenworkConfigPath(workspaceRoot: string): string {
+function resolveWorkspaceOnMyAgentConfigPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "onmyagent.json");
 }
 
@@ -1635,7 +1635,7 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function readMessagingEnabledFromOpenworkConfig(
+function readMessagingEnabledFromOnMyAgentConfig(
   onmyagentConfig: Record<string, unknown>,
 ): boolean | undefined {
   const messaging = asRecord(onmyagentConfig.messaging);
@@ -1705,7 +1705,7 @@ async function resolveOpencodeRouterEnabled(
     return { enabled: envValue, source: "env" };
   }
 
-  const onmyagentConfigPath = resolveWorkspaceOpenworkConfigPath(workspaceRoot);
+  const onmyagentConfigPath = resolveWorkspaceOnMyAgentConfigPath(workspaceRoot);
   let onmyagentConfig: Record<string, unknown> = {};
   try {
     const raw = await readFile(onmyagentConfigPath, "utf8");
@@ -1714,7 +1714,7 @@ async function resolveOpencodeRouterEnabled(
     onmyagentConfig = {};
   }
 
-  const configured = readMessagingEnabledFromOpenworkConfig(onmyagentConfig);
+  const configured = readMessagingEnabledFromOnMyAgentConfig(onmyagentConfig);
   if (configured !== undefined) {
     return { enabled: configured, source: "workspace-config" };
   }
@@ -1728,7 +1728,7 @@ async function resolveOpencodeRouterEnabled(
     inferredEnabled = false;
   }
 
-  const nextOpenworkConfig: Record<string, unknown> = {
+  const nextOnMyAgentConfig: Record<string, unknown> = {
     ...onmyagentConfig,
     messaging: {
       ...asRecord(onmyagentConfig.messaging),
@@ -1740,7 +1740,7 @@ async function resolveOpencodeRouterEnabled(
     await mkdir(dirname(onmyagentConfigPath), { recursive: true });
     await writeFile(
       onmyagentConfigPath,
-      `${JSON.stringify(nextOpenworkConfig, null, 2)}\n`,
+      `${JSON.stringify(nextOnMyAgentConfig, null, 2)}\n`,
       "utf8",
     );
   } catch (error) {
@@ -2379,11 +2379,11 @@ async function stageSandboxRuntime(options: {
   const entrypointHostPath = join(baseDir, "entrypoint.sh");
 
   const stagedOpencode = join(sidecarsDir, "opencode");
-  const stagedOpenwork = join(sidecarsDir, "onmyagent-server");
+  const stagedOnMyAgent = join(sidecarsDir, "onmyagent-server");
   await copyFile(options.sidecars.opencode, stagedOpencode);
-  await copyFile(options.sidecars.onmyagentServer, stagedOpenwork);
+  await copyFile(options.sidecars.onmyagentServer, stagedOnMyAgent);
   await ensureExecutable(stagedOpencode);
-  await ensureExecutable(stagedOpenwork);
+  await ensureExecutable(stagedOnMyAgent);
 
   if (options.sidecars.opencodeRouter) {
     const stagedOpenCodeRouter = join(sidecarsDir, "opencode-router");
@@ -2955,7 +2955,7 @@ async function verifyOpencodeVersion(
   return actual;
 }
 
-async function verifyOpenworkServer(input: {
+async function verifyOnMyAgentServer(input: {
   baseUrl: string;
   token: string;
   hostToken: string;
@@ -3306,7 +3306,7 @@ async function fetchJson<T = any>(url: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-async function issueOpenworkOwnerToken(
+async function issueOnMyAgentOwnerToken(
   baseUrl: string,
   hostToken: string,
   label = "OnMyAgent owner token",
@@ -4540,7 +4540,7 @@ async function runRouterDaemon(args: ParsedArgs) {
   await new Promise(() => undefined);
 }
 
-function readOpenworkClientAuth(args: ParsedArgs): {
+function readOnMyAgentClientAuth(args: ParsedArgs): {
   onmyagentUrl: string;
   token: string;
 } {
@@ -4575,7 +4575,7 @@ function readSessionId(args: ParsedArgs, fallbackIndex: number): string {
 async function runFiles(args: ParsedArgs) {
   const outputJson = readBool(args.flags, "json", false);
   const subcommand = args.positionals[1] ?? "";
-  const { onmyagentUrl, token } = readOpenworkClientAuth(args);
+  const { onmyagentUrl, token } = readOnMyAgentClientAuth(args);
   const baseUrl = onmyagentUrl.replace(/\/$/, "");
   const headers = {
     "Content-Type": "application/json",
@@ -5121,7 +5121,7 @@ async function runStart(args: ParsedArgs) {
 
   const explicitOpencodeBin =
     readFlag(args.flags, "opencode-bin") ?? process.env.ONMYAGENT_OPENCODE_BIN;
-  const explicitOpenworkServerBin =
+  const explicitOnMyAgentServerBin =
     readFlag(args.flags, "onmyagent-server-bin") ??
     process.env.ONMYAGENT_SERVER_BIN;
   const explicitOpenCodeRouterBin =
@@ -5165,7 +5165,7 @@ async function runStart(args: ParsedArgs) {
   const opencodeUsername = opencodeCredentials.username;
   const opencodePassword = opencodeCredentials.password;
 
-  const remoteAccessEnabled = resolveOpenworkRemoteAccess(args);
+  const remoteAccessEnabled = resolveOnMyAgentRemoteAccess(args);
   const onmyagentHost = remoteAccessEnabled ? "0.0.0.0" : "127.0.0.1";
   const onmyagentPort = await resolvePort(
     readNumber(args.flags, "onmyagent-port", undefined, "ONMYAGENT_PORT"),
@@ -5242,7 +5242,7 @@ async function runStart(args: ParsedArgs) {
     // accidentally pick host (darwin) bundled binaries.
     if (sidecarSourceInput === "auto") {
       sidecarSource =
-        explicitOpenworkServerBin || explicitOpenCodeRouterBin
+        explicitOnMyAgentServerBin || explicitOpenCodeRouterBin
           ? "external"
           : "downloaded";
     }
@@ -5321,8 +5321,8 @@ async function runStart(args: ParsedArgs) {
   logVerbose(
     `opencodeRouter enabled: ${opencodeRouterEnabled ? "true" : "false"} (${opencodeRouterMode.source})`,
   );
-  let onmyagentServerBinary = await resolveOpenworkServerBin({
-    explicit: explicitOpenworkServerBin,
+  let onmyagentServerBinary = await resolveOnMyAgentServerBin({
+    explicit: explicitOnMyAgentServerBin,
     manifest,
     allowExternal,
     sidecar,
@@ -5526,7 +5526,7 @@ async function runStart(args: ParsedArgs) {
       }),
     );
   };
-  const restartOpenworkServer = async () => {
+  const restartOnMyAgentServer = async () => {
     if (sandboxMode !== "none") {
       throw new Error(
         "Runtime upgrade is not supported while sandbox mode is enabled",
@@ -5538,7 +5538,7 @@ async function runStart(args: ParsedArgs) {
       await stopChild(onmyagentChild);
       onmyagentChild = null;
     }
-    const child = await startOpenworkServer({
+    const child = await startOnMyAgentServer({
       bin: onmyagentServerBinary.bin,
       host: onmyagentHost,
       port: onmyagentPort,
@@ -5577,7 +5577,7 @@ async function runStart(args: ParsedArgs) {
     );
     child.on("error", (error) => handleSpawnError("onmyagent-server", error));
     await waitForHealthy(onmyagentBaseUrl);
-    onmyagentActualVersion = await verifyOpenworkServer({
+    onmyagentActualVersion = await verifyOnMyAgentServer({
       baseUrl: onmyagentBaseUrl,
       token: onmyagentToken,
       hostToken: onmyagentHostToken,
@@ -5663,8 +5663,8 @@ async function runStart(args: ParsedArgs) {
         ]);
       }
       if (services.includes("onmyagent-server")) {
-        onmyagentServerBinary = await resolveOpenworkServerBin({
-          explicit: explicitOpenworkServerBin,
+        onmyagentServerBinary = await resolveOnMyAgentServerBin({
+          explicit: explicitOnMyAgentServerBin,
           manifest,
           allowExternal,
           sidecar,
@@ -5699,7 +5699,7 @@ async function runStart(args: ParsedArgs) {
         services.includes("onmyagent-server") ||
         services.includes("opencode")
       ) {
-        await restartOpenworkServer();
+        await restartOnMyAgentServer();
       }
       runtimeUpgradeState.status = "idle";
       runtimeUpgradeState.finishedAt = Date.now();
@@ -5880,7 +5880,7 @@ async function runStart(args: ParsedArgs) {
         },
         onCopySelection: async (text) => copyToClipboard(text),
         onRouterHealth: async () =>
-          fetchOpenCodeRouterHealthViaOpenwork(onmyagentBaseUrl, onmyagentToken),
+          fetchOpenCodeRouterHealthViaOnMyAgent(onmyagentBaseUrl, onmyagentToken),
         onRouterTelegramIdentities: async () => {
           const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/identities/telegram`;
           const result = await fetchJson(url, {
@@ -6266,7 +6266,7 @@ async function runStart(args: ParsedArgs) {
       tui?.updateService("opencode", { status: "healthy" });
 
       try {
-        onmyagentActualVersion = await verifyOpenworkServer({
+        onmyagentActualVersion = await verifyOnMyAgentServer({
           baseUrl: onmyagentBaseUrl,
           token: onmyagentToken,
           hostToken: onmyagentHostToken,
@@ -6288,7 +6288,7 @@ async function runStart(args: ParsedArgs) {
           "onmyagent-server",
         );
       }
-      onmyagentOwnerToken = await issueOpenworkOwnerToken(
+      onmyagentOwnerToken = await issueOnMyAgentOwnerToken(
         onmyagentBaseUrl,
         onmyagentHostToken,
         "OnMyAgent sandbox owner token",
@@ -6463,7 +6463,7 @@ async function runStart(args: ParsedArgs) {
         }
       }
 
-      const startedOpenworkChild = await startOpenworkServer({
+      const startedOnMyAgentChild = await startOnMyAgentServer({
         bin: onmyagentServerBinary.bin,
         host: onmyagentHost,
         port: onmyagentPort,
@@ -6490,22 +6490,22 @@ async function runStart(args: ParsedArgs) {
         controlBaseUrl,
         controlToken,
       });
-      onmyagentChild = startedOpenworkChild;
-      children.push({ name: "onmyagent-server", child: startedOpenworkChild });
+      onmyagentChild = startedOnMyAgentChild;
+      children.push({ name: "onmyagent-server", child: startedOnMyAgentChild });
       tui?.updateService("onmyagent-server", {
         status: "running",
-        pid: startedOpenworkChild.pid ?? undefined,
+        pid: startedOnMyAgentChild.pid ?? undefined,
         port: onmyagentPort,
       });
       logger.info(
         "Process spawned",
-        { pid: startedOpenworkChild.pid ?? 0 },
+        { pid: startedOnMyAgentChild.pid ?? 0 },
         "onmyagent-server",
       );
-      startedOpenworkChild.on("exit", (code, signal) =>
+      startedOnMyAgentChild.on("exit", (code, signal) =>
         handleExit("onmyagent-server", code, signal),
       );
-      startedOpenworkChild.on("error", (error) =>
+      startedOnMyAgentChild.on("error", (error) =>
         handleSpawnError("onmyagent-server", error),
       );
 
@@ -6518,7 +6518,7 @@ async function runStart(args: ParsedArgs) {
       logger.info("Healthy", { url: onmyagentBaseUrl }, "onmyagent-server");
       tui?.updateService("onmyagent-server", { status: "healthy" });
 
-      onmyagentActualVersion = await verifyOpenworkServer({
+      onmyagentActualVersion = await verifyOnMyAgentServer({
         baseUrl: onmyagentBaseUrl,
         token: onmyagentToken,
         hostToken: onmyagentHostToken,
@@ -6529,7 +6529,7 @@ async function runStart(args: ParsedArgs) {
         expectedOpencodeUsername: opencodeUsername,
         expectedOpencodePassword: opencodePassword,
       });
-      onmyagentOwnerToken = await issueOpenworkOwnerToken(
+      onmyagentOwnerToken = await issueOnMyAgentOwnerToken(
         onmyagentBaseUrl,
         onmyagentHostToken,
         "OnMyAgent owner token",
@@ -6541,7 +6541,7 @@ async function runStart(args: ParsedArgs) {
 
       if (opencodeRouterReady && !opencodeRouterHealthInterval) {
         opencodeRouterHealthInterval = setInterval(() => {
-          fetchOpenCodeRouterHealthViaOpenwork(onmyagentBaseUrl, onmyagentToken)
+          fetchOpenCodeRouterHealthViaOnMyAgent(onmyagentBaseUrl, onmyagentToken)
             .then((health) => {
               tui?.setRouterHealth(health);
               if (health.ok) {
@@ -6563,7 +6563,7 @@ async function runStart(args: ParsedArgs) {
         try {
           const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/health`;
           logger.info("Waiting for health", { url }, "opencode-router");
-          const health = await waitForOpenCodeRouterHealthyViaOpenwork(
+          const health = await waitForOpenCodeRouterHealthyViaOnMyAgent(
             onmyagentBaseUrl,
             onmyagentToken,
           );
@@ -6585,7 +6585,7 @@ async function runStart(args: ParsedArgs) {
         }
         if (!opencodeRouterHealthInterval) {
           opencodeRouterHealthInterval = setInterval(() => {
-            fetchOpenCodeRouterHealthViaOpenwork(onmyagentBaseUrl, onmyagentToken)
+            fetchOpenCodeRouterHealthViaOnMyAgent(onmyagentBaseUrl, onmyagentToken)
               .then((health) => {
                 tui?.setRouterHealth(health);
                 if (health.ok) {

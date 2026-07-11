@@ -56,7 +56,7 @@ export function createUiControlServer({
     return JSON.stringify(JSON.stringify(value ?? {}));
   }
 
-  async function evaluateOpenworkControl(expression, options = {}) {
+  async function evaluateOnMyAgentControl(expression, options = {}) {
     const win = await createMainWindow();
     if (options.focus === true) {
       win.show();
@@ -66,10 +66,10 @@ export function createUiControlServer({
     return win.webContents.executeJavaScript(expression, true);
   }
 
-  async function runOpenworkControlCommand(command, args = {}) {
+  async function runOnMyAgentControlCommand(command, args = {}) {
     const argsJsonLiteral = jsonForJavaScript(args);
     if (command === "snapshot") {
-      return evaluateOpenworkControl(`(async () => {
+      return evaluateOnMyAgentControl(`(async () => {
         const control = window.__onmyagentControl;
         if (!control) return { ok: false, error: "OnMyAgent control surface is not available yet." };
         control.setEnabled?.(true);
@@ -77,7 +77,7 @@ export function createUiControlServer({
       })()`);
     }
     if (command === "actions") {
-      return evaluateOpenworkControl(`(async () => {
+      return evaluateOnMyAgentControl(`(async () => {
         const control = window.__onmyagentControl;
         if (!control) return { ok: false, error: "OnMyAgent control surface is not available yet." };
         control.setEnabled?.(true);
@@ -85,7 +85,7 @@ export function createUiControlServer({
       })()`);
     }
     if (command === "execute") {
-      return evaluateOpenworkControl(
+      return evaluateOnMyAgentControl(
         `(async () => {
         const control = window.__onmyagentControl;
         const input = JSON.parse(${argsJsonLiteral});
@@ -123,7 +123,7 @@ export function createUiControlServer({
           sendJsonResponse(
             response,
             200,
-            await runOpenworkControlCommand("snapshot"),
+            await runOnMyAgentControlCommand("snapshot"),
           );
           return;
         }
@@ -131,7 +131,7 @@ export function createUiControlServer({
           sendJsonResponse(
             response,
             200,
-            await runOpenworkControlCommand("actions"),
+            await runOnMyAgentControlCommand("actions"),
           );
           return;
         }
@@ -139,7 +139,7 @@ export function createUiControlServer({
           sendJsonResponse(
             response,
             200,
-            await runOpenworkControlCommand(
+            await runOnMyAgentControlCommand(
               "execute",
               await readJsonRequestBody(request),
             ),

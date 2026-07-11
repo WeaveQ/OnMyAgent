@@ -224,7 +224,7 @@ function isSafeArchivePath(name) {
   return !normalized.split("/").some((part) => part === ".." || part === "");
 }
 
-function defaultOpenworkConfig(targetDir, preset = "starter") {
+function defaultOnMyAgentConfig(targetDir, preset = "starter") {
   return {
     version: 1,
     workspace: {
@@ -306,11 +306,11 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
       }
       await writeFile(onmyagentPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     } catch {
-      const config = defaultOpenworkConfig(targetDir, preset);
+      const config = defaultOnMyAgentConfig(targetDir, preset);
       await writeFile(onmyagentPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     }
   } else {
-    const config = defaultOpenworkConfig(targetDir, preset);
+    const config = defaultOnMyAgentConfig(targetDir, preset);
     await writeFile(onmyagentPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
   }
 
