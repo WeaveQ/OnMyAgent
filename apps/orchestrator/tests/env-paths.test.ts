@@ -6,14 +6,15 @@ import { delimiter, join } from "node:path";
 import { buildSpawnEnv, loadUserEnvFile, resolveUserEnvFilePath } from "../src/env-paths.js";
 
 const originalEnvStore = process.env.ONMYAGENT_ENV_STORE;
-const originalOpenworkSidecarDir = process.env.OPENWRK_SIDECAR_DIR;
+// OPENWRK_* is legacy; tracked separately so dual-read fallback tests stay isolated.
+const originalLegacyOpenwrkSidecarDir = process.env.OPENWRK_SIDECAR_DIR;
 const originalOnMyAgentSidecarDir = process.env.ONMYAGENT_SIDECAR_DIR;
 
 afterEach(() => {
   if (originalEnvStore === undefined) delete process.env.ONMYAGENT_ENV_STORE;
   else process.env.ONMYAGENT_ENV_STORE = originalEnvStore;
-  if (originalOpenworkSidecarDir === undefined) delete process.env.OPENWRK_SIDECAR_DIR;
-  else process.env.OPENWRK_SIDECAR_DIR = originalOpenworkSidecarDir;
+  if (originalLegacyOpenwrkSidecarDir === undefined) delete process.env.OPENWRK_SIDECAR_DIR;
+  else process.env.OPENWRK_SIDECAR_DIR = originalLegacyOpenwrkSidecarDir;
   if (originalOnMyAgentSidecarDir === undefined) delete process.env.ONMYAGENT_SIDECAR_DIR;
   else process.env.ONMYAGENT_SIDECAR_DIR = originalOnMyAgentSidecarDir;
 });
@@ -158,7 +159,7 @@ describe("env paths", () => {
     }
   });
 
-  test("buildSpawnEnv prefers legacy OPENWRK_SIDECAR_DIR before ONMYAGENT_SIDECAR_DIR", () => {
+  test("buildSpawnEnv prefers ONMYAGENT_SIDECAR_DIR over legacy OPENWRK_SIDECAR_DIR", () => {
     const dir = mkdtempSync(join(tmpdir(), "onmyagent-orch-path-"));
     const legacySidecarDir = join(dir, "legacy-sidecars");
     const onMyAgentSidecarDir = join(dir, "onmyagent-sidecars");
@@ -173,8 +174,27 @@ describe("env paths", () => {
         { orchestratorRoot: join(dir, "orchestrator"), repoRoot: join(dir, "repo") },
       );
       const entries = env.PATH?.split(delimiter) ?? [];
+      expect(entries[0]).toBe(onMyAgentSidecarDir);
+      expect(entries).not.toContain(legacySidecarDir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("buildSpawnEnv falls back to legacy OPENWRK_SIDECAR_DIR when ONMYAGENT_SIDECAR_DIR is unset", () => {
+    const dir = mkdtempSync(join(tmpdir(), "onmyagent-orch-path-"));
+    const legacySidecarDir = join(dir, "legacy-sidecars");
+    process.env.OPENWRK_SIDECAR_DIR = legacySidecarDir;
+    delete process.env.ONMYAGENT_SIDECAR_DIR;
+    mkdirSync(legacySidecarDir, { recursive: true });
+
+    try {
+      const env = buildSpawnEnv(
+        { PATH: "" },
+        { orchestratorRoot: join(dir, "orchestrator"), repoRoot: join(dir, "repo") },
+      );
+      const entries = env.PATH?.split(delimiter) ?? [];
       expect(entries[0]).toBe(legacySidecarDir);
-      expect(entries).not.toContain(onMyAgentSidecarDir);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

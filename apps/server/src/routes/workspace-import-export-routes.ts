@@ -37,7 +37,7 @@ import {
   onmyagentConfigPath,
   projectCommandsDir,
 } from "../workspace/workspace-files.js";
-import { sanitizeOpenworkTemplateConfig } from "../workspace/blueprint-sessions.js";
+import { sanitizeOnMyAgentTemplateConfig } from "../workspace/blueprint-sessions.js";
 import { computeReloadFingerprint } from "../reload-fingerprint.js";
 import type { ReloadEventStore } from "../services/events.js";
 
@@ -52,8 +52,8 @@ export function registerWorkspaceImportExportRoutes(input: {
     input: Omit<ApprovalRequest, "id" | "createdAt" | "actor">,
   ) => Promise<void>;
   readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
-  readOpenworkConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
-  writeOpenworkConfig: (
+  readOnMyAgentConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
+  writeOnMyAgentConfig: (
     workspaceRoot: string,
     next: Record<string, unknown>,
     merge: boolean,
@@ -74,8 +74,8 @@ export function registerWorkspaceImportExportRoutes(input: {
     resolveWorkspace,
     requireApproval,
     readJsonBody,
-    readOpenworkConfig,
-    writeOpenworkConfig,
+    readOnMyAgentConfig,
+    writeOnMyAgentConfig,
     emitReloadEvent,
     buildConfigTrigger,
   } = input;
@@ -87,7 +87,7 @@ export function registerWorkspaceImportExportRoutes(input: {
     );
     const exportPayload = await exportWorkspace(workspace, {
       sensitiveMode,
-      readOpenworkConfig,
+      readOnMyAgentConfig,
     });
     return systemJsonResponse(exportPayload);
   });
@@ -170,7 +170,7 @@ export function registerWorkspaceImportExportRoutes(input: {
       workspace.path,
       "config",
     );
-    await importWorkspace(workspace, body, latestPreview, { writeOpenworkConfig });
+    await importWorkspace(workspace, body, latestPreview, { writeOnMyAgentConfig });
     await recordAudit(workspace.path, {
       id: shortId(),
       workspaceId: workspace.id,
@@ -202,7 +202,7 @@ async function exportWorkspace(
   workspace: WorkspaceInfo,
   options: {
     sensitiveMode?: WorkspaceExportSensitiveMode;
-    readOpenworkConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
+    readOnMyAgentConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
   },
 ) {
   const sensitiveMode = options.sensitiveMode ?? "auto";
@@ -211,8 +211,8 @@ async function exportWorkspace(
     {},
   );
   let opencode = sanitizePortableOpencodeConfig(rawOpencode);
-  const onmyagent = sanitizeOpenworkTemplateConfig(
-    await options.readOpenworkConfig(workspace.path),
+  const onmyagent = sanitizeOnMyAgentTemplateConfig(
+    await options.readOnMyAgentConfig(workspace.path),
   );
   const skills = await listSkills(workspace.path, false);
   const commands = await listCommands(workspace.path, "workspace");
@@ -302,7 +302,7 @@ async function importWorkspace(
   payload: Record<string, unknown>,
   preview: WorkspaceImportPlan,
   helpers: {
-    writeOpenworkConfig: (
+    writeOnMyAgentConfig: (
       workspaceRoot: string,
       next: Record<string, unknown>,
       merge: boolean,
@@ -349,9 +349,9 @@ async function importWorkspace(
     )
   ) {
     if (input.modes.onmyagent === "replace") {
-      await helpers.writeOpenworkConfig(workspace.path, input.onmyagent, false);
+      await helpers.writeOnMyAgentConfig(workspace.path, input.onmyagent, false);
     } else {
-      await helpers.writeOpenworkConfig(workspace.path, input.onmyagent, true);
+      await helpers.writeOnMyAgentConfig(workspace.path, input.onmyagent, true);
     }
   }
 

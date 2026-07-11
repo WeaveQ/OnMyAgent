@@ -6,7 +6,7 @@ import { chmod, link, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { createRuntimeManager, prioritizeWorkspacePaths, snapshotOpenworkServerState } from "./runtime.mjs";
+import { createRuntimeManager, prioritizeWorkspacePaths, snapshotOnMyAgentServerState } from "./runtime.mjs";
 
 async function linkOrShimExecutable(source, target) {
   try {
@@ -38,9 +38,9 @@ describe("prioritizeWorkspacePaths", () => {
   });
 });
 
-describe("snapshotOpenworkServerState", () => {
+describe("snapshotOnMyAgentServerState", () => {
   it("does not report stale in-process servers as running when health is unreachable", () => {
-    const snapshot = snapshotOpenworkServerState(
+    const snapshot = snapshotOnMyAgentServerState(
       {
         child: null,
         childExited: true,

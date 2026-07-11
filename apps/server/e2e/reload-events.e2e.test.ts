@@ -22,7 +22,7 @@ async function createWorkspaceRoot() {
   return root;
 }
 
-async function startOpenworkServer(workspaceRoot: string) {
+async function startOnMyAgentServer(workspaceRoot: string) {
   const config: ServerConfig = {
     host: "127.0.0.1",
     port: 0,
@@ -71,7 +71,7 @@ async function waitForEvents(base: string, token: string): Promise<ReloadEvent[]
 describe("reload event API", () => {
   test("does not expose internal workspace bootstrap writes as reload events", async () => {
     const root = await createWorkspaceRoot();
-    const { base, token } = await startOpenworkServer(root);
+    const { base, token } = await startOnMyAgentServer(root);
 
     const configResponse = await fetch(`${base}/workspace/ws_1/config`, { headers: auth(token) });
     expect(configResponse.status).toBe(200);
@@ -86,7 +86,7 @@ describe("reload event API", () => {
     const configPath = join(root, "opencode.jsonc");
     const content = '{ "plugin": ["demo"] }\n';
     await writeFile(configPath, content, "utf8");
-    const { base, token } = await startOpenworkServer(root);
+    const { base, token } = await startOnMyAgentServer(root);
 
     const configResponse = await fetch(`${base}/workspace/ws_1/config`, { headers: auth(token) });
     expect(configResponse.status).toBe(200);
@@ -100,7 +100,7 @@ describe("reload event API", () => {
     const root = await createWorkspaceRoot();
     const configPath = join(root, "opencode.jsonc");
     await writeFile(configPath, '{ "plugin": ["demo"] }\n', "utf8");
-    const { base, token } = await startOpenworkServer(root);
+    const { base, token } = await startOnMyAgentServer(root);
 
     const configResponse = await fetch(`${base}/workspace/ws_1/config`, { headers: auth(token) });
     expect(configResponse.status).toBe(200);

@@ -47,7 +47,7 @@ import {
 } from "./workspace-archive.mjs";
 import {
   onmyagentWorkspaceDisplayName,
-  selectOpenworkWorkspaceForConnection,
+  selectOnMyAgentWorkspaceForConnection,
 } from "./remote-workspace.mjs";
 import {
   PERSONAL_LOCAL_AGENT_CAPABILITIES,
@@ -3047,7 +3047,7 @@ function validateSkillName(raw) {
   return trimmed;
 }
 
-function defaultWorkspaceOpenworkConfig(workspacePath, preset = null) {
+function defaultWorkspaceOnMyAgentConfig(workspacePath, preset = null) {
   return {
     version: 1,
     workspace: workspacePath
@@ -3119,7 +3119,7 @@ function remoteWorkspaceId(baseUrl, directory) {
   return stableWorkspaceId(key);
 }
 
-function parseOpenworkWorkspaceIdFromUrl(input) {
+function parseOnMyAgentWorkspaceIdFromUrl(input) {
   const raw = String(input ?? "").trim();
   if (!raw) return null;
   try {
@@ -3142,7 +3142,7 @@ function parseOpenworkWorkspaceIdFromUrl(input) {
   }
 }
 
-function stripOpenworkWorkspaceMount(input) {
+function stripOnMyAgentWorkspaceMount(input) {
   const raw = String(input ?? "").trim();
   if (!raw) return null;
   try {
@@ -3167,12 +3167,12 @@ function stripOpenworkWorkspaceMount(input) {
 function onmyagentRemoteWorkspaceId(hostUrl, workspaceId) {
   const remoteWorkspaceId =
     String(workspaceId ?? "").trim() ||
-    parseOpenworkWorkspaceIdFromUrl(hostUrl);
+    parseOnMyAgentWorkspaceIdFromUrl(hostUrl);
   if (remoteWorkspaceId) return `rem_${remoteWorkspaceId}`;
   return `rem_${createHash("sha256").update(`onmyagent::${hostUrl}`).digest("hex").slice(0, 12)}`;
 }
 
-async function fetchOpenworkWorkspaceList(hostUrl, token, hostToken) {
+async function fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken) {
   const url = `${String(hostUrl ?? "").replace(/\/+$/, "")}/workspaces`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
@@ -3195,26 +3195,26 @@ async function fetchOpenworkWorkspaceList(hostUrl, token, hostToken) {
   }
 }
 
-async function discoverOpenworkWorkspace({
+async function discoverOnMyAgentWorkspace({
   hostUrl,
   token,
   hostToken,
   directory,
 }) {
-  const list = await fetchOpenworkWorkspaceList(hostUrl, token, hostToken);
-  return selectOpenworkWorkspaceForConnection(list, directory);
+  const list = await fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken);
+  return selectOnMyAgentWorkspaceForConnection(list, directory);
 }
 
-async function readWorkspaceOpenworkConfig(workspacePath) {
+async function readWorkspaceOnMyAgentConfig(workspacePath) {
   const onmyagentPath = path.join(workspacePath, ".opencode", "onmyagent.json");
   if (!(await pathExists(onmyagentPath))) {
-    return defaultWorkspaceOpenworkConfig(workspacePath);
+    return defaultWorkspaceOnMyAgentConfig(workspacePath);
   }
   const raw = await readFile(onmyagentPath, "utf8");
   return JSON.parse(raw);
 }
 
-async function writeWorkspaceOpenworkConfig(workspacePath, config) {
+async function writeWorkspaceOnMyAgentConfig(workspacePath, config) {
   const onmyagentPath = path.join(workspacePath, ".opencode", "onmyagent.json");
   await mkdir(path.dirname(onmyagentPath), { recursive: true });
   await writeFile(onmyagentPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -3254,13 +3254,13 @@ async function readWorkspaceState() {
 
     const remoteWorkspaceId =
       String(workspace.onmyagentWorkspaceId ?? "").trim() ||
-      parseOpenworkWorkspaceIdFromUrl(workspace.onmyagentHostUrl) ||
-      parseOpenworkWorkspaceIdFromUrl(workspace.baseUrl);
+      parseOnMyAgentWorkspaceIdFromUrl(workspace.onmyagentHostUrl) ||
+      parseOnMyAgentWorkspaceIdFromUrl(workspace.baseUrl);
     if (!remoteWorkspaceId) return workspace;
 
     const hostUrl =
-      stripOpenworkWorkspaceMount(workspace.onmyagentHostUrl) ||
-      stripOpenworkWorkspaceMount(workspace.baseUrl);
+      stripOnMyAgentWorkspaceMount(workspace.onmyagentHostUrl) ||
+      stripOnMyAgentWorkspaceMount(workspace.baseUrl);
     const nextId = onmyagentRemoteWorkspaceId(
       hostUrl ?? workspace.baseUrl,
       remoteWorkspaceId,
@@ -3395,7 +3395,7 @@ async function disposeRuntimeBeforeQuit() {
   ]);
 }
 
-function assertOpenworkServerReady(info) {
+function assertOnMyAgentServerReady(info) {
   if (!info?.running) {
     throw new Error("OnMyAgent server did not stay running after startup.");
   }
@@ -3483,7 +3483,7 @@ async function bootRuntimeForSelectedWorkspace() {
       name: bootWorkspace.name ?? bootWorkspace.displayName ?? null,
     })
     .catch(() => undefined);
-  const onmyagentServer = assertOpenworkServerReady(
+  const onmyagentServer = assertOnMyAgentServerReady(
     await runtimeManager.onmyagentServerInfo(),
   );
   return {
@@ -4240,9 +4240,9 @@ async function handleDesktopInvoke(event, command, ...args) {
       });
       await mkdir(path.join(folderPath, ".opencode"), { recursive: true });
       await ensureDefaultWorkspaceOpencodeConfig(folderPath);
-      await writeWorkspaceOpenworkConfig(
+      await writeWorkspaceOnMyAgentConfig(
         folderPath,
-        defaultWorkspaceOpenworkConfig(folderPath, preset),
+        defaultWorkspaceOnMyAgentConfig(folderPath, preset),
       );
 
       return mutateWorkspaceState((state) => {
@@ -4272,27 +4272,27 @@ async function handleDesktopInvoke(event, command, ...args) {
         typeof input.directory === "string" && input.directory.trim()
           ? input.directory.trim()
           : null;
-      const rawOpenworkHostUrl =
+      const rawOnMyAgentHostUrl =
         typeof input.onmyagentHostUrl === "string" &&
         input.onmyagentHostUrl.trim()
           ? input.onmyagentHostUrl.trim()
           : null;
       const onmyagentHostUrl =
         remoteType === "onmyagent"
-          ? stripOpenworkWorkspaceMount(rawOpenworkHostUrl ?? baseUrl)
-          : rawOpenworkHostUrl;
+          ? stripOnMyAgentWorkspaceMount(rawOnMyAgentHostUrl ?? baseUrl)
+          : rawOnMyAgentHostUrl;
       const onmyagentWorkspaceId =
         typeof input.onmyagentWorkspaceId === "string" &&
         input.onmyagentWorkspaceId.trim()
           ? input.onmyagentWorkspaceId.trim()
           : remoteType === "onmyagent"
-            ? parseOpenworkWorkspaceIdFromUrl(rawOpenworkHostUrl) ||
-              parseOpenworkWorkspaceIdFromUrl(baseUrl)
+            ? parseOnMyAgentWorkspaceIdFromUrl(rawOnMyAgentHostUrl) ||
+              parseOnMyAgentWorkspaceIdFromUrl(baseUrl)
             : null;
-      let resolvedOpenworkWorkspaceId = onmyagentWorkspaceId;
-      let resolvedOpenworkWorkspaceName = input.onmyagentWorkspaceName ?? null;
-      if (remoteType === "onmyagent" && !resolvedOpenworkWorkspaceId) {
-        const discovered = await discoverOpenworkWorkspace({
+      let resolvedOnMyAgentWorkspaceId = onmyagentWorkspaceId;
+      let resolvedOnMyAgentWorkspaceName = input.onmyagentWorkspaceName ?? null;
+      if (remoteType === "onmyagent" && !resolvedOnMyAgentWorkspaceId) {
+        const discovered = await discoverOnMyAgentWorkspace({
           hostUrl: onmyagentHostUrl ?? baseUrl,
           token: input.onmyagentToken,
           hostToken: input.onmyagentHostToken,
@@ -4305,22 +4305,22 @@ async function handleDesktopInvoke(event, command, ...args) {
               : "OnMyAgent server returned no workspaces.",
           );
         }
-        resolvedOpenworkWorkspaceId = String(discovered.id).trim();
-        resolvedOpenworkWorkspaceName =
+        resolvedOnMyAgentWorkspaceId = String(discovered.id).trim();
+        resolvedOnMyAgentWorkspaceName =
           onmyagentWorkspaceDisplayName(discovered);
       }
       const id =
         remoteType === "onmyagent"
           ? onmyagentRemoteWorkspaceId(
               onmyagentHostUrl ?? baseUrl,
-              resolvedOpenworkWorkspaceId,
+              resolvedOnMyAgentWorkspaceId,
             )
           : remoteWorkspaceId(baseUrl, directory);
       const workspace = normalizeWorkspaceEntry({
         id,
         name: String(
           input.displayName ??
-            resolvedOpenworkWorkspaceName ??
+            resolvedOnMyAgentWorkspaceName ??
             "Remote workspace",
         ),
         displayName: input.displayName ?? null,
@@ -4335,8 +4335,8 @@ async function handleDesktopInvoke(event, command, ...args) {
         onmyagentToken: input.onmyagentToken ?? null,
         onmyagentClientToken: input.onmyagentClientToken ?? null,
         onmyagentHostToken: input.onmyagentHostToken ?? null,
-        onmyagentWorkspaceId: resolvedOpenworkWorkspaceId,
-        onmyagentWorkspaceName: resolvedOpenworkWorkspaceName,
+        onmyagentWorkspaceId: resolvedOnMyAgentWorkspaceId,
+        onmyagentWorkspaceName: resolvedOnMyAgentWorkspaceName,
         sandboxBackend: input.sandboxBackend ?? null,
         sandboxRunId: input.sandboxRunId ?? null,
         sandboxContainerName: input.sandboxContainerName ?? null,
@@ -4372,7 +4372,7 @@ async function handleDesktopInvoke(event, command, ...args) {
               ? nextWorkspace.onmyagentHostUrl.trim()
               : null;
           const nextBaseUrl = String(nextWorkspace.baseUrl ?? "").trim();
-          const hostUrl = stripOpenworkWorkspaceMount(
+          const hostUrl = stripOnMyAgentWorkspaceMount(
             rawHostUrl ?? nextBaseUrl,
           );
           const directory =
@@ -4381,8 +4381,8 @@ async function handleDesktopInvoke(event, command, ...args) {
               ? nextWorkspace.directory.trim()
               : null;
           const parsedWorkspaceId =
-            parseOpenworkWorkspaceIdFromUrl(rawHostUrl) ||
-            parseOpenworkWorkspaceIdFromUrl(nextBaseUrl);
+            parseOnMyAgentWorkspaceIdFromUrl(rawHostUrl) ||
+            parseOnMyAgentWorkspaceIdFromUrl(nextBaseUrl);
           let remoteWorkspaceId =
             parsedWorkspaceId ||
             (typeof nextWorkspace.onmyagentWorkspaceId === "string" &&
@@ -4391,7 +4391,7 @@ async function handleDesktopInvoke(event, command, ...args) {
               : null);
           let remoteWorkspaceName = nextWorkspace.onmyagentWorkspaceName ?? null;
           if (!remoteWorkspaceId) {
-            const discovered = await discoverOpenworkWorkspace({
+            const discovered = await discoverOnMyAgentWorkspace({
               hostUrl: hostUrl ?? nextBaseUrl,
               token: nextWorkspace.onmyagentToken,
               hostToken: nextWorkspace.onmyagentHostToken,
@@ -4469,23 +4469,25 @@ async function handleDesktopInvoke(event, command, ...args) {
       if (!workspacePath || !authorizedRoot) {
         throw new Error("workspacePath and folderPath are required");
       }
-      const config = await readWorkspaceOpenworkConfig(workspacePath);
+      const config = await readWorkspaceOnMyAgentConfig(workspacePath);
       if (!Array.isArray(config.authorizedRoots)) {
         config.authorizedRoots = [];
       }
       if (!config.authorizedRoots.includes(authorizedRoot)) {
         config.authorizedRoots.push(authorizedRoot);
       }
-      return writeWorkspaceOpenworkConfig(workspacePath, config);
+      return writeWorkspaceOnMyAgentConfig(workspacePath, config);
     }
     case "workspaceOpenworkRead":
-      return readWorkspaceOpenworkConfig(
+    case "workspaceOnMyAgentRead":
+      return readWorkspaceOnMyAgentConfig(
         String(args[0]?.workspacePath ?? "").trim(),
       );
     case "workspaceOpenworkWrite":
-      return writeWorkspaceOpenworkConfig(
+    case "workspaceOnMyAgentWrite":
+      return writeWorkspaceOnMyAgentConfig(
         String(args[0]?.workspacePath ?? "").trim(),
-        args[0]?.config ?? defaultWorkspaceOpenworkConfig(""),
+        args[0]?.config ?? defaultWorkspaceOnMyAgentConfig(""),
       );
     case "userAgentRegistryRead": {
       const targetPath = userAgentRegistryPath();
@@ -4630,7 +4632,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       } catch {
         return null;
       }
-    case "getOpenworkUiMcpCommand": {
+    case "getOpenworkUiMcpCommand":
+    case "getOnMyAgentUiMcpCommand": {
       if (process.env.ONMYAGENT_DEV_MODE === "1") {
         return [
           "node",
@@ -4671,7 +4674,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       const result = openSystemPermissionSettings(type);
       return result;
     }
-    case "getOpenworkUiMcpEnvironment": {
+    case "getOpenworkUiMcpEnvironment":
+    case "getOnMyAgentUiMcpEnvironment": {
       return {
         ONMYAGENT_UI_CONTROL_DISCOVERY: path.join(
           app.getPath("userData"),
@@ -4685,7 +4689,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       return debugDesktopBootstrapConfig();
     case "setDesktopBootstrapConfig":
       return setDesktopBootstrapConfig(args[0] ?? {});
-    case "nukeOpenworkAndOpencodeConfigAndExit": {
+    case "nukeOpenworkAndOpencodeConfigAndExit":
+    case "nukeOnMyAgentAndOpencodeConfigAndExit": {
       await rm(app.getPath("userData"), { recursive: true, force: true });
       app.exit(0);
       return undefined;
@@ -4698,7 +4703,8 @@ async function handleDesktopInvoke(event, command, ...args) {
     case "sandboxStop":
       return runtimeManager.sandboxStop(String(args[0] ?? "").trim());
     case "sandboxCleanupOpenworkContainers":
-      return runtimeManager.sandboxCleanupOpenworkContainers();
+    case "sandboxCleanupOnMyAgentContainers":
+      return runtimeManager.sandboxCleanupOnMyAgentContainers();
     case "sandboxDebugProbe":
       return runtimeManager.sandboxDebugProbe();
     case "onmyagentServerInfo":
@@ -4938,7 +4944,8 @@ async function handleDesktopInvoke(event, command, ...args) {
         String(args[1] ?? "").trim(),
         String(args[2] ?? ""),
       );
-    case "resetOpenworkState": {
+    case "resetOpenworkState":
+    case "resetOnMyAgentState": {
       await rm(workspaceStatePath(), { force: true });
       await rm(desktopBootstrapPath(), { force: true });
       return undefined;
