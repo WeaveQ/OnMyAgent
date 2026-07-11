@@ -86,11 +86,11 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 | `.loop/plans/*.md` | 本地执行计划、临时 ledger、AI 运行用 acceptance ledger，不提交 |
 | `.loop/state/intent-debt.md` | 本地 AI 猜错、边界模糊和临时债务，不提交；稳定规则再提升到 `../AGENTS.md` 或 skill |
 | `docs/loop-incidents.md` | 仅记录严重事故：误删、越权、真实资源/生产/成本风险 |
-| `docs/LOOP-RUN-LOG.md` / `docs/STATE.md` / `docs/intent-debt.md` | 兼容指针或历史入口，不再写入动态 loop 状态 |
+| `docs/legacy-loop-pointers.md` (+ thin `STATE.md` / `intent-debt.md` / `LOOP-RUN-LOG.md` stubs) | 兼容指针入口，不再写入动态 loop 状态 |
 | `docs/plans/`（按需创建） | 只保留人类需要长期 review 的产品/架构计划；不存 AI 临时执行 ledger |
 | `.loop/archive/` | 本地历史归档和 legacy state 快照，不提交 |
 
-卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续，不自动创建 repo 状态文件）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；repo 内 `docs/LOOP-RUN-LOG.md`、`docs/STATE.md`、`docs/intent-debt.md` 只做兼容/历史入口，不承载动态 loop 状态；重复问题回写 `../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。
+卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续，不自动创建 repo 状态文件）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；repo 内动态 loop 状态只写 `.loop/`，兼容指针见 `docs/legacy-loop-pointers.md`；重复问题回写 `../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。
 
 ### Durable Long Task / Plan Ledger Rule
 

@@ -1,5 +1,9 @@
 # 会话目标生命周期设计
 
+## Status
+
+**ACCEPTED design (2026-07-10).** Implementation largely landed; this doc remains the product/behavior contract for goal lifecycle.
+
 ## 目标
 
 让“追求目标”、规划和访问权限成为按会话隔离的运行能力；目标模式在发送前可见，发送后进入可暂停、继续和恢复的目标运行视图。

@@ -1,10 +1,13 @@
 # domains/connections
 
-Provider connections store + provider auth 模态框 + connections modals。
+Provider connections store, provider auth modals, MCP add/auth modals, and connection UI.
 
-## 对外符号
-`./index.ts` barrel 导出 store / provider-auth store / ConnectionsModals。子模块 `provider-auth/` 内部可深链，域外禁止。
+## Public surface
 
-## 横向依赖
-允许：`domains/shared`（provider-auth-modal 类型）、`app/lib`。
-禁止：`domains/session`、`domains/settings`。
+`./index.ts` barrel exports store / provider-auth store / ConnectionsModals and related APIs.
+Submodule `provider-auth/` may deep-link internally; outside the domain, use the barrel.
+
+## Lateral dependencies
+
+- Allowed: `domains/shared` (infra), `app/lib`, `packages/types`.
+- Forbidden: product imports from `session` / `settings` for new code without an explicit contract.

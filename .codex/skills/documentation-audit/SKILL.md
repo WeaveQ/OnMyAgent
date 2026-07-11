@@ -33,27 +33,33 @@ find . -maxdepth 3 -type f \( -name '*.md' -o -name '*.mdx' \) \
   -not -path './graphify-out/*' | sort
 ```
 
-Do not overwrite unrelated dirty files. `docs/PROGRESS.md` has been removed; treat remaining tracked `docs/LOOP-RUN-LOG.md`, `docs/intent-debt.md`, and `docs/STATE.md` as compatibility pointers. Write routine loop state to local `.loop/` files unless the user explicitly asks for a repo doc change.
+Do not overwrite unrelated dirty files. `docs/PROGRESS.md` has been removed. Tracked loop stubs redirect via `docs/legacy-loop-pointers.md`. Write routine loop state to local `.loop/` files unless the user explicitly asks for a repo doc change.
 
 For non-trivial Loop, durable ledger, graphify, kill-switch, or recovery decisions, read `docs/loop-rules.md` after `AGENTS.md`. This project intentionally keeps routine Loop state in local `.loop/` instead of tracked `docs/` pointer files.
+
+**Single documentation map:** `docs/README.md` (SoT table + directory map). Do not rebuild long nav tables in `AGENTS.md`.
 
 ## Core Sources Of Truth
 
 | Topic | Source |
 | --- | --- |
+| Doc map / SoT rules | `docs/README.md` |
 | Command surface | root `package.json`, `scripts/cli/*.mjs`, `docs/Architecture.md`, `AGENTS.md` |
 | Current local state | `.loop/state/PROGRESS.md` |
 | Local validation history | `.loop/runs/YYYY-MM-DD.md` |
-| Legacy state pointer | `docs/STATE.md` |
+| Legacy loop pointers | `docs/legacy-loop-pointers.md` |
 | Loop operating rules | `docs/loop-rules.md`, `AGENTS.md` |
 | Architecture | `docs/Architecture.md`, `apps/app/src/react-app/ARCHITECTURE.md` |
-| Theme and UI docs | `docs/design/theme-system.md`, `docs/design/ui-primitive-refactor-best-practices.md` |
+| Theme and UI docs | `DESIGN.md` (tokens), `docs/design/theme-system.md` (philosophy) |
 | Public entry docs | `README.md`, `README-zh.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md` |
+| Local packaging | `BUILD.md` |
+| Release / tags | `docs/release-process.md` |
 | Package docs | `apps/*/README.md`, `packages/*/README.md` |
+| Feature designs | `docs/features/**` (behavior contracts; no plan ledgers) |
 | Project skills | `.codex/skills/*/SKILL.md`, `.opencode/skills/*/SKILL.md` |
 | Local archive | `.loop/archive/` for historical snapshots that should not stay in tracked docs |
-| Local execution plans | `.loop/plans/` for temporary plans, execution ledgers, and AI acceptance ledgers |
-| Optional tracked plans | `docs/plans/` only when human-facing product or architecture plans are explicitly worth tracking |
+| Local execution plans | `.loop/plans/` only (gitignored via `.loop/*`) |
+| Ignored plan paths | `docs/plans/`, `docs/archive/` — gitignored; do not commit |
 | Skill sync strategy | `references/skills-sync.md` |
 
 ## Audit Commands
@@ -63,7 +69,8 @@ Run focused scans before editing:
 ```sh
 CORE_DOCS=(
   README.md README-zh.md BUILD.md CONTRIBUTING.md AGENTS.md
-  docs/README.md docs/Architecture.md docs/STATE.md
+  docs/README.md docs/Architecture.md docs/legacy-loop-pointers.md
+  docs/release-process.md
   apps/server/README.md apps/orchestrator/README.md
   packages/ui/README.md packages/handsfree/README.md
   apps/app/src/react-app/ARCHITECTURE.md
@@ -84,31 +91,27 @@ git ls-files '*.md' '*.mdx' | awk -F/ '{print $1"/"$2}' | sort | uniq -c | sort 
 # large docs
 git ls-files '*.md' '*.mdx' | grep -v '^apps/desktop/dist-electron/' | xargs wc -l | sort -nr | head -n 50
 
-# docs/plans cleanup candidates, only when tracked docs/plans exists
-if [ -d docs/plans ]; then
-for f in docs/plans/*.md; do
-  [ -e "$f" ] || continue
-  printf '\n--- %s ---\n' "$f"
-  rg -n "^(#|Status:|## Status|## Completion|## Handoff|## Next Required Work)|\[(done|DONE|pending|PARTIAL|BLOCKED)\]" "$f" | sed -n '1,16p' || true
-  rg -l "$(basename "$f")|$f" AGENTS.md README.md README-zh.md docs/README.md docs/Architecture.md docs/plans --glob '*.md' | grep -v "^$f$" || true
-done
+# Plan ledgers must not be tracked
+if git ls-files 'docs/plans/**' 'docs/archive/**' 2>/dev/null | grep -q .; then
+  echo 'WARN: tracked plan/archive files found; remove them and keep plans in .loop/plans/'
+  git ls-files 'docs/plans/**' 'docs/archive/**'
 fi
 ```
 
-Scan local `.loop/archive/**` only when the user asks to investigate historical state. Archived files intentionally contain old command names and legacy paths.
+Scan local `.loop/archive/**` only when investigating history.
 
 Compatibility references in tracked pointer docs may be valid when they explicitly describe read-only migration behavior. Classify them before editing.
 
-`docs/plans/` is not a run-log or AI execution-ledger sink. Move temporary plans, execution ledgers, one-off reports, and obsolete partial handoffs to local `.loop/plans/` before deleting tracked copies when a handoff backup is useful. Create tracked `docs/plans/` only for human-facing product or architecture plans explicitly worth reviewing in git.
+Execution plans stay in `.loop/plans/` (gitignored). `docs/plans/` and `docs/archive/` are gitignored. Feature **design** contracts may live under `docs/features/`; do not commit plan ledgers there.
 
 ## Local Loop State Policy
 
 - `.loop/state/PROGRESS.md` holds current local handoff when needed.
 - `.loop/runs/YYYY-MM-DD.md` holds current-day local run history.
-- `docs/PROGRESS.md` has been removed; tracked `docs/LOOP-RUN-LOG.md`, `docs/intent-debt.md`, and `docs/STATE.md` are compatibility pointers, not routine write targets.
-- Do not add routine progress, run-log, plan, or archive material under tracked `docs/`; use local `.loop/` instead.
-- Put historical snapshots under `.loop/archive/` only when a local backup is useful.
-- Put local evidence, screenshots, run transcripts, and temporary audit outputs under `.loop/evidence/` or ignored report paths, not tracked `docs/`.
+- `docs/PROGRESS.md` has been removed; see `docs/legacy-loop-pointers.md` for stubs.
+- Do not add routine progress, run-log, or plan material under tracked `docs/` (feature **design** contracts under `docs/features/` are OK).
+- Put historical snapshots and execution plans under `.loop/`.
+- Put local evidence under `.loop/evidence/` or ignored report paths, not tracked engineering docs.
 
 Use a link smoke for core docs:
 
@@ -138,9 +141,9 @@ PY
 
 - Prefer updating the source of truth over repeating the same explanation in many documents.
 - Keep `.loop/state/PROGRESS.md` short when local handoff is useful.
-- Keep `docs/STATE.md`, `docs/intent-debt.md`, and `docs/LOOP-RUN-LOG.md` as legacy pointer pages; `docs/PROGRESS.md` is removed in favor of `.loop/state/PROGRESS.md`.
+- Keep `docs/legacy-loop-pointers.md` as the loop pointer hub; thin stubs may remain.
 - Write routine validation/history to `.loop/runs/YYYY-MM-DD.md`; only change repo docs for durable documentation updates.
-- Keep execution plans in `.loop/plans/` by default. Before adding tracked `docs/plans/`, confirm it is a human-facing product or architecture plan; after completion, remove or localize unreferenced execution ledgers.
+- Keep execution plans in `.loop/plans/` only. Never commit `docs/plans/` or `docs/archive/`.
 - Update `README.md` and `README-zh.md` together for public capability or roadmap changes.
 - Update package README files when root command wrappers supersede package-private commands.
 - Do not edit generated/runtime docs under `apps/desktop/dist-electron/**`, `graphify-out/**`, or runtime cache paths.
@@ -149,7 +152,7 @@ PY
 ## Recommended Fix Order
 
 1. Loop rules: load `AGENTS.md` and `docs/loop-rules.md`; keep dynamic state in `.loop/` and tracked state docs as pointers.
-2. Plans cleanup: move AI execution ledgers to `.loop/plans/`; prune tracked `docs/plans/` to human-facing product or architecture plans only.
+2. Plans cleanup: ensure no tracked files under `docs/plans/` or `docs/archive/`; AI ledgers only in `.loop/plans/`.
 3. Public docs: align `README.md`, `README-zh.md`, `CONTRIBUTING.md`, and `BUILD.md` with current commands and capabilities.
 4. Architecture docs: align `docs/Architecture.md` and `apps/app/src/react-app/ARCHITECTURE.md` with actual package boundaries.
 5. Package docs: update `apps/*/README.md` and `packages/*/README.md` with root command wrappers and valid links.

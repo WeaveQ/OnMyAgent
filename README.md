@@ -2,6 +2,17 @@
 
 [中文](./README-zh.md) | [English](./README.md)
 
+## Documentation
+
+| Need | Doc |
+| --- | --- |
+| Quick start (this page) | continue below |
+| Contribute / PR | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
+| AI agent rules | [`AGENTS.md`](./AGENTS.md) |
+| Architecture | [`docs/Architecture.md`](./docs/Architecture.md) |
+| UI / visual contract | [`DESIGN.md`](./DESIGN.md) |
+| Full doc map | [`docs/README.md`](./docs/README.md) |
+
 **One workspace to manage all your local agents.**
 
 OnMyAgent is an open-source desktop workspace and local control plane for agentic work.
@@ -174,7 +185,7 @@ apps/app            React UI, session workspace, settings, artifacts, i18n
 apps/server         Local HTTP API for workspace/session/skill/MCP operations
 apps/orchestrator   Host process that starts OpenCode, server, sandbox
 packages/types      Shared Zod schemas and type boundaries
-packages/ui         Shared visual components
+packages/ui         Shared React visual components (`@onmyagent/ui/react`)
 packages/handsfree  Local Computer Use runner
 packages/onmyagent-ui-mcp MCP server that lets agents inspect/control the UI
 ```
