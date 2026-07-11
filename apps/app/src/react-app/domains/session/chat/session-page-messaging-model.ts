@@ -12,7 +12,7 @@ export const MESSAGING_CHANNELS: MessagingChannel[] = [
   {
     id: "wechat",
     get name() { return t("messaging.wechat"); },
-    subtitle: "微信ClawBot",
+    get subtitle() { return t("messaging.wechat_clawbot"); },
     status: "unlinked",
     stats: [
       { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
@@ -23,7 +23,7 @@ export const MESSAGING_CHANNELS: MessagingChannel[] = [
   {
     id: "feishu",
     get name() { return t("messaging.feishu"); },
-    subtitle: "飞书机器人",
+    get subtitle() { return t("messaging.feishu_bot"); },
     status: "unlinked",
     stats: [
       { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },

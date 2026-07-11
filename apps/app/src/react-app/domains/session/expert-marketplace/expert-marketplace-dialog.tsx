@@ -14,7 +14,7 @@ import type { ExpertMarketplaceEntry } from "./types";
 export type ExpertMarketplaceView = "market" | "mine";
 
 function agentFallbackInitial(name: string): string {
-  return name.trim().slice(0, 1) || "专";
+  return name.trim().slice(0, 1) || t("session.expert_initial");
 }
 
 function ExpertAvatar(props: {

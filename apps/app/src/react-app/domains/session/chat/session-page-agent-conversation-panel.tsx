@@ -131,7 +131,7 @@ export function AgentConversationPanel(props: {
           onClick={props.onOpenAgents}
           className={agentConversationPanelClass.agentsButton}
           title={t("nav.agents")}
-          aria-label="打开智能体"
+          aria-label={t("session.open_agent")}
         >
           <Bot className="size-5" />
           <Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} />
@@ -158,7 +158,7 @@ export function AgentConversationPanel(props: {
           </div>
         ) : (
           <div className={agentConversationPanelClass.empty}>
-            暂无会话
+            {t("session.no_sessions")}
           </div>
         )}
       </div>
@@ -214,7 +214,7 @@ function AgentConversationItem(props: {
               draggable={false}
             />
           ) : (
-            name.charAt(0).toUpperCase() || "新"
+            name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
         <span

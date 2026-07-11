@@ -144,7 +144,7 @@ export function placeholderRunFromProcess(process: PersonalLocalAgentProcessReco
     output: "",
     error: null,
     errorInfo: null,
-    events: [{ type: "status", text: "后台运行状态已从主进程恢复。", at: process.updatedAt }],
+    events: [{ type: "status", text: t("local_agent.background_status_restored"), at: process.updatedAt }],
     logPath: null,
     workdir: null,
     conversationId: process.conversationId,

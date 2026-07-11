@@ -78,12 +78,12 @@ export function workspaceTaskStatus(
   onmyagentServerStatus: OnMyAgentServerStatus,
   loading: boolean,
 ): TaskStatusIndicator {
-  if (loading) return { label: "正在准备工作区", variant: "loading" };
-  if (clientConnected) return { label: "可接受新任务", variant: "available" };
+  if (loading) return { label: t("session.preparing_workspace"), variant: "loading" };
+  if (clientConnected) return { label: t("status.ready_for_tasks"), variant: "available" };
   if (onmyagentServerStatus === "limited") {
-    return { label: "受限模式", variant: "limited" };
+    return { label: t("status.limited_mode"), variant: "limited" };
   }
-  return { label: "暂不可接受任务", variant: "offline" };
+  return { label: t("status.unavailable_for_tasks"), variant: "offline" };
 }
 
 export function normalizeTimestamp(value: number | null | undefined) {
@@ -108,7 +108,7 @@ export function formatConversationTime(value: number | null | undefined) {
   );
   const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   if (dayDelta === 0) return time;
-  if (dayDelta === 1) return "昨天";
+  if (dayDelta === 1) return t("time.yesterday");
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
@@ -127,9 +127,10 @@ function messagePartPreview(part: OnMyAgentSessionMessage["parts"][number]) {
     return part.text.trim();
   }
   if (part.type === "reasoning") return part.text.trim();
-  if (part.type === "tool") return `[工具] ${part.tool}`;
-  if (part.type === "agent") return part.name ? `@${part.name}` : "@智能体";
-  if (part.type === "file") return "[文件]";
+  if (part.type === "tool") return t("session.preview_tool", { tool: part.tool });
+  if (part.type === "agent")
+    return part.name ? `@${part.name}` : t("session.preview_agent_mention");
+  if (part.type === "file") return t("session.preview_file");
   return "";
 }
 
@@ -147,7 +148,10 @@ export function snapshotConversationSummary(
   fallbackTime: number | null | undefined,
 ) {
   if (!snapshot) {
-    return { preview: "新建会话", time: formatConversationTime(fallbackTime) };
+    return {
+      preview: t("session.default_title"),
+      time: formatConversationTime(fallbackTime),
+    };
   }
   for (let index = snapshot.messages.length - 1; index >= 0; index -= 1) {
     const message = snapshot.messages[index];
@@ -166,7 +170,7 @@ export function snapshotConversationSummary(
     }
   }
   return {
-    preview: "新建会话",
+    preview: t("session.default_title"),
     time: formatConversationTime(
       snapshot.session.time?.updated ??
         snapshot.session.time?.created ??
@@ -218,7 +222,14 @@ export function writeAssistantPinnedSessionIds(workspaceId: string, sessionIds: 
 
 function summarizeAssistantGeneratedTitle(input: string | undefined) {
   const cleaned = (input ?? "")
-    .replace(/用户发送了|The user|I should|This is/gi, "")
+    // Keep matching legacy Chinese prefixes via \u escapes (no literal CJK glyphs).
+    .replace(
+      new RegExp(
+        "\u7528\u6237\u53D1\u9001\u4E86|The user|I should|This is",
+        "gi",
+      ),
+      "",
+    )
     .replace(/["""''.。？?！!,，:：；;]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -315,13 +326,13 @@ export function buildAgentConversationGroups(
       marketplaceExpert?.displayName ??
       sessionAgentSnapshot?.name ??
       fallbackTitle ??
-      `智能体 (${agentId.slice(0, 8)}...)`;
+      t("session.agent_fallback_name", { id: agentId.slice(0, 8) });
     const description =
       restoredAgent && agent
-        ? agent.description.trim() || "新建会话"
+        ? agent.description.trim() || t("session.default_title")
         : marketplaceExpert?.description ??
           sessionAgentSnapshot?.description ??
-          "该智能体的配置尚未加载或已被删除";
+          t("session.agent_config_missing");
 
     groups.set(key, {
       key,

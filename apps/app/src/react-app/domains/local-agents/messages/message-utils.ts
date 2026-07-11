@@ -31,7 +31,7 @@ function structuredArtifactTargets(run: PersonalLocalAgentRunResult | undefined 
 
 function extractArtifactTargets(output: string, workspaceRoot: string): OpenTarget[] {
   const map = new Map<string, OpenTarget>();
-  const pattern = /(?:产物文件：|^|[\s"'`([{])((?:\.{1,2}[/\\]|~[/\\]|[/\\])?[\w.\-]+(?:[/\\][\w.\-]+)*\.(?:md|markdown|mdx|txt|log|json|csv|tsv|xlsx|html|pdf|png|jpg|jpeg|webp|svg))/gim;
+  const pattern = /(?:\u4EA7\u7269\u6587\u4EF6\uFF1A|^|[\s"'`([{])((?:\.{1,2}[/\\]|~[/\\]|[/\\])?[\w.\-]+(?:[/\\][\w.\-]+)*\.(?:md|markdown|mdx|txt|log|json|csv|tsv|xlsx|html|pdf|png|jpg|jpeg|webp|svg))/gim;
   for (const match of output.matchAll(pattern)) {
     const raw = match[1]?.trim().replace(/[.,;:]+$/, "");
     if (!raw) continue;

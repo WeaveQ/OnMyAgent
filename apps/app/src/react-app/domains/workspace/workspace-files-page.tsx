@@ -40,7 +40,7 @@ const CLOUD_DRIVE_PLACEHOLDER_ASSET = "/empty-states/cloud-drive-placeholder.png
 
 function workspaceNameFromRoot(root: string) {
   const parts = root.replace(/\\/g, "/").split("/").filter(Boolean);
-  return parts.at(-1) || "当前工作区";
+  return parts.at(-1) || t("files.current_workspace");
 }
 
 function formatWorkspaceFileSize(size: number) {
@@ -56,9 +56,9 @@ function formatWorkspaceFileSize(size: number) {
 }
 
 function formatWorkspaceFileTime(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return "未知";
+  if (!Number.isFinite(value) || value <= 0) return t("common.unknown");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未知";
+  if (Number.isNaN(date.getTime())) return t("common.unknown");
   return date.toLocaleString("zh-CN", {
     month: "2-digit",
     day: "2-digit",

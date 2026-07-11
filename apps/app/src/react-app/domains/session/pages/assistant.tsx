@@ -108,7 +108,7 @@ const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_EXPERT_PROMPT =
-  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
   const values = [entry.packageName, entry.displayName, entry.packagePath];

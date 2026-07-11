@@ -10,7 +10,7 @@ export function buildPendingAgentFromMarketplaceExpert(
     name: expert.displayName,
     description: expert.description,
     avatar: {
-      avatarStyle: "机器人",
+      avatarStyle: "robot",
       avatarOptionId: "marketplace-expert",
       customAvatarDataUrl: null,
       avatarUrl: expert.avatarUrl,

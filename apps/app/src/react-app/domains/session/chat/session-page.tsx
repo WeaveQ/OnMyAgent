@@ -425,7 +425,7 @@ export function SessionPage(props: SessionPageProps) {
       const fallbackTitle = sessionTitleForId(
         props.sidebar.workspaceSessionGroups,
         session.id,
-      ) || "新建会话";
+      ) || t("session.default_title");
       const agentId = readCustomAgentIdForSession(session.id);
       const agent =
         agentRegistry && agentId
@@ -723,8 +723,8 @@ export function SessionPage(props: SessionPageProps) {
                   variant="ghost"
                   size="icon-xs"
                   onClick={agentPanel.expandAgentPanel}
-                  title="展开会话列表"
-                  aria-label="展开会话列表"
+                  title={t("session.expand_session_list")}
+                  aria-label={t("session.expand_session_list")}
                 >
                   <PanelLeft className="size-3.5" />
                 </Button>
@@ -733,7 +733,7 @@ export function SessionPage(props: SessionPageProps) {
             {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
               <div
                 role="separator"
-                aria-label="调整智能体列表宽度"
+                aria-label={t("session.resize_agent_list")}
                 aria-orientation="vertical"
                 tabIndex={0}
                 onPointerDown={agentPanel.startAgentPanelResize}
@@ -920,7 +920,7 @@ export function SessionPage(props: SessionPageProps) {
                               localAuthUser?.username ||
                               props.account?.name ||
                               props.account?.email ||
-                              "我",
+                              t("session.user_initial"),
                           }}
                           onPersonalAssistantCategoryActive={setActiveAssistantCategoryId}
                           onOpenAgentSettings={agentPanel.openAgentsDialog}

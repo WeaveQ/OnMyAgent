@@ -319,8 +319,13 @@ function nextRunLabel(item: OnMyAgentAutomationTaskItem) {
 }
 
 function automationDisplayId(item: OnMyAgentAutomationTaskItem, groupName?: string) {
-  if (groupName?.startsWith("自动化任务-")) {
-    return `automation-${groupName.slice("自动化任务-".length)}`;
+  const LEGACY_AUTOMATION_GROUP_PREFIX = "\u81EA\u52A8\u5316\u4EFB\u52A1-"; // 自动化任务-
+  const AUTOMATION_GROUP_PREFIX = "automation-task-";
+  if (groupName?.startsWith(LEGACY_AUTOMATION_GROUP_PREFIX)) {
+    return `automation-${groupName.slice(LEGACY_AUTOMATION_GROUP_PREFIX.length)}`;
+  }
+  if (groupName?.startsWith(AUTOMATION_GROUP_PREFIX)) {
+    return `automation-${groupName.slice(AUTOMATION_GROUP_PREFIX.length)}`;
   }
   const date = new Date(item.createdAt);
   const values = [
