@@ -1,4 +1,4 @@
-import type { OpenworkServerClient } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import {
   engineStart,
   pickDirectory,
@@ -46,7 +46,7 @@ export async function bootstrapDesktopSettingsWorkspaces() {
 
 export async function createLocalSettingsWorkspace(input: {
   folder: string;
-  onmyagentClient: Pick<OpenworkServerClient, "createLocalWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "createLocalWorkspace"> | null;
   preset: WorkspacePreset;
 }) {
   const workspaceName = folderNameFromPath(input.folder);
@@ -76,7 +76,7 @@ export type CreateRemoteSettingsWorkspaceInput = {
 
 export async function createLocalSettingsWorkspaceAndRefresh(input: {
   folder: string | null;
-  onmyagentClient: Pick<OpenworkServerClient, "createLocalWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "createLocalWorkspace"> | null;
   preset: WorkspacePreset;
   refreshRouteState: () => Promise<unknown>;
 }) {
@@ -147,7 +147,7 @@ export async function revealSettingsWorkspacePath(path: string) {
 
 export async function renameSettingsWorkspace(input: {
   displayName: string;
-  onmyagentClient: Pick<OpenworkServerClient, "updateWorkspaceDisplayName"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "updateWorkspaceDisplayName"> | null;
   workspaceId: string;
 }) {
   if (isDesktopRuntime()) {
@@ -165,7 +165,7 @@ export async function renameSettingsWorkspace(input: {
 
 export async function renameSettingsWorkspaceAndRefresh(input: {
   displayName: string;
-  onmyagentClient: Pick<OpenworkServerClient, "updateWorkspaceDisplayName"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "updateWorkspaceDisplayName"> | null;
   refreshRouteState: () => Promise<unknown>;
   workspaceId: string;
 }) {
@@ -178,7 +178,7 @@ export async function renameSettingsWorkspaceAndRefresh(input: {
 }
 
 export async function forgetSettingsWorkspace(input: {
-  onmyagentClient: Pick<OpenworkServerClient, "deleteWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "deleteWorkspace"> | null;
   workspaceId: string;
 }) {
   if (isDesktopRuntime()) {
@@ -190,7 +190,7 @@ export async function forgetSettingsWorkspace(input: {
 }
 
 export async function forgetSettingsWorkspaceAndRefresh(input: {
-  onmyagentClient: Pick<OpenworkServerClient, "deleteWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "deleteWorkspace"> | null;
   refreshRouteState: () => Promise<unknown>;
   selectedWorkspaceId: string;
   workspaceId: string;
@@ -225,7 +225,7 @@ export async function applySettingsEnvironmentChanges(input: {
 export async function applySettingsEnvironmentChangesAndRefresh(input: {
   activeReloadBlockingSessionsCount: number;
   onmyagentRemoteAccess: boolean;
-  reconnectOpenworkServer: () => Promise<boolean>;
+  reconnectOnMyAgentServer: () => Promise<boolean>;
   refreshRouteState: () => Promise<unknown>;
   selectedWorkspaceRoot: string | null;
   workspacePaths: string[];
@@ -244,7 +244,7 @@ export async function applySettingsEnvironmentChangesAndRefresh(input: {
     workspacePaths: input.workspacePaths,
     onmyagentRemoteAccess: input.onmyagentRemoteAccess,
   });
-  const reconnected = await input.reconnectOpenworkServer();
+  const reconnected = await input.reconnectOnMyAgentServer();
   if (!reconnected) {
     await input.refreshRouteState().catch(() => undefined);
     return { statusMessage: t("settings.environment.apply_refresh_failed") };

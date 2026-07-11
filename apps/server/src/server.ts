@@ -66,7 +66,7 @@ import {
   applyMaterializedBlueprintSessions,
   normalizeBlueprintSessionTemplates,
   readMaterializedBlueprintSessions,
-  sanitizeOpenworkTemplateConfig,
+  sanitizeOnMyAgentTemplateConfig,
 } from "./workspace/blueprint-sessions.js";
 import {
   resolveWorkspaceOpencodeConnection,
@@ -1852,8 +1852,8 @@ function createRoutes(
     requireApproval,
     emitReloadEvent,
     readOpencodeConfig,
-    readOpenworkConfig,
-    writeOpenworkConfig,
+    readOnMyAgentConfig,
+    writeOnMyAgentConfig,
     buildConfigTrigger,
     readJsonBody,
   });
@@ -1917,8 +1917,8 @@ function createRoutes(
     resolveWorkspace,
     requireApproval,
     readJsonBody,
-    readOpenworkConfig,
-    writeOpenworkConfig,
+    readOnMyAgentConfig,
+    writeOnMyAgentConfig,
     emitReloadEvent,
     buildConfigTrigger,
   });
@@ -2340,21 +2340,21 @@ function ensurePlainObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-type OpenworkServerConfigFile = Record<string, unknown> & {
+type OnMyAgentServerConfigFile = Record<string, unknown> & {
   workspaces?: Array<Record<string, unknown>>;
   authorizedRoots?: string[];
 };
 
 async function readServerConfigFile(
   configPath: string,
-): Promise<OpenworkServerConfigFile> {
+): Promise<OnMyAgentServerConfigFile> {
   if (!(await exists(configPath))) {
     return {};
   }
 
   try {
     const raw = await readFile(configPath, "utf8");
-    return ensurePlainObject(JSON.parse(raw)) as OpenworkServerConfigFile;
+    return ensurePlainObject(JSON.parse(raw)) as OnMyAgentServerConfigFile;
   } catch (error) {
     throw new ApiError(422, "invalid_json", "Failed to parse server config", {
       path: configPath,
@@ -2412,7 +2412,7 @@ async function persistServerWorkspaceState(
   if (!(await exists(configPath))) return false;
 
   const parsed = await readServerConfigFile(configPath);
-  const next: OpenworkServerConfigFile = {
+  const next: OnMyAgentServerConfigFile = {
     ...parsed,
     workspaces: config.workspaces.map(serializeWorkspaceConfigEntry),
     authorizedRoots: Array.from(
@@ -2466,7 +2466,7 @@ async function readOpencodeConfig(
   return data;
 }
 
-async function readOpenworkConfig(
+async function readOnMyAgentConfig(
   workspaceRoot: string,
 ): Promise<Record<string, unknown>> {
   const path = onmyagentConfigPath(workspaceRoot);
@@ -2558,14 +2558,14 @@ async function reloadOpencodeEngine(
   });
 }
 
-async function writeOpenworkConfig(
+async function writeOnMyAgentConfig(
   workspaceRoot: string,
   payload: Record<string, unknown>,
   merge: boolean,
 ): Promise<void> {
   const path = onmyagentConfigPath(workspaceRoot);
   const next = merge
-    ? { ...(await readOpenworkConfig(workspaceRoot)), ...payload }
+    ? { ...(await readOnMyAgentConfig(workspaceRoot)), ...payload }
     : payload;
   await ensureDir(join(workspaceRoot, ".opencode"));
   await writeFile(path, JSON.stringify(next, null, 2) + "\n", "utf8");
@@ -2590,7 +2590,7 @@ async function materializeBlueprintSessions(
   config: ServerConfig,
   workspace: WorkspaceInfo,
 ): Promise<BlueprintMaterializeResult> {
-  const onmyagent = await readOpenworkConfig(workspace.path);
+  const onmyagent = await readOnMyAgentConfig(workspace.path);
   const templates = normalizeBlueprintSessionTemplates(onmyagent);
   if (!templates.length) {
     return { ok: true, created: [], existing: [], openSessionId: null };
@@ -2645,12 +2645,12 @@ async function materializeBlueprintSessions(
   }
 
   const now = Date.now();
-  const nextOpenwork = applyMaterializedBlueprintSessions(
+  const nextOnMyAgent = applyMaterializedBlueprintSessions(
     onmyagent,
     created.map(({ templateId, sessionId }) => ({ templateId, sessionId })),
     now,
   );
-  await writeOpenworkConfig(workspace.path, nextOpenwork, false);
+  await writeOnMyAgentConfig(workspace.path, nextOnMyAgent, false);
 
   const preferredTemplate =
     templates.find((template) => template.openOnFirstLoad) ??

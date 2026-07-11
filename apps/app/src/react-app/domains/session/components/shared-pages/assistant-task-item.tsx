@@ -90,8 +90,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           setMenuOpen((value) => !value);
         }}
         className="hidden shrink-0 text-dls-secondary group-hover:flex"
-        title="任务操作"
-        aria-label="任务操作"
+        title={t("session.task_actions")}
+        aria-label={t("session.task_actions")}
       >
         <MoreHorizontal className="size-4" />
       </Button>

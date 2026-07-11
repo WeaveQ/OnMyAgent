@@ -61,7 +61,7 @@ function readStoredActive(): string {
   }
 }
 
-function readOpenworkToken(): string {
+function readOnMyAgentToken(): string {
   if (typeof window === "undefined") return "";
   try {
     return (window.localStorage.getItem("onmyagent.server.token") ?? "").trim();
@@ -72,7 +72,7 @@ function readOpenworkToken(): string {
 
 async function checkHealth(url: string): Promise<boolean> {
   if (!url) return false;
-  const token = readOpenworkToken();
+  const token = readOnMyAgentToken();
   const headers =
     token && url.includes("/opencode") ? { Authorization: `Bearer ${token}` } : undefined;
   const client = createOpencodeClient({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { UIMessage } from "ai";
 
-import type { OpenworkSessionSnapshot } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentSessionSnapshot } from "../src/app/lib/onmyagent-server";
 import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
@@ -11,7 +11,7 @@ import { reconcileTranscriptMessages } from "../src/react-app/domains/session/sy
 function snapshotWithMessages(
   messages: Array<{ id: string; role: "user" | "assistant"; text: string; created?: number }>,
   sessionId = "ses_test",
-): OpenworkSessionSnapshot {
+): OnMyAgentSessionSnapshot {
   return {
     session: {
       id: sessionId,
@@ -40,7 +40,7 @@ function snapshotWithMessages(
     })),
     todos: [],
     status: { type: "idle" },
-  } as unknown as OpenworkSessionSnapshot;
+  } as unknown as OnMyAgentSessionSnapshot;
 }
 
 function uiMessage(id: string, role: "user" | "assistant", text: string, created?: number): UIMessage {
@@ -52,7 +52,7 @@ function uiMessage(id: string, role: "user" | "assistant", text: string, created
   };
 }
 
-function snapshotWithText(text: string, sessionId = "ses_test"): OpenworkSessionSnapshot {
+function snapshotWithText(text: string, sessionId = "ses_test"): OnMyAgentSessionSnapshot {
   return snapshotWithMessages([{ id: "msg_user", role: "user", text }], sessionId);
 }
 

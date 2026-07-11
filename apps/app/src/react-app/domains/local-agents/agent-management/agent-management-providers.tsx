@@ -64,7 +64,7 @@ const SKILL_AGENT_LABELS: Record<string, string> = {
   hermes: "Hermes",
   codex: "Codex",
   onmyagent: "OnMyAgent",
-  unknown: "未识别",
+  unknown: "unknown",
 };
 
 const providerTextClass = {
@@ -286,9 +286,17 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
 }
 
 function providerModelSummary(provider: AgentManagementManagedProvider) {
-  if (provider.models.length === 0) return "未声明模型";
+  if (provider.models.length === 0) return t("agent_manager.models_none");
   if (provider.models.length === 1) return provider.models[0]?.name || provider.models[0]?.id;
-  return `${provider.models[0]?.name || provider.models[0]?.id} 等 ${provider.models.length} 个`;
+  return t("agent_manager.models_and_more", {
+    name: provider.models[0]?.name || provider.models[0]?.id || "",
+    count: provider.models.length,
+  });
+}
+
+function skillAgentLabel(appType: string) {
+  if (appType === "unknown") return t("agent_manager.agent_unknown");
+  return SKILL_AGENT_LABELS[appType] ?? appType;
 }
 
 function ProviderBrandIcon(props: { provider?: AgentManagementManagedProvider; appType: AgentManagementProviderApp }) {
@@ -456,7 +464,7 @@ export function AgentManagementProviderModal(props: {
             <IconTile size="md" shape="lg" border><ProviderBrandIcon appType={props.appType} /></IconTile>
             <div className="min-w-0">
               <DialogTitle className="truncate text-base font-medium text-dls-text">{editing ? t("agent_manager.provider_modal.edit_provider") : t("agent_manager.provider_modal.add_provider")}</DialogTitle>
-              <div className="mt-1 text-xs text-dls-secondary">{SKILL_AGENT_LABELS[props.appType]}{editing ? ` / ${props.draft.editingId}` : ""}</div>
+              <div className="mt-1 text-xs text-dls-secondary">{skillAgentLabel(props.appType)}{editing ? ` / ${props.draft.editingId}` : ""}</div>
             </div>
           </div>
         </DialogHeader>
@@ -626,14 +634,14 @@ export function AgentManagementProviderModal(props: {
                         <Input
                           value={row.displayName}
                           onChange={(event) => updateCodexCatalogRow(row.rowId, { displayName: event.currentTarget.value })}
-                          placeholder="例如 DeepSeek V4 Pro"
+                          placeholder={t("agent_manager.provider_modal.model_display_name_example")}
                           className={fieldClass}
                         />
                         <Input
                           value={row.model}
                           onChange={(event) => updateCodexCatalogRow(row.rowId, { model: event.currentTarget.value })}
                           list={fetchedModels.length ? `agent-provider-models-${props.appType}` : undefined}
-                          placeholder="例如 deepseek-v4-pro"
+                          placeholder={t("agent_manager.provider_modal.model_id_example")}
                           className={fieldClass}
                         />
                         <Input
@@ -679,7 +687,7 @@ export function AgentManagementProviderModal(props: {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h4 className="text-xs font-medium text-dls-text">{t("agent_manager.provider_modal.model_list")}</h4>
-                      <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.model_list_desc", { name: SKILL_AGENT_LABELS[props.appType] })}</p>
+                      <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.model_list_desc", { name: skillAgentLabel(props.appType) })}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Button type="button" size="xs" variant="outline" disabled={!props.draft.baseUrl.trim()} aria-busy={fetchingModels} onClick={fetchProviderModels}>
@@ -878,7 +886,7 @@ export function AgentManagementProviderPanel(props: {
 }) {
   const providers = props.snapshot?.providers.byAgent[props.selectedApp] ?? [];
   const activeProvider = providers.find((provider) => provider.isCurrent) ?? providers.find((provider) => provider.livePresent);
-  const appLabel = SKILL_AGENT_LABELS[props.selectedApp] ?? props.selectedApp;
+  const appLabel = skillAgentLabel(props.selectedApp);
 
   return (
     <section className="grid min-h-0 gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
@@ -903,12 +911,12 @@ export function AgentManagementProviderPanel(props: {
                       <span className={cn("flex h-7 w-7 items-center justify-center rounded-lg", selected ? "bg-dls-surface" : "bg-dls-hover")}>
                         <ProviderBrandIcon appType={app} />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{SKILL_AGENT_LABELS[app]}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{skillAgentLabel(app)}</span>
                       <CountBadge size="dot" className={selected ? "bg-dls-surface text-white" : "bg-dls-hover text-dls-secondary"}>{count}</CountBadge>
                     </MenuRowButton>
                   }
                 />
-                <TooltipContent side="right"><span>{SKILL_AGENT_LABELS[app]}</span></TooltipContent>
+                <TooltipContent side="right"><span>{skillAgentLabel(app)}</span></TooltipContent>
               </Tooltip>
             );
           })}

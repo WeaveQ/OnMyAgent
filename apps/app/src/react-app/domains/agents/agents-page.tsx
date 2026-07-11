@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 
 import {
-  OpenworkServerClient,
-  OpenworkServerError,
+  OnMyAgentServerClient,
+  OnMyAgentServerError,
 } from "../../../app/lib/onmyagent-server";
 import { isElectronRuntime } from "../../../app/utils";
 import {
@@ -107,7 +107,7 @@ export type { AgentCardItem } from "./agents-page-model";
 export type AgentsPageProps = {
   workspaceId: string;
   workspaceRoot: string;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   providers?: ProviderListItem[];
   connectedProviderIds?: string[];
   initialEditingAgentId?: string | null;
@@ -510,10 +510,10 @@ export function CreateAgentWizard(props: {
   const [avatarPageByStyle, setAvatarPageByStyle] = useState<
     Record<AgentAvatarOption["style"], number>
   >({
-    "\u50CF\u7D20\u98CE": 0,
-    "\u5192\u9669\u5BB6": 0,
-    "\u673A\u5668\u4EBA": 0,
-    "\u6D1B\u857E\u83B1": 0,
+    "pixel": 0,
+    "adventurer": 0,
+    "robot": 0,
+    "lorelei": 0,
   });
 
   const [editSection, setEditSection] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -540,10 +540,10 @@ export function CreateAgentWizard(props: {
       setNameError(null);
       setSkillSearch("");
       setAvatarPageByStyle({
-        "\u50CF\u7D20\u98CE": 0,
-        "\u5192\u9669\u5BB6": 0,
-        "\u673A\u5668\u4EBA": 0,
-        "\u6D1B\u857E\u83B1": 0,
+        "pixel": 0,
+        "adventurer": 0,
+        "robot": 0,
+        "lorelei": 0,
       });
       setEditSection(1);
     } else {
@@ -555,10 +555,10 @@ export function CreateAgentWizard(props: {
       setNameError(null);
       setSkillSearch("");
       setAvatarPageByStyle({
-        "\u50CF\u7D20\u98CE": 0,
-        "\u5192\u9669\u5BB6": 0,
-        "\u673A\u5668\u4EBA": 0,
-        "\u6D1B\u857E\u83B1": 0,
+        "pixel": 0,
+        "adventurer": 0,
+        "robot": 0,
+        "lorelei": 0,
       });
     }
   }, [props.open, props.registry, props.editingAgent, props.mergedSkills]);
@@ -598,7 +598,7 @@ export function CreateAgentWizard(props: {
       models: { id: string; name: string }[];
     };
     const auto: ProviderOption = {
-      id: "\u81EA\u52A8",
+      id: "auto",
       name: t("agents.provider_auto"),
       models: [{ id: "auto", name: "Auto" }],
     };
@@ -998,7 +998,7 @@ export function CreateAgentWizard(props: {
             ))}
           </div>
         </div>
-        {draft.modelProvider !== "自动" ? (
+        {draft.modelProvider !== "auto" ? (
           <div className={agentsLayoutClass.compactFieldStack}>
             <div className="text-xs font-medium text-dls-text">
               {t("agents.model")}
@@ -1509,7 +1509,7 @@ export function AgentsPage(props: AgentsPageProps) {
         } catch (error) {
           if (
             !(
-              error instanceof OpenworkServerError &&
+              error instanceof OnMyAgentServerError &&
               error.status === 404
             )
           ) {

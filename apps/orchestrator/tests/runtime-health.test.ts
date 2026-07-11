@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 
 import {
   fetchOpenCodeRouterHealth,
-  fetchOpenCodeRouterHealthViaOpenwork,
+  fetchOpenCodeRouterHealthViaOnMyAgent,
   waitForHealthy,
   waitForHealthyViaProxy,
   waitForOpencodeHealthy,
@@ -56,7 +56,7 @@ describe("runtime health", () => {
 
     try {
       expect(await fetchOpenCodeRouterHealth(server.baseUrl)).toEqual(snapshot);
-      expect(await fetchOpenCodeRouterHealthViaOpenwork(server.baseUrl, "token")).toEqual(snapshot);
+      expect(await fetchOpenCodeRouterHealthViaOnMyAgent(server.baseUrl, "token")).toEqual(snapshot);
     } finally {
       await server.close();
     }

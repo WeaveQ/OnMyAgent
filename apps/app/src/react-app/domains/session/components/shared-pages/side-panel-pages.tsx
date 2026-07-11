@@ -18,7 +18,7 @@ import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { CountBadge } from "@/components/ui/status-badge";
-import type { OpenworkServerClient } from "../../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../../app/lib/onmyagent-server";
 import { t } from "../../../../../i18n";
 import { cn } from "@/lib/utils";
 import type { SidebarPrimaryView } from "../../sidebar/app-sidebar";
@@ -325,7 +325,7 @@ function StorePrimaryTabs(props: {
 export function StorePage(props: {
   workspaceId: string;
   workspaceRoot?: string | null;
-  client?: OpenworkServerClient | null;
+  client?: OnMyAgentServerClient | null;
   activeTab?: StorePrimaryTab;
   myExperts?: ExpertMarketplaceEntry[];
   onActiveTabChange?: (tab: StorePrimaryTab) => void;

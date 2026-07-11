@@ -1,4 +1,4 @@
-import type { OpenworkAutomationTaskItem } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import {
   dispatchAssistantSessionWorkspacesChanged,
   writeAssistantSessionWorkspace,
@@ -11,7 +11,7 @@ export type AutomationSessionRecord = {
   title: string;
   groupName: string;
   outputDirectory: string;
-  category: OpenworkAutomationTaskItem["scene"];
+  category: OnMyAgentAutomationTaskItem["scene"];
   createdAt: number;
   agentId?: string;
 };
@@ -85,7 +85,7 @@ function readRecord(value: unknown): AutomationSessionRecord | null {
 }
 
 function automationRecordForRun(
-  automation: OpenworkAutomationTaskItem,
+  automation: OnMyAgentAutomationTaskItem,
   run: { ranAt?: number; sessionId?: string; groupName?: string; outputDirectory?: string },
 ): AutomationSessionRecord | null {
   if (!run.sessionId || !run.groupName || !run.outputDirectory) return null;
@@ -118,7 +118,7 @@ export function readAutomationSessionRecords(workspaceId: string): AutomationSes
 
 export function syncAutomationSessionRecords(
   workspaceId: string,
-  automations: OpenworkAutomationTaskItem[],
+  automations: OnMyAgentAutomationTaskItem[],
 ) {
   if (typeof window === "undefined" || !workspaceId.trim()) return;
   const deletedSessionIds = readDeletedSessionIds(workspaceId);

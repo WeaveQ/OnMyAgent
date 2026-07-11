@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
-import { sanitizeOpenworkTemplateConfig } from "./blueprint-sessions.js";
+import { sanitizeOnMyAgentTemplateConfig } from "./blueprint-sessions.js";
 import { buildCommandContent } from "../services/commands.js";
 import { ApiError } from "../core/errors.js";
 import { parseFrontmatter } from "../core/frontmatter.js";
@@ -184,7 +184,7 @@ export function normalizeWorkspaceImportPayload(
       ? { opencode: sanitizePortableOpencodeConfig(readRecord(payload.opencode)) }
       : {}),
     ...(payload.onmyagent !== undefined
-      ? { onmyagent: sanitizeOpenworkTemplateConfig(readRecord(payload.onmyagent)) }
+      ? { onmyagent: sanitizeOnMyAgentTemplateConfig(readRecord(payload.onmyagent)) }
       : {}),
     skills: normalizeSkills(payload.skills),
     commands: normalizeCommands(payload.commands),
@@ -274,7 +274,7 @@ function fingerprintWorkspaceImportChanges(changes: WorkspaceImportPlannedChange
   );
 }
 
-async function readOpenworkConfig(path: string): Promise<Record<string, unknown>> {
+async function readOnMyAgentConfig(path: string): Promise<Record<string, unknown>> {
   const raw = await readTextIfPresent(path);
   if (raw === null) return {};
   try {
@@ -333,7 +333,7 @@ export async function buildWorkspaceImportPreview(
   if (input.onmyagent !== undefined) {
     const path = onmyagentConfigPath(workspaceRoot);
     const existsBefore = await exists(path);
-    const before = await readOpenworkConfig(path);
+    const before = await readOnMyAgentConfig(path);
     const after = input.modes.onmyagent === "replace" ? input.onmyagent : { ...before, ...input.onmyagent };
     changes.push({
       kind: "onmyagent",

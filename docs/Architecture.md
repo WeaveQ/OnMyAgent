@@ -8,7 +8,7 @@ pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `pac
 
 ```text
 apps/
-  desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；architecture-info、application-menu、startup-flags、Computer Use desktop helper、Code workspace actions、embedded browser panel 与 UI control bridge 已拆为独立模块
+  desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；architecture-info、application-menu、startup-flags、Computer Use desktop helper、Code workspace actions、embedded browser panel 与 UI control bridge 已拆为独立模块
     resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
   server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE 事件流；server.ts 只保留 composition root + OpenCode/配置共享 helper，路由已按 system/dev-ui/runtime/integration/workspace/file/session/import-export/blueprint 等模块注册
@@ -39,7 +39,7 @@ apps/app/src/react-app/
   domains/
     session/       会话运行时：composer/surface/sync/sidebar/artifacts/browser/voice/goal
     local-agents/  ACP / 本地 agent 编辑、卡片、agent-management
-    messaging/     自动化 + 飞书/微信等 messaging channels
+    messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
     settings/      设置 shell + pages + state stores
@@ -73,6 +73,68 @@ app(React) ← onmyagent-server.ts(HTTP API) ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
 app(React) ← @onmyagent/types ← packages/types (Zod schema)
 ```
+
+## Runtime Adapter (multi-agent harness)
+
+OpenCode 仍是产品 / server 的主会话底座；桌面端在此之上另托管 **Personal Local Agent** 多 agent harness，使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 `main.mjs` IPC 暴露给 renderer——**renderer 不直接 import adapters**。
+
+### Adapter contract
+
+权威合同在 `personal-agent-runtime/contract.mjs`：
+
+- `normalizeRunEvent(event)`：把 adapter 原始事件收成统一 `type` + `text`（及透传字段）。未知 `type` 降为 `log`；`chunk` → `assistant_chunk`；部分 `log` 前缀可升格为 `assistant_chunk` / `tool`。
+- 规范事件类型（`CONTRACT_EVENT_TYPES` / 内部 `EVENT_TYPES`）：`log`、`status`、`assistant_chunk`、`assistant`、`finish`、`tool`、`acp_tool_call`、`error`、`exit`、`approval_request`、`approval_decision`、`artifact`、`plan`、`thinking`、`tips`。
+- `appendContractEvent(events, event)`：normalize 后打上 `at` 并追加到 run 事件流。
+- `normalizeAdapterResult(result)`：要求非空 `output`；规范化 `command`、`connectionMode`、`pid`、`providerSessionId` / `resumeKey`、`metadata`、`workdir`。
+- `runEventsToConversationMessages(events)`：事件流 → 会话消息（assistant 合并、tool/approval/thinking/plan 等）。
+
+Adapter 工厂通常接收 `{ appendEvent, registerCancel, requestApproval?, approvalMode?, ... }`，返回至少 `sendMessage(ctx)` / `cancel(ctx)`；ACP 通用适配器还可实现 `warmupConversation`、`listSessions`、`loadSession`、`closeSession`、`forkSession` 等可选能力。
+
+### Adapter 实现与路由
+
+磁盘上的 adapters（`personal-agent-runtime/adapters/`）：
+
+| 模块 | 工厂 | 角色 |
+| --- | --- | --- |
+| `acp-generic.mjs` | `createGenericAcpAdapter` | 默认 ACP 会话路径（内置 provider + custom CLI ACP） |
+| `claude.mjs` | `createClaudeAdapter` | Claude Code stream-json harness（可注入覆盖） |
+| `codex.mjs` | `createCodexAdapter` | Codex 专用 harness（可注入覆盖） |
+| `hermes.mjs` | `createHermesAdapter` | Hermes 专用 harness（可注入覆盖） |
+| `openclaw.mjs` | `createOpenClawAdapter` | OpenClaw 专用 harness（可注入覆盖） |
+| `opencode.mjs` | `createOpenCodeAdapter` | OpenCode SDK/session harness（可注入覆盖） |
+| `remote-acp.mjs` | `createRemoteAcpAdapter` | Remote ACP WebSocket |
+
+`createPersonalAgentRuntime`（`index.mjs`）维护 `adapterFactories` 映射；`adapterFactoryForProvider` 的**当前默认**：`claude` / `codex` / `hermes` / `opencode` / `openclaw` 以及 `custom`+CLI+ACP 走 `createGenericAcpAdapter`；`remote` 走 `createRemoteAcpAdapter`；无 factory 时回退 `legacy-harness`（`createPersonalAgentLegacyHarness`）。测试或调用方可经 `options.adapters` 注入覆盖工厂。Provider 元数据见 `provider-registry.mjs`（`PERSONAL_LOCAL_AGENT_PROVIDERS` 等）。
+
+### Desktop runtime manager vs personal kernel
+
+`runtime.mjs` 职责分层：
+
+1. **`createRuntimeManager`** — OpenCode / OnMyAgent server / orchestrator **sidecar 生命周期**。`engineState.runtime` 取值为 `"direct"`（`DIRECT_RUNTIME`）或 `"onmyagent-orchestrator"`（`ORCHESTRATOR_RUNTIME`）。`startDirectRuntime` 直接 `opencode serve`；`startOrchestratorRuntime` 拉起 `onmyagent-orchestrator daemon`。当前 `engineStart` 默认走 OnMyAgent server 管理 OpenCode 的 **direct** 路径（`manageOpencode: true`），并序列化 lifecycle 防并发竞态。
+2. **`createDesktopPersonalRuntimeServices`** — 组装 Personal Local Agent：**kernel**（`createPersonalAgentRuntime`）+ **legacy harness** + heartbeat + native sessions + messaging channels。Kernel 负责 run 状态、conversation store、approval、extensions；adapters 只做 provider 协议翻译。
+
+### 边界
+
+```text
+renderer (domains/local-agents, session)
+  → desktop.ts IPC / onmyagent-server.ts HTTP
+    → preload.mjs → main.mjs 分发 personalAgentRuntime.*
+      → personal-agent-runtime/index.mjs (kernel)
+        → adapters/*.mjs + contract.mjs
+```
+
+- Adapters 与 contract **仅**存在于 `apps/desktop/electron/personal-agent-runtime/`（含 `adapters/`）。
+- `main.mjs` 持有 `createDesktopPersonalRuntimeServices` 返回的 runtime，IPC channel 映射 `listAgents` / `startMessage` / `runMessage` / `cancelRun` / conversations / approvals / extensions 等。
+- UI 只经 desktop IPC 与 server HTTP；**禁止** renderer import adapter 或 `personal-agent-runtime` 内部模块。
+- 扩展：`extension-registry.mjs` 从 bundled/user 的 `onmyagent-extension.json` 读取 `contributes.acpAdapters[]`，经 `adapterToCustomAgent` 变成 `provider: "custom"` 虚拟 agent，再走 generic ACP 路径。
+
+### 扩展点：新增 adapter（高层）
+
+1. 在 `adapters/` 新增 `createXxxAdapter`，实现 `sendMessage` / `cancel`，用 `appendEvent` 只发 contract 事件类型，结束时返回可被 `normalizeAdapterResult` 接受的结果。
+2. 在 `createPersonalAgentRuntime` 的 `adapterFactories`（及必要时 `adapterFactoryForProvider`）注册 provider 键；若走 ACP CLI，可复用 `createGenericAcpAdapter` 而不写专用模块。
+3. 在 `provider-registry.mjs` 补 provider 元数据 / capabilities（可执行名、ACP/审批/流式等）。
+4. 或通过 extension：`onmyagent-extension.json` → `contributes.acpAdapters[]`（`cliCommand` / `defaultCliPath` / `acpArgs` 等），无需改 kernel 代码。
+5. 用 `options.adapters` 注入做单测；IPC 面已由 kernel 暴露，一般不必新增 channel，除非有全新宿主能力。
 
 ## Package Boundaries
 
@@ -201,6 +263,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 - UI 实现主目录：`apps/app/src/react-app/domains/local-agents/`（management / cards / ACP hooks / messages）。
 - 会话宿主页仍有部分入口在 `domains/session/chat/personal-local-agent-*`，经边界白名单与 `local-agents` 互引；目标是继续收敛到 barrel 或 kernel 契约。
+- Desktop harness / adapter 分层见上文 **Runtime Adapter (multi-agent harness)**；本段只记 UI 域边界。
 - 临时执行 ledger 只写本地 `.loop/plans/`；稳定架构事实写本文件与 `apps/app/src/react-app/ARCHITECTURE.md`。
 - 该路径不是 team workspace 或 global connector 的实现说明，除非用户明确扩展范围。
 
@@ -217,3 +280,4 @@ scripts/release/      release review, prepare, ship, and asset publishing
 - 推荐阅读入口：`graphify-out/GRAPH_REPORT.md`（文本报告）与 `graphify query` / `graphify affected` CLI。完整交互 HTML（如 `graph.html` / `GRAPH_TREE.html`）对超大图不稳定，**不是**当前必需产物。
 - 没有 `GEMINI_API_KEY` / `GOOGLE_API_KEY` 时，Graphify 主要维护 AST/结构关系；配置 LLM key 后可增加 docs/images/语义关系抽取。
 - 修改代码后按 `AGENTS.md` 规则运行 `graphify update .`；如果无法运行，必须记录原因到本地 `.loop/runs/YYYY-MM-DD.md` 或 `.loop/state/intent-debt.md`。
+- 大型重构后本地再跑一次 `graphify update .`（输出在 gitignored 的 `graphify-out/`）。

@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 
 import type {
-  OpenworkAuditEntry,
-  OpenworkServerCapabilities,
-  OpenworkServerDiagnostics,
+  OnMyAgentAuditEntry,
+  OnMyAgentServerCapabilities,
+  OnMyAgentServerDiagnostics,
 } from "../../../../app/lib/onmyagent-server";
 import type { SandboxDebugProbeResult } from "../../../../app/lib/desktop";
 import type {
@@ -154,34 +154,34 @@ export type DebugViewProps = {
   onmyagentLogStatus: string | null;
   onCopyOpencodeLogs: () => void | Promise<void>;
   onExportOpencodeLogs: () => void | Promise<void>;
-  onCopyOpenworkLogs: () => void | Promise<void>;
-  onExportOpenworkLogs: () => void | Promise<void>;
+  onCopyOnMyAgentLogs: () => void | Promise<void>;
+  onExportOnMyAgentLogs: () => void | Promise<void>;
   serviceRestartError: string | null;
   onRestartOpencode: () => void | Promise<void>;
-  onRestartOpenworkServer: () => void | Promise<void>;
+  onRestartOnMyAgentServer: () => void | Promise<void>;
   engineCard: RuntimeServiceCard;
   opencodeConnectCard: OpenCodeConnectDebugCard;
   onmyagentCard: RuntimeServiceCard;
-  onmyagentServerDiagnostics: OpenworkServerDiagnostics | null;
+  onmyagentServerDiagnostics: OnMyAgentServerDiagnostics | null;
   runtimeWorkspaceId: string | null;
-  onmyagentServerCapabilities: OpenworkServerCapabilities | null;
+  onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
   pendingPermissions: unknown;
   events: unknown;
   workspaceDebugEvents: unknown;
   workspaceDebugEventsStatus: string | null;
   safeStringify: (value: unknown) => string;
   onClearWorkspaceDebugEvents: () => void | Promise<void>;
-  onmyagentAuditEntries: OpenworkAuditEntry[];
+  onmyagentAuditEntries: OnMyAgentAuditEntry[];
   onmyagentAuditStatus: StatusPill;
   onmyagentAuditError: string | null;
   opencodeConnectStatus: OpencodeConnectStatus | null;
   opencodeDevModeEnabled: boolean;
   nukeConfigBusy: boolean;
   nukeConfigStatus: string | null;
-  onNukeOpenworkAndOpencodeConfig: () => void | Promise<void>;
+  onNukeOnMyAgentAndOpencodeConfig: () => void | Promise<void>;
 };
 
-function formatActor(entry: OpenworkAuditEntry) {
+function formatActor(entry: OnMyAgentAuditEntry) {
   if (entry.actor.type === "host") return t("settings.audit_actor_host");
   if (entry.actor.clientId) return entry.actor.clientId;
   if (entry.actor.tokenHash) return entry.actor.tokenHash;
@@ -403,11 +403,11 @@ export function DebugView(props: DebugViewProps) {
             error={props.onmyagentCard.error ?? null}
             restarting={props.onmyagentServerRestarting}
             restartLabel={t("settings.restart_onmyagent_server")}
-            onRestart={props.onRestartOpenworkServer}
+            onRestart={props.onRestartOnMyAgentServer}
             serviceStatus={props.onmyagentServiceStatus}
             logStatus={props.onmyagentLogStatus}
-            onCopyLogs={props.onCopyOpenworkLogs}
-            onExportLogs={props.onExportOpenworkLogs}
+            onCopyLogs={props.onCopyOnMyAgentLogs}
+            onExportLogs={props.onExportOnMyAgentLogs}
             isDesktop={isDesktop}
           />
 
@@ -1090,7 +1090,7 @@ export function DebugView(props: DebugViewProps) {
               variant="destructive"
               size="default"
               className={debugStateClass.dangerButton}
-              onClick={() => void props.onNukeOpenworkAndOpencodeConfig()}
+              onClick={() => void props.onNukeOnMyAgentAndOpencodeConfig()}
               disabled={props.busy || props.nukeConfigBusy}
             >
               <CircleAlert size={14} />

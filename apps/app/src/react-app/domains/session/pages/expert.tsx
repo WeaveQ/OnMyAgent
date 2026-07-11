@@ -29,7 +29,7 @@ import {
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
-import { OwDotTicker, type OpenworkControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
+import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -87,6 +87,9 @@ import {
   resolveAgentAvatarUrl,
 } from "../../agents/agent-registry-helpers";
 import type { AgentRegistry } from "../../agents/agent-registry-types";
+import { AgentManagementPage } from "../../local-agents";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
 import {
   buildAgentConversationGroups,
   ensureAgentSessionGroupVisible,
@@ -94,12 +97,10 @@ import {
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
   AgentConversationPanel,
-  AgentManagementPage,
   AgentSessionTabs,
   BillingPage,
   DevicesPage,
   EmptyArtifactsPanel,
-  MessagingChannelsPage,
   ProjectsComingSoonPage,
   ResizableHandle,
   ResizablePanel,
@@ -109,7 +110,6 @@ import {
   STARTUP_SKELETON_ROWS,
   StorePage,
   OnMyAgentRail,
-  WorkspaceFilesPage,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
@@ -128,7 +128,7 @@ const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_EXPERT_PROMPT =
-  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
   const values = [entry.packageName, entry.displayName, entry.packagePath];
@@ -456,7 +456,7 @@ export function ExpertPage(props: ExpertPageProps) {
         name: marketplaceExpert.displayName,
         description: marketplaceExpert.description,
         avatar: {
-          avatarStyle: "机器人",
+          avatarStyle: "robot",
           avatarOptionId: "marketplace-expert",
           customAvatarDataUrl: null,
           avatarUrl: marketplaceExpert.avatarUrl,
@@ -477,7 +477,7 @@ export function ExpertPage(props: ExpertPageProps) {
       name: activeConversationGroup.name,
       description: activeConversationGroup.description,
       avatar: {
-        avatarStyle: "机器人",
+        avatarStyle: "robot",
         avatarOptionId: "marketplace-expert",
         customAvatarDataUrl: null,
         avatarUrl: activeConversationGroup.avatarUrl,
@@ -1143,7 +1143,7 @@ export function ExpertPage(props: ExpertPageProps) {
     }
   }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
 
-  const openVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled
         ? {
@@ -1161,7 +1161,7 @@ export function ExpertPage(props: ExpertPageProps) {
   );
   useControlAction(openVoicePanelControlAction);
 
-  const closeVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled && activeSidePanel === "voice"
         ? {

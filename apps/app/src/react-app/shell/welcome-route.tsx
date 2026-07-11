@@ -55,8 +55,8 @@ import {
 } from "../../app/lib/desktop";
 import { isDesktopRuntime } from "../../app/utils";
 import { useLocal, type OnboardingProfile } from "../kernel/local-provider";
-import { createOpenworkServerClient } from "../../app/lib/onmyagent-server";
-import { resolveOpenworkConnection } from "./onmyagent-connection";
+import { createOnMyAgentServerClient } from "../../app/lib/onmyagent-server";
+import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 import { writeActiveWorkspaceId } from "./session-memory";
 import {
   workspaceAssistantRoute,
@@ -364,9 +364,9 @@ export function WelcomeRoute() {
       }
       try {
         const { normalizedBaseUrl, resolvedToken, resolvedHostToken } =
-          await resolveOpenworkConnection();
+          await resolveOnMyAgentConnection();
         if (normalizedBaseUrl && resolvedToken) {
-          const onmyagentClient = createOpenworkServerClient({
+          const onmyagentClient = createOnMyAgentServerClient({
             baseUrl: normalizedBaseUrl,
             token: resolvedToken,
             hostToken: resolvedHostToken || undefined,

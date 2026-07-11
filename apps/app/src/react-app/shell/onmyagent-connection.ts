@@ -1,19 +1,19 @@
 import {
-  isLoopbackOpenworkServerUrl,
-  normalizeOpenworkServerUrl,
-  readOpenworkServerSettings,
+  isLoopbackOnMyAgentServerUrl,
+  normalizeOnMyAgentServerUrl,
+  readOnMyAgentServerSettings,
 } from "../../app/lib/onmyagent-server";
-import { onmyagentServerInfo, type OpenworkServerInfo } from "../../app/lib/desktop";
+import { onmyagentServerInfo, type OnMyAgentServerInfo } from "../../app/lib/desktop";
 import { isDesktopRuntime } from "../../app/utils";
 
-export type OpenworkConnectionSource = "desktop-runtime" | "stored-settings" | "empty";
+export type OnMyAgentConnectionSource = "desktop-runtime" | "stored-settings" | "empty";
 
-export type ResolvedOpenworkConnection = {
+export type ResolvedOnMyAgentConnection = {
   normalizedBaseUrl: string;
   resolvedToken: string;
   resolvedHostToken: string;
-  hostInfo: OpenworkServerInfo | null;
-  source: OpenworkConnectionSource;
+  hostInfo: OnMyAgentServerInfo | null;
+  source: OnMyAgentConnectionSource;
 };
 
 function hasUsableConnection(url: string, token: string) {
@@ -28,14 +28,14 @@ function hasUsableConnection(url: string, token: string) {
  * there. Stored settings remain the fallback for remote/manual server
  * connections and for desktop cases where the runtime bridge is unavailable.
  */
-export async function resolveOpenworkConnection(): Promise<ResolvedOpenworkConnection> {
+export async function resolveOnMyAgentConnection(): Promise<ResolvedOnMyAgentConnection> {
   let staleDesktopRuntimeBaseUrl = "";
 
   if (isDesktopRuntime()) {
     try {
-      const info = await onmyagentServerInfo() as OpenworkServerInfo;
+      const info = await onmyagentServerInfo() as OnMyAgentServerInfo;
       const normalizedBaseUrl =
-        normalizeOpenworkServerUrl(info.baseUrl ?? info.connectUrl ?? info.lanUrl ?? info.mdnsUrl ?? "") ??
+        normalizeOnMyAgentServerUrl(info.baseUrl ?? info.connectUrl ?? info.lanUrl ?? info.mdnsUrl ?? "") ??
         "";
       const resolvedToken = info.ownerToken?.trim() || info.clientToken?.trim() || "";
       if (info.running === true && hasUsableConnection(normalizedBaseUrl, resolvedToken)) {
@@ -53,17 +53,17 @@ export async function resolveOpenworkConnection(): Promise<ResolvedOpenworkConne
     }
   }
 
-  const settings = readOpenworkServerSettings();
-  const normalizedBaseUrl = normalizeOpenworkServerUrl(settings.urlOverride ?? "") ?? "";
+  const settings = readOnMyAgentServerSettings();
+  const normalizedBaseUrl = normalizeOnMyAgentServerUrl(settings.urlOverride ?? "") ?? "";
   const resolvedToken = settings.token?.trim() ?? "";
   const resolvedHostToken =
-    normalizedBaseUrl && isLoopbackOpenworkServerUrl(normalizedBaseUrl)
+    normalizedBaseUrl && isLoopbackOnMyAgentServerUrl(normalizedBaseUrl)
       ? settings.hostToken?.trim() ?? ""
       : "";
   const storedConnectionIsStaleDesktopRuntime = Boolean(
     isDesktopRuntime() &&
       normalizedBaseUrl &&
-      isLoopbackOpenworkServerUrl(normalizedBaseUrl) &&
+      isLoopbackOnMyAgentServerUrl(normalizedBaseUrl) &&
       (!staleDesktopRuntimeBaseUrl || normalizedBaseUrl === staleDesktopRuntimeBaseUrl),
   );
   const source =

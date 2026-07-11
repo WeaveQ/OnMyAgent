@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import type { AgentManagementSkill, AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import {
-  SKILL_AGENT_LABELS,
+  skillAgentLabel,
   SKILL_AGENT_TONES,
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
@@ -100,7 +100,7 @@ function SkillMatrixColumnHeader(props: {
   onToggle: (event: React.MouseEvent) => void;
 }) {
   const tone = SKILL_AGENT_TONES[props.agent] ?? SKILL_AGENT_TONES.unknown;
-  const label = SKILL_AGENT_LABELS[props.agent] ?? props.agent;
+  const label = skillAgentLabel(props.agent);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -140,7 +140,7 @@ function getSkillCellState(
   const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
   const canSync = sourceKind === "skill" && skill.sources.some((source) => source.kind !== "runtime-skill" && source.kind !== "slash-command");
   const busy = busyKey === `${skill.path}:${agent}`;
-  const label = SKILL_AGENT_LABELS[agent] ?? agent;
+  const label = skillAgentLabel(agent);
   if (busy) return { state: "busy", tooltip: t("skills.matrix_tooltip_busy", { label }) };
   if (enabled && ownsSource) return { state: "native", tooltip: t("skills.matrix_tooltip_native", { label }) };
   if (enabled) return { state: "managed", tooltip: t("skills.matrix_tooltip_managed", { label }) };
@@ -154,7 +154,7 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
   const visibleAgents = enabledAgents.slice(0, visibleLimit);
   const overflow = enabledAgents.length - visibleAgents.length;
   const label = enabledAgents.length > 0
-    ? enabledAgents.map((agent) => SKILL_AGENT_LABELS[agent] ?? agent).join(" / ")
+    ? enabledAgents.map((agent) => skillAgentLabel(agent)).join(" / ")
     : t("skills.matrix_no_enabled_agents");
   const ringTone = props.skill.readonly
     ? "ring-dls-border-strong"

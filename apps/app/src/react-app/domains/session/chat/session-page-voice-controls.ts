@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import { t } from "../../../../i18n";
-import { type OpenworkControlAction, useControlAction } from "../../../shell";
+import { type OnMyAgentControlAction, useControlAction } from "../../../shell";
 import type { SidePanelItem } from "../../../shell";
 
 type UseSessionPageVoiceControlsInput = {
@@ -14,7 +14,7 @@ export function useSessionPageVoiceControls(
   input: UseSessionPageVoiceControlsInput,
 ) {
   const { activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled } = input;
-  const openVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled
         ? {
@@ -32,7 +32,7 @@ export function useSessionPageVoiceControls(
   );
   useControlAction(openVoicePanelControlAction);
 
-  const closeVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled && activeSidePanel === "voice"
         ? {

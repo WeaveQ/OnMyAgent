@@ -58,7 +58,7 @@ import {
 import type {
   CodeWorkspaceOpenTarget,
   CodeWorkspaceOpenTargetId,
-} from "../../../../app/lib/desktop-types";
+} from "@onmyagent/types";
 import { t } from "../../../../i18n";
 import {
   CodeWorkspaceDiffView,

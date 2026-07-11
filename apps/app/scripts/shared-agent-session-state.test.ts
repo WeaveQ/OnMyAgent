@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { OpenworkAutomationTaskItem } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentAutomationTaskItem } from "../src/app/lib/onmyagent-server";
 import {
   addAssistantSession,
   addExpertSession,
@@ -163,7 +163,7 @@ describe("shared agent session state", () => {
           outputDirectory: "/tmp/自动化任务-2026-06-25-09-00-00",
         },
       ],
-    } satisfies OpenworkAutomationTaskItem;
+    } satisfies OnMyAgentAutomationTaskItem;
 
     syncAutomationSessionRecords("workspace-1", [automation]);
 
@@ -217,7 +217,7 @@ describe("shared agent session state", () => {
           outputDirectory: "/tmp/自动化任务-2026-06-24-09-00-00",
         },
       ],
-    } satisfies OpenworkAutomationTaskItem;
+    } satisfies OnMyAgentAutomationTaskItem;
 
     syncAutomationSessionRecords("workspace-1", [automation]);
     expect(readAutomationSessionRecords("workspace-1")).toHaveLength(1);
@@ -261,7 +261,7 @@ describe("shared agent session state", () => {
           outputDirectory: "/tmp/自动化任务-2026-06-24-09-00-00",
         },
       ],
-    } satisfies OpenworkAutomationTaskItem;
+    } satisfies OnMyAgentAutomationTaskItem;
 
     syncAutomationSessionRecords("workspace-1", [automation]);
 

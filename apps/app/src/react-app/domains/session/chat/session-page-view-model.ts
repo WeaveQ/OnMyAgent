@@ -1,6 +1,6 @@
 import type {
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import { useEffect, useState } from "react";
 import type { BootPhase } from "../../../../app/lib/startup-boot";
@@ -25,8 +25,8 @@ type SidebarSnapshot = {
 type BuildSessionPageViewModelInput = {
   activeSidebarView: OnMyAgentPrimaryView;
   clientConnected: boolean;
-  onmyagentServerClient: OpenworkServerClient | null;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerClient: OnMyAgentServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerToken?: string | null;
   opencodeBaseUrl?: string | null;
   runtimeWorkspaceId?: string | null;

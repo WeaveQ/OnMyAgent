@@ -1,4 +1,4 @@
-import type { OpenworkServerClient } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import {
   revealDesktopItemInDir,
   resolveWorkspaceListSelectedId,
@@ -86,7 +86,7 @@ export async function activateDesktopSessionWorkspace(workspaceId: string) {
 
 export async function createLocalSessionWorkspace(input: {
   folder: string;
-  onmyagentClient: Pick<OpenworkServerClient, "createLocalWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "createLocalWorkspace"> | null;
   preset: WorkspacePreset;
 }) {
   const workspaceName = folderNameFromPath(input.folder);
@@ -121,7 +121,7 @@ export type CreateRemoteSessionWorkspaceInput = {
 
 export async function createLocalSessionWorkspaceAndRefresh(input: {
   folder: string | null;
-  onmyagentClient: Pick<OpenworkServerClient, "createLocalWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "createLocalWorkspace"> | null;
   preset: WorkspacePreset;
   refreshRouteState: () => Promise<unknown>;
 }) {
@@ -183,7 +183,7 @@ export async function exportSessionWorkspaceConfig(input: {
 
 export async function renameSessionWorkspace(input: {
   displayName: string;
-  onmyagentClient: Pick<OpenworkServerClient, "updateWorkspaceDisplayName"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "updateWorkspaceDisplayName"> | null;
   workspaceId: string;
 }) {
   if (isDesktopRuntime()) {
@@ -201,7 +201,7 @@ export async function renameSessionWorkspace(input: {
 
 export async function renameSessionWorkspaceAndRefresh(input: {
   displayName: string;
-  onmyagentClient: Pick<OpenworkServerClient, "updateWorkspaceDisplayName"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "updateWorkspaceDisplayName"> | null;
   refreshRouteState: () => Promise<unknown>;
   workspaceId: string;
 }) {
@@ -214,7 +214,7 @@ export async function renameSessionWorkspaceAndRefresh(input: {
 }
 
 export async function forgetSessionWorkspace(input: {
-  onmyagentClient: Pick<OpenworkServerClient, "deleteWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "deleteWorkspace"> | null;
   workspaceId: string;
 }) {
   if (isDesktopRuntime()) {
@@ -226,7 +226,7 @@ export async function forgetSessionWorkspace(input: {
 }
 
 export async function forgetSessionWorkspaceAndRefresh(input: {
-  onmyagentClient: Pick<OpenworkServerClient, "deleteWorkspace"> | null;
+  onmyagentClient: Pick<OnMyAgentServerClient, "deleteWorkspace"> | null;
   refreshRouteState: () => Promise<unknown>;
   workspaceId: string;
 }) {

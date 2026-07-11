@@ -3,18 +3,18 @@ import { nativeDeepLinkEvent } from "./deep-link-bridge";
 export type * from "./desktop-types";
 export type {
   EngineInfo,
-  OpenworkServerInfo,
+  OnMyAgentServerInfo,
   EngineDoctorResult,
   WorkspaceInfo,
   WorkspaceList,
   WorkspaceExportSummary,
   OpencodeCommandDraft,
-  WorkspaceOpenworkConfig,
+  WorkspaceOnMyAgentConfig,
   AppBuildInfo,
   DesktopBootstrapConfig,
   OrchestratorDetachedHost,
   SandboxDoctorResult,
-  OpenworkDockerCleanupResult,
+  OnMyAgentDockerCleanupResult,
   SandboxDebugProbeResult,
   ExecResult,
   CodeWorkspaceOpenTargetId,
@@ -47,7 +47,7 @@ import type {
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileContent,
   CodeWorkspaceFileEntry,
-} from "./desktop-types";
+} from "@onmyagent/types";
 import type {
   AgentManagementProviderActionInput,
   AgentManagementProviderActionResult,
@@ -726,8 +726,8 @@ const {
   workspaceAddAuthorizedRoot,
   workspaceExportConfig,
   workspaceImportConfig,
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  // IPC channel names remain Openwork* (desktop main process); alias to OnMyAgent* for app API.
+  workspaceOpenworkWrite: workspaceOnMyAgentWrite,
   opencodeCommandList,
   opencodeCommandWrite,
   opencodeCommandDelete,
@@ -736,11 +736,11 @@ const {
   appBuildInfo,
   getDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
-  nukeOpenworkAndOpencodeConfigAndExit,
+  nukeOpenworkAndOpencodeConfigAndExit: nukeOnMyAgentAndOpencodeConfigAndExit,
   orchestratorStartDetached,
   sandboxDoctor,
   sandboxStop,
-  sandboxCleanupOpenworkContainers,
+  sandboxCleanupOpenworkContainers: sandboxCleanupOnMyAgentContainers,
   sandboxDebugProbe,
   onmyagentServerInfo,
   onmyagentServerRestart,
@@ -761,7 +761,7 @@ const {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOpenworkState,
+  resetOpenworkState: resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,
@@ -1689,6 +1689,14 @@ export function agentManagementMcpAction(
   );
 }
 
+// Typed wrappers for workspace OnMyAgent config IPC (channel kept as Openwork*
+// for desktop main-process compatibility).
+export function workspaceOnMyAgentRead(input: {
+  workspacePath: string;
+}): Promise<Record<string, unknown>> {
+  return invokeElectronHelper<Record<string, unknown>>("workspaceOpenworkRead", input);
+}
+
 export {
   engineStart,
   workspaceBootstrap,
@@ -1702,8 +1710,7 @@ export {
   workspaceAddAuthorizedRoot,
   workspaceExportConfig,
   workspaceImportConfig,
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  workspaceOnMyAgentWrite,
   opencodeCommandList,
   opencodeCommandWrite,
   opencodeCommandDelete,
@@ -1712,11 +1719,11 @@ export {
   appBuildInfo,
   getDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
-  nukeOpenworkAndOpencodeConfigAndExit,
+  nukeOnMyAgentAndOpencodeConfigAndExit,
   orchestratorStartDetached,
   sandboxDoctor,
   sandboxStop,
-  sandboxCleanupOpenworkContainers,
+  sandboxCleanupOnMyAgentContainers,
   sandboxDebugProbe,
   onmyagentServerInfo,
   onmyagentServerRestart,
@@ -1737,7 +1744,7 @@ export {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOpenworkState,
+  resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,

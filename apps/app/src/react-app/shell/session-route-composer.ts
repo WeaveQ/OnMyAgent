@@ -581,10 +581,10 @@ export async function draftToParts(
     parts.push({
       type: "text",
       text: [
-        "用户上传了以下文件。不要把这些文件当作模型原生文件输入；如果任务需要处理文件，请使用本地工具或已配置的对应 skill，并直接读取这些本地路径：",
+        "The user uploaded the following files. Do not treat them as native model file inputs; if the task needs to process files, use local tools or the configured skill and read these local paths directly:",
         ...uploadedFiles.map(
           (file) =>
-            `- ${file.name} (${file.mimeType || "application/octet-stream"}): ${file.absolutePath}（工作区相对路径：${file.relativePath}）`,
+            `- ${file.name} (${file.mimeType || "application/octet-stream"}): ${file.absolutePath} (workspace-relative path: ${file.relativePath})`,
         ),
       ].join("\n"),
     });

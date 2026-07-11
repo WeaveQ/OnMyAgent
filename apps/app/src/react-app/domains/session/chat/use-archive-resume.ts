@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
-import type { OpenworkServerClient } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import {
   type PersonalLocalAgent,
   type PersonalLocalAgentConversation,
@@ -22,7 +22,7 @@ type UseArchiveResumeParams = {
   workspaceRoot: string;
   channelAgentId: string;
   onResumeConsumed?: () => void;
-  onmyagentServerClient?: OpenworkServerClient | null;
+  onmyagentServerClient?: OnMyAgentServerClient | null;
   runtimeWorkspaceId?: string | null;
   setChannelConversations: Dispatch<SetStateAction<PersonalLocalAgentConversation[]>>;
   setSelectedAgentId: Dispatch<SetStateAction<string>>;

@@ -40,8 +40,8 @@ src/react-app/
 `skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts`). Import via
 `domains/plugins` barrel.
 
-**`domains/local-agents/`** does not yet ship a domain-level `index.ts` barrel; shell
-and session import concrete paths. Prefer adding a barrel before new external callers.
+**`domains/local-agents/`** ships a domain-level `index.ts` barrel. Session host pages
+and re-exports import via the barrel; reverse edges into session remain whitelisted.
 
 Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` § 4 / § 4i).
 
@@ -130,7 +130,7 @@ edges are frozen in `scripts/checks/check-boundaries.mjs` `allowedDomainImports`
 
 | Path | Role |
 | --- | --- |
-| `env-context.ts` | Openwork/env system context helpers |
+| `env-context.ts` | OnMyAgent/env system context helpers |
 | `extension-state.ts` | Extension enable/hide flags |
 | `desktop-config-context.ts` | Desktop config context |
 | `onmyagent-server-store.ts` | Local server connection store |
@@ -153,12 +153,12 @@ Do not add product pages, modals, or registries here.
 
 | Current area | Target | Phase |
 | --- | --- | --- |
-| `agent-management-*` | **`local-agents/agent-management/`** (moved) | Done; session re-exports for compat |
-| `automation-*`, channel panels | **`messaging/`** (moved) | Done; shared-pages re-exports for compat |
-| `workspace-files-page.tsx` | **`workspace/`** (moved) | Done; shared-pages re-exports |
+| `agent-management-*` | **`local-agents/agent-management/`** (moved) | Done; import from `domains/local-agents` |
+| `automation-*`, channel panels | **`messaging/`** (moved) | Done; import from `domains/messaging` |
+| `workspace-files-page.tsx` | **`workspace/`** (moved) | Done; import from `domains/workspace` |
 | Conversation lists / true session chrome | stay in `session/` | — |
 
-Prefer importing from the target domain, not from `shared-pages` re-exports, when adding new call sites.
+Import these pages from the owning domain barrel, not from `shared-pages`.
 
 ## Session goal lifecycle
 

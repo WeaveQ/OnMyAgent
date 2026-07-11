@@ -4,10 +4,10 @@ import { ArrowRight, ChevronRight, Copy, Link, RefreshCcw, Shield } from "lucide
 
 import { t } from "../../../../i18n";
 import type {
-  OpenworkOpenCodeRouterHealthSnapshot,
-  OpenworkOpenCodeRouterIdentityItem,
-  OpenworkOpenCodeRouterSendResult,
-  OpenworkServerStatus,
+  OnMyAgentOpenCodeRouterHealthSnapshot,
+  OnMyAgentOpenCodeRouterIdentityItem,
+  OnMyAgentOpenCodeRouterSendResult,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import { DisclosureRowButton, SegmentedTabButton } from "@/components/ui/action-row";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -85,16 +85,16 @@ export type MessagingViewExpandedChannel = MessagingChannel | null;
 export type MessagingViewProps = {
   busy: boolean;
   showHeader?: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerUrl: string;
-  scopedOpenworkBaseUrl?: string;
+  scopedOnMyAgentBaseUrl?: string;
   workspaceId: string | null;
   selectedWorkspaceRoot: string;
   refreshing: boolean;
   onmyagentReconnectBusy: boolean;
   reconnectStatus: string | null;
   reconnectError: string | null;
-  health: OpenworkOpenCodeRouterHealthSnapshot | null;
+  health: OnMyAgentOpenCodeRouterHealthSnapshot | null;
   healthError: string | null;
   messagingEnabled: boolean;
   messagingSaving: boolean;
@@ -105,7 +105,7 @@ export type MessagingViewProps = {
   activeTab: MessagingViewTab;
   expandedChannel: MessagingViewExpandedChannel;
   telegram: {
-    identities: OpenworkOpenCodeRouterIdentityItem[];
+    identities: OnMyAgentOpenCodeRouterIdentityItem[];
     identitiesError: string | null;
     token: string;
     enabled: boolean;
@@ -116,7 +116,7 @@ export type MessagingViewProps = {
     pairingCode: string | null;
   };
   slack: {
-    identities: OpenworkOpenCodeRouterIdentityItem[];
+    identities: OnMyAgentOpenCodeRouterIdentityItem[];
     identitiesError: string | null;
     botToken: string;
     appToken: string;
@@ -143,7 +143,7 @@ export type MessagingViewProps = {
     busy: boolean;
     status: string | null;
     error: string | null;
-    result: OpenworkOpenCodeRouterSendResult | null;
+    result: OnMyAgentOpenCodeRouterSendResult | null;
   };
   modals: {
     messagingRiskOpen: boolean;
@@ -243,7 +243,7 @@ export function MessagingView(props: MessagingViewProps) {
   const serverReady = props.onmyagentServerStatus === "connected";
   const scopedWorkspaceReady = Boolean(props.workspaceId?.trim());
   const workspaceScopeLabel =
-    props.scopedOpenworkBaseUrl?.trim() || props.onmyagentServerUrl.trim() || t("identities.not_set");
+    props.scopedOnMyAgentBaseUrl?.trim() || props.onmyagentServerUrl.trim() || t("identities.not_set");
   const defaultRoutingDirectory = props.selectedWorkspaceRoot.trim() || t("identities.not_set");
   const telegramBotLink = props.telegram.botUsername?.trim()
     ? `https://t.me/${props.telegram.botUsername.trim().replace(/^@+/, "")}`

@@ -3,7 +3,13 @@ import type {
   AgentToolCategoryId,
 } from "./pending-agent-store";
 
-export type AgentTone = "专业" | "友好" | "创意" | "简洁" | "随意" | "专家";
+export type AgentTone =
+  | "professional"
+  | "friendly"
+  | "creative"
+  | "concise"
+  | "casual"
+  | "expert";
 
 export type AgentModelProvider = string;
 

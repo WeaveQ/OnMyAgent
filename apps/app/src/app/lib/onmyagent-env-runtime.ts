@@ -30,7 +30,7 @@ function parsePendingChangesState(raw: string | null): PendingChangesState {
   }
 }
 
-export function buildOpenworkEnvRuntimeKey(input: {
+export function buildOnMyAgentEnvRuntimeKey(input: {
   baseUrl?: string | null;
   pid?: number | null;
   port?: number | null;
@@ -47,7 +47,7 @@ export function buildOpenworkEnvRuntimeKey(input: {
   return `${baseUrl || "onmyagent"}::${runtime || "runtime"}`;
 }
 
-export function readOpenworkEnvPendingChanges(runtimeKey?: string | null): boolean {
+export function readOnMyAgentEnvPendingChanges(runtimeKey?: string | null): boolean {
   const localStorage = getStorage("localStorage");
   const sessionStorage = getStorage("sessionStorage");
   const state = parsePendingChangesState(localStorage?.getItem(PENDING_CHANGES_KEY) ?? null);
@@ -59,14 +59,14 @@ export function readOpenworkEnvPendingChanges(runtimeKey?: string | null): boole
 
   const currentRuntimeKey = runtimeKey?.trim() || undefined;
   if (currentRuntimeKey && pending.runtimeKey && pending.runtimeKey !== currentRuntimeKey) {
-    writeOpenworkEnvPendingChanges(false);
+    writeOnMyAgentEnvPendingChanges(false);
     return false;
   }
 
   return true;
 }
 
-export function writeOpenworkEnvPendingChanges(value: boolean, runtimeKey?: string | null): void {
+export function writeOnMyAgentEnvPendingChanges(value: boolean, runtimeKey?: string | null): void {
   const localStorage = getStorage("localStorage");
   const sessionStorage = getStorage("sessionStorage");
   try {

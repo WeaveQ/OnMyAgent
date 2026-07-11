@@ -18,8 +18,8 @@ import { unwrap, waitForHealthy } from "../../../../app/lib/opencode";
 import {
   readOpencodeConfig,
   writeOpencodeConfig,
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  workspaceOnMyAgentRead,
+  workspaceOnMyAgentWrite,
 } from "../../../../app/lib/desktop";
 import type {
   Client,
@@ -33,7 +33,7 @@ import {
 } from "../../../../app/utils/providers";
 import { getReactQueryClient } from "../../../infra/query-client";
 import { ensureProviderListQuery } from "../../connections/provider-list-query";
-import type { OpenworkServerStore } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../../shared/onmyagent-server-store";
 import {
   denSessionUpdatedEvent,
   type DenSessionUpdatedDetail,
@@ -57,6 +57,23 @@ import type {
 type ProviderReturnFocusTarget = "none" | "composer";
 type CloudProviderSyncReason = "sign_in" | "app_launch" | "interval" | "settings_cloud_opened";
 
+type OpencodeTransportClient = {
+  delete: (options: { url: string }) => Promise<unknown>;
+};
+
+/** Read the SDK's protected HTTP transport via Reflect (no double-cast). */
+function readOpencodeTransportClient(client: Client): OpencodeTransportClient | null {
+  if (!client || typeof client !== "object") return null;
+  const transport = Reflect.get(client, "client");
+  if (!transport || typeof transport !== "object") return null;
+  const deleteFn = Reflect.get(transport, "delete");
+  if (typeof deleteFn !== "function") return null;
+  return {
+    delete: (options) =>
+      (deleteFn as (options: { url: string }) => Promise<unknown>).call(transport, options),
+  };
+}
+
 export type ProviderAuthStoreSnapshot = {
   providerAuthModalOpen: boolean;
   providerAuthBusy: boolean;
@@ -79,7 +96,7 @@ type CreateProviderAuthStoreOptions = {
   selectedWorkspaceDisplay: () => WorkspaceDisplay;
   selectedWorkspaceRoot: () => string;
   runtimeWorkspaceId: () => string | null;
-  onmyagentServer: OpenworkServerStore;
+  onmyagentServer: OnMyAgentServerStore;
   setProviders: (value: ProviderListItem[]) => void;
   setProviderDefaults: (value: Record<string, string>) => void;
   setProviderConnectedIds: (value: string[]) => void;
@@ -300,7 +317,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     return next;
   };
 
-  const readWorkspaceOpenworkConfigRecord = async (): Promise<
+  const readWorkspaceOnMyAgentConfigRecord = async (): Promise<
     Record<string, unknown>
   > => {
     const root = options.selectedWorkspaceRoot().trim();
@@ -310,27 +327,27 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.read;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       const config = await onmyagentClient.getConfig(onmyagentWorkspaceId);
       return config.onmyagent ?? {};
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      return (await workspaceOpenworkRead({
+      return await workspaceOnMyAgentRead({
         workspacePath: root,
-      })) as unknown as Record<string, unknown>;
+      });
     }
 
     return {};
   };
 
-  const writeWorkspaceOpenworkConfigRecord = async (
+  const writeWorkspaceOnMyAgentConfigRecord = async (
     config: Record<string, unknown>,
   ) => {
     const root = options.selectedWorkspaceRoot().trim();
@@ -340,19 +357,19 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.write;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       await onmyagentClient.patchConfig(onmyagentWorkspaceId, { onmyagent: config });
       return true;
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      const result = await workspaceOpenworkWrite({
+      const result = await workspaceOnMyAgentWrite({
         workspacePath: root,
         config: config as never,
       });
@@ -370,7 +387,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
 
   const refreshImportedCloudProviders = async () => {
     try {
-      const config = await readWorkspaceOpenworkConfigRecord();
+      const config = await readWorkspaceOnMyAgentConfigRecord();
       const cloudImports = readWorkspaceCloudImports(config);
       setStateField("importedCloudProviders", cloudImports.providers);
       return cloudImports.providers;
@@ -383,13 +400,13 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   const persistImportedCloudProviders = async (
     nextProviders: Record<string, CloudImportedProvider>,
   ) => {
-    const config = await readWorkspaceOpenworkConfigRecord();
+    const config = await readWorkspaceOnMyAgentConfigRecord();
     const cloudImports = readWorkspaceCloudImports(config);
     const nextConfig = withWorkspaceCloudImports(config, {
       ...cloudImports,
       providers: nextProviders,
     });
-    const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
+    const persisted = await writeWorkspaceOnMyAgentConfigRecord(nextConfig);
     if (!persisted) {
       throw new Error(
         "OnMyAgent server unavailable. Connect to manage imported cloud providers.",
@@ -406,14 +423,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.read &&
       typeof onmyagentClient.readOpencodeConfigFile === "function";
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       return await onmyagentClient.readOpencodeConfigFile(onmyagentWorkspaceId, "project");
     }
 
@@ -432,14 +449,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentCapabilities?.config?.write &&
       typeof onmyagentClient.writeOpencodeConfigFile === "function";
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       const result = await onmyagentClient.writeOpencodeConfigFile(
         onmyagentWorkspaceId,
         "project",
@@ -627,9 +644,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     localProviderId: string,
     previousProviderId?: string | null,
   ) => {
-    const nextProviderConfig = buildCloudProviderConfig(
-      provider,
-    ) as unknown as Record<string, unknown>;
+    const nextProviderConfig = buildCloudProviderConfig(provider);
     let updated = raw.trim()
       ? raw
       : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
@@ -888,26 +903,22 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       throw new Error(t("providers.not_connected"));
     }
 
-    const authClient = c.auth as unknown as {
-      remove?: (options: { providerID: string }) => Promise<unknown>;
-      set?: (options: { providerID: string; auth: unknown }) => Promise<unknown>;
-    };
-    if (typeof authClient.remove === "function") {
-      const result = await authClient.remove({ providerID: providerId });
+    // Prefer the typed Auth API; fall back to raw transport DELETE for older
+    // OpenCode clients that only expose credential removal via HTTP.
+    if (typeof c.auth.remove === "function") {
+      const result = await c.auth.remove({ providerID: providerId });
       assertNoClientError(result);
       return;
     }
 
-    const rawClient = (c as unknown as {
-      client?: { delete?: (options: { url: string }) => Promise<unknown> };
-    }).client;
-    if (rawClient?.delete) {
-      await rawClient.delete({ url: `/auth/${encodeURIComponent(providerId)}` });
+    const transport = readOpencodeTransportClient(c);
+    if (transport) {
+      await transport.delete({ url: `/auth/${encodeURIComponent(providerId)}` });
       return;
     }
 
-    if (typeof authClient.set === "function") {
-      const result = await authClient.set({ providerID: providerId, auth: null });
+    if (typeof c.auth.set === "function") {
+      const result = await c.auth.set({ providerID: providerId });
       assertNoClientError(result);
       return;
     }

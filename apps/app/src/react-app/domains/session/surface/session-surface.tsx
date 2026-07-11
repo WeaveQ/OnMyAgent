@@ -34,8 +34,8 @@ import {
   type CloudImportedPlugin,
 } from "../../../../app/cloud/import-state";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionSnapshot,
+  OnMyAgentServerClient,
+  OnMyAgentSessionSnapshot,
 } from "../../../../app/lib/onmyagent-server";
 import type {
   ComposerAttachment,
@@ -53,7 +53,7 @@ import type {
   SkillCard,
   TodoItem,
 } from "../../../../app/types";
-import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OpenworkControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
+import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OnMyAgentControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
 import { ReactSessionComposer } from "./composer/composer";
 import { AccessPermissionSelect } from "./composer/access-permission-select";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
@@ -211,7 +211,7 @@ const ASSISTANT_RECOVERY_HINT_MS = 120_000;
 const MAX_TRANSCRIPT_NOTICES_PER_SESSION = 16;
 
 export type SessionSurfaceProps = {
-  client: OpenworkServerClient;
+  client: OnMyAgentServerClient;
   workspaceId: string;
   workspaceRoot: string;
   sessionId: string;
@@ -521,7 +521,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ] = useState<number | null>(null);
   const [rendered, setRendered] = useState<{
     sessionId: string;
-    snapshot: OpenworkSessionSnapshot;
+    snapshot: OnMyAgentSessionSnapshot;
   } | null>(null);
   const [toolSkills, setToolSkills] = useState<SkillCard[]>([]);
   const [toolMcpServers, setToolMcpServers] = useState<McpServerEntry[]>([]);
@@ -558,7 +558,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => reactStatusKey(props.workspaceId, props.sessionId),
     [props.workspaceId, props.sessionId],
   );
-  const snapshotQuery = useQuery<OpenworkSessionSnapshot>({
+  const snapshotQuery = useQuery<OnMyAgentSessionSnapshot>({
     queryKey: snapshotQueryKey,
     enabled: !props.draftOnly,
     queryFn: async () =>
@@ -1848,7 +1848,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     typeComposerText,
   ]);
 
-  const composerSetTextControlAction = useMemo<OpenworkControlAction>(
+  const composerSetTextControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "composer.set_text",
       label: t("session.control_type_composer"),
@@ -1882,7 +1882,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   useControlAction(composerSetTextControlAction);
 
-  const composerSendControlAction = useMemo<OpenworkControlAction>(
+  const composerSendControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "composer.send",
       label: t("session.control_send_composer"),
@@ -1908,7 +1908,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   useControlAction(composerSendControlAction);
 
-  const composerStopControlAction = useMemo<OpenworkControlAction>(
+  const composerStopControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "composer.stop",
       label: t("session.control_stop_run"),
@@ -2035,7 +2035,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       props.personalAssistantHome && props.draftOnly ? "top" : "bottom",
   });
 
-  const sessionScrollTopControlAction = useMemo<OpenworkControlAction>(
+  const sessionScrollTopControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.scroll_top",
       label: t("session.control_scroll_top"),
@@ -2053,7 +2053,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   useControlAction(sessionScrollTopControlAction);
 
-  const sessionScrollBottomControlAction = useMemo<OpenworkControlAction>(
+  const sessionScrollBottomControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.scroll_bottom",
       label: t("session.control_scroll_bottom"),
@@ -2068,7 +2068,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   useControlAction(sessionScrollBottomControlAction);
 
-  const sessionLatestMessageControlAction = useMemo<OpenworkControlAction>(
+  const sessionLatestMessageControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.latest_message",
       label: t("session.voice_read_latest_short"),
@@ -2091,7 +2091,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   useControlAction(sessionLatestMessageControlAction);
 
-  const sessionReadTranscriptControlAction = useMemo<OpenworkControlAction>(
+  const sessionReadTranscriptControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.read_transcript",
       label: t("session.control_read_transcript"),

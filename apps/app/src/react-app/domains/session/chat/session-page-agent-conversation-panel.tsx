@@ -5,8 +5,8 @@ import { Bot, Plus, Search } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionSnapshot,
+  OnMyAgentServerClient,
+  OnMyAgentSessionSnapshot,
 } from "../../../../app/lib/onmyagent-server";
 import type { WorkspaceSessionGroup } from "../../../../app/types";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export type AgentConversationDisplay = {
 
 export function AgentConversationPanel(props: {
   width: number;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   taskStatusVariant: TaskStatusIndicator["variant"];
   collapsed: boolean;
   groups: WorkspaceSessionGroup[];
@@ -100,7 +100,7 @@ export function AgentConversationPanel(props: {
     })),
   });
   const snapshotBySessionId = useMemo(() => {
-    const byId = new Map<string, OpenworkSessionSnapshot>();
+    const byId = new Map<string, OnMyAgentSessionSnapshot>();
     filteredSessions.forEach((session, index) => {
       const snapshot = snapshotQueries[index]?.data;
       if (snapshot) byId.set(session.id, snapshot);
@@ -131,7 +131,7 @@ export function AgentConversationPanel(props: {
           onClick={props.onOpenAgents}
           className={agentConversationPanelClass.agentsButton}
           title={t("nav.agents")}
-          aria-label="打开智能体"
+          aria-label={t("session.open_agent")}
         >
           <Bot className="size-5" />
           <Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} />
@@ -158,7 +158,7 @@ export function AgentConversationPanel(props: {
           </div>
         ) : (
           <div className={agentConversationPanelClass.empty}>
-            暂无会话
+            {t("session.no_sessions")}
           </div>
         )}
       </div>
@@ -173,7 +173,7 @@ function AgentConversationItem(props: {
   status?: string;
   taskStatusVariant: TaskStatusIndicator["variant"];
   display: AgentConversationDisplay;
-  snapshot?: OpenworkSessionSnapshot;
+  snapshot?: OnMyAgentSessionSnapshot;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
 }) {
@@ -214,7 +214,7 @@ function AgentConversationItem(props: {
               draggable={false}
             />
           ) : (
-            name.charAt(0).toUpperCase() || "新"
+            name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
         <span

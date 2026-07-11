@@ -41,7 +41,7 @@ export const LEGACY_AGENT_REGISTRY_PATH = "onmyagent-agents/registry.json";
 export const USER_AGENT_REGISTRY_DISPLAY_PATH =
   "~/.onmyagent/agents/registry.json";
 
-export type AgentAvatarStyle = "\u50CF\u7D20\u98CE" | "\u5192\u9669\u5BB6" | "\u673A\u5668\u4EBA" | "\u6D1B\u857E\u83B1";
+export type AgentAvatarStyle = "pixel" | "adventurer" | "robot" | "lorelei";
 
 export type AgentToolCategoryId =
   | "filesystem"
@@ -55,30 +55,30 @@ export type AgentToolCategoryId =
 
 export function agentToneLabel(tone: AgentTone) {
   switch (tone) {
-    case "\u4E13\u4E1A":
+    case "professional":
       return t("agents.tone_professional");
-    case "\u53CB\u597D":
+    case "friendly":
       return t("agents.tone_friendly");
-    case "\u521B\u610F":
+    case "creative":
       return t("agents.tone_creative");
-    case "\u7B80\u6D01":
+    case "concise":
       return t("agents.tone_concise");
-    case "\u968F\u610F":
+    case "casual":
       return t("agents.tone_casual");
-    case "\u4E13\u5BB6":
+    case "expert":
       return t("agents.tone_expert");
   }
 }
 
 export function agentAvatarStyleLabel(style: AgentAvatarStyle) {
   switch (style) {
-    case "\u50CF\u7D20\u98CE":
+    case "pixel":
       return t("agents.avatar_pixel");
-    case "\u5192\u9669\u5BB6":
+    case "adventurer":
       return t("agents.avatar_adventurer");
-    case "\u673A\u5668\u4EBA":
+    case "robot":
       return t("agents.avatar_robot");
-    case "\u6D1B\u857E\u83B1":
+    case "lorelei":
       return t("agents.avatar_lorelei");
   }
 }
@@ -214,26 +214,26 @@ export const AGENT_TOOL_CATALOG: AgentToolCategory[] = [
 ];
 
 export const AGENT_MODEL_OPTIONS: Record<AgentModelProvider, string[]> = {
-  ["\u81EA\u52A8"]: ["Auto"],
+  ["auto"]: ["Auto"],
   Gemini: ["Gemini 3 Flash", "Gemini 1.5 Pro", "Gemini 2.5 Pro"],
   OpenAI: ["GPT-4.1", "GPT-4o", "o3"],
   Claude: ["Claude Sonnet 4", "Claude 3.7 Sonnet", "Claude 3.5 Haiku"],
 };
 
 export const AGENT_TONES: AgentTone[] = [
-  "\u4E13\u4E1A",
-  "\u53CB\u597D",
-  "\u521B\u610F",
-  "\u7B80\u6D01",
-  "\u968F\u610F",
-  "\u4E13\u5BB6",
+  "professional",
+  "friendly",
+  "creative",
+  "concise",
+  "casual",
+  "expert",
 ];
 
 export const AGENT_AVATAR_STYLES: AgentAvatarStyle[] = [
-  "\u50CF\u7D20\u98CE",
-  "\u5192\u9669\u5BB6",
-  "\u673A\u5668\u4EBA",
-  "\u6D1B\u857E\u83B1",
+  "pixel",
+  "adventurer",
+  "robot",
+  "lorelei",
 ];
 
 const defaultRegistry = createDefaultAgentRegistry();
@@ -246,17 +246,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const LEGACY_TONE_ALIASES: Record<string, AgentTone> = {
+  professional: "professional",
+  friendly: "friendly",
+  creative: "creative",
+  concise: "concise",
+  casual: "casual",
+  expert: "expert",
+  // 专业 / 友好 / 创意 / 简洁 / 随意 / 专家
+  "\u4E13\u4E1A": "professional",
+  "\u53CB\u597D": "friendly",
+  "\u521B\u610F": "creative",
+  "\u7B80\u6D01": "concise",
+  "\u968F\u610F": "casual",
+  "\u4E13\u5BB6": "expert",
+};
+
+const LEGACY_AVATAR_STYLE_ALIASES: Record<string, AgentAvatarStyle> = {
+  pixel: "pixel",
+  adventurer: "adventurer",
+  robot: "robot",
+  lorelei: "lorelei",
+  // 像素风 / 冒险家 / 机器人 / 洛蕾莱
+  "\u50CF\u7D20\u98CE": "pixel",
+  "\u5192\u9669\u5BB6": "adventurer",
+  "\u673A\u5668\u4EBA": "robot",
+  "\u6D1B\u857E\u83B1": "lorelei",
+};
+
+function normalizeTone(value: unknown): AgentTone | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_TONE_ALIASES[value] ?? null;
+}
+
+function normalizeAvatarStyle(value: unknown): AgentAvatarStyle | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_AVATAR_STYLE_ALIASES[value] ?? null;
+}
+
 function isTone(value: unknown): value is AgentTone {
-  return (
-    typeof value === "string" && AGENT_TONES.some((item) => item === value)
-  );
+  return normalizeTone(value) !== null;
 }
 
 function isAvatarStyle(value: unknown): value is AgentAvatarStyle {
-  return (
-    typeof value === "string" &&
-    AGENT_AVATAR_STYLES.some((item) => item === value)
-  );
+  return normalizeAvatarStyle(value) !== null;
+}
+
+function normalizeModelProvider(value: unknown): AgentModelProvider | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  // 自动
+  if (value === "auto" || value === "\u81EA\u52A8") return "auto";
+  return value;
 }
 
 function isModelProvider(value: unknown): value is AgentModelProvider {
@@ -282,12 +322,13 @@ function readStringArray(value: unknown) {
 
 function parseAvatarOption(value: unknown): AgentAvatarOption | null {
   if (!isRecord(value)) return null;
-  if (!isAvatarStyle(value.style)) return null;
+  const style = normalizeAvatarStyle(value.style);
+  if (!style) return null;
   const id = readString(value.id).trim();
   if (!id) return null;
   return {
     id,
-    style: value.style,
+    style,
     label: readString(value.label),
     initials: readString(value.initials).slice(0, 2) || "A",
     background: readString(value.background) || "#d9e3f0",
@@ -298,12 +339,10 @@ function parseAvatarOption(value: unknown): AgentAvatarOption | null {
 
 function parseTemplate(value: unknown): AgentTemplate | null {
   if (!isRecord(value)) return null;
-  if (
-    !isTone(value.tone) ||
-    !isAvatarStyle(value.avatarStyle) ||
-    !isModelProvider(value.modelProvider)
-  )
-    return null;
+  const tone = normalizeTone(value.tone);
+  const avatarStyle = normalizeAvatarStyle(value.avatarStyle);
+  const modelProvider = normalizeModelProvider(value.modelProvider);
+  if (!tone || !avatarStyle || !modelProvider) return null;
   const id = readString(value.id).trim();
   if (!id) return null;
   return {
@@ -311,10 +350,10 @@ function parseTemplate(value: unknown): AgentTemplate | null {
     name: readString(value.name),
     description: readString(value.description),
     quote: readString(value.quote),
-    tone: value.tone,
-    avatarStyle: value.avatarStyle,
+    tone,
+    avatarStyle,
     avatarOptionId: readString(value.avatarOptionId),
-    modelProvider: value.modelProvider,
+    modelProvider,
     model: readString(value.model),
     sdkProviderID:
       typeof value.sdkProviderID === "string" ? value.sdkProviderID : undefined,
@@ -337,12 +376,10 @@ function parseTemplate(value: unknown): AgentTemplate | null {
 
 function parseAgent(value: unknown): AgentRecord | null {
   if (!isRecord(value)) return null;
-  if (
-    !isTone(value.tone) ||
-    !isAvatarStyle(value.avatarStyle) ||
-    !isModelProvider(value.modelProvider)
-  )
-    return null;
+  const tone = normalizeTone(value.tone);
+  const avatarStyle = normalizeAvatarStyle(value.avatarStyle);
+  const modelProvider = normalizeModelProvider(value.modelProvider);
+  if (!tone || !avatarStyle || !modelProvider) return null;
   const id = readString(value.id).trim();
   if (!id) return null;
   return {
@@ -350,14 +387,14 @@ function parseAgent(value: unknown): AgentRecord | null {
     name: readString(value.name),
     description: readString(value.description),
     quote: readString(value.quote),
-    tone: value.tone,
-    avatarStyle: value.avatarStyle,
+    tone,
+    avatarStyle,
     avatarOptionId: readString(value.avatarOptionId),
     customAvatarDataUrl:
       typeof value.customAvatarDataUrl === "string"
         ? value.customAvatarDataUrl
         : null,
-    modelProvider: value.modelProvider,
+    modelProvider,
     model: readString(value.model),
     sdkProviderID:
       typeof value.sdkProviderID === "string" ? value.sdkProviderID : undefined,
@@ -518,11 +555,11 @@ export function createWizardDraftFromTemplate(
       name: "",
       description: "",
       quote: "",
-      tone: "\u4E13\u4E1A",
-      avatarStyle: "\u50CF\u7D20\u98CE",
+      tone: "professional",
+      avatarStyle: "pixel",
       avatarOptionId: "",
       customAvatarDataUrl: null,
-      modelProvider: "\u81EA\u52A8",
+      modelProvider: "auto",
       model: "Auto",
       enabledToolIds: [],
       defaultWorkspace: "",

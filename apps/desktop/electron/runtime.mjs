@@ -170,7 +170,7 @@ function snapshotEngineState(state) {
   };
 }
 
-function createOpenworkServerState() {
+function createOnMyAgentServerState() {
   return {
     child: null,
     childExited: true,
@@ -192,7 +192,7 @@ function createOpenworkServerState() {
   };
 }
 
-export function snapshotOpenworkServerState(state, options = {}) {
+export function snapshotOnMyAgentServerState(state, options = {}) {
   const child = state.childExited ? null : state.child;
   const reachable = options.reachable !== false;
   const running = reachable && (state.inProcess || Boolean(child && child.exitCode === null && !child.killed));
@@ -216,7 +216,7 @@ export function snapshotOpenworkServerState(state, options = {}) {
   };
 }
 
-function assertOpenworkServerReady(snapshot) {
+function assertOnMyAgentServerReady(snapshot) {
   if (!snapshot?.running) {
     throw new Error("OnMyAgent server did not stay running after startup.");
   }
@@ -511,7 +511,7 @@ function loadUserEnvFile() {
 
 export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths }) {
   const engineState = createEngineState();
-  const onmyagentServerState = createOpenworkServerState();
+  const onmyagentServerState = createOnMyAgentServerState();
   const orchestratorState = createOrchestratorState();
 
   // Serialize engine lifecycle operations. Without this, concurrent renderer
@@ -745,7 +745,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     await saveTokenStore(store);
   }
 
-  async function readPreferredOpenworkPort(workspaceKey) {
+  async function readPreferredOnMyAgentPort(workspaceKey) {
     const state = await loadPortState();
     const normalized = normalizeWorkspaceKey(workspaceKey);
     if (normalized && state.workspacePorts?.[normalized]) {
@@ -754,7 +754,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     return state.preferredPort ?? null;
   }
 
-  async function persistPreferredOpenworkPort(workspaceKey, port) {
+  async function persistPreferredOnMyAgentPort(workspaceKey, port) {
     const state = await loadPortState();
     const normalized = normalizeWorkspaceKey(workspaceKey);
     state.version = 3;
@@ -768,8 +768,8 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     await savePortState(state);
   }
 
-  async function resolveOpenworkPort(host, workspaceKey) {
-    const preferredPort = await readPreferredOpenworkPort(workspaceKey);
+  async function resolveOnMyAgentPort(host, workspaceKey) {
+    const preferredPort = await readPreferredOnMyAgentPort(workspaceKey);
     if (preferredPort && (await portAvailable(host, preferredPort))) {
       return preferredPort;
     }
@@ -948,7 +948,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const candidates = [];
     const seen = new Set();
 
-    for (const key of ["ONMYAGENT_DOCKER_BIN", "OPENWRK_DOCKER_BIN", "DOCKER_BIN"]) {
+    for (const key of ["ONMYAGENT_DOCKER_BIN", "OPENWRK_DOCKER_BIN" /* legacy */, "DOCKER_BIN"]) {
       const value = process.env[key]?.trim();
       if (value && !seen.has(value)) {
         seen.add(value);
@@ -1027,7 +1027,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     return `onmyagent-orchestrator-${sanitized}`;
   }
 
-  async function listOpenworkManagedContainers() {
+  async function listOnMyAgentManagedContainers() {
     const result = runDockerCommandDetailed(["ps", "-a", "--format", "{{.Names}}"], 8000);
     if (result.status !== 0) {
       const combined = `${result.stdout.trim()}\n${result.stderr.trim()}`.trim();
@@ -1237,7 +1237,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   // In-process server handle. Kept alive across restarts so we can stop it.
   let inProcessServer = null;
 
-  async function startOpenworkServer(options) {
+  async function startOnMyAgentServer(options) {
     // Stop any previously running in-process server
     if (inProcessServer) {
       try { await inProcessServer.stop(); } catch { /* ignore */ }
@@ -1248,7 +1248,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const workspacePaths = options.workspacePaths.filter((value) => value.trim().length > 0);
     const activeWorkspace = workspacePaths[0] ?? "";
     const host = options.remoteAccessEnabled ? "0.0.0.0" : "127.0.0.1";
-    const port = await resolveOpenworkPort(host, activeWorkspace);
+    const port = await resolveOnMyAgentPort(host, activeWorkspace);
     const tokens = await loadOrCreateWorkspaceTokens(activeWorkspace);
 
     const managedOpencode = options.manageOpencode ? resolveOpencodeBinary(options.opencodeBinPath) : null;
@@ -1361,8 +1361,8 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
         appendOutput(onmyagentServerState, "lastStderr", `OnMyAgent server workspace probe: ${error instanceof Error ? error.message : String(error)}\n`);
       }
     }
-    await persistPreferredOpenworkPort(activeWorkspace, boundPort);
-    return snapshotOpenworkServerState(onmyagentServerState);
+    await persistPreferredOnMyAgentPort(activeWorkspace, boundPort);
+    return snapshotOnMyAgentServerState(onmyagentServerState);
   }
 
   async function resolveOrchestratorBaseUrl() {
@@ -1504,7 +1504,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     await stopChild(engineState);
 
     Object.assign(engineState, createEngineState());
-    Object.assign(onmyagentServerState, createOpenworkServerState());
+    Object.assign(onmyagentServerState, createOnMyAgentServerState());
     Object.assign(orchestratorState, createOrchestratorState());
   }
 
@@ -1515,10 +1515,10 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     lifecycleState = "idle";
   }
 
-  async function ensureOpenwork(options) {
+  async function ensureOnMyAgent(options) {
     let onmyagentServer;
     try {
-      onmyagentServer = await startOpenworkServer({
+      onmyagentServer = await startOnMyAgentServer({
         workspacePaths: options.workspacePaths,
         opencodeBaseUrl: engineState.baseUrl,
         opencodeUsername: engineState.opencodeUsername,
@@ -1532,7 +1532,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       throw error;
     }
 
-    assertOpenworkServerReady(onmyagentServer);
+    assertOnMyAgentServerReady(onmyagentServer);
   }
 
   async function engineStart(projectDir, options = {}) {
@@ -1556,7 +1556,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       engineState.child = null;
       engineState.childExited = true;
 
-      await ensureOpenwork({
+      await ensureOnMyAgent({
         projectDir: safeProjectDir,
         workspacePaths,
         remoteAccessEnabled: options.onmyagentRemoteAccess === true,
@@ -1600,12 +1600,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     return {
       lifecycleState,
       engine: await engineInfo(),
-      onmyagentServer: await verifiedOpenworkServerSnapshot(),
+      onmyagentServer: await verifiedOnMyAgentServerSnapshot(),
     };
   }
 
-  async function verifiedOpenworkServerSnapshot() {
-    const snapshot = snapshotOpenworkServerState(onmyagentServerState);
+  async function verifiedOnMyAgentServerSnapshot() {
+    const snapshot = snapshotOnMyAgentServerState(onmyagentServerState);
     if (!snapshot.running || !snapshot.baseUrl) return snapshot;
     try {
       await waitForHttpOk(`${snapshot.baseUrl.replace(/\/+$/, "")}/health`, 1200);
@@ -1616,12 +1616,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
         "lastStderr",
         `OnMyAgent server health probe failed: ${error instanceof Error ? error.message : String(error)}\n`,
       );
-      return snapshotOpenworkServerState(onmyagentServerState, { reachable: false });
+      return snapshotOnMyAgentServerState(onmyagentServerState, { reachable: false });
     }
   }
 
   async function onmyagentServerInfo() {
-    return verifiedOpenworkServerSnapshot();
+    return verifiedOnMyAgentServerSnapshot();
   }
 
   async function onmyagentServerRestart(options = {}) {
@@ -1629,7 +1629,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const shouldManageOpencode = Boolean(
       onmyagentServerState.managedOpencodeBinPath || engineState.opencodeBinPath,
     );
-    return startOpenworkServer({
+    return startOnMyAgentServer({
       workspacePaths,
       opencodeBaseUrl: shouldManageOpencode ? null : engineState.baseUrl,
       opencodeUsername: shouldManageOpencode ? null : engineState.opencodeUsername,
@@ -1642,7 +1642,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
   async function orchestratorStatus() {
     const engine = snapshotEngineState(engineState);
-    const onmyagentServer = await verifiedOpenworkServerSnapshot();
+    const onmyagentServer = await verifiedOnMyAgentServerSnapshot();
     const workspaces = engine.projectDir
       ? [{ id: normalizeWorkspaceKey(engine.projectDir), path: engine.projectDir, name: path.basename(engine.projectDir) || "Workspace" }]
       : [];
@@ -1912,8 +1912,8 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     };
   }
 
-  async function sandboxCleanupOpenworkContainers() {
-    const candidates = await listOpenworkManagedContainers().catch((error) => {
+  async function sandboxCleanupOnMyAgentContainers() {
+    const candidates = await listOnMyAgentManagedContainers().catch((error) => {
       throw error;
     });
     const removed = [];
@@ -2108,7 +2108,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     opencodeMcpAuth,
     sandboxDoctor,
     sandboxStop,
-    sandboxCleanupOpenworkContainers,
+    sandboxCleanupOnMyAgentContainers,
     sandboxDebugProbe,
   };
 }
