@@ -61,4 +61,20 @@ const emptyHistory = channelEventBus.getHistory();
 assert.equal(emptyHistory.length, 0);
 console.log("✓ Clear history works");
 
+// Test 7: Isolated bus instances do not share history or listeners
+console.log("Test 7: Isolated bus instances");
+const isolatedA = new ChannelEventBus();
+const isolatedB = new ChannelEventBus();
+/** @type {unknown} */
+let isolatedBHits = 0;
+isolatedB.subscribe(CHANNEL_EVENTS.MESSAGE_RECEIVED, () => {
+  isolatedBHits += 1;
+});
+isolatedA.publish(CHANNEL_EVENTS.MESSAGE_RECEIVED, { id: "only-a" });
+assert.equal(isolatedBHits, 0);
+assert.equal(isolatedB.getHistory().length, 0);
+assert.equal(isolatedA.getHistory().length, 1);
+assert.equal(isolatedA.getHistory()[0]?.payload?.id, "only-a");
+console.log("✓ Isolated bus instances work");
+
 console.log("\n✅ All ChannelEventBus tests passed!");

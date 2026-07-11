@@ -39,7 +39,7 @@ apps/app/src/react-app/
   domains/
     session/       会话运行时：composer/surface/sync/sidebar/artifacts/browser/voice/goal
     local-agents/  ACP / 本地 agent 编辑、卡片、agent-management
-    messaging/     自动化 + 飞书/微信等 messaging channels
+    messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
     settings/      设置 shell + pages + state stores
@@ -217,3 +217,4 @@ scripts/release/      release review, prepare, ship, and asset publishing
 - 推荐阅读入口：`graphify-out/GRAPH_REPORT.md`（文本报告）与 `graphify query` / `graphify affected` CLI。完整交互 HTML（如 `graph.html` / `GRAPH_TREE.html`）对超大图不稳定，**不是**当前必需产物。
 - 没有 `GEMINI_API_KEY` / `GOOGLE_API_KEY` 时，Graphify 主要维护 AST/结构关系；配置 LLM key 后可增加 docs/images/语义关系抽取。
 - 修改代码后按 `AGENTS.md` 规则运行 `graphify update .`；如果无法运行，必须记录原因到本地 `.loop/runs/YYYY-MM-DD.md` 或 `.loop/state/intent-debt.md`。
+- 大型重构后本地再跑一次 `graphify update .`（输出在 gitignored 的 `graphify-out/`）。
