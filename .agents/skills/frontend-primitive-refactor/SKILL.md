@@ -1,10 +1,12 @@
 ---
 name: frontend-primitive-refactor
-description: OnMyAgent frontend primitive refactor workflow. Use when editing UI components, aligning same-type component sizes, reducing arbitrary Tailwind classes, migrating repeated button/input/badge/icon/status/loading/code/card patterns into shared primitives, or preventing design-token drift while coding.
+description: >
+  OnMyAgent frontend primitive refactor workflow. Use when editing UI components,
+  aligning same-type component sizes, reducing arbitrary Tailwind classes,
+  migrating repeated button/input/badge/icon/status/loading/code/card patterns
+  into shared primitives, or preventing design-token drift while coding.
 display_name_zh: "前端组件复用与尺寸统一"
 display_name_en: "Frontend Primitive Refactor"
-description_zh: "约束 AI 写 UI 时先复用现有 primitive、统一尺寸、扫描偏移并记录剩余债务"
-description_en: "Guide UI coding toward shared primitives, consistent sizes, token-safe styling, scans, and validation evidence"
 ---
 
 # Frontend Primitive Refactor
@@ -112,7 +114,7 @@ Do not add page-specific arbitrary sizes to solve a local alignment issue. If a 
 Use the bundled scanner when possible:
 
 ```sh
-.codex/skills/frontend-primitive-refactor/scripts/ui-primitive-scan.sh .
+.agents/skills/frontend-primitive-refactor/scripts/ui-primitive-scan.sh .
 ```
 
 Focused ad hoc scans are also acceptable:
@@ -130,7 +132,7 @@ Minimum validation after edits:
 
 ```sh
 git diff --check
-.codex/skills/frontend-primitive-refactor/scripts/ui-primitive-scan.sh .
+.agents/skills/frontend-primitive-refactor/scripts/ui-primitive-scan.sh .
 ```
 
 Add type/build checks when the changed surface warrants it or the user asks:

@@ -223,7 +223,7 @@ map before leaving it in page JSX.
 
 Current source-level targets for page styling (run these `rg` checks as
 part of a `frontend-primitive-refactor` audit; see
-[`.codex/skills/frontend-primitive-refactor/SKILL.md`](../../.codex/skills/frontend-primitive-refactor/SKILL.md)):
+[`.agents/skills/frontend-primitive-refactor/SKILL.md`](../../.agents/skills/frontend-primitive-refactor/SKILL.md)):
 
 For token-level drift between `DESIGN.md` YAML and the code-side sources
 (colors / typography / radii), run `pnpm task check design`. Add `-- --strict`
