@@ -12,7 +12,7 @@ OnMyAgent UI work should improve consistency without turning pages into one-off 
 
 1. Inspect current dirty state with `git status --short --branch`.
 2. Read the relevant primitive files in `apps/app/src/components/ui/` before editing.
-3. Run `.codex/skills/frontend-primitive-refactor/scripts/ui-primitive-scan.sh .` for baseline counts when the task is broad.
+3. Run `.agents/skills/frontend-primitive-refactor/scripts/ui-primitive-scan.sh .` for baseline counts when the task is broad.
 4. Classify hits as convert, keep, or review.
 5. Change one component family or one small UI surface per round.
 6. Validate with `git diff --check` and focused scans.

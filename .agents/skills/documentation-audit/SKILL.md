@@ -1,10 +1,13 @@
 ---
 name: documentation-audit
-description: OnMyAgent documentation audit workflow. Use when scanning project docs for stale commands, old branding, broken links, duplicated state, roadmap drift, generated report clutter, local .loop state rules, or when updating README, Architecture, BUILD, AGENTS, loop-rules, package README files, and project Codex/OpenCode skills.
+description: >
+  OnMyAgent documentation audit workflow. Use when scanning project docs for
+  stale commands, old branding, broken links, duplicated state, roadmap drift,
+  generated report clutter, local .loop state rules, or when updating README,
+  Architecture, BUILD, AGENTS, loop-rules, package README files, and project
+  skills under .agents/skills.
 display_name_zh: "文档一致性巡检"
 display_name_en: "Documentation Audit"
-description_zh: "扫描并修复 OnMyAgent 文档中的旧命令、旧命名、断链、状态文档膨胀和路线图漂移"
-description_en: "Audit OnMyAgent docs for stale commands, naming drift, broken links, state bloat, and roadmap drift"
 ---
 
 # Documentation Audit
@@ -61,7 +64,7 @@ docs/
 | Local packaging | `BUILD.md` |
 | Release / tags | `docs/release.md` |
 | Package docs | `apps/*/README.md`, `packages/*/README.md` |
-| Project skills | `.codex/skills/*/SKILL.md`, `.opencode/skills/*/SKILL.md` |
+| Project skills | `.agents/skills/*/SKILL.md` (symlinked for Codex/Claude/Grok) |
 | Local execution plans / feature drafts | `.loop/` only |
 | Ignored paths | `docs/plans/`, `docs/archive/`, `docs/features/`, `.loop/*` |
 | Skill sync strategy | `references/skills-sync.md` |
@@ -147,7 +150,8 @@ PY
 - Update `README.md` and `README-zh.md` together for public capability or roadmap changes.
 - Update package README files when root command wrappers supersede package-private commands.
 - Do not edit generated/runtime docs under `apps/desktop/dist-electron/**`, `graphify-out/**`, or runtime cache paths.
-- Treat bundled skills as product content: `.opencode/skills/**`, `.codex/skills/**`, and `apps/desktop/resources/bundled-skills/**` may intentionally differ. Do not mass-sync them without a product reason.
+- Engineering skills live only under `.agents/skills/**`. Tool dirs (`.codex/skills`, `.claude/skills`, `.grok/skills`) are symlinks — do not fork copies.
+- Desktop product skills under `apps/desktop/resources/bundled-skills/**` stay real files and may intentionally differ.
 
 ## Recommended Fix Order
 
@@ -156,14 +160,14 @@ PY
 3. Public docs: align `README.md`, `README-zh.md`, `CONTRIBUTING.md`, and `BUILD.md` with current commands and capabilities.
 4. Architecture docs: align `docs/Architecture.md` and `apps/app/src/react-app/ARCHITECTURE.md` with actual package boundaries.
 5. Package docs: update `apps/*/README.md` and `packages/*/README.md` with root command wrappers and valid links.
-6. Skill docs: update only the relevant project skill and explain whether `.codex` / `.opencode` / bundled copies should diverge or be synced.
+6. Skill docs: edit only under `.agents/skills/`; never fork copies under symlink harness dirs.
 
 ## Skills Sync Guidance
 
 - Keep bundled desktop skills as real files, not symlinks, unless packaging has been explicitly verified on all targets.
-- `.codex/skills/documentation-audit/` and `.opencode/skills/documentation-audit/` should stay synchronized.
-- Use `references/skills-sync.md` as the planning source for any future `.agent/skills` source-of-truth migration.
-- Do not migrate all bundled skills in a documentation cleanup round unless the user explicitly approves that scope.
+- Keep `.agents/skills/` as the only engineering skill source; harnesses reach it via symlink.
+- Use `references/skills-sync.md` for the layout contract.
+- Do not migrate desktop `bundled-skills` into `.agents/skills` unless the user explicitly approves that product change.
 
 ## Validation
 

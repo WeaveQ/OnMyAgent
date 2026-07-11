@@ -19,7 +19,7 @@ This project follows a lightweight changelog format during early development. Re
 - React app domain extraction: plugins, messaging, local-agents, workspace, shell-feedback, and connections ownership clarified; `shared/` reduced to infra only.
 - `@onmyagent/ui` is React-only (`@onmyagent/ui/react`); Solid export and unused Paper mesh helpers removed.
 - Documentation layout under `docs/`: map (`README.md`), `Architecture.md`, `release.md`, `loop/{rules,incidents}.md`, `design/`. Plan/feature draft trees (`docs/plans`, `docs/archive`, `docs/features`) removed and gitignored; use `.loop/`.
-
+- Engineering skills live under `.agents/skills/` with symlinks for Codex/Claude/Grok (`.codex/skills`, `.claude/skills`, `.grok/skills`). Added `CLAUDE.md` → `AGENTS.md` and `skills-audit`.
 ### Security
 
 - Documented public contribution and support paths for safe issue reporting.

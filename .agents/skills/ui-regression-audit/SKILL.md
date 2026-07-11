@@ -1,10 +1,12 @@
 ---
 name: ui-regression-audit
-description: OnMyAgent UI regression audit for theme consistency, i18n copy, settings pages, and screenshot-based visual checks. Use when scanning UI regressions, verifying design-system token usage, checking mixed Chinese/English copy, or producing page-by-page visual audit reports.
+description: >
+  OnMyAgent UI regression audit for theme consistency, i18n copy, settings pages,
+  and screenshot-based visual checks. Use when scanning UI regressions, verifying
+  design-system token usage, checking mixed Chinese/English copy, or producing
+  page-by-page visual audit reports.
 display_name_zh: "UI 回归巡检"
 display_name_en: "UI Regression Audit"
-description_zh: "沉淀 OnMyAgent 的主题一致性、文案国际化、页面截图与验证回归流程"
-description_en: "Audit OnMyAgent theme consistency, i18n copy, page screenshots, and regression evidence"
 ---
 
 # UI Regression Audit
