@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { WorkspaceDisplay } from "../src/app/types";
-import { createOpenworkServerStore } from "../src/react-app/domains/shared/onmyagent-server-store";
+import { createOnMyAgentServerStore } from "../src/react-app/domains/shared/onmyagent-server-store";
 
 const localWorkspace = {
   id: "local-workspace",
@@ -12,7 +12,7 @@ const localWorkspace = {
 } satisfies WorkspaceDisplay;
 
 const createStore = (startupPreference: () => "local" | "server" | null = () => null) =>
-  createOpenworkServerStore({
+  createOnMyAgentServerStore({
     startupPreference,
     documentVisible: () => true,
     developerMode: () => false,
@@ -42,7 +42,7 @@ describe("shared onmyagent server store contract", () => {
       changes += 1;
     });
 
-    store.setOpenworkServerSettings({
+    store.setOnMyAgentServerSettings({
       urlOverride: " http://127.0.0.1:4111 ",
       token: "client-token",
       hostToken: "host-token",
@@ -56,7 +56,7 @@ describe("shared onmyagent server store contract", () => {
     expect(snapshot.onmyagentServerClient).not.toBeNull();
 
     unsubscribe();
-    store.setOpenworkServerSettings({});
+    store.setOnMyAgentServerSettings({});
     expect(changes).toBe(1);
   });
 });

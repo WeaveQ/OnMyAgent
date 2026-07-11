@@ -1,5 +1,5 @@
 import { t } from "../../../../i18n";
-import type { OpenworkWorkspaceFileCatalogEntry } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentWorkspaceFileCatalogEntry } from "../../../../app/lib/onmyagent-server";
 
 export type WorkspaceFileTreeNode = {
   name: string;
@@ -55,7 +55,7 @@ export function formatWorkspaceFileTime(value: number) {
 
 function addWorkspaceFileTreeEntry(
   root: WorkspaceFileTreeNode,
-  entry: OpenworkWorkspaceFileCatalogEntry,
+  entry: OnMyAgentWorkspaceFileCatalogEntry,
 ) {
   const parts = entry.path.split("/").filter(Boolean);
   let parent = root;
@@ -95,7 +95,7 @@ function sortWorkspaceFileTree(node: WorkspaceFileTreeNode) {
 }
 
 export function buildWorkspaceFileTree(
-  entries: OpenworkWorkspaceFileCatalogEntry[],
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): WorkspaceFileTreeNode {
   const root: WorkspaceFileTreeNode = {
     name: t("files.workspace"),
@@ -165,7 +165,7 @@ export function filterHiddenFromTree(
 }
 
 export function buildFileHierarchy(
-  entries: OpenworkWorkspaceFileCatalogEntry[],
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): TaskGroup[] {
   const filtered = entries.filter((entry) => !shouldHideEntry(entry.path));
   const rawTree = buildWorkspaceFileTree(filtered);

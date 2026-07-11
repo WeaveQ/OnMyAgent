@@ -6,22 +6,22 @@ import { isDesktopRuntime } from "../../../app/utils";
 import {
   onmyagentServerInfo,
   onmyagentServerRestart,
-  type OpenworkServerInfo,
+  type OnMyAgentServerInfo,
 } from "../../../app/lib/desktop";
 import {
-  clearOpenworkServerSettings,
-  createOpenworkServerClient,
-  isLoopbackOpenworkServerUrl,
-  normalizeOpenworkServerUrl,
-  readOpenworkServerSettings,
-  writeOpenworkServerSettings,
-  type OpenworkAuditEntry,
-  type OpenworkServerCapabilities,
-  type OpenworkServerClient,
-  type OpenworkServerDiagnostics,
-  type OpenworkServerError,
-  type OpenworkServerSettings,
-  type OpenworkServerStatus,
+  clearOnMyAgentServerSettings,
+  createOnMyAgentServerClient,
+  isLoopbackOnMyAgentServerUrl,
+  normalizeOnMyAgentServerUrl,
+  readOnMyAgentServerSettings,
+  writeOnMyAgentServerSettings,
+  type OnMyAgentAuditEntry,
+  type OnMyAgentServerCapabilities,
+  type OnMyAgentServerClient,
+  type OnMyAgentServerDiagnostics,
+  type OnMyAgentServerError,
+  type OnMyAgentServerSettings,
+  type OnMyAgentServerStatus,
 } from "../../../app/lib/onmyagent-server";
 
 type SetStateAction<T> = T | ((current: T) => T);
@@ -33,33 +33,33 @@ type RemoteWorkspaceInput = {
   displayName?: string | null;
 };
 
-export type OpenworkServerStoreSnapshot = {
-  onmyagentServerSettings: OpenworkServerSettings;
+export type OnMyAgentServerStoreSnapshot = {
+  onmyagentServerSettings: OnMyAgentServerSettings;
   shareRemoteAccessBusy: boolean;
   shareRemoteAccessError: string | null;
   onmyagentServerUrl: string;
   onmyagentServerBaseUrl: string;
   onmyagentServerAuth: { token?: string; hostToken?: string };
-  onmyagentServerClient: OpenworkServerClient | null;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerCapabilities: OpenworkServerCapabilities | null;
+  onmyagentServerClient: OnMyAgentServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
   onmyagentServerReady: boolean;
   onmyagentServerWorkspaceReady: boolean;
-  resolvedOpenworkCapabilities: OpenworkServerCapabilities | null;
+  resolvedOnMyAgentCapabilities: OnMyAgentServerCapabilities | null;
   onmyagentServerCanWriteSkills: boolean;
   onmyagentServerCanWritePlugins: boolean;
-  onmyagentServerHostInfo: OpenworkServerInfo | null;
-  onmyagentServerDiagnostics: OpenworkServerDiagnostics | null;
+  onmyagentServerHostInfo: OnMyAgentServerInfo | null;
+  onmyagentServerDiagnostics: OnMyAgentServerDiagnostics | null;
   onmyagentReconnectBusy: boolean;
-  onmyagentAuditEntries: OpenworkAuditEntry[];
+  onmyagentAuditEntries: OnMyAgentAuditEntry[];
   onmyagentAuditStatus: "idle" | "loading" | "error";
   onmyagentAuditError: string | null;
   devtoolsWorkspaceId: string | null;
 };
 
-export type OpenworkServerStore = ReturnType<typeof createOpenworkServerStore>;
+export type OnMyAgentServerStore = ReturnType<typeof createOnMyAgentServerStore>;
 
-type CreateOpenworkServerStoreOptions = {
+type CreateOnMyAgentServerStoreOptions = {
   startupPreference: () => StartupPreference | null;
   documentVisible: () => boolean;
   developerMode: () => boolean;
@@ -71,18 +71,18 @@ type CreateOpenworkServerStoreOptions = {
 };
 
 type MutableState = {
-  onmyagentServerSettings: OpenworkServerSettings;
+  onmyagentServerSettings: OnMyAgentServerSettings;
   shareRemoteAccessBusy: boolean;
   shareRemoteAccessError: string | null;
   onmyagentServerUrl: string;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerCapabilities: OpenworkServerCapabilities | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
   onmyagentServerCheckedAt: number | null;
-  onmyagentServerHostInfo: OpenworkServerInfo | null;
+  onmyagentServerHostInfo: OnMyAgentServerInfo | null;
   onmyagentServerHostInfoReady: boolean;
-  onmyagentServerDiagnostics: OpenworkServerDiagnostics | null;
+  onmyagentServerDiagnostics: OnMyAgentServerDiagnostics | null;
   onmyagentReconnectBusy: boolean;
-  onmyagentAuditEntries: OpenworkAuditEntry[];
+  onmyagentAuditEntries: OnMyAgentAuditEntry[];
   onmyagentAuditStatus: "idle" | "loading" | "error";
   onmyagentAuditError: string | null;
   devtoolsWorkspaceId: string | null;
@@ -91,13 +91,13 @@ type MutableState = {
 const applyStateAction = <T,>(current: T, next: SetStateAction<T>) =>
   typeof next === "function" ? (next as (value: T) => T)(current) : next;
 
-export function createOpenworkServerStore(options: CreateOpenworkServerStoreOptions) {
+export function createOnMyAgentServerStore(options: CreateOnMyAgentServerStoreOptions) {
   const bootStartedAt = Date.now();
   const listeners = new Set<() => void>();
   const intervals = new Map<string, number>();
 
   let clientCacheKey = "";
-  let clientCacheValue: OpenworkServerClient | null = null;
+  let clientCacheValue: OnMyAgentServerClient | null = null;
   let started = false;
   let disposed = false;
   let healthTimeoutId: number | null = null;
@@ -105,10 +105,10 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
   let healthDelayMs = 10_000;
   let consecutiveHealthFailures = 0;
   let visibilityChangeHandler: (() => void) | null = null;
-  let snapshot: OpenworkServerStoreSnapshot;
+  let snapshot: OnMyAgentServerStoreSnapshot;
 
   let state: MutableState = {
-    onmyagentServerSettings: readOpenworkServerSettings(),
+    onmyagentServerSettings: readOnMyAgentServerSettings(),
     shareRemoteAccessBusy: false,
     shareRemoteAccessError: null,
     onmyagentServerUrl: "",
@@ -132,10 +132,10 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
   const getBaseUrl = () => {
     const pref = options.startupPreference();
     const hostInfo = state.onmyagentServerHostInfo;
-    const settingsUrl = normalizeOpenworkServerUrl(state.onmyagentServerSettings.urlOverride ?? "") ?? "";
+    const settingsUrl = normalizeOnMyAgentServerUrl(state.onmyagentServerSettings.urlOverride ?? "") ?? "";
 
     if (pref === "local") return hostInfo?.baseUrl ?? "";
-    if (pref === "server" && settingsUrl && isLoopbackOpenworkServerUrl(settingsUrl) && hostInfo?.baseUrl) {
+    if (pref === "server" && settingsUrl && isLoopbackOnMyAgentServerUrl(settingsUrl) && hostInfo?.baseUrl) {
       return hostInfo.baseUrl;
     }
     if (pref === "server") return settingsUrl;
@@ -145,7 +145,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
   const getAuth = () => {
     const pref = options.startupPreference();
     const hostInfo = state.onmyagentServerHostInfo;
-    const settingsUrl = normalizeOpenworkServerUrl(state.onmyagentServerSettings.urlOverride ?? "") ?? "";
+    const settingsUrl = normalizeOnMyAgentServerUrl(state.onmyagentServerSettings.urlOverride ?? "") ?? "";
     const settingsToken = state.onmyagentServerSettings.token?.trim() ?? "";
     const settingsHostToken = state.onmyagentServerSettings.hostToken?.trim() ?? "";
     const clientToken = hostInfo?.clientToken?.trim() ?? "";
@@ -154,7 +154,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     if (pref === "local") {
       return { token: clientToken || undefined, hostToken: hostToken || undefined };
     }
-    if (pref === "server" && settingsUrl && isLoopbackOpenworkServerUrl(settingsUrl) && hostInfo?.baseUrl) {
+    if (pref === "server" && settingsUrl && isLoopbackOnMyAgentServerUrl(settingsUrl) && hostInfo?.baseUrl) {
       return {
         token: clientToken || settingsToken || undefined,
         hostToken: hostToken || settingsHostToken || undefined,
@@ -163,7 +163,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     if (pref === "server") {
       return {
         token: settingsToken || undefined,
-        hostToken: settingsUrl && isLoopbackOpenworkServerUrl(settingsUrl) ? settingsHostToken || undefined : undefined,
+        hostToken: settingsUrl && isLoopbackOnMyAgentServerUrl(settingsUrl) ? settingsHostToken || undefined : undefined,
       };
     }
     if (hostInfo?.baseUrl) {
@@ -171,7 +171,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     }
     return {
       token: settingsToken || undefined,
-      hostToken: settingsUrl && isLoopbackOpenworkServerUrl(settingsUrl) ? settingsHostToken || undefined : undefined,
+      hostToken: settingsUrl && isLoopbackOnMyAgentServerUrl(settingsUrl) ? settingsHostToken || undefined : undefined,
     };
   };
 
@@ -187,7 +187,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     const key = `${baseUrl}::${auth.token ?? ""}::${auth.hostToken ?? ""}`;
     if (key !== clientCacheKey) {
       clientCacheKey = key;
-      clientCacheValue = createOpenworkServerClient({
+      clientCacheValue = createOnMyAgentServerClient({
         baseUrl,
         token: auth.token,
         hostToken: auth.hostToken,
@@ -202,12 +202,12 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     const onmyagentServerClient = getClient();
     const onmyagentServerReady = state.onmyagentServerStatus === "connected";
     const onmyagentServerWorkspaceReady = Boolean(options.runtimeWorkspaceId());
-    const resolvedOpenworkCapabilities = state.onmyagentServerCapabilities;
+    const resolvedOnMyAgentCapabilities = state.onmyagentServerCapabilities;
 
     const pref = options.startupPreference();
     const info = state.onmyagentServerHostInfo;
     const hostUrl = info?.connectUrl ?? info?.lanUrl ?? info?.mdnsUrl ?? info?.baseUrl ?? "";
-    const settingsUrl = normalizeOpenworkServerUrl(state.onmyagentServerSettings.urlOverride ?? "") ?? "";
+    const settingsUrl = normalizeOnMyAgentServerUrl(state.onmyagentServerSettings.urlOverride ?? "") ?? "";
 
     let onmyagentServerUrl = hostUrl || settingsUrl;
     if (pref === "local") onmyagentServerUrl = hostUrl;
@@ -226,13 +226,13 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       onmyagentServerCapabilities: state.onmyagentServerCapabilities,
       onmyagentServerReady,
       onmyagentServerWorkspaceReady,
-      resolvedOpenworkCapabilities,
+      resolvedOnMyAgentCapabilities,
       onmyagentServerCanWriteSkills:
         onmyagentServerReady &&
-        (resolvedOpenworkCapabilities?.skills?.write ?? false),
+        (resolvedOnMyAgentCapabilities?.skills?.write ?? false),
       onmyagentServerCanWritePlugins:
         onmyagentServerReady &&
-        (resolvedOpenworkCapabilities?.plugins?.write ?? false),
+        (resolvedOnMyAgentCapabilities?.plugins?.write ?? false),
       onmyagentServerHostInfo: state.onmyagentServerHostInfo,
       onmyagentServerDiagnostics: state.onmyagentServerDiagnostics,
       onmyagentReconnectBusy: state.onmyagentReconnectBusy,
@@ -254,20 +254,20 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     mutateState((current) => ({ ...current, [key]: value }));
   };
 
-  const setOpenworkServerSettings = (next: SetStateAction<OpenworkServerSettings>) => {
+  const setOnMyAgentServerSettings = (next: SetStateAction<OnMyAgentServerSettings>) => {
     const resolved = applyStateAction(state.onmyagentServerSettings, next);
     mutateState((current) => ({ ...current, onmyagentServerSettings: resolved }));
     queueHealthCheck(0);
   };
 
-  const updateOpenworkServerSettings = (next: OpenworkServerSettings) => {
-    const stored = writeOpenworkServerSettings(next);
+  const updateOnMyAgentServerSettings = (next: OnMyAgentServerSettings) => {
+    const stored = writeOnMyAgentServerSettings(next);
     mutateState((current) => ({ ...current, onmyagentServerSettings: stored }));
     queueHealthCheck(0);
   };
 
-  const resetOpenworkServerSettings = () => {
-    clearOpenworkServerSettings();
+  const resetOnMyAgentServerSettings = () => {
+    clearOnMyAgentServerSettings();
     mutateState((current) => ({ ...current, onmyagentServerSettings: {} }));
     queueHealthCheck(0);
   };
@@ -277,37 +277,37 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     options.startupPreference() !== "server" &&
     !state.onmyagentServerHostInfoReady;
 
-  const shouldRetryStartupCheck = (status: OpenworkServerStatus) =>
+  const shouldRetryStartupCheck = (status: OnMyAgentServerStatus) =>
     status !== "connected" &&
     isDesktopRuntime() &&
     options.startupPreference() !== "server" &&
     Date.now() - bootStartedAt < 5_000;
 
-  const checkOpenworkServer = async (url: string, token?: string, hostToken?: string) => {
-    const client = createOpenworkServerClient({ baseUrl: url, token, hostToken });
+  const checkOnMyAgentServer = async (url: string, token?: string, hostToken?: string) => {
+    const client = createOnMyAgentServerClient({ baseUrl: url, token, hostToken });
     try {
       await client.health();
     } catch (error) {
-      const resolved = error as OpenworkServerError | Error;
+      const resolved = error as OnMyAgentServerError | Error;
       if ("status" in resolved && (resolved.status === 401 || resolved.status === 403)) {
-        return { status: "limited" as OpenworkServerStatus, capabilities: null };
+        return { status: "limited" as OnMyAgentServerStatus, capabilities: null };
       }
-      return { status: "disconnected" as OpenworkServerStatus, capabilities: null };
+      return { status: "disconnected" as OnMyAgentServerStatus, capabilities: null };
     }
 
     if (!token) {
-      return { status: "limited" as OpenworkServerStatus, capabilities: null };
+      return { status: "limited" as OnMyAgentServerStatus, capabilities: null };
     }
 
     try {
       const capabilities = await client.capabilities();
-      return { status: "connected" as OpenworkServerStatus, capabilities };
+      return { status: "connected" as OnMyAgentServerStatus, capabilities };
     } catch (error) {
-      const resolved = error as OpenworkServerError | Error;
+      const resolved = error as OnMyAgentServerError | Error;
       if ("status" in resolved && (resolved.status === 401 || resolved.status === 403)) {
-        return { status: "limited" as OpenworkServerStatus, capabilities: null };
+        return { status: "limited" as OnMyAgentServerStatus, capabilities: null };
       }
-      return { status: "disconnected" as OpenworkServerStatus, capabilities: null };
+      return { status: "disconnected" as OnMyAgentServerStatus, capabilities: null };
     }
   };
 
@@ -354,14 +354,14 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
 
     healthBusy = true;
     try {
-      let result = await checkOpenworkServer(url, auth.token, auth.hostToken);
+      let result = await checkOnMyAgentServer(url, auth.token, auth.hostToken);
 
       if (shouldRetryStartupCheck(result.status)) {
         await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
         if (disposed) return;
 
         try {
-          const info = await onmyagentServerInfo() as OpenworkServerInfo;
+          const info = await onmyagentServerInfo() as OnMyAgentServerInfo;
           if (disposed) return;
 
           mutateState((current) => ({
@@ -374,7 +374,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
           const retryToken = info.clientToken?.trim() || undefined;
           const retryHostToken = info.hostToken?.trim() || undefined;
           if (retryUrl) {
-            result = await checkOpenworkServer(retryUrl, retryToken, retryHostToken);
+            result = await checkOnMyAgentServer(retryUrl, retryToken, retryHostToken);
           }
         } catch {
           // Preserve the original check result when the retry probe fails.
@@ -425,7 +425,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     if (!port) return;
     if (state.onmyagentServerSettings.portOverride === port) return;
 
-    updateOpenworkServerSettings({
+    updateOnMyAgentServerSettings({
       ...state.onmyagentServerSettings,
       portOverride: port,
     });
@@ -468,7 +468,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       if (!options.documentVisible()) return;
       void (async () => {
         try {
-          const info = await onmyagentServerInfo() as OpenworkServerInfo;
+          const info = await onmyagentServerInfo() as OnMyAgentServerInfo;
           if (disposed) return;
           mutateState((current) => ({
             ...current,
@@ -611,8 +611,8 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     for (const key of [...intervals.keys()]) stopInterval(key);
   };
 
-  const testOpenworkServerConnection = async (next: OpenworkServerSettings) => {
-    const derived = normalizeOpenworkServerUrl(next.urlOverride ?? "");
+  const testOnMyAgentServerConnection = async (next: OnMyAgentServerSettings) => {
+    const derived = normalizeOnMyAgentServerUrl(next.urlOverride ?? "");
     if (!derived) {
       mutateState((current) => ({
         ...current,
@@ -623,7 +623,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       return false;
     }
 
-    const result = await checkOpenworkServer(derived, next.token);
+    const result = await checkOnMyAgentServer(derived, next.token);
     consecutiveHealthFailures = result.status === "disconnected" ? consecutiveHealthFailures + 1 : 0;
     mutateState((current) => ({
       ...current,
@@ -651,7 +651,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     return ok;
   };
 
-  const reconnectOpenworkServer = async () => {
+  const reconnectOnMyAgentServer = async () => {
     if (state.onmyagentReconnectBusy) return false;
     setStateField("onmyagentReconnectBusy", true);
 
@@ -659,7 +659,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       let hostInfo = state.onmyagentServerHostInfo;
       if (isDesktopRuntime()) {
         try {
-          hostInfo = await onmyagentServerInfo() as OpenworkServerInfo;
+          hostInfo = await onmyagentServerInfo() as OnMyAgentServerInfo;
           mutateState((current) => ({ ...current, onmyagentServerHostInfo: hostInfo }));
         } catch {
           hostInfo = null;
@@ -671,7 +671,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
         const liveToken = hostInfo.clientToken.trim();
         const settings = state.onmyagentServerSettings;
         if ((settings.token?.trim() ?? "") !== liveToken) {
-          updateOpenworkServerSettings({ ...settings, token: liveToken });
+          updateOnMyAgentServerSettings({ ...settings, token: liveToken });
         }
       }
 
@@ -687,7 +687,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
         return false;
       }
 
-      const result = await checkOpenworkServer(url, auth.token, auth.hostToken);
+      const result = await checkOnMyAgentServer(url, auth.token, auth.hostToken);
       mutateState((current) => ({
         ...current,
         onmyagentServerStatus: result.status,
@@ -700,10 +700,10 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     }
   };
 
-  async function ensureLocalOpenworkServerClient(): Promise<OpenworkServerClient | null> {
+  async function ensureLocalOnMyAgentServerClient(): Promise<OnMyAgentServerClient | null> {
     let hostInfo = state.onmyagentServerHostInfo;
     if (hostInfo?.baseUrl?.trim() && hostInfo.clientToken?.trim()) {
-      const existing = createOpenworkServerClient({
+      const existing = createOnMyAgentServerClient({
         baseUrl: hostInfo.baseUrl.trim(),
         token: hostInfo.clientToken.trim(),
         hostToken: hostInfo.hostToken?.trim() || undefined,
@@ -711,7 +711,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       try {
         await existing.health();
         if (options.startupPreference() !== "server") {
-          await reconnectOpenworkServer();
+          await reconnectOnMyAgentServer();
         }
         return existing;
       } catch {
@@ -724,7 +724,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     try {
       hostInfo = await onmyagentServerRestart({
         remoteAccessEnabled: state.onmyagentServerSettings.remoteAccessEnabled === true,
-      }) as OpenworkServerInfo;
+      }) as OnMyAgentServerInfo;
       mutateState((current) => ({ ...current, onmyagentServerHostInfo: hostInfo }));
     } catch {
       return null;
@@ -736,10 +736,10 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     if (!baseUrl || !token) return null;
 
     if (options.startupPreference() !== "server") {
-      await reconnectOpenworkServer();
+      await reconnectOnMyAgentServer();
     }
 
-    return createOpenworkServerClient({
+    return createOnMyAgentServerClient({
       baseUrl,
       token,
       hostToken: hostToken || undefined,
@@ -749,7 +749,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
   const saveShareRemoteAccess = async (enabled: boolean) => {
     if (state.shareRemoteAccessBusy) return;
     const previous = state.onmyagentServerSettings;
-    const next: OpenworkServerSettings = {
+    const next: OnMyAgentServerSettings = {
       ...previous,
       remoteAccessEnabled: enabled,
     };
@@ -759,7 +759,7 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       shareRemoteAccessBusy: true,
       shareRemoteAccessError: null,
     }));
-    updateOpenworkServerSettings(next);
+    updateOnMyAgentServerSettings(next);
 
     try {
       if (isDesktopRuntime() && options.selectedWorkspaceDisplay().workspaceType === "local") {
@@ -767,10 +767,10 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
         if (!restarted) {
           throw new Error(t("app.error_restart_local_worker"));
         }
-        await reconnectOpenworkServer();
+        await reconnectOnMyAgentServer();
       }
     } catch (error) {
-      updateOpenworkServerSettings(previous);
+      updateOnMyAgentServerSettings(previous);
       mutateState((current) => ({
         ...current,
         shareRemoteAccessError:
@@ -801,17 +801,17 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
     start,
     dispose,
     syncFromOptions,
-    setOpenworkServerSettings,
-    updateOpenworkServerSettings,
-    resetOpenworkServerSettings,
+    setOnMyAgentServerSettings,
+    updateOnMyAgentServerSettings,
+    resetOnMyAgentServerSettings,
     saveShareRemoteAccess,
-    checkOpenworkServer,
-    testOpenworkServerConnection,
-    reconnectOpenworkServer,
-    ensureLocalOpenworkServerClient,
+    checkOnMyAgentServer,
+    testOnMyAgentServerConnection,
+    reconnectOnMyAgentServer,
+    ensureLocalOnMyAgentServerClient,
   };
 }
 
-export function useOpenworkServerStoreSnapshot(store: OpenworkServerStore) {
+export function useOnMyAgentServerStoreSnapshot(store: OnMyAgentServerStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }

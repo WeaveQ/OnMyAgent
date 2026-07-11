@@ -4,7 +4,7 @@ import type {
   WorkspaceBlueprintSessionMessage,
   WorkspaceBlueprintSessionTemplate,
   WorkspaceBlueprintStarter,
-  WorkspaceOpenworkConfig,
+  WorkspaceOnMyAgentConfig,
 } from "../types";
 import { parseTemplateFrontmatter } from "../utils";
 import { t } from "../../i18n";
@@ -211,25 +211,25 @@ export function buildDefaultWorkspaceBlueprint(preset: string): WorkspaceBluepri
   };
 }
 
-export function blueprintSessions(config: WorkspaceOpenworkConfig | null | undefined): WorkspaceBlueprintSessionTemplate[] {
+export function blueprintSessions(config: WorkspaceOnMyAgentConfig | null | undefined): WorkspaceBlueprintSessionTemplate[] {
   return Array.isArray(config?.blueprint?.sessions)
     ? config!.blueprint!.sessions!.filter((item): item is WorkspaceBlueprintSessionTemplate => Boolean(item))
     : [];
 }
 
-export function blueprintMaterializedSessions(config: WorkspaceOpenworkConfig | null | undefined): WorkspaceBlueprintMaterializedSession[] {
+export function blueprintMaterializedSessions(config: WorkspaceOnMyAgentConfig | null | undefined): WorkspaceBlueprintMaterializedSession[] {
   return Array.isArray(config?.blueprint?.materialized?.sessions?.items)
     ? config!.blueprint!.materialized!.sessions!.items!.filter((item): item is WorkspaceBlueprintMaterializedSession => Boolean(item))
     : [];
 }
 
-export function normalizeWorkspaceOpenworkConfig(
+export function normalizeWorkspaceOnMyAgentConfig(
   value: unknown,
   preset?: string | null,
-): WorkspaceOpenworkConfig {
+): WorkspaceOnMyAgentConfig {
   const candidate =
     value && typeof value === "object"
-      ? (value as Partial<WorkspaceOpenworkConfig>)
+      ? (value as Partial<WorkspaceOnMyAgentConfig>)
       : {};
 
   const normalizedPreset =

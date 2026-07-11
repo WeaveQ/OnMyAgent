@@ -11,11 +11,12 @@ Local / ACP agent editing, cards, message timeline pieces, and agent-management 
 
 ## Public surface
 
-There is **no** domain-level `index.ts` yet. Callers import concrete modules under this folder.
-When adding new external callers, prefer introducing a barrel rather than deep-linking many paths.
+Domain barrel: `domains/local-agents/index.ts`. External callers (session host pages,
+session re-exports) import from the barrel. Internal modules may keep deep relative paths.
 
-Session host pages under `domains/session/chat/personal-local-agent-*` still import this domain
-directly; those edges are frozen in `check-boundaries.mjs` `allowedDomainImports` (shrink-only).
+Session host pages under `domains/session/chat/personal-local-agent-*` still cross the
+domain boundary via the barrel; those edges are frozen in `check-boundaries.mjs`
+`allowedDomainImports` (shrink-only).
 
 ## Lateral dependencies
 

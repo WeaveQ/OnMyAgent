@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { MenuRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionSnapshot,
+  OnMyAgentServerClient,
+  OnMyAgentSessionSnapshot,
 } from "../../../../../app/lib/onmyagent-server";
 import {
   DEFAULT_SESSION_TITLE,
@@ -82,7 +82,7 @@ function SessionTabMarqueeText({ title }: { title: string }) {
   );
 }
 
-function summarizeSessionSnapshotForTab(snapshot: OpenworkSessionSnapshot) {
+function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
   const previews = snapshot.messages
     .map(sessionMessagePreview)
     .filter(Boolean)
@@ -96,7 +96,7 @@ function summarizeSessionSnapshotForTab(snapshot: OpenworkSessionSnapshot) {
 }
 
 export function AgentSessionTabs(props: {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];

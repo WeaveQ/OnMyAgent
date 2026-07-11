@@ -65,25 +65,64 @@ import {
   scheduledTaskSessionContext,
   type HeartbeatDraft,
 } from "./personal-local-agent-scheduled-tasks";
-import { LocalAgentStatusRail } from "../../local-agents/local-agent-status-rail";
-import { LocalAgentDraftComposer, buildLocalAgentPrompt, type LocalAgentComposerSubmit, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
-import { elapsedSeconds, shortTime } from "../../local-agents/local-agent-formatters";
-import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, normalizeAcpSlashCommandList, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
-import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
-import { ChatBubble } from "../../local-agents/messages/chat-bubble";
-import { latestContextUsage } from "../../local-agents/context-usage-indicator";
-import type { ChatMessage } from "../../local-agents/messages/message-types";
-import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/message-utils";
-import { lastEventTime } from "../../local-agents/messages/timeline-messages";
-import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
-import type { LocalAgentRepairAction } from "../../local-agents/local-agent-repair-panel";
+import {
+  LocalAgentStatusRail,
+  LocalAgentDraftComposer,
+  buildLocalAgentPrompt,
+  type LocalAgentComposerSubmit,
+  type LocalAgentSlashCommand,
+  elapsedSeconds,
+  shortTime,
+  APPROVAL_MODE_OPTIONS,
+  DEFAULT_HEALTH_RESULT,
+  DEFAULT_HEARTBEAT_PROMPT,
+  LOCAL_AGENT_LIST_DEFAULT_WIDTH,
+  LOCAL_AGENT_LIST_MAX_WIDTH,
+  LOCAL_AGENT_LIST_MIN_WIDTH,
+  agentFromAcpMetadata,
+  agentIdFromChatKey,
+  builtinSlashCommands,
+  chooseInitialModel,
+  compactMessagesByAgent,
+  isUnsupportedNativeTranscriptError,
+  localAgentChatKey,
+  mergeSlashCommands,
+  nativeSessionResumeOnlyMessage,
+  normalizeAcpSlashCommands,
+  normalizeAcpSlashCommandList,
+  personalAgentApprovalModeKey,
+  personalAgentChatStateKey,
+  personalAgentModelPrefKey,
+  recoverActiveRunIds,
+  safeReadApprovalMode,
+  safeReadCachedAgents,
+  safeReadPersistedChatState,
+  safeWriteCachedAgents,
+  transcriptMessagesForAgent,
+  welcomeMessageForAgent,
+  providerIconUrl,
+  modelSelectorLabel,
+  type PersistedLocalAgentChatState,
+  type AgentHealthResult,
+  ChatBubble,
+  latestContextUsage,
+  type ChatMessage,
+  collectRunOpenTargets,
+  isRunFinal,
+  lastEventTime,
+  useAcpModelInfo,
+  type LocalAgentRepairAction,
+  useAcpInitialMessage,
+  WorkspaceFootnote,
+  addRecentWorkspace,
+  getRecentWorkspaces,
+  readWorkspaceOverride,
+  writeWorkspaceOverride,
+  useConversationHistoryHydration,
+} from "../../local-agents";
 import { SidebarPaneCollapseToggle } from "../components/shared-pages/sidebar-pane-collapse-toggle";
 import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
-import type { OpenworkServerClient } from "../../../../app/lib/onmyagent-server";
-import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message";
-import { WorkspaceFootnote } from "../../local-agents/workspace-picker/workspace-footnote";
-import { addRecentWorkspace, getRecentWorkspaces, readWorkspaceOverride, writeWorkspaceOverride } from "../../local-agents/workspace-picker/recent-workspaces"; 
-import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { useArchiveResume } from "./use-archive-resume";
 import { ActiveRunsOverview } from "./personal-local-agent-active-runs";
 import {
@@ -113,7 +152,7 @@ type PersonalLocalAgentPageProps = {
   onResumeConsumed?: () => void;
   /** OnMyAgent server client used to fetch archived session messages when
    *  resuming a cross-workspace / server-side session (see 诉求2). */
-  onmyagentServerClient?: OpenworkServerClient | null;
+  onmyagentServerClient?: OnMyAgentServerClient | null;
   /** Workspace id used to query the session-archive API (may differ from the
    *  local filesystem workspaceRoot). */
   runtimeWorkspaceId?: string | null;

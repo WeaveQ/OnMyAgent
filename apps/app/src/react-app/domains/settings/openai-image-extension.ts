@@ -1,6 +1,6 @@
 import { t } from "@/i18n";
 import { desktopFetch } from "../../../app/lib/desktop";
-import type { OpenworkServerClient } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 
 export type LocalProviderInstallInput = {
   providerId: string;
@@ -115,7 +115,7 @@ export function base64ToArrayBuffer(value: string) {
 
 export async function installOpenAiImageExtensionFiles(input: {
   apiKey: string;
-  client: Pick<OpenworkServerClient, "writeWorkspaceBinaryFile">;
+  client: Pick<OnMyAgentServerClient, "writeWorkspaceBinaryFile">;
   workspaceId: string;
 }) {
   const encoder = new TextEncoder();

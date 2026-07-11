@@ -40,8 +40,8 @@ src/react-app/
 `skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts`). Import via
 `domains/plugins` barrel.
 
-**`domains/local-agents/`** does not yet ship a domain-level `index.ts` barrel; shell
-and session import concrete paths. Prefer adding a barrel before new external callers.
+**`domains/local-agents/`** ships a domain-level `index.ts` barrel. Session host pages
+and re-exports import via the barrel; reverse edges into session remain whitelisted.
 
 Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` § 4 / § 4i).
 
@@ -130,7 +130,7 @@ edges are frozen in `scripts/checks/check-boundaries.mjs` `allowedDomainImports`
 
 | Path | Role |
 | --- | --- |
-| `env-context.ts` | Openwork/env system context helpers |
+| `env-context.ts` | OnMyAgent/env system context helpers |
 | `extension-state.ts` | Extension enable/hide flags |
 | `desktop-config-context.ts` | Desktop config context |
 | `onmyagent-server-store.ts` | Local server connection store |

@@ -1,5 +1,5 @@
 import type {
-  OpenworkSessionArchiveSession,
+  OnMyAgentSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
 
 export type SessionArchiveResumeRequest = {
@@ -40,9 +40,9 @@ export const VISIBLE_AGENTS = new Set([
 export const RESUMABLE_AGENTS = new Set(["opencode", "codex", "claude", "openclaw", "hermes"]);
 
 export function groupSessionsByAgent(
-  sessions: ReadonlyArray<OpenworkSessionArchiveSession>,
-): Array<{ agent: string; sessions: OpenworkSessionArchiveSession[] }> {
-  const byAgent = new Map<string, OpenworkSessionArchiveSession[]>();
+  sessions: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+): Array<{ agent: string; sessions: OnMyAgentSessionArchiveSession[] }> {
+  const byAgent = new Map<string, OnMyAgentSessionArchiveSession[]>();
   for (const session of sessions) {
     const list = byAgent.get(session.agent) ?? [];
     list.push(session);
@@ -54,7 +54,7 @@ export function groupSessionsByAgent(
 }
 
 export function buildResumeRequest(
-  session: OpenworkSessionArchiveSession | null,
+  session: OnMyAgentSessionArchiveSession | null,
 ): SessionArchiveResumeRequest | null {
   if (!session || !RESUMABLE_AGENTS.has(session.agent)) return null;
   const providerSessionId = session.id;

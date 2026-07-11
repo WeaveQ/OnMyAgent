@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 
 import {
-  OpenworkServerClient,
-  OpenworkServerError,
+  OnMyAgentServerClient,
+  OnMyAgentServerError,
 } from "../../../app/lib/onmyagent-server";
 import { isElectronRuntime } from "../../../app/utils";
 import {
@@ -107,7 +107,7 @@ export type { AgentCardItem } from "./agents-page-model";
 export type AgentsPageProps = {
   workspaceId: string;
   workspaceRoot: string;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   providers?: ProviderListItem[];
   connectedProviderIds?: string[];
   initialEditingAgentId?: string | null;
@@ -1509,7 +1509,7 @@ export function AgentsPage(props: AgentsPageProps) {
         } catch (error) {
           if (
             !(
-              error instanceof OpenworkServerError &&
+              error instanceof OnMyAgentServerError &&
               error.status === 404
             )
           ) {

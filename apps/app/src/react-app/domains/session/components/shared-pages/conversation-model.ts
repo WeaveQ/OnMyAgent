@@ -1,8 +1,8 @@
 import { t } from "../../../../../i18n";
 import type {
-  OpenworkServerStatus,
-  OpenworkSessionMessage,
-  OpenworkSessionSnapshot,
+  OnMyAgentServerStatus,
+  OnMyAgentSessionMessage,
+  OnMyAgentSessionSnapshot,
 } from "../../../../../app/lib/onmyagent-server";
 import {
   DEFAULT_SESSION_TITLE,
@@ -75,7 +75,7 @@ export type AgentStarterItem = {
 
 export function workspaceTaskStatus(
   clientConnected: boolean,
-  onmyagentServerStatus: OpenworkServerStatus,
+  onmyagentServerStatus: OnMyAgentServerStatus,
   loading: boolean,
 ): TaskStatusIndicator {
   if (loading) return { label: "正在准备工作区", variant: "loading" };
@@ -112,7 +112,7 @@ export function formatConversationTime(value: number | null | undefined) {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-function sessionMessageTime(message: OpenworkSessionMessage) {
+function sessionMessageTime(message: OnMyAgentSessionMessage) {
   const completed =
     "completed" in message.info.time ? message.info.time.completed : null;
   return (
@@ -121,7 +121,7 @@ function sessionMessageTime(message: OpenworkSessionMessage) {
   );
 }
 
-function messagePartPreview(part: OpenworkSessionMessage["parts"][number]) {
+function messagePartPreview(part: OnMyAgentSessionMessage["parts"][number]) {
   if (part.type === "text") {
     if (part.synthetic || part.ignored) return "";
     return part.text.trim();
@@ -133,7 +133,7 @@ function messagePartPreview(part: OpenworkSessionMessage["parts"][number]) {
   return "";
 }
 
-export function sessionMessagePreview(message: OpenworkSessionMessage) {
+export function sessionMessagePreview(message: OnMyAgentSessionMessage) {
   return message.parts
     .map(messagePartPreview)
     .filter(Boolean)
@@ -143,7 +143,7 @@ export function sessionMessagePreview(message: OpenworkSessionMessage) {
 }
 
 export function snapshotConversationSummary(
-  snapshot: OpenworkSessionSnapshot | undefined,
+  snapshot: OnMyAgentSessionSnapshot | undefined,
   fallbackTime: number | null | undefined,
 ) {
   if (!snapshot) {

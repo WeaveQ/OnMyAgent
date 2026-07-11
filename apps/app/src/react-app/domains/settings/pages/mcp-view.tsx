@@ -306,8 +306,8 @@ export function McpView(props: McpViewProps) {
   const [detailSkill, setDetailSkill] = useState<SkillItem | null>(null);
   const [detailSkillContent, setDetailSkillContent] = useState<string | null>(null);
   const [detailPlugin, setDetailPlugin] = useState<CloudImportedPlugin | null>(null);
-  const [onmyagentUiMcpCommand, setOpenworkUiMcpCommand] = useState<string[] | null>(null);
-  const [onmyagentUiMcpEnvironment, setOpenworkUiMcpEnvironment] = useState<Record<string, string> | null>(null);
+  const [onmyagentUiMcpCommand, setOnMyAgentUiMcpCommand] = useState<string[] | null>(null);
+  const [onmyagentUiMcpEnvironment, setOnMyAgentUiMcpEnvironment] = useState<Record<string, string> | null>(null);
   const [computerUseMcpCommand, setComputerUseMcpCommand] = useState<string[] | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ExtensionFilter>("all");
@@ -366,13 +366,13 @@ export function McpView(props: McpViewProps) {
     if (!isDesktopRuntime()) return;
     void (async () => {
       try {
-        const command = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("getOpenworkUiMcpCommand");
+        const command = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("getOnMyAgentUiMcpCommand");
         if (Array.isArray(command) && command.every((part) => typeof part === "string")) {
-          setOpenworkUiMcpCommand(command);
+          setOnMyAgentUiMcpCommand(command);
         }
-        const environment = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("getOpenworkUiMcpEnvironment");
+        const environment = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("getOnMyAgentUiMcpEnvironment");
         if (environment && typeof environment === "object" && !Array.isArray(environment)) {
-          setOpenworkUiMcpEnvironment(Object.fromEntries(
+          setOnMyAgentUiMcpEnvironment(Object.fromEntries(
             Object.entries(environment).filter((entry): entry is [string, string] =>
               typeof entry[0] === "string" && typeof entry[1] === "string"
             ),
@@ -383,8 +383,8 @@ export function McpView(props: McpViewProps) {
           setComputerUseMcpCommand(computerUseCommand);
         }
       } catch {
-        setOpenworkUiMcpCommand(null);
-        setOpenworkUiMcpEnvironment(null);
+        setOnMyAgentUiMcpCommand(null);
+        setOnMyAgentUiMcpEnvironment(null);
         setComputerUseMcpCommand(null);
       }
     })();

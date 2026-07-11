@@ -25,16 +25,16 @@ import {
   shellInSession,
 } from "../../app/lib/opencode-session";
 import {
-  buildOpenworkWorkspaceBaseUrl,
-  readOpenworkServerSettings,
-  type OpenworkServerClient,
+  buildOnMyAgentWorkspaceBaseUrl,
+  readOnMyAgentServerSettings,
+  type OnMyAgentServerClient,
 } from "../../app/lib/onmyagent-server";
 import {
   resolveWorkspaceEndpoint,
   workspaceServerId,
   type ResolvedWorkspaceEndpoint,
 } from "../../app/lib/workspace-endpoint";
-import { buildOpenworkEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
+import { buildOnMyAgentEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
 import { buildOnboardingProfileSystemPrompt } from "./onboarding-profile";
 import {
   describeRouteError,
@@ -213,7 +213,7 @@ import { useEnsureAgentRegistry } from "../domains/agents";
 import {
   installExpertPackage,
   pickDirectory,
-  type OpenworkServerInfo,
+  type OnMyAgentServerInfo,
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import type {
@@ -256,7 +256,7 @@ import { legacyAssistantRoute } from "./workspace-routes";
 import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
 import { useCheckDesktopRestriction, useRestrictionNotice } from "../domains/cloud";
 import { ReactSessionRuntime, useSessionActivityStore } from "../domains/session";
-import { buildOpenworkEnvSystemContext } from "../domains/shared/env-context";
+import { buildOnMyAgentEnvSystemContext } from "../domains/shared/env-context";
 import {
   assistantSessionWorkspacesChangedEvent,
   dispatchAssistantSessionWorkspacesChanged,
@@ -337,8 +337,8 @@ import { activateCreatedSessionRoute } from "./session-route-created-session-act
 import { useReactRenderWatchdog } from "./react-render-watchdog";
 
 import { filterProviderList } from "../../app/utils/providers";
-import { ensureDesktopLocalOpenworkConnection } from "./desktop-local-onmyagent";
-import { loadSessionOpenworkConnectionState } from "./session-route-server-actions";
+import { ensureDesktopLocalOnMyAgentConnection } from "./desktop-local-onmyagent";
+import { loadSessionOnMyAgentConnectionState } from "./session-route-server-actions";
 import { useReloadCoordinator } from "./reload-coordinator";
 import { getReactQueryClient } from "../infra/query-client";
 import { useStatusToasts } from "../domains/shell-feedback";
@@ -463,7 +463,7 @@ export function SessionRouteRender() {
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
-  const [client, setClient] = useState<OpenworkServerClient | null>(null);
+  const [client, setClient] = useState<OnMyAgentServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
   const [workspaces, setWorkspaces] = useState<RouteWorkspace[]>([]);
@@ -677,8 +677,8 @@ export function SessionRouteRender() {
   // options for whichever model is currently selected so the composer's
   // behavior pill actually shows its options (bug: was empty before).
   const [providerCatalog, setProviderCatalog] = useState<ProviderModelCatalog>({});
-  const [onmyagentServerHostInfoState, setOpenworkServerHostInfoState] =
-    useState<OpenworkServerInfo | null>(null);
+  const [onmyagentServerHostInfoState, setOnMyAgentServerHostInfoState] =
+    useState<OnMyAgentServerInfo | null>(null);
   useReactRenderWatchdog("SessionRoute", {
     selectedSessionId,
     selectedWorkspaceId,
@@ -688,14 +688,14 @@ export function SessionRouteRender() {
     commandPaletteOpen,
     modelPickerOpen,
   });
-  const [onmyagentServerSettingsVersion, setOpenworkServerSettingsVersion] =
+  const [onmyagentServerSettingsVersion, setOnMyAgentServerSettingsVersion] =
     useState(0);
   const [engineReloadVersion, setEngineReloadVersion] = useState(0);
   const routeEngineInfo = useRouteEngineInfo();
   const reconnectAttemptedWorkspaceIdRef = useRef("");
 
   const onmyagentServerSettings = useMemo(
-    () => readOpenworkServerSettings(),
+    () => readOnMyAgentServerSettings(),
     [onmyagentServerSettingsVersion],
   );
 
@@ -753,7 +753,7 @@ export function SessionRouteRender() {
         workspace: RouteWorkspace,
         attempt: number,
       ): Promise<void> => {
-        const isRemoteOpenworkWorkspace = isRemoteOnMyAgentWorkspace(workspace);
+        const remoteOnMyAgentWorkspace = isRemoteOnMyAgentWorkspace(workspace);
         const endpoint = endpointForWorkspace(workspace);
         if (!endpoint) {
           if (workspace.workspaceType === "remote") {
@@ -785,7 +785,7 @@ export function SessionRouteRender() {
           workspace.id,
           requestStartedAt,
         );
-        if (isRemoteOpenworkWorkspace) {
+        if (remoteOnMyAgentWorkspace) {
           setWorkspaceConnectionOverrides((current) =>
             applyWorkspaceSessionLoadingConnectionState({
               states: current,
@@ -799,7 +799,7 @@ export function SessionRouteRender() {
             client: endpoint.client,
             workspaceId: endpoint.workspaceId,
             workspaceRoot: workspace.path ?? "",
-            isRemoteOpenworkWorkspace,
+            isRemoteOnMyAgentWorkspace: remoteOnMyAgentWorkspace,
             assistantSessionRecords: readAssistantSessionWorkspaces(workspace.id),
             normalizeDirectoryPath,
           });
@@ -822,7 +822,7 @@ export function SessionRouteRender() {
             applyWorkspaceSessionLoadSuccessConnectionState({
               states: current,
               workspaceId: workspace.id,
-              isRemoteOpenworkWorkspace,
+              isRemoteOnMyAgentWorkspace: remoteOnMyAgentWorkspace,
               taskCount: sidebarItems.length,
               checkedAt: Date.now(),
               loadedMessage: t("workspace_list.connected_loaded_tasks", {
@@ -950,8 +950,8 @@ export function SessionRouteRender() {
       desktopList = desktopBootstrap.desktopList;
       desktopWorkspaces = desktopBootstrap.desktopWorkspaces;
 
-      const sessionConnection = await loadSessionOpenworkConnectionState();
-      setOpenworkServerHostInfoState(sessionConnection.hostInfo);
+      const sessionConnection = await loadSessionOnMyAgentConnectionState();
+      setOnMyAgentServerHostInfoState(sessionConnection.hostInfo);
       if (!sessionConnection.onmyagentClient) {
         // Keep `localServerRef` in lockstep with the disconnected state.
         // Otherwise a previously-cached baseUrl/token would still resolve a
@@ -1089,9 +1089,9 @@ export function SessionRouteRender() {
 
   const remoteAccessRestart = useRemoteAccessRestart({
     isEnabled: () => onmyagentServerSettings.remoteAccessEnabled === true,
-    onHostInfo: setOpenworkServerHostInfoState,
+    onHostInfo: setOnMyAgentServerHostInfoState,
     onSettingsChanged: () =>
-      setOpenworkServerSettingsVersion((value) => value + 1),
+      setOnMyAgentServerSettingsVersion((value) => value + 1),
   });
 
   const reloadWorkspaceEngineFromUi = useCallback(async () => {
@@ -1283,7 +1283,7 @@ export function SessionRouteRender() {
     })();
 
     const handleSettingsChange = () => {
-      setOpenworkServerSettingsVersion((value) => value + 1);
+      setOnMyAgentServerSettingsVersion((value) => value + 1);
       // Self-heal: if the previous refresh got stuck mid-flight (e.g. macOS
       // backgrounded the webview and never let a fetch resolve), clear the
       // guard so a re-entry after resume actually goes through.
@@ -1494,7 +1494,7 @@ export function SessionRouteRender() {
       return;
     reconnectAttemptedWorkspaceIdRef.current = workspaceId;
 
-    void ensureDesktopLocalOpenworkConnection({
+    void ensureDesktopLocalOnMyAgentConnection({
       route: "session",
       workspace: selectedWorkspace,
       allWorkspaces: workspaces,
@@ -2563,12 +2563,12 @@ export function SessionRouteRender() {
                   )
               : undefined,
         });
-        const envRuntimeKey = buildOpenworkEnvRuntimeKey({
+        const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
           baseUrl: client?.baseUrl ?? null,
           pid: onmyagentServerHostInfoState?.pid ?? null,
           port: onmyagentServerHostInfoState?.port ?? null,
         });
-        const envSystemContext = await buildOpenworkEnvSystemContext(client, {
+        const envSystemContext = await buildOnMyAgentEnvSystemContext(client, {
           cacheKey: sessionId,
           runtimeKey: envRuntimeKey,
         });

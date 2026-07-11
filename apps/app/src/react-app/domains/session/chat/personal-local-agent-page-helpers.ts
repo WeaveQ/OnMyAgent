@@ -8,8 +8,8 @@ import {
 import {
   isPersonalLocalAgentProvider,
   PROVIDER_LABELS,
-} from "../../local-agents/local-agent-page-model";
-import type { ChatMessage } from "../../local-agents/messages/message-types";
+  type ChatMessage,
+} from "../../local-agents";
 
 export const localAgentTextClass = {
   panelTitle: "text-sm font-medium leading-5 text-dls-text",

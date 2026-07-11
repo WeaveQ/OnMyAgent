@@ -3,7 +3,7 @@ import type { BootPhase } from "../../../../app/lib/startup-boot";
 import type {
   WorkspaceSessionGroup,
 } from "../../../../app/types";
-import type { OpenworkServerStatus } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerStatus } from "../../../../app/lib/onmyagent-server";
 
 export const STARTUP_SKELETON_ROWS = [
   { id: "intro", titleWidth: "42%", bodyWidth: "88%" },
@@ -23,7 +23,7 @@ export type TaskStatusIndicator = {
 
 export function workspaceTaskStatus(
   clientConnected: boolean,
-  onmyagentServerStatus: OpenworkServerStatus,
+  onmyagentServerStatus: OnMyAgentServerStatus,
   loading: boolean,
 ): TaskStatusIndicator {
   if (loading) return { label: "正在准备工作区", variant: "loading" };

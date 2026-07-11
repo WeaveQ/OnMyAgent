@@ -35,7 +35,7 @@ export {
 } from "./side-panel-pages";
 export type { StorePrimaryTab } from "./side-panel-pages";
 
-export { AgentManagementPage } from "../../../local-agents/agent-management/agent-management-page";
+export { AgentManagementPage } from "../../../local-agents";
 export { WorkspaceFilesPage } from "../../../workspace/workspace-files-page";
 export { MessagingChannelsPage } from "../../../messaging/messaging-channels-page";
 export { EmptyArtifactsPanel } from "./empty-artifacts-panel";

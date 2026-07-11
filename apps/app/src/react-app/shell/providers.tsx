@@ -2,7 +2,7 @@
 import { useEffect, type ReactNode } from "react";
 
 import { isWebDeployment } from "../../app/lib/onmyagent-deployment";
-import { hydrateOpenworkServerSettingsFromEnv } from "../../app/lib/onmyagent-server";
+import { hydrateOnMyAgentServerSettingsFromEnv } from "../../app/lib/onmyagent-server";
 import { isDesktopRuntime } from "../../app/utils";
 import { DenAuthProvider, DesktopConfigProvider, RestrictionNoticeProvider } from "../domains/cloud";
 import { StatusToastsProvider } from "../domains/shell-feedback";
@@ -12,7 +12,7 @@ import { ArchitectureMismatchGate } from "./architecture-mismatch-gate";
 import { BootStateProvider } from "./boot-state";
 import { DesktopRuntimeBoot } from "./desktop-runtime-boot";
 import { startDebugLogger, stopDebugLogger } from "./debug-logger";
-import { resolveOpenworkConnection } from "./onmyagent-connection";
+import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 import { ReloadCoordinatorProvider } from "./reload-coordinator";
 
 function resolveDefaultServerUrl(): string {
@@ -42,14 +42,14 @@ type AppProvidersProps = {
 };
 
 export function AppProviders({ children }: AppProvidersProps) {
-  hydrateOpenworkServerSettingsFromEnv();
+  hydrateOnMyAgentServerSettingsFromEnv();
 
   useEffect(() => {
     // Start the dev observability forwarder. Reads the current onmyagent-server
     // URL on every flush so reconnects after port changes still work. In prod
     // builds `startDebugLogger` is a no-op.
     startDebugLogger({
-      serverUrl: async () => (await resolveOpenworkConnection()).normalizedBaseUrl,
+      serverUrl: async () => (await resolveOnMyAgentConnection()).normalizedBaseUrl,
     });
     return () => {
       stopDebugLogger();

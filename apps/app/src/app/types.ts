@@ -264,7 +264,7 @@ export type WorkspaceConnectionState = {
   checkedAt?: number | null;
 };
 
-export type ResetOpenworkMode = "onboarding" | "all";
+export type ResetOnMyAgentMode = "onboarding" | "all";
 
 export type WorkspaceBlueprintStarterKind = "prompt" | "session" | "action";
 
@@ -317,7 +317,7 @@ export type WorkspaceBlueprint = {
   } | null;
 };
 
-export type WorkspaceOpenworkConfig = {
+export type WorkspaceOnMyAgentConfig = {
   version: number;
   workspace?: {
     name?: string | null;

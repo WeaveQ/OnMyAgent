@@ -16,8 +16,8 @@ export {
 } from "../agents/agent-session-state";
 export type { AssistantSessionCategory } from "../agents/agent-session-state";
 export {
-  buildOpenworkEnvSystemContext,
-  clearOpenworkEnvSystemContextCache,
+  buildOnMyAgentEnvSystemContext,
+  clearOnMyAgentEnvSystemContextCache,
 } from "./env-context";
 export {
   ONMYAGENT_EXTENSION_STATE_CHANGED,
@@ -28,12 +28,12 @@ export {
   setOnMyAgentExtensionHidden,
 } from "./extension-state";
 export {
-  createOpenworkServerStore,
-  useOpenworkServerStoreSnapshot,
+  createOnMyAgentServerStore,
+  useOnMyAgentServerStoreSnapshot,
 } from "./onmyagent-server-store";
 export type {
-  OpenworkServerStore,
-  OpenworkServerStoreSnapshot,
+  OnMyAgentServerStore,
+  OnMyAgentServerStoreSnapshot,
 } from "./onmyagent-server-store";
 export { OnMyAgentDenHelpLink } from "./onmyagent-den-help-link";
 export * from "./desktop-config-context";

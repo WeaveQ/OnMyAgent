@@ -1,10 +1,10 @@
 import type { WorkspaceConnectionState } from "../../../app/types";
 import type { WorkspaceInfo } from "../../../app/lib/desktop";
 import {
-  createOpenworkServerClient,
-  normalizeOpenworkServerUrl,
-  parseOpenworkWorkspaceIdFromUrl,
-  type OpenworkServerClient,
+  createOnMyAgentServerClient,
+  normalizeOnMyAgentServerUrl,
+  parseOnMyAgentWorkspaceIdFromUrl,
+  type OnMyAgentServerClient,
 } from "../../../app/lib/onmyagent-server";
 import { redactTokenLikeText } from "../../../app/utils";
 import { t } from "../../../i18n";
@@ -30,9 +30,9 @@ export type RemoteWorkspaceConnectionResult = {
 type TestOptions = {
   now?: () => number;
   createClient?: (target: RemoteWorkspaceConnectionTarget) => Pick<
-    OpenworkServerClient,
+    OnMyAgentServerClient,
     "health" | "capabilities" | "status" | "listWorkspaces"
-  > | Promise<Pick<OpenworkServerClient, "health" | "capabilities" | "status" | "listWorkspaces">>;
+  > | Promise<Pick<OnMyAgentServerClient, "health" | "capabilities" | "status" | "listWorkspaces">>;
 };
 
 function trim(value: string | null | undefined) {
@@ -60,7 +60,7 @@ function endpointLabel(baseUrl: string) {
   }
 }
 
-function stripOpenworkWorkspaceMount(baseUrl: string) {
+function stripOnMyAgentWorkspaceMount(baseUrl: string) {
   try {
     const url = new URL(baseUrl);
     const segments = url.pathname.split("/").filter(Boolean);
@@ -143,7 +143,7 @@ function displayWorkspaceName(workspace: unknown) {
 }
 
 function defaultCreateClient(target: RemoteWorkspaceConnectionTarget) {
-  return createOpenworkServerClient({
+  return createOnMyAgentServerClient({
     baseUrl: target.baseUrl,
     token: target.token || undefined,
   });
@@ -184,7 +184,7 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
     };
   }
 
-  const normalizedHostUrl = normalizeOpenworkServerUrl(rawHostUrl);
+  const normalizedHostUrl = normalizeOnMyAgentServerUrl(rawHostUrl);
   if (!normalizedHostUrl || !isValidHttpEndpoint(normalizedHostUrl)) {
     return {
       ok: false,
@@ -198,10 +198,10 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
 
   const workspaceId =
     trim(workspace.onmyagentWorkspaceId) ||
-    parseOpenworkWorkspaceIdFromUrl(normalizedHostUrl) ||
-    parseOpenworkWorkspaceIdFromUrl(trim(workspace.baseUrl)) ||
+    parseOnMyAgentWorkspaceIdFromUrl(normalizedHostUrl) ||
+    parseOnMyAgentWorkspaceIdFromUrl(trim(workspace.baseUrl)) ||
     null;
-  const hostBaseUrl = stripOpenworkWorkspaceMount(normalizedHostUrl);
+  const hostBaseUrl = stripOnMyAgentWorkspaceMount(normalizedHostUrl);
   const token =
     trim(workspace.onmyagentToken) ||
     trim(workspace.onmyagentClientToken) ||

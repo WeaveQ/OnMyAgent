@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { OpenworkServerClient } from "../../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../../app/lib/onmyagent-server";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -76,7 +76,7 @@ function mergeAutomationSessions(
 export function AgentConversationPanel(props: {
   mode?: "agent" | "assistant";
   width: number;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   taskStatusVariant: TaskStatusIndicator["variant"];
   collapsed: boolean;
   groups: WorkspaceSessionGroup[];

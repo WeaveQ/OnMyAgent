@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import type { OpenworkServerClient } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
@@ -40,7 +40,7 @@ import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 type PluginsPageProps = {
   workspaceId: string;
   workspaceRoot?: string | null;
-  client?: OpenworkServerClient | null;
+  client?: OnMyAgentServerClient | null;
   marketOnly?: boolean;
   searchQuery?: string;
 };
@@ -646,7 +646,7 @@ function normalizeSkillScanResponse(response: unknown, workspaceRoot: string | n
 function useScannedSkills(
   workspaceId: string | undefined,
   workspaceRoot: string | null | undefined,
-  client: OpenworkServerClient | null | undefined,
+  client: OnMyAgentServerClient | null | undefined,
   refreshKey: number,
 ): { items: ScannedSkill[]; raw: unknown; error: unknown } {
   const [state, setState] = useState<{

@@ -25,7 +25,7 @@ import { RenameSessionModal } from "../modals/rename-session-modal";
 import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
-import { OwDotTicker, type OpenworkControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
+import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -646,7 +646,7 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
 
-  const openVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled
         ? {
@@ -664,7 +664,7 @@ export function AssistantPage(props: AssistantPageProps) {
   );
   useControlAction(openVoicePanelControlAction);
 
-  const closeVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled && activeSidePanel === "voice"
         ? {
