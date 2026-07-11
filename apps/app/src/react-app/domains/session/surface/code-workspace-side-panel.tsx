@@ -30,7 +30,7 @@ import {
 } from "../../../../app/lib/desktop";
 import type {
   CodeWorkspaceTerminal,
-} from "../../../../app/lib/desktop-types";
+} from "@onmyagent/types";
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import type { OpenTarget } from "../artifacts/open-target";
