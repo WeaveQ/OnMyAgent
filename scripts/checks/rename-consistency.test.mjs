@@ -16,7 +16,6 @@ const ignoredFiles = new Set([
   "apps/app/public/openwork-logo.svg",
   "apps/app/public/openwork-mark.svg",
   ".codex/skills/documentation-audit/SKILL.md",
-  "docs/LOOP-RUN-LOG.md",
   "scripts/checks/rename-consistency.test.mjs",
 ]);
 const textExtensions = new Set([

@@ -32,7 +32,7 @@ Use this skill when the user asks for any of these:
 git status --short --branch
 ```
 
-For non-trivial primitive loops, broad refactors, durable ledgers, graphify decisions, or repeated validation failures, read `docs/loop-rules.md` after `AGENTS.md`. Routine progress and run evidence belong in local `.loop/`, not tracked pointer docs.
+For non-trivial primitive loops, broad refactors, durable ledgers, graphify decisions, or repeated validation failures, read `docs/loop/rules.md` after `AGENTS.md`. Routine progress and run evidence belong in local `.loop/`, not tracked pointer docs.
 
 2. Read project UI sources of truth when relevant:
 

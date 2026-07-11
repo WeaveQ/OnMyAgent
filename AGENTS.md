@@ -131,7 +131,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 默认运行级别为 **L2 辅助期**：可修改 docs、低风险代码、补测试脚本；不能无人确认地改高风险路径。
 
-非平凡 loop、跨阶段任务、durable ledger、Reference Parity、Kill Switch、graphify 和恢复流程的完整规则必须读取并遵循 `docs/loop-rules.md`。本文件只保留硬入口：
+非平凡 loop、跨阶段任务、durable ledger、Reference Parity、Kill Switch、graphify 和恢复流程的完整规则必须读取并遵循 `docs/loop/rules.md`。本文件只保留硬入口：
 
 - 可自动继续：代码实现、文档更新、运行/修复明确的 lint/typecheck/test。
 - 必须跳出问用户：schema/数据结构变更、线上/真实资源、push/deploy/外部消息、超出当前边界、连续 3 次同错失败、需要产品/架构取舍。
@@ -141,7 +141,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 - 每次代码变更至少跑相关 typecheck/test/import smoke 和 `git diff --check`；默认优先 `pnpm check:type` 或对应 `pnpm task check <target>`。
 - 文档变更至少跑旧命令/旧引用扫描、核心链接 smoke 和 `git diff --check`。
-- 详细 Maker/Checker、验证分层、失败重试和终止规则见 `docs/loop-rules.md`。
+- 详细 Maker/Checker、验证分层、失败重试和终止规则见 `docs/loop/rules.md`。
 
 
 ## 文档导航（精简）
@@ -154,12 +154,12 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 | 本文件之后的系统架构 | `docs/Architecture.md` |
 | React 域 / 路由身份 | `apps/app/src/react-app/ARCHITECTURE.md` |
 | UI 视觉契约 | `DESIGN.md` |
-| 重 loop / kill switch / graphify | `docs/loop-rules.md` |
+| 重 loop / kill switch / graphify | `docs/loop/rules.md` |
 | 本地打包 | `BUILD.md` |
-| 发版 / tag | `docs/release-process.md` |
+| 发版 / tag | `docs/release.md` |
 | 本地 handoff / run log | `.loop/state/PROGRESS.md` · `.loop/runs/`（不进 git） |
 
-动态状态只写 `.loop/`；tracked 指针见 `docs/legacy-loop-pointers.md`。
+动态状态只写 `.loop/`。文档目录见 `docs/README.md`。
 
 ## 项目内 Codex Skills
 

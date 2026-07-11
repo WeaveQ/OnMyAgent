@@ -33,11 +33,18 @@ find . -maxdepth 3 -type f \( -name '*.md' -o -name '*.mdx' \) \
   -not -path './graphify-out/*' | sort
 ```
 
-Do not overwrite unrelated dirty files. `docs/PROGRESS.md` has been removed. Tracked loop stubs redirect via `docs/legacy-loop-pointers.md`. Write routine loop state to local `.loop/` files unless the user explicitly asks for a repo doc change.
+Do not overwrite unrelated dirty files. Write routine loop state only under local `.loop/`. There are no tracked loop stub files under `docs/`.
 
-For non-trivial Loop, durable ledger, graphify, kill-switch, or recovery decisions, read `docs/loop-rules.md` after `AGENTS.md`. This project intentionally keeps routine Loop state in local `.loop/` instead of tracked `docs/` pointer files.
+For non-trivial Loop work, read `docs/loop/rules.md` after `AGENTS.md`.
 
-**Single documentation map:** `docs/README.md` (SoT table + directory map). Do not rebuild long nav tables in `AGENTS.md`.
+**Single documentation map:** `docs/README.md`. Expected layout:
+
+```text
+docs/
+  README.md  Architecture.md  release.md
+  loop/rules.md  loop/incidents.md
+  design/*  features/*.md
+```
 
 ## Core Sources Of Truth
 
@@ -47,19 +54,17 @@ For non-trivial Loop, durable ledger, graphify, kill-switch, or recovery decisio
 | Command surface | root `package.json`, `scripts/cli/*.mjs`, `docs/Architecture.md`, `AGENTS.md` |
 | Current local state | `.loop/state/PROGRESS.md` |
 | Local validation history | `.loop/runs/YYYY-MM-DD.md` |
-| Legacy loop pointers | `docs/legacy-loop-pointers.md` |
-| Loop operating rules | `docs/loop-rules.md`, `AGENTS.md` |
+| Loop operating rules | `docs/loop/rules.md`, `AGENTS.md` |
 | Architecture | `docs/Architecture.md`, `apps/app/src/react-app/ARCHITECTURE.md` |
 | Theme and UI docs | `DESIGN.md` (tokens), `docs/design/theme-system.md` (philosophy) |
 | Public entry docs | `README.md`, `README-zh.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md` |
 | Local packaging | `BUILD.md` |
-| Release / tags | `docs/release-process.md` |
+| Release / tags | `docs/release.md` |
 | Package docs | `apps/*/README.md`, `packages/*/README.md` |
-| Feature designs | `docs/features/**` (behavior contracts; no plan ledgers) |
+| Feature designs | `docs/features/*.md` |
 | Project skills | `.codex/skills/*/SKILL.md`, `.opencode/skills/*/SKILL.md` |
-| Local archive | `.loop/archive/` for historical snapshots that should not stay in tracked docs |
-| Local execution plans | `.loop/plans/` only (gitignored via `.loop/*`) |
-| Ignored plan paths | `docs/plans/`, `docs/archive/` — gitignored; do not commit |
+| Local execution plans | `.loop/plans/` only |
+| Ignored paths | `docs/plans/`, `docs/archive/`, `.loop/*` |
 | Skill sync strategy | `references/skills-sync.md` |
 
 ## Audit Commands
@@ -69,8 +74,8 @@ Run focused scans before editing:
 ```sh
 CORE_DOCS=(
   README.md README-zh.md BUILD.md CONTRIBUTING.md AGENTS.md
-  docs/README.md docs/Architecture.md docs/legacy-loop-pointers.md
-  docs/release-process.md
+  docs/README.md docs/Architecture.md docs/release.md
+  docs/loop/rules.md docs/loop/incidents.md docs/features/session-goal.md
   apps/server/README.md apps/orchestrator/README.md
   packages/ui/README.md packages/handsfree/README.md
   apps/app/src/react-app/ARCHITECTURE.md
@@ -108,10 +113,9 @@ Execution plans stay in `.loop/plans/` (gitignored). `docs/plans/` and `docs/arc
 
 - `.loop/state/PROGRESS.md` holds current local handoff when needed.
 - `.loop/runs/YYYY-MM-DD.md` holds current-day local run history.
-- `docs/PROGRESS.md` has been removed; see `docs/legacy-loop-pointers.md` for stubs.
-- Do not add routine progress, run-log, or plan material under tracked `docs/` (feature **design** contracts under `docs/features/` are OK).
-- Put historical snapshots and execution plans under `.loop/`.
-- Put local evidence under `.loop/evidence/` or ignored report paths, not tracked engineering docs.
+- Do not add progress / run-log / plan stubs under `docs/`.
+- Feature behavior contracts may live as `docs/features/*.md`.
+- Put execution plans and evidence under `.loop/`.
 
 Use a link smoke for core docs:
 
@@ -119,7 +123,7 @@ Use a link smoke for core docs:
 python3 - <<'PY'
 from pathlib import Path
 import re
-files = [Path(p) for p in ['README.md','README-zh.md','BUILD.md','CONTRIBUTING.md','AGENTS.md','docs/README.md','docs/Architecture.md','apps/server/README.md','apps/orchestrator/README.md','packages/ui/README.md','packages/handsfree/README.md','apps/app/src/react-app/ARCHITECTURE.md']]
+files = [Path(p) for p in ['README.md','README-zh.md','BUILD.md','CONTRIBUTING.md','AGENTS.md','docs/README.md','docs/Architecture.md','docs/release.md','docs/loop/rules.md','docs/loop/incidents.md','docs/features/session-goal.md','apps/server/README.md','apps/orchestrator/README.md','packages/ui/README.md','packages/handsfree/README.md','apps/app/src/react-app/ARCHITECTURE.md']]
 missing=[]
 for f in files:
     if not f.exists():
@@ -141,8 +145,8 @@ PY
 
 - Prefer updating the source of truth over repeating the same explanation in many documents.
 - Keep `.loop/state/PROGRESS.md` short when local handoff is useful.
-- Keep `docs/legacy-loop-pointers.md` as the loop pointer hub; thin stubs may remain.
-- Write routine validation/history to `.loop/runs/YYYY-MM-DD.md`; only change repo docs for durable documentation updates.
+- Keep `docs/README.md` as the only full map; do not reintroduce stub pointer files.
+- Write routine validation/history to `.loop/runs/YYYY-MM-DD.md`.
 - Keep execution plans in `.loop/plans/` only. Never commit `docs/plans/` or `docs/archive/`.
 - Update `README.md` and `README-zh.md` together for public capability or roadmap changes.
 - Update package README files when root command wrappers supersede package-private commands.
@@ -151,7 +155,7 @@ PY
 
 ## Recommended Fix Order
 
-1. Loop rules: load `AGENTS.md` and `docs/loop-rules.md`; keep dynamic state in `.loop/` and tracked state docs as pointers.
+1. Loop rules: load `AGENTS.md` and `docs/loop/rules.md`; keep dynamic state in `.loop/`.
 2. Plans cleanup: ensure no tracked files under `docs/plans/` or `docs/archive/`; AI ledgers only in `.loop/plans/`.
 3. Public docs: align `README.md`, `README-zh.md`, `CONTRIBUTING.md`, and `BUILD.md` with current commands and capabilities.
 4. Architecture docs: align `docs/Architecture.md` and `apps/app/src/react-app/ARCHITECTURE.md` with actual package boundaries.
