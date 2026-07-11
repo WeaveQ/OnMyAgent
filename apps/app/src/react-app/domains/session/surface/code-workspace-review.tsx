@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { getCodeWorkspaceEnvironment } from "../../../../app/lib/desktop";
-import type { CodeWorkspaceEnvironmentSnapshot } from "../../../../app/lib/desktop-types";
+import type { CodeWorkspaceEnvironmentSnapshot } from "@onmyagent/types";
 import { t } from "../../../../i18n";
 
 function diffLineClass(line: string) {

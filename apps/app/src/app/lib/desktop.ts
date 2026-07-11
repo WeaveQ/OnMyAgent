@@ -47,7 +47,7 @@ import type {
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileContent,
   CodeWorkspaceFileEntry,
-} from "./desktop-types";
+} from "@onmyagent/types";
 import type {
   AgentManagementProviderActionInput,
   AgentManagementProviderActionResult,
