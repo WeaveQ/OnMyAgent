@@ -742,7 +742,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </div>
       ) : null}
 
-      {/* Agent 切换提示 */}
+      {/* Agent switch tip */}
       <div className="rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
         {t("messaging.weixin_agent_command_help_prefix")} <span className="font-mono text-dls-text">#agent</span> {t("messaging.weixin_agent_command_help_middle")} <span className="font-mono text-dls-text">#agent codex</span> {t("messaging.weixin_agent_command_help_suffix")}
       </div>

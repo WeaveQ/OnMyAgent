@@ -540,7 +540,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </NoticeBox>
       ) : null}
 
-      {/* Agent 切换提示 */}
+      {/* Agent switch tip */}
       <div className="rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
         {t("messaging.feishu_agent_command_help")}
       </div>
