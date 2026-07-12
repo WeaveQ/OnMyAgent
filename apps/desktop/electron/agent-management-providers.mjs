@@ -13,7 +13,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 /**
- * @param {{ getRealHomeDir: () => string }} options
+ * @param {Partial<{ getRealHomeDir: () => string }>} options
  */
 export function createAgentManagementProviders(options = {}) {
   const getRealHomeDir = options.getRealHomeDir;
