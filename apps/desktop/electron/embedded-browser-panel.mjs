@@ -1,4 +1,10 @@
 import path from "node:path";
+import browserTabMarkerContract from "./browser-tab-marker.cjs";
+
+const {
+  browserTabAdditionalArguments,
+  normalizeBrowserTabOwner,
+} = browserTabMarkerContract;
 
 export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, shell, dirname }) {
   let mainWindow = null;
@@ -125,14 +131,20 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
     );
   }
 
-  function listBrowserTabs() {
+  function listBrowserTabs(options = {}) {
+    const filterByOwner = Object.hasOwn(options, "ownerId");
+    const requestedOwnerId = filterByOwner
+      ? normalizeBrowserTabOwner(options.ownerId)
+      : null;
     return browserTabOrder
       .map((tabId) => {
         const tab = browserTabs.get(tabId);
         if (!tab || tab.view.webContents.isDestroyed()) return null;
+        if (filterByOwner && tab.ownerId !== requestedOwnerId) return null;
         const { webContents } = tab.view;
         return {
           tabId,
+          ownerId: tab.ownerId,
           url: webContents.getURL(),
           title: webContents.getTitle(),
           favicon: tab.favicon,
@@ -395,8 +407,12 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
     }
   }
 
-  function createBrowserTab(url = "about:blank", { select = true } = {}) {
+  function createBrowserTab(
+    url = "about:blank",
+    { select = true, ownerId = null } = {},
+  ) {
     const tabId = createBrowserTabId();
+    const normalizedOwnerId = normalizeBrowserTabOwner(ownerId);
     const view = new WebContentsView({
       webPreferences: {
         backgroundThrottling: false,
@@ -405,9 +421,10 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
         nodeIntegration: false,
         preload: path.join(dirname, "browser-content-preload.cjs"),
         partition: "persist:onmyagent-browser",
+        additionalArguments: browserTabAdditionalArguments(tabId),
       },
     });
-    const tab = { tabId, view, favicon: null };
+    const tab = { tabId, ownerId: normalizedOwnerId, view, favicon: null };
     browserTabs.set(tabId, tab);
     browserTabOrder.push(tabId);
     // Load about:blank immediately to preempt persistent-session restore.
@@ -552,6 +569,16 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
     sendToRenderer("onmyagent:browser:panel-closed");
     sendBrowserState();
     return closedTabIds;
+  }
+
+  function closeBrowserTabsByOwner(ownerId) {
+    const normalizedOwnerId = normalizeBrowserTabOwner(ownerId);
+    if (!normalizedOwnerId) return [];
+    const ownedTabIds = browserTabOrder.filter(
+      (tabId) => browserTabs.get(tabId)?.ownerId === normalizedOwnerId,
+    );
+    for (const tabId of ownedTabIds) closeBrowserTab(tabId);
+    return ownedTabIds;
   }
 
   function reorderBrowserTabs(tabIds) {
@@ -710,6 +737,7 @@ export function createEmbeddedBrowserPanel({ app, WebContentsView, clipboard, sh
     browserStatePayload,
     closeBrowserTab,
     closeAllBrowserTabs,
+    closeBrowserTabsByOwner,
     selectBrowserTab,
     reorderBrowserTabs,
     listBrowserTabs,
