@@ -24,12 +24,12 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 /**
- * @param {{
+ * @param {Partial<{
  *   getRealHomeDir: () => string,
  *   onmyagentUserSkillsRoot: () => string,
  *   bundledSkillsRootPath: () => string | null,
  *   shell: { openPath: (path: string) => Promise<string>, showItemInFolder: (path: string) => void },
- * }} options
+ * }>} options
  */
 export function createAgentManagementSkills(options = {}) {
   const getRealHomeDir = options.getRealHomeDir;

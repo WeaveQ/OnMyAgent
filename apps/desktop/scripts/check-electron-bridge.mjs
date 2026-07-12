@@ -28,6 +28,7 @@ const clientOnlyBridgeMethods = new Set([
 ]);
 const bridgeMethods = destructure[1]
   .split(/\r?\n/)
+  .filter((line) => !line.trim().startsWith("//"))
   .map((line) => line.split(":")[0]?.trim().replace(/,$/, ""))
   .filter(Boolean)
   .filter((name) => !clientOnlyBridgeMethods.has(name));

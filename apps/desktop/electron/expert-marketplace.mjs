@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
- * @param {{ getRealHomeDir: () => string }} options
+ * @param {Partial<{ getRealHomeDir: () => string }>} options
  */
 export function createExpertMarketplace(options = {}) {
   const getRealHomeDir = options.getRealHomeDir;
