@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import {
   chmodSync,
-  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -9,10 +8,19 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import {
+  browserUseManifestFields,
+  prepareBrowserUseRuntime,
+  resolveBundledBrowserUseRuntime,
+} from "./browser-use-runtime.mjs";
+import {
+  clearDownloadQuarantine,
+  movePreparedRuntimeTree,
+  preparedRuntimeRoot,
+} from "./runtime-archive.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -108,6 +116,7 @@ const expectedManifest = {
   node: nodeVersion,
   python: pythonVersion,
   pythonStandaloneRelease: pythonRelease,
+  ...browserUseManifestFields(),
 };
 const nodeBinary = join(
   targetRoot,
@@ -119,6 +128,7 @@ const pythonBinary = join(
   "python",
   process.platform === "win32" ? "python.exe" : "bin/python3",
 );
+const existingBrowserUseRuntime = resolveBundledBrowserUseRuntime(targetRoot);
 
 function executableWorks(binary) {
   if (!existsSync(binary)) return false;
@@ -130,13 +140,18 @@ if (
   JSON.stringify(JSON.parse(readFileSync(manifestPath, "utf8"))) ===
     JSON.stringify(expectedManifest) &&
   executableWorks(nodeBinary) &&
-  executableWorks(pythonBinary)
+  executableWorks(pythonBinary) &&
+  existingBrowserUseRuntime.ready &&
+  executableWorks(existingBrowserUseRuntime.launcherPath)
 ) {
   process.stdout.write(`[runtimes] ${target} already prepared\n`);
   process.exit(0);
 }
 
-const workRoot = join(tmpdir(), `onmyagent-runtimes-${process.pid}-${Date.now()}`);
+const workRoot = join(
+  outputRoot,
+  `.prepare-${target}-${process.pid}-${Date.now()}`,
+);
 mkdirSync(workRoot, { recursive: true });
 mkdirSync(downloadCacheRoot, { recursive: true });
 
@@ -158,6 +173,7 @@ function verifyArchive(filePath, sha256) {
 async function acquireArchive(url, fileName, sha256) {
   const cachedArchive = join(downloadCacheRoot, fileName);
   if (verifyArchive(cachedArchive, sha256)) {
+    clearDownloadQuarantine(cachedArchive);
     process.stdout.write(`[runtimes] Using cached ${cachedArchive}\n`);
     return cachedArchive;
   }
@@ -202,6 +218,7 @@ async function acquireArchive(url, fileName, sha256) {
     throw error;
   }
   renameSync(partialArchive, cachedArchive);
+  clearDownloadQuarantine(cachedArchive);
   return cachedArchive;
 }
 
@@ -249,36 +266,40 @@ try {
     throw new Error(`Runtime archive layout is invalid for ${target}`);
   }
 
-  const stagedRoot = `${targetRoot}.staging`;
+  const stagedRoot = preparedRuntimeRoot(targetRoot);
   rmSync(stagedRoot, { recursive: true, force: true });
   mkdirSync(stagedRoot, { recursive: true });
-  cpSync(nodeFolder, join(stagedRoot, "node"), {
-    recursive: true,
-    verbatimSymlinks: true,
-  });
-  cpSync(pythonFolder, join(stagedRoot, "python"), {
-    recursive: true,
-    verbatimSymlinks: true,
-  });
-  writeFileSync(
-    join(stagedRoot, "versions.json"),
-    `${JSON.stringify(expectedManifest, null, 2)}\n`,
-  );
-
+  movePreparedRuntimeTree(nodeFolder, join(stagedRoot, "node"));
+  movePreparedRuntimeTree(pythonFolder, join(stagedRoot, "python"));
   if (process.platform !== "win32") {
     chmodSync(join(stagedRoot, "node", "bin", "node"), 0o755);
     chmodSync(join(stagedRoot, "python", "bin", "python3"), 0o755);
   }
 
+  process.stdout.write(
+    `[runtimes] Installing Browser Use ${expectedManifest.browserUse}\n`,
+  );
+  prepareBrowserUseRuntime(stagedRoot);
+  writeFileSync(
+    join(stagedRoot, "versions.json"),
+    `${JSON.stringify(expectedManifest, null, 2)}\n`,
+  );
+
   rmSync(targetRoot, { recursive: true, force: true });
   mkdirSync(dirname(targetRoot), { recursive: true });
   renameSync(stagedRoot, targetRoot);
 
-  if (!executableWorks(nodeBinary) || !executableWorks(pythonBinary)) {
+  const browserUseRuntime = resolveBundledBrowserUseRuntime(targetRoot);
+  if (
+    !executableWorks(nodeBinary) ||
+    !executableWorks(pythonBinary) ||
+    !browserUseRuntime.ready ||
+    !executableWorks(browserUseRuntime.launcherPath)
+  ) {
     throw new Error(`Prepared runtimes failed validation for ${target}`);
   }
   process.stdout.write(
-    `[runtimes] Prepared Node ${nodeVersion} and Python ${pythonVersion} for ${target}\n`,
+    `[runtimes] Prepared Node ${nodeVersion}, Python ${pythonVersion}, and Browser Use ${expectedManifest.browserUse} for ${target}\n`,
   );
 } finally {
   rmSync(workRoot, { recursive: true, force: true });
