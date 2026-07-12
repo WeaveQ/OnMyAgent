@@ -18,7 +18,7 @@
     "package:electron:dir": "pnpm run build:electron && pnpm exec electron-builder --config electron-builder.yml --dir",
     "electron": "pnpm exec electron ./electron/main.mjs",
     "check:electron": "node ./scripts/check-electron-bridge.mjs",
-    "test:runtime": "node --test ./scripts/browser-use-runtime.test.mjs ./scripts/runtime-archive.test.mjs ./electron/browser-tab-marker.test.mjs ./electron/embedded-browser-panel.test.mjs && pnpm check:electron",
+    "test:runtime": "node --test ./scripts/browser-use-runtime.test.mjs ./scripts/runtime-archive.test.mjs ./electron/browser-tab-marker.test.mjs ./electron/embedded-browser-panel.test.mjs ./electron/browser-use-broker.test.mjs ./electron/browser-use-runtime-status.test.mjs && pnpm check:electron",
     "test:release-smoke": "pnpm build && node ./scripts/check-electron-bridge.mjs && pnpm exec electron-builder --config electron-builder.yml --dir --publish never",
     "typecheck": "pnpm typecheck:electron",
     "typecheck:electron": "pnpm --dir ../server exec tsc -p ../desktop/tsconfig.electron.json --noEmit",
