@@ -49,6 +49,8 @@ import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./arc
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
+import { createBrowserUseBroker } from "./browser-use-broker.mjs";
+import { browserUseRuntimeStatus } from "./browser-use-runtime-status.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
@@ -269,7 +271,7 @@ if (
   app.dock.setIcon(APP_ICON_IMAGE);
 }
 
-await configureDesktopStartupFlags(app);
+const { remoteDebugPort } = await configureDesktopStartupFlags(app);
 const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("ONMYAGENT_FORCE_SIGNIN");
@@ -424,6 +426,21 @@ const embeddedBrowserPanel = createEmbeddedBrowserPanel({
   clipboard,
   shell,
   dirname: __dirname,
+});
+const browserUseRuntimeRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "runtimes")
+  : path.resolve(__dirname, "../resources/runtimes");
+const readBrowserUseStatus = () => {
+  const status = browserUseRuntimeStatus({ runtimeRoot: browserUseRuntimeRoot });
+  return {
+    ...status,
+    ready: status.ready && remoteDebugPort > 0,
+  };
+};
+const browserUseBroker = createBrowserUseBroker({
+  panel: embeddedBrowserPanel,
+  cdpPort: remoteDebugPort,
+  runtimeStatus: readBrowserUseStatus,
 });
 const uiControlBridge = createUiControlServer({
   app,
@@ -1894,6 +1911,8 @@ async function handleDesktopInvoke(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
+    case "browserUseStatus":
+      return readBrowserUseStatus();
     case "personalLocalAgentsList": {
       const result = await personalAgentRuntime.listAgents(args[0] ?? {});
       const agents = Array.isArray(result?.agents) ? result.agents : [];
@@ -3241,6 +3260,7 @@ if (!app.requestSingleInstanceLock()) {
     void Promise.all([
       disposeRuntimeBeforeQuit(),
       uiControlBridge.stop(),
+      browserUseBroker.stop(),
     ]).finally(() => app.quit());
   });
 
@@ -3265,6 +3285,9 @@ if (!app.requestSingleInstanceLock()) {
     installApplicationMenu();
 
     await ensureOnMyAgentUserDataDirs();
+    await browserUseBroker.start().catch((error) => {
+      console.warn("[browser-use] broker failed to start", error);
+    });
 
     // Use Tauri's existing workspace state file as canonical so rollback and
     // Electron see the same workspace list. Import the short-lived
