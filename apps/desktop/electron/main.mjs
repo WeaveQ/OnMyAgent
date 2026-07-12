@@ -131,6 +131,10 @@ function getRealHomeDir() {
   return os.homedir();
 }
 
+function claudeProjectsRoot() {
+  return path.join(getRealHomeDir(), ".claude", "projects");
+}
+
 function bundledSkillsRootPath() {
   if (cachedBundledSkillsRootPath !== undefined) {
     return cachedBundledSkillsRootPath;

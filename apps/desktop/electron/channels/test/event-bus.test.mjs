@@ -65,7 +65,7 @@ console.log("✓ Clear history works");
 console.log("Test 7: Isolated bus instances");
 const isolatedA = new ChannelEventBus();
 const isolatedB = new ChannelEventBus();
-/** @type {unknown} */
+/** @type {number} */
 let isolatedBHits = 0;
 isolatedB.subscribe(CHANNEL_EVENTS.MESSAGE_RECEIVED, () => {
   isolatedBHits += 1;
