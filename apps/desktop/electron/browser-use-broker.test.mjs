@@ -66,33 +66,43 @@ test("binds owner-scoped tokens to isolated embedded browser tabs", async () => 
   try {
     const ownerA = broker.environmentForOwner("conversation:a");
     const ownerB = broker.environmentForOwner("conversation:b");
+    const ownerC = broker.environmentForOwner("conversation:c");
     assert.notEqual(
       ownerA.ONMYAGENT_BROWSER_BROKER_TOKEN,
       ownerB.ONMYAGENT_BROWSER_BROKER_TOKEN,
     );
     assert.equal(ownerA.BU_CDP_URL, "http://127.0.0.1:9832");
     assert.notEqual(ownerA.BU_NAME, ownerB.BU_NAME);
+    assert.notEqual(ownerB.BU_NAME, ownerC.BU_NAME);
 
     const unauthorized = await fetch(
       `${ownerA.ONMYAGENT_BROWSER_BROKER_URL}/v1/tabs`,
     );
     assert.equal(unauthorized.status, 401);
 
-    const created = await request(ownerA, "/v1/tabs", {
-      method: "POST",
-      body: JSON.stringify({ url: "https://example.com/a" }),
-    });
-    assert.equal(created.status, 201);
-    const createdBody = await created.json();
+    const createdResponses = await Promise.all(
+      [ownerA, ownerB, ownerC].map((owner, index) =>
+        request(owner, "/v1/tabs", {
+          method: "POST",
+          body: JSON.stringify({ url: `https://example.com/${index + 1}` }),
+        }),
+      ),
+    );
+    assert.deepEqual(createdResponses.map((response) => response.status), [201, 201, 201]);
+    const [createdBodyA, createdBodyB, createdBodyC] = await Promise.all(
+      createdResponses.map((response) => response.json()),
+    );
 
     const ownerATabs = await (await request(ownerA, "/v1/tabs")).json();
     const ownerBTabs = await (await request(ownerB, "/v1/tabs")).json();
-    assert.deepEqual(ownerATabs.tabs.map((tab) => tab.tabId), [createdBody.tabId]);
-    assert.deepEqual(ownerBTabs.tabs, []);
+    const ownerCTabs = await (await request(ownerC, "/v1/tabs")).json();
+    assert.deepEqual(ownerATabs.tabs.map((tab) => tab.tabId), [createdBodyA.tabId]);
+    assert.deepEqual(ownerBTabs.tabs.map((tab) => tab.tabId), [createdBodyB.tabId]);
+    assert.deepEqual(ownerCTabs.tabs.map((tab) => tab.tabId), [createdBodyC.tabId]);
 
     const forbiddenClose = await request(
       ownerB,
-      `/v1/tabs/${createdBody.tabId}`,
+      `/v1/tabs/${createdBodyA.tabId}`,
       { method: "DELETE" },
     );
     assert.equal(forbiddenClose.status, 404);
