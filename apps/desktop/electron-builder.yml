@@ -22,6 +22,8 @@ extraResources:
     to: bundled-skills
   - from: resources/marketplace
     to: marketplace
+  - from: resources/browser-use
+    to: browser-use
   - from: resources/runtimes
     to: runtimes
 asar: true

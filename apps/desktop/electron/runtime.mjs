@@ -85,6 +85,7 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
 
   const personalAgentLegacyHarness = createPersonalAgentLegacyHarness({
     runtimePathEntries: () => runtimeManager.runtimePathEntries(),
+    browserUseEnvironment: options.browserUseEnvironment,
   });
   const personalAgentRuntime = createPersonalAgentRuntime({
     userDataDir: app.getPath("userData"),
@@ -92,6 +93,7 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
     legacy: personalAgentLegacyHarness,
     bundledExtensionRoots: bundledExtensionRootPaths(),
+    browserUseEnvironment: options.browserUseEnvironment,
   });
   const personalAgentHeartbeatScheduler = createPersonalAgentHeartbeatScheduler({
     personalAgentRuntime,

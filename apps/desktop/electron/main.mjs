@@ -51,6 +51,7 @@ import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { createBrowserUseBroker } from "./browser-use-broker.mjs";
 import { browserUseRuntimeStatus } from "./browser-use-runtime-status.mjs";
+import { createBrowserUseEnvironmentManager } from "./personal-agent-runtime/browser-use-environment.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
@@ -441,6 +442,18 @@ const browserUseBroker = createBrowserUseBroker({
   panel: embeddedBrowserPanel,
   cdpPort: remoteDebugPort,
   runtimeStatus: readBrowserUseStatus,
+});
+const browserUseResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-use")
+  : path.resolve(__dirname, "../resources/browser-use");
+const browserUseEnvironmentManager = createBrowserUseEnvironmentManager({
+  runtimeRoot: browserUseRuntimeRoot,
+  resourceRoot: browserUseResourceRoot,
+  userDataDir: app.getPath("userData"),
+  environmentForOwner: async (ownerId) => {
+    await browserUseBroker.start();
+    return browserUseBroker.environmentForOwner(ownerId);
+  },
 });
 const uiControlBridge = createUiControlServer({
   app,
@@ -1305,6 +1318,8 @@ const {
   runtimeManager,
   readWorkspaceState,
   claudeProjectsRoot,
+  browserUseEnvironment: (input) =>
+    browserUseEnvironmentManager.environmentForRun(input),
 });
 
 const codeWorkspaceActions = createCodeWorkspaceActions({
