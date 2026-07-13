@@ -32,6 +32,7 @@ type SessionActivityStore = {
   recordsByWorkspaceId: Record<string, Record<string, SessionActivityRecord>>;
   statusesByWorkspaceId: Record<string, Record<string, SessionActivityStatus>>;
   getStatus: (workspaceId: string, sessionId: string) => SessionActivityStatus;
+  getStopRequested: (workspaceId: string, sessionId: string) => boolean;
   getErrorMessage: (workspaceId: string, sessionId: string) => string | null;
   seedWorkspaceSessions: (workspaceId: string, sessions: SessionLike[]) => void;
   seedSessionRun: (workspaceId: string, sessionId: string, status: unknown, assistantOutput: boolean) => void;
@@ -161,6 +162,9 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
   statusesByWorkspaceId: {},
   getStatus: (workspaceId, sessionId) => (
     get().statusesByWorkspaceId[workspaceId]?.[sessionId] ?? "idle"
+  ),
+  getStopRequested: (workspaceId, sessionId) => (
+    get().recordsByWorkspaceId[workspaceId]?.[sessionId]?.stopRequested ?? false
   ),
   getErrorMessage: (workspaceId, sessionId) => (
     get().recordsByWorkspaceId[workspaceId]?.[sessionId]?.errorMessage ?? null

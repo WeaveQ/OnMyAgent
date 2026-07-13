@@ -11,6 +11,12 @@ import { t } from "../../../../i18n";
 
 export type SessionCollaborationKind = "execute" | "ask" | "plan" | "goal";
 
+export function manualStopNoticeKind(
+  collaborationKind: SessionCollaborationKind,
+): "cancelled" | "stopped" {
+  return collaborationKind === "goal" ? "stopped" : "cancelled";
+}
+
 export type SessionRunState =
   | "idle"
   | "thinking"
@@ -38,7 +44,9 @@ export function shouldShowSessionActivity(input: {
   chatStreaming: boolean;
   activityStatus: SessionActivityStatus;
   goalRuntime: CollaborationGoalRuntime | null;
+  stopRequested: boolean;
 }): boolean {
+  if (input.stopRequested) return false;
   if (input.goalRuntime?.status === "paused") return false;
   return input.chatStreaming || input.activityStatus !== "idle";
 }
