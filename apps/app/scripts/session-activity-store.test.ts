@@ -81,11 +81,16 @@ describe("session activity store", () => {
     expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("thinking");
 
     useSessionActivityStore.getState().markRunStopped("ws_1", "ses_1");
+    expect(useSessionActivityStore.getState().getStopRequested("ws_1", "ses_1")).toBe(true);
     useSessionActivityStore
       .getState()
       .seedWorkspaceSessions("ws_1", [{ id: "ses_1", status: "busy" }]);
 
     expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("idle");
+    expect(useSessionActivityStore.getState().getStopRequested("ws_1", "ses_1")).toBe(true);
+
+    useSessionActivityStore.getState().startRun("ws_1", "ses_1");
+    expect(useSessionActivityStore.getState().getStopRequested("ws_1", "ses_1")).toBe(false);
   });
 
   test("removes sessions from records and status maps", () => {

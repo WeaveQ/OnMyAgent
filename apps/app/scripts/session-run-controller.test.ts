@@ -15,10 +15,11 @@ import {
   deriveGoalSummary,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
+  manualStopNoticeKind,
 } from "../src/react-app/domains/session/surface/session-run-controller";
 import {
+  createSessionInterruptionNotice,
   shouldRecordSessionInterruption,
-  shouldSuppressCancelledAfterStop,
 } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { goalElapsedMs } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { preferLatestGoalRuntime } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
@@ -225,6 +226,7 @@ describe("session run controller", () => {
         chatStreaming: true,
         activityStatus: "thinking",
         goalRuntime: goalRuntime("paused"),
+        stopRequested: false,
       }),
     ).toBe(false);
     expect(
@@ -232,8 +234,48 @@ describe("session run controller", () => {
         chatStreaming: true,
         activityStatus: "thinking",
         goalRuntime: goalRuntime("running"),
+        stopRequested: false,
       }),
     ).toBe(true);
+  });
+
+  test("a local stop suppresses stale streaming activity", () => {
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "idle",
+        goalRuntime: null,
+        stopRequested: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("uses elapsed stop notices only for goal collaboration", () => {
+    expect(manualStopNoticeKind("execute")).toBe("cancelled");
+    expect(manualStopNoticeKind("ask")).toBe("cancelled");
+    expect(manualStopNoticeKind("plan")).toBe("cancelled");
+    expect(manualStopNoticeKind("goal")).toBe("stopped");
+
+    expect(
+      createSessionInterruptionNotice({
+        sessionId: "ses_1",
+        kind: "cancelled",
+        runKey: "ses_1:1000",
+        afterMessageCount: 4,
+        runStartedAt: 1_000,
+        now: 6_000,
+      }).elapsedMs,
+    ).toBeUndefined();
+    expect(
+      createSessionInterruptionNotice({
+        sessionId: "ses_1",
+        kind: "stopped",
+        runKey: "ses_1:1000",
+        afterMessageCount: 4,
+        runStartedAt: 1_000,
+        now: 6_000,
+      }).elapsedMs,
+    ).toBe(5_000);
   });
 
   test("paused goals can resume only when the run is otherwise idle", () => {
@@ -311,6 +353,7 @@ describe("session run controller", () => {
             id: "ses_1:stopped",
             kind: "stopped",
             afterMessageCount: 4,
+            runKey: "ses_1:100",
             runStartedAt: 100,
           },
         ],
@@ -318,15 +361,32 @@ describe("session run controller", () => {
           id: "ses_1:cancelled",
           kind: "cancelled",
           afterMessageCount: 5,
-          runStartedAt: 100,
+          runKey: "ses_1:100",
+          runStartedAt: 200,
         },
       }),
     ).toBe(false);
   });
 
-  test("suppresses late cancellation events from a manually stopped run", () => {
-    expect(shouldSuppressCancelledAfterStop(100)).toBe(true);
-    expect(shouldSuppressCancelledAfterStop(undefined)).toBe(false);
+  test("records a terminal notice for a genuinely new run", () => {
+    expect(
+      shouldRecordSessionInterruption({
+        existing: [
+          {
+            id: "ses_1:cancelled:first",
+            kind: "cancelled",
+            afterMessageCount: 4,
+            runKey: "ses_1:100",
+          },
+        ],
+        candidate: {
+          id: "ses_1:cancelled:second",
+          kind: "cancelled",
+          afterMessageCount: 8,
+          runKey: "ses_1:200",
+        },
+      }),
+    ).toBe(true);
   });
 
   test("keeps elapsed goal time moving while the runtime is compacting", () => {
