@@ -16,13 +16,9 @@ export default {
   "settings.background_checks_title": "後臺檢查",
   "settings.cache_repair_requires_desktop": "緩存修復需要桌面應用",
   "settings.cap_browser_tools": "瀏覽器工具：{value}",
-  "settings.browser_use_checking": "正在檢查",
   "settings.browser_use_description":
     `瀏覽器自動化能力已內置於 ${APP_NAME}。助理無需額外安裝，即可開啟並控制應用內可見的瀏覽器分頁。`,
-  "settings.browser_use_ready": "可用",
   "settings.browser_use_title": "AI 瀏覽器自動化",
-  "settings.browser_use_unavailable": "不可用",
-  "settings.browser_use_version": "Browser Use {version}",
   "settings.cap_commands": "命令：{value}",
   "settings.cap_config": "配置：{value}",
   "settings.cap_file_tools": "文件工具：{value}",
