@@ -1303,6 +1303,8 @@ const runtimeManager = createRuntimeManager({
       .filter((entry) => entry?.workspaceType !== "remote")
       .map((entry) => String(entry?.path ?? "").trim())
       .filter(Boolean),
+  browserUseEnvironment: (input) =>
+    browserUseEnvironmentManager.environmentForRun(input),
 });
 
 const {

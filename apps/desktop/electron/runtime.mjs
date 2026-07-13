@@ -511,7 +511,12 @@ function loadUserEnvFile() {
   }
 }
 
-export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths }) {
+export function createRuntimeManager({
+  app,
+  desktopRoot,
+  listLocalWorkspacePaths,
+  browserUseEnvironment = undefined,
+}) {
   const engineState = createEngineState();
   const onmyagentServerState = createOnMyAgentServerState();
   const orchestratorState = createOrchestratorState();
@@ -544,8 +549,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   ].filter(Boolean).find((candidate) => existsSync(candidate)) ?? null;
   const runtimeBinDirs = runtimeRoot
     ? process.platform === "win32"
-      ? [path.join(runtimeRoot, "node"), path.join(runtimeRoot, "python")]
-      : [path.join(runtimeRoot, "node", "bin"), path.join(runtimeRoot, "python", "bin")]
+      ? [path.join(runtimeRoot, "bin"), path.join(runtimeRoot, "node"), path.join(runtimeRoot, "python")]
+      : [
+          path.join(runtimeRoot, "bin"),
+          path.join(runtimeRoot, "node", "bin"),
+          path.join(runtimeRoot, "python", "bin"),
+        ]
     : [];
   if (runtimeBinDirs.length > 0) {
     const currentPath =
@@ -796,7 +805,14 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     return paths;
   }
 
-  async function buildChildEnv(extra = {}) {
+  async function buildChildEnv(extra = {}, options = {}) {
+    const browserUseContext =
+      typeof browserUseEnvironment === "function" && options.workspaceRoot
+        ? await browserUseEnvironment({
+            workspaceRoot: options.workspaceRoot,
+            conversationId: `workspace-runtime:${path.resolve(options.workspaceRoot)}`,
+          })
+        : { environment: {}, pathEntries: [] };
     /** @type {NodeJS.ProcessEnv} */
     // User env is layered first so process.env + any caller overrides always
     // win. See apps/server/src/env-file.ts; both loaders must agree on path
@@ -805,6 +821,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       ...loadUserEnvFile(),
       ...process.env,
       BUN_CONFIG_DNS_RESULT_ORDER: "verbatim",
+      ...browserUseContext.environment,
       ...extra,
     };
     const pathKey =
@@ -812,7 +829,10 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       !Object.prototype.hasOwnProperty.call(env, "Path")
         ? "PATH"
         : "Path";
-    const pathEnv = enrichedPath([...runtimeBinDirs, ...sidecarDirs], env[pathKey]);
+    const pathEnv = enrichedPath(
+      [...browserUseContext.pathEntries, ...runtimeBinDirs, ...sidecarDirs],
+      env[pathKey],
+    );
     if (pathEnv) {
       env[pathKey] = pathEnv;
     }
@@ -1262,9 +1282,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     }
 
     // Inject user env vars so the server and managed OpenCode inherit them.
-    const serverEnv = await buildChildEnv({
-      ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
-    });
+    const serverEnv = await buildChildEnv(
+      {
+        ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
+      },
+      { workspaceRoot: activeWorkspace },
+    );
     Object.assign(process.env, serverEnv);
 
     // One call: resolve config, spawn managed OpenCode, start HTTP server.
@@ -1396,12 +1419,15 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       throw new Error("Failed to locate opencode.");
     }
 
-    const env = await buildChildEnv({
-      ONMYAGENT_INTERNAL_ALLOW_OPENCODE_CREDENTIALS: "1",
-      ONMYAGENT_OPENCODE_USERNAME: username,
-      ONMYAGENT_OPENCODE_PASSWORD: password,
-      ...(options.opencodeEnableExa !== false ? { OPENCODE_ENABLE_EXA: "1" } : {}),
-    });
+    const env = await buildChildEnv(
+      {
+        ONMYAGENT_INTERNAL_ALLOW_OPENCODE_CREDENTIALS: "1",
+        ONMYAGENT_OPENCODE_USERNAME: username,
+        ONMYAGENT_OPENCODE_PASSWORD: password,
+        ...(options.opencodeEnableExa !== false ? { OPENCODE_ENABLE_EXA: "1" } : {}),
+      },
+      { workspaceRoot: projectDir },
+    );
 
     const args = [
       "daemon",
@@ -1463,10 +1489,13 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
     const port = await findFreePort("127.0.0.1");
     const [username, password] = generateManagedCredentials();
-    const env = await buildChildEnv({
-      OPENCODE_SERVER_USERNAME: username,
-      OPENCODE_SERVER_PASSWORD: password,
-    });
+    const env = await buildChildEnv(
+      {
+        OPENCODE_SERVER_USERNAME: username,
+        OPENCODE_SERVER_PASSWORD: password,
+      },
+      { workspaceRoot: projectDir },
+    );
 
     spawnManagedChild(
       engineState,
