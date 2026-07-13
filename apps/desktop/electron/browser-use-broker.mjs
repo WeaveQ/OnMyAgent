@@ -205,13 +205,13 @@ export function createBrowserUseBroker({
     };
   }
 
-  function releaseOwner(value) {
+  function releaseOwner(value, options = {}) {
     const ownerId = normalizeBrowserTabOwner(value);
     if (!ownerId) return [];
     const token = ownerTokens.get(ownerId);
     ownerTokens.delete(ownerId);
     if (token) tokenOwners.delete(token);
-    return panel.closeBrowserTabsByOwner(ownerId);
+    return options.closeTabs === false ? [] : panel.closeBrowserTabsByOwner(ownerId);
   }
 
   async function stop() {

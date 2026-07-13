@@ -139,3 +139,25 @@ test("returns redacted runtime health without connection credentials", async () 
     await broker.stop();
   }
 });
+
+test("revokes an owner token without closing retained tabs", async () => {
+  const panel = createPanel();
+  const broker = createBrowserUseBroker({
+    panel,
+    cdpPort: 9832,
+    runtimeStatus: () => ({ ready: true }),
+  });
+  await broker.start();
+  try {
+    const environment = broker.environmentForOwner("conversation:retained");
+    await request(environment, "/v1/tabs", {
+      method: "POST",
+      body: JSON.stringify({ url: "https://example.com/retained" }),
+    });
+    broker.releaseOwner("conversation:retained", { closeTabs: false });
+    assert.equal(panel.listBrowserTabs({ ownerId: "conversation:retained" }).length, 1);
+    assert.equal((await request(environment, "/v1/tabs")).status, 401);
+  } finally {
+    await broker.stop();
+  }
+});
