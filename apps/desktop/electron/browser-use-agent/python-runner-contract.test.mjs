@@ -63,6 +63,7 @@ test("OnMyAgentChatModel serializes images and validates structured output", asy
       "    confidence: float",
       "async def main():",
       "    llm = OnMyAgentChatModel()",
+      "    assert llm.model_name == 'onmyagent-selected-model'",
       "    message = UserMessage(content=[ContentPartTextParam(text='inspect'), ContentPartImageParam(image_url=ImageURL(url='data:image/png;base64,AA=='))])",
       "    result = await llm.ainvoke([message], Output)",
       "    print(json.dumps({'completion': result.completion.model_dump(), 'usage': result.usage.model_dump()}))",
@@ -134,8 +135,10 @@ test("runner uses an owner-scoped upstream BrowserSession", () => {
     "import json",
     "from runner import OwnerScopedBrowserSession",
     "from browser_use import BrowserSession",
+    "session = OwnerScopedBrowserSession(cdp_url='http://127.0.0.1:9823', keep_alive=True, owner_marker_url='about:blank#owner-test')",
     "print(json.dumps({",
     "  'subclass': issubclass(OwnerScopedBrowserSession, BrowserSession),",
+    "  'ownerMarker': session.owner_marker_url,",
     "  'overridesTabs': OwnerScopedBrowserSession.get_tabs is not BrowserSession.get_tabs,",
     "  'overridesPageCreation': OwnerScopedBrowserSession._cdp_create_new_page is not BrowserSession._cdp_create_new_page,",
     "}))",
@@ -148,6 +151,7 @@ test("runner uses an owner-scoped upstream BrowserSession", () => {
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
     subclass: true,
+    ownerMarker: "about:blank#owner-test",
     overridesTabs: true,
     overridesPageCreation: true,
   });

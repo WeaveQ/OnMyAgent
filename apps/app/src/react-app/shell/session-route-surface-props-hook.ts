@@ -48,7 +48,7 @@ import {
   writeAssistantSessionWorkspace,
 } from "../domains/session";
 import { useSessionActivityStore } from "../domains/session";
-import { setBrowserUseAgentRun } from "../domains/session/status/browser-use-agent-store";
+import { setBrowserUseAgentRun } from "../domains/session";
 import { buildOnMyAgentEnvSystemContext } from "../domains/shared/env-context";
 import { getReactQueryClient } from "../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "./onboarding-profile";
