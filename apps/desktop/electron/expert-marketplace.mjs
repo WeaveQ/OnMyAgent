@@ -204,6 +204,7 @@ export function createExpertMarketplace(options = {}) {
       version: typeof manifest.version === "string" && manifest.version.trim()
         ? manifest.version.trim()
         : null,
+      runtime: manifest.runtime === "browser-use-agent" ? "browser-use-agent" : null,
     };
   }
 

@@ -57,6 +57,14 @@ describe("expert marketplace UI contract", () => {
       builtinPluginsRoot,
       "browser-use-agent/skills/browser-use-agent/SKILL.md",
     ))).toBe(true);
+    const marketplaceData = readMarketplaceFile("data.ts");
+    const pendingAgent = readMarketplaceFile("pending-agent.ts");
+    const pendingStore = readWorkspaceFile(
+      "apps/app/src/react-app/domains/agents/pending-agent-store.ts",
+    );
+    expect(marketplaceData).toContain("runtime: normalizeExpertRuntime(manifest.runtime)");
+    expect(pendingAgent).toContain("runtime: expert.runtime");
+    expect(pendingStore).toContain('runtime?: "browser-use-agent"');
   });
 
   test("parses details from package files with folder-name fallback and duplicate-safe ids", () => {
@@ -135,6 +143,16 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
     expect(expertPage).toContain("activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+  });
+
+  test("browser-use expert routes its prompt to the dedicated runtime", () => {
+    const surfaceHook = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route-surface-props-hook.ts",
+    );
+    expect(surfaceHook).toContain('pendingAgentSnapshot?.runtime === "browser-use-agent"');
+    expect(surfaceHook).toContain("browserUseAgentStart({");
+    expect(surfaceHook).toContain("noReply: true");
+    expect(surfaceHook).toContain("ownerId: `expert:${sessionId}`");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {
