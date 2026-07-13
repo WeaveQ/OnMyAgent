@@ -448,6 +448,9 @@ components:
       - text-input
       - extension-mesh-avatar
       - provider-icon
+      - access-permission-select
+      - accessible-root-row
+      - agent-skill-icon
       - modals/confirm-modal
   row-primitives:
     location: apps/app/src/components/ui/action-row.tsx

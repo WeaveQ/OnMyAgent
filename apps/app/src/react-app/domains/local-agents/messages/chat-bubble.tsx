@@ -16,8 +16,8 @@ import {
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage, type PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import type { OpenTarget } from "../../session/artifacts/open-target";
-import { MarkdownBlock } from "../../session/surface/markdown";
+import type { OpenTarget } from "../../../capabilities/artifacts/open-target";
+import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { shortTime } from "../local-agent-formatters";
 import { MessageFileChanges } from "./message-file-changes";
 import { MessageTips } from "./message-tips";

@@ -54,6 +54,14 @@ export {
 export type { AgentHealthResult } from "./local-agent-page-types";
 export type { LocalAgentRepairAction } from "./local-agent-repair-panel";
 export { latestContextUsage } from "./context-usage-indicator";
+export {
+  conversationTitle,
+  HeartbeatPanel,
+  heartbeatClass,
+  scheduledRunMessage,
+  scheduledTaskSessionContext,
+  type HeartbeatDraft,
+} from "./personal-local-agent-scheduled-tasks";
 
 // Messages
 export { ChatBubble } from "./messages/chat-bubble";

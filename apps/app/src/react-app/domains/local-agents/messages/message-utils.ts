@@ -1,5 +1,5 @@
 import { t } from "@/i18n";
-import { classifyOpenTarget, type OpenTarget } from "../../session/artifacts/open-target";
+import { classifyOpenTarget, type OpenTarget } from "../../../capabilities/artifacts/open-target";
 import type { PersonalLocalAgent, PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
 
 export function isRunFinal(status: PersonalLocalAgentRunResult["status"] | undefined) {

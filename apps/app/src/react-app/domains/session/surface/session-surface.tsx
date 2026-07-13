@@ -86,14 +86,14 @@ import {
   useSessionActivityStore,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
-import { usePendingAgentStore } from "../../agents/pending-agent-store";
-import type { PendingAgentContext } from "../../agents/pending-agent-store";
-import { AgentPromptSuggestions } from "../../agents/agent-prompt-suggestions";
-import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
+import { usePendingAgentStore } from "../../agents";
+import type { PendingAgentContext } from "../../agents";
+import { AgentPromptSuggestions } from "../../agents";
+import { buildPendingAgentFromRecord } from "../../agents";
 import {
   readCustomAgentIdForSession,
   useAgentRegistryStore,
-} from "../../agents/agent-registry-store";
+} from "../../agents";
 import { PermissionApprovalPanel } from "../components/permission-modal";
 import { QuestionPanel } from "../modals/question-modal";
 import {

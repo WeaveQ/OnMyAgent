@@ -51,7 +51,7 @@ import {
   LayoutSectionTitle,
   LayoutStack,
 } from "../settings-layout";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { SoftwareEnvironmentSection } from "./software-environment-section";
 
