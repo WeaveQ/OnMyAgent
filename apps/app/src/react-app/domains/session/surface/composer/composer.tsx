@@ -1,12 +1,13 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Settings, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { MenuRowButton, MenuRowSurface } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
@@ -18,6 +19,11 @@ import { ModelBehaviorSelect } from "../../../../../components/model-behavior-se
 import { ModelSelectContainer } from "../../components/model-select";
 import { LexicalPromptEditor } from "./editor";
 import { AccessPermissionSelect } from "./access-permission-select";
+import {
+  collaborationModeOptionKeys,
+  filterToolMenuItems,
+  type CollaborationModeOptionKey,
+} from "./tool-menu-model";
 import {
   ReactComposerNotice,
   type ReactComposerNotice as ReactComposerNoticeData,
@@ -40,7 +46,7 @@ type PastedTextChip = {
 type ToolMenuSettingsSection = "commands" | "skills" | "mcps" | "plugins";
 type ToolMenuSection = "files" | "modes" | "skills" | "mcps";
 type CollaborationModeOption = {
-  key: "craft" | "ask" | "plan" | "planning" | "pursueGoal";
+  key: CollaborationModeOptionKey;
   label: string;
   description: string;
   Icon: typeof Rocket;
@@ -108,48 +114,39 @@ function selectedCollaborationModeKey(
 }
 
 function collaborationModeOptions(variant: "office" | "legacy"): CollaborationModeOption[] {
-  if (variant === "office") {
-    return [
-      {
-        key: "craft",
-        get label() { return t("composer.collaboration_craft"); },
-        get description() { return t("composer.collaboration_craft_desc"); },
-        Icon: Rocket,
-      },
-      {
-        key: "ask",
-        get label() { return t("composer.collaboration_ask"); },
-        get description() { return t("composer.collaboration_ask_desc"); },
-        Icon: MessageCircle,
-      },
-      {
-        key: "plan",
-        get label() { return t("composer.collaboration_plan"); },
-        get description() { return t("composer.collaboration_plan_desc"); },
-        Icon: ClipboardList,
-      },
-      {
-        key: "pursueGoal",
-        get label() { return t("composer.collaboration_pursue_goal"); },
-        get description() { return t("composer.collaboration_pursue_goal_desc"); },
-        Icon: Target,
-      },
-    ];
-  }
-  return [
-    {
+  const options: Record<CollaborationModeOptionKey, CollaborationModeOption> = {
+    craft: {
+      key: "craft",
+      get label() { return t("composer.collaboration_craft"); },
+      get description() { return t("composer.collaboration_craft_desc"); },
+      Icon: Rocket,
+    },
+    ask: {
+      key: "ask",
+      get label() { return t("composer.collaboration_ask"); },
+      get description() { return t("composer.collaboration_ask_desc"); },
+      Icon: MessageCircle,
+    },
+    plan: {
+      key: "plan",
+      get label() { return t("composer.collaboration_plan"); },
+      get description() { return t("composer.collaboration_plan_desc"); },
+      Icon: ClipboardList,
+    },
+    planning: {
       key: "planning",
       get label() { return t("composer.collaboration_planning"); },
       get description() { return t("composer.collaboration_planning_desc"); },
       Icon: ClipboardList,
     },
-    {
+    pursueGoal: {
       key: "pursueGoal",
       get label() { return t("composer.collaboration_pursue_goal"); },
       get description() { return t("composer.collaboration_pursue_goal_desc"); },
       Icon: Target,
     },
-  ];
+  };
+  return collaborationModeOptionKeys(variant).map((key) => options[key]);
 }
 
 function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
@@ -364,6 +361,12 @@ function mcpStatusBadgeTone(status: McpServerStatus): StatusBadgeTone {
   }
 }
 
+function mcpServerDescription(entry: McpServerEntry) {
+  return entry.config.type === "remote"
+    ? entry.config.url ?? entry.config.command?.join(" ") ?? "Remote MCP"
+    : entry.config.command?.join(" ") ?? "Local MCP";
+}
+
 const COMPOSER_CONTAIN_STYLE = { contain: "layout style" };
 
 function extensionIcon(entry: McpDirectoryInfo, size = 16) {
@@ -413,6 +416,8 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [slashOpen, setSlashOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("files");
+  const [skillSearchQuery, setSkillSearchQuery] = useState("");
+  const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
   const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
   const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -564,6 +569,11 @@ export function ReactSessionComposer(props: ComposerProps) {
     setSkillsLoaded(Boolean(props.skills));
     setMcpLoaded(Boolean(props.mcpServers));
   }, [toolMenuOpen]);
+
+  useEffect(() => {
+    setSkillSearchQuery("");
+    setConnectorSearchQuery("");
+  }, [toolMenuOpen, toolMenuSection]);
 
   useEffect(() => {
     if (!slashOpen && !toolMenuOpen) return;
@@ -994,6 +1004,42 @@ export function ReactSessionComposer(props: ComposerProps) {
     entry,
     status: toReactMcpStatus(entry.name, entry, mcpStatuses),
   }));
+  const combinedSkillItems = [
+    ...toolCommandItems,
+    ...toolSkillItems,
+    ...skills
+      .filter((skill) => !toolSkillItems.some((command) => command.name === skill.name))
+      .map((skill) => ({
+        id: `skill:${skill.name}`,
+        name: skill.name,
+        description: skill.description,
+        source: "skill" as const,
+      })),
+  ];
+  const filteredSkillItems = filterToolMenuItems(
+    combinedSkillItems,
+    skillSearchQuery,
+    (item) => `${item.name} ${item.description ?? ""}`,
+  );
+  const filteredPluginSkillFiles = filterToolMenuItems(
+    pluginSkillFiles,
+    skillSearchQuery,
+    (file) => `${file.title} ${file.path}`,
+  );
+  const filteredMcpItems = filterToolMenuItems(
+    activeMcpItems,
+    connectorSearchQuery,
+    ({ entry }) => `${entry.name} ${mcpServerDescription(entry)}`,
+  );
+  const filteredComposerExtensions = filterToolMenuItems(
+    composerExtensions,
+    connectorSearchQuery,
+    (entry) => `${entry.name} ${entry.description}`,
+  );
+  const hasSkills = combinedSkillItems.length > 0 || pluginSkillFiles.length > 0;
+  const hasSkillMatches = filteredSkillItems.length > 0 || filteredPluginSkillFiles.length > 0;
+  const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
+  const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
   const panelRoundedClass =
     mentionOpen || slashOpen
@@ -1349,26 +1395,57 @@ export function ReactSessionComposer(props: ComposerProps) {
                       {toolMenuSection === "files" ? null : (
                         <div className="absolute bottom-0 left-[calc(9rem-1px)] flex w-[min(calc(100vw-11.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
                           {toolMenuSection === "skills" ? (
-                            <div className="flex min-h-12 items-center justify-between gap-3 border-b border-dls-border px-3 py-2">
-                              <div className="text-xs font-medium text-dls-text">{t("dashboard.skills")}</div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                className="shrink-0 text-dls-secondary hover:bg-dls-surface-muted"
-                                onClick={() => {
-                                  setToolMenuOpen(false);
-                                  openToolMenuSettings();
-                                }}
-                              >
-                                <Settings size={12} />
-                                {t("composer.configure")}
-                              </Button>
+                            <div className="space-y-2 border-b border-dls-border px-3 py-2">
+                              <div className="flex min-h-8 items-center justify-between gap-3">
+                                <div className="text-xs font-medium text-dls-text">{t("dashboard.skills")}</div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="xs"
+                                  className="shrink-0 text-dls-secondary hover:bg-dls-surface-muted"
+                                  onClick={() => {
+                                    setToolMenuOpen(false);
+                                    openToolMenuSettings();
+                                  }}
+                                >
+                                  <Settings size={12} />
+                                  {t("composer.configure")}
+                                </Button>
+                              </div>
+                              <InputGroup controlSize="sm" radius="md" tone="surfaceMuted">
+                                <InputGroupAddon align="inline-start" inset="tight">
+                                  <Search className="size-4" />
+                                </InputGroupAddon>
+                                <InputGroupInput
+                                  value={skillSearchQuery}
+                                  onChange={(event) => setSkillSearchQuery(event.currentTarget.value)}
+                                  placeholder={t("composer.search_skills")}
+                                  aria-label={t("composer.search_skills")}
+                                  className="text-xs text-dls-text placeholder:text-dls-secondary/75"
+                                />
+                              </InputGroup>
+                            </div>
+                          ) : toolMenuSection === "mcps" ? (
+                            <div className="space-y-2 border-b border-dls-border px-3 py-2">
+                              <div className="flex min-h-8 items-center text-xs font-medium text-dls-text">
+                                {t("composer.connectors_label")}
+                              </div>
+                              <InputGroup controlSize="sm" radius="md" tone="surfaceMuted">
+                                <InputGroupAddon align="inline-start" inset="tight">
+                                  <Search className="size-4" />
+                                </InputGroupAddon>
+                                <InputGroupInput
+                                  value={connectorSearchQuery}
+                                  onChange={(event) => setConnectorSearchQuery(event.currentTarget.value)}
+                                  placeholder={t("composer.search_connectors")}
+                                  aria-label={t("composer.search_connectors")}
+                                  className="text-xs text-dls-text placeholder:text-dls-secondary/75"
+                                />
+                              </InputGroup>
                             </div>
                           ) : (
                             <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
                               {toolMenuSection === "modes" ? t("composer.collaboration_choose_mode") : null}
-                              {toolMenuSection === "mcps" ? t("composer.connectors_label") : null}
                             </div>
                           )}
                           <div className="max-h-72 overflow-y-auto p-2">
@@ -1400,15 +1477,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                               </div>
                             ) : null}
                             {toolMenuSection === "skills" ? (
-                              (toolCommandItems.length > 0 || skills.length > 0 || toolSkillItems.length > 0 || pluginSkillFiles.length > 0) ? (
+                              hasSkillMatches ? (
                                 <div className="grid gap-1">
-                                  {[
-                                    ...toolCommandItems,
-                                    ...toolSkillItems,
-                                    ...skills
-                                      .filter((skill) => !toolSkillItems.some((command) => command.name === skill.name))
-                                      .map((skill) => ({ id: `skill:${skill.name}`, name: skill.name, description: skill.description, source: "skill" as const })),
-                                  ].map((command) => (
+                                  {filteredSkillItems.map((command) => (
                                     <MenuRowButton
                                       key={command.id}
                                       type="button"
@@ -1421,7 +1492,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                       </div>
                                     </MenuRowButton>
                                   ))}
-                                  {pluginSkillFiles.map((file) => (
+                                  {filteredPluginSkillFiles.map((file) => (
                                     <MenuRowButton
                                       key={`${file.configObjectId}:${file.path}`}
                                       type="button"
@@ -1441,14 +1512,18 @@ export function ReactSessionComposer(props: ComposerProps) {
                                 </div>
                               ) : (
                                 <div className="px-3 py-2 text-xs text-dls-secondary">
-                                  {(!skillsLoaded && skillsLoading) || (!commandsLoaded && commandsLoading) ? t("composer.loading_commands") : t("context_panel.no_skills")}
+                                  {(!skillsLoaded && skillsLoading) || (!commandsLoaded && commandsLoading)
+                                    ? t("composer.loading_commands")
+                                    : hasSkills
+                                      ? t("composer.no_matching_skills")
+                                      : t("context_panel.no_skills")}
                                 </div>
                               )
                             ) : null}
                             {toolMenuSection === "mcps" ? (
-                              activeMcpItems.length > 0 || composerExtensions.length > 0 ? (
+                              hasConnectorMatches ? (
                                 <div className="grid gap-1">
-                                  {activeMcpItems.map(({ entry, status }) => (
+                                  {filteredMcpItems.map(({ entry, status }) => (
                                     <MenuRowSurface key={entry.name}>
                                       <Plug size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
                                       <div className="min-w-0 flex-1">
@@ -1458,11 +1533,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                                             {formatMcpStatusLabel(status)}
                                           </StatusBadge>
                                         </div>
-                                        <div className="truncate text-xs text-dls-secondary">{entry.config.type === "remote" ? entry.config.url ?? entry.config.command?.join(" ") ?? "Remote MCP" : entry.config.command?.join(" ") ?? "Local MCP"}</div>
+                                        <div className="truncate text-xs text-dls-secondary">{mcpServerDescription(entry)}</div>
                                       </div>
                                     </MenuRowSurface>
                                   ))}
-                                  {composerExtensions.map((entry) => (
+                                  {filteredComposerExtensions.map((entry) => (
                                     <MenuRowButton
                                       key={entry.id ?? entry.serverName ?? entry.name}
                                       type="button"
@@ -1485,7 +1560,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                                 </div>
                               ) : (
                                 <div className="px-3 py-2 text-xs text-dls-secondary">
-                                  {!mcpLoaded && mcpLoading ? t("composer.loading_commands") : (mcpStatus ?? t("context_panel.no_mcp"))}
+                                  {!mcpLoaded && mcpLoading
+                                    ? t("composer.loading_commands")
+                                    : hasConnectors
+                                      ? t("composer.no_matching_connectors")
+                                      : (mcpStatus ?? t("context_panel.no_mcp"))}
                                 </div>
                               )
                             ) : null}
