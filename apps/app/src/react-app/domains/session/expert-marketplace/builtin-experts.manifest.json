@@ -427,6 +427,61 @@
       "avatarAssetPath": "avatars/expert.png"
     },
     {
+      "packageName": "browser-use-agent",
+      "manifest": {
+        "name": "browser-use-agent",
+        "version": "1.0.0",
+        "description": "Runs the upstream Browser Use Agent in the embedded OnMyAgent browser with the selected desktop model.",
+        "agents": [
+          "./agents/browser-use-agent.md"
+        ],
+        "expertType": "agent",
+        "agentName": "browser-use-agent",
+        "runtime": "browser-use-agent",
+        "displayName": {
+          "en": "Browser Use Agent",
+          "zh": "浏览器自动化专家"
+        },
+        "profession": {
+          "en": "Browser Automation Expert",
+          "zh": "浏览器自动化专家"
+        },
+        "displayDescription": {
+          "en": "Plans and executes multi-step browser tasks in OnMyAgent's embedded browser.",
+          "zh": "在 OnMyAgent 内置浏览器中规划并执行多步骤浏览器任务。"
+        },
+        "avatar": "avatars/expert.svg",
+        "categoryId": "product-operations",
+        "categoryIds": [
+          "product-operations"
+        ],
+        "tags": [
+          {
+            "en": "Browser Automation",
+            "zh": "浏览器自动化"
+          },
+          {
+            "en": "Browser Use",
+            "zh": "Browser Use"
+          }
+        ],
+        "quickPrompts": [
+          {
+            "en": "Open a website and summarize its visible content.",
+            "zh": "打开一个网站并总结页面可见内容。"
+          },
+          {
+            "en": "Complete this browser workflow and keep the final tab open.",
+            "zh": "完成这个浏览器流程，并保留最终标签页。"
+          }
+        ]
+      },
+      "readme": "",
+      "agentMarkdown": "---\nname: browser-use-agent\ndescription: Runs upstream Browser Use Agent tasks in the OnMyAgent embedded browser.\nprofession: Browser Automation Expert\nmaxTurns: 100\n---\n\n# Browser Use Agent\n\nTranslate the user's browser goal into a task for the dedicated Browser Use Agent runtime.\n\n## Operating rules\n\n- Use the embedded browser and its existing login state by default.\n- Keep work scoped to tabs owned by this conversation.\n- Observe and verify page state after consequential actions.\n- Pause for OnMyAgent approval before publishing, sending, submitting, purchasing, deleting, downloading, uploading, or other external side effects.\n- Never expose CDP endpoints, broker tokens, model-gateway tokens, or provider credentials.\n- Preserve the final tab when the user asks to keep it open.\n- Report completed outcomes and blockers; do not claim an action succeeded without page evidence.\n",
+      "agentPath": "agents/browser-use-agent.md",
+      "avatarAssetPath": "avatars/expert.svg"
+    },
+    {
       "packageName": "china-ecommerce-operations-expert",
       "manifest": {
         "name": "china-ecommerce-operations-expert",
