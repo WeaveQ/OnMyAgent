@@ -49,6 +49,13 @@ import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./arc
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
+import { createBrowserUseBroker } from "./browser-use-broker.mjs";
+import { browserUseRuntimeStatus, desktopRuntimeTarget } from "./browser-use-runtime-status.mjs";
+import { createBrowserUseModelGateway } from "./browser-use-agent/model-gateway.mjs";
+import { createBrowserUseOpenCodeModelInvoker } from "./browser-use-agent/opencode-model-invoker.mjs";
+import { createBrowserUseAgentRuntime } from "./browser-use-agent/runtime.mjs";
+import { createBrowserUseRunStore } from "./browser-use-agent/run-store.mjs";
+import { createBrowserUseEnvironmentManager } from "./personal-agent-runtime/browser-use-environment.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
@@ -269,7 +276,7 @@ if (
   app.dock.setIcon(APP_ICON_IMAGE);
 }
 
-await configureDesktopStartupFlags(app);
+const { remoteDebugPort } = await configureDesktopStartupFlags(app);
 const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("ONMYAGENT_FORCE_SIGNIN");
@@ -424,6 +431,33 @@ const embeddedBrowserPanel = createEmbeddedBrowserPanel({
   clipboard,
   shell,
   dirname: __dirname,
+});
+const browserUseRuntimeRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "runtimes")
+  : path.resolve(__dirname, "../resources/runtimes");
+const readBrowserUseStatus = () => {
+  const status = browserUseRuntimeStatus({ runtimeRoot: browserUseRuntimeRoot });
+  return {
+    ...status,
+    ready: status.ready && remoteDebugPort > 0,
+  };
+};
+const browserUseBroker = createBrowserUseBroker({
+  panel: embeddedBrowserPanel,
+  cdpPort: remoteDebugPort,
+  runtimeStatus: readBrowserUseStatus,
+});
+const browserUseResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-use")
+  : path.resolve(__dirname, "../resources/browser-use");
+const browserUseEnvironmentManager = createBrowserUseEnvironmentManager({
+  runtimeRoot: browserUseRuntimeRoot,
+  resourceRoot: browserUseResourceRoot,
+  userDataDir: app.getPath("userData"),
+  environmentForOwner: async (ownerId) => {
+    await browserUseBroker.start();
+    return browserUseBroker.environmentForOwner(ownerId);
+  },
 });
 const uiControlBridge = createUiControlServer({
   app,
@@ -1273,6 +1307,65 @@ const runtimeManager = createRuntimeManager({
       .filter((entry) => entry?.workspaceType !== "remote")
       .map((entry) => String(entry?.path ?? "").trim())
       .filter(Boolean),
+  browserUseEnvironment: (input) =>
+    browserUseEnvironmentManager.environmentForRun(input),
+});
+
+const browserUseAgentResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-use-agent")
+  : path.resolve(__dirname, "../resources/browser-use-agent");
+const browserUseAgentTargetRoot = path.join(
+  browserUseRuntimeRoot,
+  desktopRuntimeTarget(),
+);
+const browserUseAgentPython = path.join(
+  browserUseAgentTargetRoot,
+  "python",
+  process.platform === "win32" ? "python.exe" : "bin/python3",
+);
+const browserUseModelInvoker = createBrowserUseOpenCodeModelInvoker({
+  connectionInfo: async () => {
+    const engine = await runtimeManager.engineInfo();
+    const server = await runtimeManager.onmyagentServerInfo();
+    const baseUrl = engine.baseUrl ?? server.baseUrl ?? "";
+    const authorization = engine.opencodeUsername && engine.opencodePassword
+      ? `Basic ${Buffer.from(`${engine.opencodeUsername}:${engine.opencodePassword}`, "utf8").toString("base64")}`
+      : server.clientToken || server.ownerToken
+        ? `Bearer ${server.clientToken ?? server.ownerToken}`
+        : "";
+    return { baseUrl, authorization };
+  },
+});
+const browserUseModelGateway = createBrowserUseModelGateway({
+  invokeModel: browserUseModelInvoker,
+});
+const browserUseRunStore = createBrowserUseRunStore({
+  filePath: path.join(app.getPath("userData"), "browser-use-agent", "runs.json"),
+});
+const browserUseAgentRuntime = createBrowserUseAgentRuntime({
+  browserEnvironment: {
+    environmentForOwner: async (ownerId) => {
+      await browserUseBroker.start();
+      return browserUseBroker.environmentForOwner(ownerId);
+    },
+    releaseOwner: (ownerId, options) => browserUseBroker.releaseOwner(ownerId, options),
+  },
+  modelGateway: browserUseModelGateway,
+  store: browserUseRunStore,
+  spawnRunner: ({ env }) => spawn(
+    browserUseAgentPython,
+    [path.join(browserUseAgentResourceRoot, "runner.py")],
+    {
+      cwd: browserUseAgentResourceRoot,
+      env: {
+        ...process.env,
+        ...env,
+        PYTHONPATH: browserUseAgentResourceRoot,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    },
+  ),
 });
 
 const {
@@ -1288,6 +1381,8 @@ const {
   runtimeManager,
   readWorkspaceState,
   claudeProjectsRoot,
+  browserUseEnvironment: (input) =>
+    browserUseEnvironmentManager.environmentForRun(input),
 });
 
 const codeWorkspaceActions = createCodeWorkspaceActions({
@@ -1894,6 +1989,8 @@ async function handleDesktopInvoke(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
+    case "browserUseStatus":
+      return readBrowserUseStatus();
     case "personalLocalAgentsList": {
       const result = await personalAgentRuntime.listAgents(args[0] ?? {});
       const agents = Array.isArray(result?.agents) ? result.agents : [];
@@ -1967,6 +2064,16 @@ async function handleDesktopInvoke(event, command, ...args) {
       }
       return result;
     }
+    case "browserUseAgentStart":
+      return browserUseAgentRuntime.start(args[0] ?? {});
+    case "browserUseAgentStatus":
+      return browserUseAgentRuntime.status(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentHistory":
+      return browserUseAgentRuntime.history(String(args[0]?.sessionId ?? args[0] ?? ""));
+    case "browserUseAgentCancel":
+      return browserUseAgentRuntime.cancel(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentApprove":
+      return browserUseAgentRuntime.approve(args[0] ?? {});
     case "personalLocalAgentStatus":
       return personalAgentRuntime.getRun(args[0]);
     case "personalLocalAgentRun": {
@@ -3241,6 +3348,9 @@ if (!app.requestSingleInstanceLock()) {
     void Promise.all([
       disposeRuntimeBeforeQuit(),
       uiControlBridge.stop(),
+      browserUseAgentRuntime.dispose(),
+      browserUseModelGateway.stop(),
+      browserUseBroker.stop(),
     ]).finally(() => app.quit());
   });
 
@@ -3265,6 +3375,9 @@ if (!app.requestSingleInstanceLock()) {
     installApplicationMenu();
 
     await ensureOnMyAgentUserDataDirs();
+    await browserUseBroker.start().catch((error) => {
+      console.warn("[browser-use] broker failed to start", error);
+    });
 
     // Use Tauri's existing workspace state file as canonical so rollback and
     // Electron see the same workspace list. Import the short-lived

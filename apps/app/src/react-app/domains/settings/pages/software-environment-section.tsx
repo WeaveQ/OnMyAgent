@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, MonitorSmartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   desktopBridge,
@@ -35,6 +35,24 @@ type SoftwareEnvStatus = {
 
 type InstallState = "idle" | "installing" | "installed" | "error";
 type StatusLoadState = "loading" | "ready" | "error";
+
+type BrowserUseStatus = {
+  ready: boolean;
+  browserUseVersion: string | null;
+};
+
+function normalizeBrowserUseStatus(value: unknown): BrowserUseStatus {
+  if (typeof value !== "object" || value === null) {
+    return { ready: false, browserUseVersion: null };
+  }
+  return {
+    ready: "ready" in value && value.ready === true,
+    browserUseVersion:
+      "browserUseVersion" in value && typeof value.browserUseVersion === "string"
+        ? value.browserUseVersion
+        : null,
+  };
+}
 
 function NodeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -82,6 +100,12 @@ function OpencodeIcon(props: React.SVGProps<SVGSVGElement>) {
 
 const tools = [
   {
+    id: "browser-use" as const,
+    name: "Browser Use",
+    get description() { return t("settings.browser_use_description"); },
+    Icon: MonitorSmartphone,
+  },
+  {
     id: "opencode" as const,
     name: "OpenCode",
     get description() { return t("settings.software_env.opencode_desc"); },
@@ -128,6 +152,8 @@ const softwareEnvLayoutClass = {
 export function SoftwareEnvironmentSection() {
   const [status, setStatus] = useState<SoftwareEnvStatus | null>(null);
   const [statusLoadState, setStatusLoadState] = useState<StatusLoadState>("loading");
+  const [browserUseStatus, setBrowserUseStatus] = useState<BrowserUseStatus | null>(null);
+  const [browserUseLoadState, setBrowserUseLoadState] = useState<StatusLoadState>("loading");
   const [installing, setInstalling] = useState<Record<string, InstallState>>({});
   const [errorMsg, setErrorMsg] = useState<Record<string, string>>({});
   const [installProgress, setInstallProgress] =
@@ -149,6 +175,24 @@ export function SoftwareEnvironmentSection() {
   useEffect(() => {
     void checkStatus();
   }, [checkStatus]);
+
+  useEffect(() => {
+    let active = true;
+    void window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("browserUseStatus")
+      .then((value) => {
+        if (!active) return;
+        setBrowserUseStatus(normalizeBrowserUseStatus(value));
+        setBrowserUseLoadState("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setBrowserUseStatus(normalizeBrowserUseStatus(null));
+        setBrowserUseLoadState("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     return subscribeSoftwareEnvironmentProgress((progress) => {
@@ -233,6 +277,43 @@ export function SoftwareEnvironmentSection() {
           </thead>
           <tbody>
             {tools.map((tool) => {
+              if (tool.id === "browser-use") {
+                return (
+                  <tr key={tool.id} className={softwareEnvLayoutClass.tableRow}>
+                    <td className={softwareEnvLayoutClass.cell}>
+                      <span className="inline-flex items-center gap-2 font-medium">
+                        <tool.Icon aria-hidden="true" className="size-5 text-dls-accent" />
+                        {tool.name}
+                      </span>
+                    </td>
+                    <td className={softwareEnvLayoutClass.descriptionCell}>{tool.description}</td>
+                    <td className={softwareEnvLayoutClass.statusCell}>
+                      {browserUseLoadState === "loading" ? (
+                        <span className={softwareEnvLayoutClass.loadingLabel}>
+                          <LoadingSpinner size="default" />
+                          {t("settings.software_env.loading")}
+                        </span>
+                      ) : browserUseStatus?.ready ? (
+                        <div className={softwareEnvLayoutClass.installedStack}>
+                          <span className={softwareEnvLayoutClass.installedLabel}>
+                            <CheckCircle2 aria-hidden="true" className="size-4 text-dls-accent" />
+                            {t("settings.software_env.bundled")}
+                          </span>
+                          {browserUseStatus.browserUseVersion ? (
+                            <span className="text-xs text-muted-foreground">
+                              {browserUseStatus.browserUseVersion}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className={softwareEnvLayoutClass.errorText}>
+                          {t("settings.software_env.status_unavailable")}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              }
               const state = getInstallState(tool.id);
               const detail = status?.details?.[tool.id];
               return (

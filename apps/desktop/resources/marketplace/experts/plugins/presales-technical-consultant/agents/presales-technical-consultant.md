@@ -187,4 +187,3 @@ Technical objections are rarely about the stated concern. Decode the real questi
 
 - **wechat-article-search**：微信公众号文章搜索 — 当需要搜索微信公众号文章（标题、摘要、发布时间、来源账号）时自动触发
 - **jiaozhen-factcheck**：事实查证 — 当需要进行事实查证、谣言识别或判断信息真伪与可靠性时自动触发
-- **minimax-docx**：Word 文档生成与编辑 — 当需要创建、编辑 Word 文档或生成专业格式报告时自动触发

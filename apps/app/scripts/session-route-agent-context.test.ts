@@ -30,6 +30,7 @@ describe("session route agent context", () => {
     ).toEqual({
       pendingAgentSnapshot: agent,
       agentToolAccess: agent.tools,
+      agentRuntime: undefined,
     });
 
     expect(
@@ -41,6 +42,7 @@ describe("session route agent context", () => {
     ).toEqual({
       pendingAgentSnapshot: null,
       agentToolAccess: agent.tools,
+      agentRuntime: undefined,
     });
   });
 
@@ -61,6 +63,61 @@ describe("session route agent context", () => {
         createdSession: false,
         sessionId: "ses_other",
       }).agentToolAccess,
+    ).toBeUndefined();
+  });
+
+  test("keeps the dedicated agent runtime on existing and restored sessions", () => {
+    const boundAgent = pendingAgent({
+      boundSessionId: "ses_bound",
+      runtime: "browser-use-agent",
+    });
+
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: boundAgent,
+        createdSession: false,
+        draftRuntime: undefined,
+        persistedRuntime: undefined,
+        sessionId: "ses_bound",
+      }).agentRuntime,
+    ).toBe("browser-use-agent");
+
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: null,
+        createdSession: false,
+        draftRuntime: undefined,
+        persistedRuntime: "browser-use-agent",
+        sessionId: "ses_restored",
+      }).agentRuntime,
+    ).toBe("browser-use-agent");
+  });
+
+  test("prefers the expert page runtime without leaking another bound agent", () => {
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: pendingAgent({
+          boundSessionId: "ses_other",
+          runtime: "browser-use-agent",
+        }),
+        createdSession: false,
+        draftRuntime: "browser-use-agent",
+        persistedRuntime: undefined,
+        sessionId: "ses_current",
+      }).agentRuntime,
+    ).toBe("browser-use-agent");
+
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: pendingAgent({
+          boundSessionId: "ses_other",
+          runtime: "browser-use-agent",
+        }),
+        createdSession: false,
+        draftRuntime: undefined,
+        persistedRuntime: undefined,
+        sessionId: "ses_current",
+      }).agentRuntime,
     ).toBeUndefined();
   });
 

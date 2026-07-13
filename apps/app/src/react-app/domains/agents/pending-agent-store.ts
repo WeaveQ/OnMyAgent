@@ -53,6 +53,7 @@ export type PendingAgentContext = {
     avatarBackground: string | null;
   };
   systemPrompt: string;
+  runtime?: "browser-use-agent";
   model?: { providerID: string; modelID: string };
   tools?: AgentToolAccessMap;
   quickPrompts?: string[];

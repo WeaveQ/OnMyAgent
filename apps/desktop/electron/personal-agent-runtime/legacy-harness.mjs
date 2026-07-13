@@ -535,7 +535,21 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     state.status = "running";
     appendRunEvent(state.events, { type: "log", text: attempt > 0 ? `retrying ${detected.name} after empty text output` : `spawned ${detected.name}` });
     appendRunEvent(state.events, { type: "log", text: state.command });
-    const child = spawn(detected.executablePath, args, { cwd: state.workspaceRoot, env: exec.processEnv({ PWD: state.workspaceRoot }), windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const runExec = createExecHelpers({
+      extraPathEntries: () => [
+        ...(options.runtimePathEntries?.() ?? []),
+        ...(state.browserUsePathEntries ?? []),
+      ],
+    });
+    const child = spawn(detected.executablePath, args, {
+      cwd: state.workspaceRoot,
+      env: runExec.processEnv({
+        PWD: state.workspaceRoot,
+        ...(state.browserUseEnvironment ?? {}),
+      }),
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     state.child = child;
     state.pid = child.pid ?? null;
     processes.set(state.runId, child);
@@ -607,6 +621,14 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     const detected = await detectPersonalLocalAgent(agent, workspaceRoot);
     if (detected.status !== "online") throw new Error(detected.error || `${detected.name} 不可用`);
     const id = runId();
+    const browserUseContext =
+      typeof options.browserUseEnvironment === "function"
+        ? await options.browserUseEnvironment({
+            workspaceRoot,
+            conversationId: input.conversationId,
+            runId: id,
+          })
+        : { environment: {}, pathEntries: [] };
     const logRoot = runLogRoot(workspaceRoot);
     await mkdir(logRoot, { recursive: true });
     const state = {
@@ -628,6 +650,8 @@ export function createPersonalAgentLegacyHarness(options = {}) {
       stderrBuffer: "",
       emptyOutputRetries: 0,
       fatalError: false,
+      browserUseEnvironment: browserUseContext.environment,
+      browserUsePathEntries: browserUseContext.pathEntries,
     };
     runs.set(id, state);
     await startAttempt(state, detected, prompt, 0);

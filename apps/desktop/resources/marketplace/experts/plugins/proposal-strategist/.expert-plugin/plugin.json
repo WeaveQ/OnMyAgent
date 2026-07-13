@@ -57,8 +57,7 @@
     "./skills/anti-distill",
     "./skills/browser-use",
     "./skills/market-researcher",
-    "./skills/marketing-skills",
-    "./skills/minimax-docx"
+    "./skills/marketing-skills"
   ],
   "categoryIds": [
     "07-SalesCommerce"

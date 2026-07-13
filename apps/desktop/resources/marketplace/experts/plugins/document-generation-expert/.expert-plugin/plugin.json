@@ -54,8 +54,7 @@
     }
   ],
   "skills": [
-    "./skills/anti-distill",
-    "./skills/minimax-docx"
+    "./skills/anti-distill"
   ],
   "categoryIds": [
     "product-development"
