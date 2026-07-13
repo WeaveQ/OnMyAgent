@@ -218,6 +218,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@onmyagent/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@opencode-ai/sdk':
         specifier: ^1.17.8
         version: 1.17.8

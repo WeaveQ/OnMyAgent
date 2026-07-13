@@ -1,4 +1,6 @@
 import { nativeDeepLinkEvent } from "./deep-link-bridge";
+import { desktopCommandNames } from "@onmyagent/types/desktop-ipc-commands";
+import type { DesktopCommandName } from "@onmyagent/types/desktop-ipc";
 
 export type * from "./desktop-types";
 export type {
@@ -139,7 +141,7 @@ declare global {
   interface Window {
     __ONMYAGENT_ZOOM_FACTOR__?: number;
     __ONMYAGENT_ELECTRON__?: {
-      invokeDesktop?: (command: string, ...args: unknown[]) => Promise<unknown>;
+      invokeDesktop?: (command: DesktopCommandName, ...args: unknown[]) => Promise<unknown>;
       shell?: {
         openExternal?: (url: string) => Promise<void>;
         relaunch?: () => Promise<void>;
@@ -308,7 +310,7 @@ export type SoftwareEnvironmentProgress = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function invokeElectronHelper<T>(command: string, ...args: unknown[]): Promise<T> {
+async function invokeElectronHelper<T>(command: DesktopCommandName, ...args: unknown[]): Promise<T> {
   const invokeDesktop = window.__ONMYAGENT_ELECTRON__?.invokeDesktop;
   if (!invokeDesktop) {
     throw new Error(`Electron desktop helper is unavailable: ${command}`);
@@ -347,7 +349,11 @@ export const desktopBridge = new Proxy(electronBridge, {
     const cached = target[prop];
     if (cached) return cached;
 
-    const fn = (...args: unknown[]) => invokeElectronHelper(prop, ...args);
+    const command = desktopCommandNames.find((candidate) => candidate === prop);
+    if (!command) {
+      throw new Error(`Electron desktop helper is not declared: ${prop}`);
+    }
+    const fn = (...args: unknown[]) => invokeElectronHelper(command, ...args);
     target[prop] = fn;
     return fn;
   },

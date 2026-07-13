@@ -18,7 +18,7 @@ apps/
   orchestrator/ 进程编排：嵌入 server，spawn opencode，审批路由，sandbox 管理；env/PATH、data-dir、sidecar target/config、version manifest、sandbox mount helper 已拆为独立模块
 
 packages/
-  types/        共享类型与 Zod schema：server API contract, desktop-policies, restrictions, inference
+  types/        共享类型与 Zod schema：server API / Desktop IPC contract, desktop-policies, restrictions, inference
   ui/           Paper shader 视觉组件：仅 React 导出（`@onmyagent/ui/react`）；Solid 已移除
   handsfree/    macOS Computer Use：Swift AX + JS CUA runner
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
@@ -70,8 +70,8 @@ desktop(electron) → runtime.mjs → spawn sidecars
   ├→ orchestrator → embed server + spawn router → Slack/Telegram
   └→ server HTTP API ← app(React) 通过 onmyagent-server.ts 调用
 
-app(React) ← desktop.ts(IPC桥) ← preload.mjs ← main.mjs
-app(React) ← onmyagent-server.ts(HTTP API) ← server
+app(React) ← desktop.ts(typed IPC bridge) ← preload.mjs ← desktop-command-router.mjs ← main.mjs
+app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
 app(React) ← @onmyagent/types ← packages/types (Zod schema)
 ```
@@ -179,6 +179,12 @@ pnpm check:boundaries
 - `packages/ui` 不依赖 app/server/desktop 业务包。
 - `apps/server` 不依赖 renderer、desktop 或 UI 包。
 - `apps/desktop` 不直接 import renderer 包；renderer 交互必须走 IPC/preload/server API。
+- Desktop IPC 命令名以 `packages/types/src/desktop-ipc-commands.mjs` 为运行时 SoT，
+  `desktop-ipc-commands.d.mts` 提供生成的字面量联合；Electron 按 workspace、runtime、
+  local-agents、messaging 等域注册路由，parity test 要求每条命令恰好声明和实现一次。
+- Renderer-facing HTTP client 方法以 `server-client-methods.mjs` 分域登记；
+  `app/lib/onmyagent-server.ts` 仅保留兼容 barrel，实际 client 与窄化 domain views 位于
+  `app/lib/onmyagent-server/`。跨端响应结构优先定义在 `@onmyagent/types/server`。
 - `apps/app/src/app/lib/**` 不反向 import `react-app`。
 - `apps/app/src/react-app/domains/<domain>` 的允许方向集中在
   `scripts/checks/domain-boundary-policy.mjs`；所有跨域 import 必须命中目标域一级 barrel。
@@ -228,7 +234,8 @@ CI 主测试 workflow 拆为 `checks` 与 `tests` matrix，并缓存 pnpm store 
 - `pnpm check` 是交付前基础门禁：类型、i18n、security smoke、架构边界。
 - server 行为变更优先跑 `pnpm test:unit` 和 `pnpm test:api`。
 - server 局部定位可跑 `pnpm task test server:archive`、`server:automation`、`server:routes`、`server:workspace`。
-- desktop/orchestrator/runtime 变更优先跑 `pnpm test:runtime`。
+- desktop/orchestrator/runtime 变更优先跑 `pnpm test:runtime`；该入口包含 Desktop IPC
+  command/domain parity。`pnpm test:ui` 包含 renderer HTTP client method parity。
 - 发布前或打包链路变更跑 `pnpm test:release-smoke`，只做本地目录包 smoke，不签名、不发布。
 - app renderer 或用户路径变更优先跑 `pnpm test:ui`。
 - release/packaging 仍由 Electron/package/release workflow 兜底，不放进快速 PR gate。
@@ -254,12 +261,12 @@ scripts/release/      release review, prepare, ship, and asset publishing
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
 3. 下一步：继续压缩 `server.ts` 中 OpenCode/client/config 共享 helper，条件成熟后迁入专门 service 模块，但保持路由 composition root 不承载业务路由实现。
 4. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
-5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 CDP/Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions 迁入 `apps/desktop/electron/code-workspace-actions.mjs`，BrowserView tabs/menu overlay 逻辑迁入 `apps/desktop/electron/embedded-browser-panel.mjs`，UI control HTTP bridge 迁入 `apps/desktop/electron/ui-control-server.mjs`；后续继续拆窗口、IPC、runtime sidecar 等注册模块。
+5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 CDP/Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions 迁入 `apps/desktop/electron/code-workspace-actions.mjs`，BrowserView tabs/menu overlay 逻辑迁入 `apps/desktop/electron/embedded-browser-panel.mjs`，UI control HTTP bridge 迁入 `apps/desktop/electron/ui-control-server.mjs`；Desktop IPC 已增加共享命令清单与域路由注册层，后续继续把 `main.mjs` 内各域 handler implementation 物理迁入独立模块。
 
 ## Personal Local Agent Runtime
 
 - UI 实现主目录：`apps/app/src/react-app/domains/local-agents/`（management / cards / ACP hooks / messages）。
-- 会话宿主页仍有部分入口在 `domains/session/chat/personal-local-agent-*`，经边界白名单与 `local-agents` 互引；目标是继续收敛到 barrel 或 kernel 契约。
+- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级边界白名单已清零。
 - Desktop harness / adapter 分层见上文 **Runtime Adapter (multi-agent harness)**；本段只记 UI 域边界。
 - 临时执行 ledger 只写本地 `.loop/plans/`；稳定架构事实写本文件与 `apps/app/src/react-app/ARCHITECTURE.md`。
 - 该路径不是 team workspace 或 global connector 的实现说明，除非用户明确扩展范围。
