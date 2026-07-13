@@ -809,6 +809,7 @@ export type ExpertPackageListEntry = {
   leadAgentName: string;
   systemPrompt: string;
   version: string | null;
+  runtime: "browser-use-agent" | null;
 };
 
 export type ExpertRegistryListEntry = {
@@ -1151,6 +1152,51 @@ export function personalLocalAgentStart(
     "personalLocalAgentStart",
     input,
   );
+}
+
+export type BrowserUseAgentRunResult = {
+  runId: string;
+  ownerId: string;
+  status: "running" | "pending_approval" | "completed" | "failed" | "cancelled";
+  pendingApprovals: Array<{
+    id: string;
+    title: string;
+    summary: string;
+    action: unknown;
+  }>;
+  events: Array<Record<string, unknown>>;
+  result?: unknown;
+  error?: string;
+};
+
+export function browserUseAgentStart(input: {
+  task: string;
+  ownerId: string;
+  model: { providerID: string; modelID: string };
+  retainTabs?: boolean;
+  useVision?: boolean | "auto";
+}): Promise<BrowserUseAgentRunResult> {
+  return invokeElectronHelper<BrowserUseAgentRunResult>("browserUseAgentStart", input);
+}
+
+export function browserUseAgentStatus(
+  runId: string,
+): Promise<BrowserUseAgentRunResult | null> {
+  return invokeElectronHelper<BrowserUseAgentRunResult | null>("browserUseAgentStatus", { runId });
+}
+
+export function browserUseAgentCancel(
+  runId: string,
+): Promise<BrowserUseAgentRunResult | null> {
+  return invokeElectronHelper<BrowserUseAgentRunResult | null>("browserUseAgentCancel", { runId });
+}
+
+export function browserUseAgentApprove(input: {
+  runId: string;
+  approvalId: string;
+  decision: "accept" | "reject";
+}): Promise<{ ok: boolean; error?: string; run?: BrowserUseAgentRunResult }> {
+  return invokeElectronHelper("browserUseAgentApprove", input);
 }
 
 export function personalLocalAgentStatus(

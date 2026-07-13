@@ -50,7 +50,10 @@ import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { createBrowserUseBroker } from "./browser-use-broker.mjs";
-import { browserUseRuntimeStatus } from "./browser-use-runtime-status.mjs";
+import { browserUseRuntimeStatus, desktopRuntimeTarget } from "./browser-use-runtime-status.mjs";
+import { createBrowserUseModelGateway } from "./browser-use-agent/model-gateway.mjs";
+import { createBrowserUseOpenCodeModelInvoker } from "./browser-use-agent/opencode-model-invoker.mjs";
+import { createBrowserUseAgentRuntime } from "./browser-use-agent/runtime.mjs";
 import { createBrowserUseEnvironmentManager } from "./personal-agent-runtime/browser-use-environment.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
@@ -1307,6 +1310,59 @@ const runtimeManager = createRuntimeManager({
     browserUseEnvironmentManager.environmentForRun(input),
 });
 
+const browserUseAgentResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-use-agent")
+  : path.resolve(__dirname, "../resources/browser-use-agent");
+const browserUseAgentTargetRoot = path.join(
+  browserUseRuntimeRoot,
+  desktopRuntimeTarget(),
+);
+const browserUseAgentPython = path.join(
+  browserUseAgentTargetRoot,
+  "python",
+  process.platform === "win32" ? "python.exe" : "bin/python3",
+);
+const browserUseModelInvoker = createBrowserUseOpenCodeModelInvoker({
+  connectionInfo: async () => {
+    const engine = await runtimeManager.engineInfo();
+    const server = await runtimeManager.onmyagentServerInfo();
+    const baseUrl = engine.baseUrl ?? server.baseUrl ?? "";
+    const authorization = engine.opencodeUsername && engine.opencodePassword
+      ? `Basic ${Buffer.from(`${engine.opencodeUsername}:${engine.opencodePassword}`, "utf8").toString("base64")}`
+      : server.clientToken || server.ownerToken
+        ? `Bearer ${server.clientToken ?? server.ownerToken}`
+        : "";
+    return { baseUrl, authorization };
+  },
+});
+const browserUseModelGateway = createBrowserUseModelGateway({
+  invokeModel: browserUseModelInvoker,
+});
+const browserUseAgentRuntime = createBrowserUseAgentRuntime({
+  browserEnvironment: {
+    environmentForOwner: async (ownerId) => {
+      await browserUseBroker.start();
+      return browserUseBroker.environmentForOwner(ownerId);
+    },
+    releaseOwner: (ownerId, options) => browserUseBroker.releaseOwner(ownerId, options),
+  },
+  modelGateway: browserUseModelGateway,
+  spawnRunner: ({ env }) => spawn(
+    browserUseAgentPython,
+    [path.join(browserUseAgentResourceRoot, "runner.py")],
+    {
+      cwd: browserUseAgentResourceRoot,
+      env: {
+        ...process.env,
+        ...env,
+        PYTHONPATH: browserUseAgentResourceRoot,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    },
+  ),
+});
+
 const {
   personalAgentLegacyHarness,
   personalAgentRuntime,
@@ -2003,6 +2059,14 @@ async function handleDesktopInvoke(event, command, ...args) {
       }
       return result;
     }
+    case "browserUseAgentStart":
+      return browserUseAgentRuntime.start(args[0] ?? {});
+    case "browserUseAgentStatus":
+      return browserUseAgentRuntime.status(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentCancel":
+      return browserUseAgentRuntime.cancel(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentApprove":
+      return browserUseAgentRuntime.approve(args[0] ?? {});
     case "personalLocalAgentStatus":
       return personalAgentRuntime.getRun(args[0]);
     case "personalLocalAgentRun": {
@@ -3277,6 +3341,8 @@ if (!app.requestSingleInstanceLock()) {
     void Promise.all([
       disposeRuntimeBeforeQuit(),
       uiControlBridge.stop(),
+      browserUseAgentRuntime.dispose(),
+      browserUseModelGateway.stop(),
       browserUseBroker.stop(),
     ]).finally(() => app.quit());
   });

@@ -104,7 +104,7 @@ export function createBrowserUseAgentRuntime({
     const ownerId = String(input?.ownerId ?? "").trim();
     if (!task || !ownerId) throw new Error("Browser Use Agent task and ownerId are required");
     await modelGateway.start();
-    const browserEnvironmentValue = browserEnvironment.environmentForOwner(ownerId);
+    const browserEnvironmentValue = await browserEnvironment.environmentForOwner(ownerId);
     const modelEnvironment = modelGateway.environmentForRun({ ownerId, model: input.model ?? null });
     const child = spawnRunner({
       env: { ...browserEnvironmentValue, ...modelEnvironment },

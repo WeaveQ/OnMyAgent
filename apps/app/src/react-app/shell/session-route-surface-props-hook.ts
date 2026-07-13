@@ -6,7 +6,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import { pickDirectory } from "../../app/lib/desktop";
+import { browserUseAgentStart, pickDirectory } from "../../app/lib/desktop";
 import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import { buildOnMyAgentEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
 import {
@@ -743,6 +743,35 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
+        if (pendingAgentSnapshot?.runtime === "browser-use-agent") {
+          if (!selectedPromptModel) {
+            throw new Error("Browser Use Agent requires a selected model.");
+          }
+          const recorded = await runWithCreatedSessionRuntimeSync(() =>
+            opencodeClient.session.promptAsync({
+              sessionID: sessionId,
+              parts,
+              ...(draft.messageID ? { messageID: draft.messageID } : {}),
+              model: selectedPromptModel,
+              noReply: true,
+              directory: taskWorkspaceRoot || undefined,
+            }),
+          );
+          if (recorded.error) {
+            throw new Error(serializeSDKError(recorded.error));
+          }
+          await browserUseAgentStart({
+            task: text,
+            ownerId: `expert:${sessionId}`,
+            model: selectedPromptModel,
+            retainTabs: true,
+            useVision: "auto",
+          });
+          if (createdSession) {
+            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+          }
+          return;
+        }
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({
             sessionID: sessionId,
@@ -912,4 +941,3 @@ export function useSessionRouteSurfaceProps(
     token,
   ]);
 }
-

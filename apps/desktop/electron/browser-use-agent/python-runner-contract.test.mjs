@@ -128,3 +128,27 @@ test("runner approval policy detects explicit writes and risky DOM clicks", () =
   assert.match(reasons[1], /发布/);
   assert.equal(reasons[2], null);
 });
+
+test("runner uses an owner-scoped upstream BrowserSession", () => {
+  const code = [
+    "import json",
+    "from runner import OwnerScopedBrowserSession",
+    "from browser_use import BrowserSession",
+    "print(json.dumps({",
+    "  'subclass': issubclass(OwnerScopedBrowserSession, BrowserSession),",
+    "  'overridesTabs': OwnerScopedBrowserSession.get_tabs is not BrowserSession.get_tabs,",
+    "  'overridesPageCreation': OwnerScopedBrowserSession._cdp_create_new_page is not BrowserSession._cdp_create_new_page,",
+    "}))",
+  ].join("\n");
+  const result = spawnSync(python, ["-c", code], {
+    cwd: resources,
+    encoding: "utf8",
+    env: { ...process.env, PYTHONPATH: resources },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    subclass: true,
+    overridesTabs: true,
+    overridesPageCreation: true,
+  });
+});

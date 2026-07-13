@@ -7,10 +7,12 @@ import json
 import os
 import sys
 import uuid
+import urllib.request
 
 from browser_use import Agent, BrowserSession
 from browser_use.agent.views import ActionResult
 from browser_use.tools.service import Tools
+from pydantic import PrivateAttr
 
 from onmyagent_chat_model import OnMyAgentChatModel
 
@@ -45,6 +47,72 @@ def json_value(value):
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json", exclude_none=True)
     return value
+
+
+def create_owner_tab():
+    broker_url = os.environ.get("ONMYAGENT_BROWSER_BROKER_URL", "").rstrip("/")
+    broker_token = os.environ.get("ONMYAGENT_BROWSER_BROKER_TOKEN", "")
+    if not broker_url or not broker_token:
+        raise RuntimeError("Browser owner broker is required")
+    marker_url = f"about:blank#onmyagent-browser-use-{uuid.uuid4().hex}"
+    request = urllib.request.Request(
+        f"{broker_url}/v1/tabs",
+        data=json.dumps({"url": marker_url}).encode("utf8"),
+        headers={
+            "Authorization": f"Bearer {broker_token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        if response.status != 201:
+            raise RuntimeError("Browser owner tab creation failed")
+    return marker_url
+
+
+class OwnerScopedBrowserSession(BrowserSession):
+    owner_marker_url: str
+    _owner_target_ids: set[str] = PrivateAttr(default_factory=set)
+    _scope_ready: bool = PrivateAttr(default=False)
+
+    async def _wait_for_owner_target(self, marker_url):
+        for _ in range(100):
+            try:
+                return await self.get_target_id_from_url(marker_url)
+            except ValueError:
+                await asyncio.sleep(0.05)
+        raise RuntimeError("Owner browser tab did not appear in CDP")
+
+    async def start(self):
+        await super().start()
+        target_id = await self._wait_for_owner_target(self.owner_marker_url)
+        self._owner_target_ids.add(target_id)
+        await self.get_or_create_cdp_session(target_id=target_id, focus=True)
+        self._scope_ready = True
+
+    async def get_tabs(self):
+        tabs = await super().get_tabs()
+        if not self._scope_ready:
+            return tabs
+        return [tab for tab in tabs if tab.target_id in self._owner_target_ids]
+
+    async def _cdp_create_new_page(self, url="about:blank", background=False, new_window=False):
+        marker_url = await asyncio.to_thread(create_owner_tab)
+        target_id = await self._wait_for_owner_target(marker_url)
+        self._owner_target_ids.add(target_id)
+        if url != marker_url:
+            session = await self.get_or_create_cdp_session(target_id=target_id, focus=not background)
+            await session.cdp_client.send.Page.navigate(
+                params={"url": url},
+                session_id=session.session_id,
+            )
+        return target_id
+
+    async def _cdp_close_page(self, target_id):
+        if self._scope_ready and target_id not in self._owner_target_ids:
+            raise RuntimeError("Cross-owner tab close was blocked")
+        await super()._cdp_close_page(target_id)
+        self._owner_target_ids.discard(target_id)
 
 
 class ApprovalTools(Tools):
@@ -91,7 +159,12 @@ async def run_agent(request):
     if not cdp_url:
         raise RuntimeError("BU_CDP_URL is required")
 
-    browser = BrowserSession(cdp_url=cdp_url, keep_alive=True)
+    marker_url = await asyncio.to_thread(create_owner_tab)
+    browser = OwnerScopedBrowserSession(
+        cdp_url=cdp_url,
+        keep_alive=True,
+        owner_marker_url=marker_url,
+    )
     llm = OnMyAgentChatModel()
     tools = ApprovalTools()
 
