@@ -148,7 +148,16 @@ class ApprovalTools(Tools):
             )
             if not accepted:
                 return ActionResult(error=f"User rejected action: {action_name}")
-        return await super().act(action, browser_session, **kwargs)
+        emit("phase", phase="acting")
+        result = await super().act(action, browser_session, **kwargs)
+        emit("phase", phase="verifying")
+        return result
+
+
+class EventingChatModel(OnMyAgentChatModel):
+    async def ainvoke(self, messages, output_format, **kwargs):
+        emit("phase", phase="planning")
+        return await super().ainvoke(messages, output_format, **kwargs)
 
 
 async def run_agent(request):
@@ -165,7 +174,7 @@ async def run_agent(request):
         keep_alive=True,
         owner_marker_url=marker_url,
     )
-    llm = OnMyAgentChatModel()
+    llm = EventingChatModel()
     tools = ApprovalTools()
 
     async def on_step(state, output, step):
@@ -188,7 +197,7 @@ async def run_agent(request):
         generate_gif=False,
         calculate_cost=False,
     )
-    emit("ready", agentClass="browser_use.Agent", model=llm.model)
+    emit("ready", agentClass="browser_use.Agent", model=llm.model, phase="observing")
     try:
         history = await agent.run(max_steps=int(request.get("maxSteps") or 50))
         final_result = history.final_result() if hasattr(history, "final_result") else None
