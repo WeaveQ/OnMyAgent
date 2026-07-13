@@ -1213,6 +1213,13 @@ function browserActionLabel(action: Record<string, unknown>): string {
 
 type BrowserActionState = "pending" | "running" | "completed" | "failed";
 
+const BROWSER_ACTION_STATE_LABEL: Record<BrowserActionState, string> = {
+  pending: t("session.browser_use_action_pending"),
+  running: t("session.browser_use_action_running"),
+  completed: t("session.browser_use_action_completed"),
+  failed: t("session.browser_use_action_failed"),
+};
+
 function browserActions(
   input: Record<string, unknown> | undefined,
   completed: boolean,
@@ -1355,7 +1362,7 @@ function BrowserUseOperationStep(props: {
                       shape="soft"
                       tone={action.state === "failed" ? "danger" : action.state === "completed" ? "success" : action.state === "running" ? "accent" : "neutral"}
                     >
-                      {t(`session.browser_use_action_${action.state}`)}
+                      {BROWSER_ACTION_STATE_LABEL[action.state]}
                     </StatusBadge>
                   </div>
                 ))}
