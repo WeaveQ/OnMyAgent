@@ -22,6 +22,14 @@ import { useBrowserUseAgentRunStore } from "../status/browser-use-agent-store";
 
 const terminalStates = new Set(["completed", "failed", "cancelled"]);
 
+function statusLabel(status: string): string {
+  if (status === "pending_approval") return t("session.browser_use_agent_status_pending_approval");
+  if (status === "completed") return t("session.browser_use_agent_status_completed");
+  if (status === "failed") return t("session.browser_use_agent_status_failed");
+  if (status === "cancelled") return t("session.browser_use_agent_status_cancelled");
+  return t("session.browser_use_agent_status_running");
+}
+
 function phaseLabel(events: Array<Record<string, unknown>> | undefined): string | null {
   const phase = events
     ?.slice()
@@ -81,7 +89,7 @@ export function BrowserUseAgentStatus({ sessionId, modelLabel }: { sessionId: st
               shape="soft"
               size="sm"
             >
-              {t(`session.browser_use_agent_status_${status}`)}
+              {statusLabel(status)}
             </StatusBadge>
           </div>
           <p className="mt-1 text-dls-secondary">
