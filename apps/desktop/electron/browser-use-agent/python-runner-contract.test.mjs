@@ -105,3 +105,26 @@ test("runner describes an upstream browser_use.Agent entrypoint", () => {
     protocol: "jsonl-v1",
   });
 });
+
+test("runner approval policy detects explicit writes and risky DOM clicks", () => {
+  const code = [
+    "import json",
+    "from runner import approval_reason",
+    "cases = [",
+    "  approval_reason('upload_file', {'path': '/tmp/a'}, ''),",
+    "  approval_reason('click', {'index': 7}, '发布笔记'),",
+    "  approval_reason('click', {'index': 8}, '展开详情'),",
+    "]",
+    "print(json.dumps(cases, ensure_ascii=False))",
+  ].join("\n");
+  const result = spawnSync(python, ["-c", code], {
+    cwd: resources,
+    encoding: "utf8",
+    env: { ...process.env, PYTHONPATH: resources },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const reasons = JSON.parse(result.stdout);
+  assert.match(reasons[0], /upload_file/);
+  assert.match(reasons[1], /发布/);
+  assert.equal(reasons[2], null);
+});
