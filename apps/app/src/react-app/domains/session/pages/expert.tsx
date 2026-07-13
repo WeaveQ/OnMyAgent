@@ -22,13 +22,13 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import ProviderAuthModal from "../../connections/provider-auth-modal";
+import { ProviderAuthModal } from "../../connections";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import {
   SessionSurface,
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
-import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
+import { ShareWorkspaceModal } from "../../workspace";
 import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
@@ -67,26 +67,26 @@ import { writeAssistantSelectionMemory } from "../components/shared-pages/assist
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../components/shared-pages/conversation-model";
 
-import type { AgentCardItem } from "../../agents/agent-registry-types";
+import type { AgentCardItem } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
   type PendingAgentContext,
   usePendingAgentStore,
-} from "../../agents/pending-agent-store";
-import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
+} from "../../agents";
+import { buildPendingAgentFromRecord } from "../../agents";
 import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
   useAgentRegistryStore,
-} from "../../agents/agent-registry-store";
-import { isExpertSession } from "../../agents/agent-session-state";
+} from "../../agents";
+import { isExpertSession } from "../../agents";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../../agents/agent-registry-helpers";
-import type { AgentRegistry } from "../../agents/agent-registry-types";
+} from "../../agents";
+import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";

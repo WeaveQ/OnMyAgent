@@ -20,11 +20,11 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import ProviderAuthModal from "../../connections/provider-auth-modal";
+import { ProviderAuthModal } from "../../connections";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
-import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
+import { ShareWorkspaceModal } from "../../workspace";
 import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
@@ -59,7 +59,7 @@ import type {
   SessionPageProps,
 } from "./index";
 
-import { usePendingAgentStore } from "../../agents/pending-agent-store";
+import { usePendingAgentStore } from "../../agents";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
