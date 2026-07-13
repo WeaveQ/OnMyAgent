@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -13,7 +14,7 @@ const target = process.platform === "darwin" && process.arch === "arm64"
     : process.platform === "linux" && process.arch === "arm64"
       ? "aarch64-unknown-linux-gnu"
       : "x86_64-unknown-linux-gnu";
-const python = path.join(
+const bundledPython = path.join(
   desktopRoot,
   "resources",
   "runtimes",
@@ -21,6 +22,8 @@ const python = path.join(
   "python",
   process.platform === "win32" ? "python.exe" : "bin/python3",
 );
+const python = process.env.ONMYAGENT_BROWSER_USE_TEST_PYTHON?.trim() || bundledPython;
+const runtimeTest = existsSync(python) ? test : test.skip;
 const resources = path.join(desktopRoot, "resources", "browser-use-agent");
 
 function runPython(args, options) {
@@ -34,7 +37,7 @@ function runPython(args, options) {
   });
 }
 
-test("OnMyAgentChatModel serializes images and validates structured output", async () => {
+runtimeTest("OnMyAgentChatModel serializes images and validates structured output", async () => {
   let received = null;
   const server = http.createServer((request, response) => {
     const chunks = [];
@@ -93,7 +96,7 @@ test("OnMyAgentChatModel serializes images and validates structured output", asy
   }
 });
 
-test("runner describes an upstream browser_use.Agent entrypoint", () => {
+runtimeTest("runner describes an upstream browser_use.Agent entrypoint", () => {
   const result = spawnSync(python, [path.join(resources, "runner.py"), "--describe"], {
     encoding: "utf8",
     env: { ...process.env, PYTHONPATH: resources },
@@ -107,7 +110,7 @@ test("runner describes an upstream browser_use.Agent entrypoint", () => {
   });
 });
 
-test("runner approval policy detects explicit writes and risky DOM clicks", () => {
+runtimeTest("runner approval policy detects explicit writes and risky DOM clicks", () => {
   const code = [
     "import json",
     "from runner import approval_reason",
@@ -130,7 +133,7 @@ test("runner approval policy detects explicit writes and risky DOM clicks", () =
   assert.equal(reasons[2], null);
 });
 
-test("runner uses an owner-scoped upstream BrowserSession", () => {
+runtimeTest("runner uses an owner-scoped upstream BrowserSession", () => {
   const code = [
     "import json",
     "from runner import OwnerScopedBrowserSession",
