@@ -32,6 +32,11 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     commands: ["codebuddy"],
     skillsDirs: [join(HOME, ".codebuddy", "skills-marketplace", "skills")],
     acpArgs: ["--acp"],
+    wellKnownPaths: [
+      join(HOME, ".codebuddy", "bin", "codebuddy"),
+      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
+      "/Applications/CodeBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
+    ],
   },
   {
     id: "gemini",
@@ -112,6 +117,48 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
 ];
 
+/**
+ * Turn the discoverable catalog into `detectAgent`-ready agent drafts.
+ *
+ * Unlike `detectAvailableLocalAgents` (which only returns agents whose binary is
+ * already on PATH so the user can one-click *add* them), this returns ALL known
+ * agents as custom-provider ACP drafts so the management page can *always list*
+ * them — installed or not — mirroring AionUi's "十多个都显示，没装也在" behaviour.
+ * The detection layer later resolves each draft to online / offline / missing;
+ * the user can hit "测试连接" on any of them regardless of install state.
+ */
+function resolveKnownAgentBinary(def) {
+  for (const cmd of def.commands) {
+    const found = resolveOnPath(cmd);
+    if (found) return found;
+  }
+  if (Array.isArray(def.wellKnownPaths)) {
+    for (const candidate of def.wellKnownPaths) {
+      try {
+        if (existsSync(candidate)) return candidate;
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return null;
+}
+
+export function discoverableAgentDrafts() {
+  return KNOWN_DISCOVERABLE_AGENTS.map((def) => ({
+    id: def.id,
+    name: def.displayName,
+    provider: /** @type {"custom"} */ ("custom"),
+    executablePath: resolveKnownAgentBinary(def) ?? def.commands[0],
+    connectionType: /** @type {"cli"} */ ("cli"),
+    supportsAcp: true,
+    acpArgs: Array.isArray(def.acpArgs) ? def.acpArgs : ["--acp"],
+    nativeSkillsDirs: (def.skillsDirs ?? []).filter(
+      (dir) => typeof dir === "string" && dir.length > 0,
+    ),
+  }));
+}
+
 // Resolve an executable name against PATH without spawning a shell. `command`
 // and `which` are shell builtins/redirects that are unreliable from
 // execFileSync, so we walk PATH ourselves and check file existence.
@@ -159,6 +206,18 @@ export async function detectAvailableLocalAgents(input = {}) {
       if (found) {
         resolved = found;
         break;
+      }
+    }
+    if (!resolved && Array.isArray(def.wellKnownPaths)) {
+      for (const candidate of def.wellKnownPaths) {
+        try {
+          if (existsSync(candidate)) {
+            resolved = candidate;
+            break;
+          }
+        } catch {
+          // ignore
+        }
       }
     }
     if (!resolved) continue;

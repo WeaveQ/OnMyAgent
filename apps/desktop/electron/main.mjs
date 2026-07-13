@@ -2823,7 +2823,7 @@ async function agentManagementSnapshot(input = {}) {
   const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
   if (!workspaceRoot) throw new Error("workspaceRoot is required");
   const [{ agents }, managedSkills, usageByProvider, providers, mcp] = await Promise.all([
-    personalAgentRuntime.listAgents({ workspaceRoot, includeModels: true }),
+    personalAgentRuntime.listAgents({ workspaceRoot, includeModels: true, includeDiscoverable: true }),
     scanAgentManagementSkills(workspaceRoot),
     personalAgentLegacyHarness.readPersonalAgentUsageSummary(workspaceRoot),
     readAgentManagementProvidersSnapshot(),

@@ -89,14 +89,14 @@ function toSummaryToolPart(part: DynamicToolUIPart): Part {
   };
 }
 
-function diffLineClass(line: string) {
+export function diffLineClass(line: string) {
   if (line.startsWith("+")) return "text-dls-status-success-fg bg-dls-status-success-soft";
   if (line.startsWith("-")) return "text-dls-status-danger-fg bg-dls-status-danger-soft";
   if (line.startsWith("@@")) return "text-dls-accent bg-dls-decision-soft";
   return "text-dls-text";
 }
 
-function extractDiff(output: unknown) {
+export function extractDiff(output: unknown) {
   if (typeof output !== "string") return null;
   if (output.includes("@@") || output.includes("+++ ") || output.includes("--- ")) {
     return output;
@@ -104,7 +104,7 @@ function extractDiff(output: unknown) {
   return null;
 }
 
-function toKeyedLines(value: string) {
+export function toKeyedLines(value: string) {
   let offset = 0;
   return value.split("\n").map((line) => {
     const key = `${offset}:${line}`;
@@ -113,7 +113,7 @@ function toKeyedLines(value: string) {
   });
 }
 
-async function copyText(text: string) {
+export async function copyText(text: string) {
   await navigator.clipboard.writeText(text);
 }
 

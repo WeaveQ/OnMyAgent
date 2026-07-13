@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, CheckCircle2, ChevronRight, Clipboard, Copy, ExternalLink, FileText, Globe, Loader2, TerminalSquare } from "lucide-react";
+import { Bot, Copy, ExternalLink, FileText, Globe, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -10,12 +10,11 @@ import { cn } from "@/lib/utils";
 import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage, type PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
 import type { OpenTarget } from "../../session/artifacts/open-target";
 import { MarkdownBlock } from "../../session/surface/markdown";
-import { shortTime } from "../local-agent-formatters";
 import { MessageFileChanges } from "./message-file-changes";
 import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
 import { approvalClass, localAgentLayoutClass, localAgentTextClass } from "./message-style";
-import { classifiedRunFailureMessage, collectRunOpenTargets, isRunFinal, resolveDesktopPath, runDebugBundle, writeTextToClipboard } from "./message-utils";
+import { classifiedRunFailureMessage, collectRunOpenTargets, resolveDesktopPath } from "./message-utils";
 import { groupLocalAgentTimeline, LocalAgentTimelineMessage, LocalAgentToolGroupSummary, visibleRunTimelineMessages } from "./timeline-messages";
 
 export const ChatBubble = memo(function ChatBubble(props: {
@@ -29,8 +28,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
 }) {
   const isUser = props.message.role === "user";
   const run = props.message.run;
-  const runWorkdir = run?.workdir ?? null;
-  const showRunDiagnostics = isRunFinal(run?.status);
   const [actionFeedback, setActionFeedback] = useState<{ id: string; tone: "ok" | "error"; text: string } | null>(null);
   useEffect(() => {
     // Auto-dismiss the copy/open action feedback badge after a short delay.
@@ -41,38 +38,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
   const showFeedback = useCallback((id: string, tone: "ok" | "error", text: string) => {
     setActionFeedback({ id, tone, text });
   }, []);
-  const handleCopy = useCallback(async (id: string, value: string | null | undefined, label: string) => {
-    const ok = await writeTextToClipboard(value);
-    showFeedback(id, ok ? "ok" : "error", ok ? t("local_agent.copy_success", { label }) : t("local_agent.copy_failed", { label }));
-  }, [showFeedback]);
-  const handleOnMyAgentdir = useCallback(async () => {
-    const target = resolveDesktopPath(runWorkdir, props.workspaceRoot);
-    if (!target) {
-      showFeedback("workdir", "error", t("local_agent.unknown_workdir"));
-      return;
-    }
-    try {
-      await openDesktopPath(target);
-      showFeedback("workdir", "ok", t("local_agent.workdir_opened"));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showFeedback("workdir", "error", t("local_agent.open_failed", { message }));
-    }
-  }, [props.workspaceRoot, runWorkdir, showFeedback]);
-  const handleRevealLog = useCallback(async () => {
-    const target = resolveDesktopPath(run?.logPath, props.workspaceRoot);
-    if (!target) {
-      showFeedback("log", "error", t("local_agent.no_log_path"));
-      return;
-    }
-    try {
-      await revealDesktopItemInDir(target);
-      showFeedback("log", "ok", t("local_agent.log_revealed"));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showFeedback("log", "error", t("local_agent.reveal_failed", { message }));
-    }
-  }, [props.workspaceRoot, run?.logPath, showFeedback]);
   const handleOpenArtifact = useCallback(async (target: OpenTarget) => {
     // Align with AionUi behavior: file artifacts always open via the OS
     // (shell.openPath), regardless of whether the path lives inside the
@@ -173,20 +138,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
     return () => window.clearTimeout(timer);
   }, [thoughtHint?.subject, thoughtHint?.description, thoughtHint]);
 
-  const [timelineExpanded, setTimelineExpanded] = useState(false);
-  const [rawLogExpanded, setRawLogExpanded] = useState(false);
-  const [runDetailsExpanded, setRunDetailsExpanded] = useState(false);
-
-  // Auto-expand timeline while running, auto-collapse when done
-  // BUT keep expanded if there are thinking/plan messages (user may want to review)
-  const hasThinkingOrPlan = timelineItems.some(
-    (item) => item.kind === "message" && (item.message.type === "thinking" || item.message.type === "plan"),
-  );
-  useEffect(() => {
-    if (run?.status === "running") setTimelineExpanded(true);
-    else if (!hasThinkingOrPlan) setTimelineExpanded(false);
-  }, [run?.runId, run?.status, hasThinkingOrPlan]);
-
   // Hide the bubble if there is no actual content to show. A freshly-seeded
   // assistant message can briefly have empty text and no run attached (e.g. the
   // moment a new conversation is created); rendering it produces a stray empty
@@ -206,15 +157,13 @@ export const ChatBubble = memo(function ChatBubble(props: {
           <Bot className="size-4" />
         </div>
       ) : null}
-      <div className={cn(localAgentLayoutClass.chatMessage, isUser ? localAgentLayoutClass.userChatMessage : localAgentLayoutClass.assistantChatMessage)}>
+      <div className={cn(isUser ? localAgentLayoutClass.userChatMessage : localAgentLayoutClass.assistantChatMessage)}>
         {isUser ? (
           <pre className="whitespace-pre-wrap break-words font-sans">{props.message.text}</pre>
-        ) : (
-          <MarkdownBlock text={props.message.text} streaming={run?.status === "running"} />
-        )}
+        ) : null}
 
         {!isUser && throttledThought ? (
-          <div className="mt-2 rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
+          <div className="rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
             <div className="flex items-center gap-2">
               <Loader2 className="size-3.5 shrink-0 animate-spin text-dls-accent" />
               <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{throttledThought.subject}</span>
@@ -226,29 +175,22 @@ export const ChatBubble = memo(function ChatBubble(props: {
         ) : null}
 
         {!isUser && timelineItems.length ? (
-          <div className="mt-2">
-            <button
-              type="button"
-              data-testid="local-agent-timeline-toggle"
-              className="inline-flex select-none items-center gap-1.5 text-sm leading-none text-dls-accent transition-colors hover:text-dls-accent-strong"
-              onClick={() => setTimelineExpanded((value) => !value)}
-              aria-expanded={timelineExpanded}
-            >
-              {run?.status === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
-              <span>{t("local_agent.timeline_title", { count: timelineItems.length })}</span>
-              <ChevronRight className={cn("size-3 text-dls-secondary transition-transform", timelineExpanded && "rotate-90")} />
-            </button>
-            {timelineExpanded ? <div className="mt-2 flex flex-col gap-2.5" data-testid="local-agent-timeline-body">
-              {timelineItems.map((item) => (
-                <div key={item.kind === "tool_group" ? item.id : item.message.id} className="min-w-0">
-                  {item.kind === "tool_group" ? (
-                    <LocalAgentToolGroupSummary messages={item.messages} />
-                  ) : (
-                    <LocalAgentTimelineMessage message={item.message} streaming={run?.status === "running"} onResolveTip={props.onResolveTip} />
-                  )}
-                </div>
-              ))}
-            </div> : null}
+          <div className={cn("flex flex-col gap-2.5", throttledThought ? "mt-2" : "")} data-testid="local-agent-timeline-body">
+            {timelineItems.map((item) => (
+              <div key={item.kind === "tool_group" ? item.id : item.message.id} className="min-w-0">
+                {item.kind === "tool_group" ? (
+                  <LocalAgentToolGroupSummary messages={item.messages} runStatus={run?.status} />
+                ) : (
+                  <LocalAgentTimelineMessage message={item.message} streaming={run?.status === "running"} onResolveTip={props.onResolveTip} />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {!isUser ? (
+          <div className={cn((timelineItems.length || throttledThought) ? "mt-2" : "")}>
+            <MarkdownBlock text={props.message.text} streaming={run?.status === "running"} />
           </div>
         ) : null}
 
@@ -327,72 +269,11 @@ export const ChatBubble = memo(function ChatBubble(props: {
                 </div>
               </div>
             ) : null}
-            {showRunDiagnostics ? (
-            <details onToggle={(e) => setRunDetailsExpanded(e.currentTarget.open)} className="rounded-lg bg-dls-surface-muted/60 px-3 py-2">
-              <summary className="cursor-pointer select-none text-xs font-medium text-dls-secondary">
-                {t("local_agent.run_details_summary", { connection: run.connectionMode || "--", started: shortTime(run.startedAt), finished: shortTime(run.finishedAt) })}
-              </summary>
-              {runDetailsExpanded ? (
-              <>
-              <div className="mt-2 grid gap-1.5 text-xs leading-5 text-dls-secondary sm:grid-cols-2">
-                <div>{t("local_agent.run_detail_run_id")}<span className="font-mono">{run.runId}</span></div>
-                <div>{t("local_agent.run_detail_connection")}<span className="font-medium">{run.connectionMode || "--"}</span></div>
-                <div>{t("local_agent.run_detail_provider_session")}<span className="font-mono">{run.providerSessionId ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_resume_key")}<span className="font-mono">{run.resumeKey ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_workdir")}<span className="font-mono">{run.workdir ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_pid")}<span className="font-mono">{run.pid ?? "--"}</span></div>
-                <div>{t("local_agent.run_detail_time")}{shortTime(run.startedAt)} - {shortTime(run.finishedAt)}</div>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
-              {run.logPath ? (
-                <Button variant="outline" size="sm" onClick={() => void handleCopy("log-path", run.logPath, t("local_agent.copy_log_path"))}>
-                  <Clipboard className="mr-1.5 size-3.5" />{t("local_agent.copy_log_path")}
-                </Button>
-              ) : null}
-              {run.logPath ? (
-                <Button variant="outline" size="sm" onClick={() => void handleRevealLog()}>
-                  <ExternalLink className="mr-1.5 size-3.5" />{t("local_agent.reveal_log")}
-                </Button>
-              ) : null}
-              <Button variant="outline" size="sm" onClick={() => void handleCopy("debug", runDebugBundle(run, { agent: props.agent ?? null, selectedModel: props.selectedModel }), t("local_agent.copy_debug_bundle"))}>
-                <Clipboard className="mr-1.5 size-3.5" />{t("local_agent.copy_debug_bundle")}
-              </Button>
-              {runWorkdir ? (
-                <Button variant="outline" size="sm" onClick={() => void handleOnMyAgentdir()}>
-                  <ExternalLink className="mr-1.5 size-3.5" />{t("local_agent.open_run_workdir")}
-                </Button>
-              ) : null}
-              {actionFeedback ? (
-                <StatusBadge tone={actionFeedback.tone === "ok" ? "success" : "danger"}>
-                  {actionFeedback.text}
-                </StatusBadge>
-              ) : null}
-              </div>
-              </>
+            {actionFeedback ? (
+              <StatusBadge tone={actionFeedback.tone === "ok" ? "success" : "danger"}>
+                {actionFeedback.text}
+              </StatusBadge>
             ) : null}
-            </details>
-            ) : null}
-            <details onToggle={(e) => setRawLogExpanded(e.currentTarget.open)} className="rounded-lg bg-dls-surface-muted/60 px-3 py-2">
-              <summary className="flex cursor-pointer items-center gap-1.5 text-dls-secondary"><TerminalSquare className="size-3.5" />{t("local_agent.raw_log_summary")}</summary>
-              {rawLogExpanded ? (
-              <div className="mt-2 space-y-2">
-                <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{run.command}</pre>
-                {run.debugSummary ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-dls-surface px-2 py-1 font-mono text-xs">{run.debugSummary}</pre> : null}
-                {run.logPath ? <div className="break-all font-mono text-xs">{run.logPath}</div> : null}
-                <textarea
-                  readOnly
-                  value={runDebugBundle(run, { agent: props.agent ?? null, selectedModel: props.selectedModel })}
-                  className="h-24 w-full resize-none rounded border border-dls-border bg-dls-surface p-2 font-mono text-xs text-dls-secondary outline-none"
-                  aria-label={t("local_agent.debug_aria")}
-                />
-                <div className="max-h-52 space-y-1 overflow-auto">
-                  {run.events.map((event, index) => (
-                    <pre key={`${event.at}-${index}`} className="whitespace-pre-wrap break-words rounded bg-dls-surface px-2 py-1 font-mono text-xs">{event.type}&gt; {event.text}</pre>
-                  ))}
-                </div>
-              </div>
-              ) : null}
-            </details>
           </div>
         ) : null}
       </div>

@@ -825,6 +825,9 @@ export function CreateAgentWizard(props: {
   const renderIdentitySection = () => (
     <div className="min-h-0 flex-1 grid-cols-[1.65fr_0.95fr] overflow-hidden md:grid">
       <div className="space-y-5 overflow-y-auto px-7 py-6">
+        <p className={agentsTextClass.fieldHelp}>
+          {t("agents.identity_hint")}
+        </p>
         <div className={agentsLayoutClass.compactFieldStack}>
           <div className={agentsTextClass.fieldLabel}>
             {t("agents.name")} <span className="text-dls-status-danger">*</span>
@@ -852,6 +855,7 @@ export function CreateAgentWizard(props: {
           {nameError ? (
             <div className="px-1 text-xs text-dls-status-danger">{nameError}</div>
           ) : null}
+          <p className={agentsTextClass.fieldHelp}>{t("agents.help_name")}</p>
         </div>
         <div className={agentsLayoutClass.fieldStack}>
           <div className="flex items-center justify-between gap-4">
@@ -957,6 +961,7 @@ export function CreateAgentWizard(props: {
             placeholder={t("agents.description_placeholder")}
             className="min-h-[104px] rounded-xl px-4 py-3 text-sm"
           />
+          <p className={agentsTextClass.fieldHelp}>{t("agents.help_description")}</p>
         </div>
         <div className={agentsLayoutClass.fieldStack}>
           <div className={agentsTextClass.fieldLabel}>
@@ -972,6 +977,7 @@ export function CreateAgentWizard(props: {
               />
             ))}
           </div>
+          <p className={agentsTextClass.fieldHelp}>{t("agents.help_style")}</p>
         </div>
         <div className={agentsLayoutClass.fieldStack}>
           <div className={agentsTextClass.fieldLabel}>
@@ -996,6 +1002,7 @@ export function CreateAgentWizard(props: {
               />
             ))}
           </div>
+          <p className={agentsTextClass.fieldHelp}>{t("agents.help_model_provider")}</p>
         </div>
         {draft.modelProvider !== "自动" ? (
           <div className={agentsLayoutClass.compactFieldStack}>
@@ -1024,6 +1031,7 @@ export function CreateAgentWizard(props: {
                   }));
                 }}
             />
+            <p className={agentsTextClass.fieldHelp}>{t("agents.help_model")}</p>
           </div>
         ) : null}
       </div>
@@ -1035,6 +1043,7 @@ export function CreateAgentWizard(props: {
 
   const renderToolsSection = () => (
     <div className={agentsLayoutClass.wizardPanel}>
+      <p className={agentsTextClass.fieldHelp}>{t("agents.help_tools")}</p>
       <div className="grid gap-4 md:grid-cols-2">
         {AGENT_TOOL_CATALOG.map((tool) => (
           <ToolCategoryCard
@@ -1071,6 +1080,7 @@ export function CreateAgentWizard(props: {
             <FolderOpen className="size-4" />
           </Button>
         </div>
+        <p className={agentsTextClass.fieldHelp}>{t("agents.help_default_workspace")}</p>
       </div>
     </div>
   );
@@ -1105,6 +1115,7 @@ export function CreateAgentWizard(props: {
             radius="2xl"
             className="text-sm"
           />
+          <p className={agentsTextClass.fieldHelp}>{t("agents.help_preferred_name")}</p>
         </div>
         <div className={agentsLayoutClass.fieldStack}>
           <div className={agentsTextClass.fieldLabel}>
@@ -1120,6 +1131,7 @@ export function CreateAgentWizard(props: {
             radius="2xl"
             className="text-sm"
           />
+          <p className={agentsTextClass.fieldHelp}>{t("agents.help_preferred_language")}</p>
         </div>
       </div>
       <div className={agentsLayoutClass.fieldStack}>
@@ -1136,6 +1148,7 @@ export function CreateAgentWizard(props: {
           radius="2xl"
           className="text-sm"
         />
+        <p className={agentsTextClass.fieldHelp}>{t("agents.help_note")}</p>
       </div>
       <div className={agentsLayoutClass.fieldStack}>
         <div className={agentsTextClass.fieldLabel}>
@@ -1149,6 +1162,7 @@ export function CreateAgentWizard(props: {
           placeholder={t("agents.background_placeholder")}
           className="min-h-[120px] rounded-xl px-4 py-3 text-sm"
         />
+        <p className={agentsTextClass.fieldHelp}>{t("agents.help_background")}</p>
       </div>
     </div>
   );
@@ -1170,6 +1184,7 @@ export function CreateAgentWizard(props: {
           placeholder={t("agents.agent_memory_placeholder")}
           className={agentsLayoutClass.promptTextarea}
         />
+        <p className={agentsTextClass.fieldHelp}>{t("agents.help_agent_memory")}</p>
       </div>
       <div className={agentsLayoutClass.fieldStack}>
         <div className={agentsTextClass.fieldLabel}>
@@ -1186,6 +1201,7 @@ export function CreateAgentWizard(props: {
           placeholder={t("agents.user_memory_placeholder")}
           className={agentsLayoutClass.promptTextarea}
         />
+        <p className={agentsTextClass.fieldHelp}>{t("agents.help_user_memory")}</p>
       </div>
     </div>
   );

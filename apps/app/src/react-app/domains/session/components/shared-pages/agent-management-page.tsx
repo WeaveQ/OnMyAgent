@@ -16,12 +16,12 @@ import {
   agentManagementProviderAction,
   agentManagementSkillAction,
   agentManagementSnapshot,
-  personalLocalAgentStart,
-  personalLocalAgentStatus,
+  personalLocalAgentTestConnection,
   personalLocalAgentCreateCustomAgent,
   personalLocalAgentUpdateCustomAgent,
   personalLocalAgentDeleteCustomAgent,
   type AgentManagementAgent,
+  type PersonalLocalAgentTestConnectionResult,
   type AgentManagementManagedProvider,
   type AgentManagementSkill,
   type AgentManagementSkillAgent,
@@ -33,7 +33,6 @@ import { AgentManagementRepairDialog } from "../../../local-agents/agent-managem
 import { ExtensionListPanel } from "../../../local-agents/extension-list-panel";
 import {
   formatAgentManagerDuration,
-  summarizeAgentManagementHealth,
   type AgentManagementHealthResult,
 } from "./agent-management-health";
 import {
@@ -49,8 +48,6 @@ import {
 } from "./agent-management-providers";
 import { AgentManagementMcpPanel } from "./agent-management-mcp-panel";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
-
-const AGENT_MANAGER_HEALTH_PROMPT = "Agent 管理健康检查：请只回复 HEALTH_CHECK_OK。";
 
 type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive";
 
@@ -100,6 +97,17 @@ function agentManagerUiStorageKey(cacheKey: string) {
 
 function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+// Build a concise, human-readable one-liner from a lightweight connection probe.
+function describeAgentTestConnection(result: PersonalLocalAgentTestConnectionResult): string {
+  if (result.ok) {
+    const modelCount = Array.isArray(result.models) ? result.models.length : 0;
+    return modelCount ? `连接正常 · ${modelCount} 个模型可用` : "连接正常";
+  }
+  if (result.status === "needs_auth") return `需要登录认证${result.error ? `：${result.error}` : ""}`;
+  if (result.status === "missing") return `未安装${result.error ? `：${result.error}` : ""}`;
+  return `连接失败${result.error ? `：${result.error}` : `（${result.step}）`}`;
 }
 
 function coerceAgentManagementUiCache(input: unknown): AgentManagementUiCache {
@@ -213,7 +221,7 @@ export function AgentManagementPage(props: {
     });
   }, [activePanel, cacheKey, healthResults, providerApp, selectedSkillKey, skillColumnFilter, skillSearch]);
 
-  const [agentFilter, setAgentFilter] = useState<"all" | "available" | "unavailable">("all");
+  const [agentFilter, setAgentFilter] = useState<"all" | "available" | "unavailable" | "needs_auth" | "missing">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AgentManagementAgent | null>(null);
   const [editorBusy, setEditorBusy] = useState(false);
@@ -222,19 +230,36 @@ export function AgentManagementPage(props: {
   const [customFocusPending, setCustomFocusPending] = useState(false);
   const customSectionRef = useRef<HTMLDivElement>(null);
 
+  // Detected section = the built-in providers PLUS the discoverable catalog
+  // (known agents surfaced even when not installed). Custom section = only the
+  // user's own registered custom agents (discoverable entries are read-only and
+  // must not show edit/delete/enable controls).
   const detectedAgents = useMemo(
-    () => (snapshot?.agents ?? []).filter((agent) => agent.provider !== "custom"),
+    () => (snapshot?.agents ?? []).filter((agent) => agent.provider !== "custom" || agent.discoverable),
     [snapshot?.agents],
   );
   const customAgents = useMemo(
-    () => (snapshot?.agents ?? []).filter((agent) => agent.provider === "custom"),
+    () => (snapshot?.agents ?? []).filter((agent) => agent.provider === "custom" && !agent.discoverable),
     [snapshot?.agents],
   );
   const filteredDetectedAgents = useMemo(() => {
     if (agentFilter === "available") return detectedAgents.filter((agent) => agent.status === "online");
     if (agentFilter === "unavailable") return detectedAgents.filter((agent) => agent.status !== "online");
+    if (agentFilter === "needs_auth") return detectedAgents.filter((agent) => agent.status === "needs_auth");
+    if (agentFilter === "missing") return detectedAgents.filter((agent) => agent.status === "missing");
     return detectedAgents;
   }, [agentFilter, detectedAgents]);
+  // Custom agents (e.g. CodeBuddy added via "detect available") must also
+  // respect the availability filter, otherwise an online custom agent stays
+  // visible under the "不可用" tab and looks wrongly classified as unavailable.
+  const filteredCustomAgents = useMemo(() => {
+    if (agentFilter === "all") return customAgents;
+    if (agentFilter === "available") return customAgents.filter((agent) => agent.status === "online");
+    if (agentFilter === "unavailable") return customAgents.filter((agent) => agent.status !== "online");
+    if (agentFilter === "needs_auth") return customAgents.filter((agent) => agent.status === "needs_auth");
+    if (agentFilter === "missing") return customAgents.filter((agent) => agent.status === "missing");
+    return customAgents.filter((agent) => agent.status === agentFilter);
+  }, [agentFilter, customAgents]);
 
   const openAddCustomAgent = useCallback(() => {
     setEditingAgent(null);
@@ -408,8 +433,12 @@ export function AgentManagementPage(props: {
     }, `provider:${providerApp}:save`);
   }, [providerApp, providerDraft, runProviderAction]);
 
-  const runHealthCheck = useCallback(async (agent: AgentManagementAgent) => {
-    if (agent.status !== "online") return;
+  // Lightweight connection probe that works for ANY agent status (online /
+  // needs_auth / offline / missing). Unlike the old health-check which only ran
+  // for already-online agents and spawned a full session, this mirrors AionUi's
+  // "Test Connection" — a quick ACP probe usable even when the agent is not
+  // installed or not yet authenticated.
+  const runTestConnection = useCallback(async (agent: AgentManagementAgent) => {
     setCheckingAgentId(agent.id);
     setError(null);
     setHealthResults((current) => ({
@@ -418,25 +447,37 @@ export function AgentManagementPage(props: {
         status: "running",
         at: Date.now(),
         runId: null,
-        output: "",
+        output: t("agent_manager.agent_card.test_connection_running"),
         error: null,
       },
     }));
     try {
-      let snapshot = await personalLocalAgentStart({
-        workspaceRoot: props.workspaceRoot,
-        prompt: AGENT_MANAGER_HEALTH_PROMPT,
+      const result = await personalLocalAgentTestConnection({
         agent,
+        workspaceRoot: props.workspaceRoot,
       });
-      setHealthResults((current) => ({ ...current, [agent.id]: summarizeAgentManagementHealth(snapshot) }));
-      for (let attempt = 0; snapshot.status === "running" && attempt < 120; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 1000));
-        snapshot = await personalLocalAgentStatus(snapshot.runId);
-        setHealthResults((current) => ({ ...current, [agent.id]: summarizeAgentManagementHealth(snapshot) }));
-      }
+      setHealthResults((current) => ({
+        ...current,
+        [agent.id]: {
+          // AionUi parity: a probe that reaches the agent but reports
+          // needs_auth / missing is NOT a failure — surface it as its own
+          // neutral/warning state instead of "failed".
+          status: result.ok
+            ? "passed"
+            : result.status === "needs_auth"
+              ? "needs_auth"
+              : result.status === "missing"
+                ? "missing"
+                : "failed",
+          at: result.checkedAt,
+          runId: null,
+          output: describeAgentTestConnection(result),
+          error: result.error,
+        },
+      }));
       await refresh({ force: true });
-    } catch (healthError) {
-      const message = healthError instanceof Error ? healthError.message : String(healthError);
+    } catch (connError) {
+      const message = connError instanceof Error ? connError.message : String(connError);
       setHealthResults((current) => ({
         ...current,
         [agent.id]: {
@@ -672,6 +713,12 @@ export function AgentManagementPage(props: {
                     <NavTabButton active={agentFilter === "unavailable"} onClick={() => setAgentFilter("unavailable")} size="tab" shape="tab">
                       {t("agent_manager.filter_unavailable")}
                     </NavTabButton>
+                    <NavTabButton active={agentFilter === "needs_auth"} onClick={() => setAgentFilter("needs_auth")} size="tab" shape="tab">
+                      {t("local_agent.filter_needs_auth")}
+                    </NavTabButton>
+                    <NavTabButton active={agentFilter === "missing"} onClick={() => setAgentFilter("missing")} size="tab" shape="tab">
+                      {t("local_agent.filter_missing")}
+                    </NavTabButton>
                   </SegmentedTabGroup>
                 </div>
                 {detectedAgents.length === 0 ? (
@@ -679,14 +726,14 @@ export function AgentManagementPage(props: {
                     {t("agent_manager.detected_agents_desc")}
                   </div>
                 ) : (
-                  <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                  <div className="space-y-2">
                     {filteredDetectedAgents.map((agent) => (
                       <AgentManagementAgentCard
                         key={agent.id}
                         agent={agent}
                         health={healthResults[agent.id]}
                         checking={checkingAgentId === agent.id}
-                        onHealthCheck={runHealthCheck}
+                        onTestConnection={runTestConnection}
                         onRepair={openRepair}
                       />
                     ))}
@@ -699,7 +746,7 @@ export function AgentManagementPage(props: {
                   <div className="flex items-center gap-2">
                     <Bot className="size-4 text-dls-secondary" />
                     <h3 className="text-sm font-medium">{t("agent_manager.custom_agents")}</h3>
-                    <span className="text-xs text-dls-secondary">{customAgents.length}</span>
+                    <span className="text-xs text-dls-secondary">{filteredCustomAgents.length}</span>
                   </div>
                   <Button variant="default" size="sm" onClick={openAddCustomAgent}>
                     <Plus className="mr-1.5 size-3.5" />
@@ -711,14 +758,14 @@ export function AgentManagementPage(props: {
                     {t("agent_manager.custom_agents_empty")}
                   </div>
                 ) : (
-                  <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                    {customAgents.map((agent) => (
+                  <div className="space-y-2">
+                    {filteredCustomAgents.map((agent) => (
                       <AgentManagementAgentCard
                         key={agent.id}
                         agent={agent}
                         health={healthResults[agent.id]}
                         checking={checkingAgentId === agent.id}
-                        onHealthCheck={runHealthCheck}
+                        onTestConnection={runTestConnection}
                         onToggleEnabled={handleToggleCustomAgentEnabled}
                         onDelete={handleDeleteCustomAgent}
                         onEdit={openEditCustomAgent}

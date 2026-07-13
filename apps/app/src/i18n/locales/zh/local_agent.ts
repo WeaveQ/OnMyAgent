@@ -53,6 +53,7 @@ export default {
   "local_agent.editor_connection_raw": "裸命令",
   "local_agent.editor_connection_cli": "ACP CLI",
   "local_agent.editor_acp_args": "ACP 启动参数",
+  "local_agent.editor_acp_args_hint": "填写命令行参数，需带 -- 前缀，例如「--acp」。只填 acp 会报错。",
   "local_agent.editor_supports_streaming": "支持流式输出",
   "local_agent.editor_supports_resume": "支持恢复会话",
   "local_agent.editor_supports_approval": "支持审批弹窗",

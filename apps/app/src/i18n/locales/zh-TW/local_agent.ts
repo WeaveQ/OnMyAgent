@@ -48,6 +48,7 @@ export default {
   "local_agent.editor_connection_raw": "純命令",
   "local_agent.editor_connection_cli": "ACP CLI",
   "local_agent.editor_acp_args": "ACP 啟動參數",
+  "local_agent.editor_acp_args_hint": "填寫命令列參數需帶 -- 前綴，例如「--acp」。只填 acp 會報錯。",
   "local_agent.editor_supports_streaming": "支援串流輸出",
   "local_agent.editor_supports_resume": "支援續接工作階段",
   "local_agent.editor_supports_approval": "支援審批彈窗",

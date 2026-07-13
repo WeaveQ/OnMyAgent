@@ -450,6 +450,14 @@ export type PersonalLocalAgent = {
   enabled?: boolean;
   /** Source discriminator used by the management UI to split detected vs custom agents. */
   agentSource?: string;
+  /**
+   * True for entries that come from the "known agent catalog" and are surfaced
+   * on the management page even when not installed. These are read-only (no
+   * edit/delete) but can still be tested for connection.
+   */
+  discoverable?: boolean;
+  /** Best-effort native skill roots for a discoverable/custom agent. */
+  nativeSkillsDirs?: string[];
 };
 
 export type PersonalLocalAgentMetadata = {

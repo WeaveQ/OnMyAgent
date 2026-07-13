@@ -370,13 +370,14 @@ async function ensureOpenClawGateway({ executablePath, workdir, env, appendEvent
 }
 
 function codexModeForApprovalMode(approvalMode) {
-  // Aligned with AionCore normalize_requested_mode + acp_launch_policy:
-  // Codex native modes are `full-access` (yolo / danger-full-access) and
-  // `auto` (workspace-write + network). `read-only` remains as an
-  // opt-in strict mode.
-  if (approvalMode === "auto") return "full-access";
+  // The Codex ACP bridge (session/set_mode) only accepts its own mode ids:
+  // `read-only`, `agent` (workspace-write + on-request approval), and
+  // `agent-full-access` (danger-full-access, approvals never asked). These
+  // align with codex.mjs's codexRunPolicyForApprovalMode: non-auto sessions
+  // run as `agent`; only explicit `auto` escalates to `agent-full-access`.
+  if (approvalMode === "auto") return "agent-full-access";
   if (approvalMode === "read-only-auto") return "read-only";
-  return "auto";
+  return "agent";
 }
 
 function supportsSessionSetModel(provider) {

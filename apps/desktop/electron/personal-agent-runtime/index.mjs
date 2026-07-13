@@ -11,7 +11,7 @@ import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
-import { detectAvailableLocalAgents } from "./detect-local-agents.mjs";
+import { detectAvailableLocalAgents, discoverableAgentDrafts } from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
@@ -1533,6 +1533,70 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
+  // Resolve the discoverable catalog into agent cards for the management page.
+  // Each draft is run through the normal detection layer so status (online /
+  // offline / missing), version and connectionMode are computed the same way as
+  // the 5 built-ins. Not-installed agents resolve to offline/missing but are
+  // still returned (that's the whole point) with `discoverable: true` so the UI
+  // can render them read-only (no edit/delete) yet still test-connectable.
+  async function buildDiscoverableAgents(workspaceRoot, registeredAgents, includeModels) {
+    const existingIds = new Set();
+    for (const agent of Array.isArray(registeredAgents) ? registeredAgents : []) {
+      if (agent?.id) existingIds.add(String(agent.id).toLowerCase());
+      if (agent?.provider) existingIds.add(String(agent.provider).toLowerCase());
+      const exe = String(agent?.executablePath ?? "").split(/[\\/]/).pop();
+      if (exe) existingIds.add(exe.toLowerCase());
+    }
+    const drafts = discoverableAgentDrafts().filter(
+      (draft) => !existingIds.has(String(draft.id).toLowerCase()),
+    );
+    return Promise.all(
+      drafts.map(async (draft) => {
+        let detected = null;
+        try {
+          detected = await legacy.detectAgent(
+            {
+              id: draft.id,
+              name: draft.name,
+              provider: "custom",
+              executablePath: draft.executablePath,
+              connectionType: "cli",
+              supportsAcp: true,
+              acpArgs: draft.acpArgs,
+            },
+            workspaceRoot,
+            { includeModels },
+          );
+        } catch {
+          detected = null;
+        }
+        const base = detected && typeof detected === "object" ? detected : {};
+        // A discoverable catalog entry is either installed (detectAgent resolves
+        // it to "online" with a real version) or not installed. Anything that is
+        // not "online" is treated as not-installed: surface it as "missing" with
+        // no error so the card shows a clean "未安装" state instead of a red
+        // error box / raw "spawn X ENOENT" (the whole point is "listed even when
+        // not installed", not "broken").
+        const installed = base.status === "online";
+        // Force identity/kind fields back to the catalog values: detectAgent may
+        // normalize a not-installed custom draft in ways that drop our metadata.
+        return {
+          ...base,
+          id: draft.id,
+          name: draft.name,
+          provider: "custom",
+          connectionType: "cli",
+          supportsAcp: true,
+          acpArgs: draft.acpArgs,
+          nativeSkillsDirs: draft.nativeSkillsDirs,
+          discoverable: true,
+          status: installed ? "online" : "missing",
+          error: installed ? (base.error ?? null) : null,
+        };
+      }),
+    );
+  }
+
   async function listAgents(input = {}) {
     const result = await legacy.listAgents(input);
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
@@ -1550,7 +1614,15 @@ export function createPersonalAgentRuntime(options) {
       return { ...agent, capability, connectionMode };
     });
     const extensionAgents = await loadExtensionAdapters();
-    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
+    const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
+    // Management page only: always list the known-but-not-installed agent
+    // catalog (AionUi-style "十多个都显示，没装也在") so users can test-connect
+    // any of them. Gated behind includeDiscoverable so the runtime/session
+    // dropdowns (which call listAgents without the flag) stay unaffected.
+    const discoverableAgents = input.includeDiscoverable
+      ? await buildDiscoverableAgents(workspaceRoot, registeredAgents, input.includeModels !== false)
+      : [];
+    const agents = [...registeredAgents, ...discoverableAgents];
     // Hydrate ACP session metadata cached from the last warmup so the
     // handshake exposes available_commands / config options / models before
     // the user sends a message. Falls back to the raw agent when the
@@ -1729,14 +1801,25 @@ export function createPersonalAgentRuntime(options) {
       // Collapse legacy "error" status into "offline" so the 5-state model
       // (online / needs_auth / offline / missing / unknown) is always returned.
       const rawStatus = detected.status === "error" ? "offline" : detected.status;
-      const status = rawStatus === "offline" && /auth|login|认证|登录/i.test(String(detected.error ?? ""))
-        ? "needs_auth"
-        : rawStatus;
+      const errorText = String(detected.error ?? "");
+      const errorCode = detected.errorInfo?.code ?? detected.errorCode ?? "";
+      // A missing binary (not installed) is reported as "missing" with a clean
+      // human message — never the raw "spawn X ENOENT" / "未配置可执行命令".
+      const isMissing =
+        rawStatus === "missing" ||
+        String(errorCode).toLowerCase() === "missing_binary" ||
+        /enoent|not found|command not found|no such file|未配置|未安装/i.test(errorText);
+      let status = rawStatus;
+      if (isMissing) {
+        status = "missing";
+      } else if (rawStatus === "offline" && /auth|login|unauthorized|forbidden|api key|credential|认证|登录|未授权|凭证/i.test(errorText)) {
+        status = "needs_auth";
+      }
       return {
         ok: false,
         status,
         step: status === "missing" ? "fail_cli" : status === "needs_auth" ? "needs_auth" : "fail_cli",
-        error: detected.error ?? `${detected.name ?? agent.name ?? agent.provider} unavailable`,
+        error: isMissing ? `${detected.name ?? agent.name ?? agent.provider} 未安装` : (detected.error ?? `${detected.name ?? agent.name ?? agent.provider} unavailable`),
         capabilities: null,
         models: [],
         configOptions: [],
@@ -1745,7 +1828,16 @@ export function createPersonalAgentRuntime(options) {
     }
     const provider = detected.provider ?? agent.provider;
     let executablePath = detected.executablePath || provider;
-    let args = ["acp", ...(Array.isArray(detected.customArgs) ? detected.customArgs : [])];
+    // Built-in providers expose ACP via the `acp` subcommand, but custom / cli
+    // agents (incl. the discoverable catalog like CodeBuddy/Gemini) switch into
+    // ACP mode via their own flag (e.g. `--acp`) carried on `acpArgs`. Using the
+    // hard-coded `acp` subcommand for those would spawn the wrong process.
+    const detectedAcpArgs = Array.isArray(detected.acpArgs) ? detected.acpArgs.filter(Boolean) : [];
+    const detectedCustomArgs = Array.isArray(detected.customArgs) ? detected.customArgs : [];
+    let args =
+      (provider === "custom" || detected.connectionType === "cli") && detectedAcpArgs.length
+        ? [...detectedAcpArgs, ...detectedCustomArgs]
+        : ["acp", ...detectedCustomArgs];
     try {
       if (provider === "codex" || provider === "claude") {
         const tool = await resolveManagedAcpTool(provider);
@@ -1756,11 +1848,14 @@ export function createPersonalAgentRuntime(options) {
       }
       const probe = await probeAcpCommand({ command: executablePath, args, cwd: workspaceRoot || process.cwd(), timeoutMs: Number(input.timeoutMs) || 12_000 });
       const meta = probe.sessionResult ? extractProbeMetadata(probe.sessionResult, probe.initialized) : extractProbeMetadata(probe.initialized);
+      // If the probe determined the binary is simply not installed, replace the
+      // raw "spawn X ENOENT" with a clean "未安装" message.
+      const probeMissing = probe.status === "missing";
       return {
         ok: probe.ok,
         status: probe.status,
         step: probe.step,
-        error: probe.error ?? null,
+        error: probeMissing ? `${detected.name ?? agent.name ?? agent.provider} 未安装` : (probe.error ?? null),
         capabilities: probe.initialized?.capabilities ?? null,
         models: meta.models,
         configOptions: meta.configOptions,
