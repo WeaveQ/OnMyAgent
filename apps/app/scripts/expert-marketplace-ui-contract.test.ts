@@ -40,10 +40,23 @@ describe("expert marketplace UI contract", () => {
     expect(packageNames).toEqual(
       expect.arrayContaining([
         "ai-engineer",
+        "browser-use-agent",
         "gaokao-advisor",
         "viral-topic-master",
       ]),
     );
+    const browserUseManifest = JSON.parse(
+      readFileSync(
+        join(builtinPluginsRoot, "browser-use-agent/.expert-plugin/plugin.json"),
+        "utf8",
+      ),
+    );
+    expect(browserUseManifest.agentName).toBe("browser-use-agent");
+    expect(browserUseManifest.runtime).toBe("browser-use-agent");
+    expect(existsSync(join(
+      builtinPluginsRoot,
+      "browser-use-agent/skills/browser-use-agent/SKILL.md",
+    ))).toBe(true);
   });
 
   test("parses details from package files with folder-name fallback and duplicate-safe ids", () => {
