@@ -54,7 +54,7 @@ def create_owner_tab():
     broker_token = os.environ.get("ONMYAGENT_BROWSER_BROKER_TOKEN", "")
     if not broker_url or not broker_token:
         raise RuntimeError("Browser owner broker is required")
-    marker_url = f"about:blank#onmyagent-browser-use-{uuid.uuid4().hex}"
+    marker_url = f"{broker_url}/v1/owner-marker/{uuid.uuid4().hex}"
     request = urllib.request.Request(
         f"{broker_url}/v1/tabs",
         data=json.dumps({"url": marker_url}).encode("utf8"),
@@ -71,9 +71,17 @@ def create_owner_tab():
 
 
 class OwnerScopedBrowserSession(BrowserSession):
-    owner_marker_url: str
+    _owner_marker_url: str = PrivateAttr()
     _owner_target_ids: set[str] = PrivateAttr(default_factory=set)
     _scope_ready: bool = PrivateAttr(default=False)
+
+    def __init__(self, *, owner_marker_url: str, **kwargs):
+        super().__init__(**kwargs)
+        self._owner_marker_url = owner_marker_url
+
+    @property
+    def owner_marker_url(self):
+        return self._owner_marker_url
 
     async def _wait_for_owner_target(self, marker_url):
         for _ in range(100):

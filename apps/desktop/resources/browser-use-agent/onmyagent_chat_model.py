@@ -27,6 +27,10 @@ class OnMyAgentChatModel:
     def name(self):
         return self.model
 
+    @property
+    def model_name(self):
+        return self.model
+
     def _invoke(self, messages, output_format):
         payload = {
             "messages": [message.model_dump(mode="json", exclude_none=True) for message in messages],

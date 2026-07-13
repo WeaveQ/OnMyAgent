@@ -10,9 +10,25 @@ description_en: "Automate navigation, interaction, screenshots, and extraction i
 
 # Browser Use
 
-Use the managed `browser-use` command. OnMyAgent already provides Python,
-Browser Use, the signed-in embedded browser, CDP, and per-conversation tab
-isolation.
+For autonomous multi-step browser work, prefer the **Browser Use Agent** expert
+from the expert marketplace. It runs the upstream `browser_use.Agent`, inherits
+the model selected in the desktop session, shows progress and approvals in the
+conversation, and keeps its embedded tabs owner-scoped.
+
+The managed `browser-use` command remains the deterministic compatibility layer
+for Assistant/Code sessions and expert packages that need direct scripted page
+inspection. OnMyAgent provides Python, Browser Use, the signed-in embedded
+browser, CDP, and per-conversation tab isolation; users do not install these
+dependencies separately.
+
+## Routing
+
+- Use the Browser Use Agent expert for open-ended goals that require repeated
+  observe → plan → act → verify cycles.
+- Use the managed CLI below for a small, explicit sequence where the calling
+  assistant owns each browser action.
+- Never invoke the CLI from inside the Browser Use Agent expert; its dedicated
+  runtime already owns the upstream Agent lifecycle.
 
 ## Hard rules
 
