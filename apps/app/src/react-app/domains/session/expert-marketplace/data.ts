@@ -67,6 +67,7 @@ type ExpertPackageManifest = {
   agents?: string[] | string | null;
   expertType?: string | null;
   agentName?: string | null;
+  runtime?: string | null;
 };
 
 type LocalizedTextList = {
@@ -115,6 +116,12 @@ function uniqueTrimmedList(input: string[] | null | undefined): string[] {
 function uniqueNormalizedCategoryIds(input: string[] | null | undefined): string[] {
   return [...new Set(uniqueTrimmedList(input).map(normalizeExpertMarketplaceCategoryId))]
     .filter((id) => id !== "all");
+}
+
+function normalizeExpertRuntime(
+  input: string | null | undefined,
+): "browser-use-agent" | null {
+  return input?.trim() === "browser-use-agent" ? "browser-use-agent" : null;
 }
 
 function titleFromReadme(readme: string, fallback: string): string {
@@ -231,6 +238,7 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         leadAgentName,
         systemPrompt: agentMarkdown || readme,
         version: manifest.version?.trim() || null,
+        runtime: normalizeExpertRuntime(manifest.runtime),
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));

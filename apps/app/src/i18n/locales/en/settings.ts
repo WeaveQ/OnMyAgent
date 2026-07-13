@@ -21,6 +21,9 @@ export default {
   "settings.background_checks_title": "Check automatically",
   "settings.cache_repair_requires_desktop": "Only available in the desktop app",
   "settings.cap_browser_tools": "Browser tools: {value}",
+  "settings.browser_use_description":
+    `Browser automation is built into ${APP_NAME}. Assistants can open and control visible in-app browser tabs without a separate install.`,
+  "settings.browser_use_title": "AI browser automation",
   "settings.cap_commands": "Commands: {value}",
   "settings.cap_config": "Config: {value}",
   "settings.cap_file_tools": "File tools: {value}",

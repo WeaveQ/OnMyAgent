@@ -25,6 +25,7 @@ export type SessionAgentSnapshot = {
   avatarUrl: string | null;
   avatarBackground: string | null;
   systemPrompt: string;
+  runtime?: "browser-use-agent";
 };
 
 function readRegistryCache(): AgentRegistry | null {
@@ -150,6 +151,9 @@ function parseSessionAgentSnapshot(value: unknown): SessionAgentSnapshot | null 
     "avatarBackground" in value && typeof value.avatarBackground === "string"
       ? value.avatarBackground
       : null;
+  const runtime = "runtime" in value && value.runtime === "browser-use-agent"
+    ? value.runtime
+    : undefined;
   return {
     id: value.id,
     name: value.name,
@@ -157,6 +161,7 @@ function parseSessionAgentSnapshot(value: unknown): SessionAgentSnapshot | null 
     avatarUrl,
     avatarBackground,
     systemPrompt: value.systemPrompt,
+    runtime,
   };
 }
 
@@ -196,6 +201,7 @@ export function writeSessionAgentSnapshot(
         avatarUrl: agent.avatar.avatarUrl,
         avatarBackground: agent.avatar.avatarBackground,
         systemPrompt: agent.systemPrompt,
+        runtime: agent.runtime,
       };
     }
     localStorage.setItem(AGENT_SNAPSHOT_BY_SESSION_KEY, JSON.stringify(record));

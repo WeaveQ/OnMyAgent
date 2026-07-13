@@ -55,7 +55,6 @@
   ],
   "skills": [
     "./skills/jiaozhen-factcheck",
-    "./skills/minimax-docx",
     "./skills/wechat-article-search"
   ],
   "categoryIds": [

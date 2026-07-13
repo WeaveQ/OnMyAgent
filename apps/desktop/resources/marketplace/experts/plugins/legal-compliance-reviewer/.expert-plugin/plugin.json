@@ -55,7 +55,6 @@
   ],
   "skills": [
     "./skills/ima-skills",
-    "./skills/minimax-docx",
     "./skills/tencent-docs"
   ],
   "categoryIds": [

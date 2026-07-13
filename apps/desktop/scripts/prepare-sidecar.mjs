@@ -17,6 +17,7 @@ import {
 import { dirname, join, resolve } from "path";
 import { tmpdir } from "os";
 import { fileURLToPath } from "url";
+import { shouldDownloadOpencode } from "./prepare-sidecar-policy.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const readArg = (name) => {
@@ -30,6 +31,7 @@ const readArg = (name) => {
 
 const hasFlag = (name) => process.argv.slice(2).includes(name);
 const forceBuild = hasFlag("--force") || process.env.ONMYAGENT_SIDECAR_FORCE_BUILD === "1";
+const preferExistingOpencode = hasFlag("--prefer-existing-opencode");
 const sidecarOverride = process.env.ONMYAGENT_SIDECAR_DIR?.trim() || readArg("--outdir");
 const sidecarDir = sidecarOverride
   ? resolve(sidecarOverride)
@@ -365,22 +367,30 @@ const opencodeUrl = opencodeAsset
   ? `https://github.com/${opencodeGithubRepo}/releases/download/v${normalizedOpencodeVersion}/${opencodeAsset}`
   : null;
 
-const shouldDownloadOpencode =
-  !opencodeCandidatePath ||
-  !existsSync(opencodeCandidatePath) ||
-  isStubBinary(opencodeCandidatePath) ||
-  !existingOpencodeVersion ||
-  existingOpencodeVersion !== normalizedOpencodeVersion;
+const opencodeCandidateExists = Boolean(opencodeCandidatePath && existsSync(opencodeCandidatePath));
+const opencodeCandidateIsStub = opencodeCandidatePath ? isStubBinary(opencodeCandidatePath) : true;
+const shouldDownloadOpencodeSidecar = shouldDownloadOpencode({
+  candidateExists: opencodeCandidateExists,
+  candidateIsStub: opencodeCandidateIsStub,
+  existingVersion: normalizeVersion(existingOpencodeVersion),
+  pinnedVersion: normalizedOpencodeVersion,
+  preferExisting: preferExistingOpencode,
+});
 
 const localOpencode = findLocalOpencodeBinary();
 if (copyLocalOpencodeSidecar(localOpencode, normalizedOpencodeVersion)) {
   existingOpencodeVersion = preparedOpencodeVersion;
-} else if (!shouldDownloadOpencode) {
+} else if (!shouldDownloadOpencodeSidecar) {
   console.log(`OpenCode sidecar already present (${existingOpencodeVersion}).`);
+  if (normalizeVersion(existingOpencodeVersion) !== normalizedOpencodeVersion) {
+    console.warn(
+      `OpenCode sidecar version ${existingOpencodeVersion} does not match pinned ${normalizedOpencodeVersion}; reusing it for development.`,
+    );
+  }
   preparedOpencodeVersion = normalizeVersion(existingOpencodeVersion);
 }
 
-if (!preparedOpencodeVersion && shouldDownloadOpencode) {
+if (!preparedOpencodeVersion && shouldDownloadOpencodeSidecar) {
   if (!opencodeAsset || !opencodeUrl) {
     console.error(
       `No OpenCode asset configured for target ${resolvedTargetTriple ?? "unknown"}. Set OPENCODE_ASSET to override.`
