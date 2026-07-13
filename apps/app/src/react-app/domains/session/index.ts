@@ -37,7 +37,6 @@ export {
   useSessionActivityStore,
 } from "./status/session-activity-store";
 export type { SessionActivityStatus } from "./status/session-activity-store";
-export { setBrowserUseAgentRun } from "./status/browser-use-agent-store";
 export {
   assistantSessionWorkspacesChangedEvent,
   dispatchAssistantSessionWorkspacesChanged,

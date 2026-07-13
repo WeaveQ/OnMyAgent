@@ -43,6 +43,45 @@ function systemText(messages) {
     .join("\n\n");
 }
 
+function responseText(response) {
+  return response.parts
+    ?.filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n") ?? "";
+}
+
+function parseStructuredText(value) {
+  const trimmed = value.trim();
+  const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(trimmed)?.[1]?.trim();
+  const candidate = fenced || trimmed;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    const objectStart = candidate.indexOf("{");
+    const objectEnd = candidate.lastIndexOf("}");
+    const arrayStart = candidate.indexOf("[");
+    const arrayEnd = candidate.lastIndexOf("]");
+    const startsWithArray = arrayStart >= 0 && (objectStart < 0 || arrayStart < objectStart);
+    const fragment = startsWithArray
+      ? candidate.slice(arrayStart, arrayEnd + 1)
+      : candidate.slice(objectStart, objectEnd + 1);
+    if (!fragment) throw new Error("OpenCode model returned no structured output");
+    try {
+      return JSON.parse(fragment);
+    } catch {
+      throw new Error("OpenCode model returned invalid structured output");
+    }
+  }
+}
+
+function structuredFallbackInstruction(schema) {
+  return [
+    "Return exactly one JSON value matching this JSON Schema.",
+    "Do not use Markdown fences or add explanatory text.",
+    JSON.stringify(schema),
+  ].join("\n");
+}
+
 /**
  * @param {{
  *   createClient?: typeof createOpencodeClient,
@@ -74,7 +113,7 @@ export function createBrowserUseOpenCodeModelInvoker(options) {
     const abort = () => { void client.session.abort({ sessionID }); };
     input.signal?.addEventListener("abort", abort, { once: true });
     try {
-      const response = unwrap(await client.session.prompt({
+      let response = unwrap(await client.session.prompt({
         sessionID,
         directory: connection.directory,
         model: input.model,
@@ -85,11 +124,26 @@ export function createBrowserUseOpenCodeModelInvoker(options) {
         system: systemText(input.messages),
         parts: messageParts(input.messages),
       }), "OpenCode session.prompt");
-      const value = input.outputSchema
-        ? response.info?.structured
-        : response.parts?.filter((part) => part.type === "text").map((part) => part.text).join("\n") ?? "";
-      if (input.outputSchema && value === undefined) {
-        throw new Error("OpenCode model returned no structured output");
+      let value;
+      if (!input.outputSchema) {
+        value = responseText(response);
+      } else if (response.info?.structured !== undefined) {
+        value = response.info.structured;
+      } else {
+        try {
+          value = parseStructuredText(responseText(response));
+        } catch {
+          response = unwrap(await client.session.prompt({
+            sessionID,
+            directory: connection.directory,
+            model: input.model,
+            tools: {},
+            format: { type: "text" },
+            system: systemText(input.messages),
+            parts: [textPart(structuredFallbackInstruction(input.outputSchema))],
+          }), "OpenCode session.prompt text fallback");
+          value = parseStructuredText(responseText(response));
+        }
       }
       return {
         value,

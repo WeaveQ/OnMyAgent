@@ -784,6 +784,32 @@ function buildToolTitle(state: ToolStateView, toolName: string): string {
     return normalizePathToken(value);
   };
 
+  if (lower === "browser_use_operation") {
+    const count = typeof input.actionCount === "number" ? input.actionCount : 1;
+    const step = typeof input.step === "number" ? input.step : 1;
+    const goal = pick("currentGoal");
+    if (goal) {
+      return t("session.browser_use_operation_step_title", { step, goal });
+    }
+    if ("error" in state && state.error) {
+      return t("session.browser_use_operation_failed");
+    }
+    return t(
+      "output" in state
+        ? "session.browser_use_operation_completed"
+        : "session.browser_use_operation_running",
+      { count },
+    );
+  }
+
+  if (lower === "browser_use_activity") {
+    const phase = pick("phase");
+    if (phase === "observing") return t("session.browser_use_agent_phase_observing");
+    if (phase === "acting") return t("session.browser_use_agent_phase_acting");
+    if (phase === "verifying") return t("session.browser_use_agent_phase_verifying");
+    return t("session.browser_use_agent_phase_planning");
+  }
+
   if (lower === "read") {
     const target = file("filePath", "path", "file");
     return target ? t("session.tool_title_read_file", { file: target }) : t("session.tool_title_read_file_generic");
@@ -859,6 +885,10 @@ function buildToolDetail(state: ToolStateView, toolName: string): string | undef
   const lower = toolName.toLowerCase();
   const input = getToolInput(state);
   const pick = (...keys: string[]) => pickInputText(input, keys);
+
+  if (lower === "browser_use_operation") {
+    return pick("title", "url") || undefined;
+  }
 
   if (lower === "read") {
     const chunks: string[] = [];

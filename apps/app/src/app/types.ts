@@ -139,6 +139,8 @@ export type ComposerDraft = {
   command?: { name: string; arguments: string; source?: "command" | "mcp" | "skill" } | undefined;
   /** Classifies the session created by this draft without shared mutable state. */
   sessionStartIntent?: SessionStartIntent;
+  /** Routes an expert prompt to its dedicated execution runtime. */
+  agentRuntime?: "browser-use-agent";
 };
 
 export type SessionStartIntent =

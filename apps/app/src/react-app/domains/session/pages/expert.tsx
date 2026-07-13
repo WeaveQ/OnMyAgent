@@ -947,12 +947,18 @@ export function ExpertPage(props: ExpertPageProps) {
       }
       return props.surface?.onSendDraft({
         ...draft,
+        agentRuntime: activeAgentContext?.runtime,
         sessionStartIntent: props.selectedSessionId
           ? undefined
           : { mode: "expert" },
       });
     },
-    [draftSessionActive, props.onCreateSessionForAgent, props.surface],
+    [
+      activeAgentContext?.runtime,
+      draftSessionActive,
+      props.onCreateSessionForAgent,
+      props.surface,
+    ],
   );
 
   useEffect(() => {
