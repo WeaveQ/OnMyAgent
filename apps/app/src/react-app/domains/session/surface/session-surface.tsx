@@ -68,6 +68,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { PaperGrainGradient } from "@onmyagent/ui/react";
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
+import { BrowserUseAgentStatus } from "./browser-use-agent-status";
 import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
@@ -2664,6 +2665,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
             personalAssistantDraftHome && "w-full max-w-5xl pb-0 pt-0",
           )}
         >
+          {effectiveAgent?.runtime === "browser-use-agent" && props.sessionId ? (
+            <BrowserUseAgentStatus sessionId={props.sessionId} modelLabel={props.modelLabel} />
+          ) : null}
           <DevProfiler id="SessionComposer">
             <ReactSessionComposer
               draft={draft}

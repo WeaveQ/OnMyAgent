@@ -153,6 +153,15 @@ describe("expert marketplace UI contract", () => {
     expect(surfaceHook).toContain("browserUseAgentStart({");
     expect(surfaceHook).toContain("noReply: true");
     expect(surfaceHook).toContain("ownerId: `expert:${sessionId}`");
+    expect(surfaceHook).toContain("setBrowserUseAgentRun(sessionId, started.runId)");
+    const status = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/browser-use-agent-status.tsx",
+    );
+    expect(status).toContain("browserUseAgentStatus(");
+    expect(status).toContain("browserUseAgentCancel(runId)");
+    expect(status).toContain("browserUseAgentApprove({");
+    expect(status).toContain("<ToolApprovalCard");
+    expect(status).toContain("<NoticeBox");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {

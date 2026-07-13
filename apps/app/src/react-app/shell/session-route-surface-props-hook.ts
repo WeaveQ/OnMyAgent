@@ -48,6 +48,7 @@ import {
   writeAssistantSessionWorkspace,
 } from "../domains/session";
 import { useSessionActivityStore } from "../domains/session";
+import { setBrowserUseAgentRun } from "../domains/session/status/browser-use-agent-store";
 import { buildOnMyAgentEnvSystemContext } from "../domains/shared/env-context";
 import { getReactQueryClient } from "../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "./onboarding-profile";
@@ -745,7 +746,7 @@ export function useSessionRouteSurfaceProps(
         ]);
         if (pendingAgentSnapshot?.runtime === "browser-use-agent") {
           if (!selectedPromptModel) {
-            throw new Error("Browser Use Agent requires a selected model.");
+            throw new Error(t("session.browser_use_agent_model_required"));
           }
           const recorded = await runWithCreatedSessionRuntimeSync(() =>
             opencodeClient.session.promptAsync({
@@ -760,13 +761,14 @@ export function useSessionRouteSurfaceProps(
           if (recorded.error) {
             throw new Error(serializeSDKError(recorded.error));
           }
-          await browserUseAgentStart({
+          const started = await browserUseAgentStart({
             task: text,
             ownerId: `expert:${sessionId}`,
             model: selectedPromptModel,
             retainTabs: true,
             useVision: "auto",
           });
+          setBrowserUseAgentRun(sessionId, started.runId);
           if (createdSession) {
             refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
           }
