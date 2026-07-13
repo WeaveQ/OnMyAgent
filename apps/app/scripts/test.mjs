@@ -91,12 +91,13 @@ const testTargets = new Map([
   ['local-file-path', ['node', ['scripts/local-file-path.mjs']]],
   ['browser-entry', ['node', ['scripts/browser-entry.mjs']]],
   ['version-gate', ['bun', ['test', 'scripts/version-gate.test.ts']]],
+  ['transport-contract', ['node', ['--test', 'src/app/lib/onmyagent-server-contract.test.mjs']]],
 ])
 
 const composedTargets = new Map([
   ['refactor', ['typecheck', 'health', 'sessions']],
   ['e2e', ['local-file-path', 'raw:e2e', 'session-switch', 'fs-engine', 'browser-entry']],
-  ['ui', ['version-gate', 'e2e']],
+  ['ui', ['version-gate', 'transport-contract', 'e2e']],
 ])
 
 function printUsage() {

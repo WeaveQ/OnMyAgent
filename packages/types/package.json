@@ -34,6 +34,11 @@
       "development": "./src/server.ts",
       "default": "./src/server.ts"
     },
+    "./server-client-methods": {
+      "types": "./src/server-client-methods.mjs",
+      "development": "./src/server-client-methods.mjs",
+      "default": "./src/server-client-methods.mjs"
+    },
     "./channel": {
       "types": "./src/channel.ts",
       "development": "./src/channel.ts",
@@ -43,6 +48,11 @@
       "types": "./src/desktop-ipc.ts",
       "development": "./src/desktop-ipc.ts",
       "default": "./src/desktop-ipc.ts"
+    },
+    "./desktop-ipc-commands": {
+      "types": "./src/desktop-ipc-commands.mjs",
+      "development": "./src/desktop-ipc-commands.mjs",
+      "default": "./src/desktop-ipc-commands.mjs"
     }
   },
   "files": [

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { DesktopCommandName } from "@onmyagent/types/desktop-ipc";
 
 import { applyEdits, modify, parse, printParseErrorCode } from "jsonc-parser";
 
@@ -296,7 +297,7 @@ export function createConnectionsStore(options: {
     return { next, nextStatuses };
   };
 
-  const resolveDesktopCommand = async (commandName: string, fallbackOnError = true) => {
+  const resolveDesktopCommand = async (commandName: DesktopCommandName, fallbackOnError = true) => {
     try {
       const command = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.(commandName);
       if (Array.isArray(command) && command.every((part) => typeof part === "string") && command.length > 0) {
