@@ -28,6 +28,7 @@ import {
   writeSessionTranscriptNotices,
 } from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
+import { browserUseAgentHistory } from "../../../../app/lib/desktop";
 import { currentLocale, t } from "../../../../i18n";
 import {
   readWorkspaceCloudImports,
@@ -68,7 +69,6 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { PaperGrainGradient } from "@onmyagent/ui/react";
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
-import { BrowserUseAgentStatus } from "./browser-use-agent-status";
 import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
@@ -77,6 +77,7 @@ import {
   SessionTranscript,
   type SessionTranscriptDivider,
 } from "./message-list";
+import { mergeBrowserUseTimeline } from "../browser-use/browser-use-timeline";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
@@ -572,6 +573,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
       ).item,
     staleTime: 500,
   });
+  const browserUseHistoryQuery = useQuery({
+    queryKey: ["browser-use-agent-history", props.sessionId],
+    queryFn: () => browserUseAgentHistory(props.sessionId),
+    enabled:
+      !props.draftOnly && effectiveAgent?.runtime === "browser-use-agent",
+    refetchInterval: (query) => {
+      const active = query.state.data?.some(
+        (run) => run.status === "running" || run.status === "pending_approval",
+      );
+      return active ? 1_000 : false;
+    },
+  });
 
   const currentSnapshot =
     snapshotQuery.data?.session.id === props.sessionId
@@ -719,16 +732,39 @@ export function SessionSurface(props: SessionSurfaceProps) {
     cachedRendered: rendered,
   });
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
-  const chatStreaming =
-    sending || liveStatus.type === "busy" || liveStatus.type === "retry";
+  const browserUseRunActive = (browserUseHistoryQuery.data ?? []).some(
+    (run) => run.status === "running" || run.status === "pending_approval",
+  );
+  const chatStreaming = effectiveAgent?.runtime === "browser-use-agent"
+    ? sending || browserUseRunActive
+    : sending || liveStatus.type === "busy" || liveStatus.type === "retry";
+  useEffect(() => {
+    if (
+      effectiveAgent?.runtime !== "browser-use-agent" ||
+      browserUseHistoryQuery.isFetching ||
+      !browserUseHistoryQuery.data?.length ||
+      browserUseRunActive
+    ) {
+      return;
+    }
+    useSessionActivityStore.getState()
+      .setRunStatus(props.workspaceId, props.sessionId, { type: "idle" });
+  }, [
+    browserUseHistoryQuery.data?.length,
+    browserUseHistoryQuery.isFetching,
+    browserUseRunActive,
+    effectiveAgent?.runtime,
+    props.sessionId,
+    props.workspaceId,
+  ]);
   const rawRenderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
-  const renderedMessages = useMemo(
-    () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
-    [compactBoundary, rawRenderedMessages],
-  );
+  const renderedMessages = useMemo(() => {
+    const compacted = filterCompactionMessages(rawRenderedMessages, compactBoundary);
+    return mergeBrowserUseTimeline(compacted, browserUseHistoryQuery.data ?? []);
+  }, [browserUseHistoryQuery.data, compactBoundary, rawRenderedMessages]);
   const appendTranscriptNotice = useCallback(
     (notice: SessionTranscriptNotice) => {
       setTranscriptNoticesBySessionId((current) => {
@@ -2665,9 +2701,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
             personalAssistantDraftHome && "w-full max-w-5xl pb-0 pt-0",
           )}
         >
-          {effectiveAgent?.runtime === "browser-use-agent" && props.sessionId ? (
-            <BrowserUseAgentStatus sessionId={props.sessionId} modelLabel={props.modelLabel} />
-          ) : null}
           <DevProfiler id="SessionComposer">
             <ReactSessionComposer
               draft={draft}

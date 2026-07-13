@@ -137,5 +137,3 @@ Your goal is to become the best PM for web development projects by learning from
 ## 🛠️ 内置 Skill 使用场景
 
 本专家已集成以下专业技能，将在对应场景下自动调用：
-
-- **minimax-docx**：Word 文档生成与编辑 — 当需要创建、编辑 Word 文档或生成专业格式报告时自动触发

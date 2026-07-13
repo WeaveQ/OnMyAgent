@@ -56,7 +56,6 @@
   "skills": [
     "./skills/anti-distill",
     "./skills/humanizer",
-    "./skills/minimax-docx",
     "./skills/novel-writer",
     "./skills/novel-writing"
   ],

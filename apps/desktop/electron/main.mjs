@@ -54,6 +54,7 @@ import { browserUseRuntimeStatus, desktopRuntimeTarget } from "./browser-use-run
 import { createBrowserUseModelGateway } from "./browser-use-agent/model-gateway.mjs";
 import { createBrowserUseOpenCodeModelInvoker } from "./browser-use-agent/opencode-model-invoker.mjs";
 import { createBrowserUseAgentRuntime } from "./browser-use-agent/runtime.mjs";
+import { createBrowserUseRunStore } from "./browser-use-agent/run-store.mjs";
 import { createBrowserUseEnvironmentManager } from "./personal-agent-runtime/browser-use-environment.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
@@ -1338,6 +1339,9 @@ const browserUseModelInvoker = createBrowserUseOpenCodeModelInvoker({
 const browserUseModelGateway = createBrowserUseModelGateway({
   invokeModel: browserUseModelInvoker,
 });
+const browserUseRunStore = createBrowserUseRunStore({
+  filePath: path.join(app.getPath("userData"), "browser-use-agent", "runs.json"),
+});
 const browserUseAgentRuntime = createBrowserUseAgentRuntime({
   browserEnvironment: {
     environmentForOwner: async (ownerId) => {
@@ -1347,6 +1351,7 @@ const browserUseAgentRuntime = createBrowserUseAgentRuntime({
     releaseOwner: (ownerId, options) => browserUseBroker.releaseOwner(ownerId, options),
   },
   modelGateway: browserUseModelGateway,
+  store: browserUseRunStore,
   spawnRunner: ({ env }) => spawn(
     browserUseAgentPython,
     [path.join(browserUseAgentResourceRoot, "runner.py")],
@@ -2063,6 +2068,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       return browserUseAgentRuntime.start(args[0] ?? {});
     case "browserUseAgentStatus":
       return browserUseAgentRuntime.status(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentHistory":
+      return browserUseAgentRuntime.history(String(args[0]?.sessionId ?? args[0] ?? ""));
     case "browserUseAgentCancel":
       return browserUseAgentRuntime.cancel(String(args[0]?.runId ?? args[0] ?? ""));
     case "browserUseAgentApprove":

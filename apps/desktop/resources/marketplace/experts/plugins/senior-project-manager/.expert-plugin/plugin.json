@@ -53,9 +53,7 @@
       "en": "Streamline multi-team collaboration and communication workflows"
     }
   ],
-  "skills": [
-    "./skills/minimax-docx"
-  ],
+  "skills": [],
   "categoryIds": [
     "product-development"
   ]
