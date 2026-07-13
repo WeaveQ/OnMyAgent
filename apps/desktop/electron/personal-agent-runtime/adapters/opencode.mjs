@@ -32,14 +32,24 @@ function modelRefFromString(value) {
   return { providerID: text.slice(0, separator), modelID: text.slice(separator + 1) };
 }
 
-function assistantMessageText(message) {
-  const role = String(message?.info?.role ?? message?.role ?? "").toLowerCase();
-  if (role !== "assistant") return "";
-  return (message?.parts ?? [])
+// Collect user-facing text from assistant message parts.
+//
+// IMPORTANT: `reasoning` parts carry the model's internal chain-of-thought
+// (its "thinking"), NOT the final answer. Concatenating them into the reply is
+// exactly what makes OpenCode look like it "ignores the user / rambles"
+// (答非所问、一堆乱七八糟). The rest of this runtime treats reasoning as a
+// separate "thinking" card and never mixes it into assistant text
+// (see runtime.test.mjs: "Assistant text must not carry the inline reasoning
+// fragment"). We follow the same rule here: only genuine `text` parts are
+// user-facing. A reasoning-only fallback is kept solely so we never regress to
+// an empty reply when the model emitted nothing but reasoning.
+function collectPartsText(parts, { includeReasoning }) {
+  return (Array.isArray(parts) ? parts : [])
     .map((part) => {
-      if ((part?.type === "text" || part?.type === "reasoning") && typeof part.text === "string") return part.text;
-      if (typeof part?.text === "string") return part.text;
-      if (typeof part?.errorText === "string") return part.errorText;
+      if (!part || part.ignored) return "";
+      if (part.type === "text" && typeof part.text === "string") return part.text;
+      if (includeReasoning && part.type === "reasoning" && typeof part.text === "string") return part.text;
+      if (typeof part.errorText === "string") return part.errorText;
       return "";
     })
     .filter((part) => part.trim())
@@ -48,17 +58,14 @@ function assistantMessageText(message) {
 }
 
 function partsText(parts = []) {
-  return (Array.isArray(parts) ? parts : [])
-    .map((part) => {
-      if (part?.ignored) return "";
-      if ((part?.type === "text" || part?.type === "reasoning") && typeof part.text === "string") return part.text;
-      if (typeof part?.text === "string") return part.text;
-      if (typeof part?.errorText === "string") return part.errorText;
-      return "";
-    })
-    .filter((part) => part.trim())
-    .join("\n")
-    .trim();
+  const text = collectPartsText(parts, { includeReasoning: false });
+  return text || collectPartsText(parts, { includeReasoning: true });
+}
+
+function assistantMessageText(message) {
+  const role = String(message?.info?.role ?? message?.role ?? "").toLowerCase();
+  if (role !== "assistant") return "";
+  return partsText(message?.parts ?? []);
 }
 
 function assistantMessageKey(message) {

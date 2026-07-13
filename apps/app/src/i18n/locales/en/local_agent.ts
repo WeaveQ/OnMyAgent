@@ -53,6 +53,7 @@ export default {
   "local_agent.editor_connection_raw": "Raw command",
   "local_agent.editor_connection_cli": "ACP CLI",
   "local_agent.editor_acp_args": "ACP CLI arguments",
+  "local_agent.editor_acp_args_hint": "Command-line flags need a -- prefix, e.g. \"--acp\". A bare \"acp\" will fail.",
   "local_agent.editor_supports_streaming": "Streaming updates",
   "local_agent.editor_supports_resume": "Resume sessions",
   "local_agent.editor_supports_approval": "Approval prompts",

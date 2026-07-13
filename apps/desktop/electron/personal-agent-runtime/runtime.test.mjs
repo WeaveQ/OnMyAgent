@@ -2962,8 +2962,8 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(acpGenericTest.normalizeModelId("codex", "gpt-5.5"), "gpt-5.5[medium]");
     assert.equal(acpGenericTest.normalizeModelId("codex", "gpt-5.5[low]"), "gpt-5.5[low]");
     assert.equal(acpGenericTest.normalizeModelId("hermes", "ark/model"), "ark:model");
-    assert.equal(acpGenericTest.codexModeForApprovalMode("ask"), "auto");
-    assert.equal(acpGenericTest.codexModeForApprovalMode("auto"), "full-access");
+    assert.equal(acpGenericTest.codexModeForApprovalMode("ask"), "agent");
+    assert.equal(acpGenericTest.codexModeForApprovalMode("auto"), "agent-full-access");
     assert.equal(acpGenericTest.codexModeForApprovalMode("read-only-auto"), "read-only");
     assert.equal(acpGenericTest.supportsSessionSetModel("codex"), true);
     assert.equal(acpGenericTest.supportsSessionSetModel("hermes"), true);
