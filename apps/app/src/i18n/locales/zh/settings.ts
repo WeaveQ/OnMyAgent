@@ -16,6 +16,13 @@ export default {
   "settings.background_checks_title": "后台检查",
   "settings.cache_repair_requires_desktop": "缓存修复需要桌面应用",
   "settings.cap_browser_tools": "浏览器工具：{value}",
+  "settings.browser_use_checking": "正在检查",
+  "settings.browser_use_description":
+    `浏览器自动化能力已内置于 ${APP_NAME}。助理无需额外安装，即可打开并控制应用内可见的浏览器标签页。`,
+  "settings.browser_use_ready": "可用",
+  "settings.browser_use_title": "AI 浏览器自动化",
+  "settings.browser_use_unavailable": "不可用",
+  "settings.browser_use_version": "Browser Use {version}",
   "settings.cap_commands": "命令：{value}",
   "settings.cap_config": "配置：{value}",
   "settings.cap_file_tools": "文件工具：{value}",
