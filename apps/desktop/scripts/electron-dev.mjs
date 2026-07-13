@@ -215,7 +215,7 @@ async function stopAll(exitCode = 0) {
 process.once("SIGINT", () => void stopAll(130));
 process.once("SIGTERM", () => void stopAll(143));
 
-runSync(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--outdir", electronSidecarDir], { cwd: desktopRoot });
+runSync(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--prefer-existing-opencode", "--outdir", electronSidecarDir], { cwd: desktopRoot });
 runSync(nodeCmd, [resolve(__dirname, "prepare-runtimes.mjs"), "--outdir", electronRuntimeDir], { cwd: desktopRoot });
 runSync(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], { cwd: desktopRoot });
 // Patch Electron.app Info.plist so the macOS menu bar and Dock show "OnMyAgent"
