@@ -94,15 +94,17 @@ export function SettingsInset({ children, className }: SettingsInsetProps) {
 
 export interface SettingsCardProps extends SettingsLayoutProps {
   size?: "default" | "compact";
-  tone?: "muted" | "surface";
+  tone?: "muted" | "surface" | "plain";
 }
 
 export function SettingsCard({ children, className, size = "default", tone = "muted" }: SettingsCardProps) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-dls-border",
-        tone === "muted" ? "bg-dls-surface-muted" : "bg-dls-surface",
+        "rounded-xl",
+        tone === "plain"
+          ? "bg-transparent"
+          : cn("border border-dls-border", tone === "muted" ? "bg-dls-surface-muted" : "bg-dls-surface"),
         size === "default" ? "p-5" : "p-4",
         className,
       )}

@@ -3,7 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 
 import { DEFAULT_DEN_BASE_URL } from "../../../../app/lib/den";
 import { Button } from "@/components/ui/button";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { t } from "@/i18n";
 
 type CloudDevModeProps = {
@@ -26,7 +26,7 @@ export function CloudDevMode(props: CloudDevModeProps) {
 
   return (
     <div className={cloudDevModeClass.grid}>
-      <TextInput
+      <LabeledInput
         label={t("den.cloud_control_plane_url_label")}
         value={props.baseUrlDraft}
         onChange={(event) => props.onBaseUrlDraftChange(event.currentTarget.value)}

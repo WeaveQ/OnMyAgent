@@ -1,5 +1,5 @@
 import { t } from "../../../../i18n";
-import type { OpenworkSessionSnapshot } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type { ComposerAttachment } from "../../../../app/types";
 
 export type SessionError = {
@@ -42,7 +42,7 @@ export function parseSessionError(thrown: unknown): SessionError {
 }
 
 export function readSnapshotSessionError(
-  snapshot: OpenworkSessionSnapshot | null,
+  snapshot: OnMyAgentSessionSnapshot | null,
 ): SessionError | null {
   const message = snapshot?.messages.at(-1);
   if (!message || message.info.role !== "assistant" || !("error" in message.info)) {

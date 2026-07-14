@@ -1,6 +1,6 @@
 import { SelectMenu } from "../../../design-system/select-menu";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shared/status-toasts";
+import { useStatusToasts } from "../../shell-feedback/status-toasts";
 import { personalLocalAgentSetAcpConfigOption, type PersonalLocalAgent } from "../../../../app/lib/desktop";
 import { modelSelectorLabel } from "../../local-agents/local-agent-page-model";
 import { type AcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";

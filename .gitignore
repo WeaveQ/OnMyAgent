@@ -85,6 +85,8 @@ vendor/opencode/
 .vercel
 .env*.local
 .claude/*
+# Track shared skill symlink (source of truth is .agents/skills)
+!.claude/skills
 .onmyagent/*
 .gitnexus
 
@@ -98,8 +100,12 @@ opencode.jsonc
 .loop/*
 .memsearch/*
 
+# Plan / feature draft trees — keep out of git (use .loop/ for local work)
+docs/plans/
+docs/archive/
+docs/features/
+
 # Native/build caches
 **/.build/
 **/__pycache__/
 *.pyc
-

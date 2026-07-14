@@ -36,8 +36,8 @@ export function registerWorkspaceConfigRoutes(input: {
     trigger?: ReloadTrigger,
   ) => void;
   readOpencodeConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
-  readOpenworkConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
-  writeOpenworkConfig: (
+  readOnMyAgentConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
+  writeOnMyAgentConfig: (
     workspaceRoot: string,
     payload: Record<string, unknown>,
     merge: boolean,
@@ -54,8 +54,8 @@ export function registerWorkspaceConfigRoutes(input: {
     requireApproval,
     emitReloadEvent,
     readOpencodeConfig,
-    readOpenworkConfig,
-    writeOpenworkConfig,
+    readOnMyAgentConfig,
+    writeOnMyAgentConfig,
     buildConfigTrigger,
     readJsonBody,
   } = input;
@@ -63,7 +63,7 @@ export function registerWorkspaceConfigRoutes(input: {
   addRoute(routes, "GET", "/workspace/:id/config", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const opencode = await readOpencodeConfig(workspace.path);
-    const onmyagent = await readOpenworkConfig(workspace.path);
+    const onmyagent = await readOnMyAgentConfig(workspace.path);
     const lastAudit = await readLastAudit(workspace.path, workspace.id);
     return systemJsonResponse({
       opencode,
@@ -181,7 +181,7 @@ export function registerWorkspaceConfigRoutes(input: {
       await patchOpencodeConfig(workspace.path, opencode, readOpencodeConfig);
     }
     if (onmyagent) {
-      await writeOpenworkConfig(workspace.path, onmyagent, true);
+      await writeOnMyAgentConfig(workspace.path, onmyagent, true);
     }
 
     await recordAudit(workspace.path, {

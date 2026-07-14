@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { OpenworkSessionSnapshot } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentSessionSnapshot } from "../src/app/lib/onmyagent-server";
 import { readSnapshotSessionError } from "../src/react-app/domains/session/surface/session-surface-support";
 
 describe("readSnapshotSessionError", () => {
@@ -37,7 +37,7 @@ describe("readSnapshotSessionError", () => {
       ],
       todos: [],
       status: { type: "idle" },
-    } satisfies OpenworkSessionSnapshot;
+    } satisfies OnMyAgentSessionSnapshot;
 
     expect(readSnapshotSessionError(snapshot)).toEqual({
       message: "Model access denied.",
@@ -50,7 +50,7 @@ describe("readSnapshotSessionError", () => {
       messages: [],
       todos: [],
       status: { type: "idle" },
-    } satisfies OpenworkSessionSnapshot;
+    } satisfies OnMyAgentSessionSnapshot;
 
     expect(readSnapshotSessionError(snapshot)).toBeNull();
   });
@@ -99,7 +99,7 @@ describe("readSnapshotSessionError", () => {
       ],
       todos: [],
       status: { type: "busy" },
-    } satisfies OpenworkSessionSnapshot;
+    } satisfies OnMyAgentSessionSnapshot;
 
     expect(readSnapshotSessionError(snapshot)).toBeNull();
   });

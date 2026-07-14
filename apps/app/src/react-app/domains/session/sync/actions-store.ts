@@ -21,7 +21,7 @@ import {
 import { trackSessionActive } from "../../../../app/lib/den-telemetry";
 import { finishPerf, perfNow, recordPerfLog } from "../../../../app/lib/perf-log";
 import { toSessionTransportDirectory } from "../../../../app/lib/session-scope";
-import { workspaceSessionRoute } from "../../../shell/workspace-routes";
+import { workspaceSessionRoute } from "../../../shell";
 import type {
   Client,
   ComposerAttachment,

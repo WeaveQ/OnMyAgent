@@ -10,7 +10,7 @@ import {
   parseUserAgentRegistry,
   serializeUserAgentRegistry,
 } from "./agent-registry";
-import type { OpenworkServerClient, OpenworkServerError } from "../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient, OnMyAgentServerError } from "../../../app/lib/onmyagent-server";
 import { isElectronRuntime } from "../../../app/utils";
 import {
   readUserAgentRegistry,
@@ -27,7 +27,7 @@ import {
  * or missing.
  */
 export function useEnsureAgentRegistry(
-  client: OpenworkServerClient | null,
+  client: OnMyAgentServerClient | null,
   workspaceId: string | undefined,
 ) {
   const registry = useAgentRegistryStore((state) => state.registry);
@@ -48,14 +48,14 @@ export function useEnsureAgentRegistry(
         return;
       }
 
-      let result: Awaited<ReturnType<OpenworkServerClient["readWorkspaceFile"]>>;
+      let result: Awaited<ReturnType<OnMyAgentServerClient["readWorkspaceFile"]>>;
       try {
         result = await client.readWorkspaceFile(
           workspaceId,
           AGENT_REGISTRY_PATH,
         );
       } catch (error) {
-        if (!(error instanceof Error && "status" in error && (error as OpenworkServerError).status === 404)) {
+        if (!(error instanceof Error && "status" in error && (error as OnMyAgentServerError).status === 404)) {
           throw error;
         }
         result = await client.readWorkspaceFile(
@@ -75,7 +75,7 @@ export function useEnsureAgentRegistry(
       setRegistry(migrated);
     } catch (error) {
       // If file doesn't exist, create a default registry
-      if (error instanceof Error && "status" in error && (error as OpenworkServerError).status === 404) {
+      if (error instanceof Error && "status" in error && (error as OnMyAgentServerError).status === 404) {
         try {
           const seed = createDefaultAgentRegistry();
           if (isElectronRuntime()) {

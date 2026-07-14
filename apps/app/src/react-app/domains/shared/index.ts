@@ -1,23 +1,23 @@
+/**
+ * Cross-cutting infra only. Product domains export from their own packages:
+ * agents | connections | plugins | workspace | shell-feedback | messaging
+ *
+ * Re-export session-identity helpers for callers that still import from shared.
+ */
 export {
   addAssistantSession,
   addExpertSession,
-  consumePendingAssistantSessionCategory,
-  consumePendingAssistantTask,
-  consumePendingExpertTask,
   isAssistantSession,
   isExpertSession,
   readAssistantSessionCategory,
   removeAssistantSession,
   removeExpertSession,
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-  setPendingExpertTask,
   writeAssistantSessionCategory,
-} from "./agent-session-state";
-export type { AssistantSessionCategory } from "./agent-session-state";
+} from "../agents/agent-session-state";
+export type { AssistantSessionCategory } from "../agents/agent-session-state";
 export {
-  buildOpenworkEnvSystemContext,
-  clearOpenworkEnvSystemContextCache,
+  buildOnMyAgentEnvSystemContext,
+  clearOnMyAgentEnvSystemContextCache,
 } from "./env-context";
 export {
   ONMYAGENT_EXTENSION_STATE_CHANGED,
@@ -28,52 +28,12 @@ export {
   setOnMyAgentExtensionHidden,
 } from "./extension-state";
 export {
-  createOpenworkServerStore,
-  useOpenworkServerStoreSnapshot,
+  createOnMyAgentServerStore,
+  useOnMyAgentServerStoreSnapshot,
 } from "./onmyagent-server-store";
 export type {
-  OpenworkServerStore,
-  OpenworkServerStoreSnapshot,
+  OnMyAgentServerStore,
+  OnMyAgentServerStoreSnapshot,
 } from "./onmyagent-server-store";
-export {
-  buildAgentSystemPrompt,
-  buildAgentToolAccess,
-  usePendingAgentStore,
-} from "./pending-agent-store";
-export type {
-  AgentAvatarStyle,
-  AgentToolAccessMap,
-  AgentToolCategoryId,
-  PendingAgentContext,
-} from "./pending-agent-store";
-export { default as ProviderAuthModal } from "./provider-auth-modal";
-export type { ProviderAuthModalProps } from "./provider-auth-modal";
-export {
-  PROVIDER_LIST_CACHE_MS,
-  ensureProviderListQuery,
-  fetchProviderList,
-  getConnectedProviderItems,
-  getConnectedProviderSnapshot,
-  getConnectedProviderSnapshotChange,
-  isModelAvailableInConnectedProviders,
-  providerListQueryKey,
-  refreshProviderListQueries,
-  useProviderListQuery,
-} from "./provider-list-query";
-export type {
-  ConnectedProviderSnapshot,
-  ConnectedProviderSnapshotChange,
-} from "./provider-list-query";
-export { ShareWorkspaceModal } from "./share-workspace-modal";
-export {
-  StatusToastsProvider,
-  StatusToastsViewport,
-  statusToastDurationForTone,
-  useStatusToasts,
-} from "./status-toasts";
-export type {
-  AppStatusToast,
-  AppStatusToastInput,
-  AppStatusToastTone,
-  StatusToastsStore,
-} from "./status-toasts";
+export { OnMyAgentDenHelpLink } from "./onmyagent-den-help-link";
+export * from "./desktop-config-context";

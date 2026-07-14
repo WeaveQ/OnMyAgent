@@ -176,7 +176,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
                   role="menuitemradio"
                   aria-checked={checked}
                 >
-                  <Icon size={18} className="shrink-0 text-dls-secondary" />
+                  <Icon size={16} className="shrink-0 text-dls-secondary" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-dls-text">{option.label}</div>
                     <div className="mt-0.5 truncate text-xs text-dls-secondary">{option.description}</div>
@@ -204,7 +204,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
         aria-haspopup="menu"
         title={selectedOption.label}
       >
-        <selectedOption.Icon size={15} className="shrink-0" />
+        <selectedOption.Icon size={14} className="shrink-0" />
         <span className="min-w-0 truncate">{selectedOption.label}</span>
         <ChevronDown size={14} className="shrink-0" />
       </Button>
@@ -234,7 +234,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
                   role="menuitemradio"
                   aria-checked={checked}
                 >
-                  <Icon size={15} className="shrink-0 text-dls-secondary" />
+                  <Icon size={14} className="shrink-0 text-dls-secondary" />
                   <span className="min-w-0 flex-1 truncate text-xs font-medium text-dls-text">
                     {option.label}
                   </span>

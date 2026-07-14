@@ -510,7 +510,7 @@ async function withAcpSessionClient(ctx, appendEvent, operation) {
   const executablePath = ctx.agent.managedAcpTool?.binPath || ctx.agent.executablePath || provider;
   const workdir = await ensureProviderWorkdir(ctx.workspaceRoot, provider, ctx.agent.id);
   const args = acpArgsForProvider(provider, ctx, workdir);
-  const env = createExecHelpers().processEnv({ PWD: workdir });
+  const env = processEnvironmentForContext(ctx, workdir);
   const ownedProcesses = [];
   if (provider === "openclaw") {
     const gateway = await ensureOpenClawGateway({ executablePath, workdir, env, appendEvent });
@@ -526,6 +526,21 @@ async function withAcpSessionClient(ctx, appendEvent, operation) {
     await terminateProcessTree(child);
     for (const owned of ownedProcesses) await terminateProcessTree(owned, { graceMs: 2_000 });
   }
+}
+
+function processEnvironmentForContext(ctx, workdir, extra = {}) {
+  const pathEntries = Array.isArray(ctx.browserUsePathEntries)
+    ? ctx.browserUsePathEntries
+    : [];
+  const environment =
+    ctx.browserUseEnvironment && typeof ctx.browserUseEnvironment === "object"
+      ? ctx.browserUseEnvironment
+      : {};
+  return createExecHelpers({ extraPathEntries: pathEntries }).processEnv({
+    PWD: workdir,
+    ...environment,
+    ...extra,
+  });
 }
 
 function acpSessionCapability(initialized, name) {
@@ -553,7 +568,6 @@ function conversationMessagesFromLoadResult(result) {
 }
 
 export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
-  const execHelpers = createExecHelpers();
   const active = new Map();
   async function createOrResumeSession(ctx, client, workdir, provider) {
     let sessionId = "";
@@ -621,7 +635,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       const workdir = await ensureProviderWorkdir(ctx.workspaceRoot, provider, ctx.agent.id);
       await injectPersonalAgentContext({ workdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
       const args = acpArgsForProvider(provider, ctx, workdir);
-      const env = execHelpers.processEnv({ PWD: workdir });
+      const env = processEnvironmentForContext(ctx, workdir);
       // codex-acp fires publishAvailableCommandsAsync() from newSession as
       // fire-and-forget: newSession resolves before the wrapper actually sends
       // the `available_commands_update` session update. Capture it here so the
@@ -782,7 +796,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       await injectPersonalAgentContext({ workdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
       const args = acpArgsForProvider(provider, ctx, workdir);
       const command = stringifyAgentCommand(executablePath, args);
-      const env = execHelpers.processEnv({ PWD: workdir });
+      const env = processEnvironmentForContext(ctx, workdir);
       const outputParts = [];
       const failedToolUpdates = [];
       let sessionId = "";

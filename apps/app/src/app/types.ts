@@ -124,6 +124,8 @@ export type ComposerDraft = {
   collaborationMode?: ComposerCollaborationMode;
   planningIntent?: ComposerPlanningIntent;
   goalIntent?: ComposerGoalIntent;
+  /** Stable ID for an internal control turn that must not render as user input. */
+  messageID?: string;
   hiddenSystemPrompt?: string;
   /** Editor-visible text (may include collapsed paste placeholders). */
   text: string;
@@ -135,9 +137,17 @@ export type ComposerDraft = {
   resolvedText?: string;
   /** When set, draft starts with a slash command or skill reference. */
   command?: { name: string; arguments: string; source?: "command" | "mcp" | "skill" } | undefined;
+  /** Classifies the session created by this draft without shared mutable state. */
+  sessionStartIntent?: SessionStartIntent;
+  /** Routes an expert prompt to its dedicated execution runtime. */
+  agentRuntime?: "browser-use-agent";
 };
 
-export type ComposerAccessMode = "default" | "full";
+export type SessionStartIntent =
+  | { mode: "assistant"; assistantCategory: "code" | "office" }
+  | { mode: "expert" };
+
+export type ComposerAccessMode = "default" | "delegate" | "full";
 
 export type ComposerCollaborationMode = {
   kind?: "craft" | "ask" | "plan";
@@ -256,7 +266,7 @@ export type WorkspaceConnectionState = {
   checkedAt?: number | null;
 };
 
-export type ResetOpenworkMode = "onboarding" | "all";
+export type ResetOnMyAgentMode = "onboarding" | "all";
 
 export type WorkspaceBlueprintStarterKind = "prompt" | "session" | "action";
 
@@ -309,7 +319,7 @@ export type WorkspaceBlueprint = {
   } | null;
 };
 
-export type WorkspaceOpenworkConfig = {
+export type WorkspaceOnMyAgentConfig = {
   version: number;
   workspace?: {
     name?: string | null;

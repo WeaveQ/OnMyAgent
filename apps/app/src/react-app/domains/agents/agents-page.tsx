@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -15,8 +16,8 @@ import {
 } from "lucide-react";
 
 import {
-  OpenworkServerClient,
-  OpenworkServerError,
+  OnMyAgentServerClient,
+  OnMyAgentServerError,
 } from "../../../app/lib/onmyagent-server";
 import { isElectronRuntime } from "../../../app/utils";
 import {
@@ -36,7 +37,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../shared/status-toasts";
+import { useStatusToasts } from "../shell-feedback/status-toasts";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
   AGENT_AVATAR_STYLES,
@@ -71,15 +72,15 @@ import { cn } from "@/lib/utils";
 import {
   ensureProviderListQuery,
   getConnectedProviderItems,
-} from "../shared/provider-list-query";
+} from "../connections/provider-list-query";
 import type { ProviderListItem } from "../../../app/types";
 import { useAgentRegistryStore } from "./agent-registry-store";
 import {
   classifySkillScope,
   SKILL_SCOPE_LABELS,
   type SkillScope,
-} from "../shared/skill-scope";
-import { resolveBundledSkillDisplay } from "../shared/bundled-skill-locale";
+} from "../plugins/skill-scope";
+import { resolveBundledSkillDisplay } from "../plugins/bundled-skill-locale";
 import { SelectionMark } from "./agents-selection-mark";
 import { renderAvatar, renderGeneratedAvatar } from "./agents-avatar-rendering";
 import { TemplateTile, ToolCategoryCard } from "./agents-wizard-cards";
@@ -106,7 +107,7 @@ export type { AgentCardItem } from "./agents-page-model";
 export type AgentsPageProps = {
   workspaceId: string;
   workspaceRoot: string;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   providers?: ProviderListItem[];
   connectedProviderIds?: string[];
   initialEditingAgentId?: string | null;
@@ -238,7 +239,7 @@ function AgentCard(props: {
             if (props.onStartConversation && props.runtimeRegistry) {
               props.onStartConversation(props.item, props.runtimeRegistry);
             } else {
-              props.onAction(`${normalized.name} / 对话`);
+              props.onAction(t("agents.action_conversation_target", { name: normalized.name }));
             }
           }}
         >
@@ -248,7 +249,7 @@ function AgentCard(props: {
         <Button variant="ghost" size="sm"
           type="button"
           className={agentsLayoutClass.secondaryCardAction}
-          onClick={() => props.onAction(`${normalized.name} / 创建团队`)}
+          onClick={() => props.onAction(t("agents.action_create_team_target", { name: normalized.name }))}
         >
           <UserRoundPlus className="size-3.5" />
           {t("agents.create_team")}
@@ -509,10 +510,10 @@ export function CreateAgentWizard(props: {
   const [avatarPageByStyle, setAvatarPageByStyle] = useState<
     Record<AgentAvatarOption["style"], number>
   >({
-    像素风: 0,
-    冒险家: 0,
-    机器人: 0,
-    洛蕾莱: 0,
+    "pixel": 0,
+    "adventurer": 0,
+    "robot": 0,
+    "lorelei": 0,
   });
 
   const [editSection, setEditSection] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -539,10 +540,10 @@ export function CreateAgentWizard(props: {
       setNameError(null);
       setSkillSearch("");
       setAvatarPageByStyle({
-        像素风: 0,
-        冒险家: 0,
-        机器人: 0,
-        洛蕾莱: 0,
+        "pixel": 0,
+        "adventurer": 0,
+        "robot": 0,
+        "lorelei": 0,
       });
       setEditSection(1);
     } else {
@@ -554,10 +555,10 @@ export function CreateAgentWizard(props: {
       setNameError(null);
       setSkillSearch("");
       setAvatarPageByStyle({
-        像素风: 0,
-        冒险家: 0,
-        机器人: 0,
-        洛蕾莱: 0,
+        "pixel": 0,
+        "adventurer": 0,
+        "robot": 0,
+        "lorelei": 0,
       });
     }
   }, [props.open, props.registry, props.editingAgent, props.mergedSkills]);
@@ -597,7 +598,7 @@ export function CreateAgentWizard(props: {
       models: { id: string; name: string }[];
     };
     const auto: ProviderOption = {
-      id: "自动",
+      id: "auto",
       name: t("agents.provider_auto"),
       models: [{ id: "auto", name: "Auto" }],
     };
@@ -760,10 +761,10 @@ export function CreateAgentWizard(props: {
     if (!file) return;
     const reader = new FileReader();
     const dataUrl = await new Promise<string>((resolve, reject) => {
-      reader.onerror = () => reject(new Error("图片读取失败"));
+      reader.onerror = () => reject(new Error(t("agents.error_image_read_failed")));
       reader.onload = () => {
         if (typeof reader.result === "string") resolve(reader.result);
-        else reject(new Error("图片读取失败"));
+        else reject(new Error(t("agents.error_image_read_failed")));
       };
       reader.readAsDataURL(file);
     });
@@ -1004,7 +1005,7 @@ export function CreateAgentWizard(props: {
           </div>
           <p className={agentsTextClass.fieldHelp}>{t("agents.help_model_provider")}</p>
         </div>
-        {draft.modelProvider !== "自动" ? (
+        {draft.modelProvider !== "auto" ? (
           <div className={agentsLayoutClass.compactFieldStack}>
             <div className="text-xs font-medium text-dls-text">
               {t("agents.model")}
@@ -1524,7 +1525,7 @@ export function AgentsPage(props: AgentsPageProps) {
         } catch (error) {
           if (
             !(
-              error instanceof OpenworkServerError &&
+              error instanceof OnMyAgentServerError &&
               error.status === 404
             )
           ) {
@@ -1960,7 +1961,7 @@ export function AgentsPage(props: AgentsPageProps) {
               {registryState.loading ? (
                 <div className={agentsLayoutClass.loadingState}>
                   <div className="flex items-center gap-3 text-dls-secondary">
-                    <Loader2 className="size-5 animate-spin" />
+                    <LoadingSpinner size="default" />
                     {t("agents.loading")}
                   </div>
                 </div>

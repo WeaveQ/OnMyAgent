@@ -5,7 +5,7 @@ import type {
   AgentRegistry,
   AgentTemplate,
   AgentWizardDraft,
-} from "../src/react-app/domains/shared/agent-registry-types";
+} from "../src/react-app/domains/agents/agent-registry-types";
 
 const template = {
   id: "tpl-1",

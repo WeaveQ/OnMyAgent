@@ -53,60 +53,60 @@ export const PERSONAL_ASSISTANT_CATEGORIES: AssistantCategory[] = [
         id: "daily-dev",
         get label() { return t("assistant.scenario_daily_dev"); },
         icon: Code2,
-        prompts: [
-          "帮我给当前项目添加一个新功能：【功能描述】。",
-          "帮我重构这段代码，提升可读性和可维护性。",
-          "帮我修复这个 Bug：【Bug 描述】。",
-          "帮我优化这个功能的性能，当前问题是【性能问题描述】。",
-          "帮我给这个模块添加单元测试，覆盖核心逻辑。",
-          "帮我排查这个报错：【错误信息】，找出原因并修复。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_daily_dev_1"),
+          t("assistant.prompt_daily_dev_2"),
+          t("assistant.prompt_daily_dev_3"),
+          t("assistant.prompt_daily_dev_4"),
+          t("assistant.prompt_daily_dev_5"),
+          t("assistant.prompt_daily_dev_6"),
+        ]; },
       },
       {
         id: "website-dev",
         get label() { return t("assistant.scenario_website_dev"); },
         icon: Globe,
-        prompts: [
-          "帮我搭建一个响应式网站页面，主题是【页面主题】。",
-          "帮我优化这个页面的移动端布局。",
-          "帮我把这个页面做得更专业、更适合非技术用户。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_website_dev_1"),
+          t("assistant.prompt_website_dev_2"),
+          t("assistant.prompt_website_dev_3"),
+        ]; },
       },
       {
         id: "agent-app",
         get label() { return t("assistant.scenario_agent_app"); },
         icon: Sparkles,
-        prompts: [
-          "帮我设计一个 Agent 工作流，用来处理【任务场景】。",
-          "帮我为这个 Agent 补充系统提示词和工具调用策略。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_agent_app_1"),
+          t("assistant.prompt_agent_app_2"),
+        ]; },
       },
       {
         id: "skill-dev",
         get label() { return t("assistant.scenario_skill_dev"); },
         icon: Wrench,
-        prompts: [
-          "帮我创建一个 Codex skill，用于【能力描述】。",
-          "帮我检查这个 skill 的触发条件和工作流是否清晰。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_skill_dev_1"),
+          t("assistant.prompt_skill_dev_2"),
+        ]; },
       },
       {
         id: "ci-cd",
         label: "CI/CD",
         icon: Bug,
-        prompts: [
-          "帮我为这个项目补充 CI 检查流程。",
-          "帮我排查 CI 失败原因，并给出最小修复方案。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_ci_cd_1"),
+          t("assistant.prompt_ci_cd_2"),
+        ]; },
       },
       {
         id: "docs",
         get label() { return t("assistant.scenario_docs"); },
         icon: BookOpen,
-        prompts: [
-          "帮我为这个功能写一份使用文档。",
-          "帮我把这段技术说明改写成更容易理解的版本。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_docs_1"),
+          t("assistant.prompt_docs_2"),
+        ]; },
       },
     ],
   },
@@ -119,55 +119,55 @@ export const PERSONAL_ASSISTANT_CATEGORIES: AssistantCategory[] = [
         id: "slides",
         get label() { return t("assistant.scenario_slides"); },
         icon: Monitor,
-        prompts: [
-          "帮我生成一份关于【主题】的 PPT 大纲。",
-          "帮我把这段内容整理成适合汇报的幻灯片结构。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_slides_1"),
+          t("assistant.prompt_slides_2"),
+        ]; },
       },
       {
         id: "deep-research",
         get label() { return t("assistant.scenario_deep_research"); },
         icon: Search,
-        prompts: [
-          "帮我围绕【研究主题】做一份结构化研究报告。",
-          "帮我比较【对象 A】和【对象 B】的优劣势。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_deep_research_1"),
+          t("assistant.prompt_deep_research_2"),
+        ]; },
       },
       {
         id: "documents",
         get label() { return t("assistant.scenario_documents"); },
         icon: FileText,
-        prompts: [
-          "帮我润色这份文档，让表达更正式清晰。",
-          "帮我把这份材料整理成会议纪要。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_documents_1"),
+          t("assistant.prompt_documents_2"),
+        ]; },
       },
       {
         id: "data-analysis",
         get label() { return t("assistant.scenario_data_analysis"); },
         icon: BarChart3,
-        prompts: [
-          "帮我分析这份数据，找出关键趋势和异常点。",
-          "帮我根据这些数据生成一份业务洞察摘要。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_data_analysis_1"),
+          t("assistant.prompt_data_analysis_2"),
+        ]; },
       },
       {
         id: "data-viz",
         get label() { return t("assistant.scenario_data_viz"); },
         icon: Grid2X2,
-        prompts: [
-          "帮我把这份数据做成可视化图表，并解释结论。",
-          "帮我设计一个数据看板，展示【核心指标】。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_data_viz_1"),
+          t("assistant.prompt_data_viz_2"),
+        ]; },
       },
       {
         id: "finance",
         get label() { return t("assistant.scenario_finance"); },
         icon: LineChart,
-        prompts: [
-          "帮我整理一份【行业/公司】的财务分析框架。",
-          "帮我解释这份财报里的关键指标变化。",
-        ],
+        get prompts() { return [
+          t("assistant.prompt_finance_1"),
+          t("assistant.prompt_finance_2"),
+        ]; },
       },
     ],
   },

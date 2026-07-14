@@ -1,18 +1,18 @@
 import { t } from "@/i18n";
-import { createDefaultAgentRegistry } from "../shared/agent-default-registry";
-export { createDefaultAgentRegistry } from "../shared/agent-default-registry";
+import { createDefaultAgentRegistry } from "./agent-default-registry";
+export { createDefaultAgentRegistry } from "./agent-default-registry";
 import {
   buildAgentAvatarDataUri,
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../shared/agent-registry-helpers";
+} from "./agent-registry-helpers";
 export {
   buildAgentAvatarDataUri,
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../shared/agent-registry-helpers";
+} from "./agent-registry-helpers";
 import type {
   AgentAvatarOption,
   AgentModelProvider,
@@ -23,7 +23,7 @@ import type {
   AgentTone,
   AgentToolCategory,
   AgentWizardDraft,
-} from "../shared/agent-registry-types";
+} from "./agent-registry-types";
 export type {
   AgentAvatarOption,
   AgentModelProvider,
@@ -34,14 +34,14 @@ export type {
   AgentTone,
   AgentToolCategory,
   AgentWizardDraft,
-} from "../shared/agent-registry-types";
+} from "./agent-registry-types";
 
 export const AGENT_REGISTRY_PATH = ".onmyagent/agents/registry.json";
 export const LEGACY_AGENT_REGISTRY_PATH = "onmyagent-agents/registry.json";
 export const USER_AGENT_REGISTRY_DISPLAY_PATH =
   "~/.onmyagent/agents/registry.json";
 
-export type AgentAvatarStyle = "像素风" | "冒险家" | "机器人" | "洛蕾莱";
+export type AgentAvatarStyle = "pixel" | "adventurer" | "robot" | "lorelei";
 
 export type AgentToolCategoryId =
   | "filesystem"
@@ -55,30 +55,30 @@ export type AgentToolCategoryId =
 
 export function agentToneLabel(tone: AgentTone) {
   switch (tone) {
-    case "专业":
+    case "professional":
       return t("agents.tone_professional");
-    case "友好":
+    case "friendly":
       return t("agents.tone_friendly");
-    case "创意":
+    case "creative":
       return t("agents.tone_creative");
-    case "简洁":
+    case "concise":
       return t("agents.tone_concise");
-    case "随意":
+    case "casual":
       return t("agents.tone_casual");
-    case "专家":
+    case "expert":
       return t("agents.tone_expert");
   }
 }
 
 export function agentAvatarStyleLabel(style: AgentAvatarStyle) {
   switch (style) {
-    case "像素风":
+    case "pixel":
       return t("agents.avatar_pixel");
-    case "冒险家":
+    case "adventurer":
       return t("agents.avatar_adventurer");
-    case "机器人":
+    case "robot":
       return t("agents.avatar_robot");
-    case "洛蕾莱":
+    case "lorelei":
       return t("agents.avatar_lorelei");
   }
 }
@@ -126,13 +126,13 @@ export function agentToolCategoryDescription(category: AgentToolCategoryId) {
 }
 
 export function localizedSkillCategoryLabel(category: string) {
-  if (category === "built-in" || category === "内置技能") {
+  if (category === "built-in" || category === "\u5185\u7F6E\u6280\u80FD") {
     return t("agents.skill_category_builtin");
   }
-  if (category === "sourcing" || category === "货源与选品") {
+  if (category === "sourcing" || category === "\u8D27\u6E90\u4E0E\u9009\u54C1") {
     return t("agents.skill_category_sourcing");
   }
-  if (category === "research" || category === "市场调研与分析") {
+  if (category === "research" || category === "\u5E02\u573A\u8C03\u7814\u4E0E\u5206\u6790") {
     return t("agents.skill_category_research");
   }
   return category;
@@ -214,26 +214,26 @@ export const AGENT_TOOL_CATALOG: AgentToolCategory[] = [
 ];
 
 export const AGENT_MODEL_OPTIONS: Record<AgentModelProvider, string[]> = {
-  自动: ["Auto"],
+  ["auto"]: ["Auto"],
   Gemini: ["Gemini 3 Flash", "Gemini 1.5 Pro", "Gemini 2.5 Pro"],
   OpenAI: ["GPT-4.1", "GPT-4o", "o3"],
   Claude: ["Claude Sonnet 4", "Claude 3.7 Sonnet", "Claude 3.5 Haiku"],
 };
 
 export const AGENT_TONES: AgentTone[] = [
-  "专业",
-  "友好",
-  "创意",
-  "简洁",
-  "随意",
-  "专家",
+  "professional",
+  "friendly",
+  "creative",
+  "concise",
+  "casual",
+  "expert",
 ];
 
 export const AGENT_AVATAR_STYLES: AgentAvatarStyle[] = [
-  "像素风",
-  "冒险家",
-  "机器人",
-  "洛蕾莱",
+  "pixel",
+  "adventurer",
+  "robot",
+  "lorelei",
 ];
 
 const defaultRegistry = createDefaultAgentRegistry();
@@ -246,17 +246,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const LEGACY_TONE_ALIASES: Record<string, AgentTone> = {
+  professional: "professional",
+  friendly: "friendly",
+  creative: "creative",
+  concise: "concise",
+  casual: "casual",
+  expert: "expert",
+  // 专业 / 友好 / 创意 / 简洁 / 随意 / 专家
+  "\u4E13\u4E1A": "professional",
+  "\u53CB\u597D": "friendly",
+  "\u521B\u610F": "creative",
+  "\u7B80\u6D01": "concise",
+  "\u968F\u610F": "casual",
+  "\u4E13\u5BB6": "expert",
+};
+
+const LEGACY_AVATAR_STYLE_ALIASES: Record<string, AgentAvatarStyle> = {
+  pixel: "pixel",
+  adventurer: "adventurer",
+  robot: "robot",
+  lorelei: "lorelei",
+  // 像素风 / 冒险家 / 机器人 / 洛蕾莱
+  "\u50CF\u7D20\u98CE": "pixel",
+  "\u5192\u9669\u5BB6": "adventurer",
+  "\u673A\u5668\u4EBA": "robot",
+  "\u6D1B\u857E\u83B1": "lorelei",
+};
+
+function normalizeTone(value: unknown): AgentTone | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_TONE_ALIASES[value] ?? null;
+}
+
+function normalizeAvatarStyle(value: unknown): AgentAvatarStyle | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_AVATAR_STYLE_ALIASES[value] ?? null;
+}
+
 function isTone(value: unknown): value is AgentTone {
-  return (
-    typeof value === "string" && AGENT_TONES.some((item) => item === value)
-  );
+  return normalizeTone(value) !== null;
 }
 
 function isAvatarStyle(value: unknown): value is AgentAvatarStyle {
-  return (
-    typeof value === "string" &&
-    AGENT_AVATAR_STYLES.some((item) => item === value)
-  );
+  return normalizeAvatarStyle(value) !== null;
+}
+
+function normalizeModelProvider(value: unknown): AgentModelProvider | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  // 自动
+  if (value === "auto" || value === "\u81EA\u52A8") return "auto";
+  return value;
 }
 
 function isModelProvider(value: unknown): value is AgentModelProvider {
@@ -282,12 +322,13 @@ function readStringArray(value: unknown) {
 
 function parseAvatarOption(value: unknown): AgentAvatarOption | null {
   if (!isRecord(value)) return null;
-  if (!isAvatarStyle(value.style)) return null;
+  const style = normalizeAvatarStyle(value.style);
+  if (!style) return null;
   const id = readString(value.id).trim();
   if (!id) return null;
   return {
     id,
-    style: value.style,
+    style,
     label: readString(value.label),
     initials: readString(value.initials).slice(0, 2) || "A",
     background: readString(value.background) || "#d9e3f0",
@@ -298,12 +339,10 @@ function parseAvatarOption(value: unknown): AgentAvatarOption | null {
 
 function parseTemplate(value: unknown): AgentTemplate | null {
   if (!isRecord(value)) return null;
-  if (
-    !isTone(value.tone) ||
-    !isAvatarStyle(value.avatarStyle) ||
-    !isModelProvider(value.modelProvider)
-  )
-    return null;
+  const tone = normalizeTone(value.tone);
+  const avatarStyle = normalizeAvatarStyle(value.avatarStyle);
+  const modelProvider = normalizeModelProvider(value.modelProvider);
+  if (!tone || !avatarStyle || !modelProvider) return null;
   const id = readString(value.id).trim();
   if (!id) return null;
   return {
@@ -311,10 +350,10 @@ function parseTemplate(value: unknown): AgentTemplate | null {
     name: readString(value.name),
     description: readString(value.description),
     quote: readString(value.quote),
-    tone: value.tone,
-    avatarStyle: value.avatarStyle,
+    tone,
+    avatarStyle,
     avatarOptionId: readString(value.avatarOptionId),
-    modelProvider: value.modelProvider,
+    modelProvider,
     model: readString(value.model),
     sdkProviderID:
       typeof value.sdkProviderID === "string" ? value.sdkProviderID : undefined,
@@ -325,7 +364,7 @@ function parseTemplate(value: unknown): AgentTemplate | null {
     ),
     skillIds: readStringArray(value.skillIds),
     preferredName: readString(value.preferredName),
-    preferredLanguage: readString(value.preferredLanguage, "中文"),
+    preferredLanguage: readString(value.preferredLanguage, "\u4E2D\u6587"),
     userNote: readString(value.userNote),
     userBackground: readString(value.userBackground),
     agentMemory: typeof value.agentMemory === "string" ? value.agentMemory : undefined,
@@ -337,12 +376,10 @@ function parseTemplate(value: unknown): AgentTemplate | null {
 
 function parseAgent(value: unknown): AgentRecord | null {
   if (!isRecord(value)) return null;
-  if (
-    !isTone(value.tone) ||
-    !isAvatarStyle(value.avatarStyle) ||
-    !isModelProvider(value.modelProvider)
-  )
-    return null;
+  const tone = normalizeTone(value.tone);
+  const avatarStyle = normalizeAvatarStyle(value.avatarStyle);
+  const modelProvider = normalizeModelProvider(value.modelProvider);
+  if (!tone || !avatarStyle || !modelProvider) return null;
   const id = readString(value.id).trim();
   if (!id) return null;
   return {
@@ -350,14 +387,14 @@ function parseAgent(value: unknown): AgentRecord | null {
     name: readString(value.name),
     description: readString(value.description),
     quote: readString(value.quote),
-    tone: value.tone,
-    avatarStyle: value.avatarStyle,
+    tone,
+    avatarStyle,
     avatarOptionId: readString(value.avatarOptionId),
     customAvatarDataUrl:
       typeof value.customAvatarDataUrl === "string"
         ? value.customAvatarDataUrl
         : null,
-    modelProvider: value.modelProvider,
+    modelProvider,
     model: readString(value.model),
     sdkProviderID:
       typeof value.sdkProviderID === "string" ? value.sdkProviderID : undefined,
@@ -369,7 +406,7 @@ function parseAgent(value: unknown): AgentRecord | null {
     defaultWorkspace: readString(value.defaultWorkspace),
     skillIds: readStringArray(value.skillIds),
     preferredName: readString(value.preferredName),
-    preferredLanguage: readString(value.preferredLanguage, "中文"),
+    preferredLanguage: readString(value.preferredLanguage, "\u4E2D\u6587"),
     userNote: readString(value.userNote),
     userBackground: readString(value.userBackground),
     agentMemory:
@@ -518,11 +555,11 @@ export function createWizardDraftFromTemplate(
       name: "",
       description: "",
       quote: "",
-      tone: "专业",
-      avatarStyle: "像素风",
+      tone: "professional",
+      avatarStyle: "pixel",
       avatarOptionId: "",
       customAvatarDataUrl: null,
-      modelProvider: "自动",
+      modelProvider: "auto",
       model: "Auto",
       enabledToolIds: [],
       defaultWorkspace: "",
@@ -619,12 +656,12 @@ export function createAgentRecordFromDraft(
   );
   return {
     id,
-    name: draft.name.trim() || "新建智能体",
+    name: draft.name.trim() || t("agents.default_agent_name"),
     description: draft.description.trim(),
     quote:
       draft.quote.trim() ||
       draft.description.trim() ||
-      "我是一个专业的智能体助手。",
+      t("agents.default_agent_quote"),
     tone: draft.tone,
     avatarStyle: draft.avatarStyle,
     avatarOptionId: draft.avatarOptionId,
@@ -637,7 +674,7 @@ export function createAgentRecordFromDraft(
     defaultWorkspace: draft.defaultWorkspace.trim(),
     skillIds: draft.skillIds.filter((skillId) => enabledSkillIds.has(skillId)),
     preferredName: draft.preferredName.trim(),
-    preferredLanguage: draft.preferredLanguage.trim() || "中文",
+    preferredLanguage: draft.preferredLanguage.trim() || "\u4E2D\u6587",
     userNote: draft.userNote.trim(),
     userBackground: draft.userBackground.trim(),
     agentMemory: draft.agentMemory.trim() || undefined,

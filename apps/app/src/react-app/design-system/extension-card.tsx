@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { AlertCircle, CheckCircle2, Loader2, Plug2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -139,7 +140,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
             }
           >
             {connecting ? (
-              <Loader2 size={16} className="animate-spin text-dls-secondary" />
+              <LoadingSpinner size="default" className="text-dls-secondary" />
             ) : resolvedIconSrc ? (
               <img
                 src={resolvedIconSrc}
@@ -164,7 +165,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
                 className={extensionCardClass.meshAvatar}
               />
             ) : (
-              <FallbackIcon size={18} className="text-dls-secondary" />
+              <FallbackIcon size={16} className="text-dls-secondary" />
             )}
           </IconTile>
           {connected ? (

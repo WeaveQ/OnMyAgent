@@ -51,8 +51,9 @@ function resolveExtraPathEntries(input: { orchestratorRoot: string; repoRoot: st
   }
 
   const entries: string[] = [];
+  // Prefer ONMYAGENT_*; OPENWRK_* is a legacy env fallback for existing installs.
   const sidecarOverride =
-    process.env.OPENWRK_SIDECAR_DIR ?? process.env.ONMYAGENT_SIDECAR_DIR;
+    process.env.ONMYAGENT_SIDECAR_DIR ?? process.env.OPENWRK_SIDECAR_DIR;
   const sidecarCandidates = [
     sidecarOverride,
     dirname(process.execPath),

@@ -7,7 +7,7 @@ import {
   inputHintClass,
   inputLabelClass,
   surfaceCardClass,
-} from "../shared/modal-styles";
+} from "../../design-system/modal-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";

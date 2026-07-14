@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type {
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
 import type {
@@ -12,8 +12,8 @@ import type {
   WorkspaceConnectionState,
   WorkspaceSessionGroup,
 } from "../../../../app/types";
-import type { ShareWorkspaceModalProps } from "../../shared/workspace-modal-types";
-import type { AgentCardItem, AgentRegistry } from "../../shared/agent-registry-types";
+import type { ShareWorkspaceModalProps } from "../../workspace/workspace-modal-types";
+import type { AgentCardItem, AgentRegistry } from "../../agents/agent-registry-types";
 import type {
   SidebarAccountInfo,
   SidebarPrimaryView,
@@ -88,8 +88,8 @@ export type SessionPageProps = {
   opencodeBaseUrl?: string | null;
   workspaces: WorkspaceInfo[];
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerClient: OpenworkServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerClient: OnMyAgentServerClient | null;
   onmyagentServerToken?: string | null;
   developerMode: boolean;
   headerStatus: string;
@@ -106,7 +106,7 @@ export type SessionPageProps = {
   todos: TodoItem[];
   sessionLoadingById: (sessionId: string | null) => boolean;
   shareWorkspaceModal?: ShareWorkspaceModalProps | null;
-  providerAuthModal?: import("../../shared/provider-auth-modal").ProviderAuthModalProps | null;
+  providerAuthModal?: import("../../connections/provider-auth-modal").ProviderAuthModalProps | null;
   activePermission?: PendingPermission | null;
   permissionReplyBusy?: boolean;
   respondPermission?: (
@@ -131,7 +131,7 @@ export type SessionPageProps = {
   renderAgentsPage: (props: {
     workspaceId: string;
     workspaceRoot: string;
-    client: OpenworkServerClient | null;
+    client: OnMyAgentServerClient | null;
     providers?: ProviderListItem[];
     connectedProviderIds?: string[];
     initialEditingAgentId?: string | null;

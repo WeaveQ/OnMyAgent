@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
@@ -202,7 +203,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
             disabled={!props.onConnect || props.connected || props.connecting}
           >
             {props.connecting ? (
-              <Loader2 className="size-4 shrink-0 animate-spin" />
+              <LoadingSpinner size="default" className="shrink-0" />
             ) : null}
             <span className={computerUseLayoutClass.buttonLabel}>
               {props.connected
@@ -240,7 +241,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
               disabled={busy}
             >
               {busy ? (
-                <Loader2 className="size-4 shrink-0 animate-spin" />
+                <LoadingSpinner size="default" className="shrink-0" />
               ) : (
                 <Settings2 className="size-4 shrink-0" />
               )}
@@ -279,7 +280,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
               disabled={busy}
             >
               {busy ? (
-                <Loader2 className="size-4 shrink-0 animate-spin" />
+                <LoadingSpinner size="default" className="shrink-0" />
               ) : null}
               {t("settings.computer_use_verify_permissions")}
             </Button>

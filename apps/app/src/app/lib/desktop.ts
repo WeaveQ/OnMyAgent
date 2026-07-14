@@ -3,18 +3,18 @@ import { nativeDeepLinkEvent } from "./deep-link-bridge";
 export type * from "./desktop-types";
 export type {
   EngineInfo,
-  OpenworkServerInfo,
+  OnMyAgentServerInfo,
   EngineDoctorResult,
   WorkspaceInfo,
   WorkspaceList,
   WorkspaceExportSummary,
   OpencodeCommandDraft,
-  WorkspaceOpenworkConfig,
+  WorkspaceOnMyAgentConfig,
   AppBuildInfo,
   DesktopBootstrapConfig,
   OrchestratorDetachedHost,
   SandboxDoctorResult,
-  OpenworkDockerCleanupResult,
+  OnMyAgentDockerCleanupResult,
   SandboxDebugProbeResult,
   ExecResult,
   CodeWorkspaceOpenTargetId,
@@ -47,7 +47,7 @@ import type {
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileContent,
   CodeWorkspaceFileEntry,
-} from "./desktop-types";
+} from "@onmyagent/types";
 import type {
   AgentManagementProviderActionInput,
   AgentManagementProviderActionResult,
@@ -726,8 +726,8 @@ const {
   workspaceAddAuthorizedRoot,
   workspaceExportConfig,
   workspaceImportConfig,
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  // IPC channel names remain Openwork* (desktop main process); alias to OnMyAgent* for app API.
+  workspaceOpenworkWrite: workspaceOnMyAgentWrite,
   opencodeCommandList,
   opencodeCommandWrite,
   opencodeCommandDelete,
@@ -736,11 +736,11 @@ const {
   appBuildInfo,
   getDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
-  nukeOpenworkAndOpencodeConfigAndExit,
+  nukeOpenworkAndOpencodeConfigAndExit: nukeOnMyAgentAndOpencodeConfigAndExit,
   orchestratorStartDetached,
   sandboxDoctor,
   sandboxStop,
-  sandboxCleanupOpenworkContainers,
+  sandboxCleanupOpenworkContainers: sandboxCleanupOnMyAgentContainers,
   sandboxDebugProbe,
   onmyagentServerInfo,
   onmyagentServerRestart,
@@ -761,7 +761,7 @@ const {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOpenworkState,
+  resetOpenworkState: resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,
@@ -809,6 +809,7 @@ export type ExpertPackageListEntry = {
   leadAgentName: string;
   systemPrompt: string;
   version: string | null;
+  runtime: "browser-use-agent" | null;
 };
 
 export type ExpertRegistryListEntry = {
@@ -1151,6 +1152,135 @@ export function personalLocalAgentStart(
     "personalLocalAgentStart",
     input,
   );
+}
+
+export type BrowserUseAgentAction = {
+  name: string;
+  params: unknown;
+};
+
+type BrowserUseAgentEventBase = {
+  id: string;
+  runId: string;
+  sequence: number;
+  timestamp: number;
+};
+
+export type BrowserUseAgentEvent = BrowserUseAgentEventBase & (
+  | { type: "ready"; agentClass?: string; model?: string; phase?: string }
+  | { type: "phase"; phase: string }
+  | {
+      type: "model_update";
+      step: number;
+      evaluation: string;
+      nextGoal: string;
+      actions: BrowserUseAgentAction[];
+      raw: {
+        evaluationPreviousGoal: string;
+        nextGoal: string;
+        actions: BrowserUseAgentAction[];
+      };
+    }
+  | { type: "narration"; step: number; text: string; nextGoal: string }
+  | {
+      type: "operation_started";
+      operationId: string;
+      step: number;
+      actions: BrowserUseAgentAction[];
+      actionCount: number;
+      url: string;
+      title: string;
+    }
+  | {
+      type: "operation_progress";
+      operationId: string;
+      step: number;
+      action: BrowserUseAgentAction | null;
+      observationSource: string;
+    }
+  | {
+      type: "operation_completed";
+      operationId: string;
+      step: number;
+      results: unknown[];
+      success: boolean;
+      url: string;
+      title: string;
+      error: string;
+    }
+  | { type: "approval"; approval: BrowserUseAgentApproval }
+  | {
+      type: "approval_resolved";
+      approvalId: string;
+      operationId: string | null;
+      decision: "accept" | "reject";
+    }
+  | { type: "done"; result: unknown }
+  | { type: "error"; error: string; errorCode?: string; errorType?: string }
+  | { type: "cancelled" }
+  | { type: "protocol_warning"; message: string }
+  | { type: "truncated"; omittedCount: number }
+);
+
+export type BrowserUseAgentApproval = {
+  id: string;
+  operationId: string | null;
+  title: string;
+  summary: string;
+  action: unknown;
+};
+
+export type BrowserUseAgentRunResult = {
+  runId: string;
+  sessionId: string;
+  userMessageId: string | null;
+  ownerId: string;
+  status: "running" | "pending_approval" | "completed" | "failed" | "cancelled" | "interrupted";
+  createdAt: number;
+  updatedAt: number;
+  pendingApprovals: BrowserUseAgentApproval[];
+  events: BrowserUseAgentEvent[];
+  result?: unknown;
+  error?: string;
+};
+
+export function browserUseAgentStart(input: {
+  task: string;
+  ownerId: string;
+  sessionId: string;
+  userMessageId: string;
+  model: { providerID: string; modelID: string };
+  language: string;
+  retainTabs?: boolean;
+  useVision?: boolean | "auto";
+}): Promise<BrowserUseAgentRunResult> {
+  return invokeElectronHelper<BrowserUseAgentRunResult>("browserUseAgentStart", input);
+}
+
+export function browserUseAgentStatus(
+  runId: string,
+): Promise<BrowserUseAgentRunResult | null> {
+  return invokeElectronHelper<BrowserUseAgentRunResult | null>("browserUseAgentStatus", { runId });
+}
+
+export function browserUseAgentHistory(
+  sessionId: string,
+): Promise<BrowserUseAgentRunResult[]> {
+  return invokeElectronHelper<BrowserUseAgentRunResult[]>("browserUseAgentHistory", { sessionId });
+}
+
+export function browserUseAgentCancel(
+  runId: string,
+): Promise<BrowserUseAgentRunResult | null> {
+  return invokeElectronHelper<BrowserUseAgentRunResult | null>("browserUseAgentCancel", { runId });
+}
+
+export function browserUseAgentApprove(input: {
+  runId: string;
+  approvalId: string;
+  decision: "accept" | "reject";
+}): Promise<{ ok: boolean; error?: string; run?: BrowserUseAgentRunResult }> {
+  return invokeElectronHelper("browserUseAgentApprove", input);
 }
 
 export function personalLocalAgentStatus(
@@ -1689,6 +1819,14 @@ export function agentManagementMcpAction(
   );
 }
 
+// Typed wrappers for workspace OnMyAgent config IPC (channel kept as Openwork*
+// for desktop main-process compatibility).
+export function workspaceOnMyAgentRead(input: {
+  workspacePath: string;
+}): Promise<Record<string, unknown>> {
+  return invokeElectronHelper<Record<string, unknown>>("workspaceOpenworkRead", input);
+}
+
 export {
   engineStart,
   workspaceBootstrap,
@@ -1702,8 +1840,7 @@ export {
   workspaceAddAuthorizedRoot,
   workspaceExportConfig,
   workspaceImportConfig,
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  workspaceOnMyAgentWrite,
   opencodeCommandList,
   opencodeCommandWrite,
   opencodeCommandDelete,
@@ -1712,11 +1849,11 @@ export {
   appBuildInfo,
   getDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
-  nukeOpenworkAndOpencodeConfigAndExit,
+  nukeOnMyAgentAndOpencodeConfigAndExit,
   orchestratorStartDetached,
   sandboxDoctor,
   sandboxStop,
-  sandboxCleanupOpenworkContainers,
+  sandboxCleanupOnMyAgentContainers,
   sandboxDebugProbe,
   onmyagentServerInfo,
   onmyagentServerRestart,
@@ -1737,7 +1874,7 @@ export {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOpenworkState,
+  resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,

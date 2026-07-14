@@ -18,7 +18,7 @@ import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { CountBadge } from "@/components/ui/status-badge";
-import type { OpenworkServerClient } from "../../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../../app/lib/onmyagent-server";
 import { t } from "../../../../../i18n";
 import { cn } from "@/lib/utils";
 import type { SidebarPrimaryView } from "../../sidebar/app-sidebar";
@@ -28,7 +28,7 @@ import {
 } from "../../expert-marketplace/expert-marketplace-dialog";
 import type { ExpertMarketplaceEntry } from "../../expert-marketplace/types";
 import { SkillsMarketplacePage } from "../../skills-marketplace/skills-marketplace-page";
-import { useStatusToasts } from "../../../shared/status-toasts";
+import { useStatusToasts } from "../../../shell-feedback/status-toasts";
 import { FeaturePreviewPlaceholder } from "../feature-preview-placeholder";
 
 const sidePanelTextClass = {
@@ -84,7 +84,7 @@ export function SidebarFeaturePlaceholder(props: {
           <Icon className="size-6" />
         </div>
         <h2 className={sidePanelTextClass.emptyTitle}>{label}</h2>
-        <p className={sidePanelTextClass.emptyDescription}>开发中，敬请期待</p>
+        <p className={sidePanelTextClass.emptyDescription}>{t("session.feature_placeholder_coming_soon")}</p>
       </div>
     </div>
   );
@@ -92,50 +92,18 @@ export function SidebarFeaturePlaceholder(props: {
 
 type BillingTab = "usage" | "bill";
 
-const BILLING_USAGE_RECORDS = [
-  {
-    time: "2026/6/2 18:42:54~2026/6/2 18:42:57",
-    scene: "AccioWork任务",
-    session: "你是谁?",
-    credits: "2.40",
-  },
-  {
-    time: "2026/5/29 16:51:55~2026/6/2 16:31:27",
-    scene: "AccioWork任务",
-    session: "打个招呼",
-    credits: "1.58",
-  },
-  {
-    time: "2026/6/2 16:10:16~2026/6/2 16:11:07",
-    scene: "AccioWork任务",
-    session: "查看文件目录结构",
-    credits: "8.59",
-  },
-  {
-    time: "2026/6/2 16:09:32~2026/6/2 16:09:50",
-    scene: "AccioWork任务",
-    session: "查看目录下的文件",
-    credits: "3.85",
-  },
-  {
-    time: "2026/6/2 16:06:43~2026/6/2 16:06:59",
-    scene: "AccioWork任务",
-    session: "查看目录文件",
-    credits: "4.18",
-  },
-  {
-    time: "2026/6/2 16:02:28~2026/6/2 16:02:52",
-    scene: "AccioWork任务",
-    session: "打个招呼",
-    credits: "7.77",
-  },
-  {
-    time: "2026/6/2 15:54:22~2026/6/2 15:54:58",
-    scene: "AccioWork任务",
-    session: "打个招呼",
-    credits: "10.30",
-  },
-];
+function getBillingUsageRecords(): ReadonlyArray<{ time: string; scene: string; session: string; credits: string }> {
+  const scene = t("session.billing_mock_scene");
+  return [
+    { time: "2026/6/2 18:42:54~2026/6/2 18:42:57", scene, session: t("session.billing_mock_session_who"), credits: "2.40" },
+    { time: "2026/5/29 16:51:55~2026/6/2 16:31:27", scene, session: t("session.billing_mock_session_hello"), credits: "1.58" },
+    { time: "2026/6/2 16:10:16~2026/6/2 16:11:07", scene, session: t("session.billing_mock_session_list_tree"), credits: "8.59" },
+    { time: "2026/6/2 16:09:32~2026/6/2 16:09:50", scene, session: t("session.billing_mock_session_list_files"), credits: "3.85" },
+    { time: "2026/6/2 16:06:43~2026/6/2 16:06:59", scene, session: t("session.billing_mock_session_list_dir"), credits: "4.18" },
+    { time: "2026/6/2 16:02:28~2026/6/2 16:02:52", scene, session: t("session.billing_mock_session_hello"), credits: "7.77" },
+    { time: "2026/6/2 15:54:22~2026/6/2 15:54:58", scene, session: t("session.billing_mock_session_hello"), credits: "10.30" },
+  ];
+}
 
 const BILLING_CHART_BARS = [0, 0, 0, 0, 0, 0, 12, 64, 10, 0, 0, 22, 0];
 
@@ -177,11 +145,11 @@ function BillingUsagePanel() {
               <span className="text-2xl font-medium leading-none">1</span>
               <span className="ml-1 text-sm font-medium">/ 20</span>
               <span className="ml-2 text-xs text-dls-secondary">
-                已用5%
+                {t("session.billing_used_percent", { percent: 5 })}
               </span>
             </div>
             <span className="text-xs text-dls-secondary">
-              2026年5月27日-2026年6月26日
+              {t("session.billing_period_placeholder")}
             </span>
           </div>
           <div className="mb-3 h-1 overflow-hidden rounded-full bg-muted">
@@ -190,15 +158,15 @@ function BillingUsagePanel() {
           <div className="space-y-2 text-sm">
             <BillingMetric
               color="bg-dls-accent"
-              label="今日基础积分"
+              label={t("session.billing_daily_credits")}
               value="1 / 20"
             />
-            <BillingMetric color="bg-dls-signal" label="限时积分" value="0" />
-            <BillingMetric color="bg-dls-status-warning" label="补充积分" value="0" />
+            <BillingMetric color="bg-dls-signal" label={t("session.billing_promo_credits")} value="0" />
+            <BillingMetric color="bg-dls-status-warning" label={t("session.billing_addon_credits")} value="0" />
           </div>
         </section>
         <section className="rounded-xl border border-dls-border bg-dls-surface p-4">
-          <h3 className={`mb-4 ${sidePanelTextClass.sectionTitle}`}>近14天消耗</h3>
+          <h3 className={`mb-4 ${sidePanelTextClass.sectionTitle}`}>{t("session.billing_last_14_days")}</h3>
           <div className="flex h-[116px] items-end gap-6 px-2">
             {BILLING_CHART_BARS.map((height, index) => (
               <div
@@ -221,16 +189,16 @@ function BillingUsagePanel() {
         </section>
       </div>
       <section className="rounded-xl border border-dls-border bg-dls-surface p-4">
-        <h3 className={`mb-3 ${sidePanelTextClass.sectionTitle}`}>用量记录 (20)</h3>
+        <h3 className={`mb-3 ${sidePanelTextClass.sectionTitle}`}>{t("session.billing_usage_records", { count: 20 })}</h3>
         <div className="overflow-hidden border-t border-dls-border">
           <div className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-border py-3 text-sm font-medium">
-            <div>时间区间</div>
-            <div>场景</div>
-            <div>会话</div>
-            <div>积分</div>
+            <div>{t("session.billing_col_time")}</div>
+            <div>{t("session.billing_col_scene")}</div>
+            <div>{t("session.billing_col_session")}</div>
+            <div>{t("session.billing_col_credits")}</div>
             <div />
           </div>
-          {BILLING_USAGE_RECORDS.map((record) => (
+          {getBillingUsageRecords().map((record) => (
             <div
               key={`${record.time}-${record.session}`}
               className="grid grid-cols-[1.25fr_0.75fr_1.1fr_0.55fr_0.5fr] border-b border-dls-mist py-4 text-sm last:border-b-0"
@@ -245,7 +213,7 @@ function BillingUsagePanel() {
                 size="xs"
                 className="justify-start p-0 text-left text-dls-secondary hover:text-dls-text"
               >
-                查看详情
+                {t("session.billing_view_details")}
               </Button>
             </div>
           ))}
@@ -258,7 +226,7 @@ function BillingUsagePanel() {
 function BillingBillPanel() {
   return (
     <section className="flex h-[220px] items-center justify-center rounded-xl border border-dls-border bg-dls-surface text-sm text-dls-secondary">
-      暂无账单记录
+      {t("session.billing_no_records")}
     </section>
   );
 }
@@ -269,12 +237,12 @@ export function BillingPage() {
     <div className="h-full overflow-auto bg-dls-surface px-6 py-6 text-dls-text">
       <div className="mx-auto max-w-7xl space-y-5">
         <section className="flex min-h-16 items-center justify-between rounded-xl border border-dls-border bg-dls-surface px-4">
-          <h2 className={sidePanelTextClass.panelTitle}>免费版套餐</h2>
+          <h2 className={sidePanelTextClass.panelTitle}>{t("session.billing_free_plan")}</h2>
           <Button size="lg"
             type="button"
             className="bg-dls-accent hover:bg-dls-decision-hover"
           >
-            升级
+            {t("session.billing_upgrade")}
           </Button>
         </section>
         <div className="flex gap-5 border-b border-dls-border">
@@ -282,13 +250,13 @@ export function BillingPage() {
             active={activeTab === "usage"}
             onClick={() => setActiveTab("usage")}
           >
-            使用详情
+            {t("session.billing_tab_usage")}
           </BillingTabButton>
           <BillingTabButton
             active={activeTab === "bill"}
             onClick={() => setActiveTab("bill")}
           >
-            账单
+            {t("session.billing_tab_bill")}
           </BillingTabButton>
         </div>
         {activeTab === "usage" ? <BillingUsagePanel /> : <BillingBillPanel />}
@@ -357,7 +325,7 @@ function StorePrimaryTabs(props: {
 export function StorePage(props: {
   workspaceId: string;
   workspaceRoot?: string | null;
-  client?: OpenworkServerClient | null;
+  client?: OnMyAgentServerClient | null;
   activeTab?: StorePrimaryTab;
   myExperts?: ExpertMarketplaceEntry[];
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
@@ -512,8 +480,8 @@ export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="space-y-2">
-        <div className={sidePanelTextClass.panelTitle}>开发中</div>
-        <div className="text-sm text-dls-secondary">敬请期待</div>
+        <div className={sidePanelTextClass.panelTitle}>{t("session.projects_coming_soon_title")}</div>
+        <div className="text-sm text-dls-secondary">{t("session.projects_coming_soon_body")}</div>
       </div>
     </div>
   );

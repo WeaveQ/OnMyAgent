@@ -1,7 +1,7 @@
 import type { SetStateAction } from "react";
 
 import { readDenSettings, type DenOrgSummary, type DenWorkerSummary } from "../../../app/lib/den";
-import type { CreateWorkspaceScreen } from "../shared/workspace-modal-types";
+import type { CreateWorkspaceScreen } from "./workspace-modal-types";
 
 export type CreateWorkspaceLocalState = {
   screen: CreateWorkspaceScreen;

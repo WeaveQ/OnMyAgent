@@ -21,14 +21,14 @@ import {
   type DenWorkerSummary,
 } from "@/app/lib/den";
 import { usePlatform } from "../../kernel/platform";
-import { useBootState } from "../../shell/boot-state";
+import { useBootState } from "../../shell";
 import {
   resolveModelDisplayName,
   resolveProviderDisplayName,
 } from "@/app/utils";
 import { ProviderIcon } from "../../design-system/provider-icon";
 import { writeStoredDefaultModel } from "../../kernel/model-config";
-import { orgOnboardingVisibilityEvent } from "../../shell/reload-coordinator";
+import { orgOnboardingVisibilityEvent } from "../../shell";
 import {
   Page,
   PageBackground,

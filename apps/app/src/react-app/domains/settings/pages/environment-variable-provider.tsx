@@ -1,14 +1,14 @@
 import { createContext, use, useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient, type UseMutateFunction } from "@tanstack/react-query";
 
-import type { OpenworkServerClient } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import {
-  readOpenworkEnvPendingChanges,
-  writeOpenworkEnvPendingChanges,
+  readOnMyAgentEnvPendingChanges,
+  writeOnMyAgentEnvPendingChanges,
 } from "@/app/lib/onmyagent-env-runtime";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shared/status-toasts";
-import { clearOpenworkEnvSystemContextCache } from "../../shared/env-context";
+import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { clearOnMyAgentEnvSystemContextCache } from "../../shared/env-context";
 import type { EnvironmentVariableItem } from "./environment-variable-table";
 
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -37,7 +37,7 @@ function validateKey(key: string): string | null {
 }
 
 type UseEnvironmentVariableListOptions = {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   isRemoteWorkspace: boolean;
   runtimeKey?: string | null;
 };
@@ -86,7 +86,7 @@ const EnvironmentVariableContext = createContext<EnvironmentVariableContextValue
 
 interface EnvironmentVariableProviderProps {
   children: React.ReactNode;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   runtimeKey?: string | null;
   onApplyChanges?: () => Promise<ApplyEnvironmentChangesResult>;
 }
@@ -97,7 +97,7 @@ export function EnvironmentVariableProvider({ children, client, runtimeKey, onAp
 
   const { data } = useQuery({
     queryKey: ["settings", "environment", "pending-changes", runtimeKey],
-    queryFn: () => readOpenworkEnvPendingChanges(runtimeKey),
+    queryFn: () => readOnMyAgentEnvPendingChanges(runtimeKey),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -105,8 +105,8 @@ export function EnvironmentVariableProvider({ children, client, runtimeKey, onAp
   const { mutate: applyAsync, isPending: isApplying, reset: resetApply, error: applyError } = useMutation({
     mutationFn: async () => onApplyChanges?.(),
     onSuccess: (result) => {
-      clearOpenworkEnvSystemContextCache();
-      writeOpenworkEnvPendingChanges(false);
+      clearOnMyAgentEnvSystemContextCache();
+      writeOnMyAgentEnvPendingChanges(false);
       queryClient.setQueryData(["settings", "environment", "pending-changes", runtimeKey], false);
       showToast({
         title: result?.statusMessage ?? t("settings.environment.apply_success"),
@@ -122,8 +122,8 @@ export function EnvironmentVariableProvider({ children, client, runtimeKey, onAp
   });
 
   const markChangesPending = useCallback(() => {
-    clearOpenworkEnvSystemContextCache();
-    writeOpenworkEnvPendingChanges(true, runtimeKey);
+    clearOnMyAgentEnvSystemContextCache();
+    writeOnMyAgentEnvPendingChanges(true, runtimeKey);
 
     queryClient.setQueryData(["settings", "environment", "pending-changes", runtimeKey], true);
     resetApply();

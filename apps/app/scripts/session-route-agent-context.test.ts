@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 
 import {
   bindPendingAgentToSession,
-  registerCreatedSessionAgentCategory,
+  registerCreatedSessionStartIntent,
   resolvePendingAgentForPrompt,
 } from "../src/react-app/shell/session-route-agent-context";
-import type { PendingAgentContext } from "../src/react-app/domains/shared/pending-agent-store";
+import type { PendingAgentContext } from "../src/react-app/domains/agents/pending-agent-store";
 
 function pendingAgent(input: Partial<PendingAgentContext> = {}): PendingAgentContext {
   return {
@@ -30,6 +30,7 @@ describe("session route agent context", () => {
     ).toEqual({
       pendingAgentSnapshot: agent,
       agentToolAccess: agent.tools,
+      agentRuntime: undefined,
     });
 
     expect(
@@ -41,6 +42,7 @@ describe("session route agent context", () => {
     ).toEqual({
       pendingAgentSnapshot: null,
       agentToolAccess: agent.tools,
+      agentRuntime: undefined,
     });
   });
 
@@ -64,6 +66,61 @@ describe("session route agent context", () => {
     ).toBeUndefined();
   });
 
+  test("keeps the dedicated agent runtime on existing and restored sessions", () => {
+    const boundAgent = pendingAgent({
+      boundSessionId: "ses_bound",
+      runtime: "browser-use-agent",
+    });
+
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: boundAgent,
+        createdSession: false,
+        draftRuntime: undefined,
+        persistedRuntime: undefined,
+        sessionId: "ses_bound",
+      }).agentRuntime,
+    ).toBe("browser-use-agent");
+
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: null,
+        createdSession: false,
+        draftRuntime: undefined,
+        persistedRuntime: "browser-use-agent",
+        sessionId: "ses_restored",
+      }).agentRuntime,
+    ).toBe("browser-use-agent");
+  });
+
+  test("prefers the expert page runtime without leaking another bound agent", () => {
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: pendingAgent({
+          boundSessionId: "ses_other",
+          runtime: "browser-use-agent",
+        }),
+        createdSession: false,
+        draftRuntime: "browser-use-agent",
+        persistedRuntime: undefined,
+        sessionId: "ses_current",
+      }).agentRuntime,
+    ).toBe("browser-use-agent");
+
+    expect(
+      resolvePendingAgentForPrompt({
+        currentAgent: pendingAgent({
+          boundSessionId: "ses_other",
+          runtime: "browser-use-agent",
+        }),
+        createdSession: false,
+        draftRuntime: undefined,
+        persistedRuntime: undefined,
+        sessionId: "ses_current",
+      }).agentRuntime,
+    ).toBeUndefined();
+  });
+
   test("binds pending agents without mutating the original snapshot", () => {
     const agent = pendingAgent();
     const bound = bindPendingAgentToSession({ agent, sessionId: "ses_1" });
@@ -72,42 +129,49 @@ describe("session route agent context", () => {
     expect(agent.boundSessionId).toBeUndefined();
   });
 
-  test("registers created sessions in assistant and expert categories independently", () => {
+  test("registers a created session in exactly the category carried by its start intent", () => {
     const assistantSessions: string[] = [];
     const expertSessions: string[] = [];
+    const assistantCategories: Array<{ sessionId: string; category: string }> = [];
 
-    registerCreatedSessionAgentCategory({
+    registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
       addExpertSession: (sessionId) => expertSessions.push(sessionId),
-      consumePendingAssistantTask: () => true,
-      consumePendingExpertTask: () => false,
+      intent: { mode: "assistant", assistantCategory: "code" },
       sessionId: "ses_assistant",
+      writeAssistantSessionCategory: (sessionId, category) =>
+        assistantCategories.push({ sessionId, category }),
     });
-    registerCreatedSessionAgentCategory({
+    registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
       addExpertSession: (sessionId) => expertSessions.push(sessionId),
-      consumePendingAssistantTask: () => false,
-      consumePendingExpertTask: () => true,
+      intent: { mode: "expert" },
       sessionId: "ses_expert",
+      writeAssistantSessionCategory: (sessionId, category) =>
+        assistantCategories.push({ sessionId, category }),
     });
 
     expect(assistantSessions).toEqual(["ses_assistant"]);
     expect(expertSessions).toEqual(["ses_expert"]);
+    expect(assistantCategories).toEqual([
+      { sessionId: "ses_assistant", category: "code" },
+    ]);
   });
 
-  test("allows a created session to consume both pending category flags", () => {
+  test("does not register a session without an explicit start intent", () => {
     const assistantSessions: string[] = [];
     const expertSessions: string[] = [];
 
-    registerCreatedSessionAgentCategory({
+    registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
       addExpertSession: (sessionId) => expertSessions.push(sessionId),
-      consumePendingAssistantTask: () => true,
-      consumePendingExpertTask: () => true,
       sessionId: "ses_both",
+      writeAssistantSessionCategory: () => {
+        throw new Error("a session without an intent must not receive a category");
+      },
     });
 
-    expect(assistantSessions).toEqual(["ses_both"]);
-    expect(expertSessions).toEqual(["ses_both"]);
+    expect(assistantSessions).toEqual([]);
+    expect(expertSessions).toEqual([]);
   });
 });

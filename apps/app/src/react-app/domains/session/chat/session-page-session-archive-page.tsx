@@ -4,9 +4,9 @@ import { ChevronDown, ChevronRight, MessageSquare, PlayCircle, RefreshCw, Search
 
 import { t } from "../../../../i18n";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionArchiveMessagesResponse,
-  OpenworkSessionArchiveSession,
+  OnMyAgentServerClient,
+  OnMyAgentSessionArchiveMessagesResponse,
+  OnMyAgentSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
 import { formatRelativeTime } from "../../../../app/utils";
 import { AgentSkillIcon } from "../components/shared-pages/agent-skill-icon";
@@ -42,16 +42,16 @@ const PAGE_LIMIT = 2000;
 const MESSAGE_LIMIT = 500;
 
 type Props = {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   onResume?: (request: SessionArchiveResumeRequest) => void;
 };
 
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
-  const [sessions, setSessions] = useState<OpenworkSessionArchiveSession[]>([]);
+  const [sessions, setSessions] = useState<OnMyAgentSessionArchiveSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<OpenworkSessionArchiveMessagesResponse["messages"]>([]);
+  const [messages, setMessages] = useState<OnMyAgentSessionArchiveMessagesResponse["messages"]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -267,7 +267,7 @@ export function SessionArchivePage(props: Props) {
         </div>
       ) : null}
 
-      {/* Agent 筛选栏 */}
+      {/* Agent filter bar */}
       {groups.length > 0 ? (
         <div className="flex items-center gap-1.5">
           <button
@@ -344,7 +344,7 @@ export function SessionArchivePage(props: Props) {
                       <ChevronDown className="size-3.5 text-dls-secondary" />
                     )}
                     <span className="flex-1 truncate">{agentLabel(group.agent)}</span>
-                    <span className="rounded-full bg-dls-hover px-1.5 py-0.5 text-[10px] font-medium text-dls-secondary tabular-nums">
+                    <span className="rounded-full bg-dls-hover px-1.5 py-0.5 text-2xs font-medium text-dls-secondary tabular-nums">
                       {countLabel}
                     </span>
                   </button>
@@ -375,7 +375,7 @@ export function SessionArchivePage(props: Props) {
                                   {session.display_name || session.first_message || session.id}
                                 </span>
                               </div>
-                              <div className="flex items-center justify-between gap-2 pl-5.5 text-[11px] text-dls-secondary">
+                              <div className="flex items-center justify-between gap-2 pl-5.5 text-xs text-dls-secondary">
                                 <span className="truncate">
                                   {session.project || agentLabel(session.agent)}
                                 </span>
@@ -410,7 +410,7 @@ export function SessionArchivePage(props: Props) {
                       {selectedSession.display_name || selectedSession.first_message || selectedSession.id}
                     </h2>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-dls-secondary">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-dls-secondary">
                     <span>{agentLabel(selectedSession.agent)}</span>
                     {selectedSession.project ? (
                       <span className="truncate">{selectedSession.project}</span>
@@ -464,7 +464,7 @@ export function SessionArchivePage(props: Props) {
                       <li key={message.id} className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
                           <span className={cn(
-                            "text-[10px] font-semibold uppercase tracking-wider",
+                            "text-2xs font-semibold uppercase tracking-wider",
                             message.role === "user" ? "text-dls-accent" : "text-dls-secondary",
                           )}>
                             {message.role}

@@ -60,7 +60,7 @@ import { desktopFetch } from "./desktop";
 import { isDesktopRuntime } from "../utils";
 import type { ExecResult, OpencodeConfigFile, WorkspaceInfo, WorkspaceList } from "./desktop";
 
-export type OpenworkServerCapabilities = {
+export type OnMyAgentServerCapabilities = {
   skills: { read: boolean; write: boolean; source: "onmyagent" | "opencode" };
   hub?: {
     skills?: {
@@ -91,9 +91,9 @@ export type OpenworkServerCapabilities = {
   };
 };
 
-export type OpenworkServerStatus = "connected" | "disconnected" | "limited";
+export type OnMyAgentServerStatus = "connected" | "disconnected" | "limited";
 
-export type OpenworkServerDiagnostics = {
+export type OnMyAgentServerDiagnostics = {
   ok: boolean;
   version: string;
   uptimeMs: number;
@@ -103,16 +103,16 @@ export type OpenworkServerDiagnostics = {
   workspaceCount: number;
   activeWorkspaceId?: string | null;
   selectedWorkspaceId?: string | null;
-  workspace: OpenworkWorkspaceInfo | null;
+  workspace: OnMyAgentWorkspaceInfo | null;
   authorizedRoots: string[];
   server: { host: string; port: number; configPath?: string | null };
   tokenSource: { client: string; host: string };
 };
 
-export type OpenworkRuntimeServiceName = "onmyagent-server" | "opencode";
+export type OnMyAgentRuntimeServiceName = "onmyagent-server" | "opencode";
 
-export type OpenworkRuntimeServiceSnapshot = {
-  name: OpenworkRuntimeServiceName;
+export type OnMyAgentRuntimeServiceSnapshot = {
+  name: OnMyAgentRuntimeServiceName;
   enabled: boolean;
   running: boolean;
   targetVersion: string | null;
@@ -120,7 +120,7 @@ export type OpenworkRuntimeServiceSnapshot = {
   upgradeAvailable: boolean;
 };
 
-export type OpenworkRuntimeSnapshot = {
+export type OnMyAgentRuntimeSnapshot = {
   ok: boolean;
   orchestrator?: {
     version: string;
@@ -136,12 +136,12 @@ export type OpenworkRuntimeSnapshot = {
     finishedAt: number | null;
     error: string | null;
     operationId: string | null;
-    services: OpenworkRuntimeServiceName[];
+    services: OnMyAgentRuntimeServiceName[];
   };
-  services: OpenworkRuntimeServiceSnapshot[];
+  services: OnMyAgentRuntimeServiceSnapshot[];
 };
 
-export type OpenworkServerSettings = {
+export type OnMyAgentServerSettings = {
   urlOverride?: string;
   portOverride?: number;
   token?: string;
@@ -149,7 +149,7 @@ export type OpenworkServerSettings = {
   remoteAccessEnabled?: boolean;
 };
 
-export type OpenworkWorkspaceInfo = WorkspaceInfo & {
+export type OnMyAgentWorkspaceInfo = WorkspaceInfo & {
   opencode?: {
     baseUrl?: string;
     directory?: string;
@@ -158,20 +158,20 @@ export type OpenworkWorkspaceInfo = WorkspaceInfo & {
   };
 };
 
-export type OpenworkWorkspaceList = {
-  items: OpenworkWorkspaceInfo[];
+export type OnMyAgentWorkspaceList = {
+  items: OnMyAgentWorkspaceInfo[];
   workspaces?: WorkspaceInfo[];
   activeId?: string | null;
 };
 
-export type OpenworkSessionMessage = {
+export type OnMyAgentSessionMessage = {
   info: Message;
   parts: Part[];
 };
 
-export type OpenworkSessionSnapshot = {
+export type OnMyAgentSessionSnapshot = {
   session: Session;
-  messages: OpenworkSessionMessage[];
+  messages: OnMyAgentSessionMessage[];
   todos: Todo[];
   status:
     | { type: "idle" }
@@ -179,14 +179,14 @@ export type OpenworkSessionSnapshot = {
     | { type: "retry"; attempt: number; message: string; next: number };
 };
 
-export type OpenworkPluginItem = {
+export type OnMyAgentPluginItem = {
   spec: string;
   source: "config" | "dir.project" | "dir.global";
   scope: "project" | "global";
   path?: string;
 };
 
-export type OpenworkSkillItem = {
+export type OnMyAgentSkillItem = {
   name: string;
   path: string;
   description: string;
@@ -198,12 +198,12 @@ export type OpenworkSkillItem = {
   descriptionEn?: string;
 };
 
-export type OpenworkSkillContent = {
-  item: OpenworkSkillItem;
+export type OnMyAgentSkillContent = {
+  item: OnMyAgentSkillItem;
   content: string;
 };
 
-export type OpenworkHubSkillItem = {
+export type OnMyAgentHubSkillItem = {
   name: string;
   description: string;
   trigger?: string;
@@ -215,20 +215,20 @@ export type OpenworkHubSkillItem = {
   };
 };
 
-export type OpenworkHubRepo = {
+export type OnMyAgentHubRepo = {
   owner?: string;
   repo?: string;
   ref?: string;
 };
 
-export type OpenworkWorkspaceFileContent = {
+export type OnMyAgentWorkspaceFileContent = {
   path: string;
   content: string;
   bytes: number;
   updatedAt: number;
 };
 
-export type OpenworkWorkspaceFileWriteResult = {
+export type OnMyAgentWorkspaceFileWriteResult = {
   ok: boolean;
   path: string;
   bytes: number;
@@ -254,7 +254,7 @@ function arrayBufferToBase64(data: ArrayBuffer): string {
   return btoa(binary);
 }
 
-export type OpenworkCommandItem = {
+export type OnMyAgentCommandItem = {
   name: string;
   description?: string;
   template: string;
@@ -264,68 +264,68 @@ export type OpenworkCommandItem = {
   scope: "workspace" | "global";
 };
 
-export type OpenworkAutomationTaskItem = AutomationTaskItem;
-export type OpenworkAutomationTaskInput = AutomationTaskInput;
-export type OpenworkAutomationRunHistoryResult = AutomationRunHistoryResult;
-export type OpenworkSessionArchiveSession = SessionArchiveSession;
-export type OpenworkSessionArchiveSessionPage = SessionArchiveSessionPage;
-export type OpenworkSessionArchiveMessagesResponse = SessionArchiveMessagesResponse;
-export type OpenworkSessionArchiveSearchResponse = SessionArchiveSearchResponse;
-export type OpenworkSessionArchiveSessionSearchResponse = SessionArchiveSessionSearchResponse;
-export type OpenworkSessionArchiveStarredResponse = SessionArchiveStarredResponse;
-export type OpenworkSessionArchiveSecretConfidence = SessionArchiveSecretConfidence;
-export type OpenworkSessionArchiveSecretFinding = SessionArchiveSecretFinding;
-export type OpenworkSessionArchiveSecretFindingsResponse = SessionArchiveSecretFindingsResponse;
-export type OpenworkSessionArchiveSecretScanSummary = SessionArchiveSecretScanSummary;
-export type OpenworkSessionArchiveSessionUsage = SessionArchiveSessionUsage;
-export type OpenworkSessionArchiveUsageSummaryResponse = SessionArchiveUsageSummaryResponse;
-export type OpenworkSessionArchiveUsageComparison = SessionArchiveUsageComparison;
-export type OpenworkSessionArchiveTopUsageSession = SessionArchiveTopUsageSession;
-export type OpenworkSessionArchiveAnalyticsSummary = SessionArchiveAnalyticsSummary;
-export type OpenworkSessionArchiveAnalyticsActivityResponse = SessionArchiveAnalyticsActivityResponse;
-export type OpenworkSessionArchiveAnalyticsHeatmapResponse = SessionArchiveAnalyticsHeatmapResponse;
-export type OpenworkSessionArchiveAnalyticsProjectsResponse = SessionArchiveAnalyticsProjectsResponse;
-export type OpenworkSessionArchiveAnalyticsHourOfWeekResponse = SessionArchiveAnalyticsHourOfWeekResponse;
-export type OpenworkSessionArchiveAnalyticsSessionShapeResponse = SessionArchiveAnalyticsSessionShapeResponse;
-export type OpenworkSessionArchiveAnalyticsVelocityResponse = SessionArchiveAnalyticsVelocityResponse;
-export type OpenworkSessionArchiveAnalyticsToolsResponse = SessionArchiveAnalyticsToolsResponse;
-export type OpenworkSessionArchiveAnalyticsSkillsResponse = SessionArchiveAnalyticsSkillsResponse;
-export type OpenworkSessionArchiveAnalyticsTopSessionsResponse = SessionArchiveAnalyticsTopSessionsResponse;
-export type OpenworkSessionArchiveAnalyticsSignalsResponse = SessionArchiveAnalyticsSignalsResponse;
-export type OpenworkSessionArchiveAnalyticsSignalSessionsResponse = SessionArchiveAnalyticsSignalSessionsResponse;
-export type OpenworkSessionArchiveActivityReport = SessionArchiveActivityReport;
-export type OpenworkSessionArchiveTrendsTermsResponse = SessionArchiveTrendsTermsResponse;
-export type OpenworkSessionArchiveInsight = SessionArchiveInsight;
-export type OpenworkSessionArchiveInsightsResponse = SessionArchiveInsightsResponse;
-export type OpenworkSessionArchiveGenerateInsightRequest = SessionArchiveGenerateInsightRequest;
-export type OpenworkSessionArchiveConfigSnapshot = SessionArchiveConfigSnapshot;
-export type OpenworkSessionArchiveConfigUpdate = SessionArchiveConfigUpdate;
-export type OpenworkSessionArchiveBackendsStatusResponse = SessionArchiveBackendsStatusResponse;
-export type OpenworkSessionArchiveLifecycleStatus = SessionArchiveLifecycleStatus;
-export type OpenworkSessionArchiveImportStats = SessionArchiveImportStats;
-export type OpenworkSessionArchiveUploadImportRequest = SessionArchiveUploadImportRequest;
-export type OpenworkSessionArchiveWorktreeMapping = SessionArchiveWorktreeMapping;
-export type OpenworkSessionArchiveWorktreeMappingInput = SessionArchiveWorktreeMappingInput;
-export type OpenworkSessionArchiveWorktreeMappingsResponse = SessionArchiveWorktreeMappingsResponse;
-export type OpenworkSessionArchiveApplyWorktreeMappingsResponse = SessionArchiveApplyWorktreeMappingsResponse;
-export type OpenworkSessionArchiveDirectoryResponse = SessionArchiveDirectoryResponse;
-export type OpenworkSessionArchiveOpenSessionResponse = SessionArchiveOpenSessionResponse;
-export type OpenworkSessionArchiveResumeSessionResponse = SessionArchiveResumeSessionResponse;
-export type OpenworkSessionArchiveExportResponse = SessionArchiveExportResponse;
-export type OpenworkSessionArchivePublishResponse = SessionArchivePublishResponse;
-export type OpenworkSessionArchivePinnedMessage = SessionArchivePinnedMessage;
-export type OpenworkSessionArchivePinsResponse = SessionArchivePinsResponse;
-export type OpenworkSessionArchiveSyncResult = SessionArchiveSyncResult;
-export type OpenworkSessionArchiveSyncStatus = SessionArchiveSyncStatus;
+export type OnMyAgentAutomationTaskItem = AutomationTaskItem;
+export type OnMyAgentAutomationTaskInput = AutomationTaskInput;
+export type OnMyAgentAutomationRunHistoryResult = AutomationRunHistoryResult;
+export type OnMyAgentSessionArchiveSession = SessionArchiveSession;
+export type OnMyAgentSessionArchiveSessionPage = SessionArchiveSessionPage;
+export type OnMyAgentSessionArchiveMessagesResponse = SessionArchiveMessagesResponse;
+export type OnMyAgentSessionArchiveSearchResponse = SessionArchiveSearchResponse;
+export type OnMyAgentSessionArchiveSessionSearchResponse = SessionArchiveSessionSearchResponse;
+export type OnMyAgentSessionArchiveStarredResponse = SessionArchiveStarredResponse;
+export type OnMyAgentSessionArchiveSecretConfidence = SessionArchiveSecretConfidence;
+export type OnMyAgentSessionArchiveSecretFinding = SessionArchiveSecretFinding;
+export type OnMyAgentSessionArchiveSecretFindingsResponse = SessionArchiveSecretFindingsResponse;
+export type OnMyAgentSessionArchiveSecretScanSummary = SessionArchiveSecretScanSummary;
+export type OnMyAgentSessionArchiveSessionUsage = SessionArchiveSessionUsage;
+export type OnMyAgentSessionArchiveUsageSummaryResponse = SessionArchiveUsageSummaryResponse;
+export type OnMyAgentSessionArchiveUsageComparison = SessionArchiveUsageComparison;
+export type OnMyAgentSessionArchiveTopUsageSession = SessionArchiveTopUsageSession;
+export type OnMyAgentSessionArchiveAnalyticsSummary = SessionArchiveAnalyticsSummary;
+export type OnMyAgentSessionArchiveAnalyticsActivityResponse = SessionArchiveAnalyticsActivityResponse;
+export type OnMyAgentSessionArchiveAnalyticsHeatmapResponse = SessionArchiveAnalyticsHeatmapResponse;
+export type OnMyAgentSessionArchiveAnalyticsProjectsResponse = SessionArchiveAnalyticsProjectsResponse;
+export type OnMyAgentSessionArchiveAnalyticsHourOfWeekResponse = SessionArchiveAnalyticsHourOfWeekResponse;
+export type OnMyAgentSessionArchiveAnalyticsSessionShapeResponse = SessionArchiveAnalyticsSessionShapeResponse;
+export type OnMyAgentSessionArchiveAnalyticsVelocityResponse = SessionArchiveAnalyticsVelocityResponse;
+export type OnMyAgentSessionArchiveAnalyticsToolsResponse = SessionArchiveAnalyticsToolsResponse;
+export type OnMyAgentSessionArchiveAnalyticsSkillsResponse = SessionArchiveAnalyticsSkillsResponse;
+export type OnMyAgentSessionArchiveAnalyticsTopSessionsResponse = SessionArchiveAnalyticsTopSessionsResponse;
+export type OnMyAgentSessionArchiveAnalyticsSignalsResponse = SessionArchiveAnalyticsSignalsResponse;
+export type OnMyAgentSessionArchiveAnalyticsSignalSessionsResponse = SessionArchiveAnalyticsSignalSessionsResponse;
+export type OnMyAgentSessionArchiveActivityReport = SessionArchiveActivityReport;
+export type OnMyAgentSessionArchiveTrendsTermsResponse = SessionArchiveTrendsTermsResponse;
+export type OnMyAgentSessionArchiveInsight = SessionArchiveInsight;
+export type OnMyAgentSessionArchiveInsightsResponse = SessionArchiveInsightsResponse;
+export type OnMyAgentSessionArchiveGenerateInsightRequest = SessionArchiveGenerateInsightRequest;
+export type OnMyAgentSessionArchiveConfigSnapshot = SessionArchiveConfigSnapshot;
+export type OnMyAgentSessionArchiveConfigUpdate = SessionArchiveConfigUpdate;
+export type OnMyAgentSessionArchiveBackendsStatusResponse = SessionArchiveBackendsStatusResponse;
+export type OnMyAgentSessionArchiveLifecycleStatus = SessionArchiveLifecycleStatus;
+export type OnMyAgentSessionArchiveImportStats = SessionArchiveImportStats;
+export type OnMyAgentSessionArchiveUploadImportRequest = SessionArchiveUploadImportRequest;
+export type OnMyAgentSessionArchiveWorktreeMapping = SessionArchiveWorktreeMapping;
+export type OnMyAgentSessionArchiveWorktreeMappingInput = SessionArchiveWorktreeMappingInput;
+export type OnMyAgentSessionArchiveWorktreeMappingsResponse = SessionArchiveWorktreeMappingsResponse;
+export type OnMyAgentSessionArchiveApplyWorktreeMappingsResponse = SessionArchiveApplyWorktreeMappingsResponse;
+export type OnMyAgentSessionArchiveDirectoryResponse = SessionArchiveDirectoryResponse;
+export type OnMyAgentSessionArchiveOpenSessionResponse = SessionArchiveOpenSessionResponse;
+export type OnMyAgentSessionArchiveResumeSessionResponse = SessionArchiveResumeSessionResponse;
+export type OnMyAgentSessionArchiveExportResponse = SessionArchiveExportResponse;
+export type OnMyAgentSessionArchivePublishResponse = SessionArchivePublishResponse;
+export type OnMyAgentSessionArchivePinnedMessage = SessionArchivePinnedMessage;
+export type OnMyAgentSessionArchivePinsResponse = SessionArchivePinsResponse;
+export type OnMyAgentSessionArchiveSyncResult = SessionArchiveSyncResult;
+export type OnMyAgentSessionArchiveSyncStatus = SessionArchiveSyncStatus;
 
-export type OpenworkMcpItem = {
+export type OnMyAgentMcpItem = {
   name: string;
   config: Record<string, unknown>;
   source: "config.project" | "config.global" | "config.remote";
   disabledByTools?: boolean;
 };
 
-export type OpenworkWorkspaceExport = {
+export type OnMyAgentWorkspaceExport = {
   workspaceId: string;
   exportedAt: number;
   opencode?: Record<string, unknown>;
@@ -335,14 +335,14 @@ export type OpenworkWorkspaceExport = {
   files?: Array<{ path: string; content: string }>;
 };
 
-export type OpenworkWorkspaceImportChange = {
+export type OnMyAgentWorkspaceImportChange = {
   kind: "opencode" | "onmyagent" | "skill" | "command" | "file";
   action: "create" | "update" | "replace" | "delete" | "unchanged";
   label: string;
   path: string;
 };
 
-export type OpenworkWorkspaceImportPreview = {
+export type OnMyAgentWorkspaceImportPreview = {
   fingerprint: string;
   summary: {
     total: number;
@@ -352,25 +352,25 @@ export type OpenworkWorkspaceImportPreview = {
     delete: number;
     unchanged: number;
   };
-  changes: OpenworkWorkspaceImportChange[];
+  changes: OnMyAgentWorkspaceImportChange[];
 };
 
-export type OpenworkWorkspaceExportSensitiveMode = "auto" | "include" | "exclude";
+export type OnMyAgentWorkspaceExportSensitiveMode = "auto" | "include" | "exclude";
 
-export type OpenworkWorkspaceExportWarning = {
+export type OnMyAgentWorkspaceExportWarning = {
   id: string;
   label: string;
   detail: string;
 };
 
-export type OpenworkBlueprintSessionsMaterializeResult = {
+export type OnMyAgentBlueprintSessionsMaterializeResult = {
   ok: boolean;
   created: Array<{ templateId: string; sessionId: string; title: string }>;
   existing: Array<{ templateId: string; sessionId: string }>;
   openSessionId: string | null;
 };
 
-export type OpenworkArtifactItem = {
+export type OnMyAgentArtifactItem = {
   id: string;
   name?: string;
   path?: string;
@@ -380,11 +380,11 @@ export type OpenworkArtifactItem = {
   mime?: string;
 };
 
-export type OpenworkArtifactList = {
-  items: OpenworkArtifactItem[];
+export type OnMyAgentArtifactList = {
+  items: OnMyAgentArtifactItem[];
 };
 
-export type OpenworkResolvedArtifactTarget = {
+export type OnMyAgentResolvedArtifactTarget = {
   id: string;
   kind: "file" | "url";
   value: string;
@@ -398,7 +398,7 @@ export type OpenworkResolvedArtifactTarget = {
   contentType?: string;
 };
 
-export type OpenworkWorkspaceFileStat = {
+export type OnMyAgentWorkspaceFileStat = {
   ok: boolean;
   path: string;
   exists: boolean;
@@ -407,7 +407,7 @@ export type OpenworkWorkspaceFileStat = {
   updatedAt?: number;
 };
 
-export type OpenworkWorkspaceFileCatalogEntry = {
+export type OnMyAgentWorkspaceFileCatalogEntry = {
   path: string;
   kind: "file" | "dir";
   size: number;
@@ -415,14 +415,14 @@ export type OpenworkWorkspaceFileCatalogEntry = {
   revision: string;
 };
 
-export type OpenworkWorkspaceFileCatalog = {
-  items: OpenworkWorkspaceFileCatalogEntry[];
+export type OnMyAgentWorkspaceFileCatalog = {
+  items: OnMyAgentWorkspaceFileCatalogEntry[];
   total: number;
   truncated: boolean;
   generatedAt: number;
 };
 
-export type OpenworkInboxItem = {
+export type OnMyAgentInboxItem = {
   id: string;
   name?: string;
   path?: string;
@@ -430,45 +430,45 @@ export type OpenworkInboxItem = {
   updatedAt?: number;
 };
 
-export type OpenworkInboxList = {
-  items: OpenworkInboxItem[];
+export type OnMyAgentInboxList = {
+  items: OnMyAgentInboxItem[];
 };
 
-export type OpenworkInboxUploadResult = {
+export type OnMyAgentInboxUploadResult = {
   ok: boolean;
   path: string;
   bytes: number;
 };
 
-export type OpenworkActor = {
+export type OnMyAgentActor = {
   type: "remote" | "host";
   clientId?: string;
   tokenHash?: string;
 };
 
-export type OpenworkAuditEntry = {
+export type OnMyAgentAuditEntry = {
   id: string;
   workspaceId: string;
-  actor: OpenworkActor;
+  actor: OnMyAgentActor;
   action: string;
   target: string;
   summary: string;
   timestamp: number;
 };
 
-export type OpenworkReloadTrigger = {
+export type OnMyAgentReloadTrigger = {
   type: "skill" | "plugin" | "config" | "mcp" | "agent" | "command";
   name?: string;
   action?: "added" | "removed" | "updated";
   path?: string;
 };
 
-export type OpenworkReloadEvent = {
+export type OnMyAgentReloadEvent = {
   id: string;
   seq: number;
   workspaceId: string;
   reason: "plugins" | "skills" | "mcp" | "config" | "agents" | "commands";
-  trigger?: OpenworkReloadTrigger;
+  trigger?: OnMyAgentReloadTrigger;
   timestamp: number;
 };
 
@@ -482,15 +482,15 @@ const STORAGE_TOKEN = "onmyagent.server.token";
 const STORAGE_HOST_AUTH_KEY = "onmyagent.server.hostToken";
 const STORAGE_REMOTE_ACCESS = "onmyagent.server.remoteAccessEnabled";
 
-export function normalizeOpenworkServerUrl(input: string) {
+export function normalizeOnMyAgentServerUrl(input: string) {
   const trimmed = input.trim();
   if (!trimmed) return null;
   const withProtocol = /^https?:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`;
   return withProtocol.replace(/\/+$/, "");
 }
 
-export function isLoopbackOpenworkServerUrl(input: string) {
-  const normalized = normalizeOpenworkServerUrl(input) ?? "";
+export function isLoopbackOnMyAgentServerUrl(input: string) {
+  const normalized = normalizeOnMyAgentServerUrl(input) ?? "";
   if (!normalized) return false;
   try {
     const hostname = new URL(normalized).hostname.toLowerCase();
@@ -500,8 +500,8 @@ export function isLoopbackOpenworkServerUrl(input: string) {
   }
 }
 
-export function parseOpenworkWorkspaceIdFromUrl(input: string) {
-  const normalized = normalizeOpenworkServerUrl(input) ?? "";
+export function parseOnMyAgentWorkspaceIdFromUrl(input: string) {
+  const normalized = normalizeOnMyAgentServerUrl(input) ?? "";
   if (!normalized) return null;
 
   try {
@@ -527,8 +527,8 @@ export function parseOpenworkWorkspaceIdFromUrl(input: string) {
   }
 }
 
-export function buildOpenworkWorkspaceBaseUrl(hostUrl: string, workspaceId?: string | null) {
-  const normalized = normalizeOpenworkServerUrl(hostUrl) ?? "";
+export function buildOnMyAgentWorkspaceBaseUrl(hostUrl: string, workspaceId?: string | null) {
+  const normalized = normalizeOnMyAgentServerUrl(hostUrl) ?? "";
   if (!normalized) return null;
 
   try {
@@ -563,7 +563,7 @@ const ONMYAGENT_INVITE_PARAM_TOKEN = "ow_token";
 const ONMYAGENT_INVITE_PARAM_STARTUP = "ow_startup";
 const ONMYAGENT_INVITE_PARAM_AUTO_CONNECT = "ow_auto_connect";
 
-export type OpenworkOpenCodeRouterHealthSnapshot = {
+export type OnMyAgentOpenCodeRouterHealthSnapshot = {
   ok: boolean;
   opencode: Record<string, unknown>;
   channels: Record<string, unknown>;
@@ -582,7 +582,7 @@ export type OpenworkOpenCodeRouterHealthSnapshot = {
   [key: string]: unknown;
 };
 
-export type OpenworkOpenCodeRouterIdentityItem = {
+export type OnMyAgentOpenCodeRouterIdentityItem = {
   id: string;
   channel?: string;
   enabled?: boolean;
@@ -590,7 +590,7 @@ export type OpenworkOpenCodeRouterIdentityItem = {
   [key: string]: unknown;
 };
 
-export type OpenworkOpenCodeRouterSendResult = {
+export type OnMyAgentOpenCodeRouterSendResult = {
   ok: boolean;
   sent: number;
   attempted: number;
@@ -599,7 +599,7 @@ export type OpenworkOpenCodeRouterSendResult = {
   [key: string]: unknown;
 };
 
-export type OpenworkOpenCodeRouterTelegramConfig = {
+export type OnMyAgentOpenCodeRouterTelegramConfig = {
   ok: boolean;
   telegram?: {
     bot?: {
@@ -615,36 +615,36 @@ export type OpenworkOpenCodeRouterTelegramConfig = {
   [key: string]: unknown;
 };
 
-export type OpenworkOpenCodeRouterIdentityWriteResult = {
+export type OnMyAgentOpenCodeRouterIdentityWriteResult = {
   ok: boolean;
   applied?: boolean;
   applyError?: string;
   pairingCode?: string;
-  telegram?: OpenworkOpenCodeRouterTelegramConfig["telegram"];
+  telegram?: OnMyAgentOpenCodeRouterTelegramConfig["telegram"];
   [key: string]: unknown;
 };
 
-export type OpenworkOpenCodeRouterResponse<T> = {
+export type OnMyAgentOpenCodeRouterResponse<T> = {
   ok: boolean;
   json: T | null;
   status: number;
 };
 
-export type OpenworkConnectInvite = {
+export type OnMyAgentConnectInvite = {
   url: string;
   token?: string;
   startup?: "server";
   autoConnect?: boolean;
 };
 
-export function readOpenworkConnectInviteFromSearch(input: string | URLSearchParams) {
+export function readOnMyAgentConnectInviteFromSearch(input: string | URLSearchParams) {
   const search =
     typeof input === "string"
       ? new URLSearchParams(input.startsWith("?") ? input.slice(1) : input)
       : input;
 
   const rawUrl = search.get(ONMYAGENT_INVITE_PARAM_URL)?.trim() ?? "";
-  const url = normalizeOpenworkServerUrl(rawUrl);
+  const url = normalizeOnMyAgentServerUrl(rawUrl);
   if (!url) return null;
 
   const token = search.get(ONMYAGENT_INVITE_PARAM_TOKEN)?.trim() ?? "";
@@ -657,10 +657,10 @@ export function readOpenworkConnectInviteFromSearch(input: string | URLSearchPar
     token: token || undefined,
     startup,
     autoConnect: autoConnect || undefined,
-  } satisfies OpenworkConnectInvite;
+  } satisfies OnMyAgentConnectInvite;
 }
 
-export function stripOpenworkConnectInviteFromUrl(input: string) {
+export function stripOnMyAgentConnectInviteFromUrl(input: string) {
   try {
     const url = new URL(input);
     url.searchParams.delete(ONMYAGENT_INVITE_PARAM_URL);
@@ -673,10 +673,10 @@ export function stripOpenworkConnectInviteFromUrl(input: string) {
   }
 }
 
-export function readOpenworkServerSettings(): OpenworkServerSettings {
+export function readOnMyAgentServerSettings(): OnMyAgentServerSettings {
   if (typeof window === "undefined") return {};
   try {
-    const urlOverride = normalizeOpenworkServerUrl(
+    const urlOverride = normalizeOnMyAgentServerUrl(
       window.localStorage.getItem(STORAGE_URL_OVERRIDE) ?? "",
     );
     const portRaw = window.localStorage.getItem(STORAGE_PORT_OVERRIDE) ?? "";
@@ -696,10 +696,10 @@ export function readOpenworkServerSettings(): OpenworkServerSettings {
   }
 }
 
-export function writeOpenworkServerSettings(next: OpenworkServerSettings): OpenworkServerSettings {
+export function writeOnMyAgentServerSettings(next: OnMyAgentServerSettings): OnMyAgentServerSettings {
   if (typeof window === "undefined") return next;
   try {
-    const urlOverride = normalizeOpenworkServerUrl(next.urlOverride ?? "");
+    const urlOverride = normalizeOnMyAgentServerUrl(next.urlOverride ?? "");
     const portOverride = typeof next.portOverride === "number" ? next.portOverride : undefined;
     const token = next.token?.trim() || undefined;
     const hostToken = next.hostToken?.trim() || undefined;
@@ -735,13 +735,13 @@ export function writeOpenworkServerSettings(next: OpenworkServerSettings): Openw
       window.localStorage.removeItem(STORAGE_REMOTE_ACCESS);
     }
 
-    return readOpenworkServerSettings();
+    return readOnMyAgentServerSettings();
   } catch {
     return next;
   }
 }
 
-export function hydrateOpenworkServerSettingsFromEnv() {
+export function hydrateOnMyAgentServerSettingsFromEnv() {
   if (typeof window === "undefined") return;
 
   const envUrl = typeof import.meta.env?.VITE_ONMYAGENT_URL === "string"
@@ -760,12 +760,12 @@ export function hydrateOpenworkServerSettingsFromEnv() {
   if (!envUrl && !envPort && !envToken && !envHostToken) return;
 
   try {
-    const current = readOpenworkServerSettings();
-    const next: OpenworkServerSettings = { ...current };
+    const current = readOnMyAgentServerSettings();
+    const next: OnMyAgentServerSettings = { ...current };
     let changed = false;
 
     if (!current.urlOverride && envUrl) {
-      next.urlOverride = normalizeOpenworkServerUrl(envUrl) ?? undefined;
+      next.urlOverride = normalizeOnMyAgentServerUrl(envUrl) ?? undefined;
       changed = true;
     }
 
@@ -788,14 +788,14 @@ export function hydrateOpenworkServerSettingsFromEnv() {
     }
 
     if (changed) {
-      writeOpenworkServerSettings(next);
+      writeOnMyAgentServerSettings(next);
     }
   } catch {
     // ignore
   }
 }
 
-export function clearOpenworkServerSettings() {
+export function clearOnMyAgentServerSettings() {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(STORAGE_URL_OVERRIDE);
@@ -808,7 +808,7 @@ export function clearOpenworkServerSettings() {
   }
 }
 
-export class OpenworkServerError extends Error {
+export class OnMyAgentServerError extends Error {
   status: number;
   code: string;
   details?: unknown;
@@ -937,7 +937,7 @@ async function requestJson<T>(
   if (!response.ok) {
     const code = typeof json?.code === "string" ? json.code : "request_failed";
     const message = typeof json?.message === "string" ? json.message : response.statusText;
-    throw new OpenworkServerError(response.status, code, message, json?.details);
+    throw new OnMyAgentServerError(response.status, code, message, json?.details);
   }
 
   return json as T;
@@ -962,7 +962,7 @@ async function requestText(
   );
   const text = await response.text();
   if (!response.ok) {
-    throw new OpenworkServerError(response.status, "request_failed", text || response.statusText);
+    throw new OnMyAgentServerError(response.status, "request_failed", text || response.statusText);
   }
   return text;
 }
@@ -1016,7 +1016,7 @@ async function requestBinary(
     const jsonObject = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
     const code = typeof jsonObject?.code === "string" ? jsonObject.code : "request_failed";
     const message = typeof jsonObject?.message === "string" ? jsonObject.message : response.statusText;
-    throw new OpenworkServerError(response.status, code, message, jsonObject?.details);
+    throw new OnMyAgentServerError(response.status, code, message, jsonObject?.details);
   }
 
   const contentType = response.headers.get("content-type");
@@ -1042,12 +1042,12 @@ async function requestStream(
   });
   if (!response.ok) {
     const text = await response.text();
-    throw new OpenworkServerError(response.status, "request_failed", text || response.statusText);
+    throw new OnMyAgentServerError(response.status, "request_failed", text || response.statusText);
   }
   return response;
 }
 
-export function createOpenworkServerClient(options: { baseUrl: string; token?: string; hostToken?: string }) {
+export function createOnMyAgentServerClient(options: { baseUrl: string; token?: string; hostToken?: string }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const token = options.token;
   const hostToken = options.hostToken;
@@ -1077,10 +1077,10 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         hostToken,
         timeoutMs: timeouts.status,
       });
-      return { ok: true, json, status: 200 } satisfies OpenworkOpenCodeRouterResponse<T>;
+      return { ok: true, json, status: 200 } satisfies OnMyAgentOpenCodeRouterResponse<T>;
     } catch (error) {
-      if (error instanceof OpenworkServerError) {
-        return { ok: false, json: null, status: error.status } satisfies OpenworkOpenCodeRouterResponse<T>;
+      if (error instanceof OnMyAgentServerError) {
+        return { ok: false, json: null, status: error.status } satisfies OnMyAgentOpenCodeRouterResponse<T>;
       }
       throw error;
     }
@@ -1092,10 +1092,10 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     health: () =>
       requestJson<{ ok: boolean; version: string; uptimeMs: number }>(baseUrl, "/health", { token, hostToken, timeoutMs: timeouts.health }),
     runtimeVersions: () =>
-      requestJson<OpenworkRuntimeSnapshot>(baseUrl, "/runtime/versions", { token, hostToken, timeoutMs: timeouts.status }),
-    status: () => requestJson<OpenworkServerDiagnostics>(baseUrl, "/status", { token, hostToken, timeoutMs: timeouts.status }),
-    capabilities: () => requestJson<OpenworkServerCapabilities>(baseUrl, "/capabilities", { token, hostToken, timeoutMs: timeouts.capabilities }),
-    listWorkspaces: () => requestJson<OpenworkWorkspaceList>(baseUrl, "/workspaces", { token, hostToken, timeoutMs: timeouts.listWorkspaces }),
+      requestJson<OnMyAgentRuntimeSnapshot>(baseUrl, "/runtime/versions", { token, hostToken, timeoutMs: timeouts.status }),
+    status: () => requestJson<OnMyAgentServerDiagnostics>(baseUrl, "/status", { token, hostToken, timeoutMs: timeouts.status }),
+    capabilities: () => requestJson<OnMyAgentServerCapabilities>(baseUrl, "/capabilities", { token, hostToken, timeoutMs: timeouts.capabilities }),
+    listWorkspaces: () => requestJson<OnMyAgentWorkspaceList>(baseUrl, "/workspaces", { token, hostToken, timeoutMs: timeouts.listWorkspaces }),
     createLocalWorkspace: (payload: { folderPath: string; name: string; preset: string }) =>
       requestJson<WorkspaceList>(baseUrl, "/workspaces/local", {
         token,
@@ -1113,13 +1113,13 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         timeoutMs: timeouts.activateWorkspace,
       }),
     activateWorkspace: (workspaceId: string) =>
-      requestJson<{ activeId: string; workspace: OpenworkWorkspaceInfo }>(
+      requestJson<{ activeId: string; workspace: OnMyAgentWorkspaceInfo }>(
         baseUrl,
         `/workspaces/${encodeURIComponent(workspaceId)}/activate`,
         { token, hostToken, method: "POST", timeoutMs: timeouts.activateWorkspace },
       ),
     deleteWorkspace: (workspaceId: string) =>
-      requestJson<{ ok: boolean; deleted: boolean; persisted: boolean; activeId: string | null; items: OpenworkWorkspaceInfo[]; workspaces?: WorkspaceInfo[] }>(
+      requestJson<{ ok: boolean; deleted: boolean; persisted: boolean; activeId: string | null; items: OnMyAgentWorkspaceInfo[]; workspaces?: WorkspaceInfo[] }>(
         baseUrl,
         `/workspaces/${encodeURIComponent(workspaceId)}`,
         { token, hostToken, method: "DELETE", timeoutMs: timeouts.deleteWorkspace },
@@ -1170,7 +1170,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       if (typeof options?.limit === "number") query.set("limit", String(options.limit));
       if (options?.directory?.trim()) query.set("directory", options.directory.trim());
       const suffix = query.size ? `?${query.toString()}` : "";
-      return requestJson<{ items: OpenworkSessionMessage[] }>(
+      return requestJson<{ items: OnMyAgentSessionMessage[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/messages${suffix}`,
         { token, hostToken, timeoutMs: timeouts.sessionRead },
@@ -1181,7 +1181,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       if (typeof options?.limit === "number") query.set("limit", String(options.limit));
       if (options?.directory?.trim()) query.set("directory", options.directory.trim());
       const suffix = query.size ? `?${query.toString()}` : "";
-      return requestJson<{ item: OpenworkSessionSnapshot }>(
+      return requestJson<{ item: OnMyAgentSessionSnapshot }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/snapshot${suffix}`,
         { token, hostToken, timeoutMs: timeouts.sessionRead },
@@ -1189,21 +1189,21 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     },
     exportWorkspace: (
       workspaceId: string,
-      options?: { sensitiveMode?: OpenworkWorkspaceExportSensitiveMode },
+      options?: { sensitiveMode?: OnMyAgentWorkspaceExportSensitiveMode },
     ) => {
       const query = new URLSearchParams();
       if (options?.sensitiveMode) {
         query.set("sensitive", options.sensitiveMode);
       }
       const suffix = query.size ? `?${query.toString()}` : "";
-      return requestJson<OpenworkWorkspaceExport>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/export${suffix}`, {
+      return requestJson<OnMyAgentWorkspaceExport>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/export${suffix}`, {
         token,
         hostToken,
         timeoutMs: timeouts.workspaceExport,
       });
     },
     importWorkspace: (workspaceId: string, payload: Record<string, unknown>) =>
-      requestJson<{ ok: boolean; preview?: OpenworkWorkspaceImportPreview }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/import`, {
+      requestJson<{ ok: boolean; preview?: OnMyAgentWorkspaceImportPreview }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/import`, {
         token,
         hostToken,
         method: "POST",
@@ -1211,7 +1211,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         timeoutMs: timeouts.workspaceImport,
       }),
     previewWorkspaceImport: (workspaceId: string, payload: Record<string, unknown>) =>
-      requestJson<OpenworkWorkspaceImportPreview>(
+      requestJson<OnMyAgentWorkspaceImportPreview>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/import/preview`,
         {
@@ -1223,7 +1223,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         },
       ),
     materializeBlueprintSessions: (workspaceId: string) =>
-      requestJson<OpenworkBlueprintSessionsMaterializeResult>(
+      requestJson<OnMyAgentBlueprintSessionsMaterializeResult>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/blueprint/sessions/materialize`,
         {
@@ -1262,7 +1262,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       }),
     listReloadEvents: (workspaceId: string, options?: { since?: number }) => {
       const query = typeof options?.since === "number" ? `?since=${options.since}` : "";
-      return requestJson<{ items: OpenworkReloadEvent[]; cursor?: number }>(
+      return requestJson<{ items: OnMyAgentReloadEvent[]; cursor?: number }>(
         baseUrl,
         `/workspace/${workspaceId}/events${query}`,
         { token, hostToken },
@@ -1276,33 +1276,33 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       }),
     listPlugins: (workspaceId: string, options?: { includeGlobal?: boolean }) => {
       const query = options?.includeGlobal ? "?includeGlobal=true" : "";
-      return requestJson<{ items: OpenworkPluginItem[]; loadOrder: string[] }>(
+      return requestJson<{ items: OnMyAgentPluginItem[]; loadOrder: string[] }>(
         baseUrl,
         `/workspace/${workspaceId}/plugins${query}`,
         { token, hostToken },
       );
     },
     addPlugin: (workspaceId: string, spec: string) =>
-      requestJson<{ items: OpenworkPluginItem[]; loadOrder: string[] }>(
+      requestJson<{ items: OnMyAgentPluginItem[]; loadOrder: string[] }>(
         baseUrl,
         `/workspace/${workspaceId}/plugins`,
         { token, hostToken, method: "POST", body: { spec } },
       ),
     removePlugin: (workspaceId: string, name: string) =>
-      requestJson<{ items: OpenworkPluginItem[]; loadOrder: string[] }>(
+      requestJson<{ items: OnMyAgentPluginItem[]; loadOrder: string[] }>(
         baseUrl,
         `/workspace/${workspaceId}/plugins/${encodeURIComponent(name)}`,
         { token, hostToken, method: "DELETE" },
       ),
     listSkills: (workspaceId: string, options?: { includeGlobal?: boolean }) => {
       const query = options?.includeGlobal ? "?includeGlobal=true" : "";
-      return requestJson<{ items: OpenworkSkillItem[] }>(
+      return requestJson<{ items: OnMyAgentSkillItem[] }>(
         baseUrl,
         `/workspace/${workspaceId}/skills${query}`,
         { token, hostToken },
       );
     },
-    listHubSkills: (options?: { repo?: OpenworkHubRepo }) => {
+    listHubSkills: (options?: { repo?: OnMyAgentHubRepo }) => {
       const params = new URLSearchParams();
       const owner = options?.repo?.owner?.trim();
       const repo = options?.repo?.repo?.trim();
@@ -1311,7 +1311,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       if (repo) params.set("repo", repo);
       if (ref) params.set("ref", ref);
       const query = params.size ? `?${params.toString()}` : "";
-      return requestJson<{ items: OpenworkHubSkillItem[] }>(baseUrl, `/hub/skills${query}`, {
+      return requestJson<{ items: OnMyAgentHubSkillItem[] }>(baseUrl, `/hub/skills${query}`, {
         token,
         hostToken,
       });
@@ -1336,14 +1336,14 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       ),
     getSkill: (workspaceId: string, name: string, options?: { includeGlobal?: boolean }) => {
       const query = options?.includeGlobal ? "?includeGlobal=true" : "";
-      return requestJson<OpenworkSkillContent>(
+      return requestJson<OnMyAgentSkillContent>(
         baseUrl,
         `/workspace/${workspaceId}/skills/${encodeURIComponent(name)}${query}`,
         { token, hostToken },
       );
     },
     upsertSkill: (workspaceId: string, payload: { name: string; content: string; description?: string }) =>
-      requestJson<OpenworkSkillItem>(baseUrl, `/workspace/${workspaceId}/skills`, {
+      requestJson<OnMyAgentSkillItem>(baseUrl, `/workspace/${workspaceId}/skills`, {
         token,
         hostToken,
         method: "POST",
@@ -1360,21 +1360,21 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         },
       ),
     getOpenCodeRouterHealth: (workspaceId: string) =>
-      requestOpenCodeRouter<OpenworkOpenCodeRouterHealthSnapshot>(workspaceId, "/health"),
+      requestOpenCodeRouter<OnMyAgentOpenCodeRouterHealthSnapshot>(workspaceId, "/health"),
     getOpenCodeRouterTelegram: (workspaceId: string) =>
-      requestJson<OpenworkOpenCodeRouterTelegramConfig>(baseUrl, routerPath(workspaceId, "/config/telegram"), {
+      requestJson<OnMyAgentOpenCodeRouterTelegramConfig>(baseUrl, routerPath(workspaceId, "/config/telegram"), {
         token,
         hostToken,
         timeoutMs: timeouts.status,
       }),
     getOpenCodeRouterTelegramIdentities: (workspaceId: string) =>
-      requestJson<{ ok: boolean; items: OpenworkOpenCodeRouterIdentityItem[] }>(
+      requestJson<{ ok: boolean; items: OnMyAgentOpenCodeRouterIdentityItem[] }>(
         baseUrl,
         routerPath(workspaceId, "/identities/telegram"),
         { token, hostToken, timeoutMs: timeouts.status },
       ),
     getOpenCodeRouterSlackIdentities: (workspaceId: string) =>
-      requestJson<{ ok: boolean; items: OpenworkOpenCodeRouterIdentityItem[] }>(
+      requestJson<{ ok: boolean; items: OnMyAgentOpenCodeRouterIdentityItem[] }>(
         baseUrl,
         routerPath(workspaceId, "/identities/slack"),
         { token, hostToken, timeoutMs: timeouts.status },
@@ -1383,7 +1383,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       workspaceId: string,
       payload: { channel: "telegram" | "slack"; text: string; directory?: string; peerId?: string; autoBind?: boolean },
     ) =>
-      requestJson<OpenworkOpenCodeRouterSendResult>(baseUrl, routerPath(workspaceId, "/send"), {
+      requestJson<OnMyAgentOpenCodeRouterSendResult>(baseUrl, routerPath(workspaceId, "/send"), {
         token,
         hostToken,
         method: "POST",
@@ -1394,13 +1394,13 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       workspaceId: string,
       payload: { token: string; access: "private" | "public"; enabled: boolean; pairingCode?: string },
     ) =>
-      requestJson<OpenworkOpenCodeRouterIdentityWriteResult>(
+      requestJson<OnMyAgentOpenCodeRouterIdentityWriteResult>(
         baseUrl,
         routerPath(workspaceId, "/identities/telegram"),
         { token, hostToken, method: "POST", body: payload, timeoutMs: timeouts.status },
       ),
     deleteOpenCodeRouterTelegramIdentity: (workspaceId: string, identityId: string) =>
-      requestJson<OpenworkOpenCodeRouterIdentityWriteResult>(
+      requestJson<OnMyAgentOpenCodeRouterIdentityWriteResult>(
         baseUrl,
         `${routerPath(workspaceId, "/identities/telegram")}/${encodeURIComponent(identityId)}`,
         { token, hostToken, method: "DELETE", timeoutMs: timeouts.status },
@@ -1409,34 +1409,34 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       workspaceId: string,
       payload: { botToken: string; appToken: string; enabled: boolean },
     ) =>
-      requestJson<OpenworkOpenCodeRouterIdentityWriteResult>(
+      requestJson<OnMyAgentOpenCodeRouterIdentityWriteResult>(
         baseUrl,
         routerPath(workspaceId, "/identities/slack"),
         { token, hostToken, method: "POST", body: payload, timeoutMs: timeouts.status },
       ),
     deleteOpenCodeRouterSlackIdentity: (workspaceId: string, identityId: string) =>
-      requestJson<OpenworkOpenCodeRouterIdentityWriteResult>(
+      requestJson<OnMyAgentOpenCodeRouterIdentityWriteResult>(
         baseUrl,
         `${routerPath(workspaceId, "/identities/slack")}/${encodeURIComponent(identityId)}`,
         { token, hostToken, method: "DELETE", timeoutMs: timeouts.status },
       ),
     listMcp: (workspaceId: string) =>
-      requestJson<{ items: OpenworkMcpItem[] }>(baseUrl, `/workspace/${workspaceId}/mcp`, { token, hostToken }),
+      requestJson<{ items: OnMyAgentMcpItem[] }>(baseUrl, `/workspace/${workspaceId}/mcp`, { token, hostToken }),
     addMcp: (workspaceId: string, payload: { name: string; config: Record<string, unknown> }) =>
-      requestJson<{ items: OpenworkMcpItem[] }>(baseUrl, `/workspace/${workspaceId}/mcp`, {
+      requestJson<{ items: OnMyAgentMcpItem[] }>(baseUrl, `/workspace/${workspaceId}/mcp`, {
         token,
         hostToken,
         method: "POST",
         body: payload,
       }),
     removeMcp: (workspaceId: string, name: string) =>
-      requestJson<{ items: OpenworkMcpItem[] }>(baseUrl, `/workspace/${workspaceId}/mcp/${encodeURIComponent(name)}`, {
+      requestJson<{ items: OnMyAgentMcpItem[] }>(baseUrl, `/workspace/${workspaceId}/mcp/${encodeURIComponent(name)}`, {
         token,
         hostToken,
         method: "DELETE",
       }),
     setMcpEnabled: (workspaceId: string, name: string, enabled: boolean) =>
-      requestJson<{ items: OpenworkMcpItem[] }>(
+      requestJson<{ items: OnMyAgentMcpItem[] }>(
         baseUrl,
         `/workspace/${workspaceId}/mcp/${encodeURIComponent(name)}/enabled`,
         {
@@ -1455,13 +1455,13 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       }),
 
     listCommands: (workspaceId: string, scope: "workspace" | "global" = "workspace") =>
-      requestJson<{ items: OpenworkCommandItem[] }>(
+      requestJson<{ items: OnMyAgentCommandItem[] }>(
         baseUrl,
         `/workspace/${workspaceId}/commands?scope=${scope}`,
         { token, hostToken },
       ),
     listAudit: (workspaceId: string, limit = 50) =>
-      requestJson<{ items: OpenworkAuditEntry[] }>(
+      requestJson<{ items: OnMyAgentAuditEntry[] }>(
         baseUrl,
         `/workspace/${workspaceId}/audit?limit=${limit}`,
         { token, hostToken },
@@ -1470,7 +1470,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       workspaceId: string,
       payload: { name: string; description?: string; template: string; agent?: string; model?: string | null; subtask?: boolean },
     ) =>
-      requestJson<{ items: OpenworkCommandItem[] }>(baseUrl, `/workspace/${workspaceId}/commands`, {
+      requestJson<{ items: OnMyAgentCommandItem[] }>(baseUrl, `/workspace/${workspaceId}/commands`, {
         token,
         hostToken,
         method: "POST",
@@ -1483,37 +1483,37 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         method: "DELETE",
       }),
     listAutomations: (workspaceId: string) =>
-      requestJson<{ items: OpenworkAutomationTaskItem[] }>(
+      requestJson<{ items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations`,
         { token, hostToken, timeoutMs: timeouts.status },
       ),
     listAutomationRuns: (workspaceId: string, automationId: string) =>
-      requestJson<OpenworkAutomationRunHistoryResult>(
+      requestJson<OnMyAgentAutomationRunHistoryResult>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}/runs`,
         { token, hostToken, timeoutMs: timeouts.status },
       ),
-    createAutomation: (workspaceId: string, payload: OpenworkAutomationTaskInput) =>
-      requestJson<{ item: OpenworkAutomationTaskItem; items: OpenworkAutomationTaskItem[] }>(
+    createAutomation: (workspaceId: string, payload: OnMyAgentAutomationTaskInput) =>
+      requestJson<{ item: OnMyAgentAutomationTaskItem; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations`,
         { token, hostToken, method: "POST", body: payload, timeoutMs: timeouts.status },
       ),
-    updateAutomation: (workspaceId: string, automationId: string, payload: Partial<OpenworkAutomationTaskInput>) =>
-      requestJson<{ item: OpenworkAutomationTaskItem; items: OpenworkAutomationTaskItem[] }>(
+    updateAutomation: (workspaceId: string, automationId: string, payload: Partial<OnMyAgentAutomationTaskInput>) =>
+      requestJson<{ item: OnMyAgentAutomationTaskItem; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}`,
         { token, hostToken, method: "PATCH", body: payload, timeoutMs: timeouts.status },
       ),
     runAutomation: (workspaceId: string, automationId: string) =>
-      requestJson<{ item: OpenworkAutomationTaskItem; items: OpenworkAutomationTaskItem[] }>(
+      requestJson<{ item: OnMyAgentAutomationTaskItem; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}/run`,
         { token, hostToken, method: "POST", timeoutMs: timeouts.status },
       ),
     deleteAutomation: (workspaceId: string, automationId: string) =>
-      requestJson<{ ok: boolean; items: OpenworkAutomationTaskItem[] }>(
+      requestJson<{ ok: boolean; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}`,
         { token, hostToken, method: "DELETE", timeoutMs: timeouts.status },
@@ -2006,7 +2006,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         } catch {
           // ignore
         }
-        throw new OpenworkServerError(
+        throw new OnMyAgentServerError(
           result.status,
           "request_failed",
           message || "Shared folder upload failed",
@@ -2016,13 +2016,13 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       const body = result.text.trim();
       if (body) {
         try {
-          const parsed = JSON.parse(body) as Partial<OpenworkInboxUploadResult>;
+          const parsed = JSON.parse(body) as Partial<OnMyAgentInboxUploadResult>;
           if (typeof parsed.path === "string" && parsed.path.trim()) {
             return {
               ok: parsed.ok ?? true,
               path: parsed.path.trim(),
               bytes: typeof parsed.bytes === "number" ? parsed.bytes : file.size,
-            } satisfies OpenworkInboxUploadResult;
+            } satisfies OnMyAgentInboxUploadResult;
           }
         } catch {
           // ignore invalid JSON and fall back
@@ -2033,11 +2033,11 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         ok: true,
         path: options?.path?.trim() || file.name,
         bytes: file.size,
-      } satisfies OpenworkInboxUploadResult;
+      } satisfies OnMyAgentInboxUploadResult;
     },
 
     listInbox: (workspaceId: string) =>
-      requestJson<OpenworkInboxList>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/inbox`, {
+      requestJson<OnMyAgentInboxList>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/inbox`, {
         token,
         hostToken,
       }),
@@ -2050,14 +2050,14 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       ),
 
     readWorkspaceFile: (workspaceId: string, path: string) =>
-      requestJson<OpenworkWorkspaceFileContent>(
+      requestJson<OnMyAgentWorkspaceFileContent>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/files/content?path=${encodeURIComponent(path)}`,
         { token, hostToken },
       ),
 
     statWorkspaceFile: (workspaceId: string, path: string) =>
-      requestJson<OpenworkWorkspaceFileStat>(
+      requestJson<OnMyAgentWorkspaceFileStat>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/files/stat?path=${encodeURIComponent(path)}`,
         { token, hostToken },
@@ -2067,7 +2067,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       workspaceId: string,
       payload: { path: string; content: string; baseUpdatedAt?: number | null; force?: boolean },
     ) =>
-      requestJson<OpenworkWorkspaceFileWriteResult>(
+      requestJson<OnMyAgentWorkspaceFileWriteResult>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/files/content`,
         {
@@ -2082,7 +2082,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       workspaceId: string,
       payload: { path: string; data: ArrayBuffer; baseUpdatedAt?: number | null; force?: boolean },
     ) =>
-      requestJson<OpenworkWorkspaceFileWriteResult>(
+      requestJson<OnMyAgentWorkspaceFileWriteResult>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/files/raw`,
         {
@@ -2132,7 +2132,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       const sessionId = sessionResult.session.id.trim();
       if (!sessionId) throw new Error("file session id is required");
 
-      const items: OpenworkWorkspaceFileCatalogEntry[] = [];
+      const items: OnMyAgentWorkspaceFileCatalogEntry[] = [];
       let after: string | undefined;
       let total = 0;
       let generatedAt = Date.now();
@@ -2148,7 +2148,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
           if (after) params.set("after", after);
 
           const snapshot = await requestJson<
-            OpenworkWorkspaceFileCatalog & { nextAfter?: string }
+            OnMyAgentWorkspaceFileCatalog & { nextAfter?: string }
           >(
             baseUrl,
             `/files/sessions/${encodeURIComponent(sessionId)}/catalog/snapshot?${params.toString()}`,
@@ -2174,11 +2174,11 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         total,
         generatedAt,
         truncated: truncated || items.length < total,
-      } satisfies OpenworkWorkspaceFileCatalog;
+      } satisfies OnMyAgentWorkspaceFileCatalog;
     },
 
     listArtifacts: (workspaceId: string) =>
-      requestJson<OpenworkArtifactList>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/artifacts`, {
+      requestJson<OnMyAgentArtifactList>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/artifacts`, {
         token,
         hostToken,
       }),
@@ -2194,7 +2194,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         reason?: string;
       }>,
     ) =>
-      requestJson<{ items: OpenworkResolvedArtifactTarget[] }>(
+      requestJson<{ items: OnMyAgentResolvedArtifactTarget[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/artifacts/resolve`,
         { token, hostToken, method: "POST", body: { targets } },
@@ -2258,4 +2258,4 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
   };
 }
 
-export type OpenworkServerClient = ReturnType<typeof createOpenworkServerClient>;
+export type OnMyAgentServerClient = ReturnType<typeof createOnMyAgentServerClient>;

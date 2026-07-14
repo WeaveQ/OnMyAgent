@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 
 let sessionCounter = 0;
@@ -52,11 +53,33 @@ function handleRequest(message) {
     const sessionId = params?.sessionId || "unknown";
     const promptText = Array.isArray(params?.prompt) && params.prompt[0]?.text ? params.prompt[0].text : "unknown";
     const isContinuation = /previous response appears incomplete|continue exactly from where it stopped/i.test(promptText);
-    const response = continuationCompletes && isContinuation
+    let response = continuationCompletes && isContinuation
       ? "，后续补齐内容，形成完整结论。"
       : truncatedReply
         ? "**3. AI 对就业影响成为主流议题**"
         : `Fake response to: ${promptText}`;
+    if (
+      process.env.ONMYAGENT_BROWSER_USE_SMOKE === "1" &&
+      promptText.includes("ONMYAGENT_BROWSER_USE_SMOKE")
+    ) {
+      const browserUse = spawnSync("browser-use", [], {
+        encoding: "utf8",
+        env: process.env,
+        input: [
+          "import json, time",
+          "new_tab('http://127.0.0.1:9840/browser-use-smoke.html')",
+          "wait_for_load()",
+          "time.sleep(1)",
+          "js(\"(()=>{const input=document.querySelector('#value');input.value='completed';input.dispatchEvent(new Event('input',{bubbles:true}));return input.value})()\")",
+          "print(json.dumps({'page': page_info(), 'value': js(\"document.querySelector('#value').value\"), 'marker': js('window.name')}))",
+        ].join("\n"),
+      });
+      if (browserUse.status !== 0) {
+        response = `Browser Use smoke failed: ${browserUse.stderr || browserUse.stdout}`;
+      } else {
+        response = `Browser Use smoke completed: ${browserUse.stdout.trim()}`;
+      }
+    }
     if (/approval/i.test(promptText)) {
       process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: `perm-${id}`, method: "session/request_permission", params: { toolName: "Bash", command: "touch /tmp/fake-acp", options: [{ optionId: "reject", label: "Reject" }, { optionId: "approve", label: "Approve" }, { optionId: "approve_for_session", label: "Approve for session" }] } })}\n`);
     }

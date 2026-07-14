@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
+import { t } from "../../../../../i18n";
 import { isStreamingSessionStatus } from "../../sidebar/utils";
 import { formatConversationTime, type AgentConversationGroup, type TaskStatusIndicator } from "./conversation-model";
 
@@ -66,7 +67,7 @@ export function AgentConversationItem(props: {
               draggable={false}
             />
           ) : (
-            props.group.name.charAt(0).toUpperCase() || "新"
+            props.group.name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
         <span

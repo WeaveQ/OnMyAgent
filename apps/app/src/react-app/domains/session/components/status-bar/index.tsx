@@ -11,9 +11,9 @@ import { t } from "@/i18n";
 import { usePlatform } from "../../../../kernel/platform";
 import {
   useControlAction,
-  type OpenworkControlAction,
-} from "../../../../shell/control/control-provider";
-import type { OpenworkServerStatus } from "../../../../../app/lib/onmyagent-server";
+  type OnMyAgentControlAction,
+} from "../../../../shell";
+import type { OnMyAgentServerStatus } from "../../../../../app/lib/onmyagent-server";
 import { APP_NAME } from "../../../../../i18n/locales/brand";
 
 const DOCS_URL = "https://onmyagentlabs.com/docs";
@@ -47,7 +47,7 @@ function StatusDot({ variant }: StatusDotProps) {
 
 type StatusIndicatorProps = {
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   developerMode: boolean;
   mcpConnectedCount: number;
   loading?: boolean;
@@ -62,10 +62,10 @@ function StatusIndicator(props: StatusIndicatorProps) {
     return (
       <div className="flex min-w-0 items-center gap-2.5">
         <StatusDot variant="loading" />
-        <span className="shrink-0 font-medium text-foreground text-xs">
+        <span className="shrink-0 font-medium text-dls-text text-xs">
           {t("session.preparing_workspace")}
         </span>
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="truncate text-dls-secondary text-xs">
           {t("session.loading_detail")}
         </span>
       </div>
@@ -81,7 +81,7 @@ function StatusIndicator(props: StatusIndicatorProps) {
           </TooltipTrigger>
           <TooltipContent>{t("status.connected")}</TooltipContent>
         </Tooltip>
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="truncate text-dls-secondary text-xs">
           {props.mcpConnectedCount > 0
             ? t("status.mcp_connected", undefined, {
                 count: props.mcpConnectedCount,
@@ -89,7 +89,7 @@ function StatusIndicator(props: StatusIndicatorProps) {
             : t("status.ready_for_tasks")}
         </span>
         {props.developerMode ? (
-          <span className="truncate text-muted-foreground text-xs">
+          <span className="truncate text-dls-secondary text-xs">
             {t("status.developer_mode")}
           </span>
         ) : null}
@@ -101,10 +101,10 @@ function StatusIndicator(props: StatusIndicatorProps) {
     return (
       <div className="flex min-w-0 items-center gap-2.5">
         <StatusDot variant="partial" />
-        <span className="shrink-0 font-medium text-foreground text-xs">
+        <span className="shrink-0 font-medium text-dls-text text-xs">
           {t("status.limited_mode")}
         </span>
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="truncate text-dls-secondary text-xs">
           {props.mcpConnectedCount > 0
             ? t("status.limited_mcp_hint", undefined, {
                 count: props.mcpConnectedCount,
@@ -118,10 +118,10 @@ function StatusIndicator(props: StatusIndicatorProps) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
       <StatusDot variant="disconnected" />
-      <span className="shrink-0 font-medium text-foreground text-xs">
+      <span className="shrink-0 font-medium text-dls-text text-xs">
         {t("status.disconnected_label")}
       </span>
-      <span className="truncate text-muted-foreground text-xs">
+      <span className="truncate text-dls-secondary text-xs">
         {t("status.disconnected_hint")}
       </span>
     </div>
@@ -130,7 +130,7 @@ function StatusIndicator(props: StatusIndicatorProps) {
 
 export type StatusBarProps = {
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   developerMode: boolean;
   settingsOpen: boolean;
   onSendFeedback: () => void;
@@ -160,7 +160,7 @@ export function StatusBar(props: StatusBarProps) {
     return () => window.clearTimeout(timeout);
   }, [initializing]);
 
-  const docsControlAction = useMemo<OpenworkControlAction>(
+  const docsControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "status.docs.open",
       label: `Open ${APP_NAME} docs`,
@@ -173,7 +173,7 @@ export function StatusBar(props: StatusBarProps) {
   );
   useControlAction(docsControlAction);
 
-  const feedbackControlAction = useMemo<OpenworkControlAction>(
+  const feedbackControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "status.feedback.open",
       label: t("status.send_feedback"),
@@ -187,7 +187,7 @@ export function StatusBar(props: StatusBarProps) {
   useControlAction(feedbackControlAction);
 
   return (
-    <div className="border-t border-border bg-background">
+    <div className="border-t border-dls-border bg-dls-surface">
       <div className="flex h-8 items-center justify-between gap-3 px-4 md:px-6">
         <StatusIndicator
           clientConnected={props.clientConnected}
@@ -201,7 +201,7 @@ export function StatusBar(props: StatusBarProps) {
           {/* {shellConfig.docsButton ? (
             <Button
               ref={docsButtonRef}
-              className="text-muted-foreground gap-2"
+              className="text-dls-secondary gap-2"
               variant="ghost"
               size="xs"
               onClick={() => platform.openLink(DOCS_URL)}
@@ -215,7 +215,7 @@ export function StatusBar(props: StatusBarProps) {
           {/* {shellConfig.feedbackButton ? (
             <Button
               ref={feedbackButtonRef}
-              className="text-muted-foreground gap-2"
+              className="text-dls-secondary gap-2"
               variant="ghost"
               size="xs"
               onClick={props.onSendFeedback}

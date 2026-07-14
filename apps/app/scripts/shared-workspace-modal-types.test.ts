@@ -8,7 +8,7 @@ import type {
   RemoteWorkspaceInput,
   ShareWorkspaceModalProps,
   ShareView,
-} from "../src/react-app/domains/shared/workspace-modal-types";
+} from "../src/react-app/domains/workspace/workspace-modal-types";
 
 const progress = {
   runId: "run-1",

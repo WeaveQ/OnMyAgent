@@ -8,7 +8,7 @@ import {
   openDesktopPath,
 } from "@/app/lib/desktop";
 import type { LocalSkillCard } from "@/app/lib/desktop";
-import type { OpenworkServerClient } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +65,14 @@ function skillDisplayName(skill: LocalSkillCard): string {
 
 function skillDescription(skill: LocalSkillCard): string {
   return skill.descriptionZh || skill.descriptionEn || skill.description || skill.trigger || "";
+}
+
+const builtinMarketplaceSkillByName = new Map(
+  BUILTIN_MARKETPLACE_SKILLS.map((skill) => [skill.skillName, skill]),
+);
+
+function marketplaceSkillForLocalSkill(skill: LocalSkillCard): SkillMarketplaceEntry | null {
+  return builtinMarketplaceSkillByName.get(skill.name) ?? null;
 }
 
 function yamlScalar(markdown: string, key: string): string {
@@ -281,15 +289,20 @@ function SkillCard(props: {
 
 function InstalledSkillCard(props: {
   skill: LocalSkillCard;
+  marketplaceSkill: SkillMarketplaceEntry | null;
   opening: boolean;
   onOpenFolder: (skill: LocalSkillCard) => void;
 }) {
   const description = skillDescription(props.skill);
   return (
     <div className="flex min-h-24 items-start gap-3 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
-        {skillFallbackInitial(skillDisplayName(props.skill))}
-      </span>
+      {props.marketplaceSkill ? (
+        <SkillIcon skill={props.marketplaceSkill} />
+      ) : (
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
+          {skillFallbackInitial(skillDisplayName(props.skill))}
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold leading-5 text-dls-text">
           {skillDisplayName(props.skill)}
@@ -395,7 +408,7 @@ function ImportSkillDialog(props: {
           )}
         >
           <span className="flex size-8 items-center justify-center rounded-md border border-dls-border bg-dls-surface text-dls-secondary">
-            {props.importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            {props.importing ? <LoadingSpinner size="default" /> : <Upload className="size-4" />}
           </span>
           <span className="text-sm text-dls-text">{t("skills_marketplace.import_drop")}</span>
         </button>
@@ -417,7 +430,7 @@ function ImportSkillDialog(props: {
 export function SkillsMarketplacePage(props: {
   workspaceId: string;
   workspaceRoot?: string | null;
-  client?: OpenworkServerClient | null;
+  client?: OnMyAgentServerClient | null;
   query?: string;
   view?: "market" | "installed";
   importOpen?: boolean;
@@ -590,6 +603,7 @@ export function SkillsMarketplacePage(props: {
                 <InstalledSkillCard
                   key={skill.name}
                   skill={skill}
+                  marketplaceSkill={marketplaceSkillForLocalSkill(skill)}
                   opening={openingSkillPath === skill.path}
                   onOpenFolder={handleOpenSkillFolder}
                 />

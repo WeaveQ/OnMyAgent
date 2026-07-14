@@ -162,13 +162,13 @@ export function buildWorkspaceConnectionLoadedState(input: {
 export function applyWorkspaceSessionLoadSuccessConnectionState(input: {
   checkedAt: number;
   emptyMessage: string;
-  isRemoteOpenworkWorkspace: boolean;
+  isRemoteOnMyAgentWorkspace: boolean;
   loadedMessage: string;
   states: Record<string, WorkspaceConnectionState>;
   taskCount: number;
   workspaceId: string;
 }) {
-  if (input.isRemoteOpenworkWorkspace) {
+  if (input.isRemoteOnMyAgentWorkspace) {
     return setWorkspaceConnectionStateById({
       states: input.states,
       workspaceId: input.workspaceId,

@@ -1,6 +1,6 @@
 import type { SidebarSessionItem } from "../../app/types";
 import { t } from "../../i18n";
-import type { OpenworkControlAction } from "./control/control-provider";
+import type { OnMyAgentControlAction } from "./control/control-provider";
 import {
   canCreateTaskInRouteWorkspace,
   findRouteWorkspace,
@@ -21,7 +21,7 @@ import {
 
 export function buildCommandPaletteControlAction(input: {
   openCommandPalette: () => void;
-}): OpenworkControlAction {
+}): OnMyAgentControlAction {
   return {
     id: "command_palette.open",
     label: t("system.control_open_command_palette"),

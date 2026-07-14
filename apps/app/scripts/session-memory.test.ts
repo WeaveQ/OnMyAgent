@@ -4,11 +4,17 @@ import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
   readLastSessionFor,
+  readSessionAccessModes,
+  readSessionCollaborationModes,
   readSessionGoalRuntimes,
+  readSessionModelOverrides,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
   writeLastSessionFor,
+  writeSessionAccessModes,
+  writeSessionCollaborationModes,
   writeSessionGoalRuntimes,
+  writeSessionModelOverrides,
   writeWorkspaceOrderIds,
 } from "../src/react-app/shell/session-memory";
 
@@ -16,6 +22,9 @@ const ACTIVE_WORKSPACE_KEY = "onmyagent.react.activeWorkspace";
 const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
+const ACCESS_MODE_BY_SESSION_KEY = "onmyagent.react.accessModeBySession.v1";
+const COLLABORATION_MODE_BY_SESSION_KEY = "onmyagent.react.collaborationModeBySession.v1";
+const MODEL_OVERRIDE_BY_SESSION_KEY = "onmyagent.react.modelOverrideBySession.v1";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -88,6 +97,75 @@ describe("session memory", () => {
     window.localStorage.setItem(SESSION_BY_WORKSPACE_KEY, JSON.stringify({ ws_a: "ses_1", ws_b: 42 }));
     expect(readLastSessionFor("ws_a")).toBe("ses_1");
     expect(readLastSessionFor("ws_b")).toBeNull();
+  });
+
+  test("persists only valid session access modes", () => {
+    writeSessionAccessModes({ ses_default: "default", ses_full: "full", " ": "full" });
+
+    expect(readSessionAccessModes()).toEqual({
+      ses_default: "default",
+      ses_full: "full",
+    });
+
+    window.localStorage.setItem(
+      ACCESS_MODE_BY_SESSION_KEY,
+      JSON.stringify({ ses_default: "default", ses_invalid: "unsafe" }),
+    );
+    expect(readSessionAccessModes()).toEqual({ ses_default: "default" });
+
+    writeSessionAccessModes({});
+    expect(window.localStorage.getItem(ACCESS_MODE_BY_SESSION_KEY)).toBeNull();
+  });
+
+  test("persists only valid session collaboration modes", () => {
+    writeSessionCollaborationModes({
+      ses_ask: { kind: "ask", planning: false, pursueGoal: false },
+      ses_plan: { kind: "plan", planning: true, pursueGoal: false },
+    });
+
+    expect(readSessionCollaborationModes()).toEqual({
+      ses_ask: { kind: "ask", planning: false, pursueGoal: false },
+      ses_plan: { kind: "plan", planning: true, pursueGoal: false },
+    });
+
+    window.localStorage.setItem(
+      COLLABORATION_MODE_BY_SESSION_KEY,
+      JSON.stringify({
+        ses_valid: { kind: "craft", planning: false, pursueGoal: true },
+        ses_invalid: { kind: "other", planning: false, pursueGoal: false },
+      }),
+    );
+    expect(readSessionCollaborationModes()).toEqual({
+      ses_valid: { kind: "craft", planning: false, pursueGoal: true },
+    });
+  });
+
+  test("persists only valid per-session model overrides", () => {
+    writeSessionModelOverrides({
+      ses_openai: { providerID: "openai", modelID: "gpt-5" },
+      ses_anthropic: { providerID: "anthropic", modelID: "claude" },
+      " ": { providerID: "openai", modelID: "gpt-5" },
+    });
+
+    expect(readSessionModelOverrides()).toEqual({
+      ses_openai: { providerID: "openai", modelID: "gpt-5" },
+      ses_anthropic: { providerID: "anthropic", modelID: "claude" },
+    });
+
+    window.localStorage.setItem(
+      MODEL_OVERRIDE_BY_SESSION_KEY,
+      JSON.stringify({
+        ses_valid: { providerID: "openai", modelID: "gpt-5" },
+        ses_missing_provider: { modelID: "gpt-5" },
+        ses_blank_model: { providerID: "openai", modelID: " " },
+      }),
+    );
+    expect(readSessionModelOverrides()).toEqual({
+      ses_valid: { providerID: "openai", modelID: "gpt-5" },
+    });
+
+    writeSessionModelOverrides({});
+    expect(window.localStorage.getItem(MODEL_OVERRIDE_BY_SESSION_KEY)).toBeNull();
   });
 
   test("persists goal runtimes with checkpoints, logs, and cached todos by session", () => {

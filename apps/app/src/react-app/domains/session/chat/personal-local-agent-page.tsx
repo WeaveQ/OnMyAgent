@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import {
@@ -64,22 +65,64 @@ import {
   scheduledTaskSessionContext,
   type HeartbeatDraft,
 } from "./personal-local-agent-scheduled-tasks";
-import { LocalAgentStatusRail } from "../../local-agents/local-agent-status-rail";
-import { LocalAgentDraftComposer, buildLocalAgentPrompt, type LocalAgentComposerSubmit, type LocalAgentSlashCommand } from "../../local-agents/local-agent-draft-composer";
-import { elapsedSeconds, shortTime } from "../../local-agents/local-agent-formatters";
-import { APPROVAL_MODE_OPTIONS, DEFAULT_HEALTH_RESULT, DEFAULT_HEARTBEAT_PROMPT, LOCAL_AGENT_LIST_DEFAULT_WIDTH, LOCAL_AGENT_LIST_MAX_WIDTH, LOCAL_AGENT_LIST_MIN_WIDTH, agentFromAcpMetadata, agentIdFromChatKey, builtinSlashCommands, chooseInitialModel, compactMessagesByAgent, isUnsupportedNativeTranscriptError, localAgentChatKey, mergeSlashCommands, nativeSessionResumeOnlyMessage, normalizeAcpSlashCommands, normalizeAcpSlashCommandList, personalAgentApprovalModeKey, personalAgentChatStateKey, personalAgentModelPrefKey, recoverActiveRunIds, safeReadApprovalMode, safeReadCachedAgents, safeReadPersistedChatState, safeWriteCachedAgents, transcriptMessagesForAgent, welcomeMessageForAgent, providerIconUrl, modelSelectorLabel, type PersistedLocalAgentChatState } from "../../local-agents/local-agent-page-model";
-import type { AgentHealthResult } from "../../local-agents/local-agent-page-types";
-import { ChatBubble } from "../../local-agents/messages/chat-bubble";
-import { latestContextUsage } from "../../local-agents/context-usage-indicator";
-import type { ChatMessage } from "../../local-agents/messages/message-types";
-import { collectRunOpenTargets, isRunFinal } from "../../local-agents/messages/message-utils";
-import { lastEventTime } from "../../local-agents/messages/timeline-messages";
-import { useAcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
+import {
+  LocalAgentStatusRail,
+  LocalAgentDraftComposer,
+  buildLocalAgentPrompt,
+  type LocalAgentComposerSubmit,
+  type LocalAgentSlashCommand,
+  elapsedSeconds,
+  shortTime,
+  APPROVAL_MODE_OPTIONS,
+  DEFAULT_HEALTH_RESULT,
+  DEFAULT_HEARTBEAT_PROMPT,
+  LOCAL_AGENT_LIST_DEFAULT_WIDTH,
+  LOCAL_AGENT_LIST_MAX_WIDTH,
+  LOCAL_AGENT_LIST_MIN_WIDTH,
+  agentFromAcpMetadata,
+  agentIdFromChatKey,
+  builtinSlashCommands,
+  chooseInitialModel,
+  compactMessagesByAgent,
+  isUnsupportedNativeTranscriptError,
+  localAgentChatKey,
+  mergeSlashCommands,
+  nativeSessionResumeOnlyMessage,
+  normalizeAcpSlashCommands,
+  normalizeAcpSlashCommandList,
+  personalAgentApprovalModeKey,
+  personalAgentChatStateKey,
+  personalAgentModelPrefKey,
+  recoverActiveRunIds,
+  safeReadApprovalMode,
+  safeReadCachedAgents,
+  safeReadPersistedChatState,
+  safeWriteCachedAgents,
+  transcriptMessagesForAgent,
+  welcomeMessageForAgent,
+  providerIconUrl,
+  modelSelectorLabel,
+  type PersistedLocalAgentChatState,
+  type AgentHealthResult,
+  ChatBubble,
+  latestContextUsage,
+  type ChatMessage,
+  collectRunOpenTargets,
+  isRunFinal,
+  lastEventTime,
+  useAcpModelInfo,
+  type LocalAgentRepairAction,
+  useAcpInitialMessage,
+  WorkspaceFootnote,
+  addRecentWorkspace,
+  getRecentWorkspaces,
+  readWorkspaceOverride,
+  writeWorkspaceOverride,
+  useConversationHistoryHydration,
+} from "../../local-agents";
+import { SidebarPaneCollapseToggle } from "../components/shared-pages/sidebar-pane-collapse-toggle";
 import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
-import type { OpenworkServerClient } from "../../../../app/lib/onmyagent-server";
-import { useAcpInitialMessage } from "../../local-agents/hooks/use-acp-initial-message";
-import { WorkspaceFootnote } from "../../local-agents/workspace-picker/workspace-footnote";
-import { addRecentWorkspace, getRecentWorkspaces, readWorkspaceOverride, writeWorkspaceOverride } from "../../local-agents/workspace-picker/recent-workspaces"; import { useConversationHistoryHydration } from "../../local-agents/hooks/use-conversation-history-hydration";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { useArchiveResume } from "./use-archive-resume";
 import { ActiveRunsOverview } from "./personal-local-agent-active-runs";
 import { useWorkspaceOverride } from "./use-workspace-override";
@@ -111,7 +154,7 @@ type PersonalLocalAgentPageProps = {
   onResumeConsumed?: () => void;
   /** OnMyAgent server client used to fetch archived session messages when
    *  resuming a cross-workspace / server-side session (see 诉求2). */
-  onmyagentServerClient?: OpenworkServerClient | null;
+  onmyagentServerClient?: OnMyAgentServerClient | null;
   /** Workspace id used to query the session-archive API (may differ from the
    *  local filesystem workspaceRoot). */
   runtimeWorkspaceId?: string | null;
@@ -134,23 +177,25 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     sanitizedMessagesByAgent[key] = (messages ?? []).filter((message) => {
       const run = message.run;
       if (run?.errorInfo?.code === "orphaned") return false;
-      if (run?.status === "failed" && typeof message.text === "string" && message.text.includes("该 run 因主进程重启")) return false;
+      if (run?.status === "failed" && typeof message.text === "string" && message.text.includes("\u8BE5 run \u56E0\u4E3B\u8FDB\u7A0B\u91CD\u542F")) return false;
       return true;
     });
   }
   const sanitizedErrorsByAgent: Record<string, string | null> = {};
   for (const [key, value] of Object.entries(persistedState.errorsByAgent ?? {})) {
-    sanitizedErrorsByAgent[key] = typeof value === "string" && value.includes("该 run 因主进程重启") ? null : value;
+    sanitizedErrorsByAgent[key] = typeof value === "string" && value.includes("\u8BE5 run \u56E0\u4E3B\u8FDB\u7A0B\u91CD\u542F") ? null : value;
   }
   const initialAgents = initialAgentsRef.current;
   const [agents, setAgents] = useState<PersonalLocalAgent[]>(initialAgents);
   const [selectedAgentId, setSelectedAgentId] = useState(persistedState.selectedAgentId || "opencode");
   const [query, setQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [agentListCollapsed, setAgentListCollapsed] = useState(false);
   const [agentListWidth, setAgentListWidth] = useState(LOCAL_AGENT_LIST_DEFAULT_WIDTH);
   const [draftsByAgent, setDraftsByAgent] = useState<Record<string, string>>(persistedState.draftsByAgent ?? {});
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
   const [startingByAgent, setStartingByAgent] = useState<Record<string, boolean>>({});
+  const [showAddForm, setShowAddForm] = useState(false);
   const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(sanitizedErrorsByAgent);
   const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>(
     recoverActiveRunIds(sanitizedMessagesByAgent, persistedState.activeRunIdByAgent),
@@ -1288,7 +1333,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       title={t("local_agent.new_conversation")}
       aria-label={t("local_agent.new_conversation")}
     >
-      {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+      {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <LoadingSpinner size="default" /> : <Plus className="size-4" />}
     </Button>
     {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
       <PersonalLocalAgentModelSelector

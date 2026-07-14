@@ -15,9 +15,14 @@ const ignoredFiles = new Set([
   "apps/app/public/openwork-logo-square.svg",
   "apps/app/public/openwork-logo.svg",
   "apps/app/public/openwork-mark.svg",
-  ".codex/skills/documentation-audit/SKILL.md",
-  "docs/LOOP-RUN-LOG.md",
+  ".agents/skills/documentation-audit/SKILL.md",
   "scripts/checks/rename-consistency.test.mjs",
+]);
+// These files intentionally retain legacy keys so existing desktop installs
+// and persisted state continue to work after the product rename.
+const legacyCompatibilityFiles = new Set([
+  "apps/app/src/app/lib/desktop.ts",
+  "apps/app/src/react-app/kernel/system-state.ts",
 ]);
 const textExtensions = new Set([
   ".cjs",
@@ -94,6 +99,7 @@ for (const file of files) {
   }
   if (!isTextFile(file)) continue;
   const content = readFileSync(join(repoRoot, file), "utf8");
+  if (legacyCompatibilityFiles.has(file)) continue;
   for (const pattern of forbiddenContentPatterns) {
     if (pattern.test(content)) failures.push(`Forbidden old name in ${file}: ${pattern}`);
   }

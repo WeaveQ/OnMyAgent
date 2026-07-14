@@ -1,13 +1,13 @@
 /** @jsxImportSource react */
 import { RefreshCcw } from "lucide-react";
 
-import type { OpenworkServerInfo } from "../../../../app/lib/desktop";
+import type { OnMyAgentServerInfo } from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { SettingsActionRow, SettingsCard, SettingsNotice } from "../settings-section";
-import type { OpenworkTestState, TokenVisibilityKey } from "./config-view-state";
+import type { OnMyAgentTestState, TokenVisibilityKey } from "./config-view-state";
 
 const configTextClass = {
   sectionTitle: "text-sm font-medium text-dls-text",
@@ -123,7 +123,7 @@ function TokenRow(props: {
 }
 
 export function ConfigServerSharingSection(props: {
-  hostInfo: OpenworkServerInfo;
+  hostInfo: OnMyAgentServerInfo;
   hostConnectUrl: string;
   hostRemoteAccessEnabled: boolean;
   hostConnectUrlUsesMdns: boolean;
@@ -177,9 +177,9 @@ export function ConfigServerConnectionSection(props: {
   onmyagentStatusTone: StatusBadgeTone;
   resolvedWorkspaceUrl: string;
   resolvedWorkspaceId: string;
-  onmyagentTestState: OpenworkTestState;
+  onmyagentTestState: OnMyAgentTestState;
   onmyagentTestMessage: string | null;
-  hasOpenworkChanges: boolean;
+  hasOnMyAgentChanges: boolean;
   onUrlChange: (url: string) => void;
   onTokenChange: (token: string) => void;
   onToggleToken: () => void;
@@ -197,10 +197,10 @@ export function ConfigServerConnectionSection(props: {
         <StatusBadge tone={props.onmyagentStatusTone}>{props.onmyagentStatusLabel}</StatusBadge>
       </div>
       <div className="grid gap-3">
-        <TextInput label={t("config.server_url_input_label")} value={props.onmyagentUrl} onChange={(event) => props.onUrlChange(event.currentTarget.value)} placeholder="http://127.0.0.1:<port>" hint={t("config.server_url_hint")} disabled={props.busy} />
+        <LabeledInput label={t("config.server_url_input_label")} value={props.onmyagentUrl} onChange={(event) => props.onUrlChange(event.currentTarget.value)} placeholder="http://127.0.0.1:<port>" hint={t("config.server_url_hint")} disabled={props.busy} />
         <div>
           <div className="flex items-center gap-2">
-            <TextInput
+            <LabeledInput
               label={t("config.token_label")}
               type={props.tokenVisible ? "text" : "password"}
               value={props.onmyagentToken}
@@ -222,7 +222,7 @@ export function ConfigServerConnectionSection(props: {
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" onClick={() => void props.onTestConnection()} disabled={props.busy || props.onmyagentTestState === "testing"}>{props.onmyagentTestState === "testing" ? t("config.testing") : t("config.test_connection")}</Button>
-        <Button onClick={props.onSave} disabled={props.busy || !props.hasOpenworkChanges}>{t("common.save")}</Button>
+        <Button onClick={props.onSave} disabled={props.busy || !props.hasOnMyAgentChanges}>{t("common.save")}</Button>
         <Button variant="outline" onClick={props.onReset} disabled={props.busy}>{t("common.reset")}</Button>
       </div>
       {props.onmyagentTestState !== "idle" ? <ConfigConnectionTestStatus state={props.onmyagentTestState} message={props.onmyagentTestMessage} /> : null}
@@ -231,7 +231,7 @@ export function ConfigServerConnectionSection(props: {
   );
 }
 
-function ConfigConnectionTestStatus(props: { state: OpenworkTestState; message: string | null }) {
+function ConfigConnectionTestStatus(props: { state: OnMyAgentTestState; message: string | null }) {
   return (
     <div className={`${configTextClass.status} ${props.state === "success" ? "text-dls-accent" : props.state === "error" ? "text-dls-status-danger-fg" : "text-dls-secondary"}`} role="status" aria-live="polite">
       {props.state === "testing" ? t("config.testing_connection") : (props.message ?? t("config.connection_status_updated"))}

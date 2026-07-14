@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 
 import type {
-  OpenworkServerClient,
-  OpenworkWorkspaceFileCatalogEntry,
+  OnMyAgentServerClient,
+  OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../../app/lib/onmyagent-server";
 import {
   closeCodeWorkspaceTerminal,
@@ -30,7 +30,7 @@ import {
 } from "../../../../app/lib/desktop";
 import type {
   CodeWorkspaceTerminal,
-} from "../../../../app/lib/desktop-types";
+} from "@onmyagent/types";
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import type { OpenTarget } from "../artifacts/open-target";
@@ -79,7 +79,7 @@ function toolIcon(kind: ToolKind) {
 
 function flattenWorkspaceFileTree(
   node: WorkspaceFileTreeNode,
-): OpenworkWorkspaceFileCatalogEntry[] {
+): OnMyAgentWorkspaceFileCatalogEntry[] {
   return node.children.flatMap((child) => [
     {
       path: child.path,
@@ -94,7 +94,7 @@ function flattenWorkspaceFileTree(
 
 function openTargetsToCatalogEntries(
   targets: OpenTarget[] | undefined,
-): OpenworkWorkspaceFileCatalogEntry[] {
+): OnMyAgentWorkspaceFileCatalogEntry[] {
   return (targets ?? []).flatMap((target) => {
     if (target.kind !== "file" || !target.value.trim()) return [];
     return [{
@@ -160,7 +160,7 @@ function WorkspaceTreeRow(props: {
 }
 
 function WorkspaceFilesPanel(props: {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string | null;
   workspaceCatalogRoot: string;
   workspacePath: string;
@@ -535,7 +535,7 @@ export function CodeWorkspaceSidePanel(props: {
   fileTargets?: OpenTarget[];
   workspaceId: string | null;
   sessionId: string | null;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   initialKind?: ToolKind | null;
   onClose: () => void;
   hiddenKinds?: ToolKind[];
@@ -657,7 +657,7 @@ export function CodeWorkspaceSidePanel(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-workspace-side-panel="true">
-      <header className="flex h-10 shrink-0 items-center gap-1 border-b border-dls-border px-2 mac:titlebar-no-drag">
+      <header className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-no-drag">
         <div className="min-w-0 flex-1 overflow-x-auto">
           <div className="flex min-w-max items-center gap-1">
             <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
@@ -701,12 +701,13 @@ export function CodeWorkspaceSidePanel(props: {
           variant="ghost"
           size="icon-xs"
           data-code-side-panel-close="true"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
           onMouseDown={(event) => event.preventDefault()}
           onClick={props.onClose}
           aria-label={t("session.code_side_panel_close")}
           title={t("session.code_side_panel_close")}
         >
-          <PanelRight />
+          <PanelRight className="size-3.5" />
         </Button>
       </header>
       <div className="min-h-0 flex-1">
@@ -719,7 +720,7 @@ export function CodeWorkspaceSidePanel(props: {
                   <MenuRowButton
                     key={item.kind}
                     type="button"
-                    className="h-10 bg-dls-hover text-dls-text hover:bg-dls-hover-strong"
+                    className="h-10 bg-dls-surface-muted text-dls-text hover:bg-dls-hover"
                     onClick={() => void addTab(item.kind)}
                   >
                     <Icon className="size-4 text-dls-secondary" />

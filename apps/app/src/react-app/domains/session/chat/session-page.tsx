@@ -4,7 +4,6 @@ import { usePanelRef } from "react-resizable-panels";
 import {
   Bot,
   ClipboardCheck,
-  Columns3,
   Expand,
   Folder,
   Globe,
@@ -23,8 +22,8 @@ import {
 import { t } from "../../../../i18n";
 import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import {
-  type OpenworkServerClient,
-  type OpenworkServerStatus,
+  type OnMyAgentServerClient,
+  type OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import type { BootPhase } from "../../../../app/lib/startup-boot";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
@@ -37,7 +36,7 @@ import type {
   WorkspaceConnectionState,
   WorkspaceSessionGroup,
 } from "../../../../app/types";
-import type { ShareWorkspaceModalProps } from "../../shared/workspace-modal-types";
+import type { ShareWorkspaceModalProps } from "../../workspace/workspace-modal-types";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -46,7 +45,7 @@ import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import ProviderAuthModal, {
   type ProviderAuthModalProps,
-} from "../../shared/provider-auth-modal";
+} from "../../connections/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import {
   type SidebarAccountInfo,
@@ -62,27 +61,25 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
+import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
 import type { StatusBarProps } from "../components/status-bar";
-import { OwDotTicker } from "../../../shell/dot-ticker";
-import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
-import { type SidePanelItem, useUiStateStore } from "../../../shell/ui-state-store";
-import type { AgentCardItem, AgentRegistry } from "../../shared/agent-registry-types";
+import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
+import type { AgentCardItem, AgentRegistry } from "../../agents/agent-registry-types";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
   usePendingAgentStore,
-} from "../../shared/pending-agent-store";
-import { buildPendingAgentFromRecord } from "../../shared/agent-registry-store";
+} from "../../agents/pending-agent-store";
+import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
 import {
   readCustomAgentIdForSession,
   useAgentRegistryStore,
-} from "../../shared/agent-registry-store";
+} from "../../agents/agent-registry-store";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../../shared/agent-registry-helpers";
+} from "../../agents/agent-registry-helpers";
 
 import { isElectronRuntime } from "../../../../app/utils";
 import { BrowserPanel } from "../browser/browser-panel";
@@ -103,7 +100,6 @@ import {
   sessionTitleForId,
   type TaskStatusIndicator,
 } from "./session-page-model";
-import { MessagingChannelsPage } from "./session-page-messaging-page";
 import { OnMyAgentRail } from "./session-page-rail";
 import { useSessionPageSessionActions } from "./session-page-session-actions";
 import { useSessionPageSidePanel } from "./session-page-side-panel";
@@ -111,8 +107,9 @@ import {
   buildSessionPageViewModel,
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
-import { StorePage } from "./session-page-store-page";
-import { WorkspaceFilesPage } from "./session-page-workspace-files-page";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
+import { StorePage, type StorePrimaryTab } from "../components/shared-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -122,7 +119,6 @@ import {
 } from "../../shared/extension-state";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { SkillsPage } from "../../shared/plugins-page";
 import { PersonalLocalAgentPage } from "./personal-local-agent-page";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
@@ -158,14 +154,14 @@ function CodeSidePanelMenu(props: {
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-side-panel-menu="true">
-      <header className="flex h-10 shrink-0 items-center justify-end gap-1 px-3 text-dls-secondary">
-        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
+      <header className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary">
+        <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
           <Expand className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
+        <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
           <RectangleHorizontal className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
+        <Button type="button" variant="ghost" size="icon-xs" data-code-side-panel-close="true" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
           <PanelRight className="size-3.5" />
         </Button>
       </header>
@@ -182,7 +178,7 @@ function CodeSidePanelMenu(props: {
                 data-code-side-panel-menu-item={item.id}
                 className={cn(
                   "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                  selected && "bg-dls-hover text-dls-accent",
+                  selected && "bg-dls-hover text-dls-text",
                 )}
                 onClick={() => props.onSelect(item.id)}
                 aria-pressed={selected}
@@ -214,7 +210,7 @@ function CodeSidePanelPlaceholder(props: {
   const Icon = props.icon;
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Icon className="size-4 text-muted-foreground" />
           {props.title}
@@ -312,8 +308,8 @@ export type SessionPageProps = {
   opencodeBaseUrl?: string | null;
   workspaces: WorkspaceInfo[];
   clientConnected: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
-  onmyagentServerClient: OpenworkServerClient | null;
+  onmyagentServerStatus: OnMyAgentServerStatus;
+  onmyagentServerClient: OnMyAgentServerClient | null;
   onmyagentServerToken?: string | null;
   developerMode: boolean;
   headerStatus: string;
@@ -353,7 +349,7 @@ export type SessionPageProps = {
   renderAgentsPage: (props: {
     workspaceId: string;
     workspaceRoot: string;
-    client: OpenworkServerClient | null;
+    client: OnMyAgentServerClient | null;
     providers?: ProviderListItem[];
     connectedProviderIds?: string[];
     initialEditingAgentId?: string | null;
@@ -369,6 +365,8 @@ export function SessionPage(props: SessionPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeAssistantCategoryId, setActiveAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
+  const [storeActiveTab, setStoreActiveTab] =
+    useState<StorePrimaryTab>("skills");
   const agentRegistry = useAgentRegistryStore((state) => state.registry);
   const agentPanel = useSessionPageAgentPanel(props.selectedSessionId);
   const sidePanelScopeId =
@@ -428,7 +426,7 @@ export function SessionPage(props: SessionPageProps) {
       const fallbackTitle = sessionTitleForId(
         props.sidebar.workspaceSessionGroups,
         session.id,
-      ) || "新建会话";
+      ) || t("session.default_title");
       const agentId = readCustomAgentIdForSession(session.id);
       const agent =
         agentRegistry && agentId
@@ -609,33 +607,26 @@ export function SessionPage(props: SessionPageProps) {
 
   const headerPanelControls = (
     <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
-      {showCodeSideRail
-        ? (
+      {showCodeSideRail ? (
+        !sidePanelOpen ? (
             <Button
               data-code-side-panel-toggle="true"
               type="button"
               variant="ghost"
-              size="icon-sm"
-              className={cn(
-                "transition-colors hover:bg-muted hover:text-foreground",
-                sidePanelOpen && "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-              )}
+              size="icon-xs"
+              className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                if (sidePanelOpen) {
-                  closeRightPane();
-                  return;
-                }
                 openCodeSidePanelMenu();
               }}
               title={t("session.code_side_panel_toggle")}
               aria-label={t("session.code_side_panel_toggle")}
               aria-pressed={sidePanelOpen || codeMenuRailActive}
             >
-              <Columns3 className="size-4" />
+              <PanelRight className="size-3.5" />
             </Button>
-          )
-        : (
+          ) : null
+        ) : (
             <>
               {isElectronRuntime() ? (
                 <Button
@@ -733,8 +724,8 @@ export function SessionPage(props: SessionPageProps) {
                   variant="ghost"
                   size="icon-xs"
                   onClick={agentPanel.expandAgentPanel}
-                  title="展开会话列表"
-                  aria-label="展开会话列表"
+                  title={t("session.expand_session_list")}
+                  aria-label={t("session.expand_session_list")}
                 >
                   <PanelLeft className="size-3.5" />
                 </Button>
@@ -743,7 +734,7 @@ export function SessionPage(props: SessionPageProps) {
             {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
               <div
                 role="separator"
-                aria-label="调整智能体列表宽度"
+                aria-label={t("session.resize_agent_list")}
                 aria-orientation="vertical"
                 tabIndex={0}
                 onPointerDown={agentPanel.startAgentPanelResize}
@@ -796,7 +787,11 @@ export function SessionPage(props: SessionPageProps) {
 
                       {agentPanel.activeSidebarView === "store" ? (
                         <StorePage
-                          skillsSlot={<SkillsPage workspaceId={props.selectedWorkspaceId} />}
+                          workspaceId={props.selectedWorkspaceId}
+                          workspaceRoot={props.selectedWorkspaceRoot}
+                          client={props.onmyagentServerClient}
+                          activeTab={storeActiveTab}
+                          onActiveTabChange={setStoreActiveTab}
                         />
                       ) : null}
 
@@ -808,6 +803,7 @@ export function SessionPage(props: SessionPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 
@@ -925,13 +921,17 @@ export function SessionPage(props: SessionPageProps) {
                               localAuthUser?.username ||
                               props.account?.name ||
                               props.account?.email ||
-                              "我",
+                              t("session.user_initial"),
                           }}
                           onPersonalAssistantCategoryActive={setActiveAssistantCategoryId}
                           onOpenAgentSettings={agentPanel.openAgentsDialog}
                           headerActions={headerPanelControls}
                           onOpenTarget={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
+                          onOpenSkillsMarketplace={() => {
+                            setStoreActiveTab("skills");
+                            agentPanel.openSidebarView("store");
+                          }}
                         />
                       ) : null}
 

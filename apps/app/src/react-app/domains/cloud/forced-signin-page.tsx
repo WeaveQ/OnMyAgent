@@ -20,7 +20,7 @@ import {
   type DenSessionUpdatedDetail,
 } from "../../../app/lib/den-session-events";
 import { usePlatform } from "../../kernel/platform";
-import { useBootState } from "../../shell/boot-state";
+import { useBootState } from "../../shell";
 import { useDenAuth } from "./den-auth-provider";
 import { useDesktopConfig } from "./desktop-config-provider";
 import { DenSignInSurface } from "./den-signin-surface";

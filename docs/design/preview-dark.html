@@ -121,18 +121,23 @@
     <div>
       <div class="pv-eyebrow">MenuRowButton — <code>rounded-xl px-3 py-2.5</code></div>
       <div class="pv-menu">
-        <button class="pv-menu-row pv-menu-row-active"><span class="pv-menu-icon">⌘</span><span>Open command palette<span class="pv-menu-shortcut">⌘K</span></span></button>
+        <button class="pv-menu-row pv-menu-row-active"><span class="pv-menu-icon">⌘</span><span>Open command palette<span class="pv-menu-shortcut" data-shortcut="mod-k">Mod+K</span></span></button>
         <button class="pv-menu-row"><span class="pv-menu-icon">＋</span><span>New session</span></button>
         <button class="pv-menu-row"><span class="pv-menu-icon">☰</span><span>Toggle side panel</span></button>
       </div>
     </div>
     <div>
-      <div class="pv-eyebrow">NavTabButton — <code>rounded-full</code> compact</div>
+      <div class="pv-eyebrow">NavTabButton pill — filters only</div>
       <div class="pv-nav-tabs">
         <button class="pv-nav-tab pv-nav-tab-active">All</button>
         <button class="pv-nav-tab">Active</button>
         <button class="pv-nav-tab">Archived</button>
         <button class="pv-nav-tab">Shared</button>
+      </div>
+      <div class="pv-eyebrow" style="margin-top:12px;">SegmentedTabGroup — page tabs (bordered track)</div>
+      <div style="display:inline-flex;border:1px solid var(--pv-border);background:var(--pv-surface-muted);border-radius:14px;padding:4px;gap:2px;margin-top:6px;">
+        <button type="button" style="border:0;background:var(--pv-surface);color:var(--pv-ink);border-radius:10px;padding:4px 12px;font-size:12px;font-weight:500;">Office</button>
+        <button type="button" style="border:0;background:transparent;color:var(--pv-slate);border-radius:10px;padding:4px 12px;font-size:12px;font-weight:500;">Code</button>
       </div>
     </div>
     <div>
@@ -484,14 +489,19 @@
       </div>
     </div>
   </div>
-  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">On Windows / Linux, <code>⌘K</code> renders as <code>Ctrl+K</code>. Author declaratively; substitute at render.</p>
+  <p class="pv-body" style="margin-top:0.75rem;font-size:12px;color:var(--dls-text-tertiary);">On Windows / Linux, <code>⌘K</code> renders as <code>Ctrl+K</code>. Author declaratively; runtime substitute via <code>formatShortcut()</code> (<code>lib/format-shortcut.ts</code>) — chips below resolve from <code>data-shortcut</code>.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-top:0.75rem;">
+    <span class="pv-kbd" data-shortcut="mod-k">Mod+K</span>
+    <span class="pv-kbd" data-shortcut="mod-shift-p">Mod+Shift+P</span>
+    <span class="pv-kbd" data-shortcut="mod-enter">Mod+Enter</span>
+  </div>
 </section>
 
 <section class="pv-section" id="agent-native">
   <h2>14 · Agent-Native Signatures</h2>
-  <p class="pv-body">v5 additions from DESIGN.md §§ 4c–4h. Seven message roles, streaming cursor, seven presence states, three tool-approval risk tiers, four session variants, and eight artifact hues. These carry OnMyAgent's identity and MUST NOT drift.</p>
+  <p class="pv-body">v5 signature surfaces from DESIGN.md §§ 4c–4h. Runtime: <code>MessageRoleRow</code>, <code>StreamingCursor</code>, <code>ToolApprovalCard</code>. Shell chrome (empty dual-track, spinner, notice, confirm) is catalogued under <strong>Shell · DESIGN § 4i</strong> below — not re-demoed here.</p>
 
-  <h3 class="pv-h3" style="margin-top:1.5rem;">Message roles (§ 4c)</h3>
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Message roles (§ 4c) · <code>MessageRoleRow</code></h3>
   <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;">
     <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;font-size:13px;">You: ship the v5 preview panel today.</div>
     <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border:1px solid var(--pv-border);border-radius:6px;font-size:13px;">Assistant: on it — writing the section now.</div>
@@ -502,8 +512,8 @@
     <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-danger);border-radius:0 6px 6px 0;font-size:13px;color:var(--pv-danger);display:flex;gap:6px;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> error — push failed: not authenticated.</div>
   </div>
 
-  <h3 class="pv-h3" style="margin-top:1.5rem;">Streaming cursor (§ 4d)</h3>
-  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">6×12 block, blinks at 320 ms; after 1 s idle, swaps to <code>…</code>. Under <code>prefers-reduced-motion</code>, cursor holds without blinking.</p>
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Streaming cursor (§ 4d) · <code>StreamingCursor</code></h3>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">Runtime: <code>components/ui/streaming-cursor.tsx</code> (wired from markdown streaming). 6×12 block, 320&nbsp;ms blink; after 1&nbsp;s idle → <code>…</code>. Under <code>prefers-reduced-motion</code>, hold without blink.</p>
   <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;">
     <div style="font-size:13px;">Assistant is typing<span class="pv-stream-cursor" aria-hidden="true"></span></div>
     <div style="font-size:13px;color:var(--pv-slate);">Waiting for tool <span style="color:var(--pv-slate);">…</span></div>
@@ -520,33 +530,41 @@
     <div style="display:inline-flex;gap:0.4rem;align-items:center;font-size:13px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--pv-danger);"></span>errored</div>
   </div>
 
-  <h3 class="pv-h3" style="margin-top:1.5rem;">Tool approval tiers (§ 4f)</h3>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;margin-top:0.5rem;">
-    <div style="padding:0.75rem;border:1px solid var(--pv-border);border-radius:8px;background:var(--pv-surface);">
-      <div style="font-size:12px;color:var(--pv-slate);" class="pv-mono">safe · no border</div>
-      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">read_file</div>
-      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="DESIGN.md"</div>
-      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
-        <button style="background:var(--pv-primary);color:#fff;border:0;border-radius:3px;padding:2px 10px;font-size:12px;">Approve</button>
-        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:3px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Deny</button>
+  <h3 class="pv-h3" style="margin-top:1.5rem;">Tool approval tiers (§ 4f) · <code>ToolApprovalCard</code></h3>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">Runtime: <code>components/ui/tool-approval-card.tsx</code>. Footer order: Deny · (Always) · Allow once. Destructive defaults focus to Deny; primary uses danger fill.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0.75rem;margin-top:0.5rem;">
+    <div style="border:1px solid var(--pv-border);border-radius:14px;background:var(--pv-surface);overflow:hidden;">
+      <div style="padding:0.75rem 1rem 0;font-size:11px;color:var(--pv-slate);" class="pv-mono">safe · border-l 0</div>
+      <div style="padding:0.35rem 1rem 0.75rem;">
+        <div style="font-size:13px;font-weight:500;">read_file</div>
+        <div style="font-size:12px;font-family:ui-monospace,monospace;color:var(--pv-slate);margin-top:0.25rem;">path="DESIGN.md"</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:0.4rem;border-top:1px solid var(--pv-border);padding:0.65rem 1rem;">
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-xs">Deny</button>
+        <button type="button" class="pv-btn pv-btn-primary pv-btn-xs">Allow once</button>
       </div>
     </div>
-    <div style="padding:0.75rem;border-left:2px solid var(--pv-warning);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 8px 8px 0;background:var(--pv-surface);">
-      <div style="font-size:12px;color:var(--pv-warning);" class="pv-mono">careful · 2 px warning</div>
-      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">write_file</div>
-      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="apps/app/src/app/index.css"</div>
-      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
-        <button style="background:var(--pv-primary);color:#fff;border:0;border-radius:3px;padding:2px 10px;font-size:12px;">Approve</button>
-        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:3px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Deny</button>
+    <div style="border:1px solid var(--pv-border);border-left:2px solid var(--pv-warning);border-radius:14px;background:var(--pv-surface);overflow:hidden;">
+      <div style="padding:0.75rem 1rem 0;font-size:11px;color:var(--pv-warning);" class="pv-mono">careful · 2px warning</div>
+      <div style="padding:0.35rem 1rem 0.75rem;">
+        <div style="font-size:13px;font-weight:500;">write_file</div>
+        <div style="font-size:12px;font-family:ui-monospace,monospace;color:var(--pv-slate);margin-top:0.25rem;">path="index.css"</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:0.4rem;border-top:1px solid var(--pv-border);padding:0.65rem 1rem;">
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-xs">Deny</button>
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-xs">Always</button>
+        <button type="button" class="pv-btn pv-btn-primary pv-btn-xs">Allow once</button>
       </div>
     </div>
-    <div style="padding:0.75rem;border-left:4px solid var(--pv-danger);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 8px 8px 0;background:var(--pv-surface);">
-      <div style="font-size:12px;color:var(--pv-danger);" class="pv-mono">destructive · 4 px danger, defaults Deny</div>
-      <div style="font-size:13px;font-weight:500;margin-top:0.25rem;">rm_rf</div>
-      <div style="font-size:12px;color:var(--pv-slate);font-family:ui-monospace,monospace;margin-top:0.25rem;">path="node_modules"</div>
-      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
-        <button style="background:transparent;border:1px solid var(--pv-border);border-radius:3px;padding:2px 10px;font-size:12px;color:var(--pv-slate);">Approve</button>
-        <button style="background:var(--pv-danger);color:#fff;border:0;border-radius:3px;padding:2px 10px;font-size:12px;">Deny</button>
+    <div style="border:1px solid var(--pv-border);border-left:4px solid var(--pv-danger);border-radius:14px;background:var(--pv-surface);overflow:hidden;">
+      <div style="padding:0.75rem 1rem 0;font-size:11px;color:var(--pv-danger);" class="pv-mono">destructive · 4px · focus Deny</div>
+      <div style="padding:0.35rem 1rem 0.75rem;">
+        <div style="font-size:13px;font-weight:500;">rm_rf</div>
+        <div style="font-size:12px;font-family:ui-monospace,monospace;color:var(--pv-slate);margin-top:0.25rem;">path="node_modules"</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:0.4rem;border-top:1px solid var(--pv-border);padding:0.65rem 1rem;">
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-xs" style="outline:2px solid var(--pv-primary);outline-offset:1px;">Deny</button>
+        <button type="button" class="pv-btn pv-btn-danger pv-btn-xs">Allow once</button>
       </div>
     </div>
   </div>
@@ -585,10 +603,103 @@
 </section>
 
 
+
+
+
+<section class="pv-section" id="shell-components">
+  <h2>Shell · DESIGN § 4i</h2>
+  <p class="pv-desc">Workbench hygiene primitives (not agent-native signatures). Authority: <code>DESIGN.md</code> § 4i + YAML <code>components.contracts</code>. Runtime: <code>EmptyStateBox</code> / <code>Empty</code> / <code>LoadingSpinner</code> / <code>NoticeBox</code> / <code>ConfirmModal</code>.</p>
+
+  <div class="pv-eyebrow" style="margin-top:0.5rem;">EmptyStateBox — regional dashed · surface / muted</div>
+  <div class="pv-grid-2" style="margin-top:0.5rem;align-items:stretch;">
+    <div class="pv-empty-state">
+      <div class="pv-empty-icon" aria-hidden="true">◎</div>
+      <div class="pv-empty-title">No expert conversations</div>
+      <p class="pv-empty-body">Pick an expert from the catalog, then start a session.</p>
+      <button type="button" class="pv-btn pv-btn-primary pv-btn-default" style="margin-top:1rem;">Choose expert</button>
+    </div>
+    <div class="pv-empty-state pv-empty-state-muted">
+      <div class="pv-empty-icon" aria-hidden="true">∅</div>
+      <div class="pv-empty-title">No providers yet</div>
+      <p class="pv-empty-body">Import current config or add a custom model provider.</p>
+      <div class="pv-row" style="justify-content:center;margin-top:1rem;gap:0.5rem;">
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-default">Import</button>
+        <button type="button" class="pv-btn pv-btn-primary pv-btn-default">Add provider</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pv-eyebrow" style="margin-top:1.5rem;">Empty compound — full-panel hero · solid border · § 4a slots</div>
+  <div class="pv-empty-compound" style="margin-top:0.5rem;">
+    <div class="pv-empty-compound-media" aria-hidden="true">◎</div>
+    <div class="pv-empty-compound-title">No authorized folders</div>
+    <p class="pv-empty-compound-body">Add a folder the agent may read. You can revoke access anytime in Settings.</p>
+    <div class="pv-row" style="justify-content:center;margin-top:1rem;gap:0.5rem;">
+      <button type="button" class="pv-btn pv-btn-primary pv-btn-lg">Add folder</button>
+      <button type="button" class="pv-btn pv-btn-ghost pv-btn-default">Learn more</button>
+    </div>
+  </div>
+
+  <div class="pv-eyebrow" style="margin-top:1.5rem;">LoadingSpinner — sizes sm / default · icon-button busy</div>
+  <div class="pv-card" style="margin-top:0.5rem;max-width:28rem;">
+    <div class="pv-row" style="gap:1.25rem;align-items:center;">
+      <div style="text-align:center;">
+        <span class="pv-loading-spinner pv-loading-spinner-sm" aria-hidden="true"></span>
+        <div style="font-size:11px;color:var(--pv-slate);margin-top:6px;">sm · 14</div>
+      </div>
+      <div style="text-align:center;">
+        <span class="pv-loading-spinner" aria-hidden="true"></span>
+        <div style="font-size:11px;color:var(--pv-slate);margin-top:6px;">default · 16</div>
+      </div>
+      <button type="button" class="pv-btn pv-btn-ghost pv-btn-icon-sm" aria-label="refresh">
+        <span class="pv-loading-spinner pv-loading-spinner-sm" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="pv-btn pv-btn-outline pv-btn-sm" disabled>
+        <span class="pv-loading-spinner pv-loading-spinner-sm" aria-hidden="true" style="margin-right:6px;vertical-align:-2px;"></span>
+        Saving…
+      </button>
+    </div>
+  </div>
+
+  <div class="pv-eyebrow" style="margin-top:1.5rem;">NoticeBox — tones (sticky · not toast)</div>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;max-width:36rem;">
+    <div class="pv-notice pv-notice-neutral">Workspace reloaded. OpenCode is ready.</div>
+    <div class="pv-notice pv-notice-info">Model catalog updated — 3 new providers available.</div>
+    <div class="pv-notice pv-notice-warning">Permission required before the agent can write files.</div>
+    <div class="pv-notice pv-notice-error">Provider offline: spawn codex ENOENT.</div>
+  </div>
+
+  <div class="pv-eyebrow" style="margin-top:1.5rem;">ConfirmModal — danger / warning · runtime chrome</div>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);margin-top:0.35rem;">Runtime: <code>design-system/modals/confirm-modal.tsx</code> → <code>AlertDialog</code>. Media = <code>size-16 rounded-full</code>; footer buttons <code>size="lg"</code>.</p>
+  <div class="pv-grid-2" style="margin-top:0.5rem;">
+    <div class="pv-confirm">
+      <div class="pv-confirm-media pv-confirm-media-danger" aria-hidden="true">!</div>
+      <div class="pv-confirm-title">Delete provider?</div>
+      <p class="pv-confirm-body">This removes the managed provider from Studio Switch. Sessions keep history.</p>
+      <div class="pv-row" style="justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-lg">Cancel</button>
+        <button type="button" class="pv-btn pv-btn-danger pv-btn-lg">Delete</button>
+      </div>
+    </div>
+    <div class="pv-confirm">
+      <div class="pv-confirm-media pv-confirm-media-warning" aria-hidden="true">!</div>
+      <div class="pv-confirm-title">Reset local settings?</div>
+      <p class="pv-confirm-body">Appearance and window prefs return to defaults. Workspace data is kept.</p>
+      <div class="pv-row" style="justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+        <button type="button" class="pv-btn pv-btn-outline pv-btn-lg">Cancel</button>
+        <button type="button" class="pv-btn pv-btn-primary pv-btn-lg">Reset</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
 </main>
 
 <footer class="pv-footer">
-  Rendered from <code>/DESIGN.md</code> · This preview is a fixed HTML snapshot; if it drifts from DESIGN.md, DESIGN.md wins.
+  Rendered from <code>/DESIGN.md</code> · Fixed HTML snapshot of tokens and components; if it drifts, DESIGN.md wins.
 </footer>
 <script>
 (function () {
@@ -617,5 +728,36 @@
   });
 })();
 </script>
+
+<script>
+(function () {
+  // Mirror apps/app/src/lib/format-shortcut.ts for static preview demos.
+  var isApple = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+  var MOD = isApple ? "⌘" : "Ctrl";
+  var ALT = isApple ? "⌥" : "Alt";
+  var SHIFT = isApple ? "⇧" : "Shift";
+  var SEP = " \u200A+\u200A ";
+  function mapToken(token) {
+    var k = String(token).trim();
+    var lower = k.toLowerCase();
+    if (lower === "mod" || lower === "meta" || lower === "cmd" || lower === "command") return MOD;
+    if (lower === "ctrl" || lower === "control") return isApple ? "⌃" : "Ctrl";
+    if (lower === "alt" || lower === "option") return ALT;
+    if (lower === "shift") return SHIFT;
+    if (lower === "enter" || lower === "return") return isApple ? "↩" : "Enter";
+    if (lower === "esc" || lower === "escape") return "Esc";
+    if (k.length === 1) return k.toUpperCase();
+    return k;
+  }
+  function formatShortcut(input) {
+    var tokens = String(input).split(/[+\s]+/).filter(Boolean);
+    return tokens.map(mapToken).join(SEP);
+  }
+  document.querySelectorAll("[data-shortcut]").forEach(function (el) {
+    el.textContent = formatShortcut(el.getAttribute("data-shortcut") || "");
+  });
+})();
+</script>
+
 </body>
 </html>

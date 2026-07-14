@@ -4,8 +4,8 @@ import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../src/react-app/domains/shared/agent-registry-helpers";
-import type { AgentRegistry } from "../src/react-app/domains/shared/agent-registry-types";
+} from "../src/react-app/domains/agents/agent-registry-helpers";
+import type { AgentRegistry } from "../src/react-app/domains/agents/agent-registry-types";
 
 const registry = {
   version: 1,

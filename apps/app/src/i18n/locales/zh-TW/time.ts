@@ -5,4 +5,5 @@ export default {
   "time.just_now": "剛剛",
   "time.minutes_ago": "{count}分鐘前",
   "time.seconds_ago": "{count}秒前",
+  "time.yesterday": "昨天",
 } as const;

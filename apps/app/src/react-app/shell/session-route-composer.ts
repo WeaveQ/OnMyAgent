@@ -1,5 +1,14 @@
 import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
-import type { ComposerAttachment, ComposerDraft, ModelRef } from "../../app/types";
+import type {
+  ComposerAccessMode,
+  ComposerAttachment,
+  ComposerDraft,
+  ModelRef,
+} from "../../app/types";
+export {
+  isLowRiskSessionPermission as isLowRiskPermission,
+  resolveAccessModePermissionReply,
+} from "../../app/lib/access-mode";
 import { t, type Language } from "../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
@@ -26,39 +35,73 @@ export function updateDefaultModelPrefs<T extends {
   };
 }
 
+export function moveSessionModelOverride(
+  current: Record<string, ModelRef>,
+  sourceSessionId: string,
+  targetSessionId: string,
+): Record<string, ModelRef> {
+  const override = current[sourceSessionId];
+  if (!override || !targetSessionId.trim()) return current;
+  const next = { ...current, [targetSessionId]: override };
+  delete next[sourceSessionId];
+  return next;
+}
+
+export function moveSessionScopedValue<T>(
+  current: Record<string, T>,
+  sourceSessionId: string,
+  targetSessionId: string,
+  value: T,
+): Record<string, T> {
+  const source = sourceSessionId.trim();
+  const target = targetSessionId.trim();
+  if (!target) return current;
+  const next = { ...current, [target]: value };
+  if (source && source !== target) delete next[source];
+  return next;
+}
+
+export function applySessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+  value: T | null,
+): Record<string, T> {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) return current;
+  if (value === null) {
+    if (!(normalizedSessionId in current)) return current;
+    const next = { ...current };
+    delete next[normalizedSessionId];
+    return next;
+  }
+  if (current[normalizedSessionId] === value) return current;
+  return { ...current, [normalizedSessionId]: value };
+}
+
+export function removeSessionScopedValue<T>(
+  current: Record<string, T>,
+  sessionId: string,
+): Record<string, T> {
+  return applySessionScopedValue(current, sessionId, null);
+}
+
+export function resolveAttachmentUploadTarget<TClient>(input: {
+  fallbackClient: TClient | null | undefined;
+  fallbackWorkspaceId: string;
+  workspaceClient: TClient | null | undefined;
+  workspaceId: string | null | undefined;
+}): { client: TClient; workspaceId: string } | null {
+  const client = input.workspaceClient ?? input.fallbackClient;
+  const workspaceId = (input.workspaceId ?? input.fallbackWorkspaceId).trim();
+  return client && workspaceId ? { client, workspaceId } : null;
+}
+
 export function joinSystemParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
 }
 
-const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
-const HIRAGANA_KATAKANA_RE = /[\u3040-\u30ff]/;
-const HANGUL_RE = /[\uac00-\ud7af]/;
-const LATIN_RE = /[A-Za-z]/;
-
-export function resolveLanguageForUserInput(
-  text: string,
-  fallbackLocale: Language,
-): Language {
-  if (CJK_RE.test(text)) {
-    return fallbackLocale === "zh-TW" ? "zh-TW" : "zh";
-  }
-  if (HIRAGANA_KATAKANA_RE.test(text) || HANGUL_RE.test(text)) {
-    return fallbackLocale;
-  }
-  if (LATIN_RE.test(text)) return fallbackLocale;
-  return fallbackLocale;
-}
-
-export function buildLanguageSystemPrompt(
-  locale: Language,
-  source: "interface" | "user-input" = "interface",
-) {
-  return t(
-    source === "user-input"
-      ? "session.language_system_prompt_from_input"
-      : "session.language_system_prompt",
-    locale,
-  );
+export function buildLanguageSystemPrompt(locale: Language) {
+  return t("session.language_system_prompt", locale);
 }
 
 export function deriveGoalSummary(objective: string) {
@@ -123,10 +166,10 @@ export function draftHasSendableContent(draft: Pick<ComposerDraft, "attachments"
 }
 
 export function applySessionAccessMode(
-  current: Record<string, ComposerDraft["accessMode"] | "default">,
+  current: Record<string, ComposerAccessMode>,
   sessionId: string,
-  accessMode: ComposerDraft["accessMode"] | undefined,
-) {
+  accessMode: ComposerAccessMode | undefined,
+): Record<string, ComposerAccessMode> {
   const nextAccessMode = accessMode ?? "default";
   return current[sessionId] === nextAccessMode
     ? current
@@ -424,9 +467,8 @@ export function buildGoalRuntimeSystemPrompt(
     t("session.goal_runtime_system_title"),
     t("session.goal_runtime_system_objective", { objective }),
     t("session.goal_runtime_system_success"),
-    t("session.goal_runtime_system_persist"),
     t("session.goal_runtime_system_next_step"),
-    t("session.goal_runtime_system_continue"),
+    t("session.goal_runtime_system_turn_boundary"),
     t("session.goal_runtime_system_progress"),
     `- ${t("session.goal_hidden_stall_recovery")}`,
     t("session.goal_runtime_system_blocker"),
@@ -440,6 +482,12 @@ export function buildAccessModeSystemPrompt(
     return [
       t("session.access_mode_full_system_title"),
       t("session.access_mode_full_system_body"),
+    ].join("\n");
+  }
+  if (mode === "delegate") {
+    return [
+      t("session.access_mode_delegate_system_title"),
+      t("session.access_mode_delegate_system_body"),
     ].join("\n");
   }
   return [
@@ -533,10 +581,10 @@ export async function draftToParts(
     parts.push({
       type: "text",
       text: [
-        "用户上传了以下文件。不要把这些文件当作模型原生文件输入；如果任务需要处理文件，请使用本地工具或已配置的对应 skill，并直接读取这些本地路径：",
+        "The user uploaded the following files. Do not treat them as native model file inputs; if the task needs to process files, use local tools or the configured skill and read these local paths directly:",
         ...uploadedFiles.map(
           (file) =>
-            `- ${file.name} (${file.mimeType || "application/octet-stream"}): ${file.absolutePath}（工作区相对路径：${file.relativePath}）`,
+            `- ${file.name} (${file.mimeType || "application/octet-stream"}): ${file.absolutePath} (workspace-relative path: ${file.relativePath})`,
         ),
       ].join("\n"),
     });

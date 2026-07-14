@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { MenuRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import type {
-  OpenworkServerClient,
-  OpenworkSessionSnapshot,
+  OnMyAgentServerClient,
+  OnMyAgentSessionSnapshot,
 } from "../../../../../app/lib/onmyagent-server";
 import {
   DEFAULT_SESSION_TITLE,
@@ -32,16 +32,16 @@ function summarizeTabTitle(
   ) {
     return rawTitle;
   }
-  return compactTabTitle(generatedFallback ?? "总结中");
+  return compactTabTitle(generatedFallback ?? t("session.agent_tab_summarizing"));
 }
 
 function compactTabTitle(input: string) {
   const cleaned = input
-    .replace(/用户发送了|The user|I should|This is/gi, "")
+    .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
     .replace(/["""''.。？?！!,，:：；;]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const source = cleaned || input.trim() || "新会话";
+  const source = cleaned || input.trim() || t("session.agent_tab_new_session");
   return source.length > 10 ? source.slice(0, 10) : source;
 }
 
@@ -82,7 +82,7 @@ function SessionTabMarqueeText({ title }: { title: string }) {
   );
 }
 
-function summarizeSessionSnapshotForTab(snapshot: OpenworkSessionSnapshot) {
+function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
   const previews = snapshot.messages
     .map(sessionMessagePreview)
     .filter(Boolean)
@@ -90,13 +90,13 @@ function summarizeSessionSnapshotForTab(snapshot: OpenworkSessionSnapshot) {
     .join(" ");
   if (!previews) return undefined;
   return previews
-    .replace(/用户发送了|The user|I should|This is/gi, "")
+    .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 export function AgentSessionTabs(props: {
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   workspaceId: string;
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];
@@ -214,8 +214,8 @@ export function AgentSessionTabs(props: {
             size="xs"
             onClick={props.onCreateSession}
             className="shrink-0"
-            title="新建会话"
-            aria-label="新建会话"
+            title={t("session.agent_tab_new_session_title")}
+            aria-label={t("session.agent_tab_new_session_title")}
           >
             <Plus data-icon="inline-start" className="size-3.5" />
             {t("session.new_session")}
@@ -287,8 +287,8 @@ export function AgentSessionTabs(props: {
                         );
                       }}
                       className="absolute right-1 top-1/2 -translate-y-1/2 text-dls-secondary"
-                      title="会话操作"
-                      aria-label="会话操作"
+                      title={t("session.agent_tab_actions_title")}
+                      aria-label={t("session.agent_tab_actions_title")}
                     >
                       <MoreHorizontal className="size-3.5" />
                     </Button>
@@ -315,7 +315,7 @@ export function AgentSessionTabs(props: {
               setMenuState(null);
             }}
           >
-            重命名
+            {t("session.agent_tab_rename")}
           </MenuRowButton>
           <MenuRowButton
             align="center"
@@ -326,7 +326,7 @@ export function AgentSessionTabs(props: {
               setMenuState(null);
             }}
           >
-            删除
+            {t("session.agent_tab_delete")}
           </MenuRowButton>
         </div>
       ) : null}
@@ -339,8 +339,8 @@ export function AgentSessionTabs(props: {
         variant="outline"
         size="xs"
         className="absolute bottom-0 left-1/2 z-20 h-4 w-12 -translate-x-1/2 translate-y-1/2 rounded-full border-dls-border bg-dls-surface p-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-        title={expanded ? "收起会话标签" : "展开会话标签"}
-        aria-label={expanded ? "收起会话标签" : "展开会话标签"}
+        title={expanded ? t("session.agent_tab_collapse") : t("session.agent_tab_expand")}
+        aria-label={expanded ? t("session.agent_tab_collapse") : t("session.agent_tab_expand")}
       >
         <ChevronRight
           className={cn(

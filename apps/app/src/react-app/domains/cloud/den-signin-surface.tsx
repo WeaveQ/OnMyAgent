@@ -13,7 +13,7 @@ import { t } from "../../../i18n";
 import { DEFAULT_DEN_BASE_URL } from "../../../app/lib/den";
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { TextInput } from "../../design-system/text-input";
+import { LabeledInput } from "../../design-system/labeled-input";
 
 export type DenSignInSurfaceVariant = "panel" | "fullscreen";
 
@@ -117,7 +117,7 @@ function ShowcasePanel() {
             key={cap.title}
             className="flex flex-col gap-1.5 rounded-xl border border-dls-border bg-dls-surface p-3"
           >
-            <BrandIcon slug={cap.slug} size={18} />
+            <BrandIcon slug={cap.slug} size={16} />
             <div className="text-xs font-medium leading-tight text-dls-text">
               {cap.title}
             </div>
@@ -200,7 +200,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
 
       {props.developerMode ? (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <TextInput
+          <LabeledInput
             label={t("den.cloud_control_plane_url_label")}
             value={props.baseUrlDraft}
             onChange={(event) =>
@@ -281,7 +281,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
 
       {props.manualAuthOpen ? (
         <div className={`${settingsPanelSoftClass} space-y-3`}>
-          <TextInput
+          <LabeledInput
             label={t("den.signin_link_label")}
             value={props.manualAuthInput}
             onChange={(event) =>
@@ -383,7 +383,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
 
                 {props.manualAuthOpen ? (
                   <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4">
-                    <TextInput
+                    <LabeledInput
                       label={t("den.signin_link_label")}
                       value={props.manualAuthInput}
                       onChange={(event) =>
@@ -414,7 +414,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
               {/* Developer mode */}
               {props.developerMode ? (
                 <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4">
-                  <TextInput
+                  <LabeledInput
                     label={t("den.cloud_control_plane_url_label")}
                     value={props.baseUrlDraft}
                     onChange={(event) =>

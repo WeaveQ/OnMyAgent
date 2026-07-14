@@ -1,41 +1,41 @@
 import { onmyagentServerRestart } from "../../app/lib/desktop";
-import { isLoopbackOpenworkServerUrl, readOpenworkServerSettings } from "../../app/lib/onmyagent-server";
+import { isLoopbackOnMyAgentServerUrl, readOnMyAgentServerSettings } from "../../app/lib/onmyagent-server";
 import { isDesktopRuntime } from "../../app/utils";
 
-export function resolveOpenworkServerStartupPreference() {
+export function resolveOnMyAgentServerStartupPreference() {
   if (!isDesktopRuntime()) return "server";
-  const stored = readOpenworkServerSettings();
+  const stored = readOnMyAgentServerSettings();
   const storedUrl = stored.urlOverride?.trim() ?? "";
-  return storedUrl && !isLoopbackOpenworkServerUrl(storedUrl) ? "server" : "local";
+  return storedUrl && !isLoopbackOnMyAgentServerUrl(storedUrl) ? "server" : "local";
 }
 
-export async function restartLocalOpenworkServer() {
+export async function restartLocalOnMyAgentServer() {
   if (!isDesktopRuntime()) return false;
   await onmyagentServerRestart({
-    remoteAccessEnabled: readOpenworkServerSettings().remoteAccessEnabled === true,
+    remoteAccessEnabled: readOnMyAgentServerSettings().remoteAccessEnabled === true,
   });
   return true;
 }
 
-export async function reconnectOpenworkServerAndRefresh(input: {
-  reconnectOpenworkServer: () => Promise<boolean>;
+export async function reconnectOnMyAgentServerAndRefresh(input: {
+  reconnectOnMyAgentServer: () => Promise<boolean>;
   refreshRouteState: () => Promise<unknown>;
 }) {
-  const ok = await input.reconnectOpenworkServer();
+  const ok = await input.reconnectOnMyAgentServer();
   if (ok) {
     await input.refreshRouteState();
   }
   return ok;
 }
 
-export async function restartOpenworkServerAndRefresh(input: {
-  reconnectOpenworkServer: () => Promise<boolean>;
+export async function restartOnMyAgentServerAndRefresh(input: {
+  reconnectOnMyAgentServer: () => Promise<boolean>;
   refreshRouteState: () => Promise<unknown>;
 }) {
   if (!isDesktopRuntime()) return false;
   try {
-    await restartLocalOpenworkServer();
-    await input.reconnectOpenworkServer();
+    await restartLocalOnMyAgentServer();
+    await input.reconnectOnMyAgentServer();
     await input.refreshRouteState();
     return true;
   } catch {

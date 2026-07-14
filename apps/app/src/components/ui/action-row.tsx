@@ -365,7 +365,7 @@ function SegmentedTabButton({
 }
 
 function SegmentedTabGroup({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("inline-flex rounded-xl bg-dls-surface-muted p-1", className)} {...props} />
+  return <div className={cn("inline-flex rounded-xl border border-dls-border bg-dls-surface-muted p-1", className)} {...props} />
 }
 
 function ActionRowButton({

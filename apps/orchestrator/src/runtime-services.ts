@@ -253,7 +253,7 @@ export async function startOpencode(options: {
   return child;
 }
 
-export async function startOpenworkServer(options: {
+export async function startOnMyAgentServer(options: {
   bin: string;
   host: string;
   port: number;

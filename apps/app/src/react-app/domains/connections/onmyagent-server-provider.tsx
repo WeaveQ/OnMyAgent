@@ -7,23 +7,23 @@ import {
 } from "react";
 import { APP_NAME, APP_NAME_LOWER } from "../../../i18n/locales/brand";
 
-import type { OpenworkServerStore } from "../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../shared/onmyagent-server-store";
 
-const OpenworkServerContext = createContext<OpenworkServerStore | null>(null);
+const OnMyAgentServerContext = createContext<OnMyAgentServerStore | null>(null);
 
-export function OpenworkServerProvider(props: {
-  store: OpenworkServerStore;
+export function OnMyAgentServerProvider(props: {
+  store: OnMyAgentServerStore;
   children: ReactNode;
 }) {
   return (
-    <OpenworkServerContext.Provider value={props.store}>
+    <OnMyAgentServerContext.Provider value={props.store}>
       {props.children}
-    </OpenworkServerContext.Provider>
+    </OnMyAgentServerContext.Provider>
   );
 }
 
-export function useOpenworkServer() {
-  const store = use(OpenworkServerContext);
+export function useOnMyAgentServer() {
+  const store = use(OnMyAgentServerContext);
   if (!store) {
     throw new Error(
       `use${APP_NAME}Server must be used within an ${APP_NAME}ServerProvider`,

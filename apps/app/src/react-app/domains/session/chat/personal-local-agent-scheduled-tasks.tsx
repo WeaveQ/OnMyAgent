@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ChevronDown, Loader2, Play, Plus, RefreshCw, Trash2, X, Clock3 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -235,7 +236,7 @@ export function HeartbeatPanel(props: {
             </InputGroup>
           </label>
           <Button size="sm" onClick={props.onCreate} disabled={createDisabled} title={createDisabledReason ?? undefined}>
-            {createBusy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Plus className="mr-1.5 size-3.5" />}
+            {createBusy ? <LoadingSpinner size="sm" className="mr-1.5" /> : <Plus className="mr-1.5 size-3.5" />}
             {t("local_agent.heartbeat_create")}
           </Button>
         </div>
@@ -287,7 +288,7 @@ export function HeartbeatPanel(props: {
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                   <Button variant="outline" size="sm" onClick={() => props.onRunNow(job)} disabled={busy || Boolean(job.running)}>
-                    {busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Play className="mr-1 size-3.5" />}
+                    {busy ? <LoadingSpinner size="sm" className="mr-1" /> : <Play className="mr-1 size-3.5" />}
                     {t("local_agent.heartbeat_run_now")}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => props.onToggleEnabled(job, !job.enabled)} disabled={busy}>

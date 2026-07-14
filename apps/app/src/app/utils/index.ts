@@ -784,47 +784,67 @@ function buildToolTitle(state: ToolStateView, toolName: string): string {
     return normalizePathToken(value);
   };
 
+  if (lower === "browser_use_operation") {
+    const count = typeof input.actionCount === "number" ? input.actionCount : 1;
+    const step = typeof input.step === "number" ? input.step : 1;
+    const goal = pick("currentGoal");
+    if (goal) {
+      return t("session.browser_use_operation_step_title", { step, goal });
+    }
+    if ("error" in state && state.error) {
+      return t("session.browser_use_operation_failed");
+    }
+    return t(
+      "output" in state
+        ? "session.browser_use_operation_completed"
+        : "session.browser_use_operation_running",
+      { count },
+    );
+  }
+
+  if (lower === "browser_use_activity") {
+    const phase = pick("phase");
+    if (phase === "observing") return t("session.browser_use_agent_phase_observing");
+    if (phase === "acting") return t("session.browser_use_agent_phase_acting");
+    if (phase === "verifying") return t("session.browser_use_agent_phase_verifying");
+    return t("session.browser_use_agent_phase_planning");
+  }
+
   if (lower === "read") {
     const target = file("filePath", "path", "file");
-    return target ? `Reviewed ${target}` : "Reviewed file";
+    return target ? t("session.tool_title_read_file", { file: target }) : t("session.tool_title_read_file_generic");
   }
 
   if (lower === "edit") {
     const target = file("filePath", "path", "file");
-    return target ? `Updated ${target}` : "Updated file";
+    return target ? t("session.tool_title_edit_file", { file: target }) : t("session.tool_title_edit_file_generic");
   }
 
   if (lower === "write") {
     const target = file("filePath", "path", "file");
-    return target ? `Write ${target}` : "Write file";
+    return target ? t("session.tool_title_write_file", { file: target }) : t("session.tool_title_write_file_generic");
   }
 
   if (lower === "apply_patch") {
-    return "Apply patch";
+    return t("session.tool_title_apply_patch");
   }
 
   if (lower === "list" || lower === "list_files") {
     const target = file("path");
-    return target ? `Reviewed ${target}` : "Reviewed files";
+    return target ? t("session.tool_title_read_file", { file: target }) : t("session.tool_title_read_files");
   }
 
   if (lower === "grep" || lower === "glob" || lower === "search") {
     const pattern = pick("pattern", "query");
-    return pattern ? `Searched ${truncateStepText(pattern, 44)}` : "Searched code";
+    return pattern ? t("session.tool_title_search", { query: truncateStepText(pattern, 44) }) : t("session.tool_title_search_generic");
   }
 
   if (lower === "bash") {
-    const description = pick("description");
-    if (description) return truncateStepText(description, 56);
-    const command = pick("command", "cmd");
-    if (command) return truncateStepText(`Run ${command}`, 56);
-    return "Run command";
+    return t("session.tool_title_run_command");
   }
 
   if (lower === "task") {
-    const agent = formatAgentLabel(pick("subagent_type"));
-    if (agent) return `${agent} task`;
-    return "Task";
+    return t("session.tool_title_task");
   }
 
   if (lower === "question") {
@@ -834,38 +854,30 @@ function buildToolTitle(state: ToolStateView, toolName: string): string {
       const record = first as Record<string, unknown>;
       const header = normalizeStepText(record.header);
       const question = normalizeStepText(record.question);
-      return truncateStepText(header || question || "Asked a question", 56);
+      return truncateStepText(header || question || t("session.tool_title_question"), 56);
     }
-    return "Asked a question";
+    return t("session.tool_title_question");
   }
 
   if (lower === "todowrite") {
-    return "Update todo list";
+    return t("session.tool_title_update_todo");
   }
 
   if (lower === "todoread") {
-    return "Read todo list";
+    return t("session.tool_title_read_todo");
   }
 
   if (lower === "webfetch") {
     const url = pick("url");
-    return url ? `Checked ${truncateStepText(url, 44)}` : "Checked web page";
+    return url ? t("session.tool_title_check_url", { url: truncateStepText(url, 44) }) : t("session.tool_title_check_page");
   }
 
   if (lower === "skill") {
     const name = pick("name");
-    return name ? `Load skill ${name}` : "Load skill";
+    return name ? t("session.tool_title_load_skill", { skill: name }) : t("session.tool_title_load_skill_generic");
   }
 
-  const stateTitle = normalizeStepText(state?.title);
-  if (stateTitle) {
-    return truncateStepText(isPathLike(stateTitle) ? normalizePathToken(stateTitle) : stateTitle, 56);
-  }
-
-  const fallback = normalizeStepText(toolName)
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ");
-  return fallback || "Tool";
+  return t("session.tool_title_generic");
 }
 
 /** Build a concise detail line for a tool call — avoids dumping raw output */
@@ -873,6 +885,10 @@ function buildToolDetail(state: ToolStateView, toolName: string): string | undef
   const lower = toolName.toLowerCase();
   const input = getToolInput(state);
   const pick = (...keys: string[]) => pickInputText(input, keys);
+
+  if (lower === "browser_use_operation") {
+    return pick("title", "url") || undefined;
+  }
 
   if (lower === "read") {
     const chunks: string[] = [];

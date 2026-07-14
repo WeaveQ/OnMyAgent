@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent } from "react";
 import { ArrowLeft, ArrowRight, Globe, Loader2, Plus, RotateCw, X } from "lucide-react";
@@ -175,7 +176,7 @@ function BrowserTab({ tab }: BrowserTabProps) {
           {tab.favicon ? (
             <img src={tab.favicon} alt="" className="size-3.5 shrink-0 rounded-xs" />
           ) : tab.isLoading ? (
-            <Loader2 className="animate-spin" />
+            <LoadingSpinner size="default" />
           ) : (
             <Globe />
           )}
@@ -428,7 +429,7 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
               <TooltipTrigger
                 render={(
                   <Button variant="ghost" size="icon-sm" onClick={reload} aria-label={t("session.browser_reload")}>
-                    {activeTab.isLoading ? <Loader2 className="animate-spin" /> : <RotateCw />}
+                    {activeTab.isLoading ? <LoadingSpinner size="default" /> : <RotateCw />}
                   </Button>
                 )}
               />

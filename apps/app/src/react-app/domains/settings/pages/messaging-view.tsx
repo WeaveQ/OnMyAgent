@@ -4,10 +4,10 @@ import { ArrowRight, ChevronRight, Copy, Link, RefreshCcw, Shield } from "lucide
 
 import { t } from "../../../../i18n";
 import type {
-  OpenworkOpenCodeRouterHealthSnapshot,
-  OpenworkOpenCodeRouterIdentityItem,
-  OpenworkOpenCodeRouterSendResult,
-  OpenworkServerStatus,
+  OnMyAgentOpenCodeRouterHealthSnapshot,
+  OnMyAgentOpenCodeRouterIdentityItem,
+  OnMyAgentOpenCodeRouterSendResult,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 import { DisclosureRowButton, SegmentedTabButton } from "@/components/ui/action-row";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { SelectMenu } from "../../../design-system/select-menu";
-import { TextInput } from "../../../design-system/text-input";
+import { LabeledInput } from "../../../design-system/labeled-input";
 import { SettingsActionRow, SettingsNotice, SettingsPanel } from "../settings-section";
 
 const agentFilePath = ".opencode/agents/opencode-router.md";
@@ -85,16 +85,16 @@ export type MessagingViewExpandedChannel = MessagingChannel | null;
 export type MessagingViewProps = {
   busy: boolean;
   showHeader?: boolean;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerUrl: string;
-  scopedOpenworkBaseUrl?: string;
+  scopedOnMyAgentBaseUrl?: string;
   workspaceId: string | null;
   selectedWorkspaceRoot: string;
   refreshing: boolean;
   onmyagentReconnectBusy: boolean;
   reconnectStatus: string | null;
   reconnectError: string | null;
-  health: OpenworkOpenCodeRouterHealthSnapshot | null;
+  health: OnMyAgentOpenCodeRouterHealthSnapshot | null;
   healthError: string | null;
   messagingEnabled: boolean;
   messagingSaving: boolean;
@@ -105,7 +105,7 @@ export type MessagingViewProps = {
   activeTab: MessagingViewTab;
   expandedChannel: MessagingViewExpandedChannel;
   telegram: {
-    identities: OpenworkOpenCodeRouterIdentityItem[];
+    identities: OnMyAgentOpenCodeRouterIdentityItem[];
     identitiesError: string | null;
     token: string;
     enabled: boolean;
@@ -116,7 +116,7 @@ export type MessagingViewProps = {
     pairingCode: string | null;
   };
   slack: {
-    identities: OpenworkOpenCodeRouterIdentityItem[];
+    identities: OnMyAgentOpenCodeRouterIdentityItem[];
     identitiesError: string | null;
     botToken: string;
     appToken: string;
@@ -143,7 +143,7 @@ export type MessagingViewProps = {
     busy: boolean;
     status: string | null;
     error: string | null;
-    result: OpenworkOpenCodeRouterSendResult | null;
+    result: OnMyAgentOpenCodeRouterSendResult | null;
   };
   modals: {
     messagingRiskOpen: boolean;
@@ -243,7 +243,7 @@ export function MessagingView(props: MessagingViewProps) {
   const serverReady = props.onmyagentServerStatus === "connected";
   const scopedWorkspaceReady = Boolean(props.workspaceId?.trim());
   const workspaceScopeLabel =
-    props.scopedOpenworkBaseUrl?.trim() || props.onmyagentServerUrl.trim() || t("identities.not_set");
+    props.scopedOnMyAgentBaseUrl?.trim() || props.onmyagentServerUrl.trim() || t("identities.not_set");
   const defaultRoutingDirectory = props.selectedWorkspaceRoot.trim() || t("identities.not_set");
   const telegramBotLink = props.telegram.botUsername?.trim()
     ? `https://t.me/${props.telegram.botUsername.trim().replace(/^@+/, "")}`
@@ -446,7 +446,7 @@ export function MessagingView(props: MessagingViewProps) {
                       type="button"
                       onClick={() => props.onToggleExpandedChannel("telegram")}
                     >
-                      <TelegramIcon size={28} />
+                      <TelegramIcon size={24} />
                       <div className="min-w-0 flex-1">
                         <div className={messagingLayoutClass.channelTitleRow}>
                           <span className={messagingTextClass.channelTitle}>Telegram</span>
@@ -571,7 +571,7 @@ export function MessagingView(props: MessagingViewProps) {
                             </SettingsNotice>
                           ) : null}
 
-                          <TextInput
+                          <LabeledInput
                             label={t("identities.bot_token_label")}
                             placeholder={t("identities.bot_token_placeholder")}
                             type="password"
@@ -683,7 +683,7 @@ export function MessagingView(props: MessagingViewProps) {
                       type="button"
                       onClick={() => props.onToggleExpandedChannel("slack")}
                     >
-                      <SlackIcon size={28} />
+                      <SlackIcon size={24} />
                       <div className="min-w-0 flex-1">
                         <div className={messagingLayoutClass.channelTitleRow}>
                           <span className={messagingTextClass.channelTitle}>Slack</span>
@@ -782,14 +782,14 @@ export function MessagingView(props: MessagingViewProps) {
                           ) : null}
 
                           <div className="space-y-2">
-                            <TextInput
+                            <LabeledInput
                               label={t("identities.bot_token_label")}
                               placeholder="xoxb-..."
                               type="password"
                               value={props.slack.botToken}
                               onChange={(event) => props.onSlackBotTokenChange(event.currentTarget.value)}
                             />
-                            <TextInput
+                            <LabeledInput
                               label={t("identities.app_token_label")}
                               placeholder="xapp-..."
                               type="password"
@@ -960,7 +960,7 @@ export function MessagingView(props: MessagingViewProps) {
                       onChange={(value) => props.onChangeSendChannel(value === "slack" ? "slack" : "telegram")}
                     />
                   </div>
-                  <TextInput
+                  <LabeledInput
                     label={t("identities.peer_id_label")}
                     placeholder={
                       props.sendTest.channel === "telegram"
@@ -973,7 +973,7 @@ export function MessagingView(props: MessagingViewProps) {
                 </div>
 
                 <div className={messagingLayoutClass.twoColumnGrid}>
-                  <TextInput
+                  <LabeledInput
                     label={t("identities.directory_label")}
                     placeholder={defaultRoutingDirectory}
                     value={props.sendTest.directory}

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useMemo } from "react";
 import { Boxes, Cloud, Loader2, RefreshCcw, Search } from "lucide-react";
@@ -10,7 +11,7 @@ import {
   sectionBodyClass,
   sectionTitleClass,
   surfaceCardClass,
-} from "../shared/modal-styles";
+} from "../../design-system/modal-styles";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -221,7 +222,7 @@ export function CreateWorkspaceSharedPanel(
                   >
                     {isConnecting ? (
                       <span className="inline-flex items-center gap-2">
-                        <Loader2 size={12} className="animate-spin" />
+                        <LoadingSpinner size="sm" />
                         Connecting
                       </span>
                     ) : (

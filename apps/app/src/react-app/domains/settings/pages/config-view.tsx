@@ -5,12 +5,12 @@ import { RefreshCcw } from "lucide-react";
 import { readDevLogs } from "../../../../app/lib/dev-log";
 import { readPerfLogs } from "../../../../app/lib/perf-log";
 import {
-  buildOpenworkWorkspaceBaseUrl,
-  parseOpenworkWorkspaceIdFromUrl,
-  type OpenworkServerSettings,
-  type OpenworkServerStatus,
+  buildOnMyAgentWorkspaceBaseUrl,
+  parseOnMyAgentWorkspaceIdFromUrl,
+  type OnMyAgentServerSettings,
+  type OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
-import type { OpenworkServerInfo } from "../../../../app/lib/desktop";
+import type { OnMyAgentServerInfo } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import {
@@ -28,16 +28,16 @@ export type ConfigViewProps = {
   clientConnected: boolean;
   anyActiveRuns: boolean;
 
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerUrl: string;
-  onmyagentServerSettings: OpenworkServerSettings;
-  onmyagentServerHostInfo: OpenworkServerInfo | null;
+  onmyagentServerSettings: OnMyAgentServerSettings;
+  onmyagentServerHostInfo: OnMyAgentServerInfo | null;
   runtimeWorkspaceId: string | null;
 
-  updateOpenworkServerSettings: (next: OpenworkServerSettings) => void;
-  resetOpenworkServerSettings: () => void;
-  testOpenworkServerConnection: (
-    next: OpenworkServerSettings,
+  updateOnMyAgentServerSettings: (next: OnMyAgentServerSettings) => void;
+  resetOnMyAgentServerSettings: () => void;
+  testOnMyAgentServerConnection: (
+    next: OnMyAgentServerSettings,
   ) => Promise<boolean>;
 
   canReloadWorkspace: boolean;
@@ -55,9 +55,9 @@ function buildDiagnosticsBundleJson(input: {
   developerMode: boolean;
   hostConnectUrl: string;
   hostConnectUrlUsesMdns: boolean;
-  hostInfo: OpenworkServerInfo | null;
-  onmyagentServerSettings: OpenworkServerSettings;
-  onmyagentServerStatus: OpenworkServerStatus;
+  hostInfo: OnMyAgentServerInfo | null;
+  onmyagentServerSettings: OnMyAgentServerSettings;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentServerUrl: string;
   runtimeWorkspaceId: string | null;
 }) {
@@ -182,13 +182,13 @@ export function ConfigView(props: ConfigViewProps) {
   const reloadButtonDisabled =
     props.reloadBusy || Boolean(reloadAvailabilityReason);
 
-  const buildOpenworkSettings = (): OpenworkServerSettings => ({
+  const buildOnMyAgentSettings = (): OnMyAgentServerSettings => ({
     ...props.onmyagentServerSettings,
     urlOverride: onmyagentUrl.trim() || undefined,
     token: onmyagentToken.trim() || undefined,
   });
 
-  const hasOpenworkChanges = (() => {
+  const hasOnMyAgentChanges = (() => {
     const currentUrl = props.onmyagentServerSettings.urlOverride ?? "";
     const currentToken = props.onmyagentServerSettings.token ?? "";
     return (
@@ -199,13 +199,13 @@ export function ConfigView(props: ConfigViewProps) {
   const resolvedWorkspaceId = (() => {
     const explicitId = props.runtimeWorkspaceId?.trim() ?? "";
     if (explicitId) return explicitId;
-    return parseOpenworkWorkspaceIdFromUrl(onmyagentUrl) ?? "";
+    return parseOnMyAgentWorkspaceIdFromUrl(onmyagentUrl) ?? "";
   })();
 
   const resolvedWorkspaceUrl = (() => {
     const baseUrl = onmyagentUrl.trim();
     if (!baseUrl) return "";
-    return buildOpenworkWorkspaceBaseUrl(baseUrl, resolvedWorkspaceId) ?? baseUrl;
+    return buildOnMyAgentWorkspaceBaseUrl(baseUrl, resolvedWorkspaceId) ?? baseUrl;
   })();
 
   const hostInfo = props.onmyagentServerHostInfo;
@@ -274,15 +274,15 @@ export function ConfigView(props: ConfigViewProps) {
 
   const handleTestConnection = async () => {
     if (onmyagentTestState === "testing") return;
-    const next = buildOpenworkSettings();
-    props.updateOpenworkServerSettings(next);
+    const next = buildOnMyAgentSettings();
+    props.updateOnMyAgentServerSettings(next);
     dispatchLocal({
       type: "testState",
       testState: "testing",
       testMessage: null,
     });
     try {
-      const ok = await props.testOpenworkServerConnection(next);
+      const ok = await props.testOnMyAgentServerConnection(next);
       dispatchLocal({
         type: "testState",
         testState: ok ? "success" : "error",
@@ -349,13 +349,13 @@ export function ConfigView(props: ConfigViewProps) {
         resolvedWorkspaceId={resolvedWorkspaceId}
         onmyagentTestState={onmyagentTestState}
         onmyagentTestMessage={onmyagentTestMessage}
-        hasOpenworkChanges={hasOpenworkChanges}
+        hasOnMyAgentChanges={hasOnMyAgentChanges}
         onUrlChange={(url) => dispatchLocal({ type: "url", url })}
         onTokenChange={(token) => dispatchLocal({ type: "token", token })}
         onToggleToken={() => dispatchLocal({ type: "toggleToken", key: "onmyagent" })}
         onTestConnection={handleTestConnection}
-        onSave={() => props.updateOpenworkServerSettings(buildOpenworkSettings())}
-        onReset={props.resetOpenworkServerSettings}
+        onSave={() => props.updateOnMyAgentServerSettings(buildOnMyAgentSettings())}
+        onReset={props.resetOnMyAgentServerSettings}
       />
       <ConfigMessagingIdentitiesSection />
       {!isDesktopRuntime() ? <div className="text-xs text-dls-secondary">{t("config.desktop_only_hint")}</div> : null}

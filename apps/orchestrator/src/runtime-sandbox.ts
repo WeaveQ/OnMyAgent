@@ -51,6 +51,7 @@ export async function resolveDockerCandidates(): Promise<string[]> {
     out.push(trimmed);
   };
 
+  // OPENWRK_DOCKER_BIN is a legacy env fallback for existing installs.
   for (const key of [
     "ONMYAGENT_DOCKER_BIN",
     "OPENWRK_DOCKER_BIN",

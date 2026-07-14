@@ -2,5 +2,7 @@
   "opencodeVersion": "v1.17.8",
   "nodeVersion": "v24.16.0",
   "pythonStandaloneRelease": "20260610",
-  "pythonVersion": "3.12.13"
+  "pythonVersion": "3.12.13",
+  "browserUseVersion": "0.13.4",
+  "browserHarnessVersion": "0.1.5"
 }

@@ -8,10 +8,20 @@ import type {
 import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
+  shouldShowSessionActivity,
+  settleGoalRuntimeAfterRun,
+  hasRepeatedGoalAssistantOutput,
+  shouldShowGoalPreview,
   deriveGoalSummary,
   shouldShowGoalRuntime,
   summarizeGoalObjective,
 } from "../src/react-app/domains/session/surface/session-run-controller";
+import {
+  shouldRecordSessionInterruption,
+  shouldSuppressCancelledAfterStop,
+} from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
+import { goalElapsedMs } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
+import { preferLatestGoalRuntime } from "../src/react-app/domains/session/surface/plan-goal/goal-runtime";
 import { setLocale } from "../src/i18n";
 
 const executeMode: ComposerCollaborationMode = {
@@ -97,7 +107,7 @@ describe("session run controller", () => {
     expect(policy.canResumeGoal).toBe(false);
   });
 
-  test("shows goal runtime only for explicit code goal mode", () => {
+  test("keeps an explicit goal runtime visible after the composer mode changes", () => {
     expect(
       shouldShowGoalRuntime({
         mode: executeMode,
@@ -105,7 +115,7 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldShowGoalRuntime({
         mode: { planning: false, pursueGoal: true },
@@ -121,7 +131,74 @@ describe("session run controller", () => {
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
+    ).toBe(true);
+    expect(
+      resolveSessionCollaborationKind(
+        { planning: false, pursueGoal: true },
+        "office",
+      ),
+    ).toBe("goal");
+  });
+
+  test("shows a goal preview only after the session has been created", () => {
+    const goalMode: ComposerCollaborationMode = {
+      planning: false,
+      pursueGoal: true,
+    };
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: null,
+        dismissed: false,
+        hasCreatedSession: false,
+      }),
     ).toBe(false);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: null,
+        dismissed: false,
+        hasCreatedSession: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: explicitGoalRuntime("running"),
+        planRuntime: null,
+        dismissed: false,
+        hasCreatedSession: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowGoalPreview({
+        mode: goalMode,
+        goalRuntime: null,
+        planRuntime: planRuntime("drafting"),
+        dismissed: false,
+        hasCreatedSession: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("settles an idle goal run even when it produced no assistant text", () => {
+    const settled = settleGoalRuntimeAfterRun({
+      runtime: explicitGoalRuntime("running"),
+      todos: [],
+      runText: "",
+      now: 200,
+    });
+
+    expect(settled.status).toBe("waiting");
+    expect(settled.waitingReason).toBe("idle");
+    expect(settled.updatedAt).toBe(200);
+  });
+
+  test("detects repeated final output within a single goal run", () => {
+    expect(hasRepeatedGoalAssistantOutput(["已确认。", "已确认。"])).toBe(true);
+    expect(hasRepeatedGoalAssistantOutput(["已确认。", "下一步继续验证。"])).toBe(false);
   });
 
   test("full access does not treat permission requests as blocking", () => {
@@ -140,6 +217,23 @@ describe("session run controller", () => {
 
     expect(policy.runState).toBe("paused");
     expect(policy.canResumeGoal).toBe(true);
+  });
+
+  test("a paused goal suppresses a stale streaming indicator", () => {
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "thinking",
+        goalRuntime: goalRuntime("paused"),
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "thinking",
+        goalRuntime: goalRuntime("running"),
+      }),
+    ).toBe(true);
   });
 
   test("paused goals can resume only when the run is otherwise idle", () => {
@@ -207,6 +301,67 @@ describe("session run controller", () => {
 
     expect(policy.runState).toBe("stalled");
     expect(policy.canResumeGoal).toBe(false);
+  });
+
+  test("does not append a cancelled notice after the same run was explicitly stopped", () => {
+    expect(
+      shouldRecordSessionInterruption({
+        existing: [
+          {
+            id: "ses_1:stopped",
+            kind: "stopped",
+            afterMessageCount: 4,
+            runStartedAt: 100,
+          },
+        ],
+        candidate: {
+          id: "ses_1:cancelled",
+          kind: "cancelled",
+          afterMessageCount: 5,
+          runStartedAt: 100,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  test("suppresses late cancellation events from a manually stopped run", () => {
+    expect(shouldSuppressCancelledAfterStop(100)).toBe(true);
+    expect(shouldSuppressCancelledAfterStop(undefined)).toBe(false);
+  });
+
+  test("keeps elapsed goal time moving while the runtime is compacting", () => {
+    expect(
+      goalElapsedMs(
+        {
+          ...explicitGoalRuntime("waiting"),
+          startedAt: 100,
+          updatedAt: 200,
+          waitingReason: "compacting",
+        },
+        500,
+      ),
+    ).toBe(400);
+  });
+
+  test("does not let a stale paused prop overwrite an optimistic goal resume", () => {
+    const optimisticRunning = {
+      ...explicitGoalRuntime("running"),
+      updatedAt: 200,
+    };
+    const stalePaused = {
+      ...explicitGoalRuntime("paused"),
+      updatedAt: 100,
+    };
+
+    expect(preferLatestGoalRuntime(optimisticRunning, stalePaused)).toBe(
+      optimisticRunning,
+    );
+    expect(
+      preferLatestGoalRuntime(optimisticRunning, {
+        ...stalePaused,
+        updatedAt: optimisticRunning.updatedAt,
+      }),
+    ).toBe(optimisticRunning);
   });
 
   test("summarizes pasted goal objectives as readable text", () => {

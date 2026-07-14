@@ -27,4 +27,5 @@ export default {
   "status.send_feedback": "Send feedback",
   "status.settings": "Settings",
   "status.send_feedback_desc": `Open the ${APP_NAME} feedback surface from the status bar.`,
+  "status.unavailable_for_tasks": "Unavailable for new tasks",
 } as const;

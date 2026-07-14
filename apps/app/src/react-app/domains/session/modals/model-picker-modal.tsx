@@ -23,56 +23,17 @@ import { MenuRowButton } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { modelEquals, resolveProviderDisplayName } from "../../../../app/utils";
 import type { ModelOption, ModelRef } from "../../../../app/types";
-import { isDefaultVisibleModel, isRecommendedModel } from "../../../../app/defaults";
+import { isRecommendedModel } from "../../../../app/defaults";
 import { ProviderIcon } from "../../../design-system/provider-icon";
 import { t } from "../../../../i18n";
+import {
+  readHiddenModels,
+  writeHiddenModels,
+  seedHiddenModels,
+  hasSeededHiddenModels,
+  markSeededHiddenModels,
+} from "../sync/hidden-models-store";
 
-const HIDDEN_MODELS_KEY = "onmyagent.hiddenModels";
-const HIDDEN_MODELS_SEEDED_KEY = "onmyagent.hiddenModelsSeeded";
-
-/**
- * Seed the hidden models set on first run. For providers with curated
- * default-visible lists (OpenAI, Anthropic), hide everything except
- * the top picks defined in app/defaults/models.ts.
- */
-function seedHiddenModels(options: ModelOption[]): Set<string> {
-  const hidden = new Set<string>();
-  for (const opt of options) {
-    if (!isDefaultVisibleModel(opt.providerID, opt.modelID)) {
-      hidden.add(`${opt.providerID}/${opt.modelID}`);
-    }
-  }
-  return hidden;
-}
-
-export function readHiddenModels(): Set<string> {
-  try {
-    const raw = window.localStorage.getItem(HIDDEN_MODELS_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeHiddenModels(hidden: Set<string>): void {
-  try {
-    window.localStorage.setItem(HIDDEN_MODELS_KEY, JSON.stringify([...hidden]));
-  } catch {}
-}
-
-function hasSeededHiddenModels(): boolean {
-  try {
-    return window.localStorage.getItem(HIDDEN_MODELS_SEEDED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function markSeededHiddenModels(): void {
-  try {
-    window.localStorage.setItem(HIDDEN_MODELS_SEEDED_KEY, "1");
-  } catch {}
-}
 
 export type ModelPickerModalProps = {
   open: boolean;
@@ -351,7 +312,7 @@ function ProviderAccordion({
           onClick={onToggleExpand}
         >
           <Chevron size={14} className="shrink-0 text-dls-secondary" />
-          <ProviderIcon providerId={group.id} size={18} className="shrink-0 text-dls-text" />
+          <ProviderIcon providerId={group.id} size={16} className="shrink-0 text-dls-text" />
           <div className="min-w-0 flex-1">
             <span className="text-sm font-medium text-dls-text">{group.name}</span>
             <span className="ml-2 text-xs text-dls-secondary">

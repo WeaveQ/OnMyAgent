@@ -52,15 +52,95 @@ const packageRules = [
 ]
 
 const allowedDomainImports = new Set([
-  // session <-> local-agents: PR #22 introduced domains/local-agents as a
-  // sibling extract of session's local-agent code. Both pages still need
-  // direct imports across the boundary until we agree whether to fold
-  // local-agents back under session/ or promote a kernel/shared contract.
+  // session <-> local-agents: reverse edges (local-agents still reaches into
+  // session for markdown/open-target/scheduled-tasks/skill icons). Session host
+  // pages import the local-agents barrel only (one entry per file).
   "apps/app/src/react-app/domains/local-agents/local-agent-page-model.ts|../session/chat/personal-local-agent-scheduled-tasks",
   "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/artifacts/open-target",
   "apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx|../../session/surface/markdown",
   "apps/app/src/react-app/domains/local-agents/messages/message-utils.ts|../../session/artifacts/open-target",
   "apps/app/src/react-app/domains/local-agents/messages/timeline-messages.tsx|../../session/surface/markdown",
+  "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-mcp-panel.tsx|../../session/components/shared-pages/agent-skill-icon",
+  "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-skill-matrix.tsx|../../session/components/shared-pages/agent-skill-icon",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents",
+  "apps/app/src/react-app/domains/session/index.ts|../local-agents",
+  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../local-agents",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../local-agents",
+  // Transitional cross-domain edges after PR #49 domain extraction
+  // (agents / messaging / workspace / shell-feedback / connections).
+  // Prefer kernel/shared barrels; shrink this list over time.
+  "apps/app/src/react-app/domains/agents/agent-default-registry.ts|../plugins",
+  "apps/app/src/react-app/domains/agents/agents-page.tsx|../connections/provider-list-query",
+  "apps/app/src/react-app/domains/agents/agents-page.tsx|../plugins/bundled-skill-locale",
+  "apps/app/src/react-app/domains/agents/agents-page.tsx|../plugins/skill-scope",
+  "apps/app/src/react-app/domains/agents/agents-page.tsx|../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/messaging/automation-page.tsx|../session/components/model-select",
+  "apps/app/src/react-app/domains/messaging/automation-page.tsx|../session/components/shared-pages/conversation-model",
+  "apps/app/src/react-app/domains/messaging/automation-page.tsx|../session/surface/composer/access-permission-select",
+  "apps/app/src/react-app/domains/messaging/automation-session-groups.ts|../agents/agent-registry-store",
+  "apps/app/src/react-app/domains/messaging/automation-session-groups.ts|../session/sync/assistant-session-workspaces",
+  "apps/app/src/react-app/domains/messaging/feishu-channel-panel.tsx|../session/components/shared-pages/accessible-root-row",
+  "apps/app/src/react-app/domains/messaging/messaging-channels-page.tsx|../session/chat/session-page-messaging-model",
+  "apps/app/src/react-app/domains/messaging/weixin-channel-panel.tsx|../session/components/shared-pages/accessible-root-row",
+  "apps/app/src/react-app/domains/session/chat/session-page-messaging-page.tsx|../../messaging/messaging-channels-page",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-helpers",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-store",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-types",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/pending-agent-store",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../connections/provider-auth-modal",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../messaging",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../workspace",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../workspace/share-workspace-modal",
+  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../workspace/workspace-modal-types",
+  "apps/app/src/react-app/domains/session/components/model-select/model-select-container.tsx|@/react-app/domains/connections/provider-list-query",
+  "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx|../../../agents/agent-registry-store",
+  "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx|../../../agents/agent-session-state",
+  "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx|../../../messaging/automation-session-groups",
+  "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx|../../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/session/components/shared-pages/assistant-selection-memory.ts|../../../agents/agent-session-state",
+  "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-default-registry",
+  "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-registry-helpers",
+  "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-registry-store",
+  "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-registry-types",
+  "apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts|../../../agents/agent-session-state",
+  "apps/app/src/react-app/domains/session/components/shared-pages/side-panel-pages.tsx|../../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/session/expert-marketplace/pending-agent.ts|../../agents/pending-agent-store",
+  "apps/app/src/react-app/domains/session/index.ts|../messaging/automation-session-groups",
+  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../agents/pending-agent-store",
+  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../connections/provider-auth-modal",
+  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../messaging",
+  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../workspace",
+  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../workspace/share-workspace-modal",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-registry-helpers",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-registry-store",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-registry-types",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-session-state",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/pending-agent-store",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../connections/provider-auth-modal",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../messaging",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../workspace",
+  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../workspace/share-workspace-modal",
+  "apps/app/src/react-app/domains/session/pages/index.tsx|../../agents/agent-registry-types",
+  "apps/app/src/react-app/domains/session/pages/index.tsx|../../connections/provider-auth-modal",
+  "apps/app/src/react-app/domains/session/pages/index.tsx|../../workspace/workspace-modal-types",
+  "apps/app/src/react-app/domains/session/surface/session-surface.tsx|../../agents/agent-prompt-suggestions",
+  "apps/app/src/react-app/domains/session/surface/session-surface.tsx|../../agents/agent-registry-store",
+  "apps/app/src/react-app/domains/session/surface/session-surface.tsx|../../agents/pending-agent-store",
+  "apps/app/src/react-app/domains/settings/cloud/use-den-session.tsx|../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/settings/pages/cloud-marketplaces-view.tsx|../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/settings/pages/cloud-providers-view.tsx|../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/settings/pages/cloud-workers-view.tsx|../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/settings/pages/environment-variable-provider.tsx|../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/settings/pages/environment-view.tsx|../../shell-feedback/status-toasts",
+  "apps/app/src/react-app/domains/settings/pages/mcp-view.tsx|../../connections/add-mcp-modal",
+  "apps/app/src/react-app/domains/settings/state/extensions-store-model.ts|../../plugins/skill-scope",
+  "apps/app/src/react-app/domains/shared/index.ts|../agents/agent-session-state",
+  "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx|../session/artifacts/artifact-icon",
+  "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx|../session/artifacts/open-target",
+  "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx|../session/artifacts/preview",
+  "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx|../session/artifacts/workspace-file-open-target",
   "apps/app/src/react-app/domains/local-agents/messages/timeline-messages.tsx|../../session/surface/tool-call",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-initial-message",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents/hooks/use-acp-model-info",
@@ -87,6 +167,7 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents/messages/timeline-messages",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-model-selector.tsx|../../local-agents/local-agent-page-model",
   "apps/app/src/react-app/domains/session/chat/personal-local-agent-model-selector.tsx|../../local-agents/hooks/use-acp-model-info",
+  "apps/app/src/react-app/domains/session/chat/personal-local-agent-model-selector.tsx|../../shell-feedback/status-toasts",
   "apps/app/src/react-app/domains/session/chat/use-workspace-override.ts|../../local-agents/workspace-picker/recent-workspaces",
   "apps/app/src/react-app/domains/session/chat/use-workspace-override.ts|../../local-agents/local-agent-page-model",
   "apps/app/src/react-app/domains/session/chat/use-workspace-override.ts|../../local-agents/messages/message-types",
@@ -112,6 +193,20 @@ const shellDepthMode = shellDepthArgs.has('--write-shell-depth-baseline')
     : 'enforce'
 const shellDepthFindings = []
 
+const domainShellRelativeRoot = 'apps/app/src/react-app/domains'
+const shellDir = join(repoRoot, 'apps/app/src/react-app/shell')
+const domainShellBaselinePath = join(
+  repoRoot,
+  'scripts/checks/baselines/domain-shell-depth.json',
+)
+const domainShellArgs = new Set(process.argv.slice(2))
+const domainShellMode = domainShellArgs.has('--write-domain-shell-baseline')
+  ? 'write'
+  : domainShellArgs.has('--list-domain-shell')
+    ? 'list'
+    : 'enforce'
+const domainShellFindings = []
+
 const domainRoot = join(repoRoot, 'apps/app/src/react-app/domains')
 const violations = []
 
@@ -120,8 +215,14 @@ for (const dir of packageDirs) {
 }
 
 const shellDepthResult = evaluateShellDepth()
+const domainShellResult = evaluateDomainShellDepth()
 
-if (shellDepthMode === 'write' || shellDepthMode === 'list') {
+if (
+  shellDepthMode === 'write' ||
+  shellDepthMode === 'list' ||
+  domainShellMode === 'write' ||
+  domainShellMode === 'list'
+) {
   process.exit(0)
 }
 
@@ -133,7 +234,7 @@ if (violations.length) {
   }
 }
 
-if (violations.length || shellDepthResult.failed) {
+if (violations.length || shellDepthResult.failed || domainShellResult.failed) {
   process.exit(1)
 }
 
@@ -148,6 +249,7 @@ function checkFile(filePath) {
     checkPackageRules(relativePath, item)
     checkReactAppRules(filePath, relativePath, item)
     checkShellImportDepth(filePath, relativePath, item)
+    checkDomainShellDepth(filePath, relativePath, item)
   }
 }
 
@@ -412,4 +514,134 @@ function lineNumberAt(source, index) {
 
 function toPosix(path) {
   return path.split(sep).join('/')
+}
+
+function checkDomainShellDepth(filePath, relativePath, item) {
+  if (!relativePath.startsWith(`${domainShellRelativeRoot}/`)) return
+  const targetPath = resolveShellTarget(filePath, item.importPath)
+  if (!targetPath) return
+  const shellRelative = relative(shellDir, targetPath)
+  if (shellRelative.startsWith('..') || shellRelative === '') return
+  const segments = shellRelative.split(sep)
+  // The barrel entry (`shell/index.ts`) has zero segments below shell/;
+  // any deeper path (e.g. `shell/control/control-provider.ts`) is a deep import.
+  if (segments.length === 0 || (segments.length === 1 && /^index\.[a-z]+$/i.test(segments[0]))) return
+  const subPath = shellRelative.replace(/\\/g, '/').replace(/\.(ts|tsx|js|jsx|mjs|mts|cjs|cts)$/i, '')
+  domainShellFindings.push({
+    file: relativePath,
+    line: item.line,
+    importPath: item.importPath,
+    subPath,
+  })
+}
+
+function resolveShellTarget(filePath, importPath) {
+  if (importPath.startsWith('@/react-app/shell/')) {
+    const remainder = importPath.slice('@/react-app/shell/'.length)
+    return resolveIndexFallback(join(shellDir, remainder))
+  }
+  if (!importPath.startsWith('.')) return null
+  const resolved = resolveRelativeSource(filePath, importPath)
+  if (!resolved) return null
+  const relativeResolved = relative(shellDir, resolved)
+  if (relativeResolved.startsWith('..') || relativeResolved === '') return null
+  return resolved
+}
+
+function domainShellKey(finding) {
+  return `${finding.file}::${finding.subPath}`
+}
+
+function readDomainShellBaseline() {
+  if (!existsSync(domainShellBaselinePath)) return { entries: {} }
+  const raw = JSON.parse(readFileSync(domainShellBaselinePath, 'utf8'))
+  const entries =
+    raw && typeof raw.entries === 'object' && !Array.isArray(raw.entries) ? raw.entries : {}
+  return { entries }
+}
+
+function evaluateDomainShellDepth() {
+  const counts = new Map()
+  for (const finding of domainShellFindings) {
+    const key = domainShellKey(finding)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
+  if (domainShellMode === 'list') {
+    const sorted = [...domainShellFindings].sort((a, b) => {
+      if (a.file !== b.file) return a.file < b.file ? -1 : 1
+      return a.line - b.line
+    })
+    for (const finding of sorted) {
+      console.log(
+        `${finding.file}:${finding.line} deep-import 'shell/${finding.subPath}' (${finding.importPath})`,
+      )
+    }
+    console.log(`\n${domainShellFindings.length} deep import(s)`)
+    return { failed: false }
+  }
+
+  if (domainShellMode === 'write') {
+    const sortedEntries = Object.fromEntries(
+      [...counts.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    )
+    const payload = {
+      $schema: './domain-shell-depth.schema.json',
+      description:
+        'Frozen domain -> shell deep imports, keyed by domainFile::subPath with an occurrence count. Only shrink this list. Regenerate with `node scripts/checks/check-boundaries.mjs --write-domain-shell-baseline` only after refactoring domains to consume the shell barrel (`apps/app/src/react-app/shell/index.ts`).',
+      generatedAt: new Date().toISOString(),
+      entries: sortedEntries,
+    }
+    writeFileSync(domainShellBaselinePath, `${JSON.stringify(payload, null, 2)}\n`)
+    const total = [...counts.values()].reduce((sum, count) => sum + count, 0)
+    console.log(
+      `Wrote domain-shell-depth baseline with ${counts.size} key(s) / ${total} occurrence(s) -> ${relative(repoRoot, domainShellBaselinePath)}`,
+    )
+    return { failed: false }
+  }
+
+  const baseline = readDomainShellBaseline()
+  const baselineCounts = new Map(Object.entries(baseline.entries))
+  const overages = []
+  for (const [key, count] of counts) {
+    const allowed = baselineCounts.get(key) ?? 0
+    if (count > allowed) overages.push({ key, count, allowed })
+  }
+  const stale = []
+  for (const [key, allowed] of baselineCounts) {
+    const count = counts.get(key) ?? 0
+    if (count < allowed) stale.push({ key, count, allowed })
+  }
+  if (overages.length === 0 && stale.length === 0) return { failed: false, counts }
+
+  if (overages.length > 0) {
+    console.error('New domain-shell-depth violations:\n')
+    for (const overage of overages) {
+      console.error(`- ${overage.key}`)
+      console.error(`  now ${overage.count} occurrence(s), baseline allows ${overage.allowed}`)
+      const examples = domainShellFindings
+        .filter((finding) => domainShellKey(finding) === overage.key)
+        .slice(0, 3)
+      for (const example of examples) {
+        console.error(
+          `    ${example.file}:${example.line} ${example.importPath}`,
+        )
+      }
+    }
+    console.error(
+      '\nDomain files may only import shell via its barrel (`../shell` / `@/react-app/shell`).',
+    )
+    console.error('Add the API you need to `apps/app/src/react-app/shell/index.ts`, or lift the')
+    console.error('cross-cutting state into `kernel/` and consume it from there.')
+  }
+
+  if (stale.length > 0) {
+    console.error('\nDomain-shell-depth baseline is stale:')
+    for (const entry of stale) {
+      console.error(`- ${entry.key}: baseline ${entry.allowed} -> now ${entry.count}`)
+    }
+    console.error('Run `node scripts/checks/check-boundaries.mjs --write-domain-shell-baseline` to shrink it.')
+  }
+
+  return { failed: true }
 }

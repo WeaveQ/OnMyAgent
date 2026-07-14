@@ -1,7 +1,7 @@
 import { isDesktopRuntime } from "../../../../app/utils";
 import {
-  workspaceOpenworkRead,
-  workspaceOpenworkWrite,
+  workspaceOnMyAgentRead,
+  workspaceOnMyAgentWrite,
 } from "../../../../app/lib/desktop";
 import type { WorkspaceCloudImports } from "../../../../app/cloud/import-state";
 import {
@@ -9,9 +9,9 @@ import {
   withWorkspaceCloudImports,
 } from "../../../../app/cloud/import-state";
 import type {
-  OpenworkServerCapabilities,
-  OpenworkServerClient,
-  OpenworkServerStatus,
+  OnMyAgentServerCapabilities,
+  OnMyAgentServerClient,
+  OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
 
 type CloudImportKey = "plugins" | "skillHubs" | "skills";
@@ -26,9 +26,9 @@ const cloudImportUnavailableMessage = {
 
 export type ExtensionsWorkspaceConfigGatewayOptions = {
   onmyagentServerConnection: () => {
-    onmyagentServerCapabilities: OpenworkServerCapabilities | null;
-    onmyagentServerClient: OpenworkServerClient | null;
-    onmyagentServerStatus: OpenworkServerStatus;
+    onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
+    onmyagentServerClient: OnMyAgentServerClient | null;
+    onmyagentServerStatus: OnMyAgentServerStatus;
   };
   runtimeWorkspaceId: () => string | null;
   selectedWorkspaceRoot: () => string;
@@ -42,19 +42,19 @@ export function createExtensionsWorkspaceConfigGateway(options: ExtensionsWorksp
     const onmyagentSnapshot = options.onmyagentServerConnection();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.config?.read;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       const config = await onmyagentClient.getConfig(onmyagentWorkspaceId);
       return config.onmyagent ?? {};
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      return await workspaceOpenworkRead({ workspacePath: root }) as unknown as Record<string, unknown>;
+      return await workspaceOnMyAgentRead({ workspacePath: root });
     }
 
     return {};
@@ -66,19 +66,19 @@ export function createExtensionsWorkspaceConfigGateway(options: ExtensionsWorksp
     const onmyagentSnapshot = options.onmyagentServerConnection();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.config?.write;
 
-    if (canUseOpenworkServer) {
+    if (canUseOnMyAgentServer) {
       await onmyagentClient.patchConfig(onmyagentWorkspaceId, { onmyagent: config });
       return true;
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
-      const result = (await workspaceOpenworkWrite({
+      const result = (await workspaceOnMyAgentWrite({
         workspacePath: root,
         config: config as never,
       })) as { ok: boolean; stderr?: string; stdout?: string };

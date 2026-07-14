@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { ComponentProps } from "react";
 import { ArrowUp, Loader2 } from "lucide-react";
@@ -30,7 +31,7 @@ export function SendButton({ className, disabled, label, loading = false, ...pro
           )}
           {...props}
         >
-          {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+          {loading ? <LoadingSpinner size="default" /> : <ArrowUp className="size-4" />}
           <span className="sr-only">{accessibleLabel}</span>
         </Button>
       </TooltipTrigger>

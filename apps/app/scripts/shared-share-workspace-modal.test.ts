@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { ShareWorkspaceModal } from "../src/react-app/domains/shared/share-workspace-modal";
-import { ShareWorkspaceAccessPanel } from "../src/react-app/domains/shared/share-workspace-access-panel";
-import type { ShareWorkspaceModalProps } from "../src/react-app/domains/shared/workspace-modal-types";
+import { ShareWorkspaceModal } from "../src/react-app/domains/workspace/share-workspace-modal";
+import { ShareWorkspaceAccessPanel } from "../src/react-app/domains/workspace/share-workspace-access-panel";
+import type { ShareWorkspaceModalProps } from "../src/react-app/domains/workspace/workspace-modal-types";
 
 const props = {
   open: true,

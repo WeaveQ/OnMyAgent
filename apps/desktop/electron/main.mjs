@@ -1,27 +1,19 @@
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { createServer } from "node:http";
-import net from "node:net";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import {
   cp,
   mkdir,
-  lstat,
-  open,
   readFile,
   readdir,
-  readlink,
   realpath,
   rename,
   rm,
   stat,
-  symlink as fsSymlink,
-  unlink,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -47,7 +39,7 @@ import {
 } from "./workspace-archive.mjs";
 import {
   onmyagentWorkspaceDisplayName,
-  selectOpenworkWorkspaceForConnection,
+  selectOnMyAgentWorkspaceForConnection,
 } from "./remote-workspace.mjs";
 import {
   PERSONAL_LOCAL_AGENT_CAPABILITIES,
@@ -57,6 +49,13 @@ import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./arc
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
+import { createBrowserUseBroker } from "./browser-use-broker.mjs";
+import { browserUseRuntimeStatus, desktopRuntimeTarget } from "./browser-use-runtime-status.mjs";
+import { createBrowserUseModelGateway } from "./browser-use-agent/model-gateway.mjs";
+import { createBrowserUseOpenCodeModelInvoker } from "./browser-use-agent/opencode-model-invoker.mjs";
+import { createBrowserUseAgentRuntime } from "./browser-use-agent/runtime.mjs";
+import { createBrowserUseRunStore } from "./browser-use-agent/run-store.mjs";
+import { createBrowserUseEnvironmentManager } from "./personal-agent-runtime/browser-use-environment.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
@@ -70,6 +69,9 @@ import {
   toggleMcpServerApp,
   upsertMcpServer,
 } from "./agent-management-mcp.mjs";
+import { createAgentManagementProviders } from "./agent-management-providers.mjs";
+import { createAgentManagementSkills } from "./agent-management-skills.mjs";
+import { createExpertMarketplace } from "./expert-marketplace.mjs";
 import {
   createCodeWorkspaceActions,
   parseEditorTarget,
@@ -88,7 +90,7 @@ const DESKTOP_PROTOCOL_SCHEME = "onmyagent";
 const isDevMode = process.env.ONMYAGENT_DEV_MODE === "1";
 const APP_NAME = isDevMode ? "OnMyAgent - Dev" : "OnMyAgent";
 const APP_IDENTIFIER = isDevMode ? DEV_APP_IDENTIFIER : TAURI_APP_IDENTIFIER;
-const MAIN_WINDOW_MIN_WIDTH = 1280;
+const MAIN_WINDOW_MIN_WIDTH = 1120;
 const MAIN_WINDOW_MIN_HEIGHT = 720;
 const codeTerminalManager = createCodeTerminalManager();
 const RELEASE_DOWNLOAD_BASE_URL =
@@ -134,6 +136,10 @@ function getRealHomeDir() {
     }
   }
   return os.homedir();
+}
+
+function claudeProjectsRoot() {
+  return path.join(getRealHomeDir(), ".claude", "projects");
 }
 
 function bundledSkillsRootPath() {
@@ -270,7 +276,7 @@ if (
   app.dock.setIcon(APP_ICON_IMAGE);
 }
 
-await configureDesktopStartupFlags(app);
+const { remoteDebugPort } = await configureDesktopStartupFlags(app);
 const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("ONMYAGENT_FORCE_SIGNIN");
@@ -426,6 +432,33 @@ const embeddedBrowserPanel = createEmbeddedBrowserPanel({
   shell,
   dirname: __dirname,
 });
+const browserUseRuntimeRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "runtimes")
+  : path.resolve(__dirname, "../resources/runtimes");
+const readBrowserUseStatus = () => {
+  const status = browserUseRuntimeStatus({ runtimeRoot: browserUseRuntimeRoot });
+  return {
+    ...status,
+    ready: status.ready && remoteDebugPort > 0,
+  };
+};
+const browserUseBroker = createBrowserUseBroker({
+  panel: embeddedBrowserPanel,
+  cdpPort: remoteDebugPort,
+  runtimeStatus: readBrowserUseStatus,
+});
+const browserUseResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-use")
+  : path.resolve(__dirname, "../resources/browser-use");
+const browserUseEnvironmentManager = createBrowserUseEnvironmentManager({
+  runtimeRoot: browserUseRuntimeRoot,
+  resourceRoot: browserUseResourceRoot,
+  userDataDir: app.getPath("userData"),
+  environmentForOwner: async (ownerId) => {
+    await browserUseBroker.start();
+    return browserUseBroker.environmentForOwner(ownerId);
+  },
+});
 const uiControlBridge = createUiControlServer({
   app,
   appName: APP_NAME,
@@ -494,43 +527,35 @@ function legacyOnmyagentUserSkillsRoot() {
   return path.join(getRealHomeDir(), ONMYAGENT_LEGACY_USER_SKILLS_DIR_SUBPATH);
 }
 
-function onmyagentMarketplaceRoot(marketplace) {
-  const safeMarketplace = validateExpertMarketplaceName(marketplace);
-  return path.join(getRealHomeDir(), ".onmyagent", "marketplaces", safeMarketplace);
-}
+const {
+  onmyagentMarketplaceRoot,
+  validateExpertMarketplaceName,
+  validateExpertPackageName,
+  validateBuiltinSkillPackageName,
+  listExpertPackages,
+  listExpertRegistryRecords,
+  myExpertPackageFiles,
+} = createExpertMarketplace({ getRealHomeDir });
 
-function validateExpertMarketplaceName(value) {
-  const normalized = String(value ?? "").trim();
-  if (normalized === "experts" || normalized === "my-experts") return normalized;
-  throw new Error("Invalid expert marketplace");
-}
+const {
+  agentManagementFetchModels,
+  agentManagementProviderAction,
+  readAgentManagementProvidersSnapshot,
+} = createAgentManagementProviders({ getRealHomeDir });
 
-function validateExpertPackageName(value) {
-  const normalized = String(value ?? "").trim();
-  if (
-    !normalized ||
-    normalized.includes("/") ||
-    normalized.includes("\\") ||
-    normalized === "." ||
-    normalized === ".."
-  ) {
-    throw new Error("Invalid expert package");
-  }
-  return normalized;
-}
+const {
+  agentManagementSkillAction,
+  scanAgentManagementSkills,
+  copyDirectoryRecursive,
+} = createAgentManagementSkills({
+  getRealHomeDir,
+  onmyagentUserSkillsRoot,
+  bundledSkillsRootPath,
+  shell,
+});
 
-function validateBuiltinSkillPackageName(value) {
-  const normalized = String(value ?? "").trim();
-  if (
-    !normalized ||
-    !/^[A-Za-z0-9_-]+$/.test(normalized) ||
-    normalized === "." ||
-    normalized === ".."
-  ) {
-    throw new Error("Invalid built-in skill package");
-  }
-  return normalized;
-}
+
+
 
 function builtinExpertPackageSource(packageName) {
   const safePackage = validateExpertPackageName(packageName);
@@ -562,249 +587,6 @@ function builtinSkillPackageSource(packageName) {
   return { safePackage, candidates };
 }
 
-function escapeMarkdownFrontmatterValue(value) {
-  return String(value ?? "").replace(/\r?\n/g, " ").replace(/"/g, '\\"').trim();
-}
-
-function localizedExpertValue(value) {
-  if (!value) return "";
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "object") {
-    return String(value.zh ?? value.en ?? "").trim();
-  }
-  return "";
-}
-
-function localizedExpertList(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => localizedExpertValue(item)).filter(Boolean);
-}
-
-function readTextIfExists(filePath) {
-  if (!existsSync(filePath)) return "";
-  try {
-    return readFileSync(filePath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function readJsonIfExists(filePath) {
-  const raw = readTextIfExists(filePath);
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function titleFromMarkdown(readme, fallback) {
-  return readme.match(/^#\s+(.+)$/m)?.[1]?.trim() || fallback;
-}
-
-function descriptionFromMarkdown(readme) {
-  return readme
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#") && !line.startsWith(">"))
-    .find((line) => !line.startsWith("```")) ?? "";
-}
-
-function frontmatterValue(markdown, key) {
-  const frontmatter = markdown.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-  return frontmatter.match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?`, "m"))?.[1]?.trim() ?? "";
-}
-
-function firstFileInDirectory(directoryPath, predicate) {
-  if (!existsSync(directoryPath)) return null;
-  try {
-    return readdirSync(directoryPath)
-      .filter((name) => predicate(name))
-      .sort()[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function resolvePackageAgentMarkdown(packagePath, manifest) {
-  const declaredAgent = Array.isArray(manifest.agents)
-    ? String(manifest.agents[0] ?? "").replace(/^\.\//, "")
-    : "";
-  if (declaredAgent) {
-    const declaredPath = path.join(packagePath, declaredAgent);
-    const declaredMarkdown = readTextIfExists(declaredPath);
-    if (declaredMarkdown) return declaredMarkdown;
-  }
-  const agentsRoot = path.join(packagePath, "agents");
-  const firstAgent = firstFileInDirectory(agentsRoot, (name) => name.endsWith(".md"));
-  return firstAgent ? readTextIfExists(path.join(agentsRoot, firstAgent)) : "";
-}
-
-function imageMimeType(filePath) {
-  const extension = path.extname(filePath).toLowerCase();
-  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
-  if (extension === ".webp") return "image/webp";
-  return "image/png";
-}
-
-function resolvePackageAvatarDataUrl(packagePath, avatarPath) {
-  const normalizedAvatarPath = String(avatarPath ?? "").replace(/^\.\//, "");
-  const candidates = [];
-  if (normalizedAvatarPath) candidates.push(path.join(packagePath, normalizedAvatarPath));
-  const avatarsRoot = path.join(packagePath, "avatars");
-  const firstAvatar = firstFileInDirectory(
-    avatarsRoot,
-    (name) => /\.(png|jpe?g|webp)$/i.test(name),
-  );
-  if (firstAvatar) candidates.push(path.join(avatarsRoot, firstAvatar));
-  const avatarFile = candidates.find((candidate) => existsSync(candidate));
-  if (!avatarFile) return null;
-  try {
-    const bytes = readFileSync(avatarFile);
-    return `data:${imageMimeType(avatarFile)};base64,${bytes.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
-function expertPackageEntryFromDirectory(packagePath, packageName, marketplace) {
-  const manifest = readJsonIfExists(path.join(packagePath, ".expert-plugin", "plugin.json"));
-  const readme = readTextIfExists(path.join(packagePath, "README.md"));
-  const agentMarkdown = resolvePackageAgentMarkdown(packagePath, manifest);
-  const fallbackName = titleFromMarkdown(readme, titleFromMarkdown(agentMarkdown, packageName));
-  const displayName =
-    localizedExpertValue(manifest.profession) ||
-    localizedExpertValue(manifest.displayName) ||
-    fallbackName ||
-    frontmatterValue(agentMarkdown, "name");
-  const profession =
-    localizedExpertValue(manifest.displayName) ||
-    frontmatterValue(agentMarkdown, "profession") ||
-    displayName;
-  const description =
-    localizedExpertValue(manifest.displayDescription) ||
-    descriptionFromMarkdown(readme) ||
-    frontmatterValue(agentMarkdown, "description") ||
-    displayName;
-  const manifestName = typeof manifest.name === "string" ? manifest.name.trim() : "";
-  return {
-    id: `${manifestName || packageName}:${packageName}`,
-    packageName,
-    source: marketplace === "my-experts" ? "mine" : "installed",
-    packagePath,
-    displayName,
-    profession,
-    description,
-    categoryId: typeof manifest.categoryId === "string" && manifest.categoryId.trim()
-      ? manifest.categoryId.trim()
-      : "all",
-    tags: localizedExpertList(manifest.tags).slice(0, 4),
-    quickPrompts: localizedExpertList(manifest.quickPrompts).slice(0, 4),
-    avatarUrl: resolvePackageAvatarDataUrl(packagePath, manifest.avatar),
-    expertType: manifest.expertType === "team" ? "team" : "agent",
-    leadAgentName:
-      typeof manifest.agentName === "string" && manifest.agentName.trim()
-        ? manifest.agentName.trim()
-        : manifestName || packageName,
-    systemPrompt: agentMarkdown || readme,
-    version: typeof manifest.version === "string" && manifest.version.trim()
-      ? manifest.version.trim()
-      : null,
-  };
-}
-
-function listExpertPackages(marketplace) {
-  const safeMarketplace = validateExpertMarketplaceName(marketplace);
-  const root = onmyagentMarketplaceRoot(safeMarketplace);
-  if (!existsSync(root)) return [];
-  return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) return false;
-      return existsSync(path.join(root, entry.name, ".expert-plugin", "plugin.json"));
-    })
-    .map((entry) => {
-      const packageName = validateExpertPackageName(entry.name);
-      return expertPackageEntryFromDirectory(
-        path.join(root, packageName),
-        packageName,
-        safeMarketplace,
-      );
-    })
-    .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));
-}
-
-function expertRegistryRecordFromPackageEntry(entry) {
-  return {
-    id: entry.id,
-    name: entry.displayName,
-    source: entry.source,
-    packageName: entry.packageName,
-    packagePath: entry.packagePath,
-  };
-}
-
-function listExpertRegistryRecords(marketplace) {
-  return listExpertPackages(marketplace).map(expertRegistryRecordFromPackageEntry);
-}
-
-function myExpertPackageFiles(input, packageName) {
-  const name = String(input.name ?? packageName).trim() || packageName;
-  const description = String(input.description ?? "").trim();
-  const quote = String(input.quote ?? description).trim();
-  const now = new Date().toISOString();
-  const plugin = {
-    name: packageName,
-    version: "1.0.0",
-    description,
-    author: { name: "OnMyAgent", email: "" },
-    agents: [`./agents/${packageName}.md`],
-    expertType: "agent",
-    agentName: packageName,
-    displayName: { zh: name, en: name },
-    profession: { zh: name, en: name },
-    displayDescription: { zh: description || quote, en: description || quote },
-    categoryId: "product-operations",
-    categoryIds: ["product-operations"],
-    tags: [],
-    quickPrompts: [],
-    createdAt: now,
-  };
-  const agentMarkdown = `---
-name: ${packageName}
-description: "${escapeMarkdownFrontmatterValue(description || quote)}"
-displayName:
-  zh: "${escapeMarkdownFrontmatterValue(name)}"
-  en: "${escapeMarkdownFrontmatterValue(name)}"
-profession:
-  zh: "${escapeMarkdownFrontmatterValue(name)}"
-  en: "${escapeMarkdownFrontmatterValue(name)}"
-maxTurns: 50
----
-
-# ${name}
-
-${quote || description || "我是一个专业的智能体助手。"}
-
-## 工作方式
-
-${description || quote || "根据用户目标提供结构化、可执行的帮助。"}
-`;
-  const readme = `# ${name}
-
-${description || quote || "由 OnMyAgent 创建的自定义专家。"}
-
-## 类型
-
-Agent 型（单个专家）
-
-## 存储
-
-该专家创建于 OnMyAgent，并保存在 \`~/.onmyagent/marketplaces/my-experts/${packageName}\`。
-`;
-  return { plugin, agentMarkdown, readme };
-}
 
 function isBundledSkillPath(targetPath) {
   const bundledRoot = bundledSkillsRootPath();
@@ -929,1841 +711,7 @@ async function readJsonLikeFile(targetPath) {
   }
 }
 
-function skillAgentsFromPath(skill) {
-  const raw = `${skill.path ?? ""}\n${skill.root ?? ""}\n${skill.name ?? ""}`.toLowerCase();
-  const agents = [];
-  if (raw.includes(".opencode") || raw.includes("opencode")) agents.push("opencode");
-  if (raw.includes(".claude") || raw.includes("claude")) agents.push("claude");
-  if (raw.includes("openclaw")) agents.push("openclaw");
-  if (raw.includes("hermes")) agents.push("hermes");
-  if (raw.includes("codex")) agents.push("codex");
-  if (raw.includes(".gemini") || raw.includes("gemini")) agents.push("gemini");
-  if (raw.includes(".onmyagent") || raw.includes("bundled-skills")) agents.push("onmyagent");
-  return agents.length ? [...new Set(agents)] : ["unknown"];
-}
 
-const STUDIO_SWITCH_SKILL_AGENT_BY_COLUMN = {
-  enabled_claude: "claude",
-  enabled_codex: "codex",
-  enabled_opencode: "opencode",
-  enabled_hermes: "hermes",
-  enabled_gemini: "gemini",
-};
-
-const STUDIO_SWITCH_SKILL_COLUMNS_BY_AGENT = {
-  claude: "enabled_claude",
-  codex: "enabled_codex",
-  opencode: "enabled_opencode",
-  hermes: "enabled_hermes",
-  gemini: "enabled_gemini",
-};
-
-const AGENT_SKILL_SOURCES = [
-  { agent: "opencode", label: "OpenCode", subpaths: [[".opencode", "skills"], [".opencode", "skill"]] },
-  { agent: "claude", label: "Claude Code", subpaths: [[".claude", "skills"]] },
-  { agent: "codex", label: "Codex", subpaths: [[".codex", "skills"]] },
-  { agent: "gemini", label: "Gemini", subpaths: [[".gemini", "skills"]] },
-  { agent: "hermes", label: "Hermes", subpaths: [[".hermes", "skills"]] },
-  { agent: "openclaw", label: "OpenClaw", subpaths: [[".openclaw", "plugin-skills"], [".openclaw", "skills"]] },
-  { agent: "onmyagent", label: "OnMyAgent", subpaths: [[".onmyagent", "skills"]] },
-];
-
-const STUDIO_SWITCH_MANAGED_SKILL_AGENTS = Object.keys(STUDIO_SWITCH_SKILL_COLUMNS_BY_AGENT);
-const STUDIO_SKILL_SYNC_AGENTS = [...STUDIO_SWITCH_MANAGED_SKILL_AGENTS, "openclaw", "onmyagent"];
-const CLAUDE_RUNTIME_BUILTIN_SKILL_NAMES = new Set(["init", "review", "security-review"]);
-const AGENT_MANAGEMENT_PROVIDER_APPS = ["opencode", "codex", "claude", "openclaw", "hermes"];
-const AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS = new Set(["opencode", "openclaw", "hermes"]);
-
-const AGENT_MANAGEMENT_PROVIDER_COLUMNS = [
-  ["cost_multiplier", "TEXT NOT NULL DEFAULT '1.0'"],
-  ["limit_daily_usd", "TEXT"],
-  ["limit_monthly_usd", "TEXT"],
-  ["provider_type", "TEXT"],
-];
-
-function studioSwitchDatabasePath() {
-  return path.join(getRealHomeDir(), ".studio-switch", "studio-switch.db");
-}
-
-function studioSwitchSkillsRoot() {
-  return path.join(getRealHomeDir(), ".studio-switch", "skills");
-}
-
-function agentManagementConfigPath(appType) {
-  const home = getRealHomeDir();
-  switch (appType) {
-    case "claude":
-      return path.join(home, ".claude", "settings.json");
-    case "codex":
-      return path.join(home, ".codex", "config.toml");
-    case "opencode":
-      return path.join(home, ".config", "opencode", "opencode.json");
-    case "openclaw":
-      return path.join(home, ".openclaw", "openclaw.json");
-    case "hermes":
-      return path.join(home, ".hermes", "config.yaml");
-    default:
-      return "";
-  }
-}
-
-function ensureStudioSwitchProviderSchema(db) {
-  db.exec(`CREATE TABLE IF NOT EXISTS providers (
-    id TEXT NOT NULL,
-    app_type TEXT NOT NULL,
-    name TEXT NOT NULL,
-    settings_config TEXT NOT NULL,
-    website_url TEXT,
-    category TEXT,
-    created_at INTEGER,
-    sort_index INTEGER,
-    notes TEXT,
-    icon TEXT,
-    icon_color TEXT,
-    meta TEXT NOT NULL DEFAULT '{}',
-    is_current BOOLEAN NOT NULL DEFAULT 0,
-    in_failover_queue BOOLEAN NOT NULL DEFAULT 0,
-    cost_multiplier TEXT NOT NULL DEFAULT '1.0',
-    limit_daily_usd TEXT,
-    limit_monthly_usd TEXT,
-    provider_type TEXT,
-    PRIMARY KEY (id, app_type)
-  )`);
-  db.exec(`CREATE TABLE IF NOT EXISTS provider_endpoints (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider_id TEXT NOT NULL,
-    app_type TEXT NOT NULL,
-    url TEXT NOT NULL,
-    added_at INTEGER,
-    FOREIGN KEY (provider_id, app_type) REFERENCES providers(id, app_type) ON DELETE CASCADE
-  )`);
-  const columns = db.prepare("PRAGMA table_info(providers)").all().map((row) => String(row.name));
-  const known = new Set(columns);
-  for (const [column, definition] of AGENT_MANAGEMENT_PROVIDER_COLUMNS) {
-    if (!known.has(column)) db.exec(`ALTER TABLE providers ADD COLUMN ${column} ${definition}`);
-  }
-}
-
-function withStudioSwitchProviderDatabase(callback, options = {}) {
-  const dbPath = studioSwitchDatabasePath();
-  if (!options.readOnly) mkdirSyncIfNeeded(path.dirname(dbPath));
-  if (options.readOnly && !existsSync(dbPath)) return callback(null);
-  let db;
-  try {
-    db = options.readOnly ? new DatabaseSync(dbPath, { readOnly: true }) : new DatabaseSync(dbPath);
-    if (!options.readOnly) ensureStudioSwitchProviderSchema(db);
-    return callback(db);
-  } finally {
-    try {
-      db?.close();
-    } catch {
-      // ignore
-    }
-  }
-}
-
-function mkdirSyncIfNeeded(targetPath) {
-  if (!existsSync(targetPath)) mkdirSync(targetPath, { recursive: true });
-}
-
-function parseStudioSwitchJsonColumn(raw, fallback) {
-  if (raw == null || raw === "") return fallback;
-  try {
-    return JSON.parse(String(raw));
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeAgentManagementProviderApp(appType) {
-  const value = String(appType ?? "").trim().toLowerCase();
-  if (!AGENT_MANAGEMENT_PROVIDER_APPS.includes(value)) throw new Error("Unsupported provider app");
-  return value;
-}
-
-function sanitizeProviderKey(value) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_.-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
-
-function inferProviderIcon(name, appType) {
-  const lower = `${name} ${appType}`.toLowerCase();
-  if (lower.includes("claude") || lower.includes("anthropic")) return { icon: "anthropic", iconColor: "#D4915D" };
-  if (lower.includes("openai") || lower.includes("codex") || lower.includes("gpt")) return { icon: "openai", iconColor: "#00A67E" };
-  if (lower.includes("qwen") || lower.includes("bailian") || lower.includes("aliyun") || lower.includes("dashscope")) return { icon: "alibaba", iconColor: "#FF6A00" };
-  if (lower.includes("ark") || lower.includes("volc") || lower.includes("doubao") || lower.includes("火山")) return { icon: "huoshan", iconColor: "#3370FF" };
-  if (lower.includes("kimi") || lower.includes("moonshot")) return { icon: "moonshot", iconColor: "#6366F1" };
-  if (lower.includes("deepseek")) return { icon: "deepseek", iconColor: "#1E88E5" };
-  if (lower.includes("minimax")) return { icon: "minimax", iconColor: "#FF6B6B" };
-  if (lower.includes("z.ai") || lower.includes("zai") || lower.includes("glm") || lower.includes("zhipu")) return { icon: "zhipu", iconColor: "#0F62FE" };
-  if (lower.includes("google") || lower.includes("gemini")) return { icon: "google", iconColor: "#4285F4" };
-  return { icon: appType, iconColor: null };
-}
-
-function studioSwitchProviderFromRow(row) {
-  const settingsConfig = parseStudioSwitchJsonColumn(row.settings_config, {});
-  const meta = parseStudioSwitchJsonColumn(row.meta, {});
-  return {
-    id: String(row.id),
-    appType: String(row.app_type),
-    name: String(row.name),
-    settingsConfig,
-    websiteUrl: row.website_url ?? null,
-    category: row.category ?? null,
-    createdAt: row.created_at ?? null,
-    sortIndex: row.sort_index ?? null,
-    notes: row.notes ?? null,
-    icon: row.icon ?? null,
-    iconColor: row.icon_color ?? null,
-    meta,
-    isCurrent: Boolean(row.is_current),
-    inFailoverQueue: Boolean(row.in_failover_queue),
-    costMultiplier: row.cost_multiplier ?? "1.0",
-    limitDailyUsd: row.limit_daily_usd ?? null,
-    limitMonthlyUsd: row.limit_monthly_usd ?? null,
-    providerType: row.provider_type ?? meta.providerType ?? null,
-    liveManaged: meta.live_config_managed !== false,
-    livePresent: false,
-    models: extractAgentManagementProviderModels(String(row.app_type), settingsConfig),
-  };
-}
-
-function readStudioSwitchProviders(appType = null) {
-  return withStudioSwitchProviderDatabase((db) => {
-    if (!db) return [];
-    const hasTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'providers'").get();
-    if (!hasTable) return [];
-    const args = [];
-    let sql = `SELECT id, app_type, name, settings_config, website_url, category, created_at, sort_index, notes, icon, icon_color, meta, is_current, in_failover_queue, cost_multiplier, limit_daily_usd, limit_monthly_usd, provider_type
-      FROM providers`;
-    if (appType) {
-      sql += " WHERE app_type = ?";
-      args.push(appType);
-    } else {
-      sql += ` WHERE app_type IN (${AGENT_MANAGEMENT_PROVIDER_APPS.map(() => "?").join(",")})`;
-      args.push(...AGENT_MANAGEMENT_PROVIDER_APPS);
-    }
-    sql += " ORDER BY app_type, COALESCE(sort_index, 999999), created_at ASC, id ASC";
-    return db.prepare(sql).all(...args).map(studioSwitchProviderFromRow);
-  }, { readOnly: true });
-}
-
-function nextStudioSwitchProviderSortIndex(db, appType) {
-  const row = db.prepare("SELECT MAX(sort_index) AS max_sort FROM providers WHERE app_type = ?").get(appType);
-  const maxSort = Number(row?.max_sort);
-  return Number.isFinite(maxSort) ? maxSort + 1 : 0;
-}
-
-function normalizeAgentManagementProviderPayload(appType, inputProvider = {}) {
-  const simplified = inputProvider.simple && typeof inputProvider.simple === "object" ? inputProvider.simple : null;
-  const name = String(inputProvider.name ?? simplified?.name ?? "").trim();
-  const fallbackId = name || simplified?.model || "custom-provider";
-  const id = sanitizeProviderKey(inputProvider.id ?? simplified?.id ?? fallbackId);
-  if (!id) throw new Error("Provider id is required");
-  const providerName = name || id;
-  let settingsConfig = inputProvider.settingsConfig;
-  if (typeof settingsConfig === "string") {
-    settingsConfig = parseStudioSwitchJsonColumn(settingsConfig, null);
-    if (!settingsConfig) throw new Error("settingsConfig JSON is invalid");
-  }
-  if (!settingsConfig || typeof settingsConfig !== "object" || Array.isArray(settingsConfig)) {
-    settingsConfig = buildProviderSettingsConfig(appType, { ...simplified, id, name: providerName });
-  } else if (simplified) {
-    settingsConfig = mergeProviderSimpleFields(appType, settingsConfig, { ...simplified, id, name: providerName });
-  }
-  const inferred = inferProviderIcon(providerName, appType);
-  const meta = inputProvider.meta && typeof inputProvider.meta === "object" ? inputProvider.meta : {};
-  return {
-    id,
-    appType,
-    name: providerName,
-    settingsConfig,
-    websiteUrl: typeof inputProvider.websiteUrl === "string" ? inputProvider.websiteUrl.trim() || null : null,
-    category: typeof inputProvider.category === "string" && inputProvider.category.trim() ? inputProvider.category.trim() : "custom",
-    createdAt: Number.isFinite(Number(inputProvider.createdAt)) ? Number(inputProvider.createdAt) : Date.now(),
-    sortIndex: Number.isFinite(Number(inputProvider.sortIndex)) ? Number(inputProvider.sortIndex) : null,
-    notes: typeof inputProvider.notes === "string" ? inputProvider.notes : null,
-    icon: typeof inputProvider.icon === "string" && inputProvider.icon.trim() ? inputProvider.icon.trim() : inferred.icon,
-    iconColor: typeof inputProvider.iconColor === "string" && inputProvider.iconColor.trim() ? inputProvider.iconColor.trim() : inferred.iconColor,
-    meta: AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType) ? { ...meta, live_config_managed: inputProvider.liveManaged !== false } : meta,
-    inFailoverQueue: Boolean(inputProvider.inFailoverQueue),
-    costMultiplier: String(inputProvider.costMultiplier ?? meta.costMultiplier ?? "1.0"),
-    limitDailyUsd: inputProvider.limitDailyUsd ?? null,
-    limitMonthlyUsd: inputProvider.limitMonthlyUsd ?? null,
-    providerType: inputProvider.providerType ?? meta.providerType ?? null,
-  };
-}
-
-function mergeProviderSimpleFields(appType, settingsConfig, simple = {}) {
-  if (!settingsConfig || typeof settingsConfig !== "object" || Array.isArray(settingsConfig)) return settingsConfig;
-  if (!["claude", "codex"].includes(appType)) return settingsConfig;
-  const base = structuredCloneJson(settingsConfig);
-  const generated = buildProviderSettingsConfig(appType, simple);
-  if (appType === "claude") {
-    base.env = { ...(base.env && typeof base.env === "object" ? base.env : {}), ...(generated.env ?? {}) };
-    return base;
-  }
-  if (appType === "codex") {
-    const codexGenerated = /** @type {{ auth?: Record<string, unknown>, config?: string, modelCatalog?: unknown }} */ (generated);
-    return {
-      ...base,
-      auth: codexGenerated.auth ?? base.auth ?? {},
-      config: codexGenerated.config ?? base.config ?? "",
-      ...(codexGenerated.modelCatalog ? { modelCatalog: codexGenerated.modelCatalog } : {}),
-    };
-  }
-  return base;
-}
-
-function buildProviderSettingsConfig(appType, simple = {}) {
-  const id = sanitizeProviderKey(simple.id ?? simple.name ?? "custom-provider");
-  const name = String(simple.name ?? id).trim() || id;
-  const baseUrl = String(simple.baseUrl ?? "").trim();
-  const apiKey = String(simple.apiKey ?? "").trim();
-  const modelList = String(simple.models ?? simple.model ?? "")
-    .split(/[\n,]/g)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const model = modelList[0] ?? "model";
-  if (appType !== "codex" && !baseUrl) throw new Error("Base URL is required");
-  if (!["codex", "claude"].includes(appType) && !modelList.length) throw new Error("At least one model is required");
-  if (appType === "opencode") {
-    return {
-      npm: "@ai-sdk/openai-compatible",
-      name,
-      options: { baseURL: baseUrl, ...(apiKey ? { apiKey } : {}), timeout: 600000 },
-      models: Object.fromEntries(modelList.map((item) => [item, { name: item }])),
-    };
-  }
-  if (appType === "openclaw") {
-    return {
-      baseUrl,
-      ...(apiKey ? { apiKey } : {}),
-      api: String(simple.api ?? "openai-completions"),
-      models: modelList.map((item) => ({ id: item, name: item, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } })),
-    };
-  }
-  if (appType === "hermes") {
-    return {
-      name: id,
-      base_url: baseUrl,
-      ...(apiKey ? { api_key: apiKey } : {}),
-      api_mode: String(simple.apiMode ?? "chat_completions"),
-      model,
-      models: modelList.map((item) => ({ id: item })),
-      _cc_source: "studio",
-    };
-  }
-  if (appType === "claude") {
-    const haikuModel = String(simple.claudeHaikuModel ?? "").trim() || model;
-    const sonnetModel = String(simple.claudeSonnetModel ?? "").trim() || model;
-    const opusModel = String(simple.claudeOpusModel ?? "").trim() || sonnetModel || model;
-    const fableModel = String(simple.claudeFableModel ?? "").trim() || opusModel || model;
-    const haikuName = String(simple.claudeHaikuName ?? "").trim() || haikuModel;
-    const sonnetName = String(simple.claudeSonnetName ?? "").trim() || sonnetModel;
-    const opusName = String(simple.claudeOpusName ?? "").trim() || opusModel;
-    const fableName = String(simple.claudeFableName ?? "").trim() || fableModel;
-    return {
-      env: {
-        ANTHROPIC_BASE_URL: baseUrl,
-        ...(apiKey ? { ANTHROPIC_AUTH_TOKEN: apiKey } : {}),
-        ANTHROPIC_MODEL: model,
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: haikuModel,
-        ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: haikuName,
-        ANTHROPIC_DEFAULT_SONNET_MODEL: sonnetModel,
-        ANTHROPIC_DEFAULT_SONNET_MODEL_NAME: sonnetName,
-        ANTHROPIC_DEFAULT_OPUS_MODEL: opusModel,
-        ANTHROPIC_DEFAULT_OPUS_MODEL_NAME: opusName,
-        ANTHROPIC_DEFAULT_FABLE_MODEL: fableModel,
-        ANTHROPIC_DEFAULT_FABLE_MODEL_NAME: fableName,
-      },
-    };
-  }
-  if (appType === "codex") {
-    const providerId = id.replace(/-/g, "_");
-    const envKey = String(simple.envKey ?? "CODEX_API_KEY").trim() || "CODEX_API_KEY";
-    const catalogModels = parseCodexCatalogModels(simple.codexCatalog);
-    const defaultModel = catalogModels[0]?.model || model;
-    return {
-      auth: apiKey ? { [envKey]: apiKey } : {},
-      config: `model = "${escapeTomlString(defaultModel)}"\nmodel_provider = "${escapeTomlString(providerId)}"\n\n[model_providers.${providerId}]\nname = "${escapeTomlString(name)}"\nbase_url = "${escapeTomlString(baseUrl)}"\nwire_api = "responses"\nenv_key = "${escapeTomlString(envKey)}"\n`,
-      ...(catalogModels.length ? { modelCatalog: { models: catalogModels } } : {}),
-    };
-  }
-  return {};
-}
-
-function parseCodexCatalogModels(value) {
-  const seen = new Set();
-  const rows = [];
-  for (const line of String(value ?? "").split(/\r?\n/g)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split("|").map((part) => part.trim());
-    const displayName = parts.length > 1 ? parts[0] : "";
-    const model = (parts.length > 1 ? parts[1] : parts[0]) ?? "";
-    if (!model || seen.has(model)) continue;
-    seen.add(model);
-    const contextText = String(parts[2] ?? "").replace(/[^\d]/g, "");
-    const contextWindow = contextText ? Number.parseInt(contextText, 10) : null;
-    rows.push({
-      model,
-      ...(displayName ? { displayName } : {}),
-      ...(Number.isFinite(contextWindow) && contextWindow > 0 ? { contextWindow } : {}),
-    });
-  }
-  return rows;
-}
-
-const AGENT_MANAGEMENT_MODEL_FETCH_COMPAT_SUFFIXES = [
-  "/api/claudecode",
-  "/api/anthropic",
-  "/apps/anthropic",
-  "/api/coding",
-  "/api/plan",
-  "/claudecode",
-  "/anthropic",
-  "/step_plan",
-  "/coding",
-  "/claude",
-  "/plan",
-];
-
-function agentManagementModelsEndpoints(baseUrl) {
-  const raw = String(baseUrl ?? "").trim().replace(/\/+$/g, "");
-  if (!raw) throw new Error("API Endpoint is required before fetching models");
-  let parsed;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw new Error("API Endpoint is invalid");
-  }
-  const candidates = [];
-  const add = (value) => {
-    if (value && !candidates.includes(value)) candidates.push(value);
-  };
-  const pathname = parsed.pathname.replace(/\/+$/g, "");
-  if (/\/models$/i.test(pathname)) {
-    add(parsed.toString());
-  } else if (agentManagementEndsWithVersionSegment(pathname)) {
-    add(`${raw}/models`);
-    if (!pathname.endsWith("/v1")) add(`${raw}/v1/models`);
-  } else {
-    add(`${raw}/v1/models`);
-    add(`${raw}/models`);
-  }
-  const stripped = agentManagementStripCompatSuffix(raw);
-  if (stripped) {
-    add(`${stripped}/v1/models`);
-    add(`${stripped}/models`);
-  }
-  return candidates;
-}
-
-function agentManagementEndsWithVersionSegment(pathname) {
-  const last = String(pathname ?? "").split("/").filter(Boolean).at(-1) ?? "";
-  return /^v\d+$/.test(last);
-}
-
-function agentManagementStripCompatSuffix(baseUrl) {
-  let parsed;
-  try {
-    parsed = new URL(baseUrl);
-  } catch {
-    return null;
-  }
-  const pathname = parsed.pathname.replace(/\/+$/g, "");
-  for (const suffix of AGENT_MANAGEMENT_MODEL_FETCH_COMPAT_SUFFIXES) {
-    const index = pathname.indexOf(suffix);
-    if (index < 0) continue;
-    const after = pathname.slice(index + suffix.length);
-    if (after && !after.startsWith("/")) continue;
-    const rootPath = pathname.slice(0, index).replace(/\/+$/g, "");
-    return `${parsed.origin}${rootPath}`.replace(/\/+$/g, "");
-  }
-  return null;
-}
-
-function normalizeFetchedModel(item) {
-  if (!item || typeof item !== "object") return null;
-  const id = String(item.id ?? item.model ?? item.name ?? "").trim();
-  if (!id) return null;
-  const name = String(item.name ?? item.display_name ?? item.displayName ?? id).trim() || id;
-  const contextWindow = item.contextWindow ?? item.context_window ?? item.max_context_length ?? item.maxContextLength ?? null;
-  return { id, name, ...(contextWindow != null ? { contextWindow } : {}) };
-}
-
-async function agentManagementFetchModels(input = {}) {
-  const endpoints = agentManagementModelsEndpoints(input.baseUrl);
-  const apiKey = String(input.apiKey ?? "").trim();
-  let lastError = "no candidates";
-  for (const endpoint of endpoints) {
-    let response;
-    try {
-      response = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-        },
-      });
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      continue;
-    }
-    const text = await response.text();
-    if (!response.ok) {
-      lastError = `HTTP ${response.status}${text ? ` ${text.slice(0, 240)}` : ""}`;
-      if (response.status === 404 || response.status === 405) continue;
-      throw new Error(`Fetch models failed at ${endpoint}: ${lastError}`);
-    }
-    let payload;
-    try {
-      payload = text ? JSON.parse(text) : {};
-    } catch {
-      throw new Error(`Fetch models failed at ${endpoint}: response is not valid JSON`);
-    }
-    const rawModels = Array.isArray(payload?.data)
-      ? payload.data
-      : Array.isArray(payload?.models)
-        ? payload.models
-        : Array.isArray(payload)
-          ? payload
-          : [];
-    const seen = new Set();
-    const models = [];
-    for (const rawModel of rawModels) {
-      const model = normalizeFetchedModel(rawModel);
-      if (!model || seen.has(model.id)) continue;
-      seen.add(model.id);
-      models.push(model);
-    }
-    return { ok: true, endpoint, models };
-  }
-  throw new Error(`Fetch models failed: all candidate endpoints failed (${endpoints.join(", ")}): ${lastError}`);
-}
-
-function escapeTomlString(value) {
-  return String(value ?? "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
-}
-
-function extractAgentManagementProviderModels(appType, settingsConfig) {
-  if (!settingsConfig || typeof settingsConfig !== "object") return [];
-  if (appType === "opencode" && settingsConfig.models && typeof settingsConfig.models === "object") {
-    return Object.entries(settingsConfig.models).map(([id, value]) => ({ id, name: String(value?.name ?? id) }));
-  }
-  if (appType === "openclaw" && Array.isArray(settingsConfig.models)) {
-    return settingsConfig.models.map((model) => ({ id: String(model?.id ?? model?.name ?? "").trim(), name: String(model?.name ?? model?.id ?? "").trim() })).filter((model) => model.id);
-  }
-  if (appType === "hermes") {
-    if (Array.isArray(settingsConfig.models)) return settingsConfig.models.map((model) => ({ id: String(model?.id ?? model?.model ?? model?.name ?? "").trim(), name: String(model?.name ?? model?.id ?? model?.model ?? "").trim() })).filter((model) => model.id);
-    if (settingsConfig.models && typeof settingsConfig.models === "object") return Object.keys(settingsConfig.models).map((id) => ({ id, name: id }));
-    if (typeof settingsConfig.model === "string" && settingsConfig.model.trim()) return [{ id: settingsConfig.model.trim(), name: settingsConfig.model.trim() }];
-  }
-  if (appType === "claude") {
-    const env = settingsConfig.env && typeof settingsConfig.env === "object" ? settingsConfig.env : settingsConfig;
-    return [
-      env.ANTHROPIC_MODEL,
-      env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
-      env.ANTHROPIC_DEFAULT_SONNET_MODEL,
-      env.ANTHROPIC_DEFAULT_OPUS_MODEL,
-      env.ANTHROPIC_DEFAULT_FABLE_MODEL,
-      env.model,
-      settingsConfig.model,
-    ].filter(Boolean).map((id) => ({ id: String(id), name: String(id) }));
-  }
-  if (appType === "codex") {
-    const catalog = settingsConfig.modelCatalog && typeof settingsConfig.modelCatalog === "object" ? settingsConfig.modelCatalog : null;
-    if (Array.isArray(catalog?.models) && catalog.models.length) {
-      return catalog.models
-        .map((item) => ({ id: String(item?.model ?? "").trim(), name: String(item?.displayName ?? item?.display_name ?? item?.model ?? "").trim() }))
-        .filter((model) => model.id);
-    }
-    const config = String(settingsConfig.config ?? "");
-    const model = config.match(/^\s*model\s*=\s*["']([^"']+)["']/m)?.[1];
-    return model ? [{ id: model, name: model }] : [];
-  }
-  return [];
-}
-
-function saveStudioSwitchProvider(provider) {
-  return withStudioSwitchProviderDatabase((db) => {
-    const existing = db.prepare("SELECT is_current, in_failover_queue, created_at, sort_index FROM providers WHERE id = ? AND app_type = ?").get(provider.id, provider.appType);
-    const createdAt = existing?.created_at ?? provider.createdAt ?? Date.now();
-    const sortIndex = provider.sortIndex ?? existing?.sort_index ?? nextStudioSwitchProviderSortIndex(db, provider.appType);
-    db.prepare(`INSERT INTO providers (id, app_type, name, settings_config, website_url, category, created_at, sort_index, notes, icon, icon_color, meta, is_current, in_failover_queue, cost_multiplier, limit_daily_usd, limit_monthly_usd, provider_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id, app_type) DO UPDATE SET
-        name = excluded.name,
-        settings_config = excluded.settings_config,
-        website_url = excluded.website_url,
-        category = excluded.category,
-        created_at = excluded.created_at,
-        sort_index = excluded.sort_index,
-        notes = excluded.notes,
-        icon = excluded.icon,
-        icon_color = excluded.icon_color,
-        meta = excluded.meta,
-        in_failover_queue = excluded.in_failover_queue,
-        cost_multiplier = excluded.cost_multiplier,
-        limit_daily_usd = excluded.limit_daily_usd,
-        limit_monthly_usd = excluded.limit_monthly_usd,
-        provider_type = excluded.provider_type`).run(
-      provider.id,
-      provider.appType,
-      provider.name,
-      JSON.stringify(provider.settingsConfig ?? {}),
-      provider.websiteUrl,
-      provider.category,
-      createdAt,
-      sortIndex,
-      provider.notes,
-      provider.icon,
-      provider.iconColor,
-      JSON.stringify(provider.meta ?? {}),
-      existing?.is_current ?? 0,
-      provider.inFailoverQueue ? 1 : 0,
-      provider.costMultiplier ?? "1.0",
-      provider.limitDailyUsd,
-      provider.limitMonthlyUsd,
-      provider.providerType,
-    );
-    return { ...provider, createdAt, sortIndex };
-  });
-}
-
-function setStudioSwitchCurrentProvider(appType, providerId) {
-  return withStudioSwitchProviderDatabase((db) => {
-    const existing = db.prepare("SELECT id FROM providers WHERE id = ? AND app_type = ?").get(providerId, appType);
-    if (!existing) throw new Error(`Provider ${providerId} does not exist`);
-    db.exec("BEGIN IMMEDIATE");
-    try {
-      db.prepare("UPDATE providers SET is_current = 0 WHERE app_type = ?").run(appType);
-      db.prepare("UPDATE providers SET is_current = 1 WHERE id = ? AND app_type = ?").run(providerId, appType);
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-    return true;
-  });
-}
-
-function deleteStudioSwitchProvider(appType, providerId) {
-  return withStudioSwitchProviderDatabase((db) => {
-    db.prepare("DELETE FROM providers WHERE id = ? AND app_type = ?").run(providerId, appType);
-    db.prepare("DELETE FROM provider_endpoints WHERE provider_id = ? AND app_type = ?").run(providerId, appType);
-    return true;
-  });
-}
-
-async function readAgentManagementJsonConfig(appType) {
-  const configPath = agentManagementConfigPath(appType);
-  return (await readJsonLikeFile(configPath)) ?? {};
-}
-
-async function writeOpenCodeProviderLive(provider) {
-  const configPath = agentManagementConfigPath("opencode");
-  const config = await readAgentManagementJsonConfig("opencode");
-  const providerMap = config.provider && typeof config.provider === "object" ? config.provider : {};
-  providerMap[provider.id] = provider.settingsConfig;
-  config.provider = providerMap;
-  await writeJsonFileAtomic(configPath, config);
-}
-
-async function removeOpenCodeProviderLive(providerId) {
-  const configPath = agentManagementConfigPath("opencode");
-  const config = await readAgentManagementJsonConfig("opencode");
-  if (config.provider && typeof config.provider === "object") delete config.provider[providerId];
-  if (typeof config.model === "string" && config.model.startsWith(`${providerId}/`)) delete config.model;
-  if (typeof config.small_model === "string" && config.small_model.startsWith(`${providerId}/`)) delete config.small_model;
-  await writeJsonFileAtomic(configPath, config);
-}
-
-async function writeOpenClawProviderLive(provider) {
-  const configPath = agentManagementConfigPath("openclaw");
-  const config = await readAgentManagementJsonConfig("openclaw");
-  const models = config.models && typeof config.models === "object" ? config.models : {};
-  const providers = models.providers && typeof models.providers === "object" ? models.providers : {};
-  providers[provider.id] = provider.settingsConfig;
-  models.providers = providers;
-  config.models = models;
-  await writeJsonFileAtomic(configPath, config);
-}
-
-async function removeOpenClawProviderLive(providerId) {
-  const configPath = agentManagementConfigPath("openclaw");
-  const config = await readAgentManagementJsonConfig("openclaw");
-  if (config.models?.providers && typeof config.models.providers === "object") delete config.models.providers[providerId];
-  await writeJsonFileAtomic(configPath, config);
-}
-
-async function writeClaudeProviderLive(provider) {
-  await writeJsonFileAtomic(agentManagementConfigPath("claude"), sanitizeClaudeProviderSettings(provider.settingsConfig));
-}
-
-function sanitizeClaudeProviderSettings(settings) {
-  const next = structuredCloneJson(settings && typeof settings === "object" ? settings : {});
-  delete next.api_format;
-  delete next.apiFormat;
-  delete next.openrouter_compat_mode;
-  delete next.openrouterCompatMode;
-  return next;
-}
-
-function structuredCloneJson(value) {
-  return JSON.parse(JSON.stringify(value ?? {}));
-}
-
-async function writeCodexProviderLive(provider) {
-  const home = getRealHomeDir();
-  const codexDir = path.join(home, ".codex");
-  await mkdir(codexDir, { recursive: true });
-  const settings = provider.settingsConfig && typeof provider.settingsConfig === "object" ? provider.settingsConfig : {};
-  await writeJsonFileAtomic(path.join(codexDir, "auth.json"), settings.auth && typeof settings.auth === "object" ? settings.auth : {});
-  const current = await readFile(path.join(codexDir, "config.toml"), "utf8").catch(() => "");
-  const nextConfig = mergeCodexProjectSections(String(settings.config ?? ""), current);
-  await writeFile(path.join(codexDir, "config.toml"), nextConfig.endsWith("\n") ? nextConfig : `${nextConfig}\n`, "utf8");
-}
-
-function mergeCodexProjectSections(nextConfig, currentConfig) {
-  const next = String(nextConfig ?? "").trimEnd();
-  const current = String(currentConfig ?? "");
-  if (/^\s*\[projects(?:\.|\])/.test(next)) return `${next}\n`;
-  const projectIndex = current.search(/^\s*\[projects(?:\.|\])/m);
-  if (projectIndex < 0) return `${next}\n`;
-  const projectSections = current.slice(projectIndex).trimEnd();
-  return `${next}\n\n${projectSections}\n`;
-}
-
-function yamlScalar(value) {
-  if (value == null) return "''";
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  const text = String(value);
-  if (/^[A-Za-z0-9_./:@+-]+$/.test(text)) return text;
-  return JSON.stringify(text);
-}
-
-function hermesProviderToYaml(providerId, settingsConfig) {
-  const settings = structuredCloneJson(settingsConfig && typeof settingsConfig === "object" ? settingsConfig : {});
-  settings.name = providerId;
-  if (settings.baseUrl && !settings.base_url) settings.base_url = settings.baseUrl;
-  if (settings.apiKey && !settings.api_key) settings.api_key = settings.apiKey;
-  delete settings.baseUrl;
-  delete settings.apiKey;
-  delete settings.provider_key;
-  delete settings._cc_source;
-  const models = extractAgentManagementProviderModels("hermes", settings);
-  if (models[0]?.id) settings.model = settings.model || models[0].id;
-  const lines = ["- name: " + yamlScalar(providerId)];
-  for (const [key, value] of Object.entries(settings)) {
-    if (key === "name" || key === "models") continue;
-    if (value == null || value === "") continue;
-    if (typeof value === "object") continue;
-    lines.push(`  ${key}: ${yamlScalar(value)}`);
-  }
-  if (models.length) {
-    lines.push("  models:");
-    for (const model of models) {
-      lines.push(`    ${yamlScalar(model.id)}: {}`);
-    }
-  }
-  return lines.join("\n");
-}
-
-function findTopLevelYamlSection(raw, key) {
-  const pattern = new RegExp(`^${key}:\\s*(?:#.*)?$`, "m");
-  const match = pattern.exec(raw);
-  if (!match) return null;
-  const start = match.index;
-  const afterStart = start + match[0].length;
-  const tail = raw.slice(afterStart);
-  const next = /\n[A-Za-z0-9_-]+:\s*/.exec(tail);
-  const end = next ? afterStart + next.index + 1 : raw.length;
-  return { start, end, bodyStart: afterStart };
-}
-
-function replaceTopLevelYamlSection(raw, key, sectionText) {
-  const section = sectionText.endsWith("\n") ? sectionText : `${sectionText}\n`;
-  const existing = findTopLevelYamlSection(raw, key);
-  if (!existing) {
-    const prefix = raw && !raw.endsWith("\n") ? `${raw}\n` : raw;
-    return `${prefix}${section}`;
-  }
-  return `${raw.slice(0, existing.start)}${section}${raw.slice(existing.end)}`;
-}
-
-function parseHermesCustomProviderNames(raw) {
-  const section = findTopLevelYamlSection(raw, "custom_providers");
-  if (!section) return new Set();
-  const body = raw.slice(section.bodyStart, section.end);
-  const names = new Set();
-  for (const match of body.matchAll(/^\s*-\s+name:\s*["']?([^"'\n]+)["']?\s*$/gm)) {
-    const name = match[1]?.trim();
-    if (name) names.add(name);
-  }
-  return names;
-}
-
-function updateHermesCustomProvidersRaw(raw, provider, remove = false) {
-  const section = findTopLevelYamlSection(raw, "custom_providers");
-  const body = section ? raw.slice(section.bodyStart, section.end) : "";
-  const blocks = [];
-  let current = [];
-  for (const line of body.split(/\r?\n/)) {
-    if (/^\s*-\s+name:\s*/.test(line)) {
-      if (current.length) blocks.push(current.join("\n"));
-      current = [line];
-    } else if (current.length) {
-      current.push(line);
-    }
-  }
-  if (current.length) blocks.push(current.join("\n"));
-  const kept = blocks.filter((block) => {
-    const name = block.match(/^\s*-\s+name:\s*["']?([^"'\n]+)["']?\s*$/m)?.[1]?.trim();
-    return name !== provider.id;
-  });
-  if (!remove) kept.push(hermesProviderToYaml(provider.id, provider.settingsConfig));
-  const sectionText = kept.length ? `custom_providers:\n${kept.map((block) => block.trimEnd()).join("\n")}` : "custom_providers: []";
-  return replaceTopLevelYamlSection(raw, "custom_providers", sectionText);
-}
-
-async function writeHermesProviderLive(provider) {
-  const configPath = agentManagementConfigPath("hermes");
-  const raw = await readFile(configPath, "utf8").catch(() => "");
-  await mkdir(path.dirname(configPath), { recursive: true });
-  await writeFile(configPath, updateHermesCustomProvidersRaw(raw, provider, false), "utf8");
-}
-
-async function removeHermesProviderLive(providerId) {
-  const configPath = agentManagementConfigPath("hermes");
-  const raw = await readFile(configPath, "utf8").catch(() => "");
-  await writeFile(configPath, updateHermesCustomProvidersRaw(raw, { id: providerId, settingsConfig: {} }, true), "utf8");
-}
-
-async function applyHermesProviderDefault(provider) {
-  const configPath = agentManagementConfigPath("hermes");
-  const raw = await readFile(configPath, "utf8").catch(() => "");
-  const model = extractAgentManagementProviderModels("hermes", provider.settingsConfig)[0]?.id || provider.settingsConfig?.model || "";
-  const sectionText = ["model:", model ? `  default: ${yamlScalar(model)}` : null, `  provider: ${yamlScalar(provider.id)}`, provider.settingsConfig?.base_url ? `  base_url: ${yamlScalar(provider.settingsConfig.base_url)}` : null].filter(Boolean).join("\n");
-  await writeFile(configPath, replaceTopLevelYamlSection(raw, "model", sectionText), "utf8");
-}
-
-async function writeAgentManagementProviderLive(provider, options = {}) {
-  if (provider.appType === "opencode") return writeOpenCodeProviderLive(provider);
-  if (provider.appType === "openclaw") return writeOpenClawProviderLive(provider);
-  if (provider.appType === "hermes") {
-    await writeHermesProviderLive(provider);
-    if (options.switchDefault) await applyHermesProviderDefault(provider);
-    return;
-  }
-  if (provider.appType === "claude") return writeClaudeProviderLive(provider);
-  if (provider.appType === "codex") return writeCodexProviderLive(provider);
-  throw new Error("Unsupported live sync app");
-}
-
-async function removeAgentManagementProviderLive(appType, providerId) {
-  if (appType === "opencode") return removeOpenCodeProviderLive(providerId);
-  if (appType === "openclaw") return removeOpenClawProviderLive(providerId);
-  if (appType === "hermes") return removeHermesProviderLive(providerId);
-  return null;
-}
-
-async function readAgentManagementLiveProviderIds(appType) {
-  if (appType === "opencode") {
-    const config = await readAgentManagementJsonConfig("opencode");
-    return new Set(Object.keys(config.provider && typeof config.provider === "object" ? config.provider : {}));
-  }
-  if (appType === "openclaw") {
-    const config = await readAgentManagementJsonConfig("openclaw");
-    return new Set(Object.keys(config.models?.providers && typeof config.models.providers === "object" ? config.models.providers : {}));
-  }
-  if (appType === "hermes") {
-    const raw = await readFile(agentManagementConfigPath("hermes"), "utf8").catch(() => "");
-    return parseHermesCustomProviderNames(raw);
-  }
-  return new Set();
-}
-
-async function readLiveProvidersForImport(appType) {
-  if (appType === "opencode") {
-    const config = await readAgentManagementJsonConfig("opencode");
-    const providers = config.provider && typeof config.provider === "object" ? config.provider : {};
-    return Object.entries(providers).map(([id, settingsConfig]) => ({
-      id,
-      name: settingsConfig?.name || id,
-      settingsConfig,
-      category: "custom",
-      meta: { live_config_managed: true },
-    }));
-  }
-  if (appType === "openclaw") {
-    const config = await readAgentManagementJsonConfig("openclaw");
-    const providers = config.models?.providers && typeof config.models.providers === "object" ? config.models.providers : {};
-    return Object.entries(providers).map(([id, settingsConfig]) => ({
-      id,
-      name: extractAgentManagementProviderModels("openclaw", settingsConfig)[0]?.name || id,
-      settingsConfig,
-      category: "custom",
-      meta: { live_config_managed: true },
-    }));
-  }
-  if (appType === "claude") {
-    const settingsConfig = await readAgentManagementJsonConfig("claude");
-    if (!Object.keys(settingsConfig).length) return [];
-    return [{ id: "default", name: "default", settingsConfig, category: "custom", meta: {} }];
-  }
-  if (appType === "codex") {
-    const home = getRealHomeDir();
-    const [auth, config] = await Promise.all([
-      readJsonLikeFile(path.join(home, ".codex", "auth.json")),
-      readFile(path.join(home, ".codex", "config.toml"), "utf8").catch(() => ""),
-    ]);
-    if (!auth && !config.trim()) return [];
-    return [{ id: "default", name: "default", settingsConfig: { auth: auth ?? {}, config }, category: "custom", meta: {} }];
-  }
-  if (appType === "hermes") {
-    const raw = await readFile(agentManagementConfigPath("hermes"), "utf8").catch(() => "");
-    return parseHermesCustomProvidersForImport(raw);
-  }
-  return [];
-}
-
-function parseHermesCustomProvidersForImport(raw) {
-  const section = findTopLevelYamlSection(raw, "custom_providers");
-  if (!section) return [];
-  const body = raw.slice(section.bodyStart, section.end);
-  const blocks = [];
-  let current = [];
-  for (const line of body.split(/\r?\n/)) {
-    if (/^\s*-\s+name:\s*/.test(line)) {
-      if (current.length) blocks.push(current.join("\n"));
-      current = [line];
-    } else if (current.length) {
-      current.push(line);
-    }
-  }
-  if (current.length) blocks.push(current.join("\n"));
-  return blocks.map((block) => {
-    const scalars = {};
-    const modelIds = [];
-    for (const line of block.split(/\r?\n/)) {
-      const scalar = line.match(/^\s*(?:-\s+)?([A-Za-z0-9_]+):\s*["']?([^"'{}\n]+)["']?\s*$/);
-      if (scalar) scalars[scalar[1]] = scalar[2].trim();
-      const model = line.match(/^\s{4}([^:\n]+):\s*(?:\{\})?\s*$/);
-      if (model) modelIds.push(model[1].replace(/^['"]|['"]$/g, "").trim());
-    }
-    const id = sanitizeProviderKey(scalars.name);
-    if (!id) return null;
-    const models = modelIds.length ? modelIds : scalars.model ? [scalars.model] : [];
-    return {
-      id,
-      name: scalars.name || id,
-      settingsConfig: {
-        name: id,
-        base_url: scalars.base_url || "",
-        ...(scalars.api_key ? { api_key: scalars.api_key } : {}),
-        api_mode: scalars.api_mode || "chat_completions",
-        ...(scalars.model ? { model: scalars.model } : {}),
-        models: models.map((modelId) => ({ id: modelId })),
-        _cc_source: "custom_providers",
-      },
-      category: "custom",
-      meta: { live_config_managed: true },
-    };
-  }).filter(Boolean);
-}
-
-async function readAgentManagementProvidersSnapshot() {
-  const providers = readStudioSwitchProviders();
-  const liveByApp = new Map();
-  await Promise.all(AGENT_MANAGEMENT_PROVIDER_APPS.map(async (appType) => {
-    liveByApp.set(appType, await readAgentManagementLiveProviderIds(appType).catch(() => new Set()));
-  }));
-  const byAgent = Object.fromEntries(AGENT_MANAGEMENT_PROVIDER_APPS.map((appType) => [appType, []]));
-  for (const provider of providers) {
-    const liveIds = liveByApp.get(provider.appType) ?? new Set();
-    const enriched = {
-      ...provider,
-      livePresent: provider.isCurrent || liveIds.has(provider.id),
-      configPath: agentManagementConfigPath(provider.appType),
-    };
-    if (byAgent[provider.appType]) byAgent[provider.appType].push(enriched);
-  }
-  return {
-    databasePath: studioSwitchDatabasePath(),
-    byAgent,
-    total: providers.length,
-  };
-}
-
-async function agentManagementProviderAction(input = {}) {
-  const action = String(input?.action ?? "").trim();
-  const appType = normalizeAgentManagementProviderApp(input?.appType ?? input?.agent);
-  if (action === "importLive") {
-    const liveProviders = await readLiveProvidersForImport(appType);
-    const existingIds = new Set(readStudioSwitchProviders(appType).map((provider) => provider.id));
-    let imported = 0;
-    for (const rawProvider of liveProviders) {
-      if (!rawProvider?.id || existingIds.has(rawProvider.id)) continue;
-      const provider = normalizeAgentManagementProviderPayload(appType, rawProvider);
-      provider.meta = { ...(provider.meta ?? {}), live_config_managed: true };
-      saveStudioSwitchProvider(provider);
-      imported += 1;
-    }
-    return { ok: true, action, appType, imported, providers: await readAgentManagementProvidersSnapshot() };
-  }
-
-  if (action === "save") {
-    const provider = normalizeAgentManagementProviderPayload(appType, input?.provider ?? input);
-    const saved = saveStudioSwitchProvider(provider);
-    if (input?.syncLive !== false && AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
-      await writeAgentManagementProviderLive(saved);
-    }
-    return { ok: true, action, appType, providerId: saved.id, providers: await readAgentManagementProvidersSnapshot() };
-  }
-
-  const providerId = sanitizeProviderKey(input?.providerId ?? input?.id ?? input?.provider?.id);
-  if (!providerId) throw new Error("providerId is required");
-
-  if (action === "syncLive") {
-    const provider = readStudioSwitchProviders(appType).find((item) => item.id === providerId);
-    if (!provider) throw new Error(`Provider ${providerId} does not exist`);
-    await writeAgentManagementProviderLive(provider);
-    return { ok: true, action, appType, providerId, providers: await readAgentManagementProvidersSnapshot() };
-  }
-
-  if (action === "switch") {
-    const provider = readStudioSwitchProviders(appType).find((item) => item.id === providerId);
-    if (!provider) throw new Error(`Provider ${providerId} does not exist`);
-    if (AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
-      await writeAgentManagementProviderLive(provider, { switchDefault: true });
-      if (appType === "opencode") {
-        const modelId = provider.models[0]?.id;
-        if (modelId) {
-          const configPath = agentManagementConfigPath("opencode");
-          const config = await readAgentManagementJsonConfig("opencode");
-          config.model = `${provider.id}/${modelId}`;
-          await writeJsonFileAtomic(configPath, config);
-        }
-      }
-    } else {
-      setStudioSwitchCurrentProvider(appType, providerId);
-      await writeAgentManagementProviderLive(provider);
-    }
-    return { ok: true, action, appType, providerId, providers: await readAgentManagementProvidersSnapshot() };
-  }
-
-  if (action === "delete") {
-    if (AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
-      await removeAgentManagementProviderLive(appType, providerId);
-    } else {
-      const provider = readStudioSwitchProviders(appType).find((item) => item.id === providerId);
-      if (provider?.isCurrent) throw new Error("无法删除当前正在使用的供应商");
-    }
-    deleteStudioSwitchProvider(appType, providerId);
-    return { ok: true, action, appType, providerId, providers: await readAgentManagementProvidersSnapshot() };
-  }
-
-  throw new Error("Unsupported provider action");
-}
-
-function unifiedAgentsSkillsRoot() {
-  return path.join(getRealHomeDir(), ".agents", "skills");
-}
-
-function standardAgentSkillDir(agent) {
-  const home = getRealHomeDir();
-  switch (agent) {
-    case "opencode":
-      return path.join(home, ".config", "opencode", "skills");
-    case "claude":
-      return path.join(home, ".claude", "skills");
-    case "codex":
-      return path.join(home, ".codex", "skills");
-    case "hermes":
-      return path.join(home, ".hermes", "skills");
-    case "openclaw":
-      return path.join(home, ".openclaw", "skills");
-    case "onmyagent":
-      return onmyagentUserSkillsRoot();
-    default:
-      return "";
-  }
-}
-
-function skillSourceKey(skillDir) {
-  return path.basename(skillDir).toLowerCase();
-}
-
-function skillNameKey(name) {
-  return String(name ?? "").trim().toLowerCase();
-}
-
-function uniqueAgentList(values) {
-  const order = ["opencode", "codex", "claude", "openclaw", "hermes", "onmyagent", "unknown"];
-  const set = new Set(values.filter(Boolean));
-  return order.filter((agent) => set.has(agent));
-}
-
-function claudeProjectsRoot() {
-  return path.join(getRealHomeDir(), ".claude", "projects");
-}
-
-function claudeProjectDirSlug(targetPath) {
-  const resolved = path.resolve(String(targetPath ?? "") || getRealHomeDir());
-  return resolved.replace(/[^A-Za-z0-9]/g, "-");
-}
-
-function parseClaudeSkillListingContent(content) {
-  const descriptions = new Map();
-  let currentName = null;
-  let currentLines = [];
-  const flush = () => {
-    if (!currentName) return;
-    const text = currentLines.join(" ").replace(/\s+/g, " ").trim();
-    descriptions.set(currentName, text.length > 220 ? `${text.slice(0, 220)}...` : text);
-  };
-  for (const line of String(content ?? "").split(/\r?\n/)) {
-    const match = line.match(/^\s*-\s+([A-Za-z0-9][A-Za-z0-9_.-]*):\s*(.*)$/);
-    if (match) {
-      flush();
-      currentName = match[1];
-      currentLines = [match[2] ?? ""];
-    } else if (currentName && line.trim()) {
-      currentLines.push(line.trim());
-    }
-  }
-  flush();
-  return descriptions;
-}
-
-async function walkClaudeProjectJsonlFiles(root, maxDepth = 3) {
-  const files = [];
-  async function walk(current, depth) {
-    if (depth > maxDepth || !(await isDirectory(current))) return;
-    const entries = await readdir(current, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      const child = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        await walk(child, depth + 1);
-      } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
-        files.push(child);
-      }
-    }
-  }
-  await walk(root, 0);
-  return files;
-}
-
-function claudeSkillListingProjectScore(cwd, workspaceRoot) {
-  const resolvedCwd = String(cwd ?? "").trim() ? path.resolve(String(cwd)) : "";
-  const resolvedWorkspace = String(workspaceRoot ?? "").trim() ? path.resolve(String(workspaceRoot)) : "";
-  const home = getRealHomeDir();
-  if (resolvedWorkspace && resolvedCwd === resolvedWorkspace) return 4;
-  if (resolvedWorkspace && resolvedCwd.startsWith(`${resolvedWorkspace}${path.sep}`)) return 3;
-  if (resolvedCwd === home) return 2;
-  if (resolvedCwd) return 1;
-  return 0;
-}
-
-async function readClaudeRuntimeSkillListings(workspaceRoot) {
-  const root = claudeProjectsRoot();
-  if (!(await isDirectory(root))) return [];
-  const workspaceSlug = claudeProjectDirSlug(workspaceRoot);
-  const homeSlug = claudeProjectDirSlug(getRealHomeDir());
-  const candidateRoots = [];
-  for (const slug of [workspaceSlug, homeSlug]) {
-    const candidate = path.join(root, slug);
-    if (await isDirectory(candidate)) candidateRoots.push(candidate);
-  }
-  const scanRoots = candidateRoots.length ? candidateRoots : [root];
-  const files = [];
-  for (const scanRoot of scanRoots) {
-    files.push(...(await walkClaudeProjectJsonlFiles(scanRoot)));
-  }
-
-  const listings = [];
-  for (const filePath of [...new Set(files)]) {
-    let raw = "";
-    try {
-      raw = await readFile(filePath, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split(/\r?\n/)) {
-      if (!line.includes('"skill_listing"')) continue;
-      let entry;
-      try {
-        entry = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      const attachment = entry?.attachment;
-      if (attachment?.type !== "skill_listing") continue;
-      const names = Array.isArray(attachment.names) ? attachment.names.filter(Boolean).map(String) : [];
-      if (!names.length) continue;
-      const timestamp = Date.parse(entry?.timestamp ?? "") || 0;
-      listings.push({
-        filePath,
-        cwd: entry?.cwd ?? "",
-        names,
-        content: String(attachment.content ?? ""),
-        timestamp,
-        score: claudeSkillListingProjectScore(entry?.cwd, workspaceRoot),
-      });
-    }
-  }
-  listings.sort((a, b) => (b.score - a.score) || (b.timestamp - a.timestamp));
-  return listings;
-}
-
-async function collectClaudeRuntimeSkills(workspaceRoot) {
-  const out = new Map();
-  const listings = await readClaudeRuntimeSkillListings(workspaceRoot);
-  for (const listing of listings) {
-    const descriptions = parseClaudeSkillListingContent(listing.content);
-    for (const name of listing.names) {
-      const key = `claude-runtime:${skillNameKey(name)}`;
-      if (out.has(key)) continue;
-      out.set(key, {
-        name,
-        path: listing.filePath,
-        description: descriptions.get(name) || `Claude Code runtime skill: ${name}`,
-        trigger: undefined,
-        root: path.dirname(listing.filePath),
-        readonly: true,
-        displayNameZh: undefined,
-        displayNameEn: name,
-        descriptionZh: undefined,
-        descriptionEn: undefined,
-        agents: ["claude"],
-        scopeLabel: "Claude Runtime",
-        sources: [{
-          agent: "claude",
-          label: "Claude Code",
-          scope: CLAUDE_RUNTIME_BUILTIN_SKILL_NAMES.has(name) ? "builtin-command" : "runtime-skill",
-          root: path.dirname(listing.filePath),
-          path: listing.filePath,
-          managedByStudioSwitch: false,
-          kind: CLAUDE_RUNTIME_BUILTIN_SKILL_NAMES.has(name) ? "slash-command" : "runtime-skill",
-          pluginName: null,
-        }],
-        managedByStudioSwitch: false,
-        studioSwitch: null,
-        kind: CLAUDE_RUNTIME_BUILTIN_SKILL_NAMES.has(name) ? "slash-command" : "runtime-skill",
-        pluginName: null,
-        lastSeenAt: listing.timestamp || null,
-      });
-    }
-  }
-  return out;
-}
-
-function readStudioSwitchManagedSkills() {
-  const dbPath = studioSwitchDatabasePath();
-  if (!existsSync(dbPath)) return new Map();
-  let db;
-  try {
-    db = new DatabaseSync(dbPath, { readOnly: true });
-    const hasSkillsTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'skills'").get();
-    if (!hasSkillsTable) return new Map();
-    const rows = db
-      .prepare(
-        `SELECT id, name, description, directory, repo_owner, repo_name, repo_branch, readme_url,
-                enabled_claude, enabled_codex, enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at
-           FROM skills`,
-      )
-      .all();
-    const out = new Map();
-    for (const row of rows) {
-      const directory = String(row.directory ?? "").trim();
-      if (!directory) continue;
-      const agents = [];
-      for (const [column, agent] of Object.entries(STUDIO_SWITCH_SKILL_AGENT_BY_COLUMN)) {
-        if (Boolean(row[column])) agents.push(agent);
-      }
-      out.set(directory.toLowerCase(), {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        directory,
-        repoOwner: row.repo_owner,
-        repoName: row.repo_name,
-        repoBranch: row.repo_branch,
-        readmeUrl: row.readme_url,
-        agents,
-        installedAt: row.installed_at,
-        contentHash: row.content_hash,
-        updatedAt: row.updated_at,
-      });
-    }
-    return out;
-  } catch (error) {
-    console.warn("[agent-management] failed to read studio-switch skills db", error);
-    return new Map();
-  } finally {
-    try {
-      db?.close();
-    } catch {
-      // ignore
-    }
-  }
-}
-
-async function collectAgentSkillRoots(projectDir) {
-  const roots = [];
-  const realHome = getRealHomeDir();
-  const push = async (candidate) => {
-    if (!candidate?.root || !(await isDirectory(candidate.root))) return;
-    if (roots.some((root) => root.root === candidate.root && root.agent === candidate.agent && root.scope === candidate.scope)) return;
-    roots.push(candidate);
-  };
-
-  const workspaceRoot = String(projectDir ?? "").trim() ? path.resolve(projectDir) : "";
-  if (workspaceRoot) {
-    let current = workspaceRoot;
-    while (true) {
-      if (current === realHome || path.dirname(current) === current) break;
-      for (const source of AGENT_SKILL_SOURCES) {
-        for (const subpath of source.subpaths) {
-          await push({
-            root: path.join(current, ...subpath),
-            agent: source.agent,
-            label: source.label,
-            scope: "project",
-          });
-        }
-      }
-      if (await pathExists(path.join(current, ".git"))) break;
-      const parent = path.dirname(current);
-      if (parent === current) break;
-      current = parent;
-    }
-  }
-
-  for (const source of AGENT_SKILL_SOURCES) {
-    for (const subpath of source.subpaths) {
-      await push({
-        root: path.join(realHome, ...subpath),
-        agent: source.agent,
-        label: source.label,
-        scope: "global",
-      });
-    }
-  }
-
-  for (const source of AGENT_SKILL_SOURCES) {
-    const root = standardAgentSkillDir(source.agent);
-    if (root) {
-      await push({ root, agent: source.agent, label: source.label, scope: "global" });
-    }
-  }
-
-  await push({ root: studioSwitchSkillsRoot(), agent: "unknown", label: "Studio Switch", scope: "studio-switch" });
-  await push({ root: unifiedAgentsSkillsRoot(), agent: "unknown", label: "Agent Skills", scope: "agents" });
-  const bundledRoot = bundledSkillsRootPath();
-  if (bundledRoot) {
-    await push({ root: bundledRoot, agent: "onmyagent", label: "OnMyAgent", scope: "builtin" });
-  }
-  await push({ root: onmyagentUserSkillsRoot(), agent: "onmyagent", label: "OnMyAgent", scope: "onmyagent" });
-
-  return roots;
-}
-
-async function copyDirectoryRecursive(source, destination) {
-  await cp(source, destination, { recursive: true, force: true, errorOnExist: false, verbatimSymlinks: true });
-}
-
-async function removePathIfPresent(target) {
-  await rm(target, { recursive: true, force: true });
-}
-
-function validateSkillDirectoryName(directory) {
-  const value = String(directory ?? "").trim();
-  if (!value || value.includes("/") || value.includes("\\") || value === "." || value === "..") {
-    throw new Error("Invalid skill directory");
-  }
-  return value;
-}
-
-function sanitizeManagedSkillName(value) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 96);
-}
-
-function escapeSkillFrontmatterValue(value) {
-  return String(value ?? "").replace(/\r?\n/g, " ").replace(/"/g, "\\\"").trim();
-}
-
-function runtimeManagedSkillContent({ name, displayName, description, agent, kind, sourcePath }) {
-  const title = displayName || name;
-  const sourceKind = kind === "slash-command" ? "Slash Command" : kind === "plugin" ? "Plugin" : "Runtime Skill";
-  const summary = description || `${sourceKind} imported from ${agent}.`;
-  return `---
-name: "${escapeSkillFrontmatterValue(title)}"
-description: "${escapeSkillFrontmatterValue(summary)}"
----
-
-# ${title}
-
-This is a Studio-managed wrapper for a ${sourceKind} discovered from ${agent}.
-
-## Source
-
-- Agent: ${agent}
-- Kind: ${sourceKind}
-- Source path: ${sourcePath || "unknown"}
-
-## Behavior
-
-${summary}
-
-## Notes
-
-The original item was discovered from runtime metadata rather than a standalone SKILL.md directory. This wrapper makes it manageable through Studio/Studio Switch style skill syncing. If the original runtime item depends on built-in agent behavior, this wrapper documents and routes the intent but may not reproduce private built-in implementation details.
-`;
-}
-
-function ensureStudioSwitchSkillSchema(db) {
-  db.exec(`CREATE TABLE IF NOT EXISTS skills (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT,
-    directory TEXT NOT NULL,
-    repo_owner TEXT,
-    repo_name TEXT,
-    repo_branch TEXT DEFAULT 'main',
-    readme_url TEXT,
-    enabled_claude BOOLEAN NOT NULL DEFAULT 0,
-    enabled_codex BOOLEAN NOT NULL DEFAULT 0,
-    enabled_gemini BOOLEAN NOT NULL DEFAULT 0,
-    enabled_opencode BOOLEAN NOT NULL DEFAULT 0,
-    enabled_hermes BOOLEAN NOT NULL DEFAULT 0,
-    installed_at INTEGER NOT NULL DEFAULT 0,
-    content_hash TEXT,
-    updated_at INTEGER NOT NULL DEFAULT 0
-  )`);
-}
-
-async function hashDirectoryForAgentManagement(dir) {
-  const files = [];
-  async function walk(current) {
-    const entries = await readdir(current, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      const child = path.join(current, entry.name);
-      if (entry.isDirectory() || (entry.isSymbolicLink() && (await isDirectory(child)))) {
-        await walk(child);
-      } else if (entry.isFile()) {
-        files.push(child);
-      }
-    }
-  }
-  await walk(dir);
-  files.sort();
-  const hash = createHash("sha256");
-  for (const filePath of files) {
-    const relative = path.relative(dir, filePath).replace(/\\/g, "/");
-    hash.update(relative);
-    hash.update("\0");
-    hash.update(await readFile(filePath));
-    hash.update("\0");
-  }
-  return hash.digest("hex");
-}
-
-async function saveImportedStudioSwitchSkill({ directory, name, description, agent, contentHash }) {
-  const dbPath = studioSwitchDatabasePath();
-  await mkdir(path.dirname(dbPath), { recursive: true });
-  const now = Math.floor(Date.now() / 1000);
-  const id = `studio:${directory}`;
-  const columns = {
-    claude: "enabled_claude",
-    codex: "enabled_codex",
-    opencode: "enabled_opencode",
-    hermes: "enabled_hermes",
-    gemini: "enabled_gemini",
-  };
-  let db;
-  try {
-    db = new DatabaseSync(dbPath);
-    ensureStudioSwitchSkillSchema(db);
-    const existing = db.prepare("SELECT id FROM skills WHERE lower(directory) = lower(?) LIMIT 1").get(directory);
-    if (existing) {
-      db.prepare("UPDATE skills SET name = ?, description = ?, content_hash = ?, updated_at = ? WHERE id = ?")
-        .run(name, description || null, contentHash || null, now, existing.id);
-      const column = columns[agent];
-      if (column) db.prepare(`UPDATE skills SET ${column} = 1, updated_at = ? WHERE id = ?`).run(now, existing.id);
-      return existing.id;
-    }
-    db.prepare(`INSERT INTO skills (
-      id, name, description, directory, repo_owner, repo_name, repo_branch, readme_url,
-      enabled_claude, enabled_codex, enabled_gemini, enabled_opencode, enabled_hermes,
-      installed_at, content_hash, updated_at
-    ) VALUES (?, ?, ?, ?, NULL, NULL, 'main', NULL, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(
-        id,
-        name,
-        description || null,
-        directory,
-        agent === "claude" ? 1 : 0,
-        agent === "codex" ? 1 : 0,
-        agent === "gemini" ? 1 : 0,
-        agent === "opencode" ? 1 : 0,
-        agent === "hermes" ? 1 : 0,
-        now,
-        contentHash || null,
-        now,
-      );
-    return id;
-  } finally {
-    try {
-      db?.close();
-    } catch {
-      // ignore
-    }
-  }
-}
-
-async function isSymlink(target) {
-  try {
-    const metadata = await lstat(target);
-    return metadata.isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
-
-async function symlinkTargetStartsWith(linkPath, root) {
-  if (!(await isSymlink(linkPath))) return false;
-  try {
-    const target = await readlink(linkPath);
-    const resolved = path.isAbsolute(target) ? target : path.resolve(path.dirname(linkPath), target);
-    const [realTarget, realRoot] = await Promise.all([
-      realpath(resolved).catch(() => resolved),
-      realpath(root).catch(() => root),
-    ]);
-    return realTarget === realRoot || realTarget.startsWith(`${realRoot}${path.sep}`);
-  } catch {
-    return false;
-  }
-}
-
-async function agentManagementSkillAction(input = {}) {
-  const action = String(input?.action ?? "").trim();
-  const agent = String(input?.agent ?? "").trim();
-  const directory = validateSkillDirectoryName(input?.directory);
-  const displayName = String(input?.displayName ?? directory).trim() || directory;
-  const description = String(input?.description ?? "").trim();
-  const kind = String(input?.kind ?? "skill").trim();
-
-  const requestedSource = String(input?.sourcePath ?? "").trim();
-  const source = requestedSource || path.join(studioSwitchSkillsRoot(), directory);
-  const fallbackSource = path.join(unifiedAgentsSkillsRoot(), directory);
-  const sourceDir = (await isDirectory(source)) ? source : fallbackSource;
-
-  if (action === "open") {
-    const destinationRoot = standardAgentSkillDir(agent);
-    const destination = destinationRoot ? path.join(destinationRoot, directory) : "";
-    const target = destination && (await isDirectory(destination)) ? destination : sourceDir;
-    if (await isDirectory(target)) return { ok: true, path: target, result: await shell.openPath(target) };
-    try {
-      const metadata = await stat(target);
-      if (metadata.isFile()) {
-        return { ok: true, path: target, result: await shell.showItemInFolder(target) };
-      }
-    } catch {
-      // fall through
-    }
-    throw new Error("Skill directory not found");
-  }
-
-  if (action === "import") {
-    const managedDirectory = sanitizeManagedSkillName(directory);
-    if (!managedDirectory) throw new Error("Invalid skill directory");
-    const destinationRoot = studioSwitchSkillsRoot();
-    const destination = path.join(destinationRoot, managedDirectory);
-    await mkdir(destinationRoot, { recursive: true });
-
-    const hasSkillSource = (await isDirectory(sourceDir)) && (await pathExists(path.join(sourceDir, "SKILL.md")));
-    if (hasSkillSource) {
-      if (path.resolve(sourceDir) !== path.resolve(destination)) {
-        await removePathIfPresent(destination);
-        await copyDirectoryRecursive(sourceDir, destination);
-      }
-    } else {
-      await removePathIfPresent(destination);
-      await mkdir(destination, { recursive: true });
-      await writeFile(path.join(destination, "SKILL.md"), runtimeManagedSkillContent({
-        name: managedDirectory,
-        displayName,
-        description,
-        agent,
-        kind,
-        sourcePath: requestedSource,
-      }), "utf8");
-      await writeFile(path.join(destination, "studio-source.json"), JSON.stringify({
-        importedAt: new Date().toISOString(),
-        sourceAgent: agent,
-        sourceKind: kind,
-        sourcePath: requestedSource || null,
-        originalName: directory,
-      }, null, 2), "utf8");
-    }
-
-    const contentHash = await hashDirectoryForAgentManagement(destination).catch(() => null);
-    await saveImportedStudioSwitchSkill({
-      directory: managedDirectory,
-      name: displayName,
-      description,
-      agent,
-      contentHash,
-    });
-
-    if (STUDIO_SKILL_SYNC_AGENTS.includes(agent)) {
-      const targetRoot = standardAgentSkillDir(agent);
-      const target = targetRoot ? path.join(targetRoot, managedDirectory) : "";
-      if (target && path.resolve(target) !== path.resolve(destination)) {
-        await mkdir(targetRoot, { recursive: true });
-        await removePathIfPresent(target);
-        try {
-          await fsSymlink(destination, target, "dir");
-        } catch {
-          await copyDirectoryRecursive(destination, target);
-        }
-      }
-    }
-
-    return { ok: true, action, agent, directory: managedDirectory, path: destination };
-  }
-
-  if (!STUDIO_SKILL_SYNC_AGENTS.includes(agent)) {
-    throw new Error("Unsupported skill agent");
-  }
-
-  const destinationRoot = standardAgentSkillDir(agent);
-  const destination = path.join(destinationRoot, directory);
-
-  if (action === "enable") {
-    if (!(await isDirectory(sourceDir)) || !(await pathExists(path.join(sourceDir, "SKILL.md")))) {
-      throw new Error("Skill source is missing SKILL.md");
-    }
-    await mkdir(destinationRoot, { recursive: true });
-    await removePathIfPresent(destination);
-    try {
-      await fsSymlink(sourceDir, destination, "dir");
-    } catch {
-      await copyDirectoryRecursive(sourceDir, destination);
-    }
-    await setStudioSwitchSkillAgentEnabled(directory, agent, true);
-    return { ok: true, action, agent, directory, path: destination };
-  }
-
-  if (action === "disable") {
-    if (await isSymlink(destination)) {
-      await removePathIfPresent(destination);
-    } else if (await isDirectory(destination)) {
-      const [realSource, realDestination] = await Promise.all([
-        realpath(sourceDir).catch(() => path.resolve(sourceDir)),
-        realpath(destination).catch(() => path.resolve(destination)),
-      ]);
-      if (realSource === realDestination) {
-        throw new Error("未托管 Skill 位于当前应用目录，已拒绝直接删除；请先同步到 Studio Switch/Agents 源目录后再禁用。");
-      }
-      await removePathIfPresent(destination);
-    }
-    await setStudioSwitchSkillAgentEnabled(directory, agent, false);
-    return { ok: true, action, agent, directory, path: destination };
-  }
-
-  throw new Error("Unsupported skill action");
-}
-
-async function setStudioSwitchSkillAgentEnabled(directory, agent, enabled) {
-  const dbPath = studioSwitchDatabasePath();
-  const column = STUDIO_SWITCH_SKILL_COLUMNS_BY_AGENT[agent];
-  if (!column || !existsSync(dbPath)) return false;
-  let db;
-  try {
-    db = new DatabaseSync(dbPath);
-    const row = db.prepare("SELECT id FROM skills WHERE lower(directory) = lower(?) LIMIT 1").get(directory);
-    if (!row) return false;
-    db.prepare(`UPDATE skills SET ${column} = ?, updated_at = ? WHERE id = ?`).run(enabled ? 1 : 0, Math.floor(Date.now() / 1000), row.id);
-    return true;
-  } finally {
-    try {
-      db?.close();
-    } catch {
-      // ignore
-    }
-  }
-}
-
-async function findSkillDirsRecursive(root, maxDepth = 4) {
-  const found = [];
-  async function walk(current, depth) {
-    if (depth > maxDepth || !(await isDirectory(current))) return;
-    if (await pathExists(path.join(current, "SKILL.md"))) {
-      found.push(current);
-      return;
-    }
-    const entries = await readdir(current, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      if (entry.name.startsWith(".") && entry.name !== ".system") continue;
-      const child = path.join(current, entry.name);
-      if (entry.isDirectory() || (entry.isSymbolicLink() && (await isDirectory(child)))) {
-        await walk(child, depth + 1);
-      }
-    }
-  }
-  await walk(root, 0);
-  return found;
-}
-
-async function scanAgentManagementSkills(projectDir) {
-  const LOCALE_KEYS = ["display_name_zh", "display_name_en", "description_zh", "description_en"];
-  const studioSwitchManaged = readStudioSwitchManagedSkills();
-  const claudeRuntimeSkills = await collectClaudeRuntimeSkills(projectDir);
-  const skills = new Map();
-
-  for (const source of await collectAgentSkillRoots(projectDir)) {
-    for (const skillDir of await findSkillDirsRecursive(source.root)) {
-      const directory = path.basename(skillDir);
-      const key = skillSourceKey(skillDir);
-      let raw = "";
-      try {
-        raw = await readFile(path.join(skillDir, "SKILL.md"), "utf8");
-      } catch {
-        raw = "";
-      }
-      const managed = studioSwitchManaged.get(key) ?? null;
-      const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
-      const existing = skills.get(key) ?? {
-        name: directory,
-        path: skillDir,
-        description: undefined,
-        trigger: undefined,
-        root: source.root,
-        readonly: source.scope === "builtin",
-        displayNameZh: undefined,
-        displayNameEn: undefined,
-        descriptionZh: undefined,
-        descriptionEn: undefined,
-        agents: [],
-        scopeLabel: "本机",
-        sources: [],
-        managedByStudioSwitch: false,
-        studioSwitch: null,
-        kind: "skill",
-        pluginName: null,
-        lastSeenAt: null,
-      };
-
-      const sourceAgents = uniqueAgentList([...(managed?.agents ?? []), source.agent]);
-      existing.name = managed?.directory || existing.name || directory;
-      existing.description = existing.description || managed?.description || extractDescription(raw) || undefined;
-      existing.trigger = existing.trigger || extractTrigger(raw) || undefined;
-      existing.displayNameZh = existing.displayNameZh || localeMap.display_name_zh;
-      existing.displayNameEn = existing.displayNameEn || localeMap.display_name_en || managed?.name;
-      existing.descriptionZh = existing.descriptionZh || localeMap.description_zh;
-      existing.descriptionEn = existing.descriptionEn || localeMap.description_en;
-      existing.readonly = existing.readonly || source.scope === "builtin";
-      existing.managedByStudioSwitch = existing.managedByStudioSwitch || Boolean(managed);
-      existing.studioSwitch = existing.studioSwitch || managed;
-      existing.agents = uniqueAgentList([...existing.agents, ...sourceAgents]);
-      existing.sources.push({
-        agent: source.agent,
-        label: source.label,
-        scope: source.scope,
-        root: source.root,
-        path: skillDir,
-        managedByStudioSwitch: Boolean(managed),
-        kind: "skill",
-        pluginName: null,
-      });
-      skills.set(key, existing);
-    }
-  }
-
-  for (const [key, runtimeSkill] of claudeRuntimeSkills) {
-    const plainNameKey = skillNameKey(runtimeSkill.name);
-    const existingKey = [...skills.keys()].find((candidate) => candidate === plainNameKey || candidate.endsWith(`:${plainNameKey}`));
-    if (existingKey) {
-      const existing = skills.get(existingKey);
-      existing.description = existing.description || runtimeSkill.description;
-      existing.readonly = existing.readonly || runtimeSkill.readonly;
-      existing.agents = uniqueAgentList([...existing.agents, "claude"]);
-      existing.sources.push(...runtimeSkill.sources);
-      existing.lastSeenAt = existing.lastSeenAt || runtimeSkill.lastSeenAt;
-      skills.set(existingKey, existing);
-    } else {
-      skills.set(key, runtimeSkill);
-    }
-  }
-
-  for (const [key, managed] of studioSwitchManaged) {
-    if (skills.has(key)) continue;
-    skills.set(key, {
-      name: managed.directory,
-      path: path.join(studioSwitchSkillsRoot(), managed.directory),
-      description: managed.description || undefined,
-      trigger: undefined,
-      root: studioSwitchSkillsRoot(),
-      readonly: false,
-      displayNameZh: undefined,
-      displayNameEn: managed.name,
-      descriptionZh: undefined,
-      descriptionEn: undefined,
-      agents: uniqueAgentList(managed.agents.length ? managed.agents : ["unknown"]),
-      scopeLabel: "Studio Switch",
-      sources: [{
-        agent: "unknown",
-        label: "Studio Switch",
-        scope: "studio-switch-db",
-        root: studioSwitchSkillsRoot(),
-        path: path.join(studioSwitchSkillsRoot(), managed.directory),
-        managedByStudioSwitch: true,
-        kind: "skill",
-        pluginName: null,
-      }],
-      managedByStudioSwitch: true,
-      studioSwitch: managed,
-      kind: "skill",
-      pluginName: null,
-      lastSeenAt: null,
-    });
-  }
-
-  return [...skills.values()]
-    .map((skill) => ({
-      ...skill,
-      agents: uniqueAgentList([
-        ...(skill.agents.length ? skill.agents : skillAgentsFromPath(skill)),
-        ...skill.sources.map((source) => source.agent),
-      ]),
-      scopeLabel: skill.managedByStudioSwitch ? "Studio Switch" : skill.kind === "runtime-skill" ? "Claude Runtime" : skill.kind === "slash-command" ? "Slash Command" : skillScopeLabel(skill, projectDir),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function skillScopeLabel(skill, workspaceRoot) {
-  const root = String(skill.root ?? "");
-  const skillPath = String(skill.path ?? "");
-  const bundledRoot = bundledSkillsRootPath();
-  if (bundledRoot && (root === bundledRoot || skillPath.startsWith(bundledRoot))) return "内置";
-  if (root === onmyagentUserSkillsRoot() || skillPath.startsWith(onmyagentUserSkillsRoot())) return "OnMyAgent";
-  if (workspaceRoot && skillPath.startsWith(path.resolve(workspaceRoot))) return "项目";
-  return "本机";
-}
 
 
 
@@ -3047,7 +995,7 @@ function validateSkillName(raw) {
   return trimmed;
 }
 
-function defaultWorkspaceOpenworkConfig(workspacePath, preset = null) {
+function defaultWorkspaceOnMyAgentConfig(workspacePath, preset = null) {
   return {
     version: 1,
     workspace: workspacePath
@@ -3119,7 +1067,7 @@ function remoteWorkspaceId(baseUrl, directory) {
   return stableWorkspaceId(key);
 }
 
-function parseOpenworkWorkspaceIdFromUrl(input) {
+function parseOnMyAgentWorkspaceIdFromUrl(input) {
   const raw = String(input ?? "").trim();
   if (!raw) return null;
   try {
@@ -3142,7 +1090,7 @@ function parseOpenworkWorkspaceIdFromUrl(input) {
   }
 }
 
-function stripOpenworkWorkspaceMount(input) {
+function stripOnMyAgentWorkspaceMount(input) {
   const raw = String(input ?? "").trim();
   if (!raw) return null;
   try {
@@ -3167,12 +1115,12 @@ function stripOpenworkWorkspaceMount(input) {
 function onmyagentRemoteWorkspaceId(hostUrl, workspaceId) {
   const remoteWorkspaceId =
     String(workspaceId ?? "").trim() ||
-    parseOpenworkWorkspaceIdFromUrl(hostUrl);
+    parseOnMyAgentWorkspaceIdFromUrl(hostUrl);
   if (remoteWorkspaceId) return `rem_${remoteWorkspaceId}`;
   return `rem_${createHash("sha256").update(`onmyagent::${hostUrl}`).digest("hex").slice(0, 12)}`;
 }
 
-async function fetchOpenworkWorkspaceList(hostUrl, token, hostToken) {
+async function fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken) {
   const url = `${String(hostUrl ?? "").replace(/\/+$/, "")}/workspaces`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
@@ -3195,26 +1143,26 @@ async function fetchOpenworkWorkspaceList(hostUrl, token, hostToken) {
   }
 }
 
-async function discoverOpenworkWorkspace({
+async function discoverOnMyAgentWorkspace({
   hostUrl,
   token,
   hostToken,
   directory,
 }) {
-  const list = await fetchOpenworkWorkspaceList(hostUrl, token, hostToken);
-  return selectOpenworkWorkspaceForConnection(list, directory);
+  const list = await fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken);
+  return selectOnMyAgentWorkspaceForConnection(list, directory);
 }
 
-async function readWorkspaceOpenworkConfig(workspacePath) {
+async function readWorkspaceOnMyAgentConfig(workspacePath) {
   const onmyagentPath = path.join(workspacePath, ".opencode", "onmyagent.json");
   if (!(await pathExists(onmyagentPath))) {
-    return defaultWorkspaceOpenworkConfig(workspacePath);
+    return defaultWorkspaceOnMyAgentConfig(workspacePath);
   }
   const raw = await readFile(onmyagentPath, "utf8");
   return JSON.parse(raw);
 }
 
-async function writeWorkspaceOpenworkConfig(workspacePath, config) {
+async function writeWorkspaceOnMyAgentConfig(workspacePath, config) {
   const onmyagentPath = path.join(workspacePath, ".opencode", "onmyagent.json");
   await mkdir(path.dirname(onmyagentPath), { recursive: true });
   await writeFile(onmyagentPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -3254,13 +1202,13 @@ async function readWorkspaceState() {
 
     const remoteWorkspaceId =
       String(workspace.onmyagentWorkspaceId ?? "").trim() ||
-      parseOpenworkWorkspaceIdFromUrl(workspace.onmyagentHostUrl) ||
-      parseOpenworkWorkspaceIdFromUrl(workspace.baseUrl);
+      parseOnMyAgentWorkspaceIdFromUrl(workspace.onmyagentHostUrl) ||
+      parseOnMyAgentWorkspaceIdFromUrl(workspace.baseUrl);
     if (!remoteWorkspaceId) return workspace;
 
     const hostUrl =
-      stripOpenworkWorkspaceMount(workspace.onmyagentHostUrl) ||
-      stripOpenworkWorkspaceMount(workspace.baseUrl);
+      stripOnMyAgentWorkspaceMount(workspace.onmyagentHostUrl) ||
+      stripOnMyAgentWorkspaceMount(workspace.baseUrl);
     const nextId = onmyagentRemoteWorkspaceId(
       hostUrl ?? workspace.baseUrl,
       remoteWorkspaceId,
@@ -3359,6 +1307,65 @@ const runtimeManager = createRuntimeManager({
       .filter((entry) => entry?.workspaceType !== "remote")
       .map((entry) => String(entry?.path ?? "").trim())
       .filter(Boolean),
+  browserUseEnvironment: (input) =>
+    browserUseEnvironmentManager.environmentForRun(input),
+});
+
+const browserUseAgentResourceRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "browser-use-agent")
+  : path.resolve(__dirname, "../resources/browser-use-agent");
+const browserUseAgentTargetRoot = path.join(
+  browserUseRuntimeRoot,
+  desktopRuntimeTarget(),
+);
+const browserUseAgentPython = path.join(
+  browserUseAgentTargetRoot,
+  "python",
+  process.platform === "win32" ? "python.exe" : "bin/python3",
+);
+const browserUseModelInvoker = createBrowserUseOpenCodeModelInvoker({
+  connectionInfo: async () => {
+    const engine = await runtimeManager.engineInfo();
+    const server = await runtimeManager.onmyagentServerInfo();
+    const baseUrl = engine.baseUrl ?? server.baseUrl ?? "";
+    const authorization = engine.opencodeUsername && engine.opencodePassword
+      ? `Basic ${Buffer.from(`${engine.opencodeUsername}:${engine.opencodePassword}`, "utf8").toString("base64")}`
+      : server.clientToken || server.ownerToken
+        ? `Bearer ${server.clientToken ?? server.ownerToken}`
+        : "";
+    return { baseUrl, authorization };
+  },
+});
+const browserUseModelGateway = createBrowserUseModelGateway({
+  invokeModel: browserUseModelInvoker,
+});
+const browserUseRunStore = createBrowserUseRunStore({
+  filePath: path.join(app.getPath("userData"), "browser-use-agent", "runs.json"),
+});
+const browserUseAgentRuntime = createBrowserUseAgentRuntime({
+  browserEnvironment: {
+    environmentForOwner: async (ownerId) => {
+      await browserUseBroker.start();
+      return browserUseBroker.environmentForOwner(ownerId);
+    },
+    releaseOwner: (ownerId, options) => browserUseBroker.releaseOwner(ownerId, options),
+  },
+  modelGateway: browserUseModelGateway,
+  store: browserUseRunStore,
+  spawnRunner: ({ env }) => spawn(
+    browserUseAgentPython,
+    [path.join(browserUseAgentResourceRoot, "runner.py")],
+    {
+      cwd: browserUseAgentResourceRoot,
+      env: {
+        ...process.env,
+        ...env,
+        PYTHONPATH: browserUseAgentResourceRoot,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    },
+  ),
 });
 
 const {
@@ -3374,6 +1381,8 @@ const {
   runtimeManager,
   readWorkspaceState,
   claudeProjectsRoot,
+  browserUseEnvironment: (input) =>
+    browserUseEnvironmentManager.environmentForRun(input),
 });
 
 const codeWorkspaceActions = createCodeWorkspaceActions({
@@ -3395,7 +1404,7 @@ async function disposeRuntimeBeforeQuit() {
   ]);
 }
 
-function assertOpenworkServerReady(info) {
+function assertOnMyAgentServerReady(info) {
   if (!info?.running) {
     throw new Error("OnMyAgent server did not stay running after startup.");
   }
@@ -3483,7 +1492,7 @@ async function bootRuntimeForSelectedWorkspace() {
       name: bootWorkspace.name ?? bootWorkspace.displayName ?? null,
     })
     .catch(() => undefined);
-  const onmyagentServer = assertOpenworkServerReady(
+  const onmyagentServer = assertOnMyAgentServerReady(
     await runtimeManager.onmyagentServerInfo(),
   );
   return {
@@ -3980,6 +1989,8 @@ async function handleDesktopInvoke(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
+    case "browserUseStatus":
+      return readBrowserUseStatus();
     case "personalLocalAgentsList": {
       const result = await personalAgentRuntime.listAgents(args[0] ?? {});
       const agents = Array.isArray(result?.agents) ? result.agents : [];
@@ -4053,6 +2064,16 @@ async function handleDesktopInvoke(event, command, ...args) {
       }
       return result;
     }
+    case "browserUseAgentStart":
+      return browserUseAgentRuntime.start(args[0] ?? {});
+    case "browserUseAgentStatus":
+      return browserUseAgentRuntime.status(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentHistory":
+      return browserUseAgentRuntime.history(String(args[0]?.sessionId ?? args[0] ?? ""));
+    case "browserUseAgentCancel":
+      return browserUseAgentRuntime.cancel(String(args[0]?.runId ?? args[0] ?? ""));
+    case "browserUseAgentApprove":
+      return browserUseAgentRuntime.approve(args[0] ?? {});
     case "personalLocalAgentStatus":
       return personalAgentRuntime.getRun(args[0]);
     case "personalLocalAgentRun": {
@@ -4240,9 +2261,9 @@ async function handleDesktopInvoke(event, command, ...args) {
       });
       await mkdir(path.join(folderPath, ".opencode"), { recursive: true });
       await ensureDefaultWorkspaceOpencodeConfig(folderPath);
-      await writeWorkspaceOpenworkConfig(
+      await writeWorkspaceOnMyAgentConfig(
         folderPath,
-        defaultWorkspaceOpenworkConfig(folderPath, preset),
+        defaultWorkspaceOnMyAgentConfig(folderPath, preset),
       );
 
       return mutateWorkspaceState((state) => {
@@ -4272,27 +2293,27 @@ async function handleDesktopInvoke(event, command, ...args) {
         typeof input.directory === "string" && input.directory.trim()
           ? input.directory.trim()
           : null;
-      const rawOpenworkHostUrl =
+      const rawOnMyAgentHostUrl =
         typeof input.onmyagentHostUrl === "string" &&
         input.onmyagentHostUrl.trim()
           ? input.onmyagentHostUrl.trim()
           : null;
       const onmyagentHostUrl =
         remoteType === "onmyagent"
-          ? stripOpenworkWorkspaceMount(rawOpenworkHostUrl ?? baseUrl)
-          : rawOpenworkHostUrl;
+          ? stripOnMyAgentWorkspaceMount(rawOnMyAgentHostUrl ?? baseUrl)
+          : rawOnMyAgentHostUrl;
       const onmyagentWorkspaceId =
         typeof input.onmyagentWorkspaceId === "string" &&
         input.onmyagentWorkspaceId.trim()
           ? input.onmyagentWorkspaceId.trim()
           : remoteType === "onmyagent"
-            ? parseOpenworkWorkspaceIdFromUrl(rawOpenworkHostUrl) ||
-              parseOpenworkWorkspaceIdFromUrl(baseUrl)
+            ? parseOnMyAgentWorkspaceIdFromUrl(rawOnMyAgentHostUrl) ||
+              parseOnMyAgentWorkspaceIdFromUrl(baseUrl)
             : null;
-      let resolvedOpenworkWorkspaceId = onmyagentWorkspaceId;
-      let resolvedOpenworkWorkspaceName = input.onmyagentWorkspaceName ?? null;
-      if (remoteType === "onmyagent" && !resolvedOpenworkWorkspaceId) {
-        const discovered = await discoverOpenworkWorkspace({
+      let resolvedOnMyAgentWorkspaceId = onmyagentWorkspaceId;
+      let resolvedOnMyAgentWorkspaceName = input.onmyagentWorkspaceName ?? null;
+      if (remoteType === "onmyagent" && !resolvedOnMyAgentWorkspaceId) {
+        const discovered = await discoverOnMyAgentWorkspace({
           hostUrl: onmyagentHostUrl ?? baseUrl,
           token: input.onmyagentToken,
           hostToken: input.onmyagentHostToken,
@@ -4305,22 +2326,22 @@ async function handleDesktopInvoke(event, command, ...args) {
               : "OnMyAgent server returned no workspaces.",
           );
         }
-        resolvedOpenworkWorkspaceId = String(discovered.id).trim();
-        resolvedOpenworkWorkspaceName =
+        resolvedOnMyAgentWorkspaceId = String(discovered.id).trim();
+        resolvedOnMyAgentWorkspaceName =
           onmyagentWorkspaceDisplayName(discovered);
       }
       const id =
         remoteType === "onmyagent"
           ? onmyagentRemoteWorkspaceId(
               onmyagentHostUrl ?? baseUrl,
-              resolvedOpenworkWorkspaceId,
+              resolvedOnMyAgentWorkspaceId,
             )
           : remoteWorkspaceId(baseUrl, directory);
       const workspace = normalizeWorkspaceEntry({
         id,
         name: String(
           input.displayName ??
-            resolvedOpenworkWorkspaceName ??
+            resolvedOnMyAgentWorkspaceName ??
             "Remote workspace",
         ),
         displayName: input.displayName ?? null,
@@ -4335,8 +2356,8 @@ async function handleDesktopInvoke(event, command, ...args) {
         onmyagentToken: input.onmyagentToken ?? null,
         onmyagentClientToken: input.onmyagentClientToken ?? null,
         onmyagentHostToken: input.onmyagentHostToken ?? null,
-        onmyagentWorkspaceId: resolvedOpenworkWorkspaceId,
-        onmyagentWorkspaceName: resolvedOpenworkWorkspaceName,
+        onmyagentWorkspaceId: resolvedOnMyAgentWorkspaceId,
+        onmyagentWorkspaceName: resolvedOnMyAgentWorkspaceName,
         sandboxBackend: input.sandboxBackend ?? null,
         sandboxRunId: input.sandboxRunId ?? null,
         sandboxContainerName: input.sandboxContainerName ?? null,
@@ -4372,7 +2393,7 @@ async function handleDesktopInvoke(event, command, ...args) {
               ? nextWorkspace.onmyagentHostUrl.trim()
               : null;
           const nextBaseUrl = String(nextWorkspace.baseUrl ?? "").trim();
-          const hostUrl = stripOpenworkWorkspaceMount(
+          const hostUrl = stripOnMyAgentWorkspaceMount(
             rawHostUrl ?? nextBaseUrl,
           );
           const directory =
@@ -4381,8 +2402,8 @@ async function handleDesktopInvoke(event, command, ...args) {
               ? nextWorkspace.directory.trim()
               : null;
           const parsedWorkspaceId =
-            parseOpenworkWorkspaceIdFromUrl(rawHostUrl) ||
-            parseOpenworkWorkspaceIdFromUrl(nextBaseUrl);
+            parseOnMyAgentWorkspaceIdFromUrl(rawHostUrl) ||
+            parseOnMyAgentWorkspaceIdFromUrl(nextBaseUrl);
           let remoteWorkspaceId =
             parsedWorkspaceId ||
             (typeof nextWorkspace.onmyagentWorkspaceId === "string" &&
@@ -4391,7 +2412,7 @@ async function handleDesktopInvoke(event, command, ...args) {
               : null);
           let remoteWorkspaceName = nextWorkspace.onmyagentWorkspaceName ?? null;
           if (!remoteWorkspaceId) {
-            const discovered = await discoverOpenworkWorkspace({
+            const discovered = await discoverOnMyAgentWorkspace({
               hostUrl: hostUrl ?? nextBaseUrl,
               token: nextWorkspace.onmyagentToken,
               hostToken: nextWorkspace.onmyagentHostToken,
@@ -4469,23 +2490,25 @@ async function handleDesktopInvoke(event, command, ...args) {
       if (!workspacePath || !authorizedRoot) {
         throw new Error("workspacePath and folderPath are required");
       }
-      const config = await readWorkspaceOpenworkConfig(workspacePath);
+      const config = await readWorkspaceOnMyAgentConfig(workspacePath);
       if (!Array.isArray(config.authorizedRoots)) {
         config.authorizedRoots = [];
       }
       if (!config.authorizedRoots.includes(authorizedRoot)) {
         config.authorizedRoots.push(authorizedRoot);
       }
-      return writeWorkspaceOpenworkConfig(workspacePath, config);
+      return writeWorkspaceOnMyAgentConfig(workspacePath, config);
     }
     case "workspaceOpenworkRead":
-      return readWorkspaceOpenworkConfig(
+    case "workspaceOnMyAgentRead":
+      return readWorkspaceOnMyAgentConfig(
         String(args[0]?.workspacePath ?? "").trim(),
       );
     case "workspaceOpenworkWrite":
-      return writeWorkspaceOpenworkConfig(
+    case "workspaceOnMyAgentWrite":
+      return writeWorkspaceOnMyAgentConfig(
         String(args[0]?.workspacePath ?? "").trim(),
-        args[0]?.config ?? defaultWorkspaceOpenworkConfig(""),
+        args[0]?.config ?? defaultWorkspaceOnMyAgentConfig(""),
       );
     case "userAgentRegistryRead": {
       const targetPath = userAgentRegistryPath();
@@ -4630,7 +2653,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       } catch {
         return null;
       }
-    case "getOpenworkUiMcpCommand": {
+    case "getOpenworkUiMcpCommand":
+    case "getOnMyAgentUiMcpCommand": {
       if (process.env.ONMYAGENT_DEV_MODE === "1") {
         return [
           "node",
@@ -4671,7 +2695,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       const result = openSystemPermissionSettings(type);
       return result;
     }
-    case "getOpenworkUiMcpEnvironment": {
+    case "getOpenworkUiMcpEnvironment":
+    case "getOnMyAgentUiMcpEnvironment": {
       return {
         ONMYAGENT_UI_CONTROL_DISCOVERY: path.join(
           app.getPath("userData"),
@@ -4685,7 +2710,8 @@ async function handleDesktopInvoke(event, command, ...args) {
       return debugDesktopBootstrapConfig();
     case "setDesktopBootstrapConfig":
       return setDesktopBootstrapConfig(args[0] ?? {});
-    case "nukeOpenworkAndOpencodeConfigAndExit": {
+    case "nukeOpenworkAndOpencodeConfigAndExit":
+    case "nukeOnMyAgentAndOpencodeConfigAndExit": {
       await rm(app.getPath("userData"), { recursive: true, force: true });
       app.exit(0);
       return undefined;
@@ -4698,7 +2724,8 @@ async function handleDesktopInvoke(event, command, ...args) {
     case "sandboxStop":
       return runtimeManager.sandboxStop(String(args[0] ?? "").trim());
     case "sandboxCleanupOpenworkContainers":
-      return runtimeManager.sandboxCleanupOpenworkContainers();
+    case "sandboxCleanupOnMyAgentContainers":
+      return runtimeManager.sandboxCleanupOnMyAgentContainers();
     case "sandboxDebugProbe":
       return runtimeManager.sandboxDebugProbe();
     case "onmyagentServerInfo":
@@ -4938,7 +2965,8 @@ async function handleDesktopInvoke(event, command, ...args) {
         String(args[1] ?? "").trim(),
         String(args[2] ?? ""),
       );
-    case "resetOpenworkState": {
+    case "resetOpenworkState":
+    case "resetOnMyAgentState": {
       await rm(workspaceStatePath(), { force: true });
       await rm(desktopBootstrapPath(), { force: true });
       return undefined;
@@ -5097,7 +3125,7 @@ async function createMainWindow() {
   }
 
   mainWindow = new BrowserWindow({
-    width: 1180,
+    width: 1280,
     height: 820,
     minWidth: MAIN_WINDOW_MIN_WIDTH,
     minHeight: MAIN_WINDOW_MIN_HEIGHT,
@@ -5320,6 +3348,9 @@ if (!app.requestSingleInstanceLock()) {
     void Promise.all([
       disposeRuntimeBeforeQuit(),
       uiControlBridge.stop(),
+      browserUseAgentRuntime.dispose(),
+      browserUseModelGateway.stop(),
+      browserUseBroker.stop(),
     ]).finally(() => app.quit());
   });
 
@@ -5344,6 +3375,9 @@ if (!app.requestSingleInstanceLock()) {
     installApplicationMenu();
 
     await ensureOnMyAgentUserDataDirs();
+    await browserUseBroker.start().catch((error) => {
+      console.warn("[browser-use] broker failed to start", error);
+    });
 
     // Use Tauri's existing workspace state file as canonical so rollback and
     // Electron see the same workspace list. Import the short-lived

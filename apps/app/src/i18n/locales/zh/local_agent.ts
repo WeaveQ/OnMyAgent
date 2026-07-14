@@ -382,5 +382,7 @@ export default {
   "local_agent.extensions_adapters": "{count} 个 ACP 适配器",
   "local_agent.extensions_enabled": "已启用",
   "local_agent.extensions_disabled": "已停用",
+  "local_agent.background_status_restored": "后台运行状态已从主进程恢复。",
+  "local_agent.scheduled_task_completed": "定时任务“{title}”执行完成。\n状态：{status}\nRun：{runId}\n\n{output}",
   "local_agent.heartbeat_task_completed": "定时任务“{title}”执行完成。\n状态：{status}\nRun：{run}\n\n{output}",
 } as const;

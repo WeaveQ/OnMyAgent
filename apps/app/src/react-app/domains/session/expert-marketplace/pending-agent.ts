@@ -1,4 +1,4 @@
-import type { PendingAgentContext } from "../../shared/pending-agent-store";
+import type { PendingAgentContext } from "../../agents/pending-agent-store";
 import type { ExpertMarketplaceEntry } from "./types";
 
 export function buildPendingAgentFromMarketplaceExpert(
@@ -10,13 +10,14 @@ export function buildPendingAgentFromMarketplaceExpert(
     name: expert.displayName,
     description: expert.description,
     avatar: {
-      avatarStyle: "机器人",
+      avatarStyle: "robot",
       avatarOptionId: "marketplace-expert",
       customAvatarDataUrl: null,
       avatarUrl: expert.avatarUrl,
       avatarBackground: "var(--ow-primary-light)",
     },
     systemPrompt: expert.systemPrompt,
+    runtime: expert.runtime ?? undefined,
     quickPrompts: expert.quickPrompts.slice(0, 3),
     conversationStartId: Date.now(),
     draftSource: "agent-selection",

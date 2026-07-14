@@ -16,7 +16,7 @@ import type {
   PendingQuestion,
 } from "@/app/types";
 import { snapshotToUIMessages } from "./usechat-adapter";
-import type { OpenworkSessionSnapshot } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentSessionSnapshot } from "@/app/lib/onmyagent-server";
 import { reconcileTranscriptMessages } from "./transcript-reconcile";
 import { useSessionActivityStore } from "../status/session-activity-store";
 
@@ -1368,7 +1368,7 @@ function releaseWorkspaceSessionSync(input: SyncOptions) {
 
 export function seedSessionState(
   workspaceId: string,
-  snapshot: OpenworkSessionSnapshot,
+  snapshot: OnMyAgentSessionSnapshot,
 ) {
   const queryClient = getReactQueryClient();
   const key = transcriptKey(workspaceId, snapshot.session.id);
