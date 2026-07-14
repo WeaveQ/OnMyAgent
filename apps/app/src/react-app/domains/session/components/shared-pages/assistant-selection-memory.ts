@@ -1,6 +1,6 @@
 import type { WorkspaceSessionGroup } from "../../../../../app/types";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
-import { readAssistantSessionCategory } from "../../../agents/agent-session-state";
+import { readAssistantSessionCategory } from "../../../agents";
 
 export type AssistantSelectionMemory =
   | { kind: "newTask" }

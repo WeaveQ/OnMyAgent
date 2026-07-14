@@ -5,7 +5,7 @@ import codexIconUrl from "../../../assets/agent-icons/openai.svg";
 import hermesIconUrl from "../../../assets/agent-icons/hermes.png";
 import openclawIconUrl from "../../../assets/agent-icons/claw.svg";
 import opencodeIconUrl from "../../../assets/agent-icons/opencode-logo-light.svg";
-import { conversationTitle } from "../session/chat/personal-local-agent-scheduled-tasks";
+import { conversationTitle } from "./personal-local-agent-scheduled-tasks";
 import type { AgentHealthResult } from "./local-agent-page-types";
 import type { LocalAgentSlashCommand } from "./local-agent-draft-composer";
 import type { ChatMessage } from "./messages/message-types";

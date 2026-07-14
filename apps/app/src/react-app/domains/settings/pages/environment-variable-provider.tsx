@@ -7,8 +7,8 @@ import {
   writeOnMyAgentEnvPendingChanges,
 } from "@/app/lib/onmyagent-env-runtime";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
-import { clearOnMyAgentEnvSystemContextCache } from "../../shared/env-context";
+import { useStatusToasts } from "../../shell-feedback";
+import { clearOnMyAgentEnvSystemContextCache } from "../../shared";
 import type { EnvironmentVariableItem } from "./environment-variable-table";
 
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;

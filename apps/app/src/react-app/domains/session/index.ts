@@ -72,5 +72,5 @@ export {
 export {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
-} from "../messaging/automation-session-groups";
+} from "../messaging";
 export { OpenCodeProviderConfigDialog } from "../local-agents";

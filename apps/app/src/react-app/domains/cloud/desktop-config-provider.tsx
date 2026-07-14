@@ -34,7 +34,7 @@ import {
   useDesktopConfig,
   useDesktopRestriction,
   useOrgRestrictions,
-} from "../shared/desktop-config-context";
+} from "../shared";
 
 export {
   useCheckDesktopRestriction,

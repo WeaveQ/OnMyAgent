@@ -11,28 +11,28 @@ import {
 } from "../../../../../app/lib/session-title";
 import type { WorkspaceSessionGroup } from "../../../../../app/types";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { createDefaultAgentRegistry } from "../../../agents/agent-default-registry";
+import { createDefaultAgentRegistry } from "../../../agents";
 import {
   resolveAgentAvatarUrl,
-} from "../../../agents/agent-registry-helpers";
+} from "../../../agents";
 import type {
   AgentRegistry,
   AgentTemplate,
-} from "../../../agents/agent-registry-types";
+} from "../../../agents";
 import {
   buildPendingAgentFromRecord,
-} from "../../../agents/agent-registry-store";
+} from "../../../agents";
 import { findBuiltinMarketplaceExpertById } from "../../expert-marketplace/data";
 import {
   readCustomAgentIdForSession,
   readSessionAgentSnapshot,
   useAgentRegistryStore,
   writeCustomAgentIdForSession,
-} from "../../../agents/agent-registry-store";
+} from "../../../agents";
 import {
   isAssistantSession,
   isExpertSession,
-} from "../../../agents/agent-session-state";
+} from "../../../agents";
 import {
   ONMYAGENT_ASSISTANT_AVATAR,
   onmyagentAssistantName,

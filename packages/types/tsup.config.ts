@@ -7,6 +7,7 @@ export default defineConfig({
     "den/desktop-policies": "src/den/desktop-policies.ts",
     "den/inference": "src/den/inference.ts",
     server: "src/server.ts",
+    "desktop-ipc": "src/desktop-ipc.ts",
   },
   tsconfig: "./tsconfig.json",
   format: ["esm"],
