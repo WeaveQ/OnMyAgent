@@ -525,4 +525,13 @@ export default {
   "session.jump_to_latest": "跳到最新",
   "session.reasoning": "推理",
   "session.step": "步驟",
+  "session.compact_heading_summary": "摘要",
+  "session.compact_heading_current_state": "目前狀態",
+  "session.compact_heading_completed": "已完成",
+  "session.compact_heading_done": "完成",
+  "session.compact_heading_in_progress": "進行中",
+  "session.compact_heading_blocked": "阻塞",
+  "session.compact_heading_key_decisions": "關鍵決策",
+  "session.compact_heading_next_steps": "下一步",
+  "session.compact_heading_progress": "進度",
 } as const;
