@@ -2,7 +2,7 @@
  * ChannelStreamRelay — subscribes to agent output streams for channel-bound
  * conversations and pushes the aggregated response back to the IM channel.
  *
- * Parity with AionCore `ChannelStreamRelay` (crates/aionui-channel/stream_relay.rs):
+ * Parity with Upstream `ChannelStreamRelay` (crates/upstream-channel/stream_relay.rs):
  * - subscribes to a conversation's `AgentStreamEvent` equivalent (pushed via
  *   `pushEvent` from the dispatch site / runtime listener);
  * - accumulates `Text` deltas and tool calls;

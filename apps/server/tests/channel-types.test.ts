@@ -18,7 +18,7 @@ import {
 } from "@onmyagent/types/channel";
 
 describe("channel type contracts", () => {
-  test("plugin status parses AionUi-shaped payload", () => {
+  test("plugin status parses Upstream-shaped payload", () => {
     const parsed = channelPluginStatusSchema.parse({
       id: "weixin",
       type: "weixin",

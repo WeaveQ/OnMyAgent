@@ -585,7 +585,7 @@ export type PersonalLocalAgentRunResult = {
   /**
    * Files / artifacts the runtime believes were produced or referenced by this run.
    * Populated only from structured adapter `artifact` events. Text mining
-   * was removed in HR2-A-01 to align with AionUi behavior.
+   * was removed in HR2-A-01 to align with Upstream behavior.
    */
   artifacts?: PersonalLocalAgentRunArtifact[];
   /**

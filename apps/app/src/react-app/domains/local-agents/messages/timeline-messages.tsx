@@ -131,7 +131,7 @@ type LocalAgentTimelineItem =
   | { kind: "message"; message: PersonalLocalAgentConversationMessage }
   | { kind: "tool_group"; id: string; messages: PersonalLocalAgentConversationMessage[] };
 
-// Precise status mapping (mirrors AionUI normalizeAcpStatus / normalizeToolCallStatus).
+// Precise status mapping (mirrors Upstream normalizeAcpStatus / normalizeToolCallStatus).
 function mapRawStatus(status: string): LocalAgentToolStatus | null {
   switch (status) {
     case "completed":
@@ -222,7 +222,7 @@ function getKindDisplayName(kind?: string): string {
 }
 
 // Parse a tool input that may be a JSON string or a structured object into a
-// Record<string, unknown> for param extraction (mirrors AionUI buildParamSummary).
+// Record<string, unknown> for param extraction (mirrors Upstream buildParamSummary).
 function parseToolInput(input?: unknown): Record<string, unknown> | null {
   if (input == null) return null;
   if (typeof input === "string") {
@@ -240,7 +240,7 @@ function parseToolInput(input?: unknown): Record<string, unknown> | null {
 }
 
 // Extract a short human-readable summary from the tool input, keyed by kind.
-// Mirrors AionUI's buildParamSummary so the description is always meaningful.
+// Mirrors Upstream's buildParamSummary so the description is always meaningful.
 function extractParamSummary(kind: string | null | undefined, input?: unknown): string | null {
   const raw = parseToolInput(input);
   if (!raw) return null;
@@ -321,7 +321,7 @@ type LocalAgentToolDisplay = {
 // Normalize a tool message into a display record. Returns null when the message
 // carries no usable information at all (no name, no kind, no input, no output,
 // no title). A tool that only has a toolCallId and a status is considered
-// empty — mirroring AionUI's normalizeAcpToolCall which returns undefined for
+// empty — mirroring Upstream's normalizeAcpToolCall which returns undefined for
 // empty updates, so the renderer can skip it entirely.
 function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, runStatus?: string): LocalAgentToolDisplay | null {
   const tool = message.toolCall;
@@ -332,7 +332,7 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   const rawOutput = tool?.output ?? acpUpdate?.output ?? undefined;
   const paramSummary = extractParamSummary(rawKind, rawInput);
 
-  // Filter out completely empty tool calls (AionUI pattern).
+  // Filter out completely empty tool calls (Upstream pattern).
   if (!rawName && !rawKind && !paramSummary && !rawInput && !rawOutput) {
     return null;
   }
@@ -421,7 +421,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
   const tool = localAgentToolDisplay(props.message, props.runStatus);
   const [expanded, setExpanded] = useState(false);
 
-  // Skip rendering for empty tool calls (AionUI pattern: normalize → filter).
+  // Skip rendering for empty tool calls (Upstream pattern: normalize → filter).
   if (!tool) return null;
 
   const hasDetail = tool.detail.length > 0;
@@ -497,7 +497,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
 }
 
 export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConversationMessage[]; runStatus?: string }) {
-  // Normalize + filter empty tool calls (AionUI pattern), so the count and
+  // Normalize + filter empty tool calls (Upstream pattern), so the count and
   // running indicator only reflect tools that actually carry information.
   const tools = props.messages
     .map((message) => ({ message, display: localAgentToolDisplay(message, props.runStatus) }))

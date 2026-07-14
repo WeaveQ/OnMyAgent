@@ -99,7 +99,7 @@ export function AgentManagementAgentCard(props: {
   const isCustom = props.agent.provider === "custom" && !isDiscoverable;
   const enabled = props.agent.enabled !== false;
   const usage = props.agent.usage;
-  // AionUi-style: rows are collapsed by default and only reveal their data
+  // Upstream-style: rows are collapsed by default and only reveal their data
   // and detail operations after the user clicks to expand them.
   const [expanded, setExpanded] = useState(false);
 

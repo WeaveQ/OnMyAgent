@@ -2742,7 +2742,7 @@ describe("Codex app-server adapter approvals", () => {
   });
 
   it("maps Studio approval modes to explicit Codex approval and sandbox policy", () => {
-    // Aligned with AionCore acp_launch_policy: non-auto sessions default to
+    // Aligned with Upstream acp_launch_policy: non-auto sessions default to
     // Codex workspace-write with network access; only `auto` escalates to
     // danger-full-access.
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("ask"), {

@@ -10,7 +10,7 @@ test("prefixes agent name and time", () => {
 
 test("falls back to id then provider when name missing", () => {
   const at = new Date(2026, 0, 1, 12, 34);
-  assert.match(formatAgentReply({ agent: { id: "aion" }, text: "x", at }), /^▎aion · 12:34\n\n/);
+  assert.match(formatAgentReply({ agent: { id: "agent" }, text: "x", at }), /^▎agent · 12:34\n\n/);
   assert.match(formatAgentReply({ agent: { provider: "opencode" }, text: "x", at }), /^▎opencode · 12:34\n\n/);
   assert.match(formatAgentReply({ agent: null, text: "x", at }), /^▎Agent · 12:34\n\n/);
 });
