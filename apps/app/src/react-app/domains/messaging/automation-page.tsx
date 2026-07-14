@@ -1,15 +1,12 @@
 /** @jsxImportSource react */
 import {
-  Bot,
   Check,
   ChevronDown,
-  GraduationCap,
+  Folder,
   Pause,
   Play,
   Plus,
-  Shield,
   ShieldAlert,
-  TriangleAlert,
   Trash2,
   X,
 } from "lucide-react";
@@ -54,6 +51,7 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/react-app/shell";
 import { AccessPermissionSelect } from "../../design-system/access-permission-select";
+import { AutomationPromptTools } from "./automation-prompt-tools";
 import type {
   OnMyAgentAutomationTaskItem,
   OnMyAgentServerClient,
@@ -71,10 +69,8 @@ import {
 import {
   buildPendingAgentFromRecord,
   createDefaultAgentRegistry,
-  resolveAgentAvatarUrl,
   useAgentRegistryStore,
   type AgentRegistry,
-  type AgentTemplate,
 } from "../agents";
 import { syncAutomationSessionRecords } from "./automation-session-groups";
 
@@ -405,40 +401,8 @@ function workspaceDirectoryLabel(path: string) {
   return trimmed.split("/").filter(Boolean).at(-1) ?? trimmed;
 }
 
-function modelLabel(model: ModelRef | null) {
-  return model ? model.modelID : t("automation.model_auto");
-}
-
-function accessModeLabel(value: ComposerAccessMode) {
-  return value === "full" ? t("composer.access_full") : t("composer.access_default");
-}
-
 function selectedAgentTemplate(registry: AgentRegistry, agentId: string) {
   return registry.templates.find((template) => template.id === agentId) ?? null;
-}
-
-function AgentAvatar(props: { template: AgentTemplate; registry: AgentRegistry }) {
-  const avatar = resolveAgentAvatarUrl({
-    avatarStyle: props.template.avatarStyle,
-    avatarOptionId: props.template.avatarOptionId,
-    customAvatarDataUrl: null,
-  }, props.registry);
-  if (avatar.url) {
-    return (
-      <img
-        src={avatar.url}
-        alt=""
-        className="size-9 rounded-full border border-dls-border bg-dls-surface-muted"
-      />
-    );
-  }
-  return (
-    <span
-      className="flex size-9 items-center justify-center rounded-full border border-dls-border bg-dls-surface-muted text-sm font-semibold text-dls-secondary"
-    >
-      {props.template.name.slice(0, 1)}
-    </span>
-  );
 }
 
 function WorkspaceField(props: {
@@ -456,9 +420,7 @@ function WorkspaceField(props: {
   return (
     <div className="flex items-center gap-2">
       <Button type="button" variant="outline" size="lg" className="min-w-0 flex-1 justify-start px-3 text-dls-secondary" onClick={pickWorkspace}>
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dls-border">
-          <Plus className="size-3.5" />
-        </span>
+        <Folder className="size-4 shrink-0 text-dls-secondary" />
         <span className="min-w-0 truncate text-left">
           {workspaceDirectoryLabel(props.value)}
         </span>
@@ -469,60 +431,6 @@ function WorkspaceField(props: {
         </Button>
       ) : null}
     </div>
-  );
-}
-
-function AgentSelect(props: {
-  registry: AgentRegistry;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const selected = selectedAgentTemplate(props.registry, props.value);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button type="button" variant="ghost" size="sm" className="max-w-44 min-w-0 px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text" />
-        }
-      >
-        <GraduationCap className="size-4 text-dls-accent" />
-        <span className="min-w-0 truncate">
-          {selected?.name ?? t("automation.agent_none")}
-        </span>
-        <ChevronDown className="size-3.5 shrink-0" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={8} className="w-80 rounded-xl border border-dls-border bg-dls-surface p-1.5">
-        <MenuRowButton
-          type="button"
-          align="center"
-          active={!props.value}
-          onClick={() => props.onChange("")}
-        >
-          <span className="flex size-9 items-center justify-center rounded-full border border-dls-border bg-dls-surface-muted">
-            <Bot className="size-4 text-dls-secondary" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-dls-text">{t("automation.agent_none")}</span>
-            <span className="mt-1 block text-xs text-dls-secondary">{t("automation.agent_none_desc")}</span>
-          </span>
-        </MenuRowButton>
-        {props.registry.templates.filter((template) => template.showInOverview || template.showInWizard).map((template) => (
-          <MenuRowButton
-            key={template.id}
-            type="button"
-            align="center"
-            active={props.value === template.id}
-            onClick={() => props.onChange(template.id)}
-          >
-            <AgentAvatar template={template} registry={props.registry} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-dls-text">{template.name}</span>
-              <span className="mt-1 block line-clamp-2 text-xs leading-5 text-dls-secondary">{template.description}</span>
-            </span>
-          </MenuRowButton>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -823,6 +731,8 @@ function AutomationDialog(props: {
   form: AutomationFormState;
   item: OnMyAgentAutomationTaskItem | null;
   registry: AgentRegistry;
+  client: OnMyAgentServerClient | null;
+  workspaceId: string;
   workspaceRoot: string;
   onOpenChange: (open: boolean) => void;
   onFormChange: (form: AutomationFormState) => void;
@@ -889,28 +799,25 @@ function AutomationDialog(props: {
                 className="min-h-48 border-0 bg-transparent text-sm text-dls-text focus-visible:ring-0"
               />
               <div className="flex flex-nowrap items-center gap-2 border-t border-dls-border px-3 py-2 text-sm text-dls-secondary">
-                <ModelSelectContainer
-                  open={modelPickerOpen}
-                  value={props.form.model ?? { providerID: "", modelID: "" }}
-                  onOpenChange={setModelPickerOpen}
-                  onChange={(model) => props.onFormChange({ ...props.form, model })}
-                />
-                <AgentSelect
-                  registry={props.registry}
-                  value={props.form.agentId}
-                  onChange={(agentId) => props.onFormChange({ ...props.form, agentId })}
+                <AutomationPromptTools
+                  client={props.client}
+                  workspaceId={props.workspaceId}
+                  workspaceRoot={props.workspaceRoot}
+                  prompt={props.form.prompt}
+                  onPromptChange={(prompt) => props.onFormChange({ ...props.form, prompt })}
                 />
                 <AccessPermissionSelect
                   value={props.form.accessMode}
                   onChange={(accessMode) => props.onFormChange({ ...props.form, accessMode })}
                 />
-                <span className="ml-auto flex min-w-0 items-center gap-2 text-xs text-dls-secondary">
-                  <StatusBadge tone={props.form.accessMode === "full" ? "warning" : "neutral"} size="sm" shape="soft" className="gap-1.5">
-                    {props.form.accessMode === "full" ? <TriangleAlert className="size-3.5" /> : <Shield className="size-3.5" />}
-                    {accessModeLabel(props.form.accessMode)}
-                  </StatusBadge>
-                  <span className="hidden max-w-40 truncate xl:inline">{modelLabel(props.form.model)}</span>
-                </span>
+                <div className="ml-auto">
+                  <ModelSelectContainer
+                    open={modelPickerOpen}
+                    value={props.form.model ?? { providerID: "", modelID: "" }}
+                    onOpenChange={setModelPickerOpen}
+                    onChange={(model) => props.onFormChange({ ...props.form, model })}
+                  />
+                </div>
               </div>
             </div>
           </AutomationField>
@@ -1335,6 +1242,8 @@ export function AutomationPage(props: {
         form={form}
         item={editingItem}
         registry={registry}
+        client={props.client}
+        workspaceId={props.workspaceId}
         workspaceRoot={workspace.selectedWorkspaceRoot}
         onOpenChange={setDialogOpen}
         onFormChange={setForm}
