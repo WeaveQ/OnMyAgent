@@ -39,10 +39,8 @@ type BottomRailItem = Omit<RailItem, "icon"> & {
 function WeChatBubblesIcon(props: { active: boolean; className?: string }) {
   const bubbleClassName = props.active
     ? "fill-current"
-    : "fill-dls-text-tertiary";
-  const eyeClassName = props.active
-    ? "fill-dls-rail"
-    : "fill-dls-text-secondary";
+    : "fill-dls-surface transition-colors group-hover/channel:fill-dls-text-tertiary";
+  const eyeClassName = "fill-dls-rail";
 
   return (
     <svg
@@ -120,6 +118,7 @@ function BottomRailButton(props: {
       data-view-id={props.item.id}
       size="bottom"
       active={props.active}
+      className="group/channel"
       title={props.item.label}
       aria-label={props.item.label}
       aria-pressed={props.active}
