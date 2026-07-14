@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Bot, ChevronRight, CirclePlus, Clock3, Plus, Search } from "lucide-react";
+import { Bot, ChevronRight, Clock3, MessageCirclePlus, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NavListButton } from "@/components/ui/action-row";
@@ -34,30 +34,32 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
 
   if (props.mode === "assistant") {
     return (
-      <div className="space-y-0 pb-4 pt-3">
+      <div className="space-y-0 pb-1 pt-3">
         {props.assistantCategoryId && props.onAssistantCategoryChange ? (
           <AssistantCategorySwitch
             value={props.assistantCategoryId}
             onChange={props.onAssistantCategoryChange}
           />
         ) : null}
-        <NavListButton
-          type="button"
-          onClick={props.onCreateTask}
-          active={!props.selectedSessionId && !props.automationActive}
-          className="text-sm"
-        >
-          <CirclePlus className="size-4 shrink-0 text-dls-text" />
-          {t("session.new_task")}
-        </NavListButton>
-        {assistantMenuItems.map((item) => (
-          <AssistantMenuRow
-            key={item.id}
-            item={item}
-            active={item.id === "automation" && props.automationActive}
-            onClick={item.id === "automation" ? props.onOpenAutomation : props.onOpenAssistant}
-          />
-        ))}
+        <div className="grid gap-1" data-assistant-primary-actions="true">
+          <NavListButton
+            type="button"
+            onClick={props.onCreateTask}
+            active={!props.selectedSessionId && !props.automationActive}
+            size="sidebar"
+          >
+            <MessageCirclePlus className="size-4 shrink-0 text-dls-text" />
+            {t("session.new_task")}
+          </NavListButton>
+          {assistantMenuItems.map((item) => (
+            <AssistantMenuRow
+              key={item.id}
+              item={item}
+              active={item.id === "automation" && props.automationActive}
+              onClick={item.id === "automation" ? props.onOpenAutomation : props.onOpenAssistant}
+            />
+          ))}
+        </div>
       </div>
     );
   }

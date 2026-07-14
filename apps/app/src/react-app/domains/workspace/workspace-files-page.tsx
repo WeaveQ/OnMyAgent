@@ -2,10 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot,
   ChevronDown,
   ChevronRight,
-  Cloud,
   Copy,
   ExternalLink,
   FileText,
@@ -17,8 +15,16 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { MenuRowButton, NavTabButton, SegmentedTabGroup, TreeRowButton } from "@/components/ui/action-row";
+import { MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
@@ -38,11 +44,6 @@ const workspaceFilesTextClass = {
 
 const CLOUD_DRIVE_PLACEHOLDER_ASSET = "/empty-states/cloud-drive-placeholder.png";
 
-function workspaceNameFromRoot(root: string) {
-  const parts = root.replace(/\\/g, "/").split("/").filter(Boolean);
-  return parts.at(-1) || t("files.current_workspace");
-}
-
 function formatWorkspaceFileSize(size: number) {
   if (!Number.isFinite(size) || size <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -59,7 +60,7 @@ function formatWorkspaceFileTime(value: number) {
   if (!Number.isFinite(value) || value <= 0) return t("common.unknown");
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return t("common.unknown");
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(undefined, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -199,12 +200,6 @@ function canPreviewWorkspaceFileInline(target: OpenTarget) {
   return target.preview === "sheet" && /\.(csv|tsv)$/i.test(target.value);
 }
 
-type TaskGroup = {
-  agentName: string;
-  taskName: string;
-  files: FileNode[];
-};
-
 function addWorkspaceFileTreeEntry(
   root: WorkspaceFileTreeNode,
   entry: OnMyAgentWorkspaceFileCatalogEntry,
@@ -261,79 +256,48 @@ function buildWorkspaceFileTree(
   return root;
 }
 
-function flattenDirFiles(node: WorkspaceFileTreeNode): FileNode[] {
-  const result: FileNode[] = [];
+function findWorkspaceFileNode(
+  node: WorkspaceFileTreeNode,
+  path: string,
+): WorkspaceFileTreeNode | null {
+  if (node.path === path) return node;
   for (const child of node.children) {
-    if (child.kind === "file") {
-      result.push({
-        name: child.name,
-        path: child.path,
-        kind: child.kind,
-        size: child.size,
-        mtimeMs: child.mtimeMs,
-      });
-    } else {
-      result.push(...flattenDirFiles(child));
-    }
+    const match = findWorkspaceFileNode(child, path);
+    if (match) return match;
   }
-  return result;
+  return null;
 }
 
-function buildFileHierarchy(
-  entries: OnMyAgentWorkspaceFileCatalogEntry[],
-): TaskGroup[] {
-  const filtered = entries.filter((e) => !shouldHideEntry(e.path));
-  const rawTree = buildWorkspaceFileTree(filtered);
-  const tree = filterHiddenFromTree(rawTree);
-  const groups: TaskGroup[] = [];
+function workspaceFileBreadcrumbs(path: string) {
+  const parts = path.split("/").filter(Boolean);
+  return parts.map((name, index) => ({
+    name,
+    path: parts.slice(0, index + 1).join("/"),
+  }));
+}
 
-  for (const topLevel of tree.children) {
-    if (topLevel.kind === "dir") {
-      const agentFiles = topLevel.children.filter((c) => c.kind === "file");
-      const taskDirs = topLevel.children.filter((c) => c.kind === "dir");
+function filterWorkspaceFileTree(
+  node: WorkspaceFileTreeNode,
+  query: string,
+  typeFilter: FileCategory,
+): WorkspaceFileTreeNode | null {
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredChildren = node.children
+    .map((child) => filterWorkspaceFileTree(child, normalizedQuery, typeFilter))
+    .filter((child): child is WorkspaceFileTreeNode => child !== null);
+  if (!node.path) return { ...node, children: filteredChildren };
 
-      if (agentFiles.length > 0) {
-        groups.push({
-          agentName: topLevel.name,
-          taskName: t("files.ungrouped"),
-          files: agentFiles.map((f) => ({
-            name: f.name,
-            path: f.path,
-            kind: f.kind,
-            size: f.size,
-            mtimeMs: f.mtimeMs,
-          })),
-        });
-      }
-
-      for (const taskDir of taskDirs) {
-        const taskFiles = flattenDirFiles(taskDir);
-        if (taskFiles.length > 0) {
-          groups.push({
-            agentName: topLevel.name,
-            taskName: taskDir.name,
-            files: taskFiles,
-          });
-        }
-      }
-    } else {
-      groups.push({
-        agentName: t("files.workspace_root"),
-        taskName: t("files.ungrouped"),
-        files: [
-          {
-            name: topLevel.name,
-            path: topLevel.path,
-            kind: topLevel.kind,
-            size: topLevel.size,
-            mtimeMs: topLevel.mtimeMs,
-          },
-        ],
-      });
-    }
+  const matchesQuery =
+    !normalizedQuery ||
+    node.name.toLowerCase().includes(normalizedQuery) ||
+    node.path.toLowerCase().includes(normalizedQuery);
+  if (node.kind === "dir") {
+    if (!matchesQuery && filteredChildren.length === 0) return null;
+    return { ...node, children: filteredChildren };
   }
-
-  return groups;
+  if (!matchesQuery) return null;
+  if (typeFilter !== "all" && getFileCategory(node.name) !== typeFilter) return null;
+  return { ...node, children: [] };
 }
 
 function FilePreviewDrawer(props: {
@@ -496,12 +460,7 @@ export function WorkspaceFilesPage(props: {
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
-  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
   const fileRoot =
     props.fileRoot === undefined ? props.workspaceRoot : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
@@ -537,19 +496,6 @@ export function WorkspaceFilesPage(props: {
       .then((catalog) => {
         if (cancelled) return;
         setEntries(catalog.items);
-        setExpandedAgents((prev) => {
-          if (prev.size > 0) return prev;
-          const next = new Set(prev);
-          const filtered = catalog.items.filter(
-            (e) => !shouldHideEntry(e.path),
-          );
-          const rawTree = buildWorkspaceFileTree(filtered);
-          const tree = filterHiddenFromTree(rawTree);
-          for (const child of tree.children.slice(0, 5)) {
-            next.add(child.name);
-          }
-          return next;
-        });
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -568,7 +514,12 @@ export function WorkspaceFilesPage(props: {
   useEffect(() => {
     setSelectedFile(null);
     setPreviewState({ status: "idle" });
+    setCurrentDirectoryPath("");
   }, [fileRoot, props.workspaceId]);
+
+  useEffect(() => {
+    setCurrentDirectoryPath("");
+  }, [query, typeFilter]);
 
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim() || !selectedTarget) {
@@ -606,40 +557,19 @@ export function WorkspaceFilesPage(props: {
     };
   }, [props.client, props.workspaceId, selectedTarget]);
 
-  const taskGroups = useMemo(() => {
-    const filtered = entries.filter((e) => !shouldHideEntry(e.path));
-    let groups = buildFileHierarchy(filtered);
-    if (typeFilter !== "all") {
-      groups = groups.map((g) => ({
-        ...g,
-        files: g.files.filter((f) => getFileCategory(f.name) === typeFilter),
-      })).filter((g) => g.files.length > 0);
-    }
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      groups = groups.filter(
-        (g) =>
-          g.agentName.toLowerCase().includes(q) ||
-          g.taskName.toLowerCase().includes(q) ||
-          g.files.some(
-            (f) =>
-              f.name.toLowerCase().includes(q) ||
-              f.path.toLowerCase().includes(q),
-          ),
-      );
-      groups = groups.map((g) => ({
-        ...g,
-        files: g.files.filter(
-          (f) =>
-            f.name.toLowerCase().includes(q) ||
-            f.path.toLowerCase().includes(q) ||
-            g.agentName.toLowerCase().includes(q) ||
-            g.taskName.toLowerCase().includes(q),
-        ),
-      }));
-    }
-    return groups;
+  const visibleFileTree = useMemo(() => {
+    const tree = filterHiddenFromTree(
+      buildWorkspaceFileTree(entries.filter((entry) => !shouldHideEntry(entry.path))),
+    );
+    return filterWorkspaceFileTree(tree, query, typeFilter) ?? {
+      ...tree,
+      children: [],
+    };
   }, [entries, query, typeFilter]);
+
+  const currentDirectory =
+    findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ?? visibleFileTree;
+  const breadcrumbs = workspaceFileBreadcrumbs(currentDirectoryPath);
 
   const openArtifactTarget = useCallback(
     async (target: OpenTarget) => {
@@ -725,36 +655,18 @@ export function WorkspaceFilesPage(props: {
     return () => window.removeEventListener("keydown", handler);
   }, [closePreview, selectedFile]);
 
-  const toggleAgent = (name: string) => {
-    setExpandedAgents((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  const toggleTask = (key: string) => {
-    setExpandedTasks((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex h-14 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
-        <SegmentedTabGroup>
+      <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
+        <SegmentedTabGroup className="rounded-md border-0 p-0.5">
           <NavTabButton
             active={activeTab === "task"}
             type="button"
             onClick={() => setActiveTab("task")}
             size="tab"
             shape="tab"
+            className="h-7 min-w-24 rounded-md px-3 py-0"
           >
-            <Folder className="size-4" />
             {t("files.task_results")}
           </NavTabButton>
           <NavTabButton
@@ -763,8 +675,8 @@ export function WorkspaceFilesPage(props: {
             onClick={() => setActiveTab("cloud")}
             size="tab"
             shape="tab"
+            className="h-7 min-w-24 rounded-md px-3 py-0"
           >
-            <Cloud className="size-4" />
             {t("files.cloud_drive")}
           </NavTabButton>
         </SegmentedTabGroup>
@@ -829,137 +741,165 @@ export function WorkspaceFilesPage(props: {
 
           <div className="relative min-h-0 flex-1">
             <div className="h-full min-h-0 overflow-auto pr-1">
-        {loading && entries.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
-            {t("files.loading")}
-          </div>
-        ) : error ? (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
-            {error}
-          </div>
-        ) : taskGroups.length > 0 ? (
-          <div className="py-3">
-            {taskGroups.map((group) => {
-              const agentExpanded = expandedAgents.has(group.agentName);
-              const taskKey = `${group.agentName}/${group.taskName}`;
-              const taskExpanded = expandedTasks.has(taskKey);
-              return (
-                <div key={taskKey}>
-                  <TreeRowButton
-                    type="button"
-                    onClick={() => toggleAgent(group.agentName)}
+              {loading && entries.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
+                  {t("files.loading")}
+                </div>
+              ) : error ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {error}
+                </div>
+              ) : (
+                <div className="py-3">
+                  <nav
+                    data-workspace-file-breadcrumb="true"
+                    aria-label={t("files.breadcrumb_label")}
+                    className="mb-3 flex min-h-8 items-center gap-1 text-sm text-dls-secondary"
                   >
-                    <ChevronRight
-                      className={cn(
-                        "size-3.5 shrink-0 transition-transform",
-                        agentExpanded && "rotate-90",
-                      )}
-                    />
-                    <Bot className="size-4 shrink-0 text-dls-secondary" />
-                    <span className="truncate">{group.agentName}</span>
-                    <span className="shrink-0 text-xs text-dls-secondary">
-                      {t("files.file_count", { count: group.files.length })}
-                    </span>
-                  </TreeRowButton>
-
-                  {agentExpanded && (
-                    <>
-                      <TreeRowButton
-                        type="button"
-                        depth="child"
-                        onClick={() => toggleTask(taskKey)}
-                      >
-                        <ChevronRight
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="px-2 text-dls-secondary hover:text-dls-text"
+                      onClick={() => setCurrentDirectoryPath("")}
+                    >
+                      {t("files.task_results")}
+                    </Button>
+                    {breadcrumbs.map((item) => (
+                      <span key={item.path} className="flex min-w-0 items-center gap-1">
+                        <ChevronRight className="size-3 shrink-0" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          className="max-w-48 min-w-0 px-2 text-dls-secondary hover:text-dls-text"
+                          onClick={() => setCurrentDirectoryPath(item.path)}
+                        >
+                          <span className="truncate">{item.name}</span>
+                        </Button>
+                      </span>
+                    ))}
+                  </nav>
+                  {currentDirectory.children.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>{t("files.column_name")}</TableHead>
+                          <TableHead className="w-32">
+                            {t("files.column_type")}
+                          </TableHead>
+                          <TableHead className="w-44">
+                            {t("files.column_updated")}
+                          </TableHead>
+                          <TableHead className="w-28">
+                            {t("files.column_size")}
+                          </TableHead>
+                          <TableHead className="w-12">
+                            <span className="sr-only">
+                              {t("files.column_actions")}
+                            </span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {currentDirectory.children.map((node) => (
+                        <TableRow
+                          key={node.path}
+                          data-workspace-file-row={node.kind}
+                          role="button"
+                          tabIndex={0}
                           className={cn(
-                            "size-3 shrink-0 transition-transform",
-                            taskExpanded && "rotate-90",
+                            "group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                            selectedFile?.path === node.path && "bg-dls-surface-muted",
                           )}
-                        />
-                        <Folder className="size-3.5 shrink-0 text-dls-status-warning" />
-                        <span className="truncate">{group.taskName}</span>
-                        <span className="shrink-0 text-xs text-dls-secondary">
-                          {t("files.file_count", { count: group.files.length })}
-                        </span>
-                      </TreeRowButton>
-
-                      {taskExpanded && (
-                        <>
-                          {group.files.map((file) => (
-                            <div
-                              key={file.path}
-                              role="button"
-                              tabIndex={0}
-                              className={cn(
-                                "group relative flex w-full cursor-pointer items-center px-12 py-1.5 text-left text-sm transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                                selectedFile?.path === file.path && "bg-dls-surface-muted",
+                          onClick={() => {
+                            if (node.kind === "dir") {
+                              setCurrentDirectoryPath(node.path);
+                              return;
+                            }
+                            void handleSelectFile(node);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.target !== event.currentTarget) return;
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            if (node.kind === "dir") {
+                              setCurrentDirectoryPath(node.path);
+                              return;
+                            }
+                            void handleSelectFile(node);
+                          }}
+                        >
+                          <TableCell>
+                            <span className="flex min-w-0 items-center gap-2">
+                              {node.kind === "dir" ? (
+                                <Folder className="size-4 shrink-0 text-dls-status-warning-fg" />
+                              ) : (
+                                <FileText className="size-4 shrink-0 text-dls-secondary" />
                               )}
-                              onClick={() => void handleSelectFile(file)}
-                              onKeyDown={(event) => {
-                                if (event.key !== "Enter" && event.key !== " ") return;
-                                event.preventDefault();
-                                void handleSelectFile(file);
-                              }}
-                            >
-                              <FileText className="size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="ml-2 truncate">{file.name}</span>
-                              <span className="ml-4 shrink-0 text-xs text-dls-secondary">
-                                {formatWorkspaceFileSize(file.size)}
-                              </span>
-                              <span className="ml-2 shrink-0 text-xs text-dls-secondary">
-                                {formatWorkspaceFileTime(file.mtimeMs)}
-                              </span>
-                              <div className="absolute right-6 hidden group-hover:flex items-center">
-                                <Button
+                              <span className="truncate text-dls-text">{node.name}</span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-dls-secondary">
+                            {node.kind === "dir" ? t("files.type_folder") : t("files.type_file")}
+                          </TableCell>
+                          <TableCell className="text-dls-secondary">
+                            {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
+                          </TableCell>
+                          <TableCell className="text-dls-secondary">
+                            {node.kind === "dir" ? "-" : formatWorkspaceFileSize(node.size)}
+                          </TableCell>
+                          <TableCell className="relative">
+                            {node.kind === "file" ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setMenuPath(node.path);
+                                }}
+                                className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                aria-label={t("files.file_actions", { name: node.name })}
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            ) : null}
+                            {menuPath === node.path ? (
+                              <div className="absolute right-3 top-10 z-20 flex min-w-32 flex-col rounded-lg border border-dls-border bg-dls-surface py-1">
+                                <MenuRowButton
+                                  align="center"
                                   type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setMenuPath(file.path);
-                                  }}
-                                  className="text-dls-secondary"
+                                  onClick={() => handleOpenFile(node.path)}
                                 >
-                                  <MoreHorizontal className="size-4" />
-                                </Button>
+                                  {t("files.open_in_folder")}
+                                </MenuRowButton>
+                                <MenuRowButton
+                                  align="center"
+                                  type="button"
+                                  onClick={() => handleDeleteFile(node.path)}
+                                  className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
+                                >
+                                  {t("common.remove")}
+                                </MenuRowButton>
                               </div>
-                              {menuPath === file.path && (
-                                <div className="absolute right-6 top-0 z-20 flex flex-col rounded-lg border border-dls-border bg-dls-surface py-1">
-                                  <MenuRowButton
-                                    align="center"
-                                    type="button"
-                                    onClick={() => handleOpenFile(file.path)}
-                                  >
-                                    {t("files.open_in_folder")}
-                                  </MenuRowButton>
-                                  <MenuRowButton
-                                    align="center"
-                                    type="button"
-                                    onClick={() => handleDeleteFile(file.path)}
-                                    className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
-                                  >
-                                    {t("common.remove")}
-                                  </MenuRowButton>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex min-h-48 items-center justify-center text-sm text-dls-secondary">
+                      {typeFilter !== "all" || query.trim()
+                        ? t("files.no_matching_files")
+                        : requiresSessionFileRoot
+                          ? t("files.no_session_files")
+                          : t("files.no_files")}
+                    </div>
                   )}
                 </div>
-              );
-            })}
-            </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
-            {typeFilter !== "all" || query.trim()
-              ? t("files.no_matching_files")
-              : requiresSessionFileRoot
-                ? t("files.no_session_files")
-                : t("files.no_files")}
-          </div>
-        )}
+              )}
             </div>
             <FilePreviewDrawer
               open={Boolean(selectedFile && selectedTarget)}

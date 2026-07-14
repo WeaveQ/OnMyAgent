@@ -38,6 +38,7 @@ import {
   bindAutomationRunSession,
   claimDueAutomation,
   listAutomations,
+  parseAutomationPromptCommand,
   reconcileAutomationRunSuccess,
   recordOverlappingAutomationSkips,
   recordAutomationRun,
@@ -500,25 +501,41 @@ async function startAutomationTask(
 
   const model = task.model ?? task.agent?.model ?? await readAutomationModel();
   const system = automationSystemPrompt(task);
-  ensureOpencodeRequestSucceeded(
-    await opencode.session.promptAsync({
-      sessionID: sessionId,
-      ...(model ? { model } : {}),
-      ...(task.agent?.tools ? { tools: task.agent.tools } : {}),
-      ...(system ? { system } : {}),
-      parts: [{
-        type: "text",
-        text: [
-          task.prompt,
-          "",
+  const executionPrompt = [
+    task.prompt,
+    "",
+    `本次自动化任务的工作目录是：${outputDirectory}`,
+    "请将本次任务生成的报告、文档、图片和其他文件全部保存到当前工作目录。",
+    "请至少把最终结果保存为“执行结果.md”，不要把生成文件写到工作区的其他目录。",
+  ].join("\n");
+  const command = parseAutomationPromptCommand(task.prompt);
+  if (command) {
+    ensureOpencodeRequestSucceeded(
+      await opencode.session.command({
+        sessionID: sessionId,
+        command: command.name,
+        arguments: [
+          command.arguments,
           `本次自动化任务的工作目录是：${outputDirectory}`,
           "请将本次任务生成的报告、文档、图片和其他文件全部保存到当前工作目录。",
           "请至少把最终结果保存为“执行结果.md”，不要把生成文件写到工作区的其他目录。",
-        ].join("\n"),
-      }],
-    }),
-    `/session/${encodeURIComponent(sessionId)}/prompt`,
-  );
+        ].filter(Boolean).join("\n"),
+        ...(model ? { model: `${model.providerID}/${model.modelID}` } : {}),
+      }),
+      `/session/${encodeURIComponent(sessionId)}/command`,
+    );
+  } else {
+    ensureOpencodeRequestSucceeded(
+      await opencode.session.promptAsync({
+        sessionID: sessionId,
+        ...(model ? { model } : {}),
+        ...(task.agent?.tools ? { tools: task.agent.tools } : {}),
+        ...(system ? { system } : {}),
+        parts: [{ type: "text", text: executionPrompt }],
+      }),
+      `/session/${encodeURIComponent(sessionId)}/prompt`,
+    );
+  }
   return { sessionId, groupName, outputDirectory };
 }
 

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   collaborationModeOptionKeys,
   filterToolMenuItems,
@@ -6,6 +8,30 @@ import {
 } from "../src/react-app/domains/session/surface/composer/tool-menu-model";
 
 describe("composer tool menu model", () => {
+  test("matches marketplace search styling for skills and connectors", () => {
+    const source = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(
+      source.match(
+        /<InputGroup controlSize="sm" radius="md" tone="surface">/g,
+      ) ?? [],
+    ).toHaveLength(2);
+    expect(
+      source.match(/<Search aria-hidden="true" className="size-3\.5" \/>/g) ?? [],
+    ).toHaveLength(2);
+    expect(
+      source.match(
+        /className="text-sm text-dls-text placeholder:text-dls-secondary\/70"/g,
+      ) ?? [],
+    ).toHaveLength(2);
+  });
+
   test("keeps pursue goal out of office collaboration modes", () => {
     expect(collaborationModeOptionKeys("office")).toEqual(["craft", "ask", "plan"]);
     expect(collaborationModeOptionKeys("legacy")).toEqual(["planning", "pursueGoal"]);
