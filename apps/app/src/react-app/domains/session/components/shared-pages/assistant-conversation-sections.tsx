@@ -286,7 +286,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
           event.preventDefault();
           setExpanded((value) => !value);
         }}
-        className="sticky top-0 z-10 flex h-8 w-full cursor-pointer items-center justify-between rounded-lg bg-dls-background px-2 text-dls-text transition-colors hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
+        className="sticky top-0 z-10 flex h-8 w-full cursor-pointer items-center justify-between rounded-lg bg-dls-sidebar px-2 text-dls-text transition-colors hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
         aria-expanded={expanded}
         title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
       >
