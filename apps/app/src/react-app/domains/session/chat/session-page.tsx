@@ -117,7 +117,7 @@ import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
   ONMYAGENT_EXTENSION_STATE_CHANGED,
-} from "../../shared/extension-state";
+} from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "./personal-local-agent-page";

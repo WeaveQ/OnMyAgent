@@ -33,7 +33,7 @@ import {
 } from "../../../../app/utils/providers";
 import { getReactQueryClient } from "../../../infra/query-client";
 import { ensureProviderListQuery } from "../../connections/provider-list-query";
-import type { OnMyAgentServerStore } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../../shared";
 import {
   denSessionUpdatedEvent,
   type DenSessionUpdatedDetail,

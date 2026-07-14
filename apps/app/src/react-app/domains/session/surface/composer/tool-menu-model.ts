@@ -26,3 +26,17 @@ export function filterToolMenuItems<Item>(
     fuzzysort.single(normalizedQuery, getSearchText(item)) !== null,
   );
 }
+
+export function formatPluginObjectType(type: string): string {
+  const normalized = type.trim().toLowerCase();
+  if (!normalized) return "File";
+  if (normalized === "mcp") return "MCP";
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
+}
+
+export function pluginSkillFileSearchText(file: {
+  title: string;
+  objectType: string;
+}): string {
+  return `${file.title} ${formatPluginObjectType(file.objectType)}`;
+}

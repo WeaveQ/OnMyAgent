@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   collaborationModeOptionKeys,
   filterToolMenuItems,
+  pluginSkillFileSearchText,
 } from "../src/react-app/domains/session/surface/composer/tool-menu-model";
 
 describe("composer tool menu model", () => {
@@ -37,5 +38,14 @@ describe("composer tool menu model", () => {
       ),
     ).toEqual([items[0]]);
     expect(filterToolMenuItems(items, "dingt", (item) => item.name)).toEqual([items[1]]);
+  });
+
+  test("indexes imported plugin files by their visible object type", () => {
+    expect(
+      pluginSkillFileSearchText({ title: "Review changes", objectType: "command" }),
+    ).toBe("Review changes Command");
+    expect(
+      pluginSkillFileSearchText({ title: "Spreadsheet helper", objectType: "skill" }),
+    ).toBe("Spreadsheet helper Skill");
   });
 });

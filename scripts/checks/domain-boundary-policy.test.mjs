@@ -24,3 +24,13 @@ test("rejects undeclared domain dependencies", () => {
   assert.equal(domainDependencyIsAllowed("plugins", "session"), false);
   assert.equal(domainDependencyIsAllowed("connections", "workspace"), false);
 });
+
+test("allows shared infrastructure only through its public entrypoint", () => {
+  assert.equal(domainDependencyIsAllowed("session", "shared"), true);
+  assert.equal(domainDependencyIsAllowed("connections", "shared"), true);
+  assert.equal(domainImportUsesPublicEntrypoint("shared", "shared"), true);
+  assert.equal(
+    domainImportUsesPublicEntrypoint("shared/extension-state.ts", "shared"),
+    false,
+  );
+});

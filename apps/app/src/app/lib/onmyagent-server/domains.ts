@@ -46,7 +46,19 @@ export type OnMyAgentEnvironmentClient = Pick<OnMyAgentServerClient,
   "listUserEnvKeys" | "listUserEnv" | "upsertUserEnv" | "deleteUserEnv"
 >;
 
-export function splitOnMyAgentServerClient(client: OnMyAgentServerClient) {
+export type OnMyAgentServerClientDomains = {
+  system: OnMyAgentSystemClient;
+  workspace: OnMyAgentWorkspaceClient;
+  sessions: OnMyAgentSessionClient;
+  extensions: OnMyAgentExtensionClient;
+  sessionArchive: OnMyAgentSessionArchiveClient;
+  artifacts: OnMyAgentArtifactClient;
+  environment: OnMyAgentEnvironmentClient;
+};
+
+export function splitOnMyAgentServerClient(
+  client: OnMyAgentServerClient,
+): OnMyAgentServerClientDomains {
   return {
     system: client,
     workspace: client,
@@ -55,13 +67,5 @@ export function splitOnMyAgentServerClient(client: OnMyAgentServerClient) {
     sessionArchive: client,
     artifacts: client,
     environment: client,
-  } satisfies {
-    system: OnMyAgentSystemClient;
-    workspace: OnMyAgentWorkspaceClient;
-    sessions: OnMyAgentSessionClient;
-    extensions: OnMyAgentExtensionClient;
-    sessionArchive: OnMyAgentSessionArchiveClient;
-    artifacts: OnMyAgentArtifactClient;
-    environment: OnMyAgentEnvironmentClient;
   };
 }

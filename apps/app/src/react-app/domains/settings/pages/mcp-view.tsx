@@ -59,7 +59,7 @@ import {
   ONMYAGENT_EXTENSION_STATE_CHANGED,
   setOnMyAgentExtensionEnabled,
   setOnMyAgentExtensionHidden,
-} from "../../shared/extension-state";
+} from "../../shared";
 import {
   initialMcpViewLocalState,
   mcpViewLocalReducer,

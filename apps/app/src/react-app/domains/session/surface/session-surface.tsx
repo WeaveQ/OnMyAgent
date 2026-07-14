@@ -769,6 +769,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const compacted = filterCompactionMessages(rawRenderedMessages, compactBoundary);
     return mergeBrowserUseTimeline(compacted, browserUseHistoryQuery.data ?? []);
   }, [browserUseHistoryQuery.data, compactBoundary, rawRenderedMessages]);
+  const renderedMessageCountRef = useRef(renderedMessages.length);
+  renderedMessageCountRef.current = renderedMessages.length;
   const appendTranscriptNotice = useCallback(
     (notice: SessionTranscriptNotice) => {
       setTranscriptNoticesBySessionId((current) => {
@@ -1281,19 +1283,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const recordSessionInterruption = useCallback(
     (kind: "cancelled" | "stopped") => {
       const now = Date.now();
-      const afterMessageCount = renderedMessages.length;
+      const afterMessageCount = renderedMessageCountRef.current;
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
         const latestTerminal = [...existing]
           .reverse()
           .find((notice) => notice.kind === "cancelled" || notice.kind === "stopped");
+        const storedRunIdentity = useSessionActivityStore
+          .getState()
+          .getRunIdentity(props.workspaceId, props.sessionId);
         const runStartedAt =
           activeRunStartedAtRef.current ??
+          storedRunIdentity?.runStartedAt ??
           goalRuntimeRef.current?.lastRunStartedAt ??
           latestTerminal?.runStartedAt ??
           now;
         const runKey =
           activeRunKeyRef.current ??
+          storedRunIdentity?.runKey ??
           latestTerminal?.runKey ??
           `${props.sessionId}:remote:${runStartedAt}`;
         const notice = createSessionInterruptionNotice({
@@ -1317,7 +1324,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     },
     [
       props.sessionId,
-      renderedMessages.length,
+      props.workspaceId,
     ],
   );
 
@@ -1365,15 +1372,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
     );
     setError(null);
     setDismissedErrorMessage(null);
+    const startedAt = Date.now();
+    const runKey = `${props.sessionId}:${startedAt}`;
+    activeRunStartedAtRef.current = startedAt;
+    activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .startRun(props.workspaceId, props.sessionId);
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: startedAt,
+        });
     }
     setSending(true);
-    const startedAt = Date.now();
-    activeRunStartedAtRef.current = startedAt;
-    activeRunKeyRef.current = `${props.sessionId}:${startedAt}`;
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     try {
@@ -1485,15 +1496,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
     setError(null);
     setDismissedErrorMessage(null);
+    const startedAt = Date.now();
+    const runKey = `${props.sessionId}:${startedAt}`;
+    activeRunStartedAtRef.current = startedAt;
+    activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .startRun(props.workspaceId, props.sessionId);
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: startedAt,
+        });
     }
     setSending(true);
-    const startedAt = Date.now();
-    activeRunStartedAtRef.current = startedAt;
-    activeRunKeyRef.current = `${props.sessionId}:${startedAt}`;
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(executionMode);
@@ -1571,14 +1586,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
     setError(null);
     setDismissedErrorMessage(null);
+    const runKey = `${props.sessionId}:${now}`;
+    activeRunStartedAtRef.current = now;
+    activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .startRun(props.workspaceId, props.sessionId);
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: now,
+        });
     }
     setSending(true);
-    activeRunStartedAtRef.current = now;
-    activeRunKeyRef.current = `${props.sessionId}:${now}`;
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(goalMode);

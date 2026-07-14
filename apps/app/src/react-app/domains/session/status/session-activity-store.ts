@@ -5,12 +5,19 @@ import { t } from "../../../../i18n";
 
 export type SessionActivityStatus = "idle" | "thinking" | "responding" | "error" | "compacting" | "waiting";
 
+export type SessionRunIdentity = {
+  runKey: string;
+  runStartedAt: number;
+};
+
 type SessionMessageRole = "assistant" | "system" | "user";
 
 type SessionActivityRecord = {
   status: SessionActivityStatus;
   runActive: boolean;
   stopRequested: boolean;
+  runKey: string | null;
+  runStartedAt: number | null;
   assistantOutput: boolean;
   errorActive: boolean;
   errorMessage: string | null;
@@ -33,10 +40,15 @@ type SessionActivityStore = {
   statusesByWorkspaceId: Record<string, Record<string, SessionActivityStatus>>;
   getStatus: (workspaceId: string, sessionId: string) => SessionActivityStatus;
   getStopRequested: (workspaceId: string, sessionId: string) => boolean;
+  getRunIdentity: (workspaceId: string, sessionId: string) => SessionRunIdentity | null;
   getErrorMessage: (workspaceId: string, sessionId: string) => string | null;
   seedWorkspaceSessions: (workspaceId: string, sessions: SessionLike[]) => void;
   seedSessionRun: (workspaceId: string, sessionId: string, status: unknown, assistantOutput: boolean) => void;
-  startRun: (workspaceId: string, sessionId: string) => void;
+  startRun: (
+    workspaceId: string,
+    sessionId: string,
+    identity?: SessionRunIdentity,
+  ) => void;
   markRunStopped: (workspaceId: string, sessionId: string) => void;
   setRunStatus: (workspaceId: string, sessionId: string, status: unknown) => void;
   markMessageRole: (workspaceId: string, sessionId: string, messageId: string, role: SessionMessageRole) => void;
@@ -53,6 +65,8 @@ const createRecord = (): SessionActivityRecord => ({
   status: "idle",
   runActive: false,
   stopRequested: false,
+  runKey: null,
+  runStartedAt: null,
   assistantOutput: false,
   errorActive: false,
   errorMessage: null,
@@ -81,10 +95,19 @@ function sessionRunStatus(session: SessionLike) {
   return session.status ?? session.state ?? session.runStatus;
 }
 
+function createRunIdentity(sessionId: string): SessionRunIdentity {
+  const runStartedAt = Date.now();
+  return {
+    runKey: `${sessionId}:remote:${runStartedAt}`,
+    runStartedAt,
+  };
+}
+
 function applyRuntimeStatus(
   record: SessionActivityRecord,
   status: unknown,
   assistantOutput: boolean,
+  nextRunIdentity: SessionRunIdentity,
 ) {
   const normalized = normalizeRunStatus(status);
   const runActive = normalized === "running" || normalized === "retry";
@@ -92,6 +115,11 @@ function applyRuntimeStatus(
   return {
     ...record,
     runActive,
+    runKey: runActive && !record.runActive ? nextRunIdentity.runKey : record.runKey,
+    runStartedAt:
+      runActive && !record.runActive
+        ? nextRunIdentity.runStartedAt
+        : record.runStartedAt,
     stopRequested: false,
     assistantOutput: runActive && assistantOutput,
     errorActive: runActive ? false : record.errorActive,
@@ -166,6 +194,14 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
   getStopRequested: (workspaceId, sessionId) => (
     get().recordsByWorkspaceId[workspaceId]?.[sessionId]?.stopRequested ?? false
   ),
+  getRunIdentity: (workspaceId, sessionId) => {
+    const record = get().recordsByWorkspaceId[workspaceId]?.[sessionId];
+    if (!record?.runKey || record.runStartedAt === null) return null;
+    return {
+      runKey: record.runKey,
+      runStartedAt: record.runStartedAt,
+    };
+  },
   getErrorMessage: (workspaceId, sessionId) => (
     get().recordsByWorkspaceId[workspaceId]?.[sessionId]?.errorMessage ?? null
   ),
@@ -182,7 +218,12 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
           nextState = {
             ...nextState,
             ...updateRecord(nextState, id, sessionId, (record) => {
-              return applyRuntimeStatus(record, status, record.assistantOutput);
+              return applyRuntimeStatus(
+                record,
+                status,
+                record.assistantOutput,
+                createRunIdentity(sessionId),
+              );
             }),
           };
       }
@@ -194,17 +235,25 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     const session = sessionId.trim();
     if (!workspace || !session) return;
     set((state) => updateRecord(state, workspace, session, (record) => {
-      return applyRuntimeStatus(record, status, assistantOutput);
+      return applyRuntimeStatus(
+        record,
+        status,
+        assistantOutput,
+        createRunIdentity(session),
+      );
     }));
   },
-  startRun: (workspaceId, sessionId) => {
+  startRun: (workspaceId, sessionId, identity) => {
     const workspace = workspaceId.trim();
     const session = sessionId.trim();
     if (!workspace || !session) return;
+    const runIdentity = identity ?? createRunIdentity(session);
     set((state) => updateRecord(state, workspace, session, (record) => ({
       ...record,
       runActive: true,
       stopRequested: false,
+      runKey: runIdentity.runKey,
+      runStartedAt: runIdentity.runStartedAt,
       assistantOutput: false,
       errorActive: false,
       errorMessage: null,
@@ -232,7 +281,12 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     const session = sessionId.trim();
     if (!workspace || !session) return;
     set((state) => updateRecord(state, workspace, session, (record) => {
-      return applyRuntimeStatus(record, status, record.assistantOutput);
+      return applyRuntimeStatus(
+        record,
+        status,
+        record.assistantOutput,
+        createRunIdentity(session),
+      );
     }));
   },
   markMessageRole: (workspaceId, sessionId, messageId, role) => {

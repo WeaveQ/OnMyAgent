@@ -70,7 +70,7 @@ desktop(electron) → runtime.mjs → spawn sidecars
   ├→ orchestrator → embed server + spawn router → Slack/Telegram
   └→ server HTTP API ← app(React) 通过 onmyagent-server.ts 调用
 
-app(React) ← desktop.ts(typed IPC bridge) ← preload.mjs ← desktop-command-router.mjs ← main.mjs
+app(React) ← desktop.ts(command-validated IPC bridge) ← preload.mjs ← desktop-command-router.mjs ← main.mjs
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
 app(React) ← @onmyagent/types ← packages/types (Zod schema)
@@ -182,6 +182,10 @@ pnpm check:boundaries
 - Desktop IPC 命令名以 `packages/types/src/desktop-ipc-commands.mjs` 为运行时 SoT，
   `desktop-ipc-commands.d.mts` 提供生成的字面量联合；Electron 按 workspace、runtime、
   local-agents、messaging 等域注册路由，parity test 要求每条命令恰好声明和实现一次。
+  `desktop-ipc.ts` 共享跨端 payload 类型，renderer 公开 wrapper 保持参数/结果签名；当前
+  尚未建立覆盖全部命令的 command → args/result 映射，preload/main dispatch 仍是运行时边界，
+  后续应补共享 `DesktopCommandMap` 与 handler 级类型 parity，不能把命令名 parity 等同于
+  端到端 payload 类型闭环。
 - Renderer-facing HTTP client 方法以 `server-client-methods.mjs` 分域登记；
   `app/lib/onmyagent-server.ts` 仅保留兼容 barrel，实际 client 与窄化 domain views 位于
   `app/lib/onmyagent-server/`。跨端响应结构优先定义在 `@onmyagent/types/server`。

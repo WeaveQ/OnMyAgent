@@ -33,7 +33,7 @@ import type {
 } from "../../../app/types";
 import { isDesktopRuntime, normalizeDirectoryPath, safeStringify } from "../../../app/utils";
 
-import type { OnMyAgentServerStore } from "../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../shared";
 
 type SetStateAction<T> = T | ((current: T) => T);
 
