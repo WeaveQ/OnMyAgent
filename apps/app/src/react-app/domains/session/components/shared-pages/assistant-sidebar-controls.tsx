@@ -8,7 +8,7 @@ import { t } from "../../../../../i18n";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
 
 const assistantCategoryTabClass =
-  "relative z-10 inline-flex h-8 min-w-24 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors";
+  "relative z-10 inline-flex h-8 min-w-24 items-center justify-center gap-2 rounded-lg px-4 text-xs transition-colors";
 
 function AssistantCodeTabIcon(props: { className?: string }) {
   return (
@@ -73,8 +73,8 @@ export function AssistantCategorySwitch(props: {
               assistantCategoryTabClass,
               "mac:titlebar-no-drag",
               active
-                ? "text-dls-text"
-                : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+                ? "font-semibold text-dls-text"
+                : "font-normal text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
             )}
             aria-pressed={active}
           >

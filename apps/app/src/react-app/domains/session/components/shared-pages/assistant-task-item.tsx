@@ -69,7 +69,10 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         onClick={() => props.onOpenSession(props.workspaceId, latestSession.id)}
         variant="ghost"
         size="xs"
-        className="h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-xs leading-5 hover:bg-transparent"
+        className={cn(
+          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-xs leading-5 hover:bg-transparent",
+          props.selected ? "font-medium" : "font-normal",
+        )}
       >
         {props.group.description}
       </Button>
