@@ -1024,7 +1024,6 @@ export function AssistantPage(props: AssistantPageProps) {
                           runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          headerActions={headerPanelControls}
                           onOpenAgentManagement={(panel) => {
                             setAgentManagementPageIntent({
                               key: `open-panel-${Date.now()}`,

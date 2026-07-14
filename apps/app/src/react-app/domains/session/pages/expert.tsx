@@ -1520,7 +1520,6 @@ export function ExpertPage(props: ExpertPageProps) {
                           runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          headerActions={headerPanelControls}
                         />
                       ) : null}
 
