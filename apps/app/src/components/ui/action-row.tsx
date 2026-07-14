@@ -170,7 +170,7 @@ const navListButtonVariants = cva(
     variants: {
       active: {
         true: "bg-dls-list-selected text-dls-text",
-        false: "text-dls-text hover:bg-dls-list-selected",
+        false: "text-dls-text hover:bg-dls-list-hover",
       },
       size: {
         default: "h-10 gap-2.5 rounded-lg px-2.5 text-base",
@@ -189,8 +189,8 @@ const railButtonVariants = cva(
   {
     variants: {
       active: {
-        true: "text-dls-accent",
-        false: "text-dls-secondary hover:text-dls-accent",
+        true: "bg-dls-rail-active text-dls-text",
+        false: "text-dls-secondary hover:bg-dls-rail-hover hover:text-dls-text",
       },
       size: {
         top: "min-h-12 w-[60px] gap-1 rounded-xl px-1.5 text-xs",

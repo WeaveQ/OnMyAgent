@@ -286,7 +286,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
           event.preventDefault();
           setExpanded((value) => !value);
         }}
-        className="sticky top-0 z-10 flex h-8 w-full cursor-pointer items-center justify-between rounded-lg bg-dls-background px-2 text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
+        className="sticky top-0 z-10 flex h-8 w-full cursor-pointer items-center justify-between rounded-lg bg-dls-sidebar px-2 text-dls-text transition-colors hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
         aria-expanded={expanded}
         title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
       >
@@ -528,7 +528,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
               type="button"
               variant="ghost"
               size="sm"
-              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center bg-dls-surface-muted text-xs text-dls-secondary font-normal hover:bg-dls-hover hover:text-dls-text"
+              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center bg-dls-surface-muted text-xs text-dls-secondary font-normal hover:bg-dls-list-hover hover:text-dls-text"
               data-assistant-task-list-disclosure="true"
               onClick={() => setShowAllRows((value) => !value)}
             >

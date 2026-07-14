@@ -60,6 +60,7 @@ safelist: [
         hover: "var(--dls-hover)",
         active: "var(--dls-active)",
         "list-selected": "var(--dls-list-selected)",
+        "list-hover": "var(--dls-list-hover)",
         decision: "var(--dls-decision-bg)",
         "decision-hover": "var(--dls-decision-hover)",
         "decision-soft": "var(--dls-decision-soft)",

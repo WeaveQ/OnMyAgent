@@ -1191,7 +1191,7 @@ export function AutomationPage(props: {
                   active={activeStatusTab === tab}
                   shape="tab"
                   size="tab"
-                  className={activeStatusTab === tab ? "bg-dls-accent text-white hover:bg-dls-accent hover:text-white" : ""}
+                  className={activeStatusTab === tab ? "bg-dls-list-selected text-dls-text hover:bg-dls-list-selected hover:text-dls-text" : "hover:bg-dls-list-hover"}
                   onClick={() => setActiveStatusTab(tab)}
                 >
                   {tab === "scheduled"
@@ -1200,10 +1200,9 @@ export function AutomationPage(props: {
                       ? t("automation.running_section")
                       : t("automation.completed_section")}
                   <StatusBadge
-                    tone={activeStatusTab === tab ? "surface" : "neutral"}
+                    tone="neutral"
                     size="sm"
                     shape="soft"
-                    className={activeStatusTab === tab ? "bg-white/20 text-white ring-white/20" : ""}
                   >
                     {statusTabCounts[tab]}
                   </StatusBadge>

@@ -29,7 +29,7 @@ describe("assistant task list scroll contract", () => {
 
     expect(source).toContain('data-assistant-task-list-disclosure="true"');
     expect(source).toContain(
-      "bg-dls-surface-muted text-xs text-dls-secondary font-normal hover:bg-dls-hover hover:text-dls-text",
+      "bg-dls-surface-muted text-xs text-dls-secondary font-normal hover:bg-dls-list-hover hover:text-dls-text",
     );
   });
 });

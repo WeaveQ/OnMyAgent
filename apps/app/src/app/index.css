@@ -268,7 +268,7 @@ select:disabled {
   --dls-canvas: #FFFFFF;
   --dls-surface: #FFFFFF;
   --dls-surface-muted: #F8FAFC;
-  --dls-sidebar: #F8FAFC;
+  --dls-sidebar: #F5F5F5;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #CBD5E1;
   --dls-accent: var(--ow-primary);
@@ -279,7 +279,8 @@ select:disabled {
   --dls-text-secondary: var(--ow-slate);
   --dls-hover: #EEF4FF;
   --dls-active: #DDEBFF;
-  --dls-list-selected: #E6E6E6;
+  --dls-list-selected: #EBEBEB;
+  --dls-list-hover: #EFEFEF;
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -339,9 +340,9 @@ select:disabled {
   --dls-brand-coupang: #473600;
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
-  --dls-rail-bg: #F3F6FB;
-  --dls-rail-active: #FFFFFF;
-  --dls-rail-hover: #E8EFFA;
+  --dls-rail-bg: #F5F5F5;
+  --dls-rail-active: #EBEBEB;
+  --dls-rail-hover: #EFEFEF;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
      public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
      dls-text-tertiary / dls-app-bg / dls-slate / dls-success-fg) and
@@ -470,6 +471,7 @@ select:disabled {
   --dls-hover: #2A2A2A;
   --dls-active: #333333;
   --dls-list-selected: #333333;
+  --dls-list-hover: #2A2A2A;
   --dls-scrollbar-thumb: rgb(248 250 252 / 0.12);
   --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.18);
   --dls-decision-bg: var(--ow-primary);
