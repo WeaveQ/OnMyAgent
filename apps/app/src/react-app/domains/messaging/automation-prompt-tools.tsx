@@ -13,6 +13,7 @@ import { t } from "../../../i18n";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type ToolSection = "commands" | "skills" | "plugins" | "connectors";
 
@@ -30,15 +31,29 @@ const emptyToolData: ToolData = {
   connectors: [],
 };
 
-function appendPromptText(prompt: string, text: string) {
+export function appendAutomationPromptText(prompt: string, text: string) {
   const trimmed = prompt.trimEnd();
   return trimmed ? `${trimmed}\n${text}` : text;
 }
 
-function inboxFilePath(workspaceRoot: string, relativePath: string) {
+export function automationInboxFileReference(workspaceRoot: string, relativePath: string) {
   const root = workspaceRoot.replace(/[\\/]+$/, "");
   const path = relativePath.replace(/^[\\/]+/, "");
-  return `${root}/.opencode/onmyagent/inbox/${path}`;
+  return `@${root}/.opencode/onmyagent/inbox/${path}`;
+}
+
+export function applyAutomationToolSelection(
+  prompt: string,
+  selection:
+    | { kind: "command"; name: string }
+    | { kind: "skill"; name: string }
+    | { kind: "plugin"; instruction: string }
+    | { kind: "connector"; instruction: string },
+) {
+  if (selection.kind === "command" || selection.kind === "skill") {
+    return `/${selection.name} `;
+  }
+  return appendAutomationPromptText(prompt, selection.instruction);
 }
 
 export function AutomationPromptTools(props: {
@@ -49,7 +64,6 @@ export function AutomationPromptTools(props: {
   onPromptChange: (prompt: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<ToolSection>("commands");
   const [data, setData] = useState<ToolData>(emptyToolData);
@@ -58,34 +72,20 @@ export function AutomationPromptTools(props: {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    window.addEventListener("mousedown", handlePointerDown);
-    return () => window.removeEventListener("mousedown", handlePointerDown);
-  }, [open]);
-
-  useEffect(() => {
     if (!open || !props.client || !props.workspaceId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void Promise.all([
-      props.client.listCommands(props.workspaceId),
-      props.client.listSkills(props.workspaceId, { includeGlobal: true }),
-      props.client.listPlugins(props.workspaceId, { includeGlobal: true }),
-      props.client.listMcp(props.workspaceId),
-    ]).then(([commands, skills, plugins, connectors]) => {
+    const request = section === "commands"
+      ? props.client.listCommands(props.workspaceId).then((result) => result.items)
+      : section === "skills"
+        ? props.client.listSkills(props.workspaceId, { includeGlobal: true }).then((result) => result.items)
+        : section === "plugins"
+          ? props.client.listPlugins(props.workspaceId, { includeGlobal: true }).then((result) => result.items)
+          : props.client.listMcp(props.workspaceId).then((result) => result.items);
+    void request.then((items) => {
       if (cancelled) return;
-      setData({
-        commands: commands.items,
-        skills: skills.items,
-        plugins: plugins.items,
-        connectors: connectors.items,
-      });
+      setData((current) => ({ ...current, [section]: items }));
     }).catch((cause: unknown) => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : t("automation.tools_load_failed"));
     }).finally(() => {
@@ -94,10 +94,10 @@ export function AutomationPromptTools(props: {
     return () => {
       cancelled = true;
     };
-  }, [open, props.client, props.workspaceId]);
+  }, [open, props.client, props.workspaceId, section]);
 
   const selectSlashCommand = (name: string) => {
-    props.onPromptChange(`/${name} `);
+    props.onPromptChange(applyAutomationToolSelection(props.prompt, { kind: section === "skills" ? "skill" : "command", name }));
     setOpen(false);
   };
 
@@ -110,8 +110,8 @@ export function AutomationPromptTools(props: {
       const uploaded = await Promise.all(
         files.map((file) => client.uploadInbox(props.workspaceId, file)),
       );
-      const references = uploaded.map((item) => `@${inboxFilePath(props.workspaceRoot, item.path)}`);
-      props.onPromptChange(appendPromptText(props.prompt, references.join("\n")));
+      const references = uploaded.map((item) => automationInboxFileReference(props.workspaceRoot, item.path));
+      props.onPromptChange(appendAutomationPromptText(props.prompt, references.join("\n")));
       setOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("automation.file_upload_failed"));
@@ -129,7 +129,7 @@ export function AutomationPromptTools(props: {
   const items = data[section];
 
   return (
-    <div ref={menuRef} className="relative">
+    <div>
       <input
         ref={fileInputRef}
         type="file"
@@ -141,21 +141,27 @@ export function AutomationPromptTools(props: {
           void uploadFiles(files);
         }}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        title={t("composer.quick_actions")}
-        aria-label={t("composer.quick_actions")}
-      >
-        <Plus className={`size-4 transition-transform duration-200 ${open ? "rotate-45" : "rotate-0"}`} />
-      </Button>
-      {open ? (
-        <div className="absolute bottom-full left-0 z-40 mb-3 flex min-h-48 w-[min(36rem,calc(100vw-5rem))] overflow-hidden rounded-xl border border-dls-border bg-dls-surface shadow-lg">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              title={t("composer.quick_actions")}
+              aria-label={t("composer.quick_actions")}
+            >
+              <Plus className={`size-4 transition-transform duration-200 ${open ? "rotate-45" : "rotate-0"}`} />
+            </Button>
+          }
+        />
+        <PopoverContent
+          align="start"
+          side="top"
+          sideOffset={12}
+          className="flex min-h-48 w-[min(36rem,calc(100vw-5rem))] flex-row gap-0 overflow-hidden border border-dls-border bg-dls-surface p-0 text-dls-text"
+        >
           <div className="w-40 shrink-0 border-r border-dls-border p-2">
             <MenuRowButton
               type="button"
@@ -215,7 +221,10 @@ export function AutomationPromptTools(props: {
                 type="button"
                 align="start"
                 onClick={() => {
-                  props.onPromptChange(appendPromptText(props.prompt, t("automation.use_plugin_prompt", { name: item.spec })));
+                  props.onPromptChange(applyAutomationToolSelection(props.prompt, {
+                    kind: "plugin",
+                    instruction: t("automation.use_plugin_prompt", { name: item.spec }),
+                  }));
                   setOpen(false);
                 }}
               >
@@ -227,7 +236,10 @@ export function AutomationPromptTools(props: {
                 type="button"
                 align="start"
                 onClick={() => {
-                  props.onPromptChange(appendPromptText(props.prompt, t("automation.use_connector_prompt", { name: item.name })));
+                  props.onPromptChange(applyAutomationToolSelection(props.prompt, {
+                    kind: "connector",
+                    instruction: t("automation.use_connector_prompt", { name: item.name }),
+                  }));
                   setOpen(false);
                 }}
               >
@@ -235,8 +247,8 @@ export function AutomationPromptTools(props: {
               </MenuRowButton>
             ))}
           </div>
-        </div>
-      ) : null}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
