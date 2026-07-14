@@ -34,7 +34,7 @@ colors:
     border-strong: "#CBD5E1"
     hover: "#EEF4FF"
     active: "#DDEBFF"
-    list-selected: "#EBEBEB"
+    list-selected: "#E5E5E5"
     list-hover: "#EFEFEF"
     danger: "#EF4444"
     warning: "#D19A2A"

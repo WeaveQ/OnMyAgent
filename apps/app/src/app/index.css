@@ -279,7 +279,7 @@ select:disabled {
   --dls-text-secondary: var(--ow-slate);
   --dls-hover: #EEF4FF;
   --dls-active: #DDEBFF;
-  --dls-list-selected: #EBEBEB;
+  --dls-list-selected: #E5E5E5;
   --dls-list-hover: #EFEFEF;
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
