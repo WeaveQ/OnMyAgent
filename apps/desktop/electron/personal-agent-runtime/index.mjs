@@ -393,7 +393,10 @@ export function createPersonalAgentRuntime(options) {
     if (provider === "claude") return "Claude Code ACP session";
     if (provider === "openclaw") return "OpenClaw ACP session";
     if (provider === "remote") return "Remote ACP WebSocket session";
-    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return "Custom ACP session";
+    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) {
+      const name = agent && typeof agent.name === "string" && agent.name.trim() ? agent.name.trim() : null;
+      return `${name ?? "Custom"} ACP session`;
+    }
     return "本地 Agent harness session";
   }
 
@@ -1629,11 +1632,21 @@ export function createPersonalAgentRuntime(options) {
     // so `agent_type` becomes "acp", the ACP warmup path kicks in, and the
     // UI's model selector sees supportsModelOverride based on the handshake
     // instead of the raw stored bool.
+    // Known discoverable agent ids so that a previously-detected-and-added
+    // custom agent (e.g. CodeBuddy) retains its catalog identity rather than
+    // being demoted to the "custom" group. Without this, the agent shows up
+    // in "自定义 AI 同事" instead of "已识别 AI 同事" — and is then filtered
+    // out of the discoverable draft set (duplicate id) so it never appears in
+    // the right section.
+    const discoverableIdSet = new Set(
+      discoverableAgentDrafts().map((d) => String(d.id).toLowerCase()),
+    );
     const customAgents = customAgentsRaw.map((agent) => {
       const status = agent?.status === "offline" ? "offline" : "online";
       const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
       const connectionMode = agent.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, agent);
-      return { ...agent, capability, connectionMode };
+      const discoverable = agent.discoverable === true || discoverableIdSet.has(String(agent?.id ?? "").toLowerCase());
+      return { ...agent, capability, connectionMode, discoverable };
     });
     const extensionAgents = await loadExtensionAdapters();
     const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
