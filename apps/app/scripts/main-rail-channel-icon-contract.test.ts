@@ -5,7 +5,7 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 
 describe("main rail channel icon contract", () => {
-  test("uses a generic channel icon without active or hover backgrounds", () => {
+  test("uses the WeChat bubble glyph with the shared rail color states", () => {
     const railSource = readFileSync(
       join(
         repoRoot,
@@ -18,7 +18,10 @@ describe("main rail channel icon contract", () => {
       "utf8",
     );
 
-    expect(railSource).toContain("icon: MessagesSquare");
+    expect(railSource).toContain("icon: WeChatBubblesIcon");
+    expect(railSource).toContain('fill="currentColor"');
+    expect(railSource).toContain('className="fill-dls-rail"');
+    expect(railSource).not.toContain("MessagesSquare");
     expect(railSource).toContain('get label() { return t("nav.channels"); }');
     expect(railSource).not.toContain("wechat.png");
     expect(primitiveSource).toContain('true: "text-dls-text"');
