@@ -1,12 +1,10 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
 import {
-  BotMessageSquare,
   FolderOpen,
   MonitorCog,
   SlidersHorizontal,
   Store,
-  UserStar,
 } from "lucide-react";
 
 import { RailButton } from "@/components/ui/action-row";
@@ -16,6 +14,7 @@ import {
   type SidebarAccountInfo,
   type SidebarPrimaryView,
 } from "../../sidebar/app-sidebar";
+import { AssistantRailIcon, ExpertRailIcon } from "./primary-rail-icons";
 
 export type OnMyAgentPrimaryView =
   | SidebarPrimaryView
@@ -58,8 +57,8 @@ function WeChatBubblesIcon(props: { className?: string }) {
 }
 
 const TOP_RAIL_ITEMS: RailItem[] = [
-  { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: BotMessageSquare },
-  { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: UserStar },
+  { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
+  { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
   { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: MonitorCog },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FolderOpen },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: Store },
