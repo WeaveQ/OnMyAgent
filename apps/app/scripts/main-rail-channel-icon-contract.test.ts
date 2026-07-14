@@ -21,7 +21,7 @@ describe("main rail channel icon contract", () => {
     expect(railSource).toContain("icon: WeChatBubblesIcon");
     expect(railSource).toContain('props.active\n    ? "fill-current"');
     expect(railSource).toContain(
-      ': "fill-dls-surface transition-colors group-hover/channel:fill-dls-text-tertiary"',
+      ': "fill-current transition-colors"',
     );
     expect(railSource).toContain('const eyeClassName = "fill-dls-rail"');
     expect(railSource).toContain('className="group/channel"');
