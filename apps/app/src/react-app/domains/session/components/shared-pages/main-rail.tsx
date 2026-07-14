@@ -3,7 +3,6 @@ import type { ComponentType } from "react";
 import {
   BotMessageSquare,
   FolderOpen,
-  MessagesSquare,
   MonitorCog,
   SlidersHorizontal,
   Store,
@@ -35,6 +34,18 @@ type RailItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
+function WeChatRailIcon(props: { className?: string }) {
+  return (
+    <img
+      src={resolvePublicAssetUrl("/connector-icons/wechat.png")}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      className={props.className}
+    />
+  );
+}
+
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: BotMessageSquare },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: UserStar },
@@ -45,7 +56,12 @@ const TOP_RAIL_ITEMS: RailItem[] = [
 ];
 
 const BOTTOM_RAIL_ITEMS: RailItem[] = [
-  { id: "channels", label: "", shortLabel: "", icon: MessagesSquare },
+  {
+    id: "channels",
+    get label() { return t("messaging.wechat"); },
+    shortLabel: "",
+    icon: WeChatRailIcon,
+  },
 ];
 
 function TopRailButton(props: {
@@ -88,9 +104,6 @@ function BottomRailButton(props: {
       aria-pressed={props.active}
     >
       <Icon className="size-5" />
-      <span className="max-w-full truncate text-xs leading-none">
-        {props.item.label}
-      </span>
     </RailButton>
   );
 }
