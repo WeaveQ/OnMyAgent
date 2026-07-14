@@ -54,4 +54,18 @@ describe("assistant navigation tone contract", () => {
       "rounded-lg bg-dls-sidebar px-2 text-dls-text",
     );
   });
+
+  test("keeps the local agent list on the shared sidebar surface", () => {
+    const localAgents = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(localAgents).toContain(
+      'className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5"',
+    );
+  });
 });
