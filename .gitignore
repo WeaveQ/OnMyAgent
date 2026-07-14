@@ -104,6 +104,7 @@ opencode.jsonc
 docs/plans/
 docs/archive/
 docs/features/
+docs/superpowers/
 
 # Native/build caches
 **/.build/
