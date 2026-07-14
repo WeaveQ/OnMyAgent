@@ -56,7 +56,9 @@ describe("assistant navigation typography contract", () => {
     );
     expect(taskSource).toContain('props.selected ? "font-medium" : "font-normal"');
     expect(taskSource).toContain("text-left text-[13px] leading-5");
-    expect(taskSource).toContain("shrink-0 text-xs leading-none");
+    expect(taskSource).toContain(
+      "shrink-0 text-xs leading-5 text-dls-text/30",
+    );
     expect(sectionsSource).toContain(
       'gap-1.5 text-[13px] font-normal text-dls-secondary',
     );
