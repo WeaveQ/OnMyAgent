@@ -388,4 +388,11 @@ export default {
   "local_agent.extensions_disabled": "Disabled",
   "local_agent.background_status_restored": "Background run status restored from the main process.",
   "local_agent.heartbeat_task_completed": "Scheduled task \"{title}\" finished.\nStatus: {status}\nRun: {run}\n\n{output}",
+  "local_agent.editor_id_placeholder": "Unique id, lowercase letters / numbers / dashes, e.g. my-agent",
+  "local_agent.editor_name_placeholder": "Display name, e.g. My Local Coding Agent",
+  "local_agent.editor_command_placeholder": "Absolute path to the agent binary, e.g. /usr/local/bin/opencode",
+  "local_agent.editor_args_placeholder": "Optional launch args, space-separated, e.g. --acp",
+  "local_agent.editor_description_placeholder": "What this agent is for (optional)",
+  "local_agent.editor_native_skills_dirs_placeholder": "One skill directory path per line",
+  "local_agent.editor_behavior_policy_placeholder": "Optional JSON behavior policy, e.g. {\"maxSteps\": 200}",
 } as const;

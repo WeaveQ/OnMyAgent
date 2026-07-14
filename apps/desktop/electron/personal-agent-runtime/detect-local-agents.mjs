@@ -27,18 +27,6 @@ const HOME = os.homedir();
  */
 export const KNOWN_DISCOVERABLE_AGENTS = [
   {
-    id: "codebuddy",
-    displayName: "CodeBuddy",
-    commands: ["codebuddy"],
-    skillsDirs: [join(HOME, ".codebuddy", "skills-marketplace", "skills")],
-    acpArgs: ["--acp"],
-    wellKnownPaths: [
-      join(HOME, ".codebuddy", "bin", "codebuddy"),
-      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
-      "/Applications/CodeBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
-    ],
-  },
-  {
     id: "gemini",
     displayName: "Gemini CLI",
     commands: ["gemini"],

@@ -385,4 +385,11 @@ export default {
   "local_agent.no_active_runs": "當前沒有後台執行中的本地 Agent",
   "local_agent.background_status_restored": "後台運行狀態已從主進程恢復。",
   "local_agent.scheduled_task_completed": "定時任務「{title}」執行完成。\n狀態：{status}\nRun：{runId}\n\n{output}",
+  "local_agent.editor_id_placeholder": "唯一識別，僅小寫字母 / 數字 / 橫線，例如 my-agent",
+  "local_agent.editor_name_placeholder": "顯示名稱，例如 我的本地編碼助手",
+  "local_agent.editor_command_placeholder": "Agent 執行檔絕對路徑，例如 /usr/local/bin/opencode",
+  "local_agent.editor_args_placeholder": "選用啟動參數，空白分隔，例如 --acp",
+  "local_agent.editor_description_placeholder": "這個 Agent 的用途說明（選用）",
+  "local_agent.editor_native_skills_dirs_placeholder": "每行一個技能目錄絕對路徑",
+  "local_agent.editor_behavior_policy_placeholder": "選用 JSON 行為策略，例如 {\"maxSteps\": 200}",
 } as const;

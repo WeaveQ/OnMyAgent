@@ -7,7 +7,6 @@ import codexIconUrl from "../../../../assets/agent-icons/openai.svg";
 import hermesIconUrl from "../../../../assets/agent-icons/hermes.png";
 import openclawIconUrl from "../../../../assets/agent-icons/claw.svg";
 import opencodeIconUrl from "../../../../assets/agent-icons/opencode-logo-light.svg";
-import codebuddyIconUrl from "../../../../assets/agent-icons/codebuddy.svg";
 import geminiIconUrl from "../../../../assets/agent-icons/gemini.svg";
 import kiroIconUrl from "../../../../assets/agent-icons/kiro.svg";
 import gooseIconUrl from "../../../../assets/agent-icons/goose.svg";
@@ -54,7 +53,6 @@ const AGENT_ICON_BY_ID: Partial<Record<string, string>> = {
   claude: claudeIconUrl,
   hermes: hermesIconUrl,
   openclaw: openclawIconUrl,
-  codebuddy: codebuddyIconUrl,
   gemini: geminiIconUrl,
   kiro: kiroIconUrl,
   goose: gooseIconUrl,
