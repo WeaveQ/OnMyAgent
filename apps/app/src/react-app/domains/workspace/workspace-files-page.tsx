@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot,
   ChevronDown,
   ChevronRight,
   Cloud,
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { MenuRowButton, NavTabButton, SegmentedTabGroup, TreeRowButton } from "@/components/ui/action-row";
+import { MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
@@ -38,11 +37,6 @@ const workspaceFilesTextClass = {
 
 const CLOUD_DRIVE_PLACEHOLDER_ASSET = "/empty-states/cloud-drive-placeholder.png";
 
-function workspaceNameFromRoot(root: string) {
-  const parts = root.replace(/\\/g, "/").split("/").filter(Boolean);
-  return parts.at(-1) || t("files.current_workspace");
-}
-
 function formatWorkspaceFileSize(size: number) {
   if (!Number.isFinite(size) || size <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -59,7 +53,7 @@ function formatWorkspaceFileTime(value: number) {
   if (!Number.isFinite(value) || value <= 0) return t("common.unknown");
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return t("common.unknown");
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(undefined, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -199,12 +193,6 @@ function canPreviewWorkspaceFileInline(target: OpenTarget) {
   return target.preview === "sheet" && /\.(csv|tsv)$/i.test(target.value);
 }
 
-type TaskGroup = {
-  agentName: string;
-  taskName: string;
-  files: FileNode[];
-};
-
 function addWorkspaceFileTreeEntry(
   root: WorkspaceFileTreeNode,
   entry: OnMyAgentWorkspaceFileCatalogEntry,
@@ -261,79 +249,48 @@ function buildWorkspaceFileTree(
   return root;
 }
 
-function flattenDirFiles(node: WorkspaceFileTreeNode): FileNode[] {
-  const result: FileNode[] = [];
+function findWorkspaceFileNode(
+  node: WorkspaceFileTreeNode,
+  path: string,
+): WorkspaceFileTreeNode | null {
+  if (node.path === path) return node;
   for (const child of node.children) {
-    if (child.kind === "file") {
-      result.push({
-        name: child.name,
-        path: child.path,
-        kind: child.kind,
-        size: child.size,
-        mtimeMs: child.mtimeMs,
-      });
-    } else {
-      result.push(...flattenDirFiles(child));
-    }
+    const match = findWorkspaceFileNode(child, path);
+    if (match) return match;
   }
-  return result;
+  return null;
 }
 
-function buildFileHierarchy(
-  entries: OnMyAgentWorkspaceFileCatalogEntry[],
-): TaskGroup[] {
-  const filtered = entries.filter((e) => !shouldHideEntry(e.path));
-  const rawTree = buildWorkspaceFileTree(filtered);
-  const tree = filterHiddenFromTree(rawTree);
-  const groups: TaskGroup[] = [];
+function workspaceFileBreadcrumbs(path: string) {
+  const parts = path.split("/").filter(Boolean);
+  return parts.map((name, index) => ({
+    name,
+    path: parts.slice(0, index + 1).join("/"),
+  }));
+}
 
-  for (const topLevel of tree.children) {
-    if (topLevel.kind === "dir") {
-      const agentFiles = topLevel.children.filter((c) => c.kind === "file");
-      const taskDirs = topLevel.children.filter((c) => c.kind === "dir");
+function filterWorkspaceFileTree(
+  node: WorkspaceFileTreeNode,
+  query: string,
+  typeFilter: FileCategory,
+): WorkspaceFileTreeNode | null {
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredChildren = node.children
+    .map((child) => filterWorkspaceFileTree(child, normalizedQuery, typeFilter))
+    .filter((child): child is WorkspaceFileTreeNode => child !== null);
+  if (!node.path) return { ...node, children: filteredChildren };
 
-      if (agentFiles.length > 0) {
-        groups.push({
-          agentName: topLevel.name,
-          taskName: t("files.ungrouped"),
-          files: agentFiles.map((f) => ({
-            name: f.name,
-            path: f.path,
-            kind: f.kind,
-            size: f.size,
-            mtimeMs: f.mtimeMs,
-          })),
-        });
-      }
-
-      for (const taskDir of taskDirs) {
-        const taskFiles = flattenDirFiles(taskDir);
-        if (taskFiles.length > 0) {
-          groups.push({
-            agentName: topLevel.name,
-            taskName: taskDir.name,
-            files: taskFiles,
-          });
-        }
-      }
-    } else {
-      groups.push({
-        agentName: t("files.workspace_root"),
-        taskName: t("files.ungrouped"),
-        files: [
-          {
-            name: topLevel.name,
-            path: topLevel.path,
-            kind: topLevel.kind,
-            size: topLevel.size,
-            mtimeMs: topLevel.mtimeMs,
-          },
-        ],
-      });
-    }
+  const matchesQuery =
+    !normalizedQuery ||
+    node.name.toLowerCase().includes(normalizedQuery) ||
+    node.path.toLowerCase().includes(normalizedQuery);
+  if (node.kind === "dir") {
+    if (!matchesQuery && filteredChildren.length === 0) return null;
+    return { ...node, children: filteredChildren };
   }
-
-  return groups;
+  if (!matchesQuery) return null;
+  if (typeFilter !== "all" && getFileCategory(node.name) !== typeFilter) return null;
+  return { ...node, children: [] };
 }
 
 function FilePreviewDrawer(props: {
@@ -496,12 +453,7 @@ export function WorkspaceFilesPage(props: {
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
-  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
   const fileRoot =
     props.fileRoot === undefined ? props.workspaceRoot : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
@@ -537,19 +489,6 @@ export function WorkspaceFilesPage(props: {
       .then((catalog) => {
         if (cancelled) return;
         setEntries(catalog.items);
-        setExpandedAgents((prev) => {
-          if (prev.size > 0) return prev;
-          const next = new Set(prev);
-          const filtered = catalog.items.filter(
-            (e) => !shouldHideEntry(e.path),
-          );
-          const rawTree = buildWorkspaceFileTree(filtered);
-          const tree = filterHiddenFromTree(rawTree);
-          for (const child of tree.children.slice(0, 5)) {
-            next.add(child.name);
-          }
-          return next;
-        });
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -568,7 +507,12 @@ export function WorkspaceFilesPage(props: {
   useEffect(() => {
     setSelectedFile(null);
     setPreviewState({ status: "idle" });
+    setCurrentDirectoryPath("");
   }, [fileRoot, props.workspaceId]);
+
+  useEffect(() => {
+    setCurrentDirectoryPath("");
+  }, [query, typeFilter]);
 
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim() || !selectedTarget) {
@@ -606,40 +550,19 @@ export function WorkspaceFilesPage(props: {
     };
   }, [props.client, props.workspaceId, selectedTarget]);
 
-  const taskGroups = useMemo(() => {
-    const filtered = entries.filter((e) => !shouldHideEntry(e.path));
-    let groups = buildFileHierarchy(filtered);
-    if (typeFilter !== "all") {
-      groups = groups.map((g) => ({
-        ...g,
-        files: g.files.filter((f) => getFileCategory(f.name) === typeFilter),
-      })).filter((g) => g.files.length > 0);
-    }
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      groups = groups.filter(
-        (g) =>
-          g.agentName.toLowerCase().includes(q) ||
-          g.taskName.toLowerCase().includes(q) ||
-          g.files.some(
-            (f) =>
-              f.name.toLowerCase().includes(q) ||
-              f.path.toLowerCase().includes(q),
-          ),
-      );
-      groups = groups.map((g) => ({
-        ...g,
-        files: g.files.filter(
-          (f) =>
-            f.name.toLowerCase().includes(q) ||
-            f.path.toLowerCase().includes(q) ||
-            g.agentName.toLowerCase().includes(q) ||
-            g.taskName.toLowerCase().includes(q),
-        ),
-      }));
-    }
-    return groups;
+  const visibleFileTree = useMemo(() => {
+    const tree = filterHiddenFromTree(
+      buildWorkspaceFileTree(entries.filter((entry) => !shouldHideEntry(entry.path))),
+    );
+    return filterWorkspaceFileTree(tree, query, typeFilter) ?? {
+      ...tree,
+      children: [],
+    };
   }, [entries, query, typeFilter]);
+
+  const currentDirectory =
+    findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ?? visibleFileTree;
+  const breadcrumbs = workspaceFileBreadcrumbs(currentDirectoryPath);
 
   const openArtifactTarget = useCallback(
     async (target: OpenTarget) => {
@@ -724,24 +647,6 @@ export function WorkspaceFilesPage(props: {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [closePreview, selectedFile]);
-
-  const toggleAgent = (name: string) => {
-    setExpandedAgents((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  const toggleTask = (key: string) => {
-    setExpandedTasks((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
