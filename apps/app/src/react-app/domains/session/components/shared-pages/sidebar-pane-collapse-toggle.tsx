@@ -29,7 +29,7 @@ export function SidebarPaneCollapseToggle(props: {
         "absolute top-1/2 z-30 h-14 w-2.5 -translate-y-1/2 overflow-visible rounded-l-none rounded-r-md px-0 text-dls-secondary shadow-none transition-[width,color] duration-150 before:absolute before:-left-px before:inset-y-0 before:w-px hover:w-4 hover:text-dls-text mac:titlebar-no-drag",
         props.collapsed
           ? "bg-dls-rail before:bg-dls-rail"
-          : "bg-dls-background before:bg-dls-background",
+          : "bg-dls-sidebar before:bg-dls-sidebar",
         props.className,
       )}
       style={props.style}
