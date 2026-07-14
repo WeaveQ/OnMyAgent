@@ -313,6 +313,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const storedSessionStopRequested = useSessionActivityStore((state) =>
     state.getStopRequested(props.workspaceId, props.sessionId),
   );
+  const storedSessionRunKey = useSessionActivityStore((state) =>
+    state.recordsByWorkspaceId[props.workspaceId]?.[props.sessionId]?.runKey ?? null,
+  );
   const sessionActivityStatus = props.draftOnly
     ? "idle"
     : storedSessionActivityStatus;
@@ -1005,6 +1008,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
     activityStatus: effectiveActivityStatus,
     goalRuntime: props.goalRuntime ?? null,
     stopRequested: props.draftOnly ? false : storedSessionStopRequested,
+    runInterrupted:
+      !props.draftOnly &&
+      storedSessionRunKey !== null &&
+      (transcriptNoticesBySessionId[props.sessionId] ?? []).some(
+        (notice) =>
+          (notice.kind === "cancelled" || notice.kind === "stopped") &&
+          notice.runKey === storedSessionRunKey,
+      ),
   });
   useEffect(() => {
     if (!activityVisible) return;

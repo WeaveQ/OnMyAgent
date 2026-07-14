@@ -227,6 +227,7 @@ describe("session run controller", () => {
         activityStatus: "thinking",
         goalRuntime: goalRuntime("paused"),
         stopRequested: false,
+        runInterrupted: false,
       }),
     ).toBe(false);
     expect(
@@ -235,6 +236,7 @@ describe("session run controller", () => {
         activityStatus: "thinking",
         goalRuntime: goalRuntime("running"),
         stopRequested: false,
+        runInterrupted: false,
       }),
     ).toBe(true);
   });
@@ -246,6 +248,19 @@ describe("session run controller", () => {
         activityStatus: "idle",
         goalRuntime: null,
         stopRequested: true,
+        runInterrupted: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("a terminal notice keeps a stopped run hidden after the stop latch clears", () => {
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "idle",
+        goalRuntime: null,
+        stopRequested: false,
+        runInterrupted: true,
       }),
     ).toBe(false);
   });
