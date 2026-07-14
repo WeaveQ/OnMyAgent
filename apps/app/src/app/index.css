@@ -340,7 +340,7 @@ select:disabled {
   --dls-brand-coupang: #473600;
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
-  --dls-rail-bg: #F3F3F3;
+  --dls-rail-bg: #F0F0F0;
   --dls-rail-active: #EBEBEB;
   --dls-rail-hover: #EFEFEF;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
@@ -500,7 +500,7 @@ select:disabled {
   --dls-brand-terminal: #2A2A2A;
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #2F2F2F;
-  --dls-rail-bg: #252526;
+  --dls-rail-bg: #202020;
   --dls-rail-active: #333333;
   --dls-rail-hover: #303030;
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most
