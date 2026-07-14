@@ -26,5 +26,7 @@ describe("automation prompt tools contract", () => {
     expect(toolsSource).toContain(".listMcp(");
     expect(toolsSource).toContain(".uploadInbox(");
     expect(toolsSource).toContain('type="file"');
+    expect(toolsSource).toContain("<PopoverContent");
+    expect(toolsSource).toContain('side="top"');
   });
 });
