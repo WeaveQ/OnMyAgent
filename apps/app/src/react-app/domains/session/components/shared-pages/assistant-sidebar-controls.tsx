@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
-import { BookOpen, Code2 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 import { NavListButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,25 @@ import type { AssistantCategoryId } from "../../surface/personal-assistant-confi
 
 const assistantCategoryTabClass =
   "relative z-10 inline-flex h-8 min-w-24 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors";
+
+function AssistantCodeTabIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path
+        d="M6.67 13.33 9.33 2.67M12 5.33l1.32 1.18c.9.79.9 2.19 0 2.98L12 10.67M4 10.67 2.68 9.49c-.9-.79-.9-2.19 0-2.98L4 5.33"
+        stroke="currentColor"
+        strokeWidth="1.33"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export type AssistantMenuItem = {
   id: "automation";
@@ -26,7 +45,11 @@ export function AssistantCategorySwitch(props: {
     icon: ComponentType<{ className?: string }>;
   }> = [
     { id: "office", label: t("assistant.category_work_short"), icon: BookOpen },
-    { id: "code", label: t("assistant.category_code_short"), icon: Code2 },
+    {
+      id: "code",
+      label: t("assistant.category_code_short"),
+      icon: AssistantCodeTabIcon,
+    },
   ];
 
   return (
