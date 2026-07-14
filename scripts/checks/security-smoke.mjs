@@ -16,7 +16,7 @@ const desktopApplicationMenu = await readFile(
   new URL("../../apps/desktop/electron/application-menu.mjs", import.meta.url),
   "utf8",
 );
-const markdownSource = await readFile(new URL("../../apps/app/src/react-app/domains/session/surface/markdown.tsx", import.meta.url), "utf8");
+const markdownSource = await readFile(new URL("../../apps/app/src/react-app/capabilities/artifacts/markdown.tsx", import.meta.url), "utf8");
 
 assert.match(desktopEmbeddedBrowserPanel, /function isExternalOpenUrlAllowed\(url\)/);
 assert.match(desktopEmbeddedBrowserPanel, /return \["http:", "https:", "mailto:"\]\.includes\(parsed\.protocol\);/);
