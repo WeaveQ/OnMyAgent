@@ -165,7 +165,7 @@ const disclosureRowButtonVariants = cva(
 )
 
 const navListButtonVariants = cva(
-  "flex w-full items-center text-left font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex w-full items-center text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -173,11 +173,18 @@ const navListButtonVariants = cva(
         false: "text-dls-text hover:bg-dls-list-hover",
       },
       size: {
-        default: "h-10 gap-2.5 rounded-lg px-2.5 text-base",
-        sidebar: "h-8 gap-2 rounded-lg px-2 text-sm",
-        compact: "h-7 gap-2 rounded-md px-2 text-xs",
+        default: "h-10 gap-2.5 rounded-lg px-2.5 text-base font-medium",
+        sidebar: "h-8 gap-2 rounded-lg px-2 text-xs font-normal",
+        compact: "h-7 gap-2 rounded-md px-2 text-xs font-medium",
       },
     },
+    compoundVariants: [
+      {
+        active: true,
+        size: "sidebar",
+        className: "font-semibold",
+      },
+    ],
     defaultVariants: {
       active: false,
       size: "default",
