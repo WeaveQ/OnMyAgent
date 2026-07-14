@@ -154,11 +154,17 @@ export function ModelSelectView({
         </TooltipContent>
       </Tooltip>
       <PopoverContent
-        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-border bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
+        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
         align="start"
         initialFocus={false}
       >
-        <Command items={groups} value={search} onValueChange={setSearch}>
+        <Command
+          autoHighlight={false}
+          items={groups}
+          keepHighlight={false}
+          value={search}
+          onValueChange={setSearch}
+        >
           <CommandHeader>
             <CommandInput
               ref={searchInputRef}

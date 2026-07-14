@@ -11,7 +11,9 @@ describe("model select view", () => {
       "utf8",
     );
 
-    expect(source).toContain("border border-dls-border bg-dls-surface");
+    expect(source).toContain("border border-dls-mist bg-dls-surface");
+    expect(source).toContain("autoHighlight={false}");
+    expect(source).toContain("keepHighlight={false}");
     expect(source).toContain("ChevronDown, Check, Settings2");
     expect(source).toContain("const selected = isSameModel(value, option);");
     expect(source).toContain("bg-dls-list-selected data-highlighted:bg-dls-list-selected");
