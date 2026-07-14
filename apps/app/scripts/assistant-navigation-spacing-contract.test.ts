@@ -59,7 +59,7 @@ describe("assistant navigation spacing contract", () => {
     expect(source).toContain("export const AGENT_PANEL_DEFAULT_WIDTH = 264;");
   });
 
-  test("keeps the sidebar collapse control borderless", () => {
+  test("keeps the sidebar collapse control borderless and surface-aware", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -70,5 +70,7 @@ describe("assistant navigation spacing contract", () => {
 
     expect(source).toContain("rounded-l-none rounded-r-md px-0");
     expect(source).not.toContain("border-y border-r border-l-0");
+    expect(source).toContain('"bg-dls-rail before:bg-dls-rail"');
+    expect(source).toContain('"bg-dls-sidebar before:bg-dls-sidebar"');
   });
 });
