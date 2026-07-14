@@ -1,6 +1,7 @@
 import { APP_NAME } from "../brand";
 
 export default {
+  "files.breadcrumb_label": "File path",
   "files.category_all": "All types",
   "files.category_audio": "Audio",
   "files.category_code": "Code",
@@ -18,10 +19,16 @@ export default {
   "files.cloud_empty_description":
     "Synced task files, cross-device materials, and shared team content will appear here when cloud drive is available.",
   "files.cloud_empty_title": "Cloud drive is almost ready",
+  "files.column_actions": "Actions",
+  "files.column_name": "Name",
+  "files.column_size": "Size",
+  "files.column_type": "Type",
+  "files.column_updated": "Updated",
   "files.current_workspace": "Current workspace",
   "files.description":
     "Review files and task artifacts created by agents, then upload them to the cloud for cross-device sync.",
   "files.file_count": "{count} files",
+  "files.file_actions": "Actions for {name}",
   "files.files_unit": "files",
   "files.load_failed": "Failed to load the file list",
   "files.loading": "Loading files…",
@@ -39,6 +46,8 @@ export default {
   "files.search_placeholder": "Search files, tasks, or workspaces",
   "files.task_results": "Task results",
   "files.title": "My files",
+  "files.type_file": "File",
+  "files.type_folder": "Folder",
   "files.ungrouped": "Ungrouped",
   "files.workspace": "Workspace",
   "files.workspace_root": "Workspace root",

@@ -18,6 +18,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
@@ -734,137 +742,165 @@ export function WorkspaceFilesPage(props: {
 
           <div className="relative min-h-0 flex-1">
             <div className="h-full min-h-0 overflow-auto pr-1">
-        {loading && entries.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
-            {t("files.loading")}
-          </div>
-        ) : error ? (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
-            {error}
-          </div>
-        ) : taskGroups.length > 0 ? (
-          <div className="py-3">
-            {taskGroups.map((group) => {
-              const agentExpanded = expandedAgents.has(group.agentName);
-              const taskKey = `${group.agentName}/${group.taskName}`;
-              const taskExpanded = expandedTasks.has(taskKey);
-              return (
-                <div key={taskKey}>
-                  <TreeRowButton
-                    type="button"
-                    onClick={() => toggleAgent(group.agentName)}
+              {loading && entries.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
+                  {t("files.loading")}
+                </div>
+              ) : error ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {error}
+                </div>
+              ) : (
+                <div className="py-3">
+                  <nav
+                    data-workspace-file-breadcrumb="true"
+                    aria-label={t("files.breadcrumb_label")}
+                    className="mb-3 flex min-h-8 items-center gap-1 text-sm text-dls-secondary"
                   >
-                    <ChevronRight
-                      className={cn(
-                        "size-3.5 shrink-0 transition-transform",
-                        agentExpanded && "rotate-90",
-                      )}
-                    />
-                    <Bot className="size-4 shrink-0 text-dls-secondary" />
-                    <span className="truncate">{group.agentName}</span>
-                    <span className="shrink-0 text-xs text-dls-secondary">
-                      {t("files.file_count", { count: group.files.length })}
-                    </span>
-                  </TreeRowButton>
-
-                  {agentExpanded && (
-                    <>
-                      <TreeRowButton
-                        type="button"
-                        depth="child"
-                        onClick={() => toggleTask(taskKey)}
-                      >
-                        <ChevronRight
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="px-2 text-dls-secondary hover:text-dls-text"
+                      onClick={() => setCurrentDirectoryPath("")}
+                    >
+                      {t("files.task_results")}
+                    </Button>
+                    {breadcrumbs.map((item) => (
+                      <span key={item.path} className="flex min-w-0 items-center gap-1">
+                        <ChevronRight className="size-3 shrink-0" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          className="max-w-48 min-w-0 px-2 text-dls-secondary hover:text-dls-text"
+                          onClick={() => setCurrentDirectoryPath(item.path)}
+                        >
+                          <span className="truncate">{item.name}</span>
+                        </Button>
+                      </span>
+                    ))}
+                  </nav>
+                  {currentDirectory.children.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>{t("files.column_name")}</TableHead>
+                          <TableHead className="w-32">
+                            {t("files.column_type")}
+                          </TableHead>
+                          <TableHead className="w-44">
+                            {t("files.column_updated")}
+                          </TableHead>
+                          <TableHead className="w-28">
+                            {t("files.column_size")}
+                          </TableHead>
+                          <TableHead className="w-12">
+                            <span className="sr-only">
+                              {t("files.column_actions")}
+                            </span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {currentDirectory.children.map((node) => (
+                        <TableRow
+                          key={node.path}
+                          data-workspace-file-row={node.kind}
+                          role="button"
+                          tabIndex={0}
                           className={cn(
-                            "size-3 shrink-0 transition-transform",
-                            taskExpanded && "rotate-90",
+                            "group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                            selectedFile?.path === node.path && "bg-dls-surface-muted",
                           )}
-                        />
-                        <Folder className="size-3.5 shrink-0 text-dls-status-warning" />
-                        <span className="truncate">{group.taskName}</span>
-                        <span className="shrink-0 text-xs text-dls-secondary">
-                          {t("files.file_count", { count: group.files.length })}
-                        </span>
-                      </TreeRowButton>
-
-                      {taskExpanded && (
-                        <>
-                          {group.files.map((file) => (
-                            <div
-                              key={file.path}
-                              role="button"
-                              tabIndex={0}
-                              className={cn(
-                                "group relative flex w-full cursor-pointer items-center px-12 py-1.5 text-left text-sm transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                                selectedFile?.path === file.path && "bg-dls-surface-muted",
+                          onClick={() => {
+                            if (node.kind === "dir") {
+                              setCurrentDirectoryPath(node.path);
+                              return;
+                            }
+                            void handleSelectFile(node);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.target !== event.currentTarget) return;
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            if (node.kind === "dir") {
+                              setCurrentDirectoryPath(node.path);
+                              return;
+                            }
+                            void handleSelectFile(node);
+                          }}
+                        >
+                          <TableCell>
+                            <span className="flex min-w-0 items-center gap-2">
+                              {node.kind === "dir" ? (
+                                <Folder className="size-4 shrink-0 text-dls-status-warning-fg" />
+                              ) : (
+                                <FileText className="size-4 shrink-0 text-dls-secondary" />
                               )}
-                              onClick={() => void handleSelectFile(file)}
-                              onKeyDown={(event) => {
-                                if (event.key !== "Enter" && event.key !== " ") return;
-                                event.preventDefault();
-                                void handleSelectFile(file);
-                              }}
-                            >
-                              <FileText className="size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="ml-2 truncate">{file.name}</span>
-                              <span className="ml-4 shrink-0 text-xs text-dls-secondary">
-                                {formatWorkspaceFileSize(file.size)}
-                              </span>
-                              <span className="ml-2 shrink-0 text-xs text-dls-secondary">
-                                {formatWorkspaceFileTime(file.mtimeMs)}
-                              </span>
-                              <div className="absolute right-6 hidden group-hover:flex items-center">
-                                <Button
+                              <span className="truncate text-dls-text">{node.name}</span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-dls-secondary">
+                            {node.kind === "dir" ? t("files.type_folder") : t("files.type_file")}
+                          </TableCell>
+                          <TableCell className="text-dls-secondary">
+                            {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
+                          </TableCell>
+                          <TableCell className="text-dls-secondary">
+                            {node.kind === "dir" ? "-" : formatWorkspaceFileSize(node.size)}
+                          </TableCell>
+                          <TableCell className="relative">
+                            {node.kind === "file" ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setMenuPath(node.path);
+                                }}
+                                className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                aria-label={t("files.file_actions", { name: node.name })}
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            ) : null}
+                            {menuPath === node.path ? (
+                              <div className="absolute right-3 top-10 z-20 flex min-w-32 flex-col rounded-lg border border-dls-border bg-dls-surface py-1">
+                                <MenuRowButton
+                                  align="center"
                                   type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setMenuPath(file.path);
-                                  }}
-                                  className="text-dls-secondary"
+                                  onClick={() => handleOpenFile(node.path)}
                                 >
-                                  <MoreHorizontal className="size-4" />
-                                </Button>
+                                  {t("files.open_in_folder")}
+                                </MenuRowButton>
+                                <MenuRowButton
+                                  align="center"
+                                  type="button"
+                                  onClick={() => handleDeleteFile(node.path)}
+                                  className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
+                                >
+                                  {t("common.remove")}
+                                </MenuRowButton>
                               </div>
-                              {menuPath === file.path && (
-                                <div className="absolute right-6 top-0 z-20 flex flex-col rounded-lg border border-dls-border bg-dls-surface py-1">
-                                  <MenuRowButton
-                                    align="center"
-                                    type="button"
-                                    onClick={() => handleOpenFile(file.path)}
-                                  >
-                                    {t("files.open_in_folder")}
-                                  </MenuRowButton>
-                                  <MenuRowButton
-                                    align="center"
-                                    type="button"
-                                    onClick={() => handleDeleteFile(file.path)}
-                                    className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
-                                  >
-                                    {t("common.remove")}
-                                  </MenuRowButton>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex min-h-48 items-center justify-center text-sm text-dls-secondary">
+                      {typeFilter !== "all" || query.trim()
+                        ? t("files.no_matching_files")
+                        : requiresSessionFileRoot
+                          ? t("files.no_session_files")
+                          : t("files.no_files")}
+                    </div>
                   )}
                 </div>
-              );
-            })}
-            </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
-            {typeFilter !== "all" || query.trim()
-              ? t("files.no_matching_files")
-              : requiresSessionFileRoot
-                ? t("files.no_session_files")
-                : t("files.no_files")}
-          </div>
-        )}
+              )}
             </div>
             <FilePreviewDrawer
               open={Boolean(selectedFile && selectedTarget)}
