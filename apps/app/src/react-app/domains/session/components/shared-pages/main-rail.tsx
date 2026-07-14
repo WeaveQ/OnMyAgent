@@ -1,13 +1,13 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
 import {
-  Bot,
-  Cpu,
-  Folder,
-  LayoutDashboard,
-  MonitorSmartphone,
-  Network,
-  ShoppingBag,
+  BotMessageSquare,
+  FolderOpen,
+  MessagesSquare,
+  MonitorCog,
+  SlidersHorizontal,
+  Store,
+  UserStar,
 } from "lucide-react";
 
 import { RailButton } from "@/components/ui/action-row";
@@ -36,16 +36,16 @@ type RailItem = {
 };
 
 const TOP_RAIL_ITEMS: RailItem[] = [
-  { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: LayoutDashboard },
-  { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: Bot },
-  { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: MonitorSmartphone },
-  { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: Folder },
-  { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: ShoppingBag },
-  { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: Cpu },
+  { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: BotMessageSquare },
+  { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: UserStar },
+  { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: MonitorCog },
+  { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FolderOpen },
+  { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: Store },
+  { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: SlidersHorizontal },
 ];
 
 const BOTTOM_RAIL_ITEMS: RailItem[] = [
-  { id: "channels", label: "", shortLabel: "", icon: Network },
+  { id: "channels", label: "", shortLabel: "", icon: MessagesSquare },
 ];
 
 function TopRailButton(props: {
