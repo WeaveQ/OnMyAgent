@@ -5,6 +5,19 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dir, "../../..");
 
 describe("main rail primary icon contract", () => {
+  test("uses the compact shared rail width", () => {
+    const railSource = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/components/shared-pages/main-rail.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(railSource).toContain('className="flex w-16 shrink-0');
+    expect(railSource).not.toContain("w-[72px]");
+  });
+
   test("assistant and expert entries use the dedicated reference icons", () => {
     const railSource = readFileSync(
       resolve(
