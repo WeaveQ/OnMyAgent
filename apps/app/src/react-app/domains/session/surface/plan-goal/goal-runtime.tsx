@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
-import { Clock3, Goal, Pause, Play, Trash2 } from "lucide-react";
+import { CirclePause, CirclePlay, Clock3, Goal, Trash2 } from "lucide-react";
 
 import type {
   CollaborationGoalRuntime,
@@ -60,6 +60,7 @@ export function createSessionInterruptionNotice(input: {
   afterMessageCount: number;
   runStartedAt: number;
   now: number;
+  elapsedMs?: number;
 }): SessionTranscriptNotice {
   return {
     id: `${input.sessionId}:${input.kind}:${input.runKey}`,
@@ -68,7 +69,12 @@ export function createSessionInterruptionNotice(input: {
     afterMessageCount: input.afterMessageCount,
     runStartedAt: input.runStartedAt,
     ...(input.kind === "stopped"
-      ? { elapsedMs: Math.max(0, input.now - input.runStartedAt) }
+      ? {
+          elapsedMs: Math.max(
+            0,
+            input.elapsedMs ?? input.now - input.runStartedAt,
+          ),
+        }
       : {}),
   };
 }
@@ -357,30 +363,34 @@ export function GoalRuntimePanel(props: {
             <Button
               type="button"
               size="icon-xs"
+              variant="ghost"
+              className="text-dls-secondary hover:text-dls-text"
               onClick={props.onResume}
               disabled={props.busy}
               aria-label={t("session.goal_runtime_resume")}
               title={t("session.goal_runtime_resume")}
             >
-              <Play size={14} />
+              <CirclePlay size={14} />
             </Button>
           ) : null}
           {props.canPause ? (
             <Button
               type="button"
               size="icon-xs"
-              variant="outline"
+              variant="ghost"
+              className="text-dls-secondary hover:text-dls-text"
               onClick={props.onPause}
               aria-label={t("session.goal_runtime_pause")}
               title={t("session.goal_runtime_pause")}
             >
-              <Pause size={14} />
+              <CirclePause size={14} />
             </Button>
           ) : null}
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
+            className="text-dls-text"
             onClick={props.onClear}
             aria-label={t("session.goal_runtime_clear")}
           >

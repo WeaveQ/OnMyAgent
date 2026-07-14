@@ -1657,6 +1657,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       !showDelayedSessionLoadingState &&
                       canRenderReactSurface ? (
                         <SessionSurface
+                          key={renderedSessionId}
                           {...props.surface!}
                           onSendDraft={wrappedOnSendDraft}
                           client={props.onmyagentServerClient!}

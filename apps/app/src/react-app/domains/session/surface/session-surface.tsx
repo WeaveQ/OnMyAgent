@@ -187,11 +187,11 @@ import {
   buildPlanExecutionHiddenSystemPrompt,
   createSessionInterruptionNotice,
   goalCheckpointFromTodos,
+  goalElapsedMs,
   GoalPreviewPanel,
   GoalRuntimePanel,
   isGoalIntentRuntime,
   normalizedTodoItems,
-  preferLatestGoalRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
   transcriptNoticeLabel,
@@ -312,6 +312,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const storedSessionStopRequested = useSessionActivityStore((state) =>
     state.getStopRequested(props.workspaceId, props.sessionId),
+  );
+  const storedSessionRunKey = useSessionActivityStore((state) =>
+    state.recordsByWorkspaceId[props.workspaceId]?.[props.sessionId]?.runKey ?? null,
   );
   const sessionActivityStatus = props.draftOnly
     ? "idle"
@@ -616,21 +619,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     writeSessionTranscriptNotices(transcriptNoticesBySessionId);
   }, [transcriptNoticesBySessionId]);
-  const goalRuntimeRef = useRef<CollaborationGoalRuntime | null>(
-    props.goalRuntime ?? null,
-  );
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
-
-  useEffect(() => {
-    goalRuntimeRef.current = props.goalRuntime ?? null;
-  }, [props.sessionId]);
-
-  useEffect(() => {
-    goalRuntimeRef.current = preferLatestGoalRuntime(
-      goalRuntimeRef.current,
-      props.goalRuntime,
-    );
-  }, [props.goalRuntime]);
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -1005,6 +994,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
     activityStatus: effectiveActivityStatus,
     goalRuntime: props.goalRuntime ?? null,
     stopRequested: props.draftOnly ? false : storedSessionStopRequested,
+    runInterrupted:
+      !props.draftOnly &&
+      storedSessionRunKey !== null &&
+      (transcriptNoticesBySessionId[props.sessionId] ?? []).some(
+        (notice) =>
+          (notice.kind === "cancelled" || notice.kind === "stopped") &&
+          notice.runKey === storedSessionRunKey,
+      ),
   });
   useEffect(() => {
     if (!activityVisible) return;
@@ -1281,9 +1278,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
 
   const recordSessionInterruption = useCallback(
-    (kind: "cancelled" | "stopped") => {
+    (
+      kind: "cancelled" | "stopped",
+      goalRuntime?: CollaborationGoalRuntime,
+    ) => {
       const now = Date.now();
       const afterMessageCount = renderedMessageCountRef.current;
+      const elapsedMs =
+        kind === "stopped" && goalRuntime
+          ? goalElapsedMs(goalRuntime, now)
+          : undefined;
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
         const latestTerminal = [...existing]
@@ -1295,7 +1299,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         const runStartedAt =
           activeRunStartedAtRef.current ??
           storedRunIdentity?.runStartedAt ??
-          goalRuntimeRef.current?.lastRunStartedAt ??
+          goalRuntime?.lastRunStartedAt ??
           latestTerminal?.runStartedAt ??
           now;
         const runKey =
@@ -1310,6 +1314,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           afterMessageCount,
           runStartedAt,
           now,
+          ...(elapsedMs !== undefined ? { elapsedMs } : {}),
         });
         if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
           return current;
@@ -1557,8 +1562,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
 
   const resumeGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
-      ? goalRuntimeRef.current
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
       : null;
     if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
     const now = Date.now();
@@ -1601,7 +1606,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(goalMode);
-    goalRuntimeRef.current = nextRuntime;
     props.onGoalRuntimeChange?.(nextRuntime);
     try {
       await props.onSendDraft({
@@ -1621,7 +1625,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
           .getState()
           .setError(props.workspaceId, props.sessionId, parsed.message);
       }
-      goalRuntimeRef.current = runtime;
       props.onGoalRuntimeChange?.(runtime);
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
@@ -1630,6 +1633,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [
     buildDraft,
     props.draftOnly,
+    props.goalRuntime,
     props.onDraftChange,
     props.onGoalRuntimeChange,
     props.onSendDraft,
@@ -1682,15 +1686,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
 
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
-      ? goalRuntimeRef.current
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
       : null;
     if (
       runtime &&
       (runtime.status === "running" || runtime.status === "waiting")
     ) {
       const now = Date.now();
-      recordSessionInterruption("stopped");
+      recordSessionInterruption("stopped", runtime);
       const pausedRuntime = {
         ...runtime,
         status: "paused",
@@ -1698,11 +1702,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
         updatedAt: now,
         pauseStartedAt: now,
       } satisfies CollaborationGoalRuntime;
-      goalRuntimeRef.current = pausedRuntime;
       props.onGoalRuntimeChange?.(pausedRuntime);
     }
     await stopActiveRun();
-  }, [props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
+  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
@@ -1710,7 +1713,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       effectiveCollaborationMode,
       assistantFeatureCategoryId,
     );
-    if (collaborationKind === "goal" && isGoalIntentRuntime(goalRuntimeRef.current)) {
+    if (collaborationKind === "goal" && isGoalIntentRuntime(props.goalRuntime)) {
       await pauseGoalRuntime();
       return;
     }
@@ -1734,6 +1737,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     chatStreaming,
     effectiveCollaborationMode,
     pauseGoalRuntime,
+    props.goalRuntime,
     props.onPlanRuntimeChange,
     props.planRuntime,
     recordSessionInterruption,
