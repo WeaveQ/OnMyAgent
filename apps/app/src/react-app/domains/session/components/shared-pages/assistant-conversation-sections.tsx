@@ -528,7 +528,8 @@ export function AssistantConversationSections(props: AssistantConversationSectio
               type="button"
               variant="ghost"
               size="sm"
-              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center rounded-lg text-xs text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
+              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center bg-dls-surface-muted text-xs text-dls-secondary font-normal hover:bg-dls-hover hover:text-dls-text"
+              data-assistant-task-list-disclosure="true"
               onClick={() => setShowAllRows((value) => !value)}
             >
               {showAllRows ? (
