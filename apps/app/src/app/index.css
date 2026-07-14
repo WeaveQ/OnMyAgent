@@ -268,7 +268,7 @@ select:disabled {
   --dls-canvas: #FFFFFF;
   --dls-surface: #FFFFFF;
   --dls-surface-muted: #F8FAFC;
-  --dls-sidebar: #F5F5F5;
+  --dls-sidebar: #F3F3F3;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #CBD5E1;
   --dls-accent: var(--ow-primary);
@@ -340,7 +340,7 @@ select:disabled {
   --dls-brand-coupang: #473600;
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
-  --dls-rail-bg: #F5F5F5;
+  --dls-rail-bg: #F3F3F3;
   --dls-rail-active: #EBEBEB;
   --dls-rail-hover: #EFEFEF;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
@@ -459,7 +459,7 @@ select:disabled {
   --dls-canvas: #1E1E1E;
   --dls-surface: #1E1E1E;
   --dls-surface-muted: #2A2A2A;
-  --dls-sidebar: #171717;
+  --dls-sidebar: #252526;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #4A4A4A;
   --dls-accent: var(--ow-primary);
@@ -500,7 +500,7 @@ select:disabled {
   --dls-brand-terminal: #2A2A2A;
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #2F2F2F;
-  --dls-rail-bg: #171717;
+  --dls-rail-bg: #252526;
   --dls-rail-active: #333333;
   --dls-rail-hover: #303030;
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most

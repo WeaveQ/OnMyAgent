@@ -46,4 +46,16 @@ describe("assistant navigation spacing contract", () => {
 
     expect(source).toContain('className="flex flex-col pt-1"');
   });
+
+  test("uses the WorkBuddy assistant panel default width", () => {
+    const source = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/session-panel-model.ts",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain("export const AGENT_PANEL_DEFAULT_WIDTH = 264;");
+  });
 });
