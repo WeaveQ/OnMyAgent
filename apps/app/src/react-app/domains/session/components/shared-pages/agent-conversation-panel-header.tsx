@@ -41,23 +41,25 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             onChange={props.onAssistantCategoryChange}
           />
         ) : null}
-        <NavListButton
-          type="button"
-          onClick={props.onCreateTask}
-          active={!props.selectedSessionId && !props.automationActive}
-          className="text-sm"
-        >
-          <CirclePlus className="size-4 shrink-0 text-dls-text" />
-          {t("session.new_task")}
-        </NavListButton>
-        {assistantMenuItems.map((item) => (
-          <AssistantMenuRow
-            key={item.id}
-            item={item}
-            active={item.id === "automation" && props.automationActive}
-            onClick={item.id === "automation" ? props.onOpenAutomation : props.onOpenAssistant}
-          />
-        ))}
+        <div className="grid gap-1" data-assistant-primary-actions="true">
+          <NavListButton
+            type="button"
+            onClick={props.onCreateTask}
+            active={!props.selectedSessionId && !props.automationActive}
+            className="text-sm"
+          >
+            <CirclePlus className="size-4 shrink-0 text-dls-text" />
+            {t("session.new_task")}
+          </NavListButton>
+          {assistantMenuItems.map((item) => (
+            <AssistantMenuRow
+              key={item.id}
+              item={item}
+              active={item.id === "automation" && props.automationActive}
+              onClick={item.id === "automation" ? props.onOpenAutomation : props.onOpenAssistant}
+            />
+          ))}
+        </div>
       </div>
     );
   }
