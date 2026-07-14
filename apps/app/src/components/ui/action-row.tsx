@@ -182,7 +182,7 @@ const navListButtonVariants = cva(
       {
         active: true,
         size: "sidebar",
-        className: "font-semibold",
+        className: "font-medium",
       },
     ],
     defaultVariants: {
