@@ -4,7 +4,6 @@ import { createPortal } from "react-dom";
 import {
   ChevronDown,
   ChevronRight,
-  Cloud,
   Copy,
   ExternalLink,
   FileText,
@@ -658,16 +657,16 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex h-14 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
-        <SegmentedTabGroup>
+      <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
+        <SegmentedTabGroup className="rounded-md border-0 p-0.5">
           <NavTabButton
             active={activeTab === "task"}
             type="button"
             onClick={() => setActiveTab("task")}
             size="tab"
             shape="tab"
+            className="h-7 min-w-24 rounded-md px-3 py-0"
           >
-            <Folder className="size-4" />
             {t("files.task_results")}
           </NavTabButton>
           <NavTabButton
@@ -676,8 +675,8 @@ export function WorkspaceFilesPage(props: {
             onClick={() => setActiveTab("cloud")}
             size="tab"
             shape="tab"
+            className="h-7 min-w-24 rounded-md px-3 py-0"
           >
-            <Cloud className="size-4" />
             {t("files.cloud_drive")}
           </NavTabButton>
         </SegmentedTabGroup>
