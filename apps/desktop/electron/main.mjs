@@ -79,6 +79,7 @@ import {
 } from "./code-workspace-actions.mjs";
 import { createEmbeddedBrowserPanel } from "./embedded-browser-panel.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
+import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
@@ -1985,7 +1986,7 @@ async function localAgentComposerSaveAttachment(input = {}) {
   return { path: absolute, relativePath: absolute, name: finalName, size: buffer.length };
 }
 
-async function handleDesktopInvoke(event, command, ...args) {
+async function dispatchDesktopCommand(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
@@ -3218,6 +3219,8 @@ async function createMainWindow() {
 
   return mainWindow;
 }
+
+const handleDesktopInvoke = createDesktopCommandRouter(dispatchDesktopCommand);
 
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";

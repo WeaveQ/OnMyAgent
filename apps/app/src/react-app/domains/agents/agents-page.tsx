@@ -37,7 +37,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../shell-feedback/status-toasts";
+import { useStatusToasts } from "../shell-feedback";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
   AGENT_AVATAR_STYLES,
@@ -72,15 +72,15 @@ import { cn } from "@/lib/utils";
 import {
   ensureProviderListQuery,
   getConnectedProviderItems,
-} from "../connections/provider-list-query";
+} from "../connections";
 import type { ProviderListItem } from "../../../app/types";
 import { useAgentRegistryStore } from "./agent-registry-store";
 import {
   classifySkillScope,
   SKILL_SCOPE_LABELS,
   type SkillScope,
-} from "../plugins/skill-scope";
-import { resolveBundledSkillDisplay } from "../plugins/bundled-skill-locale";
+} from "../plugins";
+import { resolveBundledSkillDisplay } from "../plugins";
 import { SelectionMark } from "./agents-selection-mark";
 import { renderAvatar, renderGeneratedAvatar } from "./agents-avatar-rendering";
 import { TemplateTile, ToolCategoryCard } from "./agents-wizard-cards";

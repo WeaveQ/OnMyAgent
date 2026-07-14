@@ -4,7 +4,7 @@ import type { WorkspaceSessionGroup } from "../../../../../app/types";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
-} from "../../../shared/extension-state";
+} from "../../../shared";
 
 export const STARTUP_SKELETON_ROWS = [
   { id: "intro", titleWidth: "42%", bodyWidth: "88%" },

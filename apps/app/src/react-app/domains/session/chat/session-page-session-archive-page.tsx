@@ -9,7 +9,7 @@ import type {
   OnMyAgentSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
 import { formatRelativeTime } from "../../../../app/utils";
-import { AgentSkillIcon } from "../components/shared-pages/agent-skill-icon";
+import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

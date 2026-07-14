@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import { MarkdownBlock } from "../../session/surface/markdown";
+import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { MessageTips } from "./message-tips";
 
 export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefined) {

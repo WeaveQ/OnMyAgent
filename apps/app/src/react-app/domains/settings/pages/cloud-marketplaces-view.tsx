@@ -14,7 +14,7 @@ import { t } from "@/i18n";
 import { ExtensionCard } from "../../../design-system/extension-card";
 import { ExtensionDetailModal } from "../../../design-system/extension-detail-modal";
 import { SelectMenu } from "../../../design-system/select-menu";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import { useCloudSession } from "../cloud/cloud-session-provider";
 import type { useDenSession } from "../cloud/use-den-session";
 import {

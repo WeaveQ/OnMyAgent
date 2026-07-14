@@ -64,7 +64,7 @@ import {
   scheduledRunMessage,
   scheduledTaskSessionContext,
   type HeartbeatDraft,
-} from "./personal-local-agent-scheduled-tasks";
+} from "../../local-agents";
 import {
   LocalAgentStatusRail,
   LocalAgentDraftComposer,

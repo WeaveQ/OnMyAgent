@@ -2,8 +2,8 @@ import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-ser
 import {
   dispatchAssistantSessionWorkspacesChanged,
   writeAssistantSessionWorkspace,
-} from "../session/sync/assistant-session-workspaces";
-import { writeCustomAgentIdForSession } from "../agents/agent-registry-store";
+} from "../../capabilities/session-identity/assistant-session-workspaces";
+import { writeCustomAgentIdForSession } from "../agents";
 
 export type AutomationSessionRecord = {
   sessionId: string;
