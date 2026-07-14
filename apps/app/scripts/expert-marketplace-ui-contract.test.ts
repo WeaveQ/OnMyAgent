@@ -297,7 +297,7 @@ describe("expert marketplace UI contract", () => {
     expect(list).toContain("selectedAgentId?: string | null");
     expect(list).toContain("item.agentId === props.selectedAgentId");
     expect(item).toContain(
-      'itemTitle: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-text"',
+      'itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text"',
     );
     expect(item).toContain(
       'props.selected ? "font-medium" : "font-normal"',
