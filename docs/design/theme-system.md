@@ -109,8 +109,8 @@ before designing any transcript, activity, or artifact affordance:
 When you need to extend the visual contract — a new token, a new
 signature component, a Windows/Linux titlebar rule — do not edit code
 first. Read `DESIGN.md` § 13 Iteration Guide for the ownership boundary
-between this narrative and DESIGN.md's tokens/rules, then write a plan
-doc under `docs/plans/` (v1 / v2 / v3 plans are worked examples).
+between this narrative and DESIGN.md's tokens/rules, then draft a plan
+locally under `.loop/plans/` (gitignored) before touching tokens.
 
 ## Known Gaps
 
