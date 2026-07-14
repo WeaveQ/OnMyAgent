@@ -383,4 +383,6 @@ export default {
   "local_agent.detect_available_none": "未發現新的可添加 Agent，已安裝的 CLI 都已在清單中。",
   "local_agent.detect_available_title": "發現可添加的本地 Agent",
   "local_agent.no_active_runs": "當前沒有後台執行中的本地 Agent",
+  "local_agent.background_status_restored": "後台運行狀態已從主進程恢復。",
+  "local_agent.scheduled_task_completed": "定時任務「{title}」執行完成。\n狀態：{status}\nRun：{runId}\n\n{output}",
 } as const;

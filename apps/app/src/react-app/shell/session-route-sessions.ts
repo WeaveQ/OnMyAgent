@@ -1,9 +1,9 @@
 import { getDisplaySessionTitle } from "../../app/lib/session-title";
 import type { SidebarSessionItem } from "../../app/types";
-import type { OpenworkServerClient } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../app/lib/workspace-endpoint";
 import { t } from "../../i18n";
-import { isExpertSession } from "../domains/shared";
+import { isExpertSession } from "../domains/agents";
 import type { RouteWorkspace } from "./session-route-model";
 import { getSessionStatus, isActiveSessionStatus } from "./session-route-state";
 import type { SessionOption as PaletteSessionOption } from "./command-palette";
@@ -64,10 +64,10 @@ export function shouldKeepWorkspaceSessionItem(input: {
 }
 
 export async function collectWorkspaceSessionItems(input: {
-  client: OpenworkServerClient;
+  client: OnMyAgentServerClient;
   workspaceId: string;
   workspaceRoot: string;
-  isRemoteOpenworkWorkspace: boolean;
+  isRemoteOnMyAgentWorkspace: boolean;
   assistantSessionRecords: Array<{ sessionId: string; directory: string }>;
   normalizeDirectoryPath: (path: string) => string;
 }) {
@@ -94,7 +94,7 @@ export async function collectWorkspaceSessionItems(input: {
     ).values(),
   );
   const normalizedWorkspaceRoot = input.normalizeDirectoryPath(input.workspaceRoot);
-  const items = normalizedWorkspaceRoot && !input.isRemoteOpenworkWorkspace
+  const items = normalizedWorkspaceRoot && !input.isRemoteOnMyAgentWorkspace
     ? fetchedItems.filter(
         (session) =>
           shouldKeepWorkspaceSessionItem({

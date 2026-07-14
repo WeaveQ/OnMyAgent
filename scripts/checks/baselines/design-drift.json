@@ -31,9 +31,9 @@
     "count": 13,
     "signatures": [
       "react-app/domains/connections/mcp-auth-modal.tsx:ms=500",
-      "react-app/domains/session/components/shared-pages/automation-page.tsx:ms=300",
-      "react-app/domains/session/components/shared-pages/feishu-channel-panel.tsx:ms=500",
-      "react-app/domains/session/components/shared-pages/weixin-channel-panel.tsx:ms=500",
+      "react-app/domains/messaging/automation-page.tsx:ms=300",
+      "react-app/domains/messaging/feishu-channel-panel.tsx:ms=500",
+      "react-app/domains/messaging/weixin-channel-panel.tsx:ms=500",
       "react-app/domains/session/surface/message-list.tsx:ms=1200",
       "react-app/domains/session/surface/session-surface.tsx:ms=1200",
       "react-app/domains/settings/pages/system-authorizations-view.tsx:ms=300",

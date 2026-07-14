@@ -54,7 +54,7 @@ function startMockOpencode() {
   return { server, requests };
 }
 
-async function startOpenworkServer(input: { workspaceRoot: string; opencodeBaseUrl: string }) {
+async function startOnMyAgentServer(input: { workspaceRoot: string; opencodeBaseUrl: string }) {
   const config: ServerConfig = {
     host: "127.0.0.1",
     port: 0,
@@ -89,7 +89,7 @@ describe("workspace activation", () => {
   test("reloads the bound OpenCode engine on activate", async () => {
     const workspaceRoot = await createWorkspaceRoot();
     const mock = startMockOpencode();
-    const onmyagent = await startOpenworkServer({
+    const onmyagent = await startOnMyAgentServer({
       workspaceRoot,
       opencodeBaseUrl: `http://127.0.0.1:${mock.server.port}`,
     });

@@ -1,22 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { OpenworkAutomationTaskItem } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentAutomationTaskItem } from "../src/app/lib/onmyagent-server";
 import {
   addAssistantSession,
   addExpertSession,
-  consumePendingAssistantSessionCategory,
-  consumePendingAssistantTask,
-  consumePendingExpertTask,
   isAssistantSession,
   isExpertSession,
   readAssistantSessionCategory,
   removeAssistantSession,
   removeExpertSession,
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-  setPendingExpertTask,
   writeAssistantSessionCategory,
-} from "../src/react-app/domains/shared/agent-session-state";
+} from "../src/react-app/domains/agents/agent-session-state";
 import {
   removeAutomationSessionRecord,
   readAutomationSessionRecords,
@@ -82,9 +76,6 @@ Object.defineProperty(globalThis, "window", {
 
 afterEach(() => {
   for (const key of storageKeys) localStorage.removeItem(key);
-  consumePendingAssistantSessionCategory();
-  consumePendingAssistantTask();
-  consumePendingExpertTask();
 });
 
 describe("shared agent session state", () => {
@@ -136,19 +127,6 @@ describe("shared agent session state", () => {
     );
   });
 
-  test("consumes one-shot pending task flags", () => {
-    setPendingAssistantTask(true);
-    setPendingExpertTask(true);
-    setPendingAssistantSessionCategory("code");
-
-    expect(consumePendingAssistantTask()).toBe(true);
-    expect(consumePendingAssistantTask()).toBe(false);
-    expect(consumePendingExpertTask()).toBe(true);
-    expect(consumePendingExpertTask()).toBe(false);
-    expect(consumePendingAssistantSessionCategory()).toBe("code");
-    expect(consumePendingAssistantSessionCategory()).toBe("office");
-  });
-
   test("indexes each automation run as its own assistant session record", () => {
     const automation = {
       id: "automation-1",
@@ -185,7 +163,7 @@ describe("shared agent session state", () => {
           outputDirectory: "/tmp/自动化任务-2026-06-25-09-00-00",
         },
       ],
-    } satisfies OpenworkAutomationTaskItem;
+    } satisfies OnMyAgentAutomationTaskItem;
 
     syncAutomationSessionRecords("workspace-1", [automation]);
 
@@ -239,7 +217,7 @@ describe("shared agent session state", () => {
           outputDirectory: "/tmp/自动化任务-2026-06-24-09-00-00",
         },
       ],
-    } satisfies OpenworkAutomationTaskItem;
+    } satisfies OnMyAgentAutomationTaskItem;
 
     syncAutomationSessionRecords("workspace-1", [automation]);
     expect(readAutomationSessionRecords("workspace-1")).toHaveLength(1);
@@ -283,7 +261,7 @@ describe("shared agent session state", () => {
           outputDirectory: "/tmp/自动化任务-2026-06-24-09-00-00",
         },
       ],
-    } satisfies OpenworkAutomationTaskItem;
+    } satisfies OnMyAgentAutomationTaskItem;
 
     syncAutomationSessionRecords("workspace-1", [automation]);
 

@@ -11,6 +11,9 @@ onlyBuiltDependencies:
   - "node-pty"
 
 overrides:
+  "@types/node": "^24.13.2"
+  "@types/react": "^19.2.17"
+  "@types/react-dom": "^19.2.3"
   axios: "^1.18.0"
   hono: "4.12.25"
   picomatch: "^4.0.4"

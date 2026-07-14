@@ -27,4 +27,5 @@ export default {
   "status.providers_connected_one": "已连接 {count} 个模型服务商",
   "status.providers_connected_other": "已连接 {count} 个模型服务商",
   "status.send_feedback_desc": `从状态栏打开 ${APP_NAME} 反馈入口。`,
+  "status.unavailable_for_tasks": "暂不可接受任务",
 } as const;

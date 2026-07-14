@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { OpenworkServerClient } from "../../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../../app/lib/onmyagent-server";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -9,14 +9,14 @@ import { cn } from "@/lib/utils";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
 import {
   useAgentRegistryStore,
-} from "../../../shared/agent-registry-store";
-import { useStatusToasts } from "../../../shared/status-toasts";
+} from "../../../agents/agent-registry-store";
+import { useStatusToasts } from "../../../shell-feedback/status-toasts";
 import {
   addAssistantSession,
   isAssistantSession,
   readAssistantSessionCategory,
   writeAssistantSessionCategory,
-} from "../../../shared/agent-session-state";
+} from "../../../agents/agent-session-state";
 import { AssistantConversationSections } from "./assistant-conversation-sections";
 import { AgentConversationPanelHeader } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
@@ -36,7 +36,7 @@ import {
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
   syncAutomationSessionRecords,
-} from "./automation-session-groups";
+} from "../../../messaging/automation-session-groups";
 
 function registerAutomationAssistantSessions(workspaceId: string) {
   for (const record of readAutomationSessionRecords(workspaceId)) {
@@ -76,7 +76,7 @@ function mergeAutomationSessions(
 export function AgentConversationPanel(props: {
   mode?: "agent" | "assistant";
   width: number;
-  client: OpenworkServerClient | null;
+  client: OnMyAgentServerClient | null;
   taskStatusVariant: TaskStatusIndicator["variant"];
   collapsed: boolean;
   groups: WorkspaceSessionGroup[];
@@ -436,7 +436,7 @@ export function AgentConversationPanel(props: {
         onOpenAgents={props.onOpenAgents}
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
-        showAgentSelectionTip={mode === "agent" && visibleAgentGroups.length === 0}
+        showAgentSelectionTip={false}
         onAssistantCategoryChange={props.onAssistantCategoryChange}
         onOpenAutomation={props.onOpenAutomation}
       />

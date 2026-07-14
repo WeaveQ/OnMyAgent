@@ -1,11 +1,17 @@
 import type { UIMessage } from "ai";
 
-import type { OpenworkSessionSnapshot } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import { mergeSnapshotAndLiveMessages } from "../sync/message-merge";
 import { applyRevertCursor } from "../sync/transcript-reconcile";
 import { snapshotToUIMessages } from "../sync/usechat-adapter";
 
-function readRevertMessageId(session: OpenworkSessionSnapshot["session"] | null | undefined) {
+export const INTERNAL_SESSION_MESSAGE_ID_PREFIX = "msg_onmyagent-internal-";
+
+function isInternalSessionControlMessage(message: UIMessage) {
+  return message.id.startsWith(INTERNAL_SESSION_MESSAGE_ID_PREFIX);
+}
+
+function readRevertMessageId(session: OnMyAgentSessionSnapshot["session"] | null | undefined) {
   if (!session || !("revert" in session)) return null;
   const revert = session.revert;
   if (!revert || typeof revert !== "object" || Array.isArray(revert)) return null;
@@ -15,8 +21,8 @@ function readRevertMessageId(session: OpenworkSessionSnapshot["session"] | null 
 
 export function resolveRenderedSessionSnapshot(input: {
   sessionId: string;
-  currentSnapshot: OpenworkSessionSnapshot | null | undefined;
-  cachedRendered: { sessionId: string; snapshot: OpenworkSessionSnapshot } | null | undefined;
+  currentSnapshot: OnMyAgentSessionSnapshot | null | undefined;
+  cachedRendered: { sessionId: string; snapshot: OnMyAgentSessionSnapshot } | null | undefined;
 }) {
   if (input.currentSnapshot?.session.id === input.sessionId) {
     return input.currentSnapshot;
@@ -32,7 +38,7 @@ export function resolveRenderedSessionSnapshot(input: {
 
 export function deriveRenderedSessionMessages(input: {
   transcriptState: UIMessage[] | null | undefined;
-  snapshot: OpenworkSessionSnapshot | null | undefined;
+  snapshot: OnMyAgentSessionSnapshot | null | undefined;
 }) {
   const revertMessageId = readRevertMessageId(input.snapshot?.session);
   const liveMessages = input.transcriptState ?? [];
@@ -48,5 +54,7 @@ export function deriveRenderedSessionMessages(input: {
     ? mergeSnapshotAndLiveMessages(snapshotMessages, liveMessages, { appendLiveOnlyMessages: true })
     : liveMessages;
 
-  return applyRevertCursor(messages, revertMessageId);
+  return applyRevertCursor(messages, revertMessageId).filter(
+    (message) => !isInternalSessionControlMessage(message),
+  );
 }

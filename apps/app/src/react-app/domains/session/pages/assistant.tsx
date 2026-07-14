@@ -3,7 +3,6 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
-  PanelLeft,
   PanelRight,
   Zap,
 } from "lucide-react";
@@ -21,17 +20,12 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import ProviderAuthModal from "../../shared/provider-auth-modal";
+import ProviderAuthModal from "../../connections/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
-import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
-import { OwDotTicker } from "../../../shell/dot-ticker";
-import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
-import {
-  type SidePanelItem,
-  useUiStateStore,
-} from "../../../shell/ui-state-store";
+import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
+import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -41,11 +35,6 @@ import {
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
-import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
-import {
-  useControlAction,
-  type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
@@ -70,32 +59,28 @@ import type {
   SessionPageProps,
 } from "./index";
 
-import {
-  setPendingAssistantSessionCategory,
-  setPendingAssistantTask,
-} from "../../shared/agent-session-state";
-import { usePendingAgentStore } from "../../shared/pending-agent-store";
+import { usePendingAgentStore } from "../../agents/pending-agent-store";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
+import { AgentManagementPage } from "../../local-agents";
+import { AutomationPage, MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
 import {
   AgentConversationPanel,
-  AgentManagementPage,
   BillingPage,
   DevicesPage,
-  MessagingChannelsPage,
   ProjectsComingSoonPage,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  SidebarPaneCollapseToggle,
   SidebarFeaturePlaceholder,
   STARTUP_SKELETON_ROWS,
   StorePage,
   OnMyAgentRail,
-  WorkspaceFilesPage,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
-  AutomationPage,
   GLOBAL_VOICE_SIDE_PANEL_KEY,
   hiddenAccessibleTargetsStorageKey,
   readHiddenAccessibleTargetIds,
@@ -103,6 +88,7 @@ import {
   writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
   type OnMyAgentPrimaryView,
+  type StorePrimaryTab,
 } from "../components/shared-pages";
 import {
   readAssistantSelectionMemory,
@@ -128,7 +114,7 @@ const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_EXPERT_PROMPT =
-  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 export function AssistantPage(props: AssistantPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
@@ -145,6 +131,8 @@ export function AssistantPage(props: AssistantPageProps) {
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
+  const [storeActiveTab, setStoreActiveTab] =
+    useState<StorePrimaryTab>("experts");
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -424,13 +412,16 @@ export function AssistantPage(props: AssistantPageProps) {
     async (draft: ComposerDraft) => {
       if (!props.selectedSessionId) {
         usePendingAgentStore.getState().setAgent(null);
-        setPendingAssistantTask(true);
-        setPendingAssistantSessionCategory(assistantCategoryId);
         if (props.onCreateSessionForAgent) {
           props.onCreateSessionForAgent();
         }
       }
-      return props.surface?.onSendDraft(draft);
+      return props.surface?.onSendDraft({
+        ...draft,
+        sessionStartIntent: props.selectedSessionId
+          ? undefined
+          : { mode: "assistant", assistantCategory: assistantCategoryId },
+      });
     },
     [assistantCategoryId, props.selectedSessionId, props.onCreateSessionForAgent, props.surface],
   );
@@ -624,7 +615,7 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
 
-  const openVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled
         ? {
@@ -642,7 +633,7 @@ export function AssistantPage(props: AssistantPageProps) {
   );
   useControlAction(openVoicePanelControlAction);
 
-  const closeVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled && activeSidePanel === "voice"
         ? {
@@ -829,35 +820,26 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   };
 
-  const headerPanelControls = (
+  const headerPanelControls = !sidePanelOpen ? (
     <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
-        size="icon-sm"
-        className={cn(
-          "transition-colors hover:bg-muted hover:text-foreground",
-          sidePanelOpen &&
-            activeSidePanel !== "canvas" &&
-            "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-        )}
+        size="icon-xs"
+        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
-          if (sidePanelOpen) {
-            closeRightPane();
-            return;
-          }
           openAssistantSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
         aria-label={t("session.code_side_panel_toggle")}
         aria-expanded={sidePanelOpen}
       >
-        <PanelRight className="size-4" />
+        <PanelRight className="size-3.5" />
       </Button>
     </div>
-  );
+  ) : null;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
@@ -937,21 +919,14 @@ export function AssistantPage(props: AssistantPageProps) {
             ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") &&
-            agentPanelCollapsed ? (
-              <div className="flex w-10 shrink-0 bg-dls-background px-2 pb-5 pt-2">
-                <Button
-                  type="button"
-                  onClick={() => setAgentPanelCollapsed(false)}
-                  variant="ghost"
-                  size="icon-xs"
-                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                  title={t("session.expand_session_list")}
-                  aria-label={t("session.expand_session_list")}
-                >
-                  <PanelLeft className="size-3.5" />
-                </Button>
-              </div>
+              activeSidebarView === "scheduledTasks") ? (
+              <SidebarPaneCollapseToggle
+                collapsed={agentPanelCollapsed}
+                onToggle={() => setAgentPanelCollapsed((value) => !value)}
+                style={{
+                  left: agentPanelCollapsed ? 0 : agentPanelWidth,
+                }}
+              />
             ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
@@ -1001,7 +976,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
                           client={props.onmyagentServerClient}
+                          activeTab={storeActiveTab}
                           myExperts={myExpertPackages}
+                          onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
                         />
@@ -1054,6 +1031,7 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 
@@ -1195,6 +1173,10 @@ export function AssistantPage(props: AssistantPageProps) {
                           personalAssistantCategoryId={assistantCategoryId}
                           onPersonalAssistantCategoryChange={setAssistantCategoryId}
                           onPersonalAssistantCategoryActive={setAssistantCategoryId}
+                          onOpenSkillsMarketplace={() => {
+                            setStoreActiveTab("skills");
+                            setActiveSidebarView("store");
+                          }}
                         />
                       ) : null}
 

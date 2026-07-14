@@ -6,7 +6,7 @@ import {
   resolveAssistantSelectionMemory,
   writeAssistantSelectionMemory,
 } from "../src/react-app/domains/session/components/shared-pages/assistant-selection-memory";
-import { writeAssistantSessionCategory } from "../src/react-app/domains/shared/agent-session-state";
+import { writeAssistantSessionCategory } from "../src/react-app/domains/agents/agent-session-state";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();

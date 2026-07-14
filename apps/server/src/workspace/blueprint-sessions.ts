@@ -74,7 +74,7 @@ export function readMaterializedBlueprintSessions(onmyagent: Record<string, unkn
     .filter((item): item is MaterializedBlueprintSession => Boolean(item));
 }
 
-export function sanitizeOpenworkTemplateConfig(onmyagent: Record<string, unknown> | null | undefined): Record<string, unknown> {
+export function sanitizeOnMyAgentTemplateConfig(onmyagent: Record<string, unknown> | null | undefined): Record<string, unknown> {
   const next = cloneRecord(onmyagent ?? {});
   const blueprint = readRecord(next.blueprint);
   if (!blueprint) return next;
@@ -98,7 +98,7 @@ export function applyMaterializedBlueprintSessions(
   items: MaterializedBlueprintSession[],
   hydratedAt: number,
 ): Record<string, unknown> {
-  const next = sanitizeOpenworkTemplateConfig(onmyagent);
+  const next = sanitizeOnMyAgentTemplateConfig(onmyagent);
   const blueprint = readRecord(next.blueprint) ?? {};
   const materialized = readRecord(blueprint.materialized) ?? {};
   materialized.sessions = {

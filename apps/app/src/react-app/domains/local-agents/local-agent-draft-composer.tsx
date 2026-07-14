@@ -442,7 +442,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   return (
     <div
       className={cn(
-        "relative overflow-visible rounded-2xl border bg-dls-surface transition-colors",
+        "relative overflow-visible rounded-xl border bg-dls-surface transition-colors",
         focused ? "border-dls-accent/60 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]" : "border-dls-border",
         dragActive && "border-dls-accent/80",
       )}
@@ -459,7 +459,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
       ) : null}
       {slashOpen ? (
         <div
-          className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-60 overflow-y-auto rounded-2xl border border-dls-border bg-dls-surface p-2 shadow-lg"
+          className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface p-2"
           data-testid="local-agent-slash-menu"
         >
           {visibleSlashCommands.length ? (
@@ -495,7 +495,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
       ) : null}
       {atState.active && mentionFiles.length ? (
         <div
-          className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-60 overflow-y-auto rounded-2xl border border-dls-border bg-dls-surface p-2 shadow-lg"
+          className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface p-2"
           data-testid="local-agent-mention-menu"
         >
           <div className="grid gap-1">
@@ -531,7 +531,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               )}
               <div className="min-w-0 max-w-[180px]">
                 <div className="truncate text-xs font-medium text-dls-text">{att.name}</div>
-                <div className="truncate text-[10px] text-dls-secondary">{att.relativePath}{att.size ? ` · ${bytes(att.size)}` : ""}</div>
+                <div className="truncate text-2xs text-dls-secondary">{att.relativePath}{att.size ? ` · ${bytes(att.size)}` : ""}</div>
               </div>
               <Button
                 type="button"
@@ -550,7 +550,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               <Quote size={14} />
               <div className="min-w-0 max-w-[180px]">
                 <div className="truncate text-xs font-medium text-dls-text">{t("local_agent.composer_pasted_text")}</div>
-                <div className="truncate text-[10px] text-dls-secondary">{t("local_agent.composer_pasted_lines", { count: q.lines })}</div>
+                <div className="truncate text-2xs text-dls-secondary">{t("local_agent.composer_pasted_lines", { count: q.lines })}</div>
               </div>
               <Button
                 type="button"

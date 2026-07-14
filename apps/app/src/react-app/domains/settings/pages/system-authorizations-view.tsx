@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useState, useCallback } from "react";
 import {
@@ -169,7 +170,7 @@ export function SystemAuthorizationsView() {
 
   return (
     <>
-      <Card variant="outline" size="sm">
+      <Card variant="outline" size="sm" className="border-0 bg-transparent">
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="flex items-center gap-2">
@@ -236,7 +237,7 @@ export function SystemAuthorizationsView() {
                       disabled={isOpening || !result}
                     >
                       {isOpening ? (
-                        <Loader2 className="size-3 animate-spin" />
+                        <LoadingSpinner size="sm" />
                       ) : (
                         <ExternalLink className="size-3" />
                       )}

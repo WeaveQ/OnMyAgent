@@ -1,7 +1,7 @@
 import { createOpencodeClient, type Message, type Part, type Session, type Todo } from "@opencode-ai/sdk/v2/client";
 
 import { desktopFetch } from "./desktop";
-import { createOpenworkServerClient, OpenworkServerError } from "./onmyagent-server";
+import { createOnMyAgentServerClient, OnMyAgentServerError } from "./onmyagent-server";
 import { isDesktopRuntime } from "../utils";
 
 type FieldsResult<T> =
@@ -144,7 +144,7 @@ async function postSessionRequest<T>(
   return { error, request, response };
 }
 
-function resolveOpenworkWorkspaceMount(baseUrl: string): { baseUrl: string; workspaceId: string } | null {
+function resolveOnMyAgentWorkspaceMount(baseUrl: string): { baseUrl: string; workspaceId: string } | null {
   try {
     const url = new URL(baseUrl);
     const match = url.pathname
@@ -180,7 +180,7 @@ function createSyntheticResult<T>(
   return { error: input.error, request, response };
 }
 
-async function wrapOpenworkRead<T>(
+async function wrapOnMyAgentRead<T>(
   url: string,
   read: () => Promise<T>,
   options?: { throwOnError?: boolean },
@@ -192,7 +192,7 @@ async function wrapOpenworkRead<T>(
     return createSyntheticResult(url, "GET", {
       ok: false,
       error,
-      status: error instanceof OpenworkServerError ? error.status : 500,
+      status: error instanceof OnMyAgentServerError ? error.status : 500,
     });
   }
 }
@@ -353,12 +353,14 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
   });
 
   const session = client.session as typeof client.session;
-  const onmyagentMount = auth?.mode === "onmyagent" ? resolveOpenworkWorkspaceMount(baseUrl) : null;
+  const onmyagentMount = auth?.mode === "onmyagent" ? resolveOnMyAgentWorkspaceMount(baseUrl) : null;
   const onmyagentSessionClient =
     onmyagentMount && auth?.token
-      ? createOpenworkServerClient({ baseUrl: onmyagentMount.baseUrl, token: auth.token })
+      ? createOnMyAgentServerClient({ baseUrl: onmyagentMount.baseUrl, token: auth.token })
       : null;
-  const sessionOverrides = session as any as {
+  // Writable session surface used to install OnMyAgent workspace routing and
+  // reasoning_effort passthrough without widening through `any`.
+  type MutableSessionApi = {
     list: (parameters?: SessionListParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session[]>>;
     get: (parameters: SessionLookupParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session>>;
     messages: (parameters: SessionMessagesParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Array<{ info: Message; parts: Part[] }>>>;
@@ -366,6 +368,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     promptAsync: (parameters: PromptAsyncParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<{}>>;
     command: (parameters: CommandParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<{}>>;
   };
+  const sessionOverrides = session as MutableSessionApi;
 
   const listOriginal = sessionOverrides.list.bind(session);
   sessionOverrides.list = (parameters?: SessionListParameters, options?: { throwOnError?: boolean }) => {
@@ -379,7 +382,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     if (typeof parameters?.limit === "number") query.set("limit", String(parameters.limit));
     if (parameters?.directory?.trim()) query.set("directory", parameters.directory.trim());
     const url = `${onmyagentMount.baseUrl}/workspace/${encodeURIComponent(onmyagentMount.workspaceId)}/sessions${query.size ? `?${query.toString()}` : ""}`;
-    return wrapOpenworkRead(url, async () =>
+    return wrapOnMyAgentRead(url, async () =>
       (
         await onmyagentSessionClient.listSessions(
           onmyagentMount.workspaceId,
@@ -398,7 +401,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     const query = new URLSearchParams();
     if (parameters.directory?.trim()) query.set("directory", parameters.directory.trim());
     const url = `${onmyagentMount.baseUrl}/workspace/${encodeURIComponent(onmyagentMount.workspaceId)}/sessions/${encodeURIComponent(parameters.sessionID)}${query.size ? `?${query.toString()}` : ""}`;
-    return wrapOpenworkRead(url, async () =>
+    return wrapOnMyAgentRead(url, async () =>
       (
         await onmyagentSessionClient.getSession(
           onmyagentMount.workspaceId,
@@ -419,7 +422,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     if (typeof parameters.limit === "number") query.set("limit", String(parameters.limit));
     if (parameters.directory?.trim()) query.set("directory", parameters.directory.trim());
     const url = `${onmyagentMount.baseUrl}/workspace/${encodeURIComponent(onmyagentMount.workspaceId)}/sessions/${encodeURIComponent(parameters.sessionID)}/messages${query.size ? `?${query.toString()}` : ""}`;
-    return wrapOpenworkRead(url, async () =>
+    return wrapOnMyAgentRead(url, async () =>
       (await onmyagentSessionClient.getSessionMessages(onmyagentMount.workspaceId, parameters.sessionID, {
         limit: parameters.limit,
         directory: parameters.directory,
@@ -436,7 +439,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     const query = new URLSearchParams();
     if (parameters.directory?.trim()) query.set("directory", parameters.directory.trim());
     const url = `${onmyagentMount.baseUrl}/workspace/${encodeURIComponent(onmyagentMount.workspaceId)}/sessions/${encodeURIComponent(parameters.sessionID)}/snapshot${query.size ? `?${query.toString()}` : ""}`;
-    return wrapOpenworkRead(url, async () =>
+    return wrapOnMyAgentRead(url, async () =>
       (
         await onmyagentSessionClient.getSessionSnapshot(
           onmyagentMount.workspaceId,

@@ -3,7 +3,6 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
-  PanelLeft,
   PanelRight,
   Zap,
 } from "lucide-react";
@@ -23,19 +22,14 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import ProviderAuthModal from "../../shared/provider-auth-modal";
+import ProviderAuthModal from "../../connections/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
 import {
   SessionSurface,
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
-import { ShareWorkspaceModal } from "../../shared/share-workspace-modal";
-import { OwDotTicker } from "../../../shell/dot-ticker";
-import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
-import {
-  type SidePanelItem,
-  useUiStateStore,
-} from "../../../shell/ui-state-store";
+import { ShareWorkspaceModal } from "../../workspace/share-workspace-modal";
+import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -45,11 +39,6 @@ import {
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
-import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
-import {
-  useControlAction,
-  type OpenworkControlAction,
-} from "../../../shell/control/control-provider";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
@@ -78,29 +67,29 @@ import { writeAssistantSelectionMemory } from "../components/shared-pages/assist
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../components/shared-pages/conversation-model";
 
-import type { AgentCardItem } from "../../shared/agent-registry-types";
+import type { AgentCardItem } from "../../agents/agent-registry-types";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
   type PendingAgentContext,
   usePendingAgentStore,
-} from "../../shared/pending-agent-store";
-import { buildPendingAgentFromRecord } from "../../shared/agent-registry-store";
+} from "../../agents/pending-agent-store";
+import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
 import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
   useAgentRegistryStore,
-} from "../../shared/agent-registry-store";
-import {
-  isExpertSession,
-  setPendingExpertTask,
-} from "../../shared/agent-session-state";
+} from "../../agents/agent-registry-store";
+import { isExpertSession } from "../../agents/agent-session-state";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
-} from "../../shared/agent-registry-helpers";
-import type { AgentRegistry } from "../../shared/agent-registry-types";
+} from "../../agents/agent-registry-helpers";
+import type { AgentRegistry } from "../../agents/agent-registry-types";
+import { AgentManagementPage } from "../../local-agents";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
 import {
   buildAgentConversationGroups,
   ensureAgentSessionGroupVisible,
@@ -108,21 +97,19 @@ import {
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
   AgentConversationPanel,
-  AgentManagementPage,
   AgentSessionTabs,
   BillingPage,
   DevicesPage,
   EmptyArtifactsPanel,
-  MessagingChannelsPage,
   ProjectsComingSoonPage,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  SidebarPaneCollapseToggle,
   SidebarFeaturePlaceholder,
   STARTUP_SKELETON_ROWS,
   StorePage,
   OnMyAgentRail,
-  WorkspaceFilesPage,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
@@ -148,7 +135,7 @@ const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_EXPERT_PROMPT =
-  "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]";
+  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 function expertFeatureCategoryForCategoryId(
   categoryId: string | null | undefined,
@@ -439,13 +426,14 @@ export function ExpertPage(props: ExpertPageProps) {
         name: marketplaceExpert.displayName,
         description: marketplaceExpert.description,
         avatar: {
-          avatarStyle: "机器人",
+          avatarStyle: "robot",
           avatarOptionId: "marketplace-expert",
           customAvatarDataUrl: null,
           avatarUrl: marketplaceExpert.avatarUrl,
           avatarBackground: "var(--ow-primary-light)",
         },
         systemPrompt: marketplaceExpert.systemPrompt,
+        runtime: marketplaceExpert.runtime ?? undefined,
         quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
         marketplaceExpert: {
           source: "builtin",
@@ -460,7 +448,7 @@ export function ExpertPage(props: ExpertPageProps) {
       name: activeConversationGroup.name,
       description: activeConversationGroup.description,
       avatar: {
-        avatarStyle: "机器人",
+        avatarStyle: "robot",
         avatarOptionId: "marketplace-expert",
         customAvatarDataUrl: null,
         avatarUrl: activeConversationGroup.avatarUrl,
@@ -924,13 +912,23 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const wrappedOnSendDraft = useCallback(
     async (draft: ComposerDraft) => {
-      setPendingExpertTask(true);
       if (draftSessionActive && props.onCreateSessionForAgent) {
         props.onCreateSessionForAgent();
       }
-      return props.surface?.onSendDraft(draft);
+      return props.surface?.onSendDraft({
+        ...draft,
+        agentRuntime: activeAgentContext?.runtime,
+        sessionStartIntent: props.selectedSessionId
+          ? undefined
+          : { mode: "expert" },
+      });
     },
-    [draftSessionActive, props.onCreateSessionForAgent, props.surface],
+    [
+      activeAgentContext?.runtime,
+      draftSessionActive,
+      props.onCreateSessionForAgent,
+      props.surface,
+    ],
   );
 
   useEffect(() => {
@@ -1122,7 +1120,7 @@ export function ExpertPage(props: ExpertPageProps) {
     }
   }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
 
-  const openVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled
         ? {
@@ -1140,7 +1138,7 @@ export function ExpertPage(props: ExpertPageProps) {
   );
   useControlAction(openVoicePanelControlAction);
 
-  const closeVoicePanelControlAction = useMemo<OpenworkControlAction | null>(
+  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled && activeSidePanel === "voice"
         ? {
@@ -1319,35 +1317,26 @@ export function ExpertPage(props: ExpertPageProps) {
     }
   };
 
-  const headerPanelControls = (
+  const headerPanelControls = !sidePanelOpen ? (
     <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
-        size="icon-sm"
-        className={cn(
-          "transition-colors hover:bg-muted hover:text-foreground",
-          sidePanelOpen &&
-            activeSidePanel !== "canvas" &&
-            "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-        )}
+        size="icon-xs"
+        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
-          if (sidePanelOpen) {
-            closeRightPane();
-            return;
-          }
           openExpertSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
         aria-label={t("session.code_side_panel_toggle")}
         aria-expanded={sidePanelOpen}
       >
-        <PanelRight className="size-4" />
+        <PanelRight className="size-3.5" />
       </Button>
     </div>
-  );
+  ) : null;
 
   const conversationTabs =
     activeSidebarView === "chat" ? (
@@ -1421,20 +1410,14 @@ export function ExpertPage(props: ExpertPageProps) {
                 onPrefetchSession={props.sidebar.onPrefetchSession}
               />
             ) : null}
-            {activeSidebarView === "chat" && agentPanelCollapsed ? (
-              <div className="flex w-10 shrink-0 bg-dls-background px-2 pb-5 pt-2">
-                <Button
-                  type="button"
-                  onClick={() => setAgentPanelCollapsed(false)}
-                  variant="ghost"
-                  size="icon-xs"
-                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                  title={t("session.expand_session_list")}
-                  aria-label={t("session.expand_session_list")}
-                >
-                  <PanelLeft className="size-3.5" />
-                </Button>
-              </div>
+            {activeSidebarView === "chat" ? (
+              <SidebarPaneCollapseToggle
+                collapsed={agentPanelCollapsed}
+                onToggle={() => setAgentPanelCollapsed((value) => !value)}
+                style={{
+                  left: agentPanelCollapsed ? 0 : agentPanelWidth,
+                }}
+              />
             ) : null}
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
               <div
@@ -1535,6 +1518,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          onOpenArtifact={openTarget}
                         />
                       ) : null}
 
@@ -1676,6 +1660,10 @@ export function ExpertPage(props: ExpertPageProps) {
                           personalAssistantHome={false}
                           assistantFeatureCategoryId={activeExpertFeatureCategoryId}
                           agentContext={activeAgentContext}
+                          onOpenSkillsMarketplace={() => {
+                            setStoreActiveTab("skills");
+                            setActiveSidebarView("store");
+                          }}
                         />
                       ) : null}
 

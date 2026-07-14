@@ -27,7 +27,7 @@ async function createWorkspaceRoot() {
   return root;
 }
 
-async function startOpenworkServer(workspaceRoot: string) {
+async function startOnMyAgentServer(workspaceRoot: string) {
   const config: ServerConfig = {
     host: "127.0.0.1",
     port: 0,
@@ -56,7 +56,7 @@ function auth(token: string) {
 describe("artifact file routes", () => {
   test("resolve, read, write, and download markdown/csv/xlsx/html artifacts", async () => {
     const root = await createWorkspaceRoot();
-    const { base, token } = await startOpenworkServer(root);
+    const { base, token } = await startOnMyAgentServer(root);
 
     const resolveResponse = await fetch(`${base}/workspace/ws_1/artifacts/resolve`, {
       method: "POST",

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import type { OpenworkServerStatus } from "@/app/lib/onmyagent-server";
+import type { OnMyAgentServerStatus } from "@/app/lib/onmyagent-server";
 import type { EngineInfo } from "@/app/lib/desktop-types";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
@@ -280,7 +280,7 @@ interface AdvancedConnectionSectionProps {
   headerStatus: string;
   baseUrl: string;
   onmyagentServerUrl: string;
-  onmyagentServerStatus: OpenworkServerStatus;
+  onmyagentServerStatus: OnMyAgentServerStatus;
   onmyagentReconnectBusy: boolean;
   isLocalEngineRunning: boolean;
   restartBusy: boolean;

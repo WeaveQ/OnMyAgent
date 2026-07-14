@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
@@ -141,7 +142,7 @@ export function AgentManagementRepairDialog(props: {
             >
               {testStatus === "testing" ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <LoadingSpinner size="default" />
                   {t("agent_manager.repair_test")}
                 </>
               ) : (
@@ -149,7 +150,7 @@ export function AgentManagementRepairDialog(props: {
               )}
             </Button>
             {testStatus === "success" && (
-              <Alert className="border-green-500/50 bg-green-50 text-green-900 [&>svg]:text-green-600">
+              <Alert className="border-dls-status-success/40 bg-dls-status-success-soft text-dls-status-success-fg [&>svg]:text-dls-status-success-fg">
                 <CheckCircle2 className="size-4" />
                 <AlertTitle>{t("local_agent.test_connection_success")}</AlertTitle>
                 <AlertDescription className="text-xs">
@@ -165,7 +166,7 @@ export function AgentManagementRepairDialog(props: {
               </Alert>
             )}
             {testStatus === "fail_acp" && (
-              <Alert className="border-orange-500/50 bg-orange-50 text-orange-900 [&>svg]:text-orange-600">
+              <Alert className="border-dls-status-warning/40 bg-dls-status-warning-soft text-dls-status-warning-fg [&>svg]:text-dls-status-warning-fg">
                 <AlertTriangle className="size-4" />
                 <AlertTitle>{t("local_agent.test_connection_fail_acp")}</AlertTitle>
                 {testError && <AlertDescription className="text-xs break-all">{testError}</AlertDescription>}

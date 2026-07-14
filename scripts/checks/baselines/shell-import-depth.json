@@ -1,6 +1,10 @@
 {
   "$schema": "./shell-import-depth.schema.json",
   "description": "Frozen shell -> domain deep imports, keyed by shellFile::domain::subPath with an occurrence count. Only shrink this list. Regenerate with `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline` only after refactoring shells to use domain barrels.",
-  "generatedAt": "2026-07-04T01:06:50.928Z",
-  "entries": {}
+  "generatedAt": "2026-07-11T08:27:53.868Z",
+  "entries": {
+    "apps/app/src/react-app/shell/session-route-surface-props-hook.ts::shared::env-context.ts": 1,
+    "apps/app/src/react-app/shell/settings-route-render.tsx::shared::extension-state.ts": 1,
+    "apps/app/src/react-app/shell/settings-route-render.tsx::shared::onmyagent-server-store.ts": 1
+  }
 }

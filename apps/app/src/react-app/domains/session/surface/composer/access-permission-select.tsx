@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Shield, ShieldAlert } from "lucide-react";
+import { Check, ChevronDown, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import type { ComposerAccessMode } from "../../../../../app/types";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,11 @@ const ACCESS_PERMISSION_OPTIONS: AccessPermissionOption[] = [
     value: "default",
     get label() { return t("composer.access_default"); },
     get description() { return t("composer.access_default_desc"); },
+  },
+  {
+    value: "delegate",
+    get label() { return t("composer.access_delegate"); },
+    get description() { return t("composer.access_delegate_desc"); },
   },
   {
     value: "full",
@@ -67,14 +72,22 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
         type="button"
         variant="ghost"
         size="sm"
-        className="max-h-9 max-w-44 shrink min-w-0 px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
+        className={
+          props.value === "full"
+            ? "max-h-9 max-w-44 shrink min-w-0 px-2 text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60"
+            : "max-h-9 max-w-44 shrink min-w-0 px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
+        }
         onClick={() => setOpen((value) => !value)}
         disabled={props.disabled}
         aria-expanded={open}
         aria-haspopup="menu"
         title={selected.label}
       >
-        <Shield size={14} className="shrink-0" />
+        {props.value === "full" ? (
+          <ShieldAlert size={14} className="shrink-0 text-dls-danger" />
+        ) : (
+          <Shield size={14} className="shrink-0" />
+        )}
         <span className="min-w-0 truncate">{selected.label}</span>
         <ChevronDown size={14} className="shrink-0" />
       </Button>
@@ -86,7 +99,12 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
         >
           {ACCESS_PERMISSION_OPTIONS.map((option) => {
             const active = option.value === props.value;
-            const Icon = option.value === "full" ? ShieldAlert : Shield;
+            const Icon =
+              option.value === "full"
+                ? ShieldAlert
+                : option.value === "delegate"
+                  ? ShieldCheck
+                  : Shield;
             return (
               <MenuRowButton
                 key={option.value}
@@ -100,7 +118,14 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                   setOpen(false);
                 }}
               >
-                <Icon size={18} className="mt-0.5 shrink-0 text-dls-secondary" />
+                <Icon
+                  size={16}
+                  className={
+                    option.value === "full"
+                      ? "mt-0.5 shrink-0 text-dls-danger"
+                      : "mt-0.5 shrink-0 text-dls-secondary"
+                  }
+                />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <span>{option.label}</span>

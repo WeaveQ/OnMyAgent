@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { OpenworkServerClient } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../src/app/lib/onmyagent-server";
 import type { WorkspaceInfo } from "../src/app/lib/desktop";
 import { getWorkspaceTaskLoadErrorDisplay } from "../src/app/utils";
 import {
@@ -25,7 +25,7 @@ function workspace(overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo {
   };
 }
 
-function client(overrides: Partial<OpenworkServerClient> = {}): OpenworkServerClient {
+function client(overrides: Partial<OnMyAgentServerClient> = {}): OnMyAgentServerClient {
   return {
     baseUrl: "https://worker.example.com/w/ws_remote",
     token: "ow-token",
@@ -71,7 +71,7 @@ function client(overrides: Partial<OpenworkServerClient> = {}): OpenworkServerCl
       activeId: "ws_remote",
     }),
     ...overrides,
-  } as OpenworkServerClient;
+  } as OnMyAgentServerClient;
 }
 
 function serverError(status: number, code: string, message: string) {

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useState } from "react";
 import { CheckCircle2, Loader2, Mic2, XCircle } from "lucide-react";
@@ -110,7 +111,7 @@ export function OnMyAgentVoiceConfig(props: OnMyAgentVoiceConfigProps) {
           disabled={props.busy || !canSave}
         >
           {props.busy ? (
-            <Loader2 data-icon="inline-start" className="animate-spin" />
+            <LoadingSpinner size="sm" data-icon="inline-start" />
           ) : null}
           Save key
         </Button>

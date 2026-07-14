@@ -4,6 +4,7 @@ import { Cpu } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { SettingsListEmptyState } from "../settings-list";
@@ -72,22 +73,14 @@ export function ExtensionsView(props: ExtensionsViewProps) {
         </Button>
       </div>
 
-      <div className="flex w-fit rounded-xl border border-dls-border bg-dls-surface p-1">
-        <Button
-          variant={view === "my" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setView("my")}
-        >
+      <SegmentedTabGroup className="w-fit">
+        <NavTabButton active={view === "my"} size="tab" shape="tab" onClick={() => setView("my")}>
           My Extensions
-        </Button>
-        <Button
-          variant={view === "marketplace" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setView("marketplace")}
-        >
+        </NavTabButton>
+        <NavTabButton active={view === "marketplace"} size="tab" shape="tab" onClick={() => setView("marketplace")}>
           Marketplace
-        </Button>
-      </div>
+        </NavTabButton>
+      </SegmentedTabGroup>
 
       {view === "my" ? (
         <>

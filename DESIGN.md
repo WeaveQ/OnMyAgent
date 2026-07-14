@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-04
+last-reviewed: 2026-07-11
 
 colors:
   light:
@@ -415,6 +415,8 @@ components:
       - input-group
       - label
       - loading-spinner
+      - message-role
+      - mono-log-box
       - notice-box
       - popover
       - progress
@@ -429,12 +431,14 @@ components:
       - skeleton
       - status-badge
       - status-dot
+      - streaming-cursor
       - switch
       - table
       - tabs
       - textarea
       - toggle
       - toggle-group
+      - tool-approval-card
       - tooltip
   composites:
     location: apps/app/src/react-app/design-system
@@ -444,6 +448,7 @@ components:
       - text-input
       - extension-mesh-avatar
       - provider-icon
+      - modals/confirm-modal
   row-primitives:
     location: apps/app/src/components/ui/action-row.tsx
     list:
@@ -578,14 +583,53 @@ components:
       radius: "{rounded.sm}"                          # 6
       family: "{typography.font-mono}"
       text: "{typography.scale.xs}"                   # 12
-    # --- Notice / empty ---------------------------------------------
+    # --- Shell chrome (§ 4i) ----------------------------------------
+    # NoticeBox — in-page persistent callout (not toast). Padding tracks
+    # runtime `noticeBoxVariants` size slots, NOT hero empty padding.
     notice-box:
       radius: "{rounded.xl}"                          # 14
-      surface: "{colors.surface-muted}"
       border: "{colors.border}"
-      padding-lg: "{spacing.hero-scale.md}"           # 56
-      padding-md: "{spacing.hero-scale.sm}"           # 40
-      padding-sm: "{spacing.hero-scale.xs}"           # 28
+      text: "{typography.scale.xs}"                   # 12 (default / content)
+      text-comfortable: "{typography.scale.sm}"       # 14
+      padding-default: "px-3 py-2"                    # 12 / 8
+      padding-content: "px-4 py-3"                    # 16 / 12
+      padding-comfortable: "px-5 py-4"                # 20 / 16
+      tones: [neutral, info, warning, error]
+    # EmptyStateBox — regional / list empty (dashed). Co-exported from
+    # notice-box.tsx today; contract is independent of NoticeBox pads.
+    empty-state-box:
+      radius: "{rounded.lg}"                          # 10
+      border: "1px dashed {colors.border}"
+      text: "{typography.scale.sm}"                   # 14 (default / comfortable / spacious)
+      text-compact: "{typography.scale.xs}"           # 12
+      padding-compact: "px-3 py-2"
+      padding-default: "px-4 py-10"
+      padding-comfortable: "px-4 py-7"
+      padding-spacious: "px-6 py-14"
+      tones: [muted, surface]                         # muted → surface-muted; surface → surface
+    # Empty compound — full-panel hero empty (§ 4a five slots).
+    empty:
+      radius: "{rounded.xl}"                          # 14
+      border: "1px solid {colors.border}"
+      padding: "{spacing.scale.2xl}"                  # 48 (p-12)
+      title: "{typography.scale.base}/500"            # 16 medium heading
+      body: "{typography.scale.sm}"                   # 14 secondary
+      media-icon: "{spacing.button-heights.chrome}"   # 48 outer / icon xl inside
+    loading-spinner:
+      size-sm: 14                                     # size-3.5
+      size-default: 16                                # size-4
+      border-width: 2
+      tones: [muted, inverse]
+    confirm-modal:
+      radius: "{rounded.xl}"                          # 14 (AlertDialog content)
+      surface: "{colors.surface}"
+      padding: "{spacing.scale.lg}"                   # 24 (p-6)
+      title: "{typography.scale.lg}/500"              # 18
+      body: "{typography.scale.sm}"                   # 14
+      media-size: 64                                  # size-16 rounded-full
+      footer-gap: "{spacing.dialog-footer-gap}"       # 8
+      footer-button-size: lg                          # matches § 4 dialog footer rule
+      variants: [danger, warning]
 
 
 flags:
@@ -619,6 +663,32 @@ flags:
 > When code disagrees with this file, code is wrong — fix the code, not the
 > contract, unless the contract itself is demonstrably outdated (in that
 > case update this file first, then align code).
+
+## Task router (30 seconds)
+
+| You are changing… | Read |
+| --- | --- |
+| Colors, signal, surfaces, artifact hues | YAML `colors` + § 2 |
+| Fonts, type scale, mono | YAML `typography` + § 3 |
+| Buttons, tabs, cards, badges, empty states | § 4 + YAML `components` / `components.contracts` |
+| Loading / disabled / error timing | YAML `state-timings` + § 4a |
+| Toasts / notifications | YAML `notifications` + § 4b |
+| User / assistant / tool / system message chrome | YAML `message-roles` + § 4c |
+| Streaming cursor / partial output | YAML `streaming` + § 4d |
+| Presence / activity dots | YAML `presence` + § 4e |
+| Tool approval surfaces | YAML `tool-approval` + § 4f |
+| Code / diff blocks | § 4g |
+| Session / artifact cards | YAML `artifact-hue` + § 4h |
+| Shell rail, titlebar, composer host density | YAML shell chrome + **§ 4i** |
+| Layout / spacing | YAML `spacing` + § 5 |
+| Keyboard chips (`⌘K`) | YAML `kbd` + § 5a |
+| Elevation / z-index | YAML `z-layers` + § 6 |
+| Radii / shapes (`rounded-full` rules) | YAML `rounded` + § 7–8 |
+| Focus rings / a11y | YAML `focus` + § 9 |
+| CJK / i18n space budget | § 10 |
+| Intentional exceptions | § 11 |
+
+Drift check: `pnpm task check design`. Philosophy narrative only: `docs/design/theme-system.md`. Doc map: `docs/README.md`.
 
 ## 1. Visual Theme
 
@@ -830,8 +900,12 @@ buttons are `size="lg"`, right-aligned, with `gap-2`.
 
 **Empty states**
 
-Use the `Empty` primitive. Compact hero heading is `text-4xl`; description
-is `text-sm text-dls-text-secondary`.
+Dual-track — see § 4i. Regional / list empties use `EmptyStateBox`
+(dashed). Full-panel hero empties use the `Empty` compound
+(`Empty` + `EmptyHeader` / `EmptyMedia` / `EmptyTitle` /
+`EmptyDescription` / `EmptyContent`) and follow § 4a five-slot anatomy.
+Description is always `text-sm text-dls-text-secondary`. Do not hand-write
+page-level `border-dashed` blocks.
 
 **Status**
 
@@ -1222,6 +1296,95 @@ declares only the mapping.
 on toasts, buttons, status dots, tool cards, or any surface outside
 `ArtifactCard`. See § 11 Intentional Exceptions.
 
+## 4i. Shell Chrome
+
+Workbench hygiene primitives — not brand-identity signatures
+(§ 4 Signature Components / §§ 4c–4h). Agents reach for these instead
+of inventing third paths. Machine targets live in YAML
+`components.contracts` under `notice-box`, `empty-state-box`, `empty`,
+`loading-spinner`, and `confirm-modal`. Preview catalog:
+`docs/design/preview.html` section **Shell · DESIGN § 4i**.
+
+### When to use which
+
+| Need | Canonical | Do not |
+| --- | --- | --- |
+| List / table / card-grid empty | `EmptyStateBox` | Long hand-written `border-dashed` blocks |
+| Full main-panel empty | `Empty` compound (§ 4a five slots) | Nesting `EmptyStateBox` as a fake page hero without slots |
+| In-page persistent callout | `NoticeBox` | Toast for sticky form/page state; ad-hoc tinted borders |
+| Ephemeral feedback | Toast (§ 4b) | `NoticeBox` that auto-dismisses |
+| Short indeterminate busy | `LoadingSpinner` | Bare `Loader2 className="animate-spin"` in page JSX |
+| Destructive / irreversible confirm | `ConfirmModal` | Ad-hoc `Dialog` footers for delete/reset |
+
+### `EmptyStateBox`
+
+Runtime: `components/ui/notice-box.tsx` (`EmptyStateBox`).
+
+- **Shape.** `rounded-lg` (10), `border border-dashed border-dls-border`,
+  centered text. Tones: `muted` → `bg-dls-surface-muted`, `surface` →
+  `bg-dls-surface`.
+- **Sizes.** `compact` | `default` | `comfortable` | `spacious` — see
+  YAML `empty-state-box` padding slots. Prefer `compact` inside dense
+  matrices; `spacious` only when the box owns a full content column.
+- **CTA.** At most one primary CTA (optional secondary outline). Do not
+  stack three equal-weight buttons.
+- **Slots.** Children-only bag today — put icon + title + body + CTA
+  inside. Do not reimplement the dashed chrome in page CSS.
+
+### `Empty` compound
+
+Runtime: `components/ui/empty.tsx`.
+
+- **Shape.** `rounded-xl` (14), solid `border-border`, `p-12`, flex
+  column center — full-panel hero, not a dashed inset.
+- **Slots.** `EmptyHeader` / `EmptyMedia` / `EmptyTitle` /
+  `EmptyDescription` / `EmptyContent`. Missing slots collapse; do not
+  fill with filler. Aligns with § 4a anatomy (icon, heading, body,
+  primary CTA, secondary action).
+- **Title.** `font-heading text-base font-medium` by default on the
+  primitive. Full-viewport marketing empties may step up one type
+  tier; do not invent a third empty chrome.
+
+### `NoticeBox`
+
+Runtime: `components/ui/notice-box.tsx` (`NoticeBox`).
+
+- **Shape.** `rounded-xl` (14), `border`, size-driven padding/text
+  (YAML `notice-box`). Not hero padding — never reuse
+  `spacing.hero-scale` here.
+- **Tones.** `neutral` | `info` | `warning` | `error` with matching
+  soft border/background tokens. Copy stays short; long remediation
+  belongs in help docs or a dedicated error surface.
+- **vs Toast.** Notice is sticky in the content flow until the
+  condition clears. Toast is corner-stacked and time-bounded (§ 4b).
+  Never use Notice for "Saved" flashes; never use Toast for
+  "permission required before you can continue" gates.
+
+### `LoadingSpinner`
+
+Runtime: `components/ui/loading-spinner.tsx`.
+
+- **Sizes.** `sm` = 14 px, `default` = 16 px. Border 2 px; spin via
+  `animate-spin`. Respect `prefers-reduced-motion` (static ring).
+- **Tones.** `muted` (default on light chrome), `inverse` (on solid
+  primary / danger buttons).
+- **Timing.** Only for § 4a **short indeterminate** band
+  (`instant-ms`–`short-ms`). Longer work → `Skeleton` or `Progress`.
+
+### `ConfirmModal`
+
+Runtime: `design-system/modals/confirm-modal.tsx` (wraps `AlertDialog`).
+
+- **Variants.** `danger` (destructive confirm button) | `warning`
+  (non-destructive but irreversible / reset). Cancel is `outline`.
+- **Media.** `AlertDialogMedia` default: `size-16` (64),
+  `rounded-full`, soft status fill (`danger-soft` / `warning-soft`).
+  Do not invent a second square-tile media style in pages or preview.
+- **Footer.** Buttons `size="lg"`, right-aligned, `gap-2` — same rule
+  as § 4 Dialog footers.
+- **Copy.** Title is the decision; body is one or two sentences of
+  consequence. Confirm label is a verb (`Delete`, `Reset`), not `OK`.
+
 ## 5. Layout
 
 ### Shell Composition
@@ -1480,6 +1643,11 @@ that look.
 - Use `dls-*` semantic tokens for color and typography.
 - Reuse the atom / composite / row primitives above; extend a variant
   before adding a page-level override.
+- Follow the **canonical primitive table** in
+  `docs/design/theme-system.md` and **§ 4i Shell Chrome**
+  (EmptyStateBox / Empty dual-track, NoticeBox, LoadingSpinner,
+  ConfirmModal, plus SegmentedTabGroup, Input/InputGroup,
+  ToolApprovalCard, StreamingCursor, formatShortcut).
 - Give primary decisions visual weight: solid `--ow-primary`, white text,
   `size="lg"` on dialog footers.
 - Add `mac:titlebar-no-drag` to any interactive control inside macOS
@@ -1509,6 +1677,10 @@ that look.
   only shrink.
 - Do not compose raw `<input>` / `<button>` / `<div>` styled to look like
   primitives. Reach for the atom.
+- Do not hand-write segmented tab tracks (`inline-flex rounded-xl … p-1`
+  around tab buttons). Use `SegmentedTabGroup`.
+- Do not add new bare `Loader2 animate-spin` in page JSX; use
+  `LoadingSpinner`.
 - Do not force menu rows or nav tabs into the standard `Button` sizing;
   use the row primitives.
 - Do not remove or "clean up" `mac:titlebar-no-drag` — its presence is
@@ -1739,6 +1911,19 @@ in dedicated registry files, not in ordinary JSX:
   only `rounded-full` allowed inside the workbench chrome. Do not
   extract this shape into a generic `Button` variant, and do not
   re-derive circular CTAs elsewhere.
+- **Expert marketplace grid** — `StorePage` / expert marketplace cards
+  may use avatar-forward card grids, soft category chips, and denser
+  marketing-adjacent card rhythm. This is a deliberate **marketplace
+  dialect** separate from the dense workbench. It still uses `dls-*`
+  surfaces and borders; do not copy marketplace card density into
+  session / manage / settings surfaces.
+- **Composer host policy** — `SessionSurface` (global assistant
+  composer) mounts only on chat host views (`activeSidebarView` is
+  `chat` or `assistant`) in `assistant.tsx` / `expert.tsx`. Local ACP
+  chat uses `PersonalLocalAgentPage` + `LocalAgentDraftComposer` and
+  must never stack the global composer. Manage / files / market /
+  devices / channels / billing never host a composer. Violating this
+  reintroduces the dual-composer / chrome-leak regression.
 
 If a scan hit does not match one of these, prefer moving it to a `dls-*`
 token, a shared variant, or a named local class map before leaving it in
@@ -1806,9 +1991,8 @@ primitive" rule.
 
 **The extension workflow.** For any non-trivial DESIGN.md change:
 
-1. Write a plan doc: `docs/plans/YYYY-MM-DD-NNN-feat-design-md-vN-plan.md`.
-   Use the compound-engineering `ce-plan` skill; v1, v2, and v3 plans
-   under `docs/plans/` are worked examples.
+1. Optional local plan under `.loop/plans/` (gitignored). Do **not** commit
+   plan ledgers under `docs/plans/` or `docs/archive/` (also gitignored).
 2. Update `DESIGN.md` — YAML front matter first, then the narrative
    section that consumes it. Keep the two in lockstep so
    `extract-tokens.mjs` can diff cleanly.
@@ -1864,9 +2048,10 @@ should surface a proposal rather than invent silently.
 - **Marketing / landing surface.** No marketing surface exists in
   scope; `apps/web/*` and any future landing pages are out of this
   contract.
-- **Domain composites v2 catalog.** Expansion beyond the 5 existing
-  composites is a `frontend-primitive-refactor` skill task, not a
-  DESIGN.md task.
+- **Domain composites v2 catalog.** Expansion beyond the listed
+  composites (incl. `modals/confirm-modal`) is a
+  `frontend-primitive-refactor` skill task, not a DESIGN.md task.
+  Shell chrome contracts themselves ship in § 4i.
 - **Animation choreography.** Sequenced multi-element transitions,
   interruptible timelines, and stagger patterns beyond
   duration/easing tokens are agent-local decisions.
@@ -1874,11 +2059,14 @@ should surface a proposal rather than invent silently.
   variants in § 10 for future-proofing; not currently enforced by a
   hard flag because system-frame titlebars on non-macOS do not steal
   clicks the way `hiddenInset` does.
-- **Runtime helper implementations.** DESIGN.md declares contracts,
-  not React primitives. `StreamingCursor` (§ 4d), `ToolApprovalCard`
-  (§ 4f), `formatShortcut()` platform substitution helper (§ 5a),
-  and tool-risk classifier metadata plumbing are runtime alignment
-  work that consumes v5 tokens but is not authored here.
+- **Runtime helper implementations.** First landings exist:
+  `StreamingCursor` (`components/ui/streaming-cursor.tsx`, used from
+  markdown streaming), `ToolApprovalCard`
+  (`components/ui/tool-approval-card.tsx`, permission panel + local
+  agent approvals), `formatShortcut()` (`lib/format-shortcut.ts`),
+  and shared `MessageRoleRow` chrome (`components/ui/message-role.tsx`).
+  Broader session-permission modal restyle and full seven-role coverage
+  across every transcript path remain follow-up.
 
 Closing a gap is documented in § 13 Iteration Guide — plan doc,
 YAML + narrative update, extractor extension, preview HTML, cross-doc

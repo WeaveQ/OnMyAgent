@@ -8,12 +8,14 @@ export {
   shouldAutoOpenTarget,
 } from "./artifacts/open-target";
 export { useSessionControlActions } from "./control/session-control-actions";
-export { ModelPickerModal, readHiddenModels } from "./modals/model-picker-modal";
+export { ModelPickerModal } from "./modals/model-picker-modal";
+export { readHiddenModels } from "./sync/hidden-models-store";
 export type { ModelPickerModalProps } from "./modals/model-picker-modal";
 export {
   SessionPage,
   type PageMode,
   type SessionAgentManagementIntent,
+  type SessionPageSurfaceProps,
 } from "./pages";
 export {
   MAX_SESSIONS_PREVIEW,
@@ -70,5 +72,5 @@ export {
 export {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
-} from "./components/shared-pages/automation-session-groups";
-export { OpenCodeProviderConfigDialog } from "./components/shared-pages/agent-management-providers";
+} from "../messaging/automation-session-groups";
+export { OpenCodeProviderConfigDialog } from "../local-agents";

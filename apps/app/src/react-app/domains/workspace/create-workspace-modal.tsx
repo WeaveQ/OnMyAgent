@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import {
   useCallback,
@@ -39,14 +40,14 @@ import {
   type CreateWorkspaceLocalState,
 } from "./create-workspace-modal-state";
 import { CreateWorkspaceSharedPanel } from "./create-workspace-shared-panel";
-import { modalBodyClass, tagClass } from "../shared/modal-styles";
-import { WorkspaceOptionCard } from "../shared/workspace-option-card";
+import { modalBodyClass, tagClass } from "../../design-system/modal-styles";
+import { WorkspaceOptionCard } from "./workspace-option-card";
 import { RemoteWorkspaceFields } from "./remote-workspace-fields";
 import type {
   CreateWorkspaceModalProps,
   CreateWorkspaceScreen,
   RemoteWorkspaceInput,
-} from "../shared/workspace-modal-types";
+} from "./workspace-modal-types";
 
 function workerStatusMeta(status: string) {
   const normalized = status.trim().toLowerCase();
@@ -529,7 +530,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                   >
                     {props.importingConfig ? (
                       <span className="inline-flex items-center gap-2">
-                        <Loader2 size={14} className="animate-spin" />
+                        <LoadingSpinner size="sm" />
                         {t("dashboard.importing")}
                       </span>
                     ) : (
@@ -612,7 +613,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                 >
                   {remoteSubmitting ? (
                     <span className="inline-flex items-center gap-2">
-                      <Loader2 size={16} className="animate-spin" />
+                      <LoadingSpinner size="default" />
                       {t("dashboard.connecting")}
                     </span>
                   ) : (

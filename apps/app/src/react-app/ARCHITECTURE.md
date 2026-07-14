@@ -4,48 +4,70 @@ This document captures the domain-based layout for the React runtime in
 `apps/app`. React is the sole UI runtime; the previous Solid runtime and its
 migration shims have been removed.
 
+Monorepo-level architecture, command surface, and package boundaries live in
+`docs/Architecture.md`. This file is the source of truth for UI domains only.
+
 ## Top-level layout
 
 ```text
 src/react-app/
-├── shell/                     App bootstrap, providers composition, startup effects
+├── shell/                     App bootstrap, providers, route frames (orchestration only)
 ├── kernel/                    App-wide state + provider contracts
-├── infra/                     React-only runtime infra
-├── design-system/             Reusable presentational primitives + small modal primitives
+├── infra/                     React-only runtime infra (e.g. QueryClient)
+├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
 └── domains/                   Feature-scoped code, one folder per product domain
-    ├── session/               Route frame + surface + sync + sidebar + voice
-    │   ├── chat/              Composer, question/permission surfaces
-    │   ├── surface/           Transcript, markdown, tool-call, debug panel
-    │   ├── sync/              Session state plumbing (store, runtime, chat adapter)
-    │   └── modals/            Model picker, question, rename-session
-    ├── workspace/             Create + share + rename workspace flows
-    ├── settings/
-    │   ├── state/             Settings-scoped hooks/providers
-    │   ├── pages/             Plugins, extensions, config, agents, ... (tab bodies)
-    │   └── modals/            Reset modal, ...
-    ├── connections/
-    │   └── modals/            Add-MCP, provider auth, ...
-    ├── agents/                Agent registry + personal local agent pages
+    ├── session/               Live conversation runtime (transcript, composer, sync, goal)
+    │   ├── chat/              Host pages + light panels (incl. personal-local-agent host)
+    │   ├── surface/           Transcript, composer, plan-goal helpers, markdown
+    │   ├── sync/              Session state plumbing
+    │   ├── components/        Session-local UI (permission modal, status bar, …)
+    │   │   └── shared-pages/  TRANSITIONAL re-exports + residual workbench panels
+    │   ├── voice/ browser/ infinite-canvas/ skills-marketplace/ expert-marketplace/
+    │   └── modals/
+    ├── local-agents/          ACP / local agent editors, cards, agent-management
+    ├── messaging/             Automations + Feishu/Weixin channel panels
+    ├── agents/                Agent registry UI + personal agent pages
+    ├── plugins/               Skills catalog / plugins / connectors pages
+    ├── workspace/             Create + share + rename + workspace files
+    ├── settings/              Settings shell + tab bodies under pages/
+    ├── connections/           MCP + provider auth (canonical owner)
     ├── cloud/                 Den auth + restrictions + org onboarding
-    ├── plugins/               Skills catalog
-    ├── shared/                Cross-domain utilities and shared state
-    └── shell-feedback/        Status toasts, reload banner, top-right notifications
+    ├── shell-feedback/        Reload banner, toasts, top-right notifications
+    └── shared/                Cross-domain infra only (see below)
 ```
+
+**`domains/plugins/`** owns the skills/plugins UI implementation (`plugins-page.tsx`,
+`skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts`). Import via
+`domains/plugins` barrel.
+
+**`domains/local-agents/`** ships a domain-level `index.ts` barrel. Session host pages
+and re-exports import via the barrel; reverse edges into session remain whitelisted.
+
+Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` § 4 / § 4i).
 
 ## Why domains
 
 Domain ownership gives every feature one obvious home.
 
-- `session/` owns everything the session route renders, including the state layer under `sync/`.
-- `workspace/` owns every workspace-modal flow, so create/share/rename live together.
-- `settings/` owns settings state, the full settings shell, and each tab body as a stateless page under `pages/`.
-- `connections/` owns MCP and provider auth UI.
-- `agents/` owns the local-agent registry, agent management, and provider adapters.
-- `cloud/` owns organization and authentication flows.
-- `plugins/` owns skill discovery, installation, and management.
-- `shell-feedback/` owns toasts and notifications that the shell shows on top of everything.
+- `session/` owns the **live conversation runtime** (surface, sync, composer, voice, goal
+  lifecycle). It must not re-absorb agent management or messaging channels.
+- `local-agents/` owns local/ACP agent edit, cards, messages UI, and
+  `agent-management/` pages.
+- `messaging/` owns automation pages and messaging channel panels (Feishu, Weixin, pairing).
+- `agents/` owns registry-facing agent pages and selection UX.
+- `plugins/` owns skills catalog and plugins/connectors pages.
+- `workspace/` owns every workspace-modal flow and workspace files page.
+- `settings/` owns settings state, shell, and tab bodies under `pages/`.
+- `connections/` owns MCP and provider auth UI (**canonical**).
+- `cloud/` owns organization and Den authentication flows.
+- `shell-feedback/` owns reload banners, status toasts, and top-right notification chrome.
+- `shared/` is **infra only** (env/extension/desktop-config/server-store + thin re-exports).
+  Product features must not land here.
 
-Cross-domain imports go through module boundaries, not a shared blob.
+Cross-domain imports go through domain public entrypoints (`domains/<name>/index.ts`
+where present) or explicit paths — not a growing shared blob. Historical cross-domain
+edges are frozen in `scripts/checks/check-boundaries.mjs` `allowedDomainImports`
+(shrink-only).
 
 ## Data flow
 
@@ -70,30 +92,93 @@ Cross-domain imports go through module boundaries, not a shared blob.
 │               react-app/shell/app-root.tsx                 │  Route root
 └────────────────────────────────────────────────────────────┘
                               │
-           ┌──────────────────┼──────────────────┐
-           ▼                  ▼                  ▼
-   domains/session     domains/workspace   domains/settings
-           │                  │                  │
-           ▼                  ▼                  ▼
-  surface/, sync/,    create-/share-/     pages/ (plugins,
-   chat/, modals/     rename-*.tsx        config, agents, ...),
-                                           modals/, state/
+     ┌──────────────┬─────────┼──────────┬──────────────┐
+     ▼              ▼         ▼          ▼              ▼
+ domains/session  workspace  settings  messaging   local-agents
+ (surface/sync/   create/    pages/    automation/  management/
+  chat/goal)      share/     state/    channels     cards/ACP
+                  files
 ```
 
 ## State ownership
 
-- `react-app/kernel/store.ts`: Zustand store, the single app-wide state container.
-  Domain selectors in `kernel/selectors.ts`.
-- `react-app/kernel/{server,global-sdk,global-sync,local}-provider.tsx`: React context
-  providers for server connection, SDK, sync, and local runtime.
-- `react-app/kernel/platform.tsx`: `PlatformProvider` + `createDefaultPlatform()` helper
-  (Electron-vs-web).
-- `react-app/kernel/system-state.ts`: `useSystemState()` for reload + reset modal state.
-- `react-app/kernel/model-config.ts`: framework-agnostic model parse/serialize helpers plus
-  `useDefaultModel()`.
+### Decision table (where new state goes)
+
+| Kind of data | Put it in | Do not |
+| --- | --- | --- |
+| Workspace / session identity | URL params (`workspaceId`, `sessionId`) | App-global “current session” as source of truth |
+| Server lists, caches, refetch | TanStack Query (`infra/query-client.ts`) | Duplicating the same list in Zustand |
+| Connection / SDK / local runtime | `kernel/*-provider.tsx` | New top-level providers without updating `shell/providers.tsx` |
+| Feature UI ephemeral (drawer open, draft text) | Domain store or local `useState` | Kernel store |
+| Cross-route user prefs | One named domain store + explicit storage key | Ad-hoc `localStorage` in page JSX |
+| App-wide rare flags | `kernel/store.ts` (keep thin) | Growing kernel into a god store |
+| Goal runtime (pursue goal) | Session-scoped stores under `session/` keyed by `sessionId` / `draft:<workspaceId>` | Workspace-global goal state |
+
+### Existing homes
+
+- `react-app/kernel/store.ts`: thin Zustand app-wide container; selectors in `kernel/selectors.ts`.
+- `react-app/kernel/{server,global-sdk,global-sync,local}-provider.tsx`: server, SDK, sync, local runtime.
+- `react-app/kernel/platform.tsx`: `PlatformProvider` + `createDefaultPlatform()` (Electron vs web).
+- `react-app/kernel/system-state.ts`: reload + reset modal state.
+- `react-app/kernel/model-config.ts`: model parse/serialize + `useDefaultModel()`.
 - `react-app/infra/query-client.ts`: TanStack Query singleton.
-- Feature-specific state that is tightly coupled to one domain lives inside that domain
-  (`domains/session/sync/`, `domains/settings/state/`).
+- Domain stores: `session/sync/*`, `settings/state/*`, `connections/*`, etc.
+
+## `shared/` contents (current)
+
+`domains/shared/` is **not** a product domain. Physical contents today:
+
+| Path | Role |
+| --- | --- |
+| `env-context.ts` | OnMyAgent/env system context helpers |
+| `extension-state.ts` | Extension enable/hide flags |
+| `desktop-config-context.ts` | Desktop config context |
+| `onmyagent-server-store.ts` | Local server connection store |
+| `onmyagent-den-help-link.tsx` | Den help link composite |
+| `index.ts` | Infra exports + thin re-exports of session-identity helpers from `agents/` |
+
+Do not add product pages, modals, or registries here.
+
+### Historical migration (done; keep for archaeology)
+
+| Former home under `shared/` | Current owner |
+| --- | --- |
+| status toasts | `shell-feedback/` |
+| MCP / provider auth modals | `connections/` |
+| workspace create/share modals | `workspace/` |
+| plugins-page / skills-catalog / skill-scope | `plugins/` |
+| agent-registry / pending-agent / agent-session-state | `agents/` |
+
+### `session/components/shared-pages/` migration map
+
+| Current area | Target | Phase |
+| --- | --- | --- |
+| `agent-management-*` | **`local-agents/agent-management/`** (moved) | Done; import from `domains/local-agents` |
+| `automation-*`, channel panels | **`messaging/`** (moved) | Done; import from `domains/messaging` |
+| `workspace-files-page.tsx` | **`workspace/`** (moved) | Done; import from `domains/workspace` |
+| Conversation lists / true session chrome | stay in `session/` | — |
+
+Import these pages from the owning domain barrel, not from `shared-pages`.
+
+## Session goal lifecycle
+
+Behavior lives in code under `session/surface/` and related composer modules.
+Temporary design notes / execution plans stay in local `.loop/` only (not under `docs/`).
+
+Summary for implementers:
+
+- Collaboration mode shape stays `{ planning, pursueGoal }`; goal mode is `pursueGoal: true`.
+- Goal preview shows before first send; first send creates session-scoped goal runtime.
+- Pause / resume / clear affect only the current `sessionId` (draft key migrates on create).
+- Goal and planning runtimes are mutually exclusive in the UI.
+
+## File size / route rules (engineering)
+
+- **Routes** (`shell/*-route.tsx`): orchestration only — URL, panel switch, context wiring.
+  No plan-text parsing, no large presentational trees.
+- **New modules**: prefer ≤400 lines. Stock god files shrink by extraction, not rewrite.
+- **UI primitives**: `components/ui/*` atoms + `design-system/*` composites; shell chrome contracts in `DESIGN.md` § 4i.
+- Prefer `@/` imports over deep `../../../` chains when adding new files.
 
 ## Active workspace and session
 
@@ -143,3 +228,33 @@ tree when a domain-scoped import path is clearer:
 - `app/lib/*` (opencode, desktop, onmyagent-server, ...) — consumed directly by React.
 - `app/types.ts`, `app/constants.ts`, `app/theme.ts`, `app/utils/*` — shared utilities.
 - `app/session/composer-tools.ts` — shared session helpers.
+
+## Route entry rule (enforced)
+
+- `shell/session-route.tsx` and `shell/settings-route.tsx` must stay thin re-exports
+  (implementation in `*-route-render.tsx`). Guard: `node scripts/checks/architecture-paths.mjs`.
+
+## Domain README template
+
+When adding `domains/<name>/README.md`, use:
+
+```markdown
+# domains/<name>
+
+One-line purpose.
+
+## Ownership
+- Owns …
+- Does not own …
+
+## Public surface
+- Prefer `./index.ts` barrel. Note if no barrel yet.
+
+## Lateral dependencies
+- Allowed: …
+- Forbidden: …
+
+## Do not
+- Product features in `domains/shared`
+- Import `shell/*` from a domain
+```

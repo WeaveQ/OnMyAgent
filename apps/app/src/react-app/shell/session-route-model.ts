@@ -1,5 +1,5 @@
 import type { LocalUser } from "../../app/lib/local-auth";
-import type { OpenworkWorkspaceInfo } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentWorkspaceInfo } from "../../app/lib/onmyagent-server";
 import type { WorkspaceInfo } from "../../app/lib/desktop";
 import type {
   SidebarSessionItem,
@@ -9,7 +9,7 @@ import type {
 import { normalizeDirectoryPath, safeStringify } from "../../app/utils";
 import { t } from "../../i18n";
 
-export type RouteWorkspace = OpenworkWorkspaceInfo & {
+export type RouteWorkspace = OnMyAgentWorkspaceInfo & {
   displayNameResolved: string;
 };
 
@@ -60,7 +60,7 @@ export function isTransientStartupError(message: string | null | undefined) {
   );
 }
 
-export function workspaceLabel(workspace: OpenworkWorkspaceInfo) {
+export function workspaceLabel(workspace: OnMyAgentWorkspaceInfo) {
   return (
     workspace.displayName?.trim() ||
     workspace.onmyagentWorkspaceName?.trim() ||
@@ -70,7 +70,7 @@ export function workspaceLabel(workspace: OpenworkWorkspaceInfo) {
   );
 }
 
-export function workspaceEditableTitle(workspace: OpenworkWorkspaceInfo) {
+export function workspaceEditableTitle(workspace: OnMyAgentWorkspaceInfo) {
   return (
     workspace.displayName?.trim() ||
     workspace.name?.trim() ||
@@ -79,18 +79,18 @@ export function workspaceEditableTitle(workspace: OpenworkWorkspaceInfo) {
   );
 }
 
-export function workspaceRevealPath(workspace: OpenworkWorkspaceInfo | null | undefined) {
+export function workspaceRevealPath(workspace: OnMyAgentWorkspaceInfo | null | undefined) {
   return workspace?.path?.trim() || "";
 }
 
-export function findRouteWorkspace<TWorkspace extends OpenworkWorkspaceInfo>(
+export function findRouteWorkspace<TWorkspace extends OnMyAgentWorkspaceInfo>(
   workspaces: TWorkspace[],
   workspaceId: string,
 ) {
   return workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
 }
 
-export function canCreateTaskInRouteWorkspace<TWorkspace extends OpenworkWorkspaceInfo>(input: {
+export function canCreateTaskInRouteWorkspace<TWorkspace extends OnMyAgentWorkspaceInfo>(input: {
   workspaces: TWorkspace[];
   workspaceId: string;
   loading: boolean;
@@ -439,7 +439,7 @@ export function buildSelectedWorkspaceRouteState(input: {
 }
 
 export function mergeRouteWorkspaces(
-  serverWorkspaces: OpenworkWorkspaceInfo[],
+  serverWorkspaces: OnMyAgentWorkspaceInfo[],
   desktopWorkspaces: RouteWorkspace[],
 ): RouteWorkspace[] {
   const desktopById = new Map(
@@ -573,7 +573,7 @@ export function resolveRouteRefreshErrorSelectedWorkspace(input: {
 }
 
 export function buildConnectedRouteRefreshPlan(input: {
-  serverWorkspaces: OpenworkWorkspaceInfo[];
+  serverWorkspaces: OnMyAgentWorkspaceInfo[];
   desktopWorkspaces: RouteWorkspace[];
   workspaceOrderIds: string[];
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { OpenworkWorkspaceFileCatalogEntry } from "../src/app/lib/onmyagent-server";
+import type { OnMyAgentWorkspaceFileCatalogEntry } from "../src/app/lib/onmyagent-server";
 import {
   buildFileHierarchy,
   buildWorkspaceFileTree,
@@ -12,7 +12,7 @@ import {
   workspaceNameFromRoot,
 } from "../src/react-app/domains/session/chat/session-page-files-model";
 
-function entry(path: string, kind: "file" | "dir" = "file", size = 100): OpenworkWorkspaceFileCatalogEntry {
+function entry(path: string, kind: "file" | "dir" = "file", size = 100): OnMyAgentWorkspaceFileCatalogEntry {
   return { path, kind, size, mtimeMs: 1000 };
 }
 

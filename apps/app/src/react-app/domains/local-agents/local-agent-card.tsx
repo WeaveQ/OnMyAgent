@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { memo } from "react";
 import { Bot, KeyRound, Loader2, Settings2, Wifi } from "lucide-react";
@@ -84,7 +85,7 @@ export const LocalAgentCard = memo(function LocalAgentCard(props: LocalAgentCard
           disabled={props.testing}
           title={t("local_agent.test_connection")}
         >
-          {props.testing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Wifi className="mr-1.5 size-3.5" />}
+          {props.testing ? <LoadingSpinner size="sm" className="mr-1.5" /> : <Wifi className="mr-1.5 size-3.5" />}
           {t("local_agent.test_connection")}
         </Button>
         <Button

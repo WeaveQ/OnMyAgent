@@ -35,13 +35,10 @@ export {
 } from "./side-panel-pages";
 export type { StorePrimaryTab } from "./side-panel-pages";
 
-export { AgentManagementPage } from "./agent-management-page";
-export { WorkspaceFilesPage } from "./workspace-files-page";
-export { MessagingChannelsPage } from "./messaging-channels-page";
 export { EmptyArtifactsPanel } from "./empty-artifacts-panel";
 export { AgentConversationPanel } from "./agent-conversation-panel";
+export { SidebarPaneCollapseToggle } from "./sidebar-pane-collapse-toggle";
 export { AgentSessionTabs } from "./agent-session-tabs";
-export { AutomationPage } from "./automation-page";
 
 export {
   ResizableHandle,

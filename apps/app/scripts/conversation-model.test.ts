@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   addAssistantSession,
   addExpertSession,
-} from "../src/react-app/domains/shared/agent-session-state";
-import type { AgentRegistry } from "../src/react-app/domains/shared/agent-registry-types";
+} from "../src/react-app/domains/agents/agent-session-state";
+import type { AgentRegistry } from "../src/react-app/domains/agents/agent-registry-types";
 import {
   buildAgentConversationGroups,
   buildAgentStarterItems,
@@ -13,7 +13,7 @@ import {
   writeAssistantPinnedSessionIds,
   writeCustomAgentIdForSession,
 } from "../src/react-app/domains/session/components/shared-pages/conversation-model";
-import { createDefaultAgentRegistry } from "../src/react-app/domains/shared/agent-default-registry";
+import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -156,6 +156,7 @@ describe("conversation model agent groups", () => {
     const starters = buildAgentStarterItems(createDefaultAgentRegistry());
 
     expect(starters.map((item) => item.agentId)).toEqual(["daily-assistant"]);
-    expect(starters[0]?.name).toBe("日常助手");
+    // Name comes from i18n; locale under bun tests may be en or zh.
+    expect(["日常助手", "Daily assistant"]).toContain(starters[0]?.name);
   });
 });

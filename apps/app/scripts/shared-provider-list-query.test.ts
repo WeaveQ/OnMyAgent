@@ -6,7 +6,7 @@ import {
   getConnectedProviderSnapshot,
   isModelAvailableInConnectedProviders,
   providerListQueryKey,
-} from "../src/react-app/domains/shared/provider-list-query";
+} from "../src/react-app/domains/connections/provider-list-query";
 
 describe("shared provider list query contract", () => {
   const providerList = {

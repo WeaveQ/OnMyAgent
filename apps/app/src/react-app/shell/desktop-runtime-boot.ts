@@ -13,15 +13,15 @@ import {
   workspaceSetRuntimeActive,
   workspaceSetSelected,
   type EngineInfo,
-  type OpenworkServerInfo,
+  type OnMyAgentServerInfo,
   type WorkspaceInfo,
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import { ingestMigrationSnapshotOnElectronBoot } from "../../app/lib/migration";
 import {
-  hydrateOpenworkServerSettingsFromEnv,
-  readOpenworkServerSettings,
-  writeOpenworkServerSettings,
+  hydrateOnMyAgentServerSettingsFromEnv,
+  readOnMyAgentServerSettings,
+  writeOnMyAgentServerSettings,
 } from "../../app/lib/onmyagent-server";
 import { isDesktopRuntime, isElectronRuntime, safeStringify } from "../../app/utils";
 import { useServer } from "../kernel/server-provider";
@@ -32,7 +32,7 @@ import { useBootState } from "./boot-state";
 // keeps running across the transient unmount.
 let BOOT_STARTED = false;
 
-type BootOpenworkServerInfo = {
+type BootOnMyAgentServerInfo = {
   running?: boolean | null;
   baseUrl?: string | null;
   ownerToken?: string | null;
@@ -42,11 +42,11 @@ type BootOpenworkServerInfo = {
   remoteAccessEnabled?: boolean;
 };
 
-function isOpenworkServerInfoLike(info: unknown): info is BootOpenworkServerInfo {
+function isOnMyAgentServerInfoLike(info: unknown): info is BootOnMyAgentServerInfo {
   return typeof info === "object" && info !== null;
 }
 
-function isOpenworkServerReady(info?: BootOpenworkServerInfo) {
+function isOnMyAgentServerReady(info?: BootOnMyAgentServerInfo) {
   return Boolean(
     info?.running === true &&
       info.baseUrl?.trim() &&
@@ -93,8 +93,8 @@ export function useDesktopRuntimeBoot() {
             console.info(`[migration] hydrated ${hydrated} localStorage keys from legacy desktop snapshot`);
           }
         }
-        hydrateOpenworkServerSettingsFromEnv();
-        const preferredRemoteAccess = readOpenworkServerSettings().remoteAccessEnabled === true;
+        hydrateOnMyAgentServerSettingsFromEnv();
+        const preferredRemoteAccess = readOnMyAgentServerSettings().remoteAccessEnabled === true;
 
         setPhase("bootstrapping-workspaces");
         const list = await workspaceBootstrap().catch(() => null) as WorkspaceList | null;
@@ -128,7 +128,7 @@ export function useDesktopRuntimeBoot() {
             skipped?: boolean;
             error?: string;
             engine?: { baseUrl?: string | null };
-            onmyagentServer?: BootOpenworkServerInfo;
+            onmyagentServer?: BootOnMyAgentServerInfo;
           };
 
           if (boot.ok === false) {
@@ -136,7 +136,7 @@ export function useDesktopRuntimeBoot() {
             return;
           }
 
-          if (!boot.skipped && !isOpenworkServerReady(boot.onmyagentServer)) {
+          if (!boot.skipped && !isOnMyAgentServerReady(boot.onmyagentServer)) {
             setError("OnMyAgent server did not finish starting. Please restart OnMyAgent.");
             return;
           }
@@ -150,10 +150,10 @@ export function useDesktopRuntimeBoot() {
               console.warn("[desktop-boot] onmyagentServerRestart failed:", error);
               return null;
             });
-            if (isOpenworkServerInfoLike(restarted)) serverInfo = restarted;
+            if (isOnMyAgentServerInfoLike(restarted)) serverInfo = restarted;
           }
           if (serverInfo?.baseUrl) {
-            writeOpenworkServerSettings({
+            writeOnMyAgentServerSettings({
               urlOverride: serverInfo.baseUrl,
               token:
                 serverInfo.ownerToken?.trim() ||
@@ -182,9 +182,9 @@ export function useDesktopRuntimeBoot() {
           const engine = await engineInfo() as EngineInfo | null;
           if (engine?.running && engine.baseUrl) {
             setActive(engine.baseUrl);
-            const fresh = await onmyagentServerInfo().catch(() => null) as OpenworkServerInfo | null;
+            const fresh = await onmyagentServerInfo().catch(() => null) as OnMyAgentServerInfo | null;
             if (fresh?.baseUrl) {
-              writeOpenworkServerSettings({
+              writeOnMyAgentServerSettings({
                 urlOverride: fresh.baseUrl,
                 token:
                   fresh.ownerToken?.trim() ||
@@ -231,7 +231,7 @@ export function useDesktopRuntimeBoot() {
         let engineStartResult = await engineStart(workspaceRoot, {
           runtime: "direct",
           workspacePaths: workspacePathsFor(workspaceRoot),
-          onmyagentRemoteAccess: readOpenworkServerSettings().remoteAccessEnabled === true,
+          onmyagentRemoteAccess: readOnMyAgentServerSettings().remoteAccessEnabled === true,
         }).catch((error) => {
           console.warn("[desktop-boot] engineStart failed:", error);
           return null;
@@ -252,7 +252,7 @@ export function useDesktopRuntimeBoot() {
             engineStartResult = await engineStart(fallbackRoot, {
               runtime: "direct",
               workspacePaths: workspacePathsFor(fallbackRoot).filter((path) => path !== workspaceRoot),
-              onmyagentRemoteAccess: readOpenworkServerSettings().remoteAccessEnabled === true,
+              onmyagentRemoteAccess: readOnMyAgentServerSettings().remoteAccessEnabled === true,
             }).catch((error) => {
               console.warn("[desktop-boot] fallback engineStart failed:", error);
               setError(error instanceof Error ? error.message : safeStringify(error));
@@ -272,9 +272,9 @@ export function useDesktopRuntimeBoot() {
             setActive(engineStartResult.baseUrl);
           }
           try {
-            const freshInfo = await onmyagentServerInfo() as OpenworkServerInfo | null;
+            const freshInfo = await onmyagentServerInfo() as OnMyAgentServerInfo | null;
             if (freshInfo?.baseUrl) {
-              writeOpenworkServerSettings({
+              writeOnMyAgentServerSettings({
                 urlOverride: freshInfo.baseUrl,
                 token:
                   freshInfo.ownerToken?.trim() ||

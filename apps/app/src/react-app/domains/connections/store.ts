@@ -22,7 +22,7 @@ import {
   removeMcpFromConfig,
   validateMcpServerName,
 } from "../../../app/mcp";
-import { buildOpenworkWorkspaceBaseUrl } from "../../../app/lib/onmyagent-server";
+import { buildOnMyAgentWorkspaceBaseUrl } from "../../../app/lib/onmyagent-server";
 import type {
   Client,
   McpServerEntry,
@@ -32,7 +32,7 @@ import type {
 } from "../../../app/types";
 import { isDesktopRuntime, normalizeDirectoryPath, safeStringify } from "../../../app/utils";
 
-import type { OpenworkServerStore } from "../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../shared/onmyagent-server-store";
 
 type SetStateAction<T> = T | ((current: T) => T);
 
@@ -82,7 +82,7 @@ export function createConnectionsStore(options: {
   selectedWorkspaceId: () => string;
   selectedWorkspaceRoot: () => string;
   workspaceType: () => "local" | "remote";
-  onmyagentServer: OpenworkServerStore;
+  onmyagentServer: OnMyAgentServerStore;
   runtimeWorkspaceId: () => string | null;
   ensureRuntimeWorkspaceId?: () => Promise<string | null | undefined>;
   setProjectDir?: (value: string) => void;
@@ -149,7 +149,7 @@ export function createConnectionsStore(options: {
     return `${workspaceType}:${workspaceId}:${root}:${runtimeWorkspaceId}`;
   };
 
-  const getOpenworkSnapshot = () => options.onmyagentServer.getSnapshot();
+  const getOnMyAgentSnapshot = () => options.onmyagentServer.getSnapshot();
 
   const filterConfiguredStatuses = (status: McpStatusMap, entries: McpServerEntry[]) => {
     const configured = new Set(entries.map((entry) => entry.name));
@@ -160,16 +160,16 @@ export function createConnectionsStore(options: {
 
   const readMcpConfigFile = async (scope: "project" | "global"): Promise<OpencodeConfigFile | null> => {
     const projectDir = options.projectDir().trim();
-    const onmyagentSnapshot = getOpenworkSnapshot();
+    const onmyagentSnapshot = getOnMyAgentSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
       onmyagentSnapshot.onmyagentServerCapabilities?.config?.read;
 
-    if (canUseOpenworkServer && onmyagentClient && onmyagentWorkspaceId) {
+    if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
       return onmyagentClient.readOpencodeConfigFile(onmyagentWorkspaceId, scope);
     }
 
@@ -186,7 +186,7 @@ export function createConnectionsStore(options: {
       return activeClient;
     }
 
-    const onmyagentSnapshot = getOpenworkSnapshot();
+    const onmyagentSnapshot = getOnMyAgentSnapshot();
     const onmyagentBaseUrl = onmyagentSnapshot.onmyagentServerBaseUrl.trim();
     const token = onmyagentSnapshot.onmyagentServerAuth.token?.trim();
     if (!onmyagentBaseUrl || !token) {
@@ -194,7 +194,7 @@ export function createConnectionsStore(options: {
     }
 
     const mountedBaseUrl =
-      buildOpenworkWorkspaceBaseUrl(onmyagentBaseUrl, options.runtimeWorkspaceId()) ?? onmyagentBaseUrl;
+      buildOnMyAgentWorkspaceBaseUrl(onmyagentBaseUrl, options.runtimeWorkspaceId()) ?? onmyagentBaseUrl;
     activeClient = createClient(`${mountedBaseUrl.replace(/\/+$/, "")}/opencode`, undefined, {
       token,
       mode: "onmyagent",
@@ -203,8 +203,8 @@ export function createConnectionsStore(options: {
     return activeClient;
   };
 
-  const resolveWritableOpenworkTarget = async () => {
-    const onmyagentSnapshot = getOpenworkSnapshot();
+  const resolveWritableOnMyAgentTarget = async () => {
+    const onmyagentSnapshot = getOnMyAgentSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     let onmyagentWorkspaceId = options.runtimeWorkspaceId();
     const onmyagentCapabilities = onmyagentSnapshot.onmyagentServerCapabilities;
@@ -212,7 +212,7 @@ export function createConnectionsStore(options: {
       onmyagentWorkspaceId = (await options.ensureRuntimeWorkspaceId?.()) ?? null;
     }
 
-    const canUseOpenworkServer =
+    const canUseOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       onmyagentClient &&
       onmyagentWorkspaceId &&
@@ -221,7 +221,7 @@ export function createConnectionsStore(options: {
     return {
       onmyagentClient,
       onmyagentWorkspaceId,
-      canUseOpenworkServer: Boolean(canUseOpenworkServer),
+      canUseOnMyAgentServer: Boolean(canUseOnMyAgentServer),
     };
   };
 
@@ -244,14 +244,14 @@ export function createConnectionsStore(options: {
     return resolvedProjectDir;
   };
 
-  const listMcpFromOpenworkServer = async (projectDir: string) => {
-    const onmyagentSnapshot = getOpenworkSnapshot();
+  const listMcpFromOnMyAgentServer = async (projectDir: string) => {
+    const onmyagentSnapshot = getOnMyAgentSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId =
       options.runtimeWorkspaceId()?.trim() ||
       options.selectedWorkspaceId().trim() ||
       ((await options.ensureRuntimeWorkspaceId?.()) ?? "")?.trim();
-    const canTryOpenworkServer =
+    const canTryOnMyAgentServer =
       onmyagentSnapshot.onmyagentServerStatus === "connected" &&
       Boolean(onmyagentClient) &&
       Boolean(onmyagentWorkspaceId) &&
@@ -261,13 +261,13 @@ export function createConnectionsStore(options: {
       workspaceType: options.workspaceType(),
       projectDir: projectDir || null,
       onmyagentStatus: onmyagentSnapshot.onmyagentServerStatus,
-      hasOpenworkClient: Boolean(onmyagentClient),
+      hasOnMyAgentClient: Boolean(onmyagentClient),
       onmyagentWorkspaceId: onmyagentWorkspaceId || null,
       canReadMcp: onmyagentSnapshot.onmyagentServerCapabilities?.mcp?.read ?? null,
-      canTryOpenworkServer,
+      canTryOnMyAgentServer,
     });
 
-    if (!canTryOpenworkServer || !onmyagentClient || !onmyagentWorkspaceId) return null;
+    if (!canTryOnMyAgentServer || !onmyagentClient || !onmyagentWorkspaceId) return null;
 
     const response = await onmyagentClient.listMcp(onmyagentWorkspaceId);
     const next = response.items.map((entry) => ({
@@ -320,7 +320,7 @@ export function createConnectionsStore(options: {
       return command ?? entry.command;
     }
     if (mcpResource?.localCommandRef === "onmyagent.uiMcp" || entry.serverName === "onmyagent-ui") {
-      const command = await resolveDesktopCommand("getOpenworkUiMcpCommand");
+      const command = await resolveDesktopCommand("getOnMyAgentUiMcpCommand");
       return command ?? entry.command;
     }
     return entry.command;
@@ -330,7 +330,7 @@ export function createConnectionsStore(options: {
     if (entry.serverName !== "onmyagent-ui") return undefined;
     try {
       return readStringMap(
-        await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("getOpenworkUiMcpEnvironment"),
+        await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("getOnMyAgentUiMcpEnvironment"),
       );
     } catch {
       // Discovery fallback in onmyagent-ui-mcp still handles normal launches.
@@ -346,7 +346,7 @@ export function createConnectionsStore(options: {
 
     try {
       setStateField("mcpStatus", null);
-      const serverResult = await listMcpFromOpenworkServer(projectDir);
+      const serverResult = await listMcpFromOnMyAgentServer(projectDir);
       if (serverResult) {
         mutateState((current) => ({
           ...current,
@@ -474,7 +474,7 @@ export function createConnectionsStore(options: {
 
   async function connectMcp(entry: McpDirectoryInfo) {
     const startedAt = perfNow();
-    const onmyagentSnapshot = getOpenworkSnapshot();
+    const onmyagentSnapshot = getOnMyAgentSnapshot();
     const isRemoteWorkspace =
       options.workspaceType() === "remote" ||
       (!isDesktopRuntime() && onmyagentSnapshot.onmyagentServerStatus === "connected");
@@ -488,10 +488,10 @@ export function createConnectionsStore(options: {
       projectDir: projectDir || null,
     });
 
-    const { onmyagentClient, onmyagentWorkspaceId, canUseOpenworkServer } =
-      await resolveWritableOpenworkTarget();
+    const { onmyagentClient, onmyagentWorkspaceId, canUseOnMyAgentServer } =
+      await resolveWritableOnMyAgentTarget();
 
-    if (isRemoteWorkspace && !canUseOpenworkServer) {
+    if (isRemoteWorkspace && !canUseOnMyAgentServer) {
       setStateField("mcpStatus", "OnMyAgent server unavailable. MCP config is read-only.");
       finishPerf(options.developerMode(), "mcp.connect", "blocked", startedAt, {
         reason: "onmyagent-server-unavailable",
@@ -499,7 +499,7 @@ export function createConnectionsStore(options: {
       return;
     }
 
-    if (!canUseOpenworkServer && !isDesktopRuntime()) {
+    if (!canUseOnMyAgentServer && !isDesktopRuntime()) {
       setStateField("mcpStatus", t("mcp.desktop_required"));
       finishPerf(options.developerMode(), "mcp.connect", "blocked", startedAt, {
         reason: "desktop-required",
@@ -587,7 +587,7 @@ export function createConnectionsStore(options: {
         }
       }
 
-      if (canUseOpenworkServer && onmyagentClient && onmyagentWorkspaceId) {
+      if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
         await onmyagentClient.addMcp(onmyagentWorkspaceId, {
           name: slug,
           config: mcpEntryConfig,
@@ -629,7 +629,7 @@ export function createConnectionsStore(options: {
         }
       }
 
-      if (canUseOpenworkServer && onmyagentClient && onmyagentWorkspaceId) {
+      if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
         // The OnMyAgent server is the source of truth for workspace-scoped MCP
         // config in the React port. Avoid also calling the OpenCode SDK's MCP
         // hot-add endpoint here: when the SDK client is rooted at the aggregate
@@ -724,21 +724,21 @@ export function createConnectionsStore(options: {
   }
 
   async function logoutMcpAuth(name: string) {
-    const onmyagentSnapshot = getOpenworkSnapshot();
+    const onmyagentSnapshot = getOnMyAgentSnapshot();
     const isRemoteWorkspace =
       options.workspaceType() === "remote" ||
       (!isDesktopRuntime() && onmyagentSnapshot.onmyagentServerStatus === "connected");
     const projectDir = options.projectDir().trim();
 
-    const { onmyagentClient, onmyagentWorkspaceId, canUseOpenworkServer } =
-      await resolveWritableOpenworkTarget();
+    const { onmyagentClient, onmyagentWorkspaceId, canUseOnMyAgentServer } =
+      await resolveWritableOnMyAgentTarget();
 
-    if (isRemoteWorkspace && !canUseOpenworkServer) {
+    if (isRemoteWorkspace && !canUseOnMyAgentServer) {
       setStateField("mcpStatus", "OnMyAgent server unavailable. MCP auth is read-only.");
       return;
     }
 
-    if (!canUseOpenworkServer && !isDesktopRuntime()) {
+    if (!canUseOnMyAgentServer && !isDesktopRuntime()) {
       setStateField("mcpStatus", t("mcp.desktop_required"));
       return;
     }
@@ -759,7 +759,7 @@ export function createConnectionsStore(options: {
     setStateField("mcpStatus", null);
 
     try {
-      if (canUseOpenworkServer && onmyagentClient && onmyagentWorkspaceId) {
+      if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
         await onmyagentClient.logoutMcpAuth(onmyagentWorkspaceId, safeName);
       } else {
         try {
@@ -791,16 +791,16 @@ export function createConnectionsStore(options: {
     try {
       setStateField("mcpStatus", null);
 
-      const onmyagentSnapshot = getOpenworkSnapshot();
+      const onmyagentSnapshot = getOnMyAgentSnapshot();
       const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
       const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-      const canUseOpenworkServer =
+      const canUseOnMyAgentServer =
         onmyagentSnapshot.onmyagentServerStatus === "connected" &&
         onmyagentClient &&
         onmyagentWorkspaceId &&
         onmyagentSnapshot.onmyagentServerCapabilities?.mcp?.write;
 
-      if (canUseOpenworkServer && onmyagentClient && onmyagentWorkspaceId) {
+      if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
         await onmyagentClient.removeMcp(onmyagentWorkspaceId, name);
       } else {
         const projectDir = options.projectDir().trim();
@@ -869,16 +869,16 @@ export function createConnectionsStore(options: {
   // from the existing reload-required popup; no extra banner here.
   async function setMcpEnabled(name: string, enabled: boolean) {
     try {
-      const onmyagentSnapshot = getOpenworkSnapshot();
+      const onmyagentSnapshot = getOnMyAgentSnapshot();
       const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
       const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-      const canUseOpenworkServer =
+      const canUseOnMyAgentServer =
         onmyagentSnapshot.onmyagentServerStatus === "connected" &&
         onmyagentClient &&
         onmyagentWorkspaceId &&
         onmyagentSnapshot.onmyagentServerCapabilities?.mcp?.write;
 
-      if (!canUseOpenworkServer || !onmyagentClient || !onmyagentWorkspaceId) {
+      if (!canUseOnMyAgentServer || !onmyagentClient || !onmyagentWorkspaceId) {
         setStateField("mcpStatus", t("mcp.toggle_requires_server"));
         return;
       }

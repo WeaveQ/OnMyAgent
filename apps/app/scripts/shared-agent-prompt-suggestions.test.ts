@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   AgentPromptSuggestions,
   type PromptSuggestion,
-} from "../src/react-app/domains/shared/agent-prompt-suggestions";
+} from "../src/react-app/domains/agents/agent-prompt-suggestions";
 
 const suggestion = {
   title: "Test",

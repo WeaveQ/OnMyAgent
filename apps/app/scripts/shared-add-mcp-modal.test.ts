@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   AddMcpModal,
   type AddMcpModalProps,
-} from "../src/react-app/domains/shared/add-mcp-modal";
+} from "../src/react-app/domains/connections/add-mcp-modal";
 
 const props = {
   open: true,

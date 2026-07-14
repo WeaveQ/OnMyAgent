@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import type {
-  OpenworkSessionMessage,
-  OpenworkSessionSnapshot,
+  OnMyAgentSessionMessage,
+  OnMyAgentSessionSnapshot,
 } from "../src/app/lib/onmyagent-server";
 import {
   formatConversationTime,
@@ -12,10 +12,10 @@ import {
 
 function message(input: {
   id: string;
-  parts: OpenworkSessionMessage["parts"];
+  parts: OnMyAgentSessionMessage["parts"];
   created?: number;
   completed?: number;
-}): OpenworkSessionMessage {
+}): OnMyAgentSessionMessage {
   return {
     info: {
       id: input.id,
@@ -27,10 +27,10 @@ function message(input: {
       },
     },
     parts: input.parts,
-  } as OpenworkSessionMessage;
+  } as OnMyAgentSessionMessage;
 }
 
-function snapshot(messages: OpenworkSessionMessage[], time = { created: 1_700_000_000, updated: 1_700_000_010 }): OpenworkSessionSnapshot {
+function snapshot(messages: OnMyAgentSessionMessage[], time = { created: 1_700_000_000, updated: 1_700_000_010 }): OnMyAgentSessionSnapshot {
   return {
     session: {
       id: "session-a",
@@ -43,7 +43,7 @@ function snapshot(messages: OpenworkSessionMessage[], time = { created: 1_700_00
     messages,
     todos: [],
     status: { type: "idle" },
-  } as OpenworkSessionSnapshot;
+  } as OnMyAgentSessionSnapshot;
 }
 
 describe("session page conversation model", () => {

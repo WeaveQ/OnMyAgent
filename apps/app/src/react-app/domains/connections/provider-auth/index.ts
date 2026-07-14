@@ -13,12 +13,12 @@ export type {
   ProviderAuthMethod,
   ProviderAuthProvider,
   ProviderOAuthStartResult,
-} from "../../shared/provider-auth-types";
+} from "../../connections/provider-auth-types";
 export type {
   ProviderAuthStoreSnapshot,
   ProviderAuthStore,
 } from "./store";
-export { default as ProviderAuthModal } from "../../shared/provider-auth-modal";
+export { default as ProviderAuthModal } from "../../connections/provider-auth-modal";
 
 const ProviderAuthContext = createContext<ProviderAuthStore | null>(null);
 

@@ -8,8 +8,8 @@ import {
 import {
   isPersonalLocalAgentProvider,
   PROVIDER_LABELS,
-} from "../../local-agents/local-agent-page-model";
-import type { ChatMessage } from "../../local-agents/messages/message-types";
+  type ChatMessage,
+} from "../../local-agents";
 
 export const localAgentTextClass = {
   panelTitle: "text-sm font-medium leading-5 text-dls-text",
@@ -144,7 +144,7 @@ export function placeholderRunFromProcess(process: PersonalLocalAgentProcessReco
     output: "",
     error: null,
     errorInfo: null,
-    events: [{ type: "status", text: "后台运行状态已从主进程恢复。", at: process.updatedAt }],
+    events: [{ type: "status", text: t("local_agent.background_status_restored"), at: process.updatedAt }],
     logPath: null,
     workdir: null,
     conversationId: process.conversationId,

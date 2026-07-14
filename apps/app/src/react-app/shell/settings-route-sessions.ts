@@ -1,4 +1,4 @@
-import type { OpenworkServerClient } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import type { WorkspaceConnectionState } from "../../app/types";
 import { normalizeDirectoryPath } from "../../app/utils";
 import {
@@ -11,13 +11,13 @@ import {
 } from "./settings-route-model";
 
 export type SettingsWorkspaceSessionState = {
-  serverList: Awaited<ReturnType<OpenworkServerClient["listWorkspaces"]>>;
+  serverList: Awaited<ReturnType<OnMyAgentServerClient["listWorkspaces"]>>;
   sessionEntries: SettingsWorkspaceSessionEntry[];
   workspaces: RouteWorkspace[];
 };
 
 export async function loadSettingsWorkspaceSessionState(input: {
-  client: Pick<OpenworkServerClient, "listWorkspaces" | "listSessions">;
+  client: Pick<OnMyAgentServerClient, "listWorkspaces" | "listSessions">;
   desktopWorkspaces: RouteWorkspace[];
   diagnoseRemoteWorkspaceTaskLoadFailure: (
     workspace: RouteWorkspace,
@@ -45,7 +45,7 @@ export async function loadSettingsWorkspaceSessionState(input: {
 }
 
 export async function loadSettingsWorkspaceSessionEntry(input: {
-  client: Pick<OpenworkServerClient, "listSessions">;
+  client: Pick<OnMyAgentServerClient, "listSessions">;
   diagnoseRemoteWorkspaceTaskLoadFailure: (
     workspace: RouteWorkspace,
     fallbackMessage: string,
