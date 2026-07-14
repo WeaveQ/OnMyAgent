@@ -755,7 +755,7 @@ export function SessionPage(props: SessionPageProps) {
                 }}
                 className="group relative z-10 cursor-col-resize touch-none outline-none"
               >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" />
+                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
               </div>
             ) : null}
             <ResizablePanelGroup
