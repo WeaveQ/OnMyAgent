@@ -378,9 +378,15 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
   return (
     <TooltipProvider delay={1000}>
       <div className="flex h-full flex-col">
-        <div className="shrink-0 border-b border-border bg-background mac:bg-background/80 mac:backdrop-blur-2xl mac:backdrop-saturate-150">
+        <div
+          data-panel-titlebar="true"
+          className="shrink-0 border-b border-border bg-background mac:bg-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
+        >
           <div className="flex h-10 items-center gap-1 border-b border-border/60 px-2">
-            <div className="min-w-0 flex-1 overflow-x-auto">
+            <div
+              data-panel-titlebar-controls="true"
+              className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+            >
               <PanelTabList
                 values={state.tabs.map((tab) => tab.tabId)}
                 onReorder={reorderTabs}
@@ -435,7 +441,11 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
               />
               <TooltipContent>{t("session.browser_reload")}</TooltipContent>
             </Tooltip>
-            <InputGroup controlSize="xs" radius="md" className="mx-1 flex-1">
+            <InputGroup
+              controlSize="xs"
+              radius="md"
+              className="mx-1 flex-1 mac:titlebar-no-drag"
+            >
               <InputGroupInput
                 ref={urlInputRef}
                 type="text"

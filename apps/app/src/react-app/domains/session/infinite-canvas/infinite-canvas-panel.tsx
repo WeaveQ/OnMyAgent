@@ -228,7 +228,10 @@ export function InfiniteCanvasPanel(props: InfiniteCanvasPanelProps) {
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-dls-surface text-dls-text">
-      <header className="flex shrink-0 items-center gap-2 border-b border-dls-border px-3 py-2 mac:titlebar-no-drag">
+      <header
+        data-panel-titlebar="true"
+        className="flex shrink-0 items-center gap-2 border-b border-dls-border px-3 py-2 mac:titlebar-drag"
+      >
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{t("infinite_canvas.title")}</div>
           <div className="truncate text-xs text-dls-secondary">{status}</div>
