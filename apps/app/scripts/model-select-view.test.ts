@@ -1,0 +1,19 @@
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const repoRoot = join(import.meta.dir, "../../..");
+
+describe("model select view", () => {
+  test("renders a trailing check for the currently selected model", () => {
+    const source = readFileSync(
+      join(repoRoot, "apps/app/src/components/model-select.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("ChevronDown, Check, Settings2");
+    expect(source).toContain("const selected = isSameModel(value, option);");
+    expect(source).toContain("{selected ? (");
+    expect(source).toContain('<Check className="size-4 shrink-0 text-dls-accent" />');
+  });
+});

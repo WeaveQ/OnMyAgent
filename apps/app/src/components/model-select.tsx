@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Settings2 } from "lucide-react";
+import { ChevronDown, Check, Settings2 } from "lucide-react";
 
 import type { ModelOption, ModelRef } from "@/app/types";
 import {
@@ -174,26 +174,32 @@ export function ModelSelectView({
               >
                 <CommandGroupLabel>{group.value}</CommandGroupLabel>
                 <CommandCollection>
-                  {(option: ModelOption) => (
-                    <CommandItem
-                      className="gap-2"
-                      key={`${option.providerID}:${option.modelID}`}
-                      value={`${option.providerID}:${option.modelID}`}
-                      onClick={() => handleSelect(option)}
-                      data-checked={isSameModel(value, option)}
-                    >
-                      {renderProviderIcon?.(option)}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-foreground">
-                          {option.title}
+                  {(option: ModelOption) => {
+                    const selected = isSameModel(value, option);
+                    return (
+                      <CommandItem
+                        className="gap-2"
+                        key={`${option.providerID}:${option.modelID}`}
+                        value={`${option.providerID}:${option.modelID}`}
+                        onClick={() => handleSelect(option)}
+                        data-checked={selected}
+                      >
+                        {renderProviderIcon?.(option)}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-foreground">
+                            {option.title}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {option.description ??
+                              getProviderDisplayName(option.providerID)}
+                          </span>
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {option.description ??
-                            getProviderDisplayName(option.providerID)}
-                        </span>
-                      </span>
-                    </CommandItem>
-                  )}
+                        {selected ? (
+                          <Check className="size-4 shrink-0 text-dls-accent" />
+                        ) : null}
+                      </CommandItem>
+                    );
+                  }}
                 </CommandCollection>
               </CommandGroup>
             )}
