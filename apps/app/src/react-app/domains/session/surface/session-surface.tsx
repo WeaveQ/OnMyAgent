@@ -1293,9 +1293,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
 
   const recordSessionInterruption = useCallback(
-    (kind: "cancelled" | "stopped") => {
+    (
+      kind: "cancelled" | "stopped",
+      goalRuntime?: CollaborationGoalRuntime,
+    ) => {
       const now = Date.now();
       const afterMessageCount = renderedMessageCountRef.current;
+      const elapsedMs =
+        kind === "stopped" && goalRuntime
+          ? goalElapsedMs(goalRuntime, now)
+          : undefined;
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
         const latestTerminal = [...existing]
@@ -1315,11 +1322,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
           storedRunIdentity?.runKey ??
           latestTerminal?.runKey ??
           `${props.sessionId}:remote:${runStartedAt}`;
-        const goalRuntime = goalRuntimeRef.current;
-        const elapsedMs =
-          kind === "stopped" && isGoalIntentRuntime(goalRuntime)
-            ? goalElapsedMs(goalRuntime, now)
-            : undefined;
         const notice = createSessionInterruptionNotice({
           sessionId: props.sessionId,
           kind,
@@ -1700,15 +1702,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
 
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
-      ? goalRuntimeRef.current
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
       : null;
     if (
       runtime &&
       (runtime.status === "running" || runtime.status === "waiting")
     ) {
       const now = Date.now();
-      recordSessionInterruption("stopped");
+      recordSessionInterruption("stopped", runtime);
       const pausedRuntime = {
         ...runtime,
         status: "paused",
@@ -1720,7 +1722,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       props.onGoalRuntimeChange?.(pausedRuntime);
     }
     await stopActiveRun();
-  }, [props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
+  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
