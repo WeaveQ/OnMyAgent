@@ -5,6 +5,19 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 
 describe("assistant navigation typography contract", () => {
+  test("uses the message-plus icon for creating a task", () => {
+    const headerSource = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel-header.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(headerSource).toContain("MessageCirclePlus");
+    expect(headerSource).not.toContain("<CirclePlus");
+  });
+
   test("uses compact text with selection-driven emphasis", () => {
     const primitiveSource = readFileSync(
       join(repoRoot, "apps/app/src/components/ui/action-row.tsx"),

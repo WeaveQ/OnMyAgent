@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Bot, ChevronRight, CirclePlus, Clock3, Plus, Search } from "lucide-react";
+import { Bot, ChevronRight, Clock3, MessageCirclePlus, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NavListButton } from "@/components/ui/action-row";
@@ -48,7 +48,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             active={!props.selectedSessionId && !props.automationActive}
             size="sidebar"
           >
-            <CirclePlus className="size-4 shrink-0 text-dls-text" />
+            <MessageCirclePlus className="size-4 shrink-0 text-dls-text" />
             {t("session.new_task")}
           </NavListButton>
           {assistantMenuItems.map((item) => (
