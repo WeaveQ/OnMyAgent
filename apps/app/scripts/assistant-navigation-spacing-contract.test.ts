@@ -58,4 +58,17 @@ describe("assistant navigation spacing contract", () => {
 
     expect(source).toContain("export const AGENT_PANEL_DEFAULT_WIDTH = 264;");
   });
+
+  test("keeps the sidebar collapse control borderless", () => {
+    const source = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/sidebar-pane-collapse-toggle.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain("rounded-l-none rounded-r-md px-0");
+    expect(source).not.toContain("border-y border-r border-l-0");
+  });
 });
