@@ -34,7 +34,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
 
   if (props.mode === "assistant") {
     return (
-      <div className="space-y-0 pb-4 pt-3">
+      <div className="space-y-0 pb-1 pt-3">
         {props.assistantCategoryId && props.onAssistantCategoryChange ? (
           <AssistantCategorySwitch
             value={props.assistantCategoryId}
@@ -46,7 +46,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             type="button"
             onClick={props.onCreateTask}
             active={!props.selectedSessionId && !props.automationActive}
-            className="text-sm"
+            size="sidebar"
           >
             <CirclePlus className="size-4 shrink-0 text-dls-text" />
             {t("session.new_task")}

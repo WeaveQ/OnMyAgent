@@ -16,5 +16,19 @@ describe("assistant navigation spacing contract", () => {
 
     expect(source).toContain('data-assistant-primary-actions="true"');
     expect(source).toContain('className="grid gap-1"');
+    expect(source).toContain('size="sidebar"');
+    expect(source).toContain('className="space-y-0 pb-1 pt-3"');
+  });
+
+  test("keeps the task list close to the primary actions", () => {
+    const source = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain('className="flex flex-col pt-1"');
   });
 });
