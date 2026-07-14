@@ -64,5 +64,8 @@ describe("assistant navigation typography contract", () => {
       'truncate text-xs font-normal text-dls-secondary',
     );
     expect(sectionsSource).toContain('className="text-[13px] hover:bg-dls-hover"');
+    expect(sectionsSource).toContain(
+      'text-dls-text-tertiary hover:bg-dls-active hover:text-dls-secondary',
+    );
   });
 });

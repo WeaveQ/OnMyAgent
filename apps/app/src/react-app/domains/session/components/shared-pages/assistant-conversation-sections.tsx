@@ -313,7 +313,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   variant="ghost"
                   size="icon-xs"
                   onClick={(event) => event.stopPropagation()}
-                  className="shrink-0 text-dls-secondary hover:bg-dls-active hover:text-dls-text data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
+                  className="shrink-0 text-dls-text-tertiary hover:bg-dls-active hover:text-dls-secondary data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
                   title={t("session.filter_tasks")}
                   aria-label={t("session.filter_tasks")}
                 >
