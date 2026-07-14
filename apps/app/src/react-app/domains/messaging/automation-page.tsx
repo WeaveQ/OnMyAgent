@@ -483,10 +483,10 @@ function ScheduledAutomationRow(props: {
     >
       <StatusDot size="md" tone={props.item.enabled ? "muted" : "danger"} />
       <span className="min-w-0 flex flex-1 items-center gap-2">
-        <span className="truncate text-base font-semibold">{props.item.title}</span>
+        <span className="truncate text-sm font-medium">{props.item.title}</span>
         <AutomationTaskMeta item={props.item} groupName={props.item.running?.groupName} />
         {rangeLabel ? (
-          <span className="shrink-0 text-sm text-dls-secondary">
+          <span className="shrink-0 text-xs text-dls-secondary">
             {t("automation.effective_range_list", { range: rangeLabel })}
           </span>
         ) : null}
@@ -494,7 +494,7 @@ function ScheduledAutomationRow(props: {
           <StatusBadge tone="surface" size="sm" shape="soft">{t("automation.status_paused")}</StatusBadge>
         ) : null}
       </span>
-      <span className="shrink-0 text-sm text-dls-secondary">{nextRunLabel(props.item)}</span>
+      <span className="shrink-0 text-xs text-dls-secondary">{nextRunLabel(props.item)}</span>
     </button>
   );
 }
@@ -507,7 +507,7 @@ function RunningAutomationRow(props: {
     <div className="flex min-h-16 items-center gap-3 rounded-xl bg-dls-subtle px-3 py-2 text-sm text-dls-text">
       <LoadingSpinner />
       <div className="min-w-0 flex flex-1 items-center gap-2">
-        <span className="truncate text-base font-semibold">{props.item.title}</span>
+        <span className="truncate text-sm font-medium">{props.item.title}</span>
         <AutomationTaskMeta item={props.item} />
       </div>
       <StatusBadge tone="surface" size="lg" shape="soft">{t("automation.status_running")}</StatusBadge>
@@ -550,7 +550,7 @@ function CompletedAutomationRow(props: {
       <StatusDot size="md" tone={successful ? "success" : run.status === "skipped" ? "warning" : "danger"} />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-base font-semibold">{task.title}</span>
+          <span className="truncate text-sm font-medium">{task.title}</span>
           <StatusBadge tone="neutral" size="sm" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
             {automationDisplayId(task, run.groupName)}
           </StatusBadge>
@@ -565,7 +565,7 @@ function CompletedAutomationRow(props: {
           </span>
         </span>
       </span>
-      <span className="flex shrink-0 items-center gap-2 text-sm text-dls-secondary">
+      <span className="flex shrink-0 items-center gap-2 text-xs text-dls-secondary">
         {relativeRunTime(run.ranAt)}
         {successful ? (
           <Check className="size-4 text-dls-status-success-fg" />
@@ -1137,8 +1137,8 @@ export function AutomationPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-surface text-dls-text">
       <div className="flex shrink-0 items-start justify-between gap-4 px-8 pb-6 pt-8">
         <div>
-          <h1 className="text-xl font-semibold">{t("automation.title")}</h1>
-          <p className="mt-3 text-sm text-dls-secondary">{t("automation.subtitle")}</p>
+          <h1 className="text-lg font-semibold">{t("automation.title")}</h1>
+          <p className="mt-2 text-xs text-dls-secondary">{t("automation.subtitle")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={openBlankDialog}>
