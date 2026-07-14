@@ -98,7 +98,7 @@ export function AssistantMenuRow(props: {
       type="button"
       onClick={props.onClick}
       active={props.active}
-      className="text-sm"
+      size="sidebar"
     >
       <Icon className="size-4 shrink-0 text-dls-secondary" />
       <span className="min-w-0 flex-1 truncate">{props.item.label}</span>

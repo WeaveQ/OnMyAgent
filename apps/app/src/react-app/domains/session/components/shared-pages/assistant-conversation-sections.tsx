@@ -275,7 +275,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     (showAutomations && automationsCount > 0);
 
   return (
-    <div className="flex flex-col pt-2">
+    <div className="flex flex-col pt-1">
       <div
         data-assistant-task-list-header="true"
         role="button"
