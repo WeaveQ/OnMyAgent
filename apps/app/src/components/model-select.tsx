@@ -154,7 +154,7 @@ export function ModelSelectView({
         </TooltipContent>
       </Tooltip>
       <PopoverContent
-        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden p-px **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
+        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-border bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
         align="start"
         initialFocus={false}
       >
@@ -178,7 +178,9 @@ export function ModelSelectView({
                     const selected = isSameModel(value, option);
                     return (
                       <CommandItem
-                        className="gap-2"
+                        className={selected
+                          ? "gap-2 bg-dls-list-selected data-highlighted:bg-dls-list-selected"
+                          : "gap-2 data-highlighted:bg-dls-list-hover"}
                         key={`${option.providerID}:${option.modelID}`}
                         value={`${option.providerID}:${option.modelID}`}
                         onClick={() => handleSelect(option)}
