@@ -190,7 +190,7 @@ const railButtonVariants = cva(
   {
     variants: {
       active: {
-        true: "bg-dls-rail-active text-dls-text",
+        true: "text-dls-text",
         false: "text-dls-secondary hover:bg-dls-rail-hover hover:text-dls-text",
       },
       size: {

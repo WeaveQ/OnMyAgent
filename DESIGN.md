@@ -496,7 +496,7 @@ components:
       height: "{spacing.button-heights.chrome}"      # 48
       radius: "{rounded.md}"                          # 8
       surface: "{colors.rail-bg}"
-      surface-active: "{colors.rail-active}"
+      surface-active: transparent
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40

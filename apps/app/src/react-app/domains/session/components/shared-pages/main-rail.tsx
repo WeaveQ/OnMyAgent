@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import {
   BotMessageSquare,
   FolderOpen,
+  MessagesSquare,
   MonitorCog,
   SlidersHorizontal,
   Store,
@@ -10,7 +11,6 @@ import {
 } from "lucide-react";
 
 import { RailButton } from "@/components/ui/action-row";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { t } from "../../../../../i18n";
 import {
   SidebarAccountButton,
@@ -34,18 +34,6 @@ type RailItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
-function WeChatRailIcon(props: { className?: string }) {
-  return (
-    <img
-      src={resolvePublicAssetUrl("/connector-icons/wechat.png")}
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      className={props.className}
-    />
-  );
-}
-
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: BotMessageSquare },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: UserStar },
@@ -58,9 +46,9 @@ const TOP_RAIL_ITEMS: RailItem[] = [
 const BOTTOM_RAIL_ITEMS: RailItem[] = [
   {
     id: "channels",
-    get label() { return t("messaging.wechat"); },
+    get label() { return t("nav.channels"); },
     shortLabel: "",
-    icon: WeChatRailIcon,
+    icon: MessagesSquare,
   },
 ];
 
