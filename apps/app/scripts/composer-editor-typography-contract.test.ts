@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("composer editor typography contract", () => {
-  test("matches the placeholder size to the composer input text", () => {
+  test("uses the requested 13px placeholder size", () => {
     const source = readFileSync(
       join(
         import.meta.dir,
@@ -13,10 +13,10 @@ describe("composer editor typography contract", () => {
     );
 
     expect(source).toContain(
-      'absolute left-0 top-0 text-sm leading-5 text-dls-secondary/70',
+      'absolute left-0 top-0 text-[13px] leading-5 text-dls-secondary/70',
     );
     expect(source).not.toContain(
-      'absolute left-0 top-0 text-xs leading-5 text-dls-secondary/70',
+      'absolute left-0 top-0 text-sm leading-5 text-dls-secondary/70',
     );
   });
 });
