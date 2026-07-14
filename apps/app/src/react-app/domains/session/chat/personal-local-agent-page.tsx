@@ -1278,7 +1278,7 @@ return (
     className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"
   >
     <aside
-      className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5"
+      className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5"
       style={{
         width: agentListCollapsed ? 0 : agentListWidth,
       }}
