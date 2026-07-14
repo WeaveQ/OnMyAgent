@@ -23,7 +23,7 @@ import type { AssistantAutomationGroup } from "./assistant-automation-groups";
 import { AssistantTaskItem } from "./assistant-task-item";
 
 type AssistantConversationTab = "all" | "tasks" | "spaces" | "automations";
-const ASSISTANT_TASK_PREVIEW_LIMIT = 10;
+const ASSISTANT_TASK_PREVIEW_LIMIT = 20;
 
 type AssistantConversationSectionsProps = {
   categoryId: AssistantCategoryId;
