@@ -9,6 +9,24 @@ function readWorkspaceFile(path: string): string {
 }
 
 describe("right side panel toggle contract", () => {
+  test("local agent pages do not inherit the session side-panel toggle", () => {
+    const sources = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+    ];
+
+    for (const source of sources) {
+      const localAgentStart = source.indexOf("<PersonalLocalAgentPage");
+      const localAgentEnd = source.indexOf("/>", localAgentStart);
+      const localAgentView = source.slice(localAgentStart, localAgentEnd);
+
+      expect(localAgentStart).toBeGreaterThan(-1);
+      expect(localAgentEnd).toBeGreaterThan(localAgentStart);
+      expect(localAgentView).not.toContain("headerActions={headerPanelControls}");
+    }
+  });
+
   test("chat code mode uses the panel icon and hides the header toggle while expanded", () => {
     const source = readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx");
 

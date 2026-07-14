@@ -780,7 +780,6 @@ export function SessionPage(props: SessionPageProps) {
                           workspaceName={props.selectedWorkspaceDisplay.name}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          headerActions={headerPanelControls}
                           onmyagentServerClient={props.onmyagentServerClient}
                           runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                         />
