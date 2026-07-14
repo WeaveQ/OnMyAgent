@@ -49,7 +49,7 @@ import {
   writeAssistantSessionWorkspace,
 } from "../domains/session";
 import { useSessionActivityStore } from "../domains/session";
-import { buildOnMyAgentEnvSystemContext } from "../domains/shared/env-context";
+import { buildOnMyAgentEnvSystemContext } from "../domains/shared";
 import { getReactQueryClient } from "../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "./onboarding-profile";
 import {

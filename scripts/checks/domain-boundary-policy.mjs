@@ -15,7 +15,8 @@ const allowedDomainDependencies = new Set([
 ]);
 
 export function domainDependencyIsAllowed(fromDomain, toDomain) {
-  return allowedDomainDependencies.has(`${fromDomain}>${toDomain}`);
+  return toDomain === "shared"
+    || allowedDomainDependencies.has(`${fromDomain}>${toDomain}`);
 }
 
 export function domainImportUsesPublicEntrypoint(domainRelativePath, toDomain) {

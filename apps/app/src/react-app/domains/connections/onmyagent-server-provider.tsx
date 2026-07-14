@@ -7,7 +7,7 @@ import {
 } from "react";
 import { APP_NAME, APP_NAME_LOWER } from "../../../i18n/locales/brand";
 
-import type { OnMyAgentServerStore } from "../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../shared";
 
 const OnMyAgentServerContext = createContext<OnMyAgentServerStore | null>(null);
 

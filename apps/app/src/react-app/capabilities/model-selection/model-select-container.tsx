@@ -8,7 +8,7 @@ import { newProvidersEvent } from "@/app/lib/provider-events";
 import { ModelSelectView } from "@/components/model-select";
 import { t } from "@/i18n";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
-import { useCheckDesktopRestriction } from "@/react-app/domains/shared/desktop-config-context";
+import { useCheckDesktopRestriction } from "@/react-app/domains/shared";
 import { getConnectedProviderItems, useProviderListQuery } from "@/react-app/domains/connections";
 import { readHiddenModels } from "./hidden-models-store";
 import { openModelPickerEvent, useWorkspace } from "@/react-app/shell";

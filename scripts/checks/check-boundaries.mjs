@@ -170,7 +170,7 @@ function checkReactAppRules(filePath, relativePath, item) {
 
   const fromDomain = relativePath.split('/')[5]
   const toDomain = importedDomain(filePath, item.importPath)
-  if (!toDomain || toDomain === fromDomain || toDomain === 'shared') return
+  if (!toDomain || toDomain === fromDomain) return
 
   const targetPath = resolveDomainTarget(filePath, item.importPath)
   const domainRelativePath = targetPath

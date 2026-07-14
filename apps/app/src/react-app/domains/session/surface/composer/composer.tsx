@@ -13,8 +13,7 @@ import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge"
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { ComposerAccessMode, ComposerAttachment, ComposerCollaborationMode, McpServerEntry, McpStatusMap, ModelRef, SkillCard, SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
-import { isOnMyAgentExtensionEnabled, isOnMyAgentExtensionHidden, ONMYAGENT_EXTENSION_STATE_CHANGED } from "../../../shared/extension-state";
-import { useDesktopRestriction } from "../../../shared/desktop-config-context";
+import { isOnMyAgentExtensionEnabled, isOnMyAgentExtensionHidden, ONMYAGENT_EXTENSION_STATE_CHANGED, useDesktopRestriction } from "../../../shared";
 import { ModelBehaviorSelect } from "../../../../../components/model-behavior-select";
 import { ModelSelectContainer } from "../../components/model-select";
 import { LexicalPromptEditor } from "./editor";
@@ -22,6 +21,8 @@ import { AccessPermissionSelect } from "./access-permission-select";
 import {
   collaborationModeOptionKeys,
   filterToolMenuItems,
+  formatPluginObjectType,
+  pluginSkillFileSearchText,
   type CollaborationModeOptionKey,
 } from "./tool-menu-model";
 import {
@@ -377,13 +378,6 @@ function extensionIcon(entry: McpDirectoryInfo, size = 16) {
     return <img src={`https://cdn.simpleicons.org/${entry.iconSlug}`} alt="" width={size} height={size} loading="lazy" className="block" />;
   }
   return <Plug size={size} className="text-dls-secondary" />;
-}
-
-function formatPluginObjectType(type: string) {
-  const normalized = type.trim().toLowerCase();
-  if (!normalized) return "File";
-  if (normalized === "mcp") return "MCP";
-  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
 }
 
 function pluginSlashCommandName(file: CloudImportedPluginFile) {
@@ -1024,7 +1018,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const filteredPluginSkillFiles = filterToolMenuItems(
     pluginSkillFiles,
     skillSearchQuery,
-    (file) => `${file.title} ${file.path}`,
+    pluginSkillFileSearchText,
   );
   const filteredMcpItems = filterToolMenuItems(
     activeMcpItems,
@@ -1414,7 +1408,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                               </div>
                               <InputGroup controlSize="sm" radius="md" tone="surfaceMuted">
                                 <InputGroupAddon align="inline-start" inset="tight">
-                                  <Search className="size-4" />
+                                  <Search aria-hidden="true" className="size-4" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={skillSearchQuery}
@@ -1432,7 +1426,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                               </div>
                               <InputGroup controlSize="sm" radius="md" tone="surfaceMuted">
                                 <InputGroupAddon align="inline-start" inset="tight">
-                                  <Search className="size-4" />
+                                  <Search aria-hidden="true" className="size-4" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={connectorSearchQuery}

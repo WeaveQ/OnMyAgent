@@ -93,6 +93,29 @@ describe("session activity store", () => {
     expect(useSessionActivityStore.getState().getStopRequested("ws_1", "ses_1")).toBe(false);
   });
 
+  test("keeps a stable identity for local and backend-originated runs", () => {
+    useSessionActivityStore
+      .getState()
+      .startRun("ws_1", "ses_1", { runKey: "ses_1:100", runStartedAt: 100 });
+    expect(useSessionActivityStore.getState().getRunIdentity("ws_1", "ses_1")).toEqual({
+      runKey: "ses_1:100",
+      runStartedAt: 100,
+    });
+
+    useSessionActivityStore.getState().setRunStatus("ws_1", "ses_1", "idle");
+    useSessionActivityStore.getState().setRunStatus("ws_1", "ses_1", "running");
+    const remoteIdentity = useSessionActivityStore
+      .getState()
+      .getRunIdentity("ws_1", "ses_1");
+    expect(remoteIdentity?.runKey).not.toBe("ses_1:100");
+    expect(remoteIdentity?.runStartedAt).toBeNumber();
+
+    useSessionActivityStore.getState().setError("ws_1", "ses_1", "cancelled");
+    expect(useSessionActivityStore.getState().getRunIdentity("ws_1", "ses_1")).toEqual(
+      remoteIdentity,
+    );
+  });
+
   test("removes sessions from records and status maps", () => {
     useSessionActivityStore.getState().seedSessionRun("ws_1", "ses_1", { type: "busy" }, false);
     expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("thinking");

@@ -57,7 +57,7 @@ import {
   type CloudImportedSkill,
   type CloudImportedSkillHub,
 } from "../../../../app/cloud/import-state";
-import type { OnMyAgentServerStore } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore } from "../../shared";
 import {
   applyCloudPluginToWorkspace,
   applyCloudSkillHubToWorkspace,
