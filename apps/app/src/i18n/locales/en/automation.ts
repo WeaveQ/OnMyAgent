@@ -81,6 +81,7 @@ export default {
   "automation.run_history_success_with_session": "{source} · succeeded {time} · session {sessionId}",
   "automation.run_history_title": "Run records for {title}",
   "automation.run_history_title_fallback": "Automation task",
+  "automation.session_group_title": "Automation task-{title}",
   "automation.run_now": "Run now",
   "automation.test_run": "Test run",
   "automation.run_session_chip": "Session {sessionId}",
