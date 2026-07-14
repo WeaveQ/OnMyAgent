@@ -766,7 +766,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           // Some ACP backends (e.g. CodeBuddy) advertise model config_options
           // in session/new but don't implement `config/set`. Fall back to the
           // legacy `session/set_model` method for model options, aligning with
-          // AionCore's ConfigSetPath::LegacyModel path.
+          // Upstream's ConfigSetPath::LegacyModel path.
           if (/method not found|not.*found|not.*supported/i.test(String(error?.message ?? error)) && optionId === "model") {
             result = await client.setModel(sessionId, String(ctx.value), { cwd: workdir });
           } else {
@@ -832,7 +832,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             const messageData = reasoning.reasoningRole ? null : reasoning.messageData ?? data;
             const text = messageData ? textFromAcpContent(messageData) : "";
             if (text) {
-              // AionUi-style compaction status chunks (claude-agent-acp emits
+              // Upstream-style compaction status chunks (claude-agent-acp emits
               // "Compacting..." then "Compacting completed."; codex-acp emits
               // "Context compacted.") should render as a transient status, not
               // as a permanent assistant bubble that keeps the "…ing" text.

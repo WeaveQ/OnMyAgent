@@ -298,7 +298,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // Per-conversation workspace binding: an existing conversation shows its own
   // `workdir` and locks the chip (read-only). A not-yet-created / empty
   // conversation uses the page-level override (editable) so the user can pick a
-  // directory before the first message. This matches AionUi's per-navigation
+  // directory before the first message. This matches Upstream's per-navigation
   // workspace semantics instead of a single global override.
   const selectedConversationWorkdir = selectedConversation?.workdir?.trim() || "";
   const displayWorkspaceRoot = selectedConversationWorkdir || effectiveWorkspaceRoot;
@@ -326,7 +326,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     // session-store. Re-pull the agent list so `listAgents` hydrates that
     // metadata into `agent.handshake` — this is what makes the model selector
     // appear for custom/ACP agents (which have no static `modelOptions`),
-    // matching AionUI's "models become selectable after the session handshake"
+    // matching Upstream's "models become selectable after the session handshake"
     // behavior. Without this the handshake stays cold and the selector never
     // shows. `useAcpInitialMessage` de-dupes warmups by key, so refreshing the
     // agents here cannot cause a warmup loop.
@@ -387,7 +387,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const selectedSlashCommands = useMemo(() => {
     // Fold live `available_commands` events (last one wins) on top of the
     // handshake snapshot so slash suggestions stay in sync when the CLI adds
-    // or removes commands mid-session — this matches AionUi's behavior.
+    // or removes commands mid-session — this matches Upstream's behavior.
     let liveCommands: unknown = null;
     for (let index = selectedMessages.length - 1; index >= 0 && !liveCommands; index -= 1) {
       const runMessages = selectedMessages[index]?.run?.conversationMessages;
@@ -1171,7 +1171,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const acpMatch = selectedSlashCommands.find((command) => command.source === "acp" && command.name.toLowerCase() === trimmed.toLowerCase());
       if (acpMatch) {
         // ACP-provided commands (including /compact) are transparently forwarded
-        // to the CLI as a normal prompt. AionUi does the same: the CLI itself
+        // to the CLI as a normal prompt. Upstream does the same: the CLI itself
         // owns the compaction/summarization semantics.
       } else if (trimmed === "/new") {
         await createNewConversation();

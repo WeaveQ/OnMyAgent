@@ -39,7 +39,7 @@ function buildDeveloperInstructions(workspaceRoot, accessibleWorkspaceRoots = []
 }
 
 function codexRunPolicyForApprovalMode(approvalMode) {
-  // Aligned with AionCore acp_launch_policy: non-auto sessions run under
+  // Aligned with Upstream acp_launch_policy: non-auto sessions run under
   // Codex `workspace-write` sandbox with outbound network access enabled;
   // only the explicit `auto` (yolo/full-access) mode escalates to
   // `danger-full-access`. Approvals still gate sensitive actions in

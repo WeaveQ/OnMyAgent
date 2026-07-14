@@ -47,7 +47,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
     setActionFeedback({ id, tone, text });
   }, []);
   const handleOpenArtifact = useCallback(async (target: OpenTarget) => {
-    // Align with AionUi behavior: file artifacts always open via the OS
+    // Align with Upstream behavior: file artifacts always open via the OS
     // (shell.openPath), regardless of whether the path lives inside the
     // current workspace root. This matches user expectations for local CLI
     // agents (Codex/Claude/Gemini) which frequently emit absolute paths on the

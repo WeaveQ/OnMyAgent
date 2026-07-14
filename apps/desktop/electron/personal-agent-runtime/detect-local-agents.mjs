@@ -1,6 +1,6 @@
 // Detect locally installed CLI agents that are not yet registered in OnMyAgent.
 //
-// Mirrors the AionUi experience: scan the system PATH for known coding-agent
+// Mirrors the Upstream experience: scan the system PATH for known coding-agent
 // CLIs and return ready-to-add drafts. Unlike the 5 built-in providers
 // (opencode/codex/claude/openclaw/hermes) which are always listed, this only
 // surfaces agents that (a) have a binary on PATH and (b) are not already
@@ -113,7 +113,7 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
  * Unlike `detectAvailableLocalAgents` (which only returns agents whose binary is
  * already on PATH so the user can one-click *add* them), this returns ALL known
  * agents as custom-provider ACP drafts so the management page can *always list*
- * them — installed or not — mirroring AionUi's "十多个都显示，没装也在" behaviour.
+ * them — installed or not — mirroring Upstream's "十多个都显示，没装也在" behaviour.
  * The detection layer later resolves each draft to online / offline / missing;
  * the user can hit "测试连接" on any of them regardless of install state.
  */

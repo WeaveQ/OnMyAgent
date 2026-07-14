@@ -12,7 +12,7 @@ type Props = {
   onFeedback?: (id: string, kind: "ok" | "error", message: string) => void;
 };
 
-// HR2-A-03: renderer surface for tool-call file edits. Mirrors AionUi's
+// HR2-A-03: renderer surface for tool-call file edits. Mirrors Upstream's
 // MessageFileChanges component. Read-only: opens the file in the OS default
 // application via the shared openDesktopPath IPC.
 export function MessageFileChanges({ fileChanges, onFeedback }: Props) {

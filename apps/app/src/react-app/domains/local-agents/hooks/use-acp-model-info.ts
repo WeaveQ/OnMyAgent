@@ -79,7 +79,7 @@ function currentModelIdFromHandshake(agent: PersonalLocalAgent | null): string {
 
 export function useAcpModelInfo(agent: PersonalLocalAgent | null): AcpModelInfo {
   return useMemo(() => {
-    // Aligned with AionUI: the ACP handshake is the single source of truth
+    // Aligned with Upstream: the ACP handshake is the single source of truth
     // for whether a session exposes model selection. Prefer the `model`
     // config option (session/set_config_options) because it lets us both
     // enumerate choices and observe the currently-selected id; fall back to

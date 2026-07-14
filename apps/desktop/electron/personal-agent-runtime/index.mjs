@@ -1625,7 +1625,7 @@ export function createPersonalAgentRuntime(options) {
     const customAgentsRaw = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
     // Custom agents come straight from the store without going through the
     // legacy detector, so `capability` / `connectionMode` were never
-    // populated. Compute them here (AionUI-aligned: cli + supportsAcp => ACP)
+    // populated. Compute them here (Upstream-aligned: cli + supportsAcp => ACP)
     // so `agent_type` becomes "acp", the ACP warmup path kicks in, and the
     // UI's model selector sees supportsModelOverride based on the handshake
     // instead of the raw stored bool.
@@ -1638,7 +1638,7 @@ export function createPersonalAgentRuntime(options) {
     const extensionAgents = await loadExtensionAdapters();
     const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
     // Management page only: always list the known-but-not-installed agent
-    // catalog (AionUi-style "十多个都显示，没装也在") so users can test-connect
+    // catalog (Upstream-style "十多个都显示，没装也在") so users can test-connect
     // any of them. Gated behind includeDiscoverable so the runtime/session
     // dropdowns (which call listAgents without the flag) stay unaffected.
     const discoverableAgents = input.includeDiscoverable
@@ -1677,7 +1677,7 @@ export function createPersonalAgentRuntime(options) {
             // Merge warmup-captured config options / models into the agent
             // handshake so acpConfigOptions() and the renderer's
             // useAcpModelInfo can see them without waiting for the first
-            // message. Aligns with AionCore's preload_advertised_catalogs
+            // message. Aligns with Upstream's preload_advertised_catalogs
             // which seeds advertised models/modes from the agent handshake.
             const handshake = { ...(agent.handshake ?? {}) };
             if (Array.isArray(meta.configOptions) && meta.configOptions.length && !Array.isArray(handshake.config_options)) {

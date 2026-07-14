@@ -34,7 +34,7 @@ export function summarizeAgentManagementHealth(run: PersonalLocalAgentRunResult)
 
 export function agentManagerStatusTone(status: string): StatusBadgeTone {
   if (status === "online") return "success";
-  // AionUi parity (AgentCard.tsx color map): online=green, needs_auth=gold,
+  // Upstream parity (AgentCard.tsx color map): online=green, needs_auth=gold,
   // missing=red, offline=orange, unknown=gray. missing is a problem (red);
   // offline/unknown are degraded-but-not-error (orange / gray).
   if (status === "needs_auth") return "warning";
@@ -72,7 +72,7 @@ export function agentManagerHealthLabel(agent: AgentManagementAgent, health?: Ag
 export function agentManagerHealthTone(agent: AgentManagementAgent, health?: AgentManagementHealthResult): StatusBadgeTone {
   if (health?.status === "running") return "accent";
   if (health?.status === "passed") return "success";
-  // AionUi parity (AgentCard.tsx color map): needs_auth=gold (warn, one step
+  // Upstream parity (AgentCard.tsx color map): needs_auth=gold (warn, one step
   // away), missing=red (problem), failed/offline=orange (degraded, not error).
   if (health?.status === "needs_auth") return "warning";
   if (health?.status === "missing") return "danger";

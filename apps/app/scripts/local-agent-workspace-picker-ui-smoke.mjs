@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Headless CDP smoke for the local-agent "Work in project" workspace chip.
-// Verifies AionUi parity: chip renders, opens dropdown, browse resolves via
+// Verifies Upstream parity: chip renders, opens dropdown, browse resolves via
 // mocked pickDirectory, chip label updates, and personalLocalAgentConversationCreate
 // is invoked with the picked workspaceRoot instead of the global default.
 import assert from "node:assert/strict";

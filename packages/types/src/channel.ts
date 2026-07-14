@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Messaging channel type contracts.
  *
- * Shape aligns with AionUi packages/desktop/src/common/types/channel/channel.ts
+ * Shape aligns with Upstream packages/desktop/src/common/types/channel/channel.ts
  * (kept identical at the wire level so REST/SSE payloads can be reused). Adds
  * zod schemas + an `onmyagent-extension.json` manifest schema for the local
  * Extension SDK.
@@ -131,7 +131,7 @@ export type ChannelPlatformSettings = z.infer<
 
 /**
  * REST request/response shapes for /api/channel/*.
- * Endpoint list mirrors AionUi ipcBridge.ts channel section.
+ * Endpoint list mirrors Upstream ipcBridge.ts channel section.
  */
 
 export const channelEnablePluginRequestSchema = z.object({
@@ -191,7 +191,7 @@ export type ChannelSseEventName =
   (typeof CHANNEL_SSE_EVENTS)[keyof typeof CHANNEL_SSE_EVENTS];
 
 /**
- * Built-in platforms this project targets for parity with AionUi.
+ * Built-in platforms this project targets for parity with Upstream.
  * Extension plugins register additional ids at runtime; keep this list purely
  * informational (renderer must not gate on it).
  */
@@ -207,7 +207,7 @@ export type BuiltInChannelPluginId = (typeof BUILT_IN_CHANNEL_PLUGIN_IDS)[number
 
 /**
  * onmyagent-extension.json manifest schema (Phase D Extension SDK).
- * Mirrors AionUi aion-extension.json contributes.channelPlugins[] + webui.
+ * Mirrors Upstream upstream-extension.json contributes.channelPlugins[] + webui.
  */
 export const channelExtensionApiRouteSchema = z.object({
   path: z.string().min(1),

@@ -1024,7 +1024,7 @@ export function createWeixinService(options = {}) {
       chatId: event.chatId,
     }).catch(() => null);
     if (!channelSession) return null;
-    // Parity with AionCore create_conversation_for_session + bind_conversation:
+    // Parity with Upstream create_conversation_for_session + bind_conversation:
     // lazily create (once) a Studio conversation tagged source:"channel" and
     // persist the mapping on the channel session so the same chat always
     // reuses the same conversation and Studio can recognize its origin.

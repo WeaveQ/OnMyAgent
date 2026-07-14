@@ -436,7 +436,7 @@ export function AgentManagementPage(props: {
 
   // Lightweight connection probe that works for ANY agent status (online /
   // needs_auth / offline / missing). Unlike the old health-check which only ran
-  // for already-online agents and spawned a full session, this mirrors AionUi's
+  // for already-online agents and spawned a full session, this mirrors Upstream's
   // "Test Connection" — a quick ACP probe usable even when the agent is not
   // installed or not yet authenticated.
   const runTestConnection = useCallback(async (agent: AgentManagementAgent) => {
@@ -460,7 +460,7 @@ export function AgentManagementPage(props: {
       setHealthResults((current) => ({
         ...current,
         [agent.id]: {
-          // AionUi parity: a probe that reaches the agent but reports
+          // Upstream parity: a probe that reaches the agent but reports
           // needs_auth / missing is NOT a failure — surface it as its own
           // neutral/warning state instead of "failed".
           status: result.ok
