@@ -18,6 +18,10 @@ import qoderIconUrl from "../../../../assets/agent-icons/qoder.svg";
 import augmentIconUrl from "../../../../assets/agent-icons/augment.svg";
 import snowIconUrl from "../../../../assets/agent-icons/snow.svg";
 import nanobotIconUrl from "../../../../assets/agent-icons/nanobot.svg";
+import codebuddyIconUrl from "../../../../assets/agent-icons/codebuddy.svg";
+import traeIconUrl from "../../../../assets/agent-icons/trae.svg";
+import mimoIconUrl from "../../../../assets/agent-icons/mimo.svg";
+import grokIconUrl from "../../../../assets/agent-icons/grok.svg";
 
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -26,7 +30,7 @@ import { Switch } from "@/components/ui/switch";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
 import type { AgentManagementAgent } from "../../../../app/lib/desktop";
-import { AGENT_MANAGER_PROVIDER_LABELS } from "./agent-management-providers";
+import { localAgentTypeLabel } from "./agent-management-providers";
 import {
   agentManagerHealthLabel,
   agentManagerHealthTone,
@@ -64,6 +68,10 @@ const AGENT_ICON_BY_ID: Partial<Record<string, string>> = {
   augment: augmentIconUrl,
   snow: snowIconUrl,
   nanobot: nanobotIconUrl,
+  codebuddy: codebuddyIconUrl,
+  trae: traeIconUrl,
+  mimo: mimoIconUrl,
+  grok: grokIconUrl,
 };
 
 const AGENT_ICON_BY_PROVIDER: Partial<Record<string, string>> = {
@@ -137,7 +145,7 @@ export function AgentManagementAgentCard(props: {
             </StatusBadge>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dls-secondary">
-            <span className="truncate">{AGENT_MANAGER_PROVIDER_LABELS[props.agent.provider] ?? props.agent.provider}</span>
+            <span className="truncate">{localAgentTypeLabel(props.agent)}</span>
             <span className="truncate">{props.agent.version || props.agent.executablePath}</span>
           </div>
         </div>

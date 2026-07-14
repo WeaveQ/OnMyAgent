@@ -57,6 +57,35 @@ export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
+// Discoverable catalog agents (gemini/kiro/goose/kimi/...) are stored with the
+// shared provider "custom" so the ACP test-connection path works, but each keeps
+// its own real identity in `agent.id`. Mirror AionUi: surface that identity for
+// display instead of the collapsed "Custom" marker. Keyed by the same ids the
+// card icon map uses (see AgentManagementAgentIcon in agent-management-agent-card).
+export const AGENT_TYPE_LABELS_BY_ID: Record<string, string> = {
+  gemini: "Gemini CLI",
+  kiro: "Kiro",
+  goose: "Goose",
+  "cursor-agent": "Cursor Agent",
+  qwen: "Qwen Code",
+  kimi: "Kimi CLI",
+  copilot: "GitHub Copilot",
+  qoder: "Qoder",
+  augment: "Augment Code",
+  snow: "Snow CLI",
+  nanobot: "Nano Bot",
+  codebuddy: "CodeBuddy",
+  trae: "Trae",
+  mimo: "MiMo Code",
+  grok: "Grok Build",
+};
+
+export function localAgentTypeLabel(agent: { id?: string; provider?: string; name?: string }): string {
+  if (agent.id && AGENT_TYPE_LABELS_BY_ID[agent.id]) return AGENT_TYPE_LABELS_BY_ID[agent.id];
+  if (agent.provider && AGENT_MANAGER_PROVIDER_LABELS[agent.provider]) return AGENT_MANAGER_PROVIDER_LABELS[agent.provider];
+  return agent.provider || agent.id || agent.name || "Custom";
+}
+
 const SKILL_AGENT_LABELS: Record<string, string> = {
   opencode: "OpenCode",
   claude: "Claude Code",

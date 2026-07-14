@@ -788,7 +788,11 @@ async function agentManagementSnapshot(input = {}) {
     workspaceRoot,
     agents: agents.map((agent) => ({
       ...agent,
-      usage: usageByProvider.get(agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
+      // Custom agents share the literal provider "custom", so we must NOT key
+      // their lookup by provider (that would hit the empty pre-seeded "custom"
+      // bucket and hide their real stats). Their run logs are keyed by agentId
+      // == agent.id. Built-in providers are keyed by provider directly.
+      usage: usageByProvider.get(agent.provider === "custom" ? agent.id : agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
       skillCount: skillCounts.get(agent.provider) ?? 0,
     })),
     skills: managedSkills,

@@ -105,6 +105,39 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
+  {
+    id: "codebuddy",
+    displayName: "CodeBuddy",
+    commands: ["codebuddy"],
+    wellKnownPaths: [join(HOME, ".local", "bin", "codebuddy"), join(HOME, "npm", "bin", "codebuddy")],
+    skillsDirs: [join(HOME, ".codebuddy", "skills")],
+    acpArgs: ["--acp"],
+  },
+  {
+    id: "trae",
+    displayName: "Trae",
+    commands: ["traecli", "trae-cli"],
+    skillsDirs: [],
+    acpArgs: ["acp", "serve"],
+  },
+  {
+    id: "mimo",
+    displayName: "MiMo Code",
+    commands: ["mimo"],
+    skillsDirs: [join(HOME, ".mimocode", "skills")],
+    // `mimo acp` starts the Agent Client Protocol stdio server
+    // (installed via `npm install -g @mimo-ai/cli`, binary: `mimo`)
+    acpArgs: ["acp"],
+  },
+  {
+    id: "grok",
+    displayName: "Grok Build",
+    commands: ["grok"],
+    skillsDirs: [join(HOME, ".grok", "skills")],
+    // `grok agent stdio` starts the ACP stdio server
+    // (installed via `npm install -g @xai-official/grok`, binary: `grok`)
+    acpArgs: ["agent", "stdio"],
+  },
 ];
 
 /**
