@@ -40,4 +40,18 @@ describe("assistant navigation tone contract", () => {
       "relative min-w-0 flex-1 overflow-hidden bg-dls-surface mac:bg-dls-surface",
     );
   });
+
+  test("keeps the task header on its sidebar surface", () => {
+    const sections = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(sections).toContain(
+      "rounded-lg bg-dls-sidebar px-2 text-dls-text",
+    );
+  });
 });
