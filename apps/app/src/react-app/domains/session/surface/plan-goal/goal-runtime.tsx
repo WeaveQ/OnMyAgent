@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
-import { CirclePlay, Clock3, Goal, Pause, Trash2 } from "lucide-react";
+import { CirclePause, CirclePlay, Clock3, Goal, Trash2 } from "lucide-react";
 
 import type {
   CollaborationGoalRuntime,
@@ -377,12 +377,13 @@ export function GoalRuntimePanel(props: {
             <Button
               type="button"
               size="icon-xs"
-              variant="outline"
+              variant="ghost"
+              className="text-dls-secondary hover:text-dls-text"
               onClick={props.onPause}
               aria-label={t("session.goal_runtime_pause")}
               title={t("session.goal_runtime_pause")}
             >
-              <Pause size={14} />
+              <CirclePause size={14} />
             </Button>
           ) : null}
           <Button
