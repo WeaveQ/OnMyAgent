@@ -416,7 +416,7 @@ export function AgentConversationPanel(props: {
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col bg-dls-background pb-5",
+        "flex shrink-0 flex-col bg-dls-sidebar pb-5",
         mode === "agent" ? "overflow-visible" : "overflow-hidden",
         mode === "assistant" && "px-2.5",
       )}

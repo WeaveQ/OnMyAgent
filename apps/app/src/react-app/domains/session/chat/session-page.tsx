@@ -689,7 +689,7 @@ export function SessionPage(props: SessionPageProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-surface mac:bg-dls-surface">
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <OnMyAgentRail
             activeView={railActiveView}
@@ -766,9 +766,9 @@ export function SessionPage(props: SessionPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-background">
+                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-surface">
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
+                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-surface mac:bg-dls-surface">
                       {agentPanel.activeSidebarView === "agents" ? (
                         <props.renderAgentsPage
                           workspaceId={props.selectedWorkspaceId}
