@@ -56,7 +56,7 @@ export function AssistantCategorySwitch(props: {
     <div className="relative mx-auto mb-6 grid w-fit grid-cols-2 items-center gap-1 mac:titlebar-no-drag">
       <span
         className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 w-24 rounded-lg bg-dls-accent/10 transition-transform duration-200 ease-out",
+          "pointer-events-none absolute inset-y-0 left-0 w-24 rounded-lg bg-dls-list-selected transition-transform duration-200 ease-out",
           props.value === "code" ? "translate-x-[calc(100%+0.25rem)]" : "translate-x-0",
         )}
         aria-hidden
@@ -73,8 +73,8 @@ export function AssistantCategorySwitch(props: {
               assistantCategoryTabClass,
               "mac:titlebar-no-drag",
               active
-                ? "text-dls-accent"
-                : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                ? "text-dls-text"
+                : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
             )}
             aria-pressed={active}
           >

@@ -418,7 +418,7 @@ export function AgentConversationPanel(props: {
       className={cn(
         "flex shrink-0 flex-col bg-dls-background pb-5",
         mode === "agent" ? "overflow-visible" : "overflow-hidden",
-        mode === "assistant" && "px-2.5",
+        mode === "assistant" && "bg-dls-sidebar px-2.5",
       )}
       style={{ width: props.width }}
     >

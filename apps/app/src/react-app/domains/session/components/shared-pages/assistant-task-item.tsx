@@ -53,7 +53,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
     <div
       className={cn(
         "group flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors",
-        props.selected ? "bg-dls-list-selected text-dls-text" : "text-dls-text hover:bg-dls-list-selected",
+        props.selected ? "bg-dls-list-selected text-dls-text" : "text-dls-text hover:bg-dls-list-hover",
       )}
       onPointerEnter={() =>
         props.onPrefetchSession?.(props.workspaceId, latestSession.id)
