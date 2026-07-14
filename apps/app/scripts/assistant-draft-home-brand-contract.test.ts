@@ -15,7 +15,7 @@ describe("assistant draft home brand contract", () => {
     expect(source).toContain(
       'src={resolvePublicAssetUrl("/onmyagent-logo.png")}',
     );
-    expect(source).toContain('className="mb-3 size-20 object-contain opacity-5"');
+    expect(source).toContain('className="mb-3 size-20 object-contain opacity-10"');
     expect(source).toContain('aria-hidden="true"');
   });
 });
