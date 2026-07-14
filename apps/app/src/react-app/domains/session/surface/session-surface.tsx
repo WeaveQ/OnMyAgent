@@ -2714,7 +2714,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               src={resolvePublicAssetUrl("/onmyagent-logo.png")}
               alt=""
               aria-hidden="true"
-              className="mb-3 size-20 object-contain opacity-5"
+              className="mb-3 size-20 object-contain opacity-10"
               draggable={false}
             />
             <div className="flex items-center gap-2 text-dls-text">
