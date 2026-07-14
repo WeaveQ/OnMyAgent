@@ -6,7 +6,7 @@ import { isStreamingSessionStatus } from "../../sidebar/utils";
 import { formatConversationTime, type AgentConversationGroup, type TaskStatusIndicator } from "./conversation-model";
 
 const agentConversationTextClass = {
-  itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text",
+  itemTitle: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-text",
   itemMeta: "shrink-0 text-xs leading-none text-dls-secondary/70",
   itemDescription: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary",
 };
@@ -83,7 +83,12 @@ export function AgentConversationItem(props: {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-baseline gap-2">
-          <div className={agentConversationTextClass.itemTitle}>
+          <div
+            className={cn(
+              agentConversationTextClass.itemTitle,
+              props.selected ? "font-medium" : "font-normal",
+            )}
+          >
             {props.group.name}
           </div>
           <div className={agentConversationTextClass.itemMeta}>
