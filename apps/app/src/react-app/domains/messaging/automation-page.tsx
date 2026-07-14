@@ -371,11 +371,21 @@ function relativeRunTime(timestamp: number) {
   return formatter.format(Math.round(deltaHours / 24), "day");
 }
 
-function AutomationField(props: { label: string; hint?: string; children: ReactNode }) {
+function AutomationField(props: {
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
   return (
     <label className="block space-y-2">
       <div className="text-sm font-medium text-dls-secondary">
         {props.label}
+        {props.required ? (
+          <span aria-hidden="true" className="ml-0.5 text-dls-status-danger-fg">
+            *
+          </span>
+        ) : null}
         {props.hint ? <span className="ml-1 font-normal">{props.hint}</span> : null}
       </div>
       {props.children}
@@ -854,8 +864,11 @@ function AutomationDialog(props: {
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-          <AutomationField label={t("automation.field_name")}>
+          <AutomationField label={t("automation.field_name")} required>
             <Input
+              name="automation-title"
+              required
+              aria-required="true"
               variant="dls"
               value={props.form.title}
               onChange={(event) => props.onFormChange({ ...props.form, title: event.currentTarget.value })}
