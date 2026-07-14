@@ -138,7 +138,7 @@ export function OnMyAgentRail(props: {
   onOpenBilling?: () => void;
 }) {
   return (
-    <aside className="flex w-[72px] shrink-0 flex-col items-center bg-dls-rail pb-4 pt-14 text-dls-text">
+    <aside className="flex w-16 shrink-0 flex-col items-center bg-dls-rail pb-4 pt-14 text-dls-text">
       <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5">
         <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto pb-2">
           {TOP_RAIL_ITEMS.map((item) => (
