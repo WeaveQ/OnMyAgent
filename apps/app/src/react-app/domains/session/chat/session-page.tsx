@@ -155,7 +155,10 @@ function CodeSidePanelMenu(props: {
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-side-panel-menu="true">
-      <header className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary">
+      <header
+        data-panel-titlebar="true"
+        className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary mac:titlebar-drag"
+      >
         <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
           <Expand className="size-3.5" />
         </Button>
@@ -211,7 +214,10 @@ function CodeSidePanelPlaceholder(props: {
   const Icon = props.icon;
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4">
+      <header
+        data-panel-titlebar="true"
+        className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4 mac:titlebar-drag"
+      >
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Icon className="size-4 text-muted-foreground" />
           {props.title}
