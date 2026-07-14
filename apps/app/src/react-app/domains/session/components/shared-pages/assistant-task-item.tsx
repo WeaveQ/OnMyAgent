@@ -70,13 +70,13 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         variant="ghost"
         size="xs"
         className={cn(
-          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-sm leading-5 hover:bg-transparent",
+          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-xs leading-5 hover:bg-transparent",
           props.selected ? "font-medium" : "font-normal",
         )}
       >
         {props.group.description}
       </Button>
-      <div className="shrink-0 text-sm leading-none text-dls-secondary/75 group-hover:hidden">
+      <div className="shrink-0 text-xs leading-none text-dls-secondary/75 group-hover:hidden">
         {summaryTime}
       </div>
       <Button
