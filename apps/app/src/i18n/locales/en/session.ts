@@ -607,7 +607,7 @@ export default {
   "session.spaces_tab": "Spaces",
   "session.spaces_count": "Spaces ({count})",
   "session.automations_tab": "Automations",
-  "session.task_list": "Task List",
+  "session.task_list": "Tasks",
   "session.task_filter_all": "All",
   "session.task_filter_tasks": "Tasks",
   "session.task_filter_space_tasks": "Space tasks",
