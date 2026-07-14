@@ -555,4 +555,13 @@ export default {
   "session.jump_to_latest": "Jump to latest",
   "session.reasoning": "Reasoning",
   "session.step": "Step",
+  "session.compact_heading_summary": "Summary",
+  "session.compact_heading_current_state": "Current State",
+  "session.compact_heading_completed": "Completed",
+  "session.compact_heading_done": "Done",
+  "session.compact_heading_in_progress": "In Progress",
+  "session.compact_heading_blocked": "Blocked",
+  "session.compact_heading_key_decisions": "Key Decisions",
+  "session.compact_heading_next_steps": "Next Steps",
+  "session.compact_heading_progress": "Progress",
 } as const;
