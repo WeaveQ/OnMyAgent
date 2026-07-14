@@ -293,6 +293,32 @@ describe("session run controller", () => {
     ).toBe(5_000);
   });
 
+  test("uses cumulative goal runtime after a resumed run is stopped", () => {
+    const elapsedMs = goalElapsedMs(
+      {
+        ...explicitGoalRuntime("running"),
+        startedAt: 1_000,
+        updatedAt: 16_000,
+        totalPausedMs: 5_000,
+        lastRunStartedAt: 16_000,
+      },
+      25_000,
+    );
+
+    expect(elapsedMs).toBe(19_000);
+    expect(
+      createSessionInterruptionNotice({
+        sessionId: "ses_1",
+        kind: "stopped",
+        runKey: "ses_1:16000",
+        afterMessageCount: 8,
+        runStartedAt: 16_000,
+        now: 25_000,
+        elapsedMs,
+      }).elapsedMs,
+    ).toBe(19_000);
+  });
+
   test("paused goals can resume only when the run is otherwise idle", () => {
     const idlePolicy = resolveSessionRunPolicy({
       accessMode: "default",

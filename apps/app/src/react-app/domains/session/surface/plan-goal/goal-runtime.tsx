@@ -60,6 +60,7 @@ export function createSessionInterruptionNotice(input: {
   afterMessageCount: number;
   runStartedAt: number;
   now: number;
+  elapsedMs?: number;
 }): SessionTranscriptNotice {
   return {
     id: `${input.sessionId}:${input.kind}:${input.runKey}`,
@@ -68,7 +69,12 @@ export function createSessionInterruptionNotice(input: {
     afterMessageCount: input.afterMessageCount,
     runStartedAt: input.runStartedAt,
     ...(input.kind === "stopped"
-      ? { elapsedMs: Math.max(0, input.now - input.runStartedAt) }
+      ? {
+          elapsedMs: Math.max(
+            0,
+            input.elapsedMs ?? input.now - input.runStartedAt,
+          ),
+        }
       : {}),
   };
 }

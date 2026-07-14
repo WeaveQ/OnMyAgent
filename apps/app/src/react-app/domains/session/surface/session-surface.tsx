@@ -187,6 +187,7 @@ import {
   buildPlanExecutionHiddenSystemPrompt,
   createSessionInterruptionNotice,
   goalCheckpointFromTodos,
+  goalElapsedMs,
   GoalPreviewPanel,
   GoalRuntimePanel,
   isGoalIntentRuntime,
@@ -1314,6 +1315,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
           storedRunIdentity?.runKey ??
           latestTerminal?.runKey ??
           `${props.sessionId}:remote:${runStartedAt}`;
+        const goalRuntime = goalRuntimeRef.current;
+        const elapsedMs =
+          kind === "stopped" && isGoalIntentRuntime(goalRuntime)
+            ? goalElapsedMs(goalRuntime, now)
+            : undefined;
         const notice = createSessionInterruptionNotice({
           sessionId: props.sessionId,
           kind,
@@ -1321,6 +1327,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           afterMessageCount,
           runStartedAt,
           now,
+          ...(elapsedMs !== undefined ? { elapsedMs } : {}),
         });
         if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
           return current;
