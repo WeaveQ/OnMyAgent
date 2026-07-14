@@ -29,4 +29,15 @@ describe("goal runtime panel", () => {
     expect(pauseAction).toContain("<CirclePause size={14} />");
     expect(pauseAction).not.toContain("<Pause size={14} />");
   });
+
+  test("keeps the goal delete action visible at the primary text tone", () => {
+    const panelSource = source.slice(source.indexOf("export function GoalRuntimePanel"));
+    const clearAction = panelSource.match(
+      /<Button[\s\S]*?onClick=\{props\.onClear\}[\s\S]*?<\/Button>/,
+    )?.[0];
+
+    expect(clearAction).toContain('variant="ghost"');
+    expect(clearAction).toContain('className="text-dls-text"');
+    expect(clearAction).toContain("<Trash2 size={14} />");
+  });
 });

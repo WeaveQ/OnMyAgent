@@ -390,6 +390,7 @@ export function GoalRuntimePanel(props: {
             type="button"
             size="icon-xs"
             variant="ghost"
+            className="text-dls-text"
             onClick={props.onClear}
             aria-label={t("session.goal_runtime_clear")}
           >
