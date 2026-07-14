@@ -385,4 +385,11 @@ export default {
   "local_agent.background_status_restored": "后台运行状态已从主进程恢复。",
   "local_agent.scheduled_task_completed": "定时任务“{title}”执行完成。\n状态：{status}\nRun：{runId}\n\n{output}",
   "local_agent.heartbeat_task_completed": "定时任务“{title}”执行完成。\n状态：{status}\nRun：{run}\n\n{output}",
+  "local_agent.editor_id_placeholder": "唯一标识，仅小写字母 / 数字 / 横线，例如 my-agent",
+  "local_agent.editor_name_placeholder": "显示名称，例如 我的本地编码助手",
+  "local_agent.editor_command_placeholder": "Agent 可执行文件绝对路径，例如 /usr/local/bin/opencode",
+  "local_agent.editor_args_placeholder": "可选启动参数，空格分隔，例如 --acp",
+  "local_agent.editor_description_placeholder": "这个 Agent 的用途说明（可选）",
+  "local_agent.editor_native_skills_dirs_placeholder": "每行一个技能目录绝对路径",
+  "local_agent.editor_behavior_policy_placeholder": "可选 JSON 行为策略，例如 {\"maxSteps\": 200}",
 } as const;
