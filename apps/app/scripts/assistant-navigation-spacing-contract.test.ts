@@ -20,6 +20,21 @@ describe("assistant navigation spacing contract", () => {
     expect(source).toContain('className="space-y-0 pb-1 pt-3"');
   });
 
+  test("keeps category tabs fluid and aligned with the primary actions", () => {
+    const source = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-sidebar-controls.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain("h-8 min-w-0 w-full");
+    expect(source).toContain("mb-[18px] grid w-full grid-cols-2");
+    expect(source).not.toContain("min-w-24");
+    expect(source).not.toContain("w-24 rounded-lg");
+  });
+
   test("keeps the task list close to the primary actions", () => {
     const source = readFileSync(
       join(

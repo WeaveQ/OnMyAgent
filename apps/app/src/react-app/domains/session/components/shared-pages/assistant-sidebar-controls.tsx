@@ -8,7 +8,7 @@ import { t } from "../../../../../i18n";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
 
 const assistantCategoryTabClass =
-  "relative z-10 inline-flex h-8 min-w-24 items-center justify-center gap-2 rounded-lg px-4 text-[13px] transition-colors";
+  "inline-flex h-8 min-w-0 w-full items-center justify-center gap-2 rounded-lg px-4 text-[13px] transition-colors";
 
 function AssistantCodeTabIcon(props: { className?: string }) {
   return (
@@ -53,14 +53,7 @@ export function AssistantCategorySwitch(props: {
   ];
 
   return (
-    <div className="relative mx-auto mb-6 grid w-fit grid-cols-2 items-center gap-1 mac:titlebar-no-drag">
-      <span
-        className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 w-24 rounded-lg bg-dls-list-selected transition-transform duration-200 ease-out",
-          props.value === "code" ? "translate-x-[calc(100%+0.25rem)]" : "translate-x-0",
-        )}
-        aria-hidden
-      />
+    <div className="mx-auto mb-[18px] grid w-full grid-cols-2 items-center gap-1 mac:titlebar-no-drag">
       {items.map((item) => {
         const Icon = item.icon;
         const active = props.value === item.id;
@@ -73,7 +66,7 @@ export function AssistantCategorySwitch(props: {
               assistantCategoryTabClass,
               "mac:titlebar-no-drag",
               active
-                ? "font-medium text-dls-text"
+                ? "bg-dls-list-selected font-medium text-dls-text"
                 : "font-normal text-dls-text hover:bg-dls-list-hover",
             )}
             aria-pressed={active}

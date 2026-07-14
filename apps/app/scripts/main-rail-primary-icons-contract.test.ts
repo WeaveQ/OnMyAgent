@@ -15,6 +15,7 @@ describe("main rail primary icon contract", () => {
     );
 
     expect(railSource).toContain('className="flex w-16 shrink-0');
+    expect(railSource).toContain("-translate-y-0.5 flex-1 flex-col");
     expect(railSource).not.toContain("w-[72px]");
   });
 
