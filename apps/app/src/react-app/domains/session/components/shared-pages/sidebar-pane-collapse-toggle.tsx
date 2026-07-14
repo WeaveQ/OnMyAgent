@@ -26,7 +26,7 @@ export function SidebarPaneCollapseToggle(props: {
       aria-label={title}
       aria-expanded={!props.collapsed}
       className={cn(
-        "absolute top-1/2 z-30 h-14 w-2.5 -translate-y-1/2 overflow-visible rounded-l-none rounded-r-md border-y border-r border-l-0 border-dls-border px-0 text-dls-secondary shadow-none transition-[width,color] duration-150 before:absolute before:-left-px before:inset-y-0 before:w-px hover:w-4 hover:text-dls-text mac:titlebar-no-drag",
+        "absolute top-1/2 z-30 h-14 w-2.5 -translate-y-1/2 overflow-visible rounded-l-none rounded-r-md px-0 text-dls-secondary shadow-none transition-[width,color] duration-150 before:absolute before:-left-px before:inset-y-0 before:w-px hover:w-4 hover:text-dls-text mac:titlebar-no-drag",
         props.collapsed
           ? "bg-dls-rail before:bg-dls-rail"
           : "bg-dls-background before:bg-dls-background",
