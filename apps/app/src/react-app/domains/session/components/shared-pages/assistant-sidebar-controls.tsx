@@ -73,8 +73,8 @@ export function AssistantCategorySwitch(props: {
               assistantCategoryTabClass,
               "mac:titlebar-no-drag",
               active
-                ? "font-semibold text-dls-text"
-                : "font-normal text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+                ? "font-medium text-dls-text"
+                : "font-normal text-dls-text hover:bg-dls-list-hover",
             )}
             aria-pressed={active}
           >
@@ -100,7 +100,7 @@ export function AssistantMenuRow(props: {
       active={props.active}
       size="sidebar"
     >
-      <Icon className="size-4 shrink-0 text-dls-secondary" />
+      <Icon className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{props.item.label}</span>
     </NavListButton>
   );
