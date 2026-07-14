@@ -76,7 +76,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
       >
         {props.group.description}
       </Button>
-      <div className="shrink-0 text-xs leading-none text-dls-secondary/75 group-hover:hidden">
+      <div className="shrink-0 text-xs leading-5 text-dls-text/30 group-hover:hidden">
         {summaryTime}
       </div>
       <Button

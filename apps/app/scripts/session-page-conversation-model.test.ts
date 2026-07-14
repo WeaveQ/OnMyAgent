@@ -1,14 +1,22 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 
 import type {
   OnMyAgentSessionMessage,
   OnMyAgentSessionSnapshot,
 } from "../src/app/lib/onmyagent-server";
+import { setLocale } from "../src/i18n";
 import {
   formatConversationTime,
   normalizeTimestamp,
   snapshotConversationSummary,
 } from "../src/react-app/domains/session/chat/session-page-conversation-model";
+import {
+  formatConversationTime as formatAssistantConversationTime,
+} from "../src/react-app/domains/session/components/shared-pages/conversation-model";
+
+beforeEach(() => {
+  setLocale("zh");
+});
 
 function message(input: {
   id: string;
@@ -61,11 +69,14 @@ describe("session page conversation model", () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 5).getTime();
     const yesterday = today - 86_400_000;
-    const older = new Date(now.getFullYear(), Math.max(0, now.getMonth() - 1), 3, 9, 5).getTime();
+    const older = today - 15 * 86_400_000;
 
     expect(formatConversationTime(today)).toBe("09:05");
-    expect(formatConversationTime(yesterday)).toBe("昨天");
-    expect(formatConversationTime(older)).toMatch(/^\d{1,2}\/3$/);
+    expect(formatConversationTime(yesterday)).toBe("1天前");
+    expect(formatConversationTime(older)).toBe("15天前");
+    expect(formatAssistantConversationTime(today)).toBe("09:05");
+    expect(formatAssistantConversationTime(yesterday)).toBe("1天前");
+    expect(formatAssistantConversationTime(older)).toBe("15天前");
   });
 
   test("summarizes the latest non-empty message preview", () => {
