@@ -174,7 +174,7 @@ const navListButtonVariants = cva(
       },
       size: {
         default: "h-10 gap-2.5 rounded-lg px-2.5 text-base font-medium",
-        sidebar: "h-8 gap-2 rounded-lg px-2 text-xs font-normal",
+        sidebar: "h-8 gap-2 rounded-lg px-2 text-sm font-normal",
         compact: "h-7 gap-2 rounded-md px-2 text-xs font-medium",
       },
     },

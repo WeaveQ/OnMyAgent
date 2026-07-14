@@ -290,7 +290,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         aria-expanded={expanded}
         title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
       >
-        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-dls-secondary">
+        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-dls-secondary">
           {expanded ? (
             <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
           ) : (
@@ -300,7 +300,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         </span>
         <span className="flex min-w-0 items-center gap-1">
           {activeFilterItem && (
-            <span className="min-w-0 truncate text-xs text-dls-secondary">
+            <span className="min-w-0 truncate text-sm text-dls-secondary">
               <span>{activeFilterItem.label}</span>
               <span>({activeFilterItem.count})</span>
             </span>
@@ -362,7 +362,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         <div className="space-y-1.5">
           {showTasks && visiblePinnedGroups.length > 0 ? (
             <div>
-              <div className="flex h-8 w-full items-center gap-2 px-2 text-left text-xs font-medium text-dls-secondary">
+              <div className="flex h-8 w-full items-center gap-2 px-2 text-left text-sm font-medium text-dls-secondary">
                 <span className="min-w-0 flex-1 truncate">
                   {t("session.pinned_count", {
                     count: props.pinnedGroups.length,
@@ -415,7 +415,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                             : [...current, directory],
                         )
                       }
-                      className="hover:bg-dls-hover"
+                      className="text-sm hover:bg-dls-hover"
                       title={directory}
                       aria-expanded={expandedDir}
                     >
@@ -464,7 +464,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                             : [...current, group.id],
                         )
                       }
-                      className="hover:bg-dls-hover"
+                      className="text-sm hover:bg-dls-hover"
                       title={groupLabel}
                       aria-expanded={expandedAuto}
                     >
