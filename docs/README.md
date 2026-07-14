@@ -60,14 +60,14 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Packaging steps | `BUILD.md` |
 | Release flow | `release.md` |
 | Agent hard rules | `AGENTS.md` / `loop/rules.md` |
-| Execution / design drafts | `.loop/` only — never under `docs/features`, `docs/plans`, `docs/archive` |
+| Execution / design drafts | `.loop/` only — never under `docs/features`, `docs/plans`, `docs/archive`, or `docs/superpowers` |
 
 ## Not in git
 
 | Path | Why |
 | --- | --- |
 | `.loop/*` | Local loop state, AI plans, drafts |
-| `docs/plans/`, `docs/archive/`, `docs/features/` | gitignored; do not reintroduce |
+| `docs/plans/`, `docs/archive/`, `docs/features/`, `docs/superpowers/` | gitignored; do not reintroduce |
 
 ## Not engineering docs
 
