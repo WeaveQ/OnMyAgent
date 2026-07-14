@@ -497,6 +497,7 @@ components:
       radius: "{rounded.md}"                          # 8
       surface: "{colors.rail-bg}"
       surface-active: transparent
+      surface-hover: transparent
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40

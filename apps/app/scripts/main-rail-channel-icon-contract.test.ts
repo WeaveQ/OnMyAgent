@@ -5,7 +5,7 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 
 describe("main rail channel icon contract", () => {
-  test("uses a generic channel icon without an active background", () => {
+  test("uses a generic channel icon without active or hover backgrounds", () => {
     const railSource = readFileSync(
       join(
         repoRoot,
@@ -23,5 +23,9 @@ describe("main rail channel icon contract", () => {
     expect(railSource).not.toContain("wechat.png");
     expect(primitiveSource).toContain('true: "text-dls-text"');
     expect(primitiveSource).not.toContain('true: "bg-dls-rail-active text-dls-text"');
+    expect(primitiveSource).toContain(
+      'false: "text-dls-secondary hover:text-dls-text"',
+    );
+    expect(primitiveSource).not.toContain("hover:bg-dls-rail-hover");
   });
 });
