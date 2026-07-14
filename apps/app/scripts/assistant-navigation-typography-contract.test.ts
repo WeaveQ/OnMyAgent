@@ -24,6 +24,13 @@ describe("assistant navigation typography contract", () => {
       ),
       "utf8",
     );
+    const sectionsSource = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+      ),
+      "utf8",
+    );
 
     expect(primitiveSource).toContain('sidebar: "h-8 gap-2 rounded-lg px-2 text-xs font-normal"');
     expect(primitiveSource).toContain('className: "font-medium"');
@@ -35,5 +42,8 @@ describe("assistant navigation typography contract", () => {
       '<Icon className="size-4 shrink-0 text-dls-secondary" />',
     );
     expect(taskSource).toContain('props.selected ? "font-medium" : "font-normal"');
+    expect(sectionsSource).toContain(
+      'gap-1.5 text-xs font-medium text-dls-secondary',
+    );
   });
 });

@@ -290,7 +290,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         aria-expanded={expanded}
         title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
       >
-        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-dls-secondary">
           {expanded ? (
             <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
           ) : (
