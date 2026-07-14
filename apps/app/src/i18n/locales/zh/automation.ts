@@ -81,6 +81,7 @@ export default {
   "automation.run_history_success_with_session": "{source} · 成功 {time} · 会话 {sessionId}",
   "automation.run_history_title": "{title} 的运行记录",
   "automation.run_history_title_fallback": "自动化任务",
+  "automation.session_group_title": "自动化任务-{title}",
   "automation.run_now": "立即运行",
   "automation.test_run": "测试运行",
   "automation.run_session_chip": "会话 {sessionId}",

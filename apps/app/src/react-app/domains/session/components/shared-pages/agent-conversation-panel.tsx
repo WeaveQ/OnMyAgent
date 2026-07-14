@@ -18,6 +18,7 @@ import {
   writeAssistantSessionCategory,
 } from "../../../agents";
 import { AssistantConversationSections } from "./assistant-conversation-sections";
+import { groupAssistantAutomationItems } from "./assistant-automation-groups";
 import { AgentConversationPanelHeader } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
 import {
@@ -304,26 +305,21 @@ export function AgentConversationPanel(props: {
             activeAssistantCategoryId,
         )
       : filteredAgentGroups;
-  const automationGroups = Array.from(
-    assistantCategoryGroups.reduce((groups, item) => {
+  const automationGroups = groupAssistantAutomationItems(
+    assistantCategoryGroups.flatMap((item) => {
       const record = automationSessionRecordById.get(item.latestSession.id);
-      if (!record || record.category !== activeAssistantCategoryId) return groups;
-      const current = groups.get(record.groupName) ?? [];
-      current.push(item);
-      groups.set(record.groupName, current);
-      return groups;
-    }, new Map<string, AgentConversationGroup[]>()),
-  ).sort(([, left], [, right]) => {
-    const leftTime =
-      left[0]?.latestSession.time?.updated ??
-      left[0]?.latestSession.time?.created ??
-      0;
-    const rightTime =
-      right[0]?.latestSession.time?.updated ??
-      right[0]?.latestSession.time?.created ??
-      0;
-    return rightTime - leftTime;
-  });
+      if (!record || record.category !== activeAssistantCategoryId) return [];
+      return [{
+        item,
+        automationId: record.automationId,
+        title: record.title,
+        updatedAt:
+          item.latestSession.time?.updated ??
+          item.latestSession.time?.created ??
+          record.createdAt,
+      }];
+    }),
+  );
   const regularAssistantGroups = assistantCategoryGroups.filter(
     (item) => !automationSessionRecordById.has(item.latestSession.id),
   );
@@ -368,7 +364,7 @@ export function AgentConversationPanel(props: {
     .map(([directory]) => directory)
     .join("\n");
   const automationDirectoryKey = automationGroups
-    .map(([groupName]) => groupName)
+    .map((group) => group.id)
     .join("\n");
 
   useEffect(() => {
@@ -412,7 +408,7 @@ export function AgentConversationPanel(props: {
   useEffect(() => {
     setExpandedAutomationDirectories((current) => {
       const next = new Set(current);
-      for (const [groupName] of automationGroups) next.add(groupName);
+      for (const group of automationGroups) next.add(group.id);
       return next.size === current.length ? current : Array.from(next);
     });
   }, [automationDirectoryKey]);
