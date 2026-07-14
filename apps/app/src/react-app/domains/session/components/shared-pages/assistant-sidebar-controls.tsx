@@ -8,7 +8,7 @@ import { t } from "../../../../../i18n";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
 
 const assistantCategoryTabClass =
-  "relative z-10 inline-flex h-8 min-w-24 items-center justify-center gap-2 rounded-lg px-4 text-sm transition-colors";
+  "relative z-10 inline-flex h-8 min-w-24 items-center justify-center gap-2 rounded-lg px-4 text-xs transition-colors";
 
 function AssistantCodeTabIcon(props: { className?: string }) {
   return (
