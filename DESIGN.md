@@ -26,14 +26,16 @@ colors:
     surface-muted: "#F8FAFC"
     background: "#FAFAFA"
     app-bg: "#F8FAFC"
-    sidebar: "#F8FAFC"
-    rail-bg: "#F3F6FB"
-    rail-active: "#FFFFFF"
-    rail-hover: "#E8EFFA"
+    sidebar: "#F3F3F3"
+    rail-bg: "#ECECEC"
+    rail-active: "#EBEBEB"
+    rail-hover: "#EFEFEF"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"
     hover: "#EEF4FF"
     active: "#DDEBFF"
+    list-selected: "#E5E5E5"
+    list-hover: "#EFEFEF"
     danger: "#EF4444"
     warning: "#D19A2A"
     success-fg: "#047857"
@@ -66,14 +68,16 @@ colors:
     surface-muted: "#2A2A2A"
     background: "#262626"
     app-bg: "#262626"
-    sidebar: "#171717"
-    rail-bg: "#171717"
+    sidebar: "#252526"
+    rail-bg: "#1C1C1C"
     rail-active: "#333333"
     rail-hover: "#303030"
     border: "#3A3A3A"
     border-strong: "#4A4A4A"
     hover: "#2A2A2A"
     active: "#333333"
+    list-selected: "#333333"
+    list-hover: "#2A2A2A"
     danger: "#F87171"
     warning: "#FBBF24"
     success-fg: "#6EE7B7"
@@ -492,7 +496,8 @@ components:
       height: "{spacing.button-heights.chrome}"      # 48
       radius: "{rounded.md}"                          # 8
       surface: "{colors.rail-bg}"
-      surface-active: "{colors.rail-active}"
+      surface-active: transparent
+      surface-hover: transparent
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40

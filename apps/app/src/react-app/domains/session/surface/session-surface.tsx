@@ -2710,6 +2710,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
         ) : null}
         {personalAssistantDraftHome ? (
           <div className="mb-7 flex flex-col items-center text-center">
+            <img
+              src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+              alt=""
+              aria-hidden="true"
+              className="mb-3 size-20 object-contain opacity-10"
+              draggable={false}
+            />
             <div className="flex items-center gap-2 text-dls-text">
               <AssistantDraftHomeMark categoryId={assistantCategoryId} />
               <h2 className={sessionSurfaceTextClass.draftHomeTitle}>

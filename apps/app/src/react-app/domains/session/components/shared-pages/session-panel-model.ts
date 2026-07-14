@@ -16,7 +16,7 @@ export const GLOBAL_VOICE_SIDE_PANEL_KEY = "__onmyagent_voice__";
 
 export const AGENT_PANEL_MIN_WIDTH = 180;
 export const AGENT_PANEL_MAX_WIDTH = 300;
-export const AGENT_PANEL_DEFAULT_WIDTH = 240;
+export const AGENT_PANEL_DEFAULT_WIDTH = 264;
 
 export function sessionTitleForId(
   groups: WorkspaceSessionGroup[],

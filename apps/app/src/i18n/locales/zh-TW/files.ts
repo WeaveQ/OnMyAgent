@@ -1,6 +1,7 @@
 import { APP_NAME } from "../brand";
 
 export default {
+  "files.breadcrumb_label": "文件路徑",
   "files.category_all": "全部類型",
   "files.category_audio": "音頻",
   "files.category_code": "代碼",
@@ -17,9 +18,15 @@ export default {
   "files.cloud_drive": "雲端網盤",
   "files.cloud_empty_description": "後續這裡會集中展示已同步到雲端網盤的任務文件、跨設備資料和團隊共享內容。",
   "files.cloud_empty_title": "雲端網盤即將就緒",
+  "files.column_actions": "文件操作",
+  "files.column_name": "名稱",
+  "files.column_size": "大小",
+  "files.column_type": "類型",
+  "files.column_updated": "更新時間",
   "files.current_workspace": "當前工作區",
   "files.description": "查看 AI 同事運行產生的文件和任務產物，上傳到雲端網盤開啟跨端同步。",
   "files.file_count": "{count} 個文件",
+  "files.file_actions": "{name} 的文件操作",
   "files.files_unit": "個文件",
   "files.load_failed": "文件列表加載失敗",
   "files.loading": "正在加載文件…",
@@ -37,6 +44,8 @@ export default {
   "files.search_placeholder": "搜索文件、任務或工作空間",
   "files.task_results": "任務成果",
   "files.title": "我的文件",
+  "files.type_file": "文件",
+  "files.type_folder": "文件夾",
   "files.ungrouped": "未分組",
   "files.workspace": "工作區",
   "files.workspace_root": "工作區根目錄",

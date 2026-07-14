@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Activity,
   Bot,
@@ -144,8 +144,6 @@ type PersonalLocalAgentPageProps = {
    * expert and assistant surfaces do.
    */
   onOpenTargetsChange?: (targets: OpenTarget[]) => void;
-  /** Right-aligned controls injected by the host page (Browser/Workspace toggles). */
-  headerActions?: ReactNode;
   /** Navigate to the Agent Management tab (skills panel by default). */
   onOpenAgentManagement?: (panel?: "skills" | "mcp" | "providers" | "agents") => void;
   resumeRequest?: SessionArchiveResumeRequest | null;
@@ -1280,7 +1278,7 @@ return (
     className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"
   >
     <aside
-      className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5"
+      className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5"
       style={{
         width: agentListCollapsed ? 0 : agentListWidth,
       }}
@@ -1533,7 +1531,7 @@ return (
         className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none"
         style={{ left: agentListWidth }}
       >
-        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" />
+        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
       </div>
     )}
 
@@ -1643,7 +1641,6 @@ return (
         </CountBadge>
       ) : null}
     </Button>
-    {props.headerActions ? <div className="ml-1 flex items-center border-l border-dls-border pl-2">{props.headerActions}</div> : null}
   </div>
   {showScheduledTasks && selectedAgent ? (
     <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">

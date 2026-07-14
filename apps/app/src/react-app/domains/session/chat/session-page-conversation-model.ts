@@ -26,8 +26,8 @@ export function formatConversationTime(value: number | null | undefined) {
   );
   const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   if (dayDelta === 0) return time;
-  if (dayDelta === 1) return t("time.yesterday");
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  if (dayDelta > 0) return t("time.days_ago", { count: dayDelta });
+  return time;
 }
 
 function sessionMessageTime(message: OnMyAgentSessionMessage) {

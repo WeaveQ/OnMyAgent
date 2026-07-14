@@ -289,12 +289,19 @@ describe("expert marketplace UI contract", () => {
 
   test("expert conversation list keeps the selected agent highlighted for draft tabs", () => {
     const list = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-list.tsx");
+    const item = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-item.tsx");
     const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx");
 
     expect(panel).toContain("selectedAgentId?: string | null");
     expect(panel).toContain("selectedAgentId={props.selectedAgentId}");
     expect(list).toContain("selectedAgentId?: string | null");
     expect(list).toContain("item.agentId === props.selectedAgentId");
+    expect(item).toContain(
+      'itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text"',
+    );
+    expect(item).toContain(
+      'props.selected ? "font-medium" : "font-normal"',
+    );
   });
 
   test("expert page feeds selected route expert sessions back into the left conversation panel", () => {

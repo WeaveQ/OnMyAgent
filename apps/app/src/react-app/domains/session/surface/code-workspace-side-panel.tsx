@@ -657,8 +657,14 @@ export function CodeWorkspaceSidePanel(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-workspace-side-panel="true">
-      <header className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-no-drag">
-        <div className="min-w-0 flex-1 overflow-x-auto">
+      <header
+        data-panel-titlebar="true"
+        className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
+      >
+        <div
+          data-panel-titlebar-controls="true"
+          className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+        >
           <div className="flex min-w-max items-center gap-1">
             <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
               {tabs.map((tab) => {

@@ -1406,16 +1406,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   {t("composer.configure")}
                                 </Button>
                               </div>
-                              <InputGroup controlSize="sm" radius="md" tone="surfaceMuted">
-                                <InputGroupAddon align="inline-start" inset="tight">
-                                  <Search aria-hidden="true" className="size-4" />
+                              <InputGroup controlSize="sm" radius="md" tone="surface">
+                                <InputGroupAddon align="inline-start">
+                                  <Search aria-hidden="true" className="size-3.5" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={skillSearchQuery}
                                   onChange={(event) => setSkillSearchQuery(event.currentTarget.value)}
                                   placeholder={t("composer.search_skills")}
                                   aria-label={t("composer.search_skills")}
-                                  className="text-xs text-dls-text placeholder:text-dls-secondary/75"
+                                  className="text-sm text-dls-text placeholder:text-dls-secondary/70"
                                 />
                               </InputGroup>
                             </div>
@@ -1424,16 +1424,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                               <div className="flex min-h-8 items-center text-xs font-medium text-dls-text">
                                 {t("composer.connectors_label")}
                               </div>
-                              <InputGroup controlSize="sm" radius="md" tone="surfaceMuted">
-                                <InputGroupAddon align="inline-start" inset="tight">
-                                  <Search aria-hidden="true" className="size-4" />
+                              <InputGroup controlSize="sm" radius="md" tone="surface">
+                                <InputGroupAddon align="inline-start">
+                                  <Search aria-hidden="true" className="size-3.5" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={connectorSearchQuery}
                                   onChange={(event) => setConnectorSearchQuery(event.currentTarget.value)}
                                   placeholder={t("composer.search_connectors")}
                                   aria-label={t("composer.search_connectors")}
-                                  className="text-xs text-dls-text placeholder:text-dls-secondary/75"
+                                  className="text-sm text-dls-text placeholder:text-dls-secondary/70"
                                 />
                               </InputGroup>
                             </div>
