@@ -6,7 +6,7 @@ import { isStreamingSessionStatus } from "../../sidebar/utils";
 import { formatConversationTime, type AgentConversationGroup, type TaskStatusIndicator } from "./conversation-model";
 
 const agentConversationTextClass = {
-  itemTitle: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-text",
+  itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text",
   itemMeta: "shrink-0 text-xs leading-none text-dls-secondary/70",
   itemDescription: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary",
 };
