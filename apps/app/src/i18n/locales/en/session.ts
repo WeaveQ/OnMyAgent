@@ -503,6 +503,13 @@ export default {
   "session.tool_task_title": "Task {task}",
   "session.tool_task_fallback": "subagent",
   "session.tool_task_result": "Result",
+  "session.tool_image_title": "Generate image",
+  "session.tool_image_generating": "Generating image...",
+  "session.tool_image_generating_prompt": "Generating: {prompt}",
+  "session.tool_image_failed": "Image generation failed",
+  "session.tool_image_no_data": "No image data",
+  "session.tool_image_open": "Open generated image {index}",
+  "session.tool_image_alt": "Generated image {index}",
   "session.support_docs": "Open documentation",
   "session.support_feedback": "Open feedback",
   "session.language_system_prompt":

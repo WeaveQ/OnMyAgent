@@ -64,10 +64,12 @@ import { usePlatform } from "../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../sync/message-metadata";
 import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
 import {
+  ImageGenerationToolCard,
   SpecializedToolDetails,
   specializedToolCanExpand,
   specializedToolHeadline,
 } from "./specialized-tool-details";
+import { TranscriptResourceChip } from "./transcript-resource-chip";
 import { applyTextHighlights } from "./text-highlights";
 import {
   computeTranscriptMaxContentWidth,
@@ -1528,6 +1530,17 @@ function StepRow(props: {
     );
   }
 
+  if (specializedDetails?.kind === "image-gen") {
+    return (
+      <ImageGenerationToolCard
+        details={specializedDetails}
+        running={isRunningStepStatus(summary.status)}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+      />
+    );
+  }
+
   if (props.part.type === "reasoning") {
     const raw = props.part.text;
     const preview = splitReasoningPreview(raw);
@@ -2466,7 +2479,14 @@ function MessageBlockRow(props: {
 
         {block.attachments.length > 0 ? (
           <div className={cn("flex flex-wrap gap-2", block.isUser ? "mb-3" : "mb-4")}>
-            {block.attachments.map((attachment) => (
+            {block.attachments.map((attachment) => block.isUser ? (
+              <TranscriptResourceChip
+                key={`${block.messageId}:${attachment.url}`}
+                filename={attachment.filename}
+                url={attachment.url}
+                mediaType={attachment.mime}
+              />
+            ) : (
               <FileCard
                 key={`${block.messageId}:${attachment.url}`}
                 part={{
@@ -2474,7 +2494,7 @@ function MessageBlockRow(props: {
                   url: attachment.url,
                   mediaType: attachment.mime,
                 }}
-                tone={block.isUser ? "user" : "assistant"}
+                tone="assistant"
               />
             ))}
           </div>
@@ -2494,14 +2514,20 @@ function MessageBlockRow(props: {
                     url?: string;
                     mime?: string;
                   };
-                  return (
+                  return block.isUser ? (
+                    <TranscriptResourceChip
+                      filename={filePart.filename}
+                      url={filePart.url ?? ""}
+                      mediaType={filePart.mime ?? "application/octet-stream"}
+                    />
+                  ) : (
                     <FileCard
                       part={{
                         filename: filePart.filename,
                         url: filePart.url ?? "",
                         mediaType: filePart.mime ?? "application/octet-stream",
                       }}
-                      tone={block.isUser ? "user" : "assistant"}
+                      tone="assistant"
                     />
                   );
                 }

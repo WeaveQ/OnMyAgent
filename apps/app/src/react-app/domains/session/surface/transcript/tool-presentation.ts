@@ -10,6 +10,7 @@ export type TranscriptToolFamily =
   | "web-search"
   | "plan"
   | "task"
+  | "image-gen"
   | "generic";
 
 export type TranscriptLintIssue = {
@@ -35,6 +36,12 @@ export type TranscriptTaskToolItem = {
   name: string;
   status: string | null;
   summary: string | null;
+};
+
+export type TranscriptGeneratedImage = {
+  url: string | null;
+  base64: string | null;
+  localPath: string | null;
 };
 
 export type TranscriptSpecializedToolDetails =
@@ -66,6 +73,13 @@ export type TranscriptSpecializedToolDetails =
       subagentName: string | null;
       toolItems: TranscriptTaskToolItem[];
       finalResult: string | null;
+    }
+  | {
+      kind: "image-gen";
+      prompt: string;
+      status: "generating" | "completed" | "error";
+      images: TranscriptGeneratedImage[];
+      errorMessage: string | null;
     };
 
 export type TranscriptToolPresentation = {
@@ -155,7 +169,26 @@ function toolFamily(toolName: string): TranscriptToolFamily {
   if (["websearch", "searchweb"].includes(name)) return "web-search";
   if (["todowrite", "todoread", "plancreate", "planupdate"].includes(name)) return "plan";
   if (["task", "subagent", "runagent"].includes(name)) return "task";
+  if (["imagegen", "generateimage"].includes(name)) return "image-gen";
   return "generic";
+}
+
+function normalizeGeneratedImage(value: unknown): TranscriptGeneratedImage | null {
+  const record = recordValue(value);
+  const url = stringValue(record, ["url"]);
+  const base64 = stringValue(record, ["b64_json", "base64"]);
+  const localPath = stringValue(record, ["localPath", "local_path", "path"]);
+  return url || base64 || localPath ? { url, base64, localPath } : null;
+}
+
+function imageGenerationPayload(value: unknown) {
+  let payload = resultPayload(value);
+  for (let depth = 0; depth < 2; depth += 1) {
+    const nested = parseRecord(payload?.result);
+    if (!nested) break;
+    payload = nested;
+  }
+  return payload;
 }
 
 function normalizeLintIssue(value: unknown): TranscriptLintIssue | null {
@@ -222,6 +255,30 @@ function specializedToolDetails(input: {
 }): TranscriptSpecializedToolDetails | null {
   const toolInput = input.toolInput ?? null;
   const payload = resultPayload(input.toolOutput);
+
+  if (input.family === "image-gen") {
+    const imagePayload = imageGenerationPayload(input.toolOutput);
+    const rawStatus = stringValue(imagePayload, ["status"]);
+    const status = rawStatus === "completed" || rawStatus === "executed"
+      ? "completed"
+      : rawStatus === "error" || rawStatus === "failed" || rawStatus === "cancelled"
+        ? "error"
+        : "generating";
+    const images = arrayValue(imagePayload, ["images", "data"]).flatMap((value) => {
+      const image = normalizeGeneratedImage(value);
+      return image ? [image] : [];
+    });
+    return {
+      kind: "image-gen",
+      prompt:
+        stringValue(imagePayload, ["prompt"]) ??
+        stringValue(toolInput, ["prompt", "description"]) ??
+        "",
+      status,
+      images,
+      errorMessage: stringValue(imagePayload, ["errorMessage", "error", "message"]),
+    };
+  }
 
   if (input.family === "delete") {
     const filePath = stringValue(toolInput, [
@@ -363,6 +420,7 @@ export function buildTranscriptToolPresentation(input: {
     if (details.kind === "web-fetch") return details.title ?? details.url;
     if (details.kind === "web-search") return details.query;
     if (details.kind === "plan") return details.name ?? details.overview;
+    if (details.kind === "image-gen") return details.prompt;
     return details.subagentName;
   })();
 
