@@ -709,10 +709,12 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
   };
   let editing = false;
   let processing = false;
+  let running = false;
 
   for (const group of stepGroups) {
     for (const part of group.parts) {
       const summary = summarizeStep(part);
+      running = running || isRunningStepStatus(summary.status);
       if (summary.toolCategory === "edit" || summary.toolCategory === "write") {
         counts.edit += 1;
         editing = editing || isRunningStepStatus(summary.status);
@@ -727,6 +729,27 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
         processing = processing || isRunningStepStatus(summary.status);
       }
     }
+  }
+
+  const populatedCategoryCount = [
+    counts.read,
+    counts.edit,
+    counts.terminal,
+    counts.search,
+    counts.other,
+  ].filter((count) => count > 0).length;
+  const totalCount =
+    counts.read + counts.edit + counts.terminal + counts.search + counts.other;
+  if (populatedCategoryCount > 1) {
+    return {
+      category: "tool",
+      label: t(
+        running
+          ? "session.process_summary_processing_items"
+          : "session.process_summary_processed_items",
+        { count: totalCount },
+      ),
+    };
   }
 
   if (counts.edit > 0) {
@@ -770,7 +793,11 @@ export function canMergeStepClusters(previous: MessageBlockItem | undefined, nex
   if (hasBrowserUseOperation(previous.stepGroups) || hasBrowserUseOperation(next.stepGroups)) {
     return false;
   }
-  return summarizeStepCluster(previous.stepGroups).category === summarizeStepCluster(next.stepGroups).category;
+  return true;
+}
+
+export function shouldFoldStepGroups(stepGroups: StepTimelineGroup[]) {
+  return stepGroups.reduce((count, group) => count + group.parts.length, 0) >= 2;
 }
 
 export function mergeLeadingAssistantStepClusters(blocks: MessageBlockItem[]) {
@@ -1837,6 +1864,7 @@ function StepsContainer(props: {
       return next;
     });
   };
+  const shouldFold = shouldFoldStepGroups(props.stepGroups);
   const hasPinnedBrowserUseOperation = props.stepGroups.some((group) =>
     group.parts.some((part) => browserOperationAutoExpanded(part)),
   );
@@ -1905,6 +1933,31 @@ function StepsContainer(props: {
     0,
   ) === 1 && stepSummaries.length === 1;
   const previewItems = singleBrowserUseOperation ? [] : stepSummaries.slice(0, 2);
+
+  if (!shouldFold) {
+    return (
+      <div className="max-w-[760px]">
+        <div className="flex flex-col gap-5">
+          {props.stepGroups.map((group) => (
+            <div key={group.id} className="flex flex-col gap-5">
+              {group.parts.map((part, index) => {
+                const rowId = `${group.id}:${index}`;
+                return (
+                  <StepRow
+                    key={rowId}
+                    id={rowId}
+                    part={part}
+                    expanded={props.expandedStepIds.has(rowId)}
+                    onToggle={() => toggleSteps(rowId)}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[760px] rounded-xl border border-dls-mist bg-dls-surface-muted">
@@ -2690,10 +2743,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       const blockKeys = blockKeysByTurnId.get(turnId) ?? [];
       blockKeys.push(blockIdentityKey(block));
       blockKeysByTurnId.set(turnId, blockKeys);
-      const hasExecutionDetails = block.kind === "steps-cluster" || (
-        Boolean(block.leadingStepGroups?.length) ||
-        block.groups.some((group) => group.kind === "steps")
-      );
+      const hasExecutionDetails = block.kind === "steps-cluster"
+        ? shouldFoldStepGroups(block.stepGroups)
+        : shouldFoldStepGroups([
+            ...(block.leadingStepGroups ?? []),
+            ...block.groups.flatMap((group) =>
+              group.kind === "steps"
+                ? [{ id: group.id, parts: group.parts, mode: group.mode }]
+                : [],
+            ),
+          ]);
       if (hasExecutionDetails) turnsWithExecutionDetails.add(turnId);
     });
 
