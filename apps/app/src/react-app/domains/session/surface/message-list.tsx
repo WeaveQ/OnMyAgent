@@ -13,9 +13,13 @@ import {
   Folder,
   GitFork,
   Globe,
+  MessageSquareWarning,
+  MoreHorizontal,
   RotateCcw,
   Search,
   Terminal,
+  ThumbsDown,
+  ThumbsUp,
 } from "lucide-react";
 
 import {
@@ -25,9 +29,19 @@ import {
   revealDesktopItemInDir,
 } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DisclosureRowButton, MenuRowButton } from "@/components/ui/action-row";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NoticeBox } from "@/components/ui/notice-box";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   ToolApprovalCard,
@@ -37,6 +51,7 @@ import {
 } from "@/components/ui/tool-approval-card";
 import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { buildFeedbackUrl } from "../../../../app/lib/feedback";
 import {
   SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX,
   type MessageGroup,
@@ -44,6 +59,8 @@ import {
 } from "../../../../app/types";
 import { groupMessageParts, isDesktopRuntime, summarizeStep } from "../../../../app/utils";
 import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
+import { usePlatform } from "../../../kernel/platform";
+import { readTranscriptMessageMetadata } from "../sync/message-metadata";
 import { MarkdownBlock } from "./markdown";
 import { applyTextHighlights } from "./text-highlights";
 import {
@@ -803,11 +820,220 @@ function CopyButton(props: { getText: () => string }) {
       onClick={async () => {
         await navigator.clipboard.writeText(props.getText());
         setCopied(true);
-        window.setTimeout(() => setCopied(false), 1200);
+        window.setTimeout(() => setCopied(false), 2_000);
       }}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </Button>
+  );
+}
+
+export type TranscriptFeedbackValue = "like" | "dislike";
+
+const TRANSCRIPT_FEEDBACK_STORAGE_KEY = "onmyagent.transcriptFeedbackState.v1";
+
+const TRANSCRIPT_DISLIKE_REASONS = [
+  "misunderstanding",
+  "context_error",
+  "answer_obscure",
+  "code_error",
+  "unprofessional_answer",
+  "code_format_error",
+  "other",
+] as const;
+
+function isTranscriptFeedbackValue(value: unknown): value is TranscriptFeedbackValue {
+  return value === "like" || value === "dislike";
+}
+
+function readTranscriptFeedbackState(): Record<string, TranscriptFeedbackValue> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(TRANSCRIPT_FEEDBACK_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, TranscriptFeedbackValue] =>
+        isTranscriptFeedbackValue(entry[1]),
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function persistTranscriptFeedbackState(state: Record<string, TranscriptFeedbackValue>) {
+  try {
+    window.localStorage.setItem(TRANSCRIPT_FEEDBACK_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Feedback remains usable for this render when storage is unavailable.
+  }
+}
+
+export function toggleTranscriptFeedback(
+  state: Record<string, TranscriptFeedbackValue>,
+  messageId: string,
+  value: TranscriptFeedbackValue,
+) {
+  if (state[messageId] === value) {
+    const next = { ...state };
+    delete next[messageId];
+    return next;
+  }
+  return { ...state, [messageId]: value };
+}
+
+function TranscriptFeedbackControls(props: { messageId: string }) {
+  const [feedback, setFeedback] = useState(readTranscriptFeedbackState);
+  const [dislikeOpen, setDislikeOpen] = useState(false);
+  const [selectedReasons, setSelectedReasons] = useState<Set<string>>(() => new Set());
+  const [otherReason, setOtherReason] = useState("");
+  const current = feedback[props.messageId];
+
+  const commit = (value: TranscriptFeedbackValue) => {
+    setFeedback((state) => {
+      const next = toggleTranscriptFeedback(state, props.messageId, value);
+      persistTranscriptFeedbackState(next);
+      return next;
+    });
+  };
+
+  const toggleReason = (reason: string, checked: boolean) => {
+    setSelectedReasons((currentReasons) => {
+      const next = new Set(currentReasons);
+      if (checked) next.add(reason);
+      else next.delete(reason);
+      return next;
+    });
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className={cn(current === "like" && "bg-dls-accent/10 text-dls-accent")}
+        aria-pressed={current === "like"}
+        title={t("session.transcript_like")}
+        aria-label={t("session.transcript_like")}
+        onClick={() => commit("like")}
+      >
+        <ThumbsUp size={14} />
+      </Button>
+      <Popover open={dislikeOpen} onOpenChange={setDislikeOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className={cn(current === "dislike" && "bg-dls-accent/10 text-dls-accent")}
+              aria-pressed={current === "dislike"}
+              title={t("session.transcript_dislike")}
+              aria-label={t("session.transcript_dislike")}
+            >
+              <ThumbsDown size={14} />
+            </Button>
+          }
+        />
+        <PopoverContent align="start" side="bottom" className="w-80 gap-3 p-3">
+          <div className="text-sm font-medium text-dls-text">
+            {t("session.transcript_dislike_title")}
+          </div>
+          <div className="grid gap-2">
+            {TRANSCRIPT_DISLIKE_REASONS.map((reason) => (
+              <label key={reason} className="flex cursor-pointer items-center gap-2 text-xs text-dls-text">
+                <Checkbox
+                  checked={selectedReasons.has(reason)}
+                  onCheckedChange={(checked) => toggleReason(reason, checked === true)}
+                />
+                <span>{t(`session.transcript_dislike_${reason}`)}</span>
+              </label>
+            ))}
+          </div>
+          {selectedReasons.has("other") ? (
+            <div className="space-y-1">
+              <Textarea
+                value={otherReason}
+                maxLength={200}
+                rows={3}
+                className="min-h-20 text-sm"
+                placeholder={t("session.transcript_dislike_other_placeholder")}
+                onChange={(event) => setOtherReason(event.currentTarget.value)}
+              />
+              <div className="text-right text-[11px] text-dls-secondary">
+                {otherReason.length}/200
+              </div>
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="xs" onClick={() => setDislikeOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="xs"
+              disabled={selectedReasons.size === 0}
+              onClick={() => {
+                commit("dislike");
+                setDislikeOpen(false);
+              }}
+            >
+              {t("session.transcript_feedback_submit")}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
+
+function TranscriptMoreMenu(props: {
+  requestId: string;
+  actionMessageId: string | null;
+  onForkAtMessage?: (messageId: string) => void;
+}) {
+  const platform = usePlatform();
+  const onForkAtMessage = props.onForkAtMessage;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            title={t("session.transcript_more")}
+            aria-label={t("session.transcript_more")}
+          >
+            <MoreHorizontal size={14} />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="start" className="w-52">
+        {props.actionMessageId && onForkAtMessage ? (
+          <DropdownMenuItem onClick={() => onForkAtMessage(props.actionMessageId ?? "")}>
+            <GitFork />
+            {t("session.fork_message")}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          onClick={() => platform.openLink(buildFeedbackUrl({ entrypoint: "transcript-message" }))}
+        >
+          <MessageSquareWarning />
+          {t("session.support_feedback")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(props.requestId)}>
+          <Copy />
+          {t("session.transcript_copy_request_id")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -875,7 +1101,6 @@ function TranscriptTurnStatus(props: {
 
 function TranscriptTurnActions(props: {
   presentation: TranscriptBlockTurnPresentation;
-  onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
 }) {
   if (
@@ -888,8 +1113,6 @@ function TranscriptTurnActions(props: {
   }
 
   const actionMessageId = props.presentation.actionMessageId;
-  const onRevertToMessage = props.onRevertToMessage;
-  const onForkAtMessage = props.onForkAtMessage;
   const cost = formatTranscriptCost(props.presentation.cost);
   const timestamp = formatTranscriptMessageTime(props.presentation.timestamp, {
     locale: currentLocale(),
@@ -903,34 +1126,48 @@ function TranscriptTurnActions(props: {
       {props.presentation.copyText ? (
         <CopyButton getText={() => props.presentation.copyText} />
       ) : null}
-      {actionMessageId && onRevertToMessage ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          title={t("session.undo_title")}
-          aria-label={t("session.undo_title")}
-          onClick={() => onRevertToMessage(actionMessageId)}
-        >
-          <RotateCcw size={14} />
-        </Button>
-      ) : null}
-      {actionMessageId && onForkAtMessage ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          title={t("session.fork_message")}
-          aria-label={t("session.fork_message")}
-          onClick={() => onForkAtMessage(actionMessageId)}
-        >
-          <GitFork size={14} />
-        </Button>
-      ) : null}
+      {actionMessageId ? <TranscriptFeedbackControls messageId={actionMessageId} /> : null}
+      <TranscriptMoreMenu
+        requestId={props.presentation.requestId}
+        actionMessageId={actionMessageId}
+        onForkAtMessage={props.onForkAtMessage}
+      />
       {cost ? (
         <span>{t("session.transcript_cost", { cost })}</span>
       ) : null}
       {model ? <span>{model}</span> : null}
+      {timestamp ? <span>{timestamp}</span> : null}
+    </div>
+  );
+}
+
+function TranscriptUserToolbar(props: {
+  message: UIMessage;
+  onRevertToMessage?: (messageId: string) => void;
+}) {
+  const metadata = readTranscriptMessageMetadata(props.message.metadata);
+  const timestamp = formatTranscriptMessageTime(metadata.created, {
+    locale: currentLocale(),
+    now: new Date(),
+    yesterdayLabel: t("session.transcript_yesterday"),
+  });
+  const onRevertToMessage = props.onRevertToMessage;
+
+  return (
+    <div className="session-transcript-user-toolbar">
+      <CopyButton getText={() => messageToText(props.message)} />
+      {onRevertToMessage ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title={t("session.transcript_revert_here")}
+          aria-label={t("session.transcript_revert_here")}
+          onClick={() => onRevertToMessage(props.message.id)}
+        >
+          <RotateCcw size={14} />
+        </Button>
+      ) : null}
       {timestamp ? <span>{timestamp}</span> : null}
     </div>
   );
@@ -1925,7 +2162,6 @@ function MessageBlockRow(props: {
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
-            onRevertToMessage={props.onRevertToMessage}
             onForkAtMessage={props.onForkAtMessage}
           />
         ) : null}
@@ -1990,7 +2226,6 @@ function MessageBlockRow(props: {
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
-            onRevertToMessage={props.onRevertToMessage}
             onForkAtMessage={props.onForkAtMessage}
           />
         ) : null}
@@ -2142,20 +2377,15 @@ function MessageBlockRow(props: {
         {props.onOpenTarget ? <OpenableTargetsStrip targets={inlineOpenTargets} onOpenTarget={props.onOpenTarget} /> : null}
 
         {!props.isNestedVariant && block.isUser ? (
-          <div
-            className={cn(
-              "absolute bottom-2 flex items-center gap-0.5 opacity-100 pointer-events-auto md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto md:group-focus-within:opacity-100 md:group-focus-within:pointer-events-auto transition-opacity select-none",
-              block.isUser ? "right-0" : "left-0",
-            )}
-          >
-            <CopyButton getText={() => messageToText(block.message)} />
-          </div>
+          <TranscriptUserToolbar
+            message={block.message}
+            onRevertToMessage={props.onRevertToMessage}
+          />
         ) : null}
       </div>
       {turnPresentation ? (
         <TranscriptTurnActions
           presentation={turnPresentation}
-          onRevertToMessage={props.onRevertToMessage}
           onForkAtMessage={props.onForkAtMessage}
         />
       ) : null}

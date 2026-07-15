@@ -49,6 +49,7 @@ describe("session transcript turn presentation", () => {
       item.parts.map((part) => part.type === "text" ? part.text : "").join(""),
     );
     expect(presentation.copyText).toBe("first\n\nsecond");
+    expect(presentation.requestId).toBe("user");
     expect(presentation.providerId).toBe("provider-b");
     expect(presentation.modelId).toBe("model-b");
     expect(presentation.cost).toBeCloseTo(0.02);

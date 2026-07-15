@@ -5,6 +5,7 @@ export type TranscriptTurnPresentation = {
   turnId: string;
   state: TranscriptTurn["state"];
   durationMs: number | null;
+  requestId: string;
   actionMessageId: string | null;
   copyText: string;
   providerId: string | null;
@@ -35,6 +36,7 @@ export function summarizeTranscriptTurn(
     turnId: turn.id,
     state: turn.state,
     durationMs: turn.durationMs,
+    requestId: turn.userMessage?.id ?? turn.id,
     actionMessageId: turn.actionMessageId,
     copyText: turn.assistantMessages
       .map(messageText)
