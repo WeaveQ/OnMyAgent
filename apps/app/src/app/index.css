@@ -624,6 +624,10 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     --session-transcript-font-size: 13px;
   }
 
+  .session-transcript-turn {
+    width: 100%;
+  }
+
   .session-transcript-user-row {
     box-sizing: border-box;
     padding: 32px 16px;

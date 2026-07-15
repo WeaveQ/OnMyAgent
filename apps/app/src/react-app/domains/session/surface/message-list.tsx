@@ -54,6 +54,10 @@ import {
 } from "./transcript-presentation";
 import { buildTranscriptTurns } from "./transcript/turn-model";
 import {
+  groupTranscriptRenderItems,
+  type TranscriptRenderItem,
+} from "./transcript/render-items";
+import {
   formatTranscriptCost,
   summarizeTranscriptTurn,
   type TranscriptTurnPresentation,
@@ -227,6 +231,12 @@ function blockIdentityKey(block: MessageBlockItem): string {
   if (block.kind === "divider") return `divider:${block.id}`;
   if (block.kind === "steps-cluster") return `cluster:${block.id}`;
   return `msg:${block.messageId}`;
+}
+
+function messageIdsForBlock(block: MessageBlockItem) {
+  if (block.kind === "divider") return [];
+  if (block.kind === "steps-cluster") return block.messageIds;
+  return [...(block.leadingStepMessageIds ?? []), block.messageId];
 }
 
 /**
@@ -409,6 +419,12 @@ function estimateBlockSize(block: MessageBlockItem | undefined) {
     block.isUser ? 112 : 260,
     block.isUser ? 720 : 1800,
   );
+}
+
+function estimateRenderItemSize(item: TranscriptRenderItem<MessageBlockItem> | undefined) {
+  if (!item) return 360;
+  if (item.kind === "divider") return estimateBlockSize(item.block);
+  return item.blocks.reduce((total, block) => total + estimateBlockSize(block), 0);
 }
 
 function partIdFromUiPart(part: UIMessage["parts"][number], fallbackId: string) {
@@ -2153,6 +2169,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const [rootContentWidth, setRootContentWidth] = useState(
     DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
   );
+  const [rootViewportHeight, setRootViewportHeight] = useState(0);
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -2192,13 +2209,14 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const scrollContainer = props.scrollElement?.();
     if (!scrollContainer) return;
 
-    const updateWidth = (width: number) => {
+    const updateViewport = (width: number, height: number) => {
       setRootContentWidth(computeTranscriptMaxContentWidth(width));
+      setRootViewportHeight(height);
     };
-    updateWidth(scrollContainer.clientWidth);
+    updateViewport(scrollContainer.clientWidth, scrollContainer.clientHeight);
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) updateWidth(entry.contentRect.width);
+      if (entry) updateViewport(entry.contentRect.width, entry.contentRect.height);
     });
     observer.observe(scrollContainer);
     return () => observer.disconnect();
@@ -2369,15 +2387,57 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return stable;
   }, [rawMessageBlocks]);
 
+  const transcriptTurns = useMemo(
+    () => buildTranscriptTurns(props.messages, { isStreaming: props.isStreaming }),
+    [props.isStreaming, props.messages],
+  );
+  const turnIdByMessageId = useMemo(() => {
+    const turnIds = new Map<string, string>();
+    transcriptTurns.forEach((turn) => {
+      turn.messages.forEach((message) => turnIds.set(message.id, turn.id));
+    });
+    return turnIds;
+  }, [transcriptTurns]);
+  const renderItems = useMemo(() => {
+    if (isNestedVariant) {
+      return messageBlocks.map<TranscriptRenderItem<MessageBlockItem>>((block) => {
+        const blockKey = blockIdentityKey(block);
+        return block.kind === "divider"
+          ? { kind: "divider", id: blockKey, block }
+          : { kind: "turn", id: `block:${blockKey}`, turnId: null, blocks: [block] };
+      });
+    }
+    return groupTranscriptRenderItems(
+      messageBlocks.map((block) => ({
+        key: blockIdentityKey(block),
+        block,
+        messageIds: messageIdsForBlock(block),
+        dividerId: block.kind === "divider" ? block.id : null,
+      })),
+      turnIdByMessageId,
+    );
+  }, [isNestedVariant, messageBlocks, turnIdByMessageId]);
+
   const turnPresentationByBlockKey = useMemo(() => {
     const presentations = new Map<string, TranscriptBlockTurnPresentation>();
     if (isNestedVariant) return presentations;
-    const turns = buildTranscriptTurns(props.messages, { isStreaming: props.isStreaming });
     const turnIdByAssistantMessageId = new Map<string, string>();
-    turns.forEach((turn) => {
+    transcriptTurns.forEach((turn) => {
       turn.assistantMessages.forEach((message) => {
         turnIdByAssistantMessageId.set(message.id, turn.id);
       });
+    });
+    const firstAssistantBlockKeys = new Set<string>();
+    renderItems.forEach((item) => {
+      if (item.kind === "divider") return;
+      const firstAssistantBlock = item.blocks.find((block) =>
+        messageIdsForBlock(block).some((messageId) =>
+          turnIdByAssistantMessageId.has(messageId),
+        ),
+      );
+      if (firstAssistantBlock) {
+        firstAssistantBlockKeys.add(blockIdentityKey(firstAssistantBlock));
+      }
     });
     const blockKeysByTurnId = new Map<string, string[]>();
     const turnsWithExecutionDetails = new Set<string>();
@@ -2400,23 +2460,22 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       if (hasExecutionDetails) turnsWithExecutionDetails.add(turnId);
     });
 
-    turns.forEach((turn) => {
+    transcriptTurns.forEach((turn) => {
       const blockKeys = blockKeysByTurnId.get(turn.id);
-      const firstBlockKey = blockKeys?.[0];
       const actionBlockKey = blockKeys?.at(-1);
-      if (!blockKeys || !firstBlockKey || !actionBlockKey) return;
+      if (!blockKeys || !actionBlockKey) return;
       const presentation = summarizeTranscriptTurn(turn, messageToText);
       blockKeys.forEach((blockKey) => {
         presentations.set(blockKey, {
           ...presentation,
-          isFirstAssistantBlock: blockKey === firstBlockKey,
+          isFirstAssistantBlock: firstAssistantBlockKeys.has(blockKey),
           isActionBlock: blockKey === actionBlockKey,
           hasExecutionDetails: turnsWithExecutionDetails.has(turn.id),
         });
       });
     });
     return presentations;
-  }, [isNestedVariant, messageBlocks, props.isStreaming, props.messages]);
+  }, [isNestedVariant, messageBlocks, renderItems, transcriptTurns]);
 
   const latestAssistantMessageId = useMemo(() => {
     for (let index = props.messages.length - 1; index >= 0; index -= 1) {
@@ -2430,48 +2489,57 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
   const blockIndexByMessageId = useMemo(() => {
     const next = new Map<string, number>();
-    messageBlocks.forEach((block, index) => {
-      if (block.kind === "steps-cluster") {
-        block.messageIds.forEach((id) => {
-          if (id) next.set(id, index);
+    renderItems.forEach((item, index) => {
+      if (item.kind === "divider") return;
+      item.blocks.forEach((block) => {
+        messageIdsForBlock(block).forEach((messageId) => {
+          if (messageId) next.set(messageId, index);
         });
-        return;
-      }
-      if (block.kind === "divider") return;
-
-      if (block.messageId) {
-        next.set(block.messageId, index);
-      }
+      });
     });
     return next;
+  }, [renderItems]);
+  const blockIndexByKey = useMemo(() => {
+    const next = new Map<string, number>();
+    messageBlocks.forEach((block, index) => next.set(blockIdentityKey(block), index));
+    return next;
   }, [messageBlocks]);
+  const activeTurn = transcriptTurns.at(-1);
+  const activeTurnId = activeTurn && (
+    activeTurn.state === "streaming" || activeTurn.state === "awaiting-approval"
+  ) ? activeTurn.id : null;
+  const activeRenderItemId = activeTurnId
+    ? renderItems.findLast((item) => item.kind === "turn" && item.turnId === activeTurnId)?.id ?? null
+    : null;
+  const activeTurnMinHeight = Math.max(0, rootViewportHeight - 40);
 
-  // Decide to virtualize based only on block count. Do NOT gate on whether
+  // Virtualize by turn once either the turn count or the underlying block
+  // count is large. Do NOT gate on whether
   // the scrollElement ref has already attached — that's false on the first
   // render of a session, which used to make us render every message
   // eagerly (freezing the UI on large sessions) for one tick before
   // switching to virtualization.
-  const shouldVirtualize = messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
+  const shouldVirtualize =
+    renderItems.length >= VIRTUALIZATION_THRESHOLD ||
+    messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
 
   const estimateVirtualItemSize = useCallback(
-    (index: number) => estimateBlockSize(messageBlocks[index]),
-    [messageBlocks],
+    (index: number) => {
+      const item = renderItems[index];
+      const estimate = estimateRenderItemSize(item);
+      return item?.id === activeRenderItemId
+        ? Math.max(estimate, activeTurnMinHeight)
+        : estimate;
+    },
+    [activeRenderItemId, activeTurnMinHeight, renderItems],
   );
 
   const getVirtualItemKey = useCallback((index: number) => {
-    const block = messageBlocks[index];
-    if (!block) return `block-${index}`;
-    if (block.kind === "steps-cluster") {
-      return `steps-${block.messageIds.join(",")}`;
-    }
-    if (block.kind === "divider") {
-      return `divider-${block.id}`;
-    }
-    return `message-${block.messageId}`;
-  }, [messageBlocks]);
+    return renderItems[index]?.id ?? `item-${index}`;
+  }, [renderItems]);
 
   const virtualizer = useVirtualizer({
-    count: messageBlocks.length,
+    count: renderItems.length,
     getScrollElement: () => props.scrollElement?.() ?? null,
     // TanStack recommends estimating the largest comfortable dynamic size.
     // Content-aware estimates reduce the measurement corrections that cause
@@ -2494,6 +2562,19 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
       if (shouldVirtualize) {
         virtualizer.scrollToIndex(index, { align: "center" });
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            const container = props.scrollElement?.();
+            if (!container) return;
+            const escapedId = messageId.replace(/"/g, '\\"');
+            const target = container.querySelector(
+              `[data-message-id="${escapedId}"]`,
+            );
+            if (target instanceof HTMLElement) {
+              target.scrollIntoView({ behavior, block: "center" });
+            }
+          });
+        });
         return true;
       }
 
@@ -2529,6 +2610,61 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         ...MESSAGE_LIST_CONTAIN_STYLE,
         maxWidth: `${rootContentWidth}px`,
       } satisfies CSSProperties;
+  const renderConversationBlock = (block: MessageBlockItem) => {
+    const blockKey = blockIdentityKey(block);
+    if (block.kind === "divider") {
+      return <TranscriptDividerRow key={blockKey} label={block.label} />;
+    }
+    const blockIndex = blockIndexByKey.get(blockKey);
+    if (blockIndex === undefined) return null;
+    const turnPresentation = turnPresentationByBlockKey.get(blockKey);
+    return (
+      <MessageBlockRow
+        key={blockKey}
+        block={block}
+        blockIndex={blockIndex}
+        totalBlocks={messageBlocks.length}
+        isNestedVariant={isNestedVariant}
+        shouldUseContentVisibility={shouldUseContentVisibility}
+        expandedStepIds={expandedStepIds}
+        onExpandedStepIdsChange={onExpandedStepIdsChange}
+        searchMatchMessageIds={props.searchMatchMessageIds}
+        activeSearchMessageId={props.activeSearchMessageId}
+        searchHighlightQuery={props.searchHighlightQuery}
+        isStreaming={props.isStreaming}
+        latestAssistantMessageId={latestAssistantMessageId}
+        onRevertToMessage={props.onRevertToMessage}
+        onForkAtMessage={props.onForkAtMessage}
+        openTargets={props.openTargets}
+        onOpenTarget={props.onOpenTarget}
+        assistantAvatar={props.assistantAvatar}
+        showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
+        turnPresentation={turnPresentation}
+        turnDetailsExpanded={turnPresentation ? expandedTurnIds.has(turnPresentation.turnId) : false}
+        onTurnDetailsExpandedChange={onTurnDetailsExpandedChange}
+      />
+    );
+  };
+  const renderTranscriptItem = (item: TranscriptRenderItem<MessageBlockItem>) => {
+    if (item.kind === "divider") {
+      return item.block.kind === "divider"
+        ? <TranscriptDividerRow label={item.block.label} />
+        : null;
+    }
+    const isActiveTurn = item.id === activeRenderItemId;
+    return (
+      <div
+        className="session-transcript-turn"
+        data-transcript-turn-id={item.turnId ?? undefined}
+        data-transcript-turn-active={isActiveTurn ? "true" : undefined}
+        style={isActiveTurn && !isNestedVariant
+          ? { minHeight: `${activeTurnMinHeight}px` }
+          : undefined}
+      >
+        {item.blocks.map(renderConversationBlock)}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -2556,11 +2692,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
               }}
             >
               {virtualRows.map((virtualRow) => {
-                const block = messageBlocks[virtualRow.index];
-                if (!block) return null;
-                const turnPresentation = turnPresentationByBlockKey.get(
-                  blockIdentityKey(block),
-                );
+                const item = renderItems[virtualRow.index];
+                if (!item) return null;
                 return (
                   <div
                     key={virtualRow.key}
@@ -2568,33 +2701,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                     ref={virtualizer.measureElement}
                     className="w-full"
                   >
-                    {block.kind === "divider" ? (
-                      <TranscriptDividerRow label={block.label} />
-                    ) : (
-                      <MessageBlockRow
-                        block={block}
-                        blockIndex={virtualRow.index}
-                        totalBlocks={messageBlocks.length}
-                        isNestedVariant={isNestedVariant}
-                        shouldUseContentVisibility={shouldUseContentVisibility}
-                        expandedStepIds={expandedStepIds}
-                        onExpandedStepIdsChange={onExpandedStepIdsChange}
-                        searchMatchMessageIds={props.searchMatchMessageIds}
-                        activeSearchMessageId={props.activeSearchMessageId}
-                        searchHighlightQuery={props.searchHighlightQuery}
-                        isStreaming={props.isStreaming}
-                        latestAssistantMessageId={latestAssistantMessageId}
-                        onRevertToMessage={props.onRevertToMessage}
-                        onForkAtMessage={props.onForkAtMessage}
-                        openTargets={props.openTargets}
-                        onOpenTarget={props.onOpenTarget}
-                        assistantAvatar={props.assistantAvatar}
-                        showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
-                        turnPresentation={turnPresentation}
-                        turnDetailsExpanded={turnPresentation ? expandedTurnIds.has(turnPresentation.turnId) : false}
-                        onTurnDetailsExpandedChange={onTurnDetailsExpandedChange}
-                      />
-                    )}
+                    {renderTranscriptItem(item)}
                   </div>
                 );
               })}
@@ -2603,39 +2710,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         </div>
       ) : (
         <div>
-          {messageBlocks.map((block, index) => {
-            const blockKey = blockIdentityKey(block);
-            if (block.kind === "divider") {
-              return <TranscriptDividerRow key={blockKey} label={block.label} />;
-            }
-            const turnPresentation = turnPresentationByBlockKey.get(blockKey);
-            return (
-              <MessageBlockRow
-                key={blockKey}
-                block={block}
-                blockIndex={index}
-                totalBlocks={messageBlocks.length}
-                isNestedVariant={isNestedVariant}
-                shouldUseContentVisibility={shouldUseContentVisibility}
-                expandedStepIds={expandedStepIds}
-                onExpandedStepIdsChange={onExpandedStepIdsChange}
-                searchMatchMessageIds={props.searchMatchMessageIds}
-                activeSearchMessageId={props.activeSearchMessageId}
-                searchHighlightQuery={props.searchHighlightQuery}
-                isStreaming={props.isStreaming}
-                latestAssistantMessageId={latestAssistantMessageId}
-                onRevertToMessage={props.onRevertToMessage}
-                onForkAtMessage={props.onForkAtMessage}
-                openTargets={props.openTargets}
-                onOpenTarget={props.onOpenTarget}
-                assistantAvatar={props.assistantAvatar}
-                showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
-                turnPresentation={turnPresentation}
-                turnDetailsExpanded={turnPresentation ? expandedTurnIds.has(turnPresentation.turnId) : false}
-                onTurnDetailsExpandedChange={onTurnDetailsExpandedChange}
-              />
-            );
-          })}
+          {renderItems.map((item) => (
+            <div key={item.id}>{renderTranscriptItem(item)}</div>
+          ))}
         </div>
       )}
 

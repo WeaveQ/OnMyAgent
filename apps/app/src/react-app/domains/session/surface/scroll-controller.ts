@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject, type UIEventHandler } from "react";
 
 import { getSessionScrollState, useSessionScrollStore } from "./scroll-store";
+import { classifyTranscriptScrollIntent } from "./transcript/scroll-intent";
 
 const EXACT_BOTTOM_GAP_PX = 1;
 // Widened from 250ms so a single wheel or trackpad flick isn't missed between
@@ -195,13 +196,20 @@ export function useSessionScrollController(
       const delta = currentTop - previousTop;
       const scrolledUp = delta <= -MANUAL_BROWSE_UPWARD_THRESHOLD_PX;
       const userGestured = hasScrollGesture();
+      const exactlyAtBottom = isExactlyAtBottom(container);
+      const intent = classifyTranscriptScrollIntent({
+        programmatic: programmaticScrollRef.current,
+        userGestured,
+        scrolledUp,
+        exactlyAtBottom,
+      });
 
       // If the user scrolls up meaningfully while a programmatic scroll is
       // in flight, abandon the programmatic state and switch to manual browse
       // immediately. Without this the ResizeObserver's auto-scroll during
       // streaming keeps re-anchoring us to the bottom and the user can never
       // actually get away from the tail of the transcript.
-      if (programmaticScrollRef.current && (userGestured || scrolledUp)) {
+      if (intent === "interrupt-follow") {
         programmaticScrollRef.current = false;
         clearProgrammaticScrollReset();
         saveScrollPosition(container);
@@ -209,18 +217,20 @@ export function useSessionScrollController(
         return;
       }
 
-      if (programmaticScrollRef.current) {
+      if (intent === "follow-frame") {
         lastKnownScrollTopRef.current = currentTop;
         refreshTopClippedMessage();
         return;
       }
 
-      if (!userGestured && !scrolledUp) {
-        if (isExactlyAtBottom(container)) {
-          setStickyBottom(selectedSessionId, latestMessageTopClippedId(container));
-        } else {
-          refreshTopClippedMessage();
-        }
+      if (intent === "restore-follow") {
+        setStickyBottom(selectedSessionId, latestMessageTopClippedId(container));
+        lastKnownScrollTopRef.current = currentTop;
+        return;
+      }
+
+      if (intent === "passive") {
+        refreshTopClippedMessage();
         lastKnownScrollTopRef.current = currentTop;
         return;
       }
