@@ -53,4 +53,15 @@ describe("session transcript layout contract", () => {
     expect(appStyles).toContain(".session-transcript-divider-line");
     expect(appStyles).toContain("repeating-linear-gradient");
   });
+
+  test("virtualizes root transcripts by turn and reserves the active viewport", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+
+    expect(messageList).toContain("groupTranscriptRenderItems");
+    expect(messageList).toContain("count: renderItems.length");
+    expect(messageList).toContain("estimateRenderItemSize");
+    expect(messageList).toContain("activeTurnMinHeight");
+    expect(messageList).toContain('data-transcript-turn-active={isActiveTurn ? "true" : undefined}');
+    expect(messageList).toContain('id: `block:${blockKey}`, turnId: null, blocks: [block]');
+  });
 });
