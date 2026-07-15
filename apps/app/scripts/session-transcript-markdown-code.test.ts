@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseMarkdownCodeFenceInfo } from "../src/react-app/capabilities/artifacts/markdown";
+import {
+  parseMarkdownCodeFenceInfo,
+  parseMarkdownInlinePath,
+  truncateMarkdownPathDisplay,
+} from "../src/react-app/capabilities/artifacts/markdown";
 
 describe("session transcript markdown code fences", () => {
   test("parses WorkBuddy language and file line metadata", () => {
@@ -38,5 +42,25 @@ describe("session transcript markdown code fences", () => {
       startLine: null,
       endLine: null,
     });
+  });
+
+  test("detects verified-file candidates and WorkBuddy line ranges", () => {
+    expect(parseMarkdownInlinePath("src/react-app/App.tsx#L12-L20")).toEqual({
+      path: "src/react-app/App.tsx",
+      startLine: 12,
+      endLine: 20,
+    });
+    expect(parseMarkdownInlinePath("README.md")).toEqual({
+      path: "README.md",
+      startLine: null,
+      endLine: null,
+    });
+    expect(parseMarkdownInlinePath("useMemo")).toBeNull();
+    expect(parseMarkdownInlinePath("not a path")).toBeNull();
+  });
+
+  test("keeps the filename visible when truncating long paths", () => {
+    expect(truncateMarkdownPathDisplay("apps/app/src/react-app/domains/session/message-list.tsx", 32))
+      .toBe("apps/app/src/...message-list.tsx");
   });
 });

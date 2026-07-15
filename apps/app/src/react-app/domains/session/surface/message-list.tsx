@@ -62,7 +62,7 @@ import { groupMessageParts, isDesktopRuntime, summarizeStep } from "../../../../
 import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
 import { usePlatform } from "../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../sync/message-metadata";
-import { MarkdownBlock } from "./markdown";
+import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
 import { applyTextHighlights } from "./text-highlights";
 import {
   computeTranscriptMaxContentWidth,
@@ -2218,6 +2218,8 @@ function MessageBlockRow(props: {
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
   turnOpenTargets?: OpenTarget[];
+  verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
+  onOpenCodePath?: (path: string) => void;
   onOpenTarget?: (target: OpenTarget) => void;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
   showAssistantIdentity: boolean;
@@ -2332,17 +2334,6 @@ function MessageBlockRow(props: {
     !block.isUser && turnPresentation?.isActionBlock && props.onOpenTarget
       ? props.turnOpenTargets ?? []
       : [];
-  const openMarkdownCodePath = props.onOpenTarget
-    ? (path: string) => {
-        const normalizedPath = path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
-        const target = (props.turnOpenTargets ?? []).find((candidate) => {
-          if (candidate.kind !== "file" || candidate.exists !== true) return false;
-          const candidatePath = candidate.value.replace(/[\\]+/g, "/").replace(/^\.\//, "");
-          return candidatePath === normalizedPath || candidatePath.endsWith(`/${normalizedPath}`);
-        });
-        if (target) props.onOpenTarget?.(target);
-      }
-    : undefined;
   const assistantAvatar = props.assistantAvatar;
   const showAssistantAvatar =
     props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
@@ -2518,7 +2509,8 @@ function MessageBlockRow(props: {
                     streaming={isStreamingLatestAssistant}
                     highlightQuery={highlightQuery}
                     locale={currentLocale()}
-                    onOpenCodePath={openMarkdownCodePath}
+                    onOpenCodePath={props.onOpenCodePath}
+                    verifiedCodePaths={props.verifiedCodePaths}
                   />
                 );
               })() : null}
@@ -2910,6 +2902,23 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     });
     return targets;
   }, [props.openTargets, transcriptTurns]);
+  const verifiedMarkdownCodePaths = useMemo<MarkdownVerifiedCodePath[]>(() => (
+    (props.openTargets ?? [])
+      .filter((target) => target.kind === "file" && target.exists === true)
+      .map((target) => ({
+        path: target.value.replace(/[\\]+/g, "/").replace(/^\.\//, ""),
+        resolvedPath: target.value,
+      }))
+  ), [props.openTargets]);
+  const verifiedOpenTargetByPath = useMemo(() => new Map(
+    (props.openTargets ?? [])
+      .filter((target) => target.kind === "file" && target.exists === true)
+      .map((target) => [target.value, target]),
+  ), [props.openTargets]);
+  const onOpenMarkdownCodePath = useCallback((path: string) => {
+    const target = verifiedOpenTargetByPath.get(path);
+    if (target) props.onOpenTarget?.(target);
+  }, [props.onOpenTarget, verifiedOpenTargetByPath]);
 
   const blockIndexByMessageId = useMemo(() => {
     const next = new Map<string, number>();
@@ -3068,6 +3077,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         turnOpenTargets={turnPresentation
           ? turnOpenTargetsByTurnId.get(turnPresentation.turnId)
           : undefined}
+        verifiedCodePaths={verifiedMarkdownCodePaths}
+        onOpenCodePath={onOpenMarkdownCodePath}
         onOpenTarget={props.onOpenTarget}
         assistantAvatar={props.assistantAvatar}
         showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
