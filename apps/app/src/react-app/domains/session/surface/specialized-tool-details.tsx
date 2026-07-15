@@ -1,16 +1,21 @@
 /** @jsxImportSource react */
+import { type CSSProperties } from "react";
 import {
   Check,
+  ChevronDown,
   Circle,
   CircleAlert,
   FileX2,
   Globe,
+  Image as ImageIcon,
   ListTodo,
   LoaderCircle,
   Network,
 } from "lucide-react";
 
+import { openDesktopPath } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -19,6 +24,25 @@ import type {
   TranscriptSpecializedToolDetails,
   TranscriptTodoItem,
 } from "./transcript/tool-presentation";
+
+const checkerboardStyle = {
+  backgroundColor: "#2d2d2d",
+  backgroundImage:
+    "linear-gradient(45deg, #404040 25%, transparent 25%), linear-gradient(-45deg, #404040 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #404040 75%), linear-gradient(-45deg, transparent 75%, #404040 75%)",
+  backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
+  backgroundSize: "16px 16px",
+} satisfies CSSProperties;
+
+function imageSource(image: Extract<TranscriptSpecializedToolDetails, { kind: "image-gen" }>["images"][number]) {
+  if (image.base64) return `data:image/png;base64,${image.base64}`;
+  if (image.url) return image.url;
+  if (!image.localPath) return null;
+  return image.localPath.startsWith("file://") ? image.localPath : `file://${image.localPath}`;
+}
+
+function truncatedPrompt(prompt: string, limit: number) {
+  return prompt.length > limit ? `${prompt.slice(0, limit)}...` : prompt;
+}
 
 function webLabel(details: Extract<TranscriptSpecializedToolDetails, { kind: "web-fetch" }>) {
   if (details.title) return details.title;
@@ -56,6 +80,14 @@ export function specializedToolHeadline(
     });
   }
   if (details.kind === "plan") return t("session.tool_plan_title");
+  if (details.kind === "image-gen") {
+    if (running || details.status === "generating") {
+      return details.prompt
+        ? t("session.tool_image_generating_prompt", { prompt: truncatedPrompt(details.prompt, 40) })
+        : t("session.tool_image_generating");
+    }
+    return truncatedPrompt(details.prompt, 50) || t("session.tool_image_title");
+  }
   return t("session.tool_task_title", {
     task: details.description || details.subagentName || t("session.tool_task_fallback"),
   });
@@ -67,7 +99,109 @@ export function specializedToolCanExpand(details: TranscriptSpecializedToolDetai
   if (details.kind === "web-search") return details.results.length > 0;
   if (details.kind === "web-fetch") return Boolean(details.content);
   if (details.kind === "plan") return Boolean(details.name || details.overview || details.todos.length);
+  if (details.kind === "image-gen") return true;
   return Boolean(details.toolItems.length || details.finalResult);
+}
+
+export function ImageGenerationToolCard(props: {
+  details: Extract<TranscriptSpecializedToolDetails, { kind: "image-gen" }>;
+  running: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const platform = usePlatform();
+  const status = props.running ? "generating" : props.details.status;
+  const headline = specializedToolHeadline(props.details, props.running);
+  const usableImages = props.details.images.flatMap((image) => {
+    const source = imageSource(image);
+    return source ? [{ image, source }] : [];
+  });
+
+  return (
+    <div className="w-full overflow-hidden rounded-md border border-dls-border bg-dls-surface">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-auto w-full justify-between gap-3 rounded-none border-b border-dls-border bg-dls-surface-muted px-3 py-2.5 font-normal text-dls-text hover:bg-dls-hover"
+        aria-expanded={props.expanded}
+        onClick={props.onToggle}
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <ImageIcon className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="truncate text-sm">{headline}</span>
+        </span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 transition-transform", !props.expanded && "-rotate-90")}
+          aria-hidden="true"
+        />
+      </Button>
+      {props.expanded ? (
+        <div className="my-1">
+          {status === "generating" ? (
+            <div className="p-3">
+              <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-sm" style={checkerboardStyle}>
+                <LoadingSpinner className="size-8 border-white/20 border-t-dls-accent" />
+              </div>
+            </div>
+          ) : null}
+          {status === "error" ? (
+            <div className="p-3">
+              <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-sm px-4 text-center text-sm text-dls-status-danger-fg" style={checkerboardStyle}>
+                {props.details.errorMessage || t("session.tool_image_failed")}
+              </div>
+            </div>
+          ) : null}
+          {status === "completed" && usableImages.length > 0 ? (
+            <div className="divide-y divide-dls-border">
+              {usableImages.map(({ image, source }, index) => (
+                <div key={`${source}:${index}`} className="overflow-hidden">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto w-full rounded-none p-3 hover:bg-transparent"
+                    style={checkerboardStyle}
+                    title={t("session.tool_image_open", { index: index + 1 })}
+                    onClick={() => {
+                      if (image.url) platform.openLink(image.url);
+                      else if (image.localPath) void openDesktopPath(image.localPath);
+                    }}
+                  >
+                    <img
+                      src={source}
+                      alt={t("session.tool_image_alt", { index: index + 1 })}
+                      loading="lazy"
+                      decoding="async"
+                      className="max-h-[400px] max-w-full rounded-xs object-contain"
+                    />
+                  </Button>
+                  {image.localPath ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto w-full justify-start rounded-none bg-dls-surface-muted px-3 py-2 font-mono text-xs font-normal text-dls-secondary hover:bg-dls-hover hover:text-dls-accent"
+                      title={image.localPath}
+                      onClick={() => void openDesktopPath(image.localPath ?? "")}
+                    >
+                      <span className="truncate">{image.localPath}</span>
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {status === "completed" && usableImages.length === 0 ? (
+            <div className="p-3">
+              <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-sm px-4 text-center text-sm text-dls-status-danger-fg" style={checkerboardStyle}>
+                {t("session.tool_image_no_data")}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function TodoStatusIcon(props: { item: TranscriptTodoItem }) {
@@ -224,6 +358,8 @@ export function SpecializedToolDetails(props: {
       </div>
     );
   }
+
+  if (details.kind === "image-gen") return null;
 
   return (
     <div className="overflow-hidden rounded-xl bg-dls-surface-muted px-4 py-3">
