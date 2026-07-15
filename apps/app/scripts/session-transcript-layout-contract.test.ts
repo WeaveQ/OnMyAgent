@@ -17,6 +17,10 @@ const personalAssistantPath = new URL(
   "../src/react-app/domains/session/surface/chrome/personal-assistant.tsx",
   import.meta.url,
 );
+const sessionPagePath = new URL(
+  "../src/react-app/domains/session/chat/session-page.tsx",
+  import.meta.url,
+);
 
 describe("session transcript layout contract", () => {
   test("keeps WorkBuddy geometry scoped to the root transcript", async () => {
@@ -48,6 +52,20 @@ describe("session transcript layout contract", () => {
 
     expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
     expect(sessionSurface).not.toContain("assistantAvatarOverride");
+  });
+
+  test("routes office, code, and selected experts through one shared root surface", async () => {
+    const [sessionPage, sessionSurface] = await Promise.all([
+      Bun.file(sessionPagePath).text(),
+      Bun.file(sessionSurfacePath).text(),
+    ]);
+
+    expect(sessionPage.match(/<SessionSurface/g)?.length).toBe(1);
+    expect(sessionPage).toContain('useState<AssistantCategoryId>("office")');
+    expect(sessionPage).toContain('activeAssistantCategoryId === "code"');
+    expect(sessionPage).toContain("agentPanel.activeSidebarView");
+    expect(sessionSurface).toContain("<SessionTranscript");
+    expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
   });
 
   test("keeps final output visible while folding execution details", async () => {

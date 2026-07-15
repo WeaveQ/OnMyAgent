@@ -57,5 +57,9 @@ describe("session transcript WorkBuddy reasoning and cancellation states", () =>
     expect(fixture).toContain("reasoningMessages");
     expect(fixture).toContain("Live detail 24");
     expect(fixture).toContain("Append streaming reasoning");
+    expect(fixture).toContain("data-entry={fixtureEntry}");
+    expect(fixture).toContain('entryParam === "code" || entryParam === "expert"');
+    expect(fixture).toContain('languageParam === "zh" || languageParam === "zh-TW"');
+    expect(fixture).toContain("setLocale(languageParam)");
   });
 });

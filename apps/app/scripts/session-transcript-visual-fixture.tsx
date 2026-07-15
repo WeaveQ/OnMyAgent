@@ -11,6 +11,7 @@ import {
   specializedToolHeadline,
 } from "../src/react-app/domains/session/surface/specialized-tool-details";
 import { Button } from "../src/components/ui/button";
+import { setLocale } from "../src/i18n";
 import { TranscriptResourceChip } from "../src/react-app/domains/session/surface/transcript-resource-chip";
 import { SessionTranscript } from "../src/react-app/domains/session/surface/message-list";
 import { createTranscriptMessageMetadata } from "../src/react-app/domains/session/sync/message-metadata";
@@ -27,6 +28,18 @@ if (new URLSearchParams(window.location.search).get("theme") === "dark") {
   document.documentElement.classList.add("dark");
   document.documentElement.dataset.theme = "dark";
 }
+
+const entryParam = new URLSearchParams(window.location.search).get("entry");
+const languageParam = new URLSearchParams(window.location.search).get("lang");
+if (languageParam === "zh" || languageParam === "zh-TW" || languageParam === "en") {
+  setLocale(languageParam);
+}
+const fixtureEntry = entryParam === "code" || entryParam === "expert" ? entryParam : "office";
+const fixtureAssistant = fixtureEntry === "code"
+  ? { name: "Code Assistant", avatarUrl: null }
+  : fixtureEntry === "expert"
+    ? { name: "Expert", avatarUrl: null }
+    : { name: "Office Assistant", avatarUrl: null };
 
 const generatedImage = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
   <svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
@@ -304,7 +317,7 @@ function Fixture() {
   const [streamingGrowthCount, setStreamingGrowthCount] = useState(0);
 
   return (
-    <main className="h-screen overflow-y-auto bg-dls-background px-10 py-8 text-dls-text">
+    <main data-entry={fixtureEntry} className="h-screen overflow-y-auto bg-dls-background px-10 py-8 text-dls-text">
       <div className="mx-auto max-w-[760px] space-y-8">
         <section className="space-y-3">
           <div className="flex justify-end">
@@ -380,21 +393,21 @@ function Fixture() {
             isStreaming={false}
             developerMode={false}
             showThinking={true}
-            assistantAvatar={{ name: "WorkBuddy", avatarUrl: null }}
+            assistantAvatar={fixtureAssistant}
           />
           <SessionTranscript
             messages={cancelledReasoningMessages}
             isStreaming={false}
             developerMode={false}
             showThinking={true}
-            assistantAvatar={{ name: "WorkBuddy", avatarUrl: null }}
+            assistantAvatar={fixtureAssistant}
           />
           <SessionTranscript
             messages={reasoningMessages(streamingGrowthCount)}
             isStreaming={true}
             developerMode={false}
             showThinking={true}
-            assistantAvatar={{ name: "WorkBuddy", avatarUrl: null }}
+            assistantAvatar={fixtureAssistant}
           />
           <Button
             type="button"
