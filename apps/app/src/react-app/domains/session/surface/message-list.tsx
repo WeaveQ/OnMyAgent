@@ -1456,6 +1456,7 @@ function StepRow(props: {
   part: TranscriptPart;
   expanded: boolean;
   onToggle: () => void;
+  onOpenCodePath?: (path: string) => void;
 }) {
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
   const toolState = useMemo<Record<string, unknown>>(() => {
@@ -1615,7 +1616,10 @@ function StepRow(props: {
       {props.expanded ? (
         <div className="mt-3 ml-7 space-y-3">
           {specializedDetails ? (
-            <SpecializedToolDetails details={specializedDetails} />
+            <SpecializedToolDetails
+              details={specializedDetails}
+              onOpenCodePath={props.onOpenCodePath}
+            />
           ) : null}
           {!specializedDetails && hasStructuredValue(toolInput) && (
             toolPresentation?.family === "generic" ||
@@ -1962,6 +1966,7 @@ function StepsContainer(props: {
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
   turnDetailsExpanded?: boolean;
   onTurnDetailsExpandedChange?: (expanded: boolean) => void;
+  onOpenCodePath?: (path: string) => void;
 }) {
   const toggleSteps = (id: string) => {
     props.onExpandedStepIdsChange((current) => {
@@ -2059,6 +2064,7 @@ function StepsContainer(props: {
                     part={part}
                     expanded={props.expandedStepIds.has(rowId)}
                     onToggle={() => toggleSteps(rowId)}
+                    onOpenCodePath={props.onOpenCodePath}
                   />
                 );
               })}
@@ -2121,6 +2127,7 @@ function StepsContainer(props: {
                       part={part}
                       expanded={props.expandedStepIds.has(rowId)}
                       onToggle={() => toggleSteps(rowId)}
+                      onOpenCodePath={props.onOpenCodePath}
                     />
                   );
                 })}
@@ -2341,6 +2348,7 @@ function MessageBlockRow(props: {
             onExpandedStepIdsChange={props.onExpandedStepIdsChange}
             turnDetailsExpanded={props.turnDetailsExpanded}
             onTurnDetailsExpandedChange={controlledTurnDetailsChange}
+            onOpenCodePath={props.onOpenCodePath}
           />
         </div>
         {turnPresentation ? (
@@ -2473,6 +2481,7 @@ function MessageBlockRow(props: {
               onExpandedStepIdsChange={props.onExpandedStepIdsChange}
               turnDetailsExpanded={props.turnDetailsExpanded}
               onTurnDetailsExpandedChange={controlledTurnDetailsChange}
+              onOpenCodePath={props.onOpenCodePath}
             />
           </div>
         ) : null}
@@ -2569,6 +2578,7 @@ function MessageBlockRow(props: {
                   onExpandedStepIdsChange={props.onExpandedStepIdsChange}
                   turnDetailsExpanded={props.turnDetailsExpanded}
                   onTurnDetailsExpandedChange={controlledTurnDetailsChange}
+                  onOpenCodePath={props.onOpenCodePath}
                 />
               ) : null}
             </div>

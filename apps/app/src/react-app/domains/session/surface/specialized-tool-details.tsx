@@ -1,16 +1,20 @@
 /** @jsxImportSource react */
-import { type CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 import {
   Check,
   ChevronDown,
   Circle,
   CircleAlert,
   FileX2,
+  File,
+  Folder,
   Globe,
   Image as ImageIcon,
   ListTodo,
   LoaderCircle,
   Network,
+  ExternalLink,
+  Terminal,
 } from "lucide-react";
 
 import { openDesktopPath } from "../../../../app/lib/desktop";
@@ -22,7 +26,9 @@ import { cn } from "@/lib/utils";
 import { usePlatform } from "../../../kernel/platform";
 import type {
   TranscriptSpecializedToolDetails,
+  TranscriptDiffLine,
   TranscriptTodoItem,
+  TranscriptWriteEdit,
 } from "./transcript/tool-presentation";
 
 const checkerboardStyle = {
@@ -58,6 +64,38 @@ export function specializedToolHeadline(
   details: TranscriptSpecializedToolDetails,
   running: boolean,
 ) {
+  if (details.kind === "command") {
+    return details.description || details.command;
+  }
+  if (details.kind === "write") {
+    return t(
+      running
+        ? details.operation === "modify"
+          ? "session.tool_write_modifying"
+          : "session.tool_write_generating"
+        : details.operation === "modify"
+          ? "session.tool_write_modified"
+          : "session.tool_write_generated",
+      { file: details.fileName || details.filePath },
+    );
+  }
+  if (details.kind === "file-results") {
+    return t(
+      running
+        ? details.mode === "list"
+          ? "session.tool_files_listing"
+          : "session.tool_files_searching"
+        : details.mode === "list"
+          ? "session.tool_files_listed"
+          : "session.tool_files_searched",
+    );
+  }
+  if (details.kind === "references") {
+    if (running) return t("session.tool_files_searching");
+    return details.references.length > 0
+      ? t("session.tool_references_found", { count: details.references.length })
+      : t("session.tool_files_no_results");
+  }
   if (details.kind === "delete") {
     return t(running ? "session.tool_delete_deleting" : "session.tool_delete_deleted", {
       file: details.fileName,
@@ -94,6 +132,16 @@ export function specializedToolHeadline(
 }
 
 export function specializedToolCanExpand(details: TranscriptSpecializedToolDetails) {
+  if (details.kind === "command") {
+    return Boolean(
+      details.command || details.stdout || details.stderr || details.exitCode !== null,
+    );
+  }
+  if (details.kind === "write") {
+    return details.lines.length > 0 || details.edits.length > 0;
+  }
+  if (details.kind === "file-results") return true;
+  if (details.kind === "references") return details.references.length > 0;
   if (details.kind === "delete") return false;
   if (details.kind === "lint") return details.issues.length > 0;
   if (details.kind === "web-search") return details.results.length > 0;
@@ -218,11 +266,339 @@ function TodoStatusIcon(props: { item: TranscriptTodoItem }) {
   return <Circle className={cn(className, "text-dls-secondary")} />;
 }
 
+function diffLineTone(kind: TranscriptDiffLine["kind"]) {
+  if (kind === "added") {
+    return "border-dls-status-success-fg bg-dls-status-success-soft";
+  }
+  if (kind === "removed") {
+    return "border-dls-status-danger-fg bg-dls-status-danger-soft";
+  }
+  return "border-transparent";
+}
+
+function DiffLines(props: { lines: TranscriptDiffLine[]; omittedCount: number }) {
+  return (
+    <div className="overflow-x-auto font-mono text-xs leading-[18px] text-dls-text">
+      {props.lines.map((line, index) => (
+        <div
+          key={`${line.kind}:${index}:${line.text}`}
+          className={cn("flex min-w-full items-start", diffLineTone(line.kind))}
+        >
+          <span
+            className={cn(
+              "h-[18px] w-4 shrink-0 border-l-2 bg-inherit",
+              diffLineTone(line.kind),
+            )}
+            aria-hidden="true"
+          />
+          <span className="min-w-max flex-1 whitespace-pre pr-3">{line.text || " "}</span>
+        </div>
+      ))}
+      {props.omittedCount > 0 ? (
+        <div className="px-4 py-2 font-sans text-xs text-dls-secondary">
+          {t("session.tool_write_more_lines", { count: props.omittedCount })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CommandToolDetails(props: {
+  details: Extract<TranscriptSpecializedToolDetails, { kind: "command" }>;
+}) {
+  const stdout = props.details.stdout.trim();
+  const stderr = props.details.stderr.trim();
+  const succeededWithoutOutput = props.details.exitCode === 0 && !stdout && !stderr;
+  return (
+    <div
+      data-tool-details="command"
+      className="my-1 max-h-[300px] overflow-y-auto rounded-xl bg-dls-surface-muted px-4 py-3 text-xs text-dls-text"
+    >
+      <div className="inline-flex items-center gap-2 leading-5">
+        <Terminal className="size-3.5 shrink-0 text-dls-secondary" aria-hidden="true" />
+        <span>bash</span>
+      </div>
+      {props.details.command ? (
+        <div className="whitespace-pre-wrap wrap-break-word py-1 font-mono leading-[21px]">
+          {props.details.command}
+        </div>
+      ) : null}
+      <div className="py-1 font-mono leading-[18px]">
+        {stdout ? <div className="whitespace-pre-wrap wrap-break-word">{stdout}</div> : null}
+        {stderr ? (
+          <div className="whitespace-pre-wrap wrap-break-word text-dls-status-danger-fg">
+            {stderr}
+          </div>
+        ) : null}
+        {succeededWithoutOutput ? (
+          <div className="inline-flex items-center gap-1">
+            <span>{t("session.tool_command_success")}</span>
+            <Check className="size-4 shrink-0" aria-hidden="true" />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function WriteEditSection(props: {
+  edit: TranscriptWriteEdit;
+  index: number;
+  total: number;
+}) {
+  return (
+    <div className="border-b border-dls-border last:border-b-0">
+      <div className="flex items-center justify-between gap-3 bg-dls-surface px-4 py-2 text-xs">
+        <span className="font-medium text-dls-text">
+          {t("session.tool_write_edit_index", {
+            index: props.index + 1,
+            total: props.total,
+          })}
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-2">
+          {props.edit.addedLines > 0 ? (
+            <span className="text-dls-status-success-fg">+{props.edit.addedLines}</span>
+          ) : null}
+          {props.edit.removedLines > 0 ? (
+            <span className="text-dls-status-danger-fg">-{props.edit.removedLines}</span>
+          ) : null}
+        </span>
+      </div>
+      <DiffLines lines={props.edit.lines} omittedCount={props.edit.omittedCount} />
+    </div>
+  );
+}
+
+function WriteToolDetails(props: {
+  details: Extract<TranscriptSpecializedToolDetails, { kind: "write" }>;
+}) {
+  return (
+    <div
+      data-tool-details="write"
+      className="my-1 max-h-[300px] overflow-auto rounded-xl bg-dls-surface-muted"
+    >
+      {props.details.edits.length > 0 ? (
+        props.details.edits.map((edit, index) => (
+          <WriteEditSection
+            key={`${index}:${edit.addedLines}:${edit.removedLines}`}
+            edit={edit}
+            index={index}
+            total={props.details.edits.length}
+          />
+        ))
+      ) : props.details.operation === "create" ? (
+        <pre className="m-0 overflow-visible whitespace-pre p-3 font-mono text-xs leading-[18px] text-dls-text">
+          {props.details.lines.map((line) => line.text).join("\n")}
+          {props.details.omittedCount > 0 ? (
+            <span className="mt-2 block font-sans text-dls-secondary">
+              {t("session.tool_write_more_lines", { count: props.details.omittedCount })}
+            </span>
+          ) : null}
+        </pre>
+      ) : (
+        <DiffLines lines={props.details.lines} omittedCount={props.details.omittedCount} />
+      )}
+    </div>
+  );
+}
+
+function relativeFolderPath(path: string, directory: string) {
+  const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path;
+  const lastSlash = normalizedPath.lastIndexOf("/");
+  const folder = lastSlash > 0 ? normalizedPath.slice(0, lastSlash) : "";
+  if (!folder || folder === directory) return basenameForDisplay(directory);
+  if (directory && folder.startsWith(`${directory}/`)) return folder.slice(directory.length + 1);
+  return folder;
+}
+
+function basenameForDisplay(path: string) {
+  const normalized = path.replace(/[\\/]+$/, "");
+  return normalized.split(/[\\/]/).at(-1) || normalized;
+}
+
+function fileResultLineLabel(startLine: number | null, endLine: number | null) {
+  if (startLine === null || startLine <= 0 || endLine === null || endLine <= 0) return null;
+  return startLine === endLine ? `#L${startLine}` : `#L${startLine}-L${endLine}`;
+}
+
+function FileResultsToolDetails(props: {
+  details: Extract<TranscriptSpecializedToolDetails, { kind: "file-results" }>;
+  onOpenCodePath?: (path: string) => void;
+}) {
+  return (
+    <div data-tool-details="file-results" className="my-1 text-xs">
+      {props.details.items.length > 0 ? (
+        <div className="max-h-[360px] overflow-y-auto">
+          {props.details.items.map((item, index) => {
+            const Icon = item.isDirectory ? Folder : File;
+            const folderPath = relativeFolderPath(item.path, props.details.directory);
+            const lineLabel = fileResultLineLabel(item.startLine, item.endLine);
+            const content = (
+              <>
+                <Icon className="size-3.5 shrink-0 text-dls-secondary" aria-hidden="true" />
+                <span className="min-w-0 max-w-[45%] truncate font-medium text-dls-text">
+                  {item.fileName}
+                </span>
+                {folderPath ? (
+                  <span className="min-w-0 flex-1 truncate text-right text-dls-secondary" title={folderPath}>
+                    {folderPath}
+                  </span>
+                ) : null}
+                {item.content && item.startLine === 0 && item.endLine === 0 ? (
+                  <span className="shrink-0 text-dls-secondary">{item.content}</span>
+                ) : null}
+                {lineLabel ? (
+                  <span className="shrink-0 text-dls-accent">{lineLabel}</span>
+                ) : null}
+              </>
+            );
+            return item.isDirectory ? (
+              <div
+                key={`${item.path}:${index}`}
+                className="flex min-h-8 items-center gap-2 px-1 py-1.5 text-left"
+                title={item.path}
+              >
+                {content}
+              </div>
+            ) : (
+              <Button
+                key={`${item.path}:${index}`}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto min-h-8 w-full justify-start gap-2 rounded-sm px-1 py-1.5 text-left font-normal hover:bg-dls-hover"
+                title={item.path}
+                disabled={!props.onOpenCodePath}
+                onClick={() => props.onOpenCodePath?.(item.path)}
+              >
+                {content}
+              </Button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="px-1 py-2 text-dls-secondary">{t("session.tool_files_no_results")}</div>
+      )}
+      {props.details.omittedCount > 0 ? (
+        <div className="px-1 py-2 text-dls-secondary">
+          {t("session.tool_files_more_results", { count: props.details.omittedCount })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function referenceExternalUrl(source: string, start: number | null, end: number | null) {
+  if (!/^https?:\/\//i.test(source)) return null;
+  if (start === null || start <= 0) return source;
+  return `${source}#L${start}${end !== null && end > 0 ? `-L${end}` : ""}`;
+}
+
+function ReferenceResultItem(props: {
+  reference: Extract<TranscriptSpecializedToolDetails, { kind: "references" }>["references"][number];
+  index: number;
+  onOpenCodePath?: (path: string) => void;
+}) {
+  const platform = usePlatform();
+  const [expanded, setExpanded] = useState(false);
+  const externalUrl = referenceExternalUrl(
+    props.reference.source,
+    props.reference.startPos,
+    props.reference.endPos,
+  );
+  const canExpand = Boolean(props.reference.chunk && !externalUrl);
+  const handleClick = () => {
+    if (externalUrl) {
+      platform.openLink(externalUrl);
+      return;
+    }
+    if (canExpand) {
+      setExpanded((value) => !value);
+      return;
+    }
+    if (props.reference.source) props.onOpenCodePath?.(props.reference.source);
+  };
+  return (
+    <div className="border-b border-dls-border last:border-b-0">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-auto min-h-8 w-full justify-start gap-2 rounded-none px-1 py-1.5 text-left font-normal hover:bg-dls-hover"
+        title={props.reference.source}
+        onClick={handleClick}
+      >
+        <span className="shrink-0 text-dls-secondary">{props.index + 1}.</span>
+        <span className="min-w-0 shrink truncate font-medium text-dls-text">
+          {props.reference.fileName || basenameForDisplay(props.reference.source)}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-dls-secondary">
+          {props.reference.source}
+        </span>
+        {externalUrl ? (
+          <ExternalLink className="size-3.5 shrink-0 text-dls-secondary" aria-hidden="true" />
+        ) : canExpand ? (
+          <ChevronDown
+            className={cn("size-3.5 shrink-0 transition-transform", !expanded && "-rotate-90")}
+            aria-hidden="true"
+          />
+        ) : null}
+      </Button>
+      {expanded && props.reference.chunk ? (
+        <pre className="m-0 max-h-[300px] overflow-auto whitespace-pre-wrap wrap-break-word bg-dls-surface-muted px-4 py-3 font-mono text-xs leading-5 text-dls-text">
+          {props.reference.chunk}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
+function ReferencesToolDetails(props: {
+  details: Extract<TranscriptSpecializedToolDetails, { kind: "references" }>;
+  onOpenCodePath?: (path: string) => void;
+}) {
+  return (
+    <div data-tool-details="references" className="my-1 text-xs">
+      <div className="mb-1 px-1 font-medium text-dls-secondary">
+        {t(
+          props.details.referenceType === "knowledge"
+            ? "session.tool_references_knowledge"
+            : "session.tool_references_codebase",
+          { count: props.details.references.length },
+        )}
+      </div>
+      <div className="max-h-[360px] overflow-y-auto">
+        {props.details.references.map((reference, index) => (
+          <ReferenceResultItem
+            key={`${reference.source}:${index}`}
+            reference={reference}
+            index={index}
+            onOpenCodePath={props.onOpenCodePath}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SpecializedToolDetails(props: {
   details: TranscriptSpecializedToolDetails;
+  onOpenCodePath?: (path: string) => void;
 }) {
   const platform = usePlatform();
   const details = props.details;
+
+  if (details.kind === "command") return <CommandToolDetails details={details} />;
+
+  if (details.kind === "write") return <WriteToolDetails details={details} />;
+
+  if (details.kind === "file-results") {
+    return <FileResultsToolDetails details={details} onOpenCodePath={props.onOpenCodePath} />;
+  }
+
+  if (details.kind === "references") {
+    return <ReferencesToolDetails details={details} onOpenCodePath={props.onOpenCodePath} />;
+  }
 
   if (details.kind === "delete") return null;
 
