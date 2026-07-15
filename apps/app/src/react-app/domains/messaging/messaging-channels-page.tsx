@@ -7,7 +7,21 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { feishuStatus, type MessagingChannelStatus, weixinStatus, weixinStart, weixinStop, feishuStart, feishuStop } from "../../../app/lib/desktop";
+import {
+  discordStart,
+  discordStatus,
+  discordStop,
+  feishuStatus,
+  telegramStart,
+  telegramStatus,
+  telegramStop,
+  type MessagingChannelStatus,
+  weixinStatus,
+  weixinStart,
+  weixinStop,
+  feishuStart,
+  feishuStop,
+} from "../../../app/lib/desktop";
 import { t } from "../../../i18n";
 import {
   MESSAGING_CHANNELS,
@@ -15,6 +29,7 @@ import {
 } from "./messaging-model";
 import { FeishuChannelPanel } from "./feishu-channel-panel";
 import { ChannelPairingPanel } from "./ChannelPairingPanel";
+import { TokenChannelPanel } from "./token-channel-panel";
 import { WeixinChannelPanel } from "./weixin-channel-panel";
 
 function isChannelConnected(status: MessagingChannelStatus | null) {
@@ -64,6 +79,8 @@ function ChannelIcon(props: {
   const iconSrcByChannel: Record<MessagingChannel["id"], string> = {
     wechat: "/connector-icons/wechat.png",
     feishu: "/connector-icons/feishu.png",
+    telegram: "/connector-icons/telegram.svg",
+    discord: "/connector-icons/discord.svg",
   };
   return (
     <div
@@ -139,6 +156,8 @@ function CollapsibleChannelContent(props: {
   workspaceRoot?: string;
   onWeixinStatusChange?: (status: MessagingChannelStatus) => void;
   onFeishuStatusChange?: (status: MessagingChannelStatus) => void;
+  onTelegramStatusChange?: (status: MessagingChannelStatus) => void;
+  onDiscordStatusChange?: (status: MessagingChannelStatus) => void;
 }) {
   return (
     <div className="px-4 pb-4 pt-2 border-t border-dls-border">
@@ -153,6 +172,12 @@ function CollapsibleChannelContent(props: {
       ) : null}
       {props.channel.id === "feishu" ? (
         <FeishuChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onFeishuStatusChange} />
+      ) : null}
+      {props.channel.id === "telegram" ? (
+        <TokenChannelPanel kind="telegram" workspaceRoot={props.workspaceRoot} onStatusChange={props.onTelegramStatusChange} />
+      ) : null}
+      {props.channel.id === "discord" ? (
+        <TokenChannelPanel kind="discord" workspaceRoot={props.workspaceRoot} onStatusChange={props.onDiscordStatusChange} />
       ) : null}
 
       {/* Pairing and user management */}
@@ -174,6 +199,8 @@ function CollapsibleChannelItem(props: {
   onToggleEnabled: (enabled: boolean) => void;
   onWeixinStatusChange?: (status: MessagingChannelStatus) => void;
   onFeishuStatusChange?: (status: MessagingChannelStatus) => void;
+  onTelegramStatusChange?: (status: MessagingChannelStatus) => void;
+  onDiscordStatusChange?: (status: MessagingChannelStatus) => void;
 }) {
   return (
     <div
@@ -197,6 +224,8 @@ function CollapsibleChannelItem(props: {
           workspaceRoot={props.workspaceRoot}
           onWeixinStatusChange={props.onWeixinStatusChange}
           onFeishuStatusChange={props.onFeishuStatusChange}
+          onTelegramStatusChange={props.onTelegramStatusChange}
+          onDiscordStatusChange={props.onDiscordStatusChange}
         />
       ) : null}
     </div>
@@ -208,18 +237,29 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
   const [collapseKeys, setCollapseKeys] = useState<Record<string, boolean>>({
     wechat: true,   // 默认折叠
     feishu: true,
+    telegram: true,
+    discord: true,
   });
 
   // 启用状态：true = 启用（服务运行），false = 禁用（服务停止）
   const [enabledKeys, setEnabledKeys] = useState<Record<string, boolean>>({
     wechat: false,
     feishu: false,
+    telegram: false,
+    discord: false,
   });
 
   const [weixinRuntimeStatus, setWeixinRuntimeStatus] = useState<MessagingChannelStatus | null>(null);
   const [feishuRuntimeStatus, setFeishuRuntimeStatus] = useState<MessagingChannelStatus | null>(null);
+  const [telegramRuntimeStatus, setTelegramRuntimeStatus] = useState<MessagingChannelStatus | null>(null);
+  const [discordRuntimeStatus, setDiscordRuntimeStatus] = useState<MessagingChannelStatus | null>(null);
 
-  const channels = resolveMessagingChannels({ wechat: weixinRuntimeStatus, feishu: feishuRuntimeStatus });
+  const channels = resolveMessagingChannels({
+    wechat: weixinRuntimeStatus,
+    feishu: feishuRuntimeStatus,
+    telegram: telegramRuntimeStatus,
+    discord: discordRuntimeStatus,
+  });
   const connectedCount = channels.filter((channel) => channel.status === "connected").length;
 
   // 初始化时同步启用状态
@@ -227,17 +267,21 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
     setEnabledKeys({
       wechat: isChannelConnected(weixinRuntimeStatus),
       feishu: isChannelConnected(feishuRuntimeStatus),
+      telegram: isChannelConnected(telegramRuntimeStatus),
+      discord: isChannelConnected(discordRuntimeStatus),
     });
-  }, [weixinRuntimeStatus, feishuRuntimeStatus]);
+  }, [weixinRuntimeStatus, feishuRuntimeStatus, telegramRuntimeStatus, discordRuntimeStatus]);
 
   // 获取运行状态
   useEffect(() => {
     let cancelled = false;
-    void Promise.allSettled([weixinStatus(), feishuStatus()])
-      .then(([weixinResult, feishuResult]) => {
+    void Promise.allSettled([weixinStatus(), feishuStatus(), telegramStatus(), discordStatus()])
+      .then(([weixinResult, feishuResult, telegramResult, discordResult]) => {
         if (cancelled) return;
         if (weixinResult.status === "fulfilled") setWeixinRuntimeStatus(weixinResult.value);
         if (feishuResult.status === "fulfilled") setFeishuRuntimeStatus(feishuResult.value);
+        if (telegramResult.status === "fulfilled") setTelegramRuntimeStatus(telegramResult.value);
+        if (discordResult.status === "fulfilled") setDiscordRuntimeStatus(discordResult.value);
       })
       .catch(() => undefined);
     return () => {
@@ -278,6 +322,22 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
         }
         const status = await feishuStatus();
         setFeishuRuntimeStatus(status);
+      } else if (channelId === "telegram") {
+        if (enabled) {
+          await telegramStart({});
+        } else {
+          await telegramStop();
+        }
+        const status = await telegramStatus();
+        setTelegramRuntimeStatus(status);
+      } else if (channelId === "discord") {
+        if (enabled) {
+          await discordStart({});
+        } else {
+          await discordStop();
+        }
+        const status = await discordStatus();
+        setDiscordRuntimeStatus(status);
       }
     } catch (error) {
       // 失败时回滚状态
@@ -342,6 +402,8 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
                 onToggleEnabled={(enabled) => handleToggleEnabled(channel.id, enabled)}
                 onWeixinStatusChange={setWeixinRuntimeStatus}
                 onFeishuStatusChange={setFeishuRuntimeStatus}
+                onTelegramStatusChange={setTelegramRuntimeStatus}
+                onDiscordStatusChange={setDiscordRuntimeStatus}
               />
             ))}
           </div>
