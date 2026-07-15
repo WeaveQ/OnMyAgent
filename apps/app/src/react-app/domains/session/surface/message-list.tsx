@@ -63,6 +63,11 @@ import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
 import { usePlatform } from "../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../sync/message-metadata";
 import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
+import {
+  SpecializedToolDetails,
+  specializedToolCanExpand,
+  specializedToolHeadline,
+} from "./specialized-tool-details";
 import { applyTextHighlights } from "./text-highlights";
 import {
   computeTranscriptMaxContentWidth,
@@ -1465,11 +1470,16 @@ function StepRow(props: {
         toolOutput,
       })
     : null;
+  const specializedDetails = toolPresentation?.details ?? null;
   const expandable =
     props.part.type === "tool" &&
     toolPresentation?.family !== "read" &&
-    (hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
-  const headline = summary.title?.trim() || t("session.step_progress");
+    (specializedDetails
+      ? specializedToolCanExpand(specializedDetails) || Boolean(toolError)
+      : hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
+  const headline = specializedDetails
+    ? specializedToolHeadline(specializedDetails, isRunningStepStatus(summary.status))
+    : summary.title?.trim() || t("session.step_progress");
   const statusText = toolStatusText(summary.status);
   const questionAnswers =
     props.part.type === "tool" && props.part.tool.toLowerCase() === "question"
@@ -1591,7 +1601,10 @@ function StepRow(props: {
       {statusText ? <div className={messageTextClass.toolStatus}>{statusText}</div> : null}
       {props.expanded ? (
         <div className="mt-3 ml-7 space-y-3">
-          {hasStructuredValue(toolInput) && (
+          {specializedDetails ? (
+            <SpecializedToolDetails details={specializedDetails} />
+          ) : null}
+          {!specializedDetails && hasStructuredValue(toolInput) && (
             toolPresentation?.family === "generic" ||
             toolPresentation?.family === "write"
           ) ? (
@@ -1602,7 +1615,7 @@ function StepRow(props: {
               </pre>
             </div>
           ) : null}
-          {hasStructuredValue(toolOutput) ? (
+          {!specializedDetails && hasStructuredValue(toolOutput) ? (
             <div>
               <div className={messageTextClass.toolLabel}>{t("session.tool_result")}</div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
