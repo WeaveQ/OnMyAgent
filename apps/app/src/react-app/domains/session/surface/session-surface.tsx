@@ -2728,6 +2728,17 @@ export function SessionSurface(props: SessionSurfaceProps) {
             </p>
           </div>
         ) : null}
+        {personalAssistantDraftHome ? (
+          <div className="mb-4 w-full max-w-5xl">
+            <PersonalAssistantAccessory
+              categoryId={assistantCategoryId}
+              selectedScenario={assistantScenario}
+              showPrompts={assistantPromptCardsVisible}
+              onSelectScenario={selectAssistantScenario}
+              onSelectPrompt={selectAssistantPrompt}
+            />
+          </div>
+        ) : null}
 
         <div
           ref={composerShellRef}
@@ -2888,17 +2899,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
             />
           </DevProfiler>
         </div>
-        {personalAssistantDraftHome ? (
-          <div className="mt-4 w-full max-w-5xl">
-            <PersonalAssistantAccessory
-              categoryId={assistantCategoryId}
-              selectedScenario={assistantScenario}
-              showPrompts={assistantPromptCardsVisible}
-              onSelectScenario={selectAssistantScenario}
-              onSelectPrompt={selectAssistantPrompt}
-            />
-          </div>
-        ) : null}
         {/* Error display moved inline into the session conversation area */}
         {props.developerMode ? (
           <SessionDebugPanel model={model} snapshot={snapshot} />
