@@ -226,6 +226,7 @@ type ComposerProps = {
   onUploadInboxFiles?: ((files: File[]) => void | Promise<unknown>) | null;
   draftScopeKey?: string;
   compactTopSpacing?: boolean;
+  showOuterBorder?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;
@@ -1183,7 +1184,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel */}
         <div
-          className={`relative overflow-visible rounded-xl bg-dls-surface shadow-sm transition-shadow ${panelRoundedClass}`}
+          className={`relative overflow-visible rounded-xl bg-dls-surface ${props.showOuterBorder ? "border border-dls-mist" : ""} ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />

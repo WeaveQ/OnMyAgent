@@ -120,4 +120,21 @@ describe("assistant navigation tone contract", () => {
     expect(surface).not.toContain("<PersonalAssistantAccessory");
     expect(surface).not.toContain('<div className="mb-4 w-full max-w-5xl">');
   });
+
+  test("limits the light composer border to assistant and expert draft homes", () => {
+    const surface = readFileSync(
+      join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
+      "utf8",
+    );
+
+    expect(surface).toContain("const personalAssistantDraftHome =");
+    expect(surface).toContain("const expertDraftHome =");
+    expect(surface).toContain("Boolean(props.agentContext)");
+    expect(surface).toContain(
+      "personalAssistantDraftHome || expertDraftHome",
+    );
+    expect(surface).toContain(
+      "showOuterBorder={composerOuterBorderVisible}",
+    );
+  });
 });
