@@ -8,6 +8,23 @@ import {
 } from "../src/react-app/domains/session/surface/composer/tool-menu-model";
 
 describe("composer tool menu model", () => {
+  test("uses a soft shadow instead of an outer composer border", () => {
+    const source = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain(
+      "relative overflow-visible rounded-xl bg-dls-surface shadow-sm transition-shadow",
+    );
+    expect(source).not.toContain(
+      "relative overflow-visible rounded-xl border border-dls-border bg-dls-surface",
+    );
+  });
+
   test("matches marketplace search styling for skills and connectors", () => {
     const source = readFileSync(
       join(

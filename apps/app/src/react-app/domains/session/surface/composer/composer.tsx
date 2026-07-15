@@ -1181,7 +1181,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel */}
         <div
-          className={`relative overflow-visible rounded-xl border border-dls-border bg-dls-surface transition-all ${panelRoundedClass}`}
+          className={`relative overflow-visible rounded-xl bg-dls-surface shadow-sm transition-shadow ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
