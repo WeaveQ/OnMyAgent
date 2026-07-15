@@ -365,10 +365,19 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx",
     );
 
-    expect(tabs).toContain('? "px-4 pb-2 pt-2 shadow-sm"');
+    expect(tabs).toContain(
+      '? "h-11 border-b border-dls-mist px-3 shadow-sm"',
+    );
     expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
+    expect(tabs).toContain(
+      'className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto"',
+    );
     expect(tabs).toContain('variant="ghost"');
-    expect(tabs).toContain("rounded-t-none rounded-b-md bg-dls-surface-muted");
+    expect(tabs).toContain("rounded-t-none rounded-b-md");
+    expect(tabs).toContain(
+      "border-x border-b border-t-0 border-dls-mist",
+    );
+    expect(tabs).toContain('expanded ? "-rotate-90" : "rotate-90"');
     expect(tabs).toContain("before:-top-px before:inset-x-0 before:h-px");
     expect(tabs).not.toContain("rounded-full border-dls-border bg-dls-surface");
   });

@@ -196,9 +196,9 @@ export function AgentSessionTabs(props: {
   return (
     <div
       className={cn(
-        "relative shrink-0 bg-dls-surface-muted",
+        "relative shrink-0 bg-dls-background",
         expanded
-          ? "px-4 pb-2 pt-2 shadow-sm"
+          ? "h-11 border-b border-dls-mist px-3 shadow-sm"
           : "h-0 overflow-visible shadow-none",
       )}
     >
@@ -209,7 +209,7 @@ export function AgentSessionTabs(props: {
         }
       `}</style>
       {expanded ? (
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto">
           <Button
             type="button"
             variant="dashed"
@@ -340,14 +340,14 @@ export function AgentSessionTabs(props: {
         }}
         variant="ghost"
         size="icon-xs"
-        className="absolute bottom-0 left-1/2 z-20 h-2.5 w-14 -translate-x-1/2 translate-y-full overflow-visible rounded-t-none rounded-b-md bg-dls-surface-muted px-0 text-dls-secondary shadow-none transition-[height,color] duration-150 before:absolute before:-top-px before:inset-x-0 before:h-px before:bg-dls-surface-muted hover:h-4 hover:bg-dls-surface-muted hover:text-dls-text mac:titlebar-no-drag"
+        className="absolute bottom-0 left-1/2 z-20 h-2.5 w-14 -translate-x-1/2 translate-y-full overflow-visible rounded-t-none rounded-b-md border-x border-b border-t-0 border-dls-mist bg-dls-background px-0 text-dls-secondary shadow-none transition-[height,color] duration-150 before:absolute before:-top-px before:inset-x-0 before:h-px before:bg-dls-background hover:h-4 hover:bg-dls-background hover:text-dls-text mac:titlebar-no-drag"
         title={expanded ? t("session.agent_tab_collapse") : t("session.agent_tab_expand")}
         aria-label={expanded ? t("session.agent_tab_collapse") : t("session.agent_tab_expand")}
       >
         <ChevronRight
           className={cn(
-            "size-3 rotate-90 transition-transform",
-            !expanded && "-rotate-90",
+            "size-3 transition-transform",
+            expanded ? "-rotate-90" : "rotate-90",
           )}
         />
       </Button>
