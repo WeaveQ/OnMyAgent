@@ -2332,6 +2332,17 @@ function MessageBlockRow(props: {
     !block.isUser && turnPresentation?.isActionBlock && props.onOpenTarget
       ? props.turnOpenTargets ?? []
       : [];
+  const openMarkdownCodePath = props.onOpenTarget
+    ? (path: string) => {
+        const normalizedPath = path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
+        const target = (props.turnOpenTargets ?? []).find((candidate) => {
+          if (candidate.kind !== "file" || candidate.exists !== true) return false;
+          const candidatePath = candidate.value.replace(/[\\]+/g, "/").replace(/^\.\//, "");
+          return candidatePath === normalizedPath || candidatePath.endsWith(`/${normalizedPath}`);
+        });
+        if (target) props.onOpenTarget?.(target);
+      }
+    : undefined;
   const assistantAvatar = props.assistantAvatar;
   const showAssistantAvatar =
     props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
@@ -2506,6 +2517,8 @@ function MessageBlockRow(props: {
                     text={text}
                     streaming={isStreamingLatestAssistant}
                     highlightQuery={highlightQuery}
+                    locale={currentLocale()}
+                    onOpenCodePath={openMarkdownCodePath}
                   />
                 );
               })() : null}
