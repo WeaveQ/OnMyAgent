@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
@@ -45,7 +45,13 @@ type PastedTextChip = {
 };
 
 type ToolMenuSettingsSection = "commands" | "skills" | "mcps" | "plugins";
-type ToolMenuSection = "files" | "modes" | "skills" | "mcps";
+type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";
+type ComposerPromptTemplate = {
+  id: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  prompts: string[];
+};
 type CollaborationModeOption = {
   key: CollaborationModeOptionKey;
   label: string;
@@ -162,6 +168,8 @@ type ComposerProps = {
   draft: string;
   mentions: Record<string, "agent" | "file">;
   scenarioTags?: Array<{ id: string; label: string }>;
+  promptTemplates?: ComposerPromptTemplate[];
+  onSelectPromptTemplate?: (templateId: string, prompt: string) => void;
   placeholder?: string;
   onDraftChange: (value: string) => void;
   onSend: () => void | Promise<void>;
@@ -218,6 +226,7 @@ type ComposerProps = {
   onUploadInboxFiles?: ((files: File[]) => void | Promise<unknown>) | null;
   draftScopeKey?: string;
   compactTopSpacing?: boolean;
+  showOuterBorder?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;
@@ -410,6 +419,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [slashOpen, setSlashOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("files");
+  const [selectedPromptTemplateId, setSelectedPromptTemplateId] = useState<string | null>(null);
   const [skillSearchQuery, setSkillSearchQuery] = useState("");
   const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
   const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
@@ -567,6 +577,9 @@ export function ReactSessionComposer(props: ComposerProps) {
   useEffect(() => {
     setSkillSearchQuery("");
     setConnectorSearchQuery("");
+    if (!toolMenuOpen || toolMenuSection !== "templates") {
+      setSelectedPromptTemplateId(null);
+    }
   }, [toolMenuOpen, toolMenuSection]);
 
   useEffect(() => {
@@ -760,6 +773,9 @@ export function ReactSessionComposer(props: ComposerProps) {
   const canSend = props.draft.trim().length > 0 || props.attachments.length > 0;
   const collaborationVariant = props.collaborationModeVariant ?? "legacy";
   const modeOptions = collaborationModeOptions(collaborationVariant);
+  const promptTemplates = props.promptTemplates ?? [];
+  const selectedPromptTemplate =
+    promptTemplates.find((template) => template.id === selectedPromptTemplateId) ?? null;
   const selectedModeKey = selectedCollaborationModeKey(props.collaborationMode, collaborationVariant);
   const selectedModeOption =
     modeOptions.find((option) => option.key === selectedModeKey) ?? null;
@@ -769,6 +785,15 @@ export function ReactSessionComposer(props: ComposerProps) {
     (collaborationVariant === "legacy" ||
       selectedModeKey !== "craft" ||
       showDefaultCollaborationChip);
+
+  const applyPromptTemplate = useCallback(
+    (templateId: string, prompt: string) => {
+      props.onSelectPromptTemplate?.(templateId, prompt);
+      setSelectedPromptTemplateId(null);
+      setToolMenuOpen(false);
+    },
+    [props.onSelectPromptTemplate],
+  );
 
   useEffect(() => {
     if (!activeItems.length) {
@@ -1146,7 +1171,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   return (
     <div
       ref={rootRef}
-      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} bg-gradient-to-t from-dls-surface via-dls-surface/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`}
+      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
       onCompositionStart={() => {
@@ -1159,7 +1184,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel */}
         <div
-          className={`relative overflow-visible rounded-xl border border-dls-border bg-dls-surface transition-all ${panelRoundedClass}`}
+          className={`relative overflow-visible rounded-xl bg-dls-surface ${props.showOuterBorder ? "border border-dls-mist" : ""} ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
@@ -1331,7 +1356,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                       setSlashOpen(false);
                       setToolMenuOpen((value) => {
                         const nextOpen = !value;
-                        if (nextOpen) setToolMenuSection("files");
+                        if (nextOpen) {
+                          setToolMenuSection("files");
+                          setSelectedPromptTemplateId(null);
+                        }
                         return nextOpen;
                       });
                     }}
@@ -1363,6 +1391,23 @@ export function ReactSessionComposer(props: ComposerProps) {
                             <span className="truncate">{t("composer.add_file")}</span>
                           </span>
                         </MenuRowButton>
+                        {promptTemplates.length > 0 ? (
+                          <MenuRowButton
+                            type="button"
+                            align="center"
+                            active={toolMenuSection === "templates"}
+                            className="mb-1 justify-between gap-2"
+                            onMouseEnter={() => setToolMenuSection("templates")}
+                            onFocus={() => setToolMenuSection("templates")}
+                            onClick={() => setToolMenuSection("templates")}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Sparkles size={14} className="shrink-0 text-dls-secondary" />
+                              <span className="truncate">{t("composer.prompt_templates")}</span>
+                            </span>
+                            <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                          </MenuRowButton>
+                        ) : null}
                         {([
                           ["modes", t("composer.collaboration_mode"), MessageCircle],
                           ["skills", t("dashboard.skills"), Zap],
@@ -1388,7 +1433,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                       </div>
                       {toolMenuSection === "files" ? null : (
                         <div className="absolute bottom-0 left-[calc(9rem-1px)] flex w-[min(calc(100vw-11.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                          {toolMenuSection === "skills" ? (
+                          {toolMenuSection === "templates" ? (
+                            <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                              {t("composer.prompt_templates")}
+                            </div>
+                          ) : toolMenuSection === "skills" ? (
                             <div className="space-y-2 border-b border-dls-border px-3 py-2">
                               <div className="flex min-h-8 items-center justify-between gap-3">
                                 <div className="text-xs font-medium text-dls-text">{t("dashboard.skills")}</div>
@@ -1443,6 +1492,33 @@ export function ReactSessionComposer(props: ComposerProps) {
                             </div>
                           )}
                           <div className="max-h-72 overflow-y-auto p-2">
+                            {toolMenuSection === "templates" ? (
+                              <div className="grid gap-1">
+                                {promptTemplates.map((template) => {
+                                  const Icon = template.icon;
+                                  return (
+                                    <MenuRowButton
+                                      key={template.id}
+                                      type="button"
+                                      align="center"
+                                      active={selectedPromptTemplate?.id === template.id}
+                                      className="justify-between gap-2"
+                                      onMouseEnter={() => setSelectedPromptTemplateId(template.id)}
+                                      onFocus={() => setSelectedPromptTemplateId(template.id)}
+                                      onClick={() => setSelectedPromptTemplateId(template.id)}
+                                    >
+                                      <span className="flex min-w-0 items-center gap-2">
+                                        <Icon className="size-3.5 shrink-0 text-dls-secondary" />
+                                        <span className="truncate text-xs font-medium text-dls-text">
+                                          {template.label}
+                                        </span>
+                                      </span>
+                                      <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                                    </MenuRowButton>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                             {toolMenuSection === "modes" ? (
                               <div className="grid gap-1">
                                 {modeOptions.map((option) => {
@@ -1565,6 +1641,29 @@ export function ReactSessionComposer(props: ComposerProps) {
                           </div>
                         </div>
                       )}
+                      {toolMenuSection === "templates" && selectedPromptTemplate ? (
+                        <div className="absolute bottom-0 left-[calc(36rem-2px)] flex w-[clamp(18rem,calc(100vw-38.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                          <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                            <span className="truncate">{selectedPromptTemplate.label}</span>
+                          </div>
+                          <div className="max-h-72 overflow-y-auto p-2">
+                            <div className="grid gap-1">
+                              {selectedPromptTemplate.prompts.map((prompt) => (
+                                <MenuRowButton
+                                  key={prompt}
+                                  type="button"
+                                  align="start"
+                                  className="gap-2"
+                                  onClick={() => applyPromptTemplate(selectedPromptTemplate.id, prompt)}
+                                >
+                                  <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                  <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>
+                                </MenuRowButton>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

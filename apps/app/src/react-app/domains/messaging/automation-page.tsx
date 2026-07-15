@@ -447,8 +447,8 @@ function AutomationTemplateCard(props: {
     >
       <Icon className="size-5 shrink-0 text-dls-secondary group-hover:text-dls-text" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-base font-semibold text-dls-text">{t(props.template.titleKey)}</span>
-        <span className="mt-1 block truncate text-sm text-dls-secondary">{t(props.template.descriptionKey)}</span>
+        <span className="block truncate text-sm font-medium text-dls-text">{t(props.template.titleKey)}</span>
+        <span className="mt-0.5 block truncate text-xs text-dls-secondary">{t(props.template.descriptionKey)}</span>
       </span>
     </button>
   );

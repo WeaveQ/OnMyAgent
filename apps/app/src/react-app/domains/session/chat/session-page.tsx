@@ -766,9 +766,9 @@ export function SessionPage(props: SessionPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-surface">
+                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-background">
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-surface mac:bg-dls-surface">
+                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
                       {agentPanel.activeSidebarView === "agents" ? (
                         <props.renderAgentsPage
                           workspaceId={props.selectedWorkspaceId}
@@ -1160,7 +1160,7 @@ export function SessionPage(props: SessionPageProps) {
                       activeAssistantCategoryId === "code" ? "560px" : activeSidePanel === "extensions" ? "420px" : "320px"
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden lg:flex lg:flex-col"
+                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "codeMenu" ? (
                       <CodeSidePanelMenu
