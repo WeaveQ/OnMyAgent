@@ -122,8 +122,18 @@ import type {
   FeishuSaveAccountInput,
   FeishuServiceStartInput,
   FeishuSimulateInboundInput,
+  DiscordAccountStatus,
+  DiscordAccountStatusInput,
+  DiscordSaveAccountInput,
+  DiscordServiceStartInput,
+  DiscordSimulateInboundInput,
   MessagingAccessibleRootProbe,
   MessagingChannelStatus,
+  TelegramAccountStatus,
+  TelegramAccountStatusInput,
+  TelegramSaveAccountInput,
+  TelegramServiceStartInput,
+  TelegramSimulateInboundInput,
   WeixinAccountStatusInput,
   WeixinAccountStatus,
   WeixinLoginPollInput,
@@ -1632,6 +1642,62 @@ export function feishuSimulateInbound(input: FeishuSimulateInboundInput): Promis
 
 export function feishuProbeAccessibleRoot(input: { root: string } | { folderPath: string }): Promise<MessagingAccessibleRootProbe> {
   return invokeElectronHelper<MessagingAccessibleRootProbe>("feishuProbeAccessibleRoot", input);
+}
+
+export function telegramSaveAccount(input: TelegramSaveAccountInput): Promise<TelegramAccountStatus> {
+  return invokeElectronHelper<TelegramAccountStatus>("telegramSaveAccount", input);
+}
+
+export function telegramAccountStatus(input?: TelegramAccountStatusInput): Promise<TelegramAccountStatus> {
+  return invokeElectronHelper<TelegramAccountStatus>("telegramAccountStatus", input ?? {});
+}
+
+export function telegramStart(input: TelegramServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramStart", input);
+}
+
+export function telegramAutoStart(input?: TelegramServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramAutoStart", input ?? {});
+}
+
+export function telegramStop(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramStop");
+}
+
+export function telegramStatus(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramStatus");
+}
+
+export function telegramSimulateInbound(input: TelegramSimulateInboundInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramSimulateInbound", input);
+}
+
+export function discordSaveAccount(input: DiscordSaveAccountInput): Promise<DiscordAccountStatus> {
+  return invokeElectronHelper<DiscordAccountStatus>("discordSaveAccount", input);
+}
+
+export function discordAccountStatus(input?: DiscordAccountStatusInput): Promise<DiscordAccountStatus> {
+  return invokeElectronHelper<DiscordAccountStatus>("discordAccountStatus", input ?? {});
+}
+
+export function discordStart(input: DiscordServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordStart", input);
+}
+
+export function discordAutoStart(input?: DiscordServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordAutoStart", input ?? {});
+}
+
+export function discordStop(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordStop");
+}
+
+export function discordStatus(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordStatus");
+}
+
+export function discordSimulateInbound(input: DiscordSimulateInboundInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordSimulateInbound", input);
 }
 
 // --- Channel Infrastructure API ---

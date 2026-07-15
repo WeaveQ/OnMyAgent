@@ -148,4 +148,6 @@ export default {
   "agent_manager.mcp.type_stdio": "stdio",
   "agent_manager.mcp.type_sse": "sse",
   "agent_manager.mcp.type_http": "http",
+  "agent_manager.agent_card.expand": "展開 {name} 的詳情與操作",
+  "agent_manager.agent_card.collapse": "收起 {name} 的詳情與操作",
 } as const;

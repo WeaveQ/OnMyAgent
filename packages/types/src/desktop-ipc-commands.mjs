@@ -70,7 +70,7 @@ const commandGroups = /** @type {const} */ ({
     "weixinStatus", "weixinSimulateInbound", "weixinProbeAccessibleRoot",
     "feishuSaveAccount", "feishuAccountStatus", "feishuStart", "feishuAutoStart",
     "feishuStop", "feishuStatus", "feishuSimulateInbound",
-    "feishuProbeAccessibleRoot", "channelGetPendingPairingRequests",
+    "feishuProbeAccessibleRoot", "telegramSaveAccount", "telegramAccountStatus", "telegramStart", "telegramAutoStart", "telegramStop", "telegramStatus", "telegramSimulateInbound", "discordSaveAccount", "discordAccountStatus", "discordStart", "discordAutoStart", "discordStop", "discordStatus", "discordSimulateInbound", "channelGetPendingPairingRequests",
     "channelApprovePairing", "channelDenyPairing", "channelGetAuthorizedUsers",
     "channelIsUserAuthorized", "channelRevokeUserAuthorization",
     "channelGetOrCreateSession", "channelGetSession", "channelGetSessionsByPlatform",
