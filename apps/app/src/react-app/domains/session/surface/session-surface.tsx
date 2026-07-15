@@ -5,6 +5,7 @@ import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import {
+  ArrowDown,
   BookOpenCheck,
   Check,
   ChevronRight,
@@ -175,6 +176,7 @@ import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
   AssistantWaitingCard,
+  TranscriptHistorySkeleton,
 } from "./chrome/assistant-status";
 import {
   PlanApprovalPanel,
@@ -2551,13 +2553,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           >
             <div ref={contentRef} className="w-full">
               {showDelayedLoading && pendingSessionLoad ? (
-                <div className="px-6 py-16">
-                  <div className="mx-auto max-w-sm rounded-xl border border-dls-border bg-dls-surface-muted px-8 py-10 text-center">
-                    <div className={sessionSurfaceTextClass.openingSession}>
-                      Opening session…
-                    </div>
-                  </div>
-                </div>
+                <TranscriptHistorySkeleton pairCount={3} />
               ) : (snapshotQuery.isError || visibleTranscriptError) &&
                 !snapshot &&
                 !hasTranscriptContent ? (
@@ -2656,13 +2652,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
           (!sessionScroll.isAtBottom ||
             (!chatStreaming && sessionScroll.topClippedMessageId)) ? (
             <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 justify-center">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-dls-border bg-dls-surface p-1 backdrop-blur-md">
+              <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface p-1 backdrop-blur-md">
                 {!chatStreaming && sessionScroll.topClippedMessageId ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="xs"
-                    className="rounded-full text-dls-text hover:bg-dls-hover"
+                    className="text-dls-text hover:bg-dls-hover"
                     onClick={() => {
                       sessionScroll.jumpToStartOfMessage("smooth");
                     }}
@@ -2673,14 +2669,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 {!sessionScroll.isAtBottom ? (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="xs"
-                    className="rounded-full text-dls-text hover:bg-dls-hover"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-dls-border bg-dls-surface text-dls-text hover:bg-dls-hover"
+                    title={t("session.jump_to_latest")}
+                    aria-label={t("session.jump_to_latest")}
                     onClick={() => {
                       sessionScroll.jumpToLatest("smooth");
                     }}
                   >
-                    {t("session.jump_to_latest")}
+                    <ArrowDown className="size-4" />
                   </Button>
                 ) : null}
               </div>

@@ -81,4 +81,20 @@ describe("session transcript layout contract", () => {
     expect(appStyles).toContain("session-transcript-loading-sweep 2.2s linear infinite");
     expect(appStyles).toContain("prefers-reduced-motion: reduce");
   });
+
+  test("matches WorkBuddy history skeleton pairs and compact latest control", async () => {
+    const assistantStatus = await Bun.file(assistantStatusPath).text();
+    const sessionSurface = await Bun.file(sessionSurfacePath).text();
+
+    expect(assistantStatus).toContain("export function TranscriptHistorySkeleton");
+    expect(assistantStatus).toContain("Array.from({ length: pairCount }");
+    expect(assistantStatus).toContain('className="flex justify-end px-4 py-8"');
+    expect(assistantStatus).toContain('className="mb-3 flex items-center gap-2.5"');
+    expect(sessionSurface).toContain("<TranscriptHistorySkeleton pairCount={3} />");
+    expect(sessionSurface).toContain('aria-label={t("session.jump_to_latest")}');
+    expect(sessionSurface).toContain('<ArrowDown className="size-4" />');
+    expect(sessionSurface).not.toContain(
+      'rounded-full border border-dls-border bg-dls-surface p-1',
+    );
+  });
 });

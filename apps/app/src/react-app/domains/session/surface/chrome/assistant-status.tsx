@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { PaperGrainGradient } from "@onmyagent/ui/react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { t } from "../../../../../i18n";
 import { sessionSurfaceTextClass } from "../surface-styles";
 
@@ -151,6 +152,35 @@ export function AssistantStatusSpacer() {
         label={t("session.assistant_responding")}
         collapseLayout
       />
+    </div>
+  );
+}
+
+export function TranscriptHistorySkeleton({ pairCount = 3 }: { pairCount?: number }) {
+  return (
+    <div
+      className="mx-auto w-full max-w-[832px] px-3 py-4"
+      role="status"
+      aria-label={t("session.loading_detail")}
+    >
+      {Array.from({ length: pairCount }, (_, index) => (
+        <div key={index} className="pb-8">
+          <div className="flex justify-end px-4 py-8">
+            <Skeleton className="h-10 w-[min(58%,420px)] rounded-xl" />
+          </div>
+          <div className="px-3">
+            <div className="mb-3 flex items-center gap-2.5">
+              <Skeleton className="size-6 rounded-full" />
+              <Skeleton className="h-4 w-24 rounded-lg" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-[88%] rounded-lg" />
+              <Skeleton className="h-3.5 w-[72%] rounded-lg" />
+              <Skeleton className="h-3.5 w-[46%] rounded-lg" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
