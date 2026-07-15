@@ -5,6 +5,7 @@ import {
   canMergeStepClusters,
   mergeLeadingAssistantStepClusters,
   resolveDisplayedPastedText,
+  shouldFoldStepGroups,
   summarizeStepCluster,
 } from "../src/react-app/domains/session/surface/message-list";
 import { groupMessageParts, summarizeStep } from "../src/app/utils";
@@ -69,15 +70,15 @@ function messageBlock(id: string, role: "assistant" | "user"): TimelineBlock {
 }
 
 describe("session process summary", () => {
-  test("merges only contiguous process clusters with the same summary category", () => {
+  test("merges contiguous foldable process clusters across tool categories", () => {
     const readA = stepBlock("read-a", "read");
     const readB = stepBlock("read-b", "read");
     const terminal = stepBlock("terminal-a", "bash");
     const readC = stepBlock("read-c", "read");
 
     expect(canMergeStepClusters(readA, readB)).toBe(true);
-    expect(canMergeStepClusters(readB, terminal)).toBe(false);
-    expect(canMergeStepClusters(terminal, readC)).toBe(false);
+    expect(canMergeStepClusters(readB, terminal)).toBe(true);
+    expect(canMergeStepClusters(terminal, readC)).toBe(true);
   });
 
   test("summarizes merged process clusters by action category", () => {
@@ -87,6 +88,18 @@ describe("session process summary", () => {
 
     expect(summarizeStepCluster([...readA.stepGroups, ...readB.stepGroups]).category).toBe("read");
     expect(summarizeStepCluster(terminal.stepGroups).category).toBe("terminal");
+    expect(summarizeStepCluster([...readA.stepGroups, ...terminal.stepGroups])).toEqual({
+      category: "tool",
+      label: "Processed 2 actions",
+    });
+  });
+
+  test("folds only contiguous runs with at least two process items", () => {
+    const readA = stepBlock("read-a", "read");
+    const terminal = stepBlock("terminal-a", "bash");
+
+    expect(shouldFoldStepGroups(readA.stepGroups)).toBe(false);
+    expect(shouldFoldStepGroups([...readA.stepGroups, ...terminal.stepGroups])).toBe(true);
   });
 
   test("uses a user-facing fallback label for uncategorized process work", () => {
