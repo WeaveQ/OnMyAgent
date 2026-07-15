@@ -25,7 +25,7 @@ import { t } from "../../i18n";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "../domains/connections";
-import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../domains/shared/onmyagent-server-store";
+import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../domains/shared";
 import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections";
 import { ProviderAuthModal } from "../domains/connections";
 import { ConnectionsModals } from "../domains/connections";
@@ -35,7 +35,7 @@ import {
 } from "../domains/settings";
 import { OpenCodeProviderConfigDialog } from "../domains/session";
 import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../domains/settings";
-import { isOnMyAgentExtensionEnabled } from "../domains/shared/extension-state";
+import { isOnMyAgentExtensionEnabled } from "../domains/shared";
 import {
   AdvancedView,
   AuthorizedFoldersPanel,

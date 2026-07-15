@@ -43,7 +43,7 @@ import {
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
-import { OnMyAgentDenHelpLink } from "../../shared/onmyagent-den-help-link";
+import { OnMyAgentDenHelpLink } from "../../shared";
 import type {
   WorkspaceConnectionState,
   WorkspaceSessionGroup,

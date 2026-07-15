@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { ComposerAccessMode, ModelRef } from "@/app/types";
 import { pickDirectory } from "@/app/lib/desktop";
-import { ModelSelectContainer } from "../session/components/model-select";
+import { ModelSelectContainer } from "../../capabilities/model-selection/model-select-container";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +53,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/react-app/shell";
-import { AccessPermissionSelect } from "../session/surface/composer/access-permission-select";
+import { AccessPermissionSelect } from "../../design-system/access-permission-select";
 import type {
   OnMyAgentAutomationTaskItem,
   OnMyAgentServerClient,
@@ -75,7 +75,7 @@ import {
   useAgentRegistryStore,
   type AgentRegistry,
   type AgentTemplate,
-} from "../session/components/shared-pages/conversation-model";
+} from "../agents";
 import { syncAutomationSessionRecords } from "./automation-session-groups";
 
 type IntervalUnit = "minutes" | "hours" | "days";

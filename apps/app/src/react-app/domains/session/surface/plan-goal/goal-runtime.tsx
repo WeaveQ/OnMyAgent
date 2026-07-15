@@ -22,6 +22,7 @@ export type SessionTranscriptNotice = {
     | "permission-rejected"
     | "permission-auto-approved";
   afterMessageCount: number;
+  runKey?: string;
   runStartedAt?: number;
   elapsedMs?: number;
 };
@@ -30,17 +31,46 @@ export function shouldRecordSessionInterruption(input: {
   existing: SessionTranscriptNotice[];
   candidate: SessionTranscriptNotice;
 }) {
-  return !input.existing.some((notice) =>
-    notice.runStartedAt === input.candidate.runStartedAt &&
-    (notice.kind === input.candidate.kind ||
-      (input.candidate.kind === "cancelled" && notice.kind === "stopped")),
-  );
+  const candidateTerminal =
+    input.candidate.kind === "cancelled" || input.candidate.kind === "stopped";
+  return !input.existing.some((notice) => {
+    const noticeTerminal = notice.kind === "cancelled" || notice.kind === "stopped";
+    if (
+      candidateTerminal &&
+      noticeTerminal &&
+      input.candidate.runKey &&
+      notice.runKey
+    ) {
+      return notice.runKey === input.candidate.runKey;
+    }
+    return (
+      notice.runStartedAt !== undefined &&
+      input.candidate.runStartedAt !== undefined &&
+      notice.runStartedAt === input.candidate.runStartedAt &&
+      (notice.kind === input.candidate.kind ||
+        (input.candidate.kind === "cancelled" && notice.kind === "stopped"))
+    );
+  });
 }
 
-export function shouldSuppressCancelledAfterStop(
-  stoppedRunStartedAt: number | undefined,
-): boolean {
-  return stoppedRunStartedAt !== undefined;
+export function createSessionInterruptionNotice(input: {
+  sessionId: string;
+  kind: "cancelled" | "stopped";
+  runKey: string;
+  afterMessageCount: number;
+  runStartedAt: number;
+  now: number;
+}): SessionTranscriptNotice {
+  return {
+    id: `${input.sessionId}:${input.kind}:${input.runKey}`,
+    kind: input.kind,
+    runKey: input.runKey,
+    afterMessageCount: input.afterMessageCount,
+    runStartedAt: input.runStartedAt,
+    ...(input.kind === "stopped"
+      ? { elapsedMs: Math.max(0, input.now - input.runStartedAt) }
+      : {}),
+  };
 }
 
 export function preferLatestGoalRuntime(

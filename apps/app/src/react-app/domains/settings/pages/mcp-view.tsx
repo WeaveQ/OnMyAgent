@@ -52,14 +52,14 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import { AddMcpModal } from "../../connections/add-mcp-modal";
+import { AddMcpModal } from "../../connections";
 import {
   isOnMyAgentExtensionEnabled,
   isOnMyAgentExtensionHidden,
   ONMYAGENT_EXTENSION_STATE_CHANGED,
   setOnMyAgentExtensionEnabled,
   setOnMyAgentExtensionHidden,
-} from "../../shared/extension-state";
+} from "../../shared";
 import {
   initialMcpViewLocalState,
   mcpViewLocalReducer,

@@ -12,7 +12,7 @@ import { t } from "../../../i18n";
 import {
   MESSAGING_CHANNELS,
   type MessagingChannel,
-} from "../session/chat/session-page-messaging-model";
+} from "./messaging-model";
 import { FeishuChannelPanel } from "./feishu-channel-panel";
 import { ChannelPairingPanel } from "./ChannelPairingPanel";
 import { WeixinChannelPanel } from "./weixin-channel-panel";

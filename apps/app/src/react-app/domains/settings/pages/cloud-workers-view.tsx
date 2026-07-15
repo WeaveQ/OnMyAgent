@@ -3,7 +3,7 @@ import * as React from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import { useCloudSession } from "../cloud/cloud-session-provider";
 import { CloudWorkersSection, type CloudWorker } from "../cloud/sections";
 import { SettingsNotice, SettingsStack } from "../settings-section";
