@@ -45,6 +45,11 @@ import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
 import { MarkdownBlock } from "./markdown";
 import { applyTextHighlights } from "./text-highlights";
 import {
+  computeTranscriptMaxContentWidth,
+  DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
+} from "./transcript-presentation";
+import { buildTranscriptTurns } from "./transcript/turn-model";
+import {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
   isLocalhostBrowserTarget,
@@ -78,9 +83,9 @@ const messageTextClass = {
   baseMessageBubble: "text-sm text-foreground leading-relaxed",
   userMessageBubble: "bg-dls-chat-user-bg text-dls-text",
   nestedUserMessageBubble: "max-w-[92%] rounded-xl px-3.5 py-2",
-  rootUserMessageBubble: "max-w-[82%] rounded-xl px-4 py-2.5",
+  rootUserMessageBubble: "session-transcript-user-bubble",
   assistantMessageBubble: "w-full antialiased group",
-  rootAssistantMessageBubble: "max-w-[720px]",
+  rootAssistantMessageBubble: "session-transcript-assistant-copy",
 };
 
 const messageStateClass = {
@@ -102,7 +107,7 @@ function AssistantAvatar(props: { name: string; avatarUrl: string | null; avatar
   if (props.avatarUrl) {
     return (
       <div
-        className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full"
+        className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full"
         style={props.avatarBackground ? { background: props.avatarBackground } : undefined}
       >
         <img
@@ -123,18 +128,10 @@ function AssistantAvatar(props: { name: string; avatarUrl: string | null; avatar
   const palette = AVATAR_PALETTES[index]!;
   return (
     <div
-      className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
       style={{ background: palette.background, color: palette.foreground }}
     >
       {props.name.slice(0, 1) || t("session.agent_initial")}
-    </div>
-  );
-}
-
-function UserAvatar(props: { name: string }) {
-  return (
-    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-dls-accent text-sm font-medium text-white">
-      {props.name.slice(0, 1) || t("session.user_initial")}
     </div>
   );
 }
@@ -333,13 +330,10 @@ type SessionTranscriptProps = {
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
   /**
-   * When set, renders this identity (avatar + name) on the leading edge of
-   * every assistant message block. Used when the session was started from a
-   * custom agent card so the user can see the agent identity in the chat.
+   * When set, renders this identity once at the start of each visible
+   * assistant turn. The root transcript always supplies the active identity.
    */
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
-  userIdentity?: { name: string };
-
 };
 
 // 500 was too high for real-world OnMyAgent sessions: a handful of giant
@@ -1667,7 +1661,7 @@ function MessageBlockRow(props: {
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
-  userIdentity?: { name: string };
+  showAssistantIdentity: boolean;
 
 }) {
   const block = props.block;
@@ -1689,20 +1683,22 @@ function MessageBlockRow(props: {
   if (block.kind === "steps-cluster") {
     const assistantAvatar = props.assistantAvatar;
     const showAssistantAvatar =
-      !block.isUser && assistantAvatar && !props.isNestedVariant;
+      props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
     return (
       <div
         className={cn(
           "flex group justify-start pb-4",
           block.isUser && "justify-end",
-          showAssistantAvatar && "flex-col items-start gap-2",
+          !props.isNestedVariant && block.isUser && "session-transcript-user-row",
+          !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
+          showAssistantAvatar && "flex-col items-start",
         )}
         data-message-role={block.isUser ? "user" : "assistant"}
         data-message-id={block.messageIds[0] ?? ""}
         style={blockStyle}
       >
         {showAssistantAvatar && assistantAvatar ? (
-          <div className="flex items-center gap-2">
+          <div className="session-transcript-assistant-identity">
             <AssistantAvatar
               name={assistantAvatar.name}
               avatarUrl={assistantAvatar.avatarUrl}
@@ -1749,6 +1745,9 @@ function MessageBlockRow(props: {
   const inlineOpenTargets = block.kind === "message" && !block.isUser && props.onOpenTarget
     ? inlineOpenTargetsForMessage(block.message, props.openTargets)
     : [];
+  const assistantAvatar = props.assistantAvatar;
+  const showAssistantAvatar =
+    props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
 
   if (isSyntheticSessionError) {
     const messageText = block.renderableParts
@@ -1760,11 +1759,27 @@ function MessageBlockRow(props: {
 
     return (
       <div
-        className="flex group justify-start pb-4"
+        className={cn(
+          "flex group justify-start pb-4",
+          !props.isNestedVariant && "session-transcript-assistant-row",
+          showAssistantAvatar && "flex-col items-start",
+        )}
         data-message-role="assistant"
         data-message-id={block.messageId}
         style={blockStyle}
       >
+        {showAssistantAvatar && assistantAvatar ? (
+          <div className="session-transcript-assistant-identity">
+            <AssistantAvatar
+              name={assistantAvatar.name}
+              avatarUrl={assistantAvatar.avatarUrl}
+              avatarBackground={assistantAvatar.avatarBackground}
+            />
+            <span className={messageTextClass.avatarLabel}>
+              {assistantAvatar.name}
+            </span>
+          </div>
+        ) : null}
         <div className={cn("w-full relative", !props.isNestedVariant && "max-w-[650px]", searchOutlineClass)}>
           <NoticeBox className="inline-flex max-w-full items-start gap-2 text-sm leading-5" role="alert" tone="error">
             <CircleAlert size={14} className="mt-0.5 shrink-0" />
@@ -1775,27 +1790,22 @@ function MessageBlockRow(props: {
     );
   }
 
-  const assistantAvatar = props.assistantAvatar;
-  const showAssistantAvatar =
-    !block.isUser && assistantAvatar && !props.isNestedVariant;
-  const showUserIdentity =
-    block.isUser && props.userIdentity && !props.isNestedVariant;
-
   return (
     <div
       className={cn(
         "flex group justify-start relative pb-4",
         block.isUser && "justify-end",
         !props.isNestedVariant && "pb-8",
-        showAssistantAvatar && "flex-col items-start gap-2",
-        showUserIdentity && "flex-col items-end gap-2",
+        !props.isNestedVariant && block.isUser && "session-transcript-user-row",
+        !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
+        showAssistantAvatar && "flex-col items-start",
       )}
       data-message-role={block.isUser ? "user" : "assistant"}
       data-message-id={block.messageId}
       style={blockStyle}
     >
       {showAssistantAvatar && assistantAvatar ? (
-        <div className="flex items-center gap-2">
+        <div className="session-transcript-assistant-identity">
           <AssistantAvatar
             name={assistantAvatar.name}
             avatarUrl={assistantAvatar.avatarUrl}
@@ -1804,14 +1814,6 @@ function MessageBlockRow(props: {
           <span className={messageTextClass.avatarLabel}>
             {assistantAvatar.name}
           </span>
-        </div>
-      ) : null}
-      {showUserIdentity && props.userIdentity ? (
-        <div className="flex max-w-[52%] items-center justify-end gap-2">
-          <span className={messageTextClass.avatarLabel}>
-            {props.userIdentity.name}
-          </span>
-          <UserAvatar name={props.userIdentity.name} />
         </div>
       ) : null}
       <div
@@ -1938,6 +1940,9 @@ function MessageBlockRow(props: {
 function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? DEFAULT_SHOW_THINKING;
   const isNestedVariant = props.variant === "nested";
+  const [rootContentWidth, setRootContentWidth] = useState(
+    DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
+  );
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -1959,6 +1964,23 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       }),
     }));
   }, [props.messages]);
+
+  useEffect(() => {
+    if (isNestedVariant) return;
+    const scrollContainer = props.scrollElement?.();
+    if (!scrollContainer) return;
+
+    const updateWidth = (width: number) => {
+      setRootContentWidth(computeTranscriptMaxContentWidth(width));
+    };
+    updateWidth(scrollContainer.clientWidth);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) updateWidth(entry.contentRect.width);
+    });
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, [isNestedVariant, props.scrollElement]);
 
   // Cache of the previous messageBlocks array, indexed by identity key.
   // Used by useStableBlocks below so structurally-equivalent blocks keep
@@ -2125,6 +2147,33 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return stable;
   }, [rawMessageBlocks]);
 
+  const assistantIdentityBlockKeys = useMemo(() => {
+    if (isNestedVariant) return new Set<string>();
+    const turns = buildTranscriptTurns(props.messages, { isStreaming: props.isStreaming });
+    const turnIdByAssistantMessageId = new Map<string, string>();
+    turns.forEach((turn) => {
+      turn.assistantMessages.forEach((message) => {
+        turnIdByAssistantMessageId.set(message.id, turn.id);
+      });
+    });
+
+    const representedTurnIds = new Set<string>();
+    const identityBlockKeys = new Set<string>();
+    messageBlocks.forEach((block) => {
+      if (block.kind === "divider" || block.isUser) return;
+      const messageIds = block.kind === "steps-cluster"
+        ? block.messageIds
+        : [...(block.leadingStepMessageIds ?? []), block.messageId];
+      const turnId = messageIds
+        .map((messageId) => turnIdByAssistantMessageId.get(messageId))
+        .find((candidate) => candidate !== undefined);
+      if (!turnId || representedTurnIds.has(turnId)) return;
+      representedTurnIds.add(turnId);
+      identityBlockKeys.add(blockIdentityKey(block));
+    });
+    return identityBlockKeys;
+  }, [isNestedVariant, messageBlocks, props.isStreaming, props.messages]);
+
   const latestAssistantMessageId = useMemo(() => {
     for (let index = props.messages.length - 1; index >= 0; index -= 1) {
       const message = props.messages[index];
@@ -2230,8 +2279,18 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // work reduces the chance that one large session makes the UI feel frozen.
   const shouldUseContentVisibility = !shouldVirtualize && messageBlocks.length > 24;
 
+  const transcriptStyle = isNestedVariant
+    ? MESSAGE_LIST_CONTAIN_STYLE
+    : {
+        ...MESSAGE_LIST_CONTAIN_STYLE,
+        maxWidth: `${rootContentWidth}px`,
+      } satisfies CSSProperties;
+
   return (
-    <div className="pb-0" style={MESSAGE_LIST_CONTAIN_STYLE}>
+    <div
+      className={cn("pb-0", !isNestedVariant && "session-transcript-root mx-auto w-full")}
+      style={transcriptStyle}
+    >
       {shouldVirtualize ? (
         // Always render the virtualized container once we've decided to
         // virtualize — even if virtualRows is empty on the very first tick
@@ -2283,7 +2342,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                         openTargets={props.openTargets}
                         onOpenTarget={props.onOpenTarget}
                         assistantAvatar={props.assistantAvatar}
-                        userIdentity={props.userIdentity}
+                        showAssistantIdentity={assistantIdentityBlockKeys.has(blockIdentityKey(block))}
                       />
                     )}
                   </div>
@@ -2317,7 +2376,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                 openTargets={props.openTargets}
                 onOpenTarget={props.onOpenTarget}
                 assistantAvatar={props.assistantAvatar}
-                userIdentity={props.userIdentity}
+                showAssistantIdentity={assistantIdentityBlockKeys.has(blockIdentityKey(block))}
               />
             )
           ))}
