@@ -13,6 +13,8 @@ import {
   ListTodo,
   LoaderCircle,
   Network,
+  Plug,
+  Sparkles,
   ExternalLink,
   Terminal,
 } from "lucide-react";
@@ -118,6 +120,34 @@ export function specializedToolHeadline(
     });
   }
   if (details.kind === "plan") return t("session.tool_plan_title");
+  if (details.kind === "compact-tool") {
+    if (details.variant === "memory") {
+      return t(
+        details.action === "delete"
+          ? "session.tool_memory_deleted"
+          : details.action === "update"
+            ? "session.tool_memory_updated"
+            : "session.tool_memory_created",
+      );
+    }
+    if (details.variant === "preview-url") return t("session.tool_preview_url");
+    if (details.variant === "read-rules") return t("session.tool_read_rules");
+    if (details.variant === "upload-file") return t("session.tool_upload_file");
+    if (details.variant === "skill-manage") return t("session.tool_skill_manage");
+    if (details.variant === "present-files") return t("session.tool_present_files");
+    return details.summary || t("session.tool_generic");
+  }
+  if (details.kind === "mcp") {
+    return details.serverName
+      ? `${details.serverName}${details.toolName ? ` (${details.toolName})` : ""}`
+      : t("session.tool_mcp_called");
+  }
+  if (details.kind === "mcp-resource") {
+    return details.server && details.uri
+      ? `${details.server}: ${details.uri.split("/").at(-1) || details.uri}`
+      : t("session.tool_mcp_resource");
+  }
+  if (details.kind === "skill") return details.skillName || t("session.tool_skill");
   if (details.kind === "image-gen") {
     if (running || details.status === "generating") {
       return details.prompt
@@ -147,6 +177,16 @@ export function specializedToolCanExpand(details: TranscriptSpecializedToolDetai
   if (details.kind === "web-search") return details.results.length > 0;
   if (details.kind === "web-fetch") return Boolean(details.content);
   if (details.kind === "plan") return Boolean(details.name || details.overview || details.todos.length);
+  if (details.kind === "compact-tool") {
+    if (details.variant === "preview-url") return false;
+    if (details.variant === "memory") return Boolean(details.title || details.summary);
+    return Boolean(details.result);
+  }
+  if (details.kind === "mcp") {
+    return Boolean(Object.keys(details.args).length || details.content.length || details.errorMessage || details.progress);
+  }
+  if (details.kind === "mcp-resource") return Boolean(details.uri || details.content || details.downloadPath);
+  if (details.kind === "skill") return false;
   if (details.kind === "image-gen") return true;
   return Boolean(details.toolItems.length || details.finalResult);
 }
@@ -587,6 +627,130 @@ export function SpecializedToolDetails(props: {
 }) {
   const platform = usePlatform();
   const details = props.details;
+
+  if (details.kind === "compact-tool") {
+    return (
+      <div className="overflow-hidden rounded-lg bg-dls-surface-muted text-xs text-dls-text">
+        {details.title ? (
+          <div className="border-b border-dls-border px-4 py-2 font-medium">{details.title}</div>
+        ) : null}
+        {details.variant === "preview-url" && details.summary ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto w-full justify-start gap-2 rounded-none px-4 py-2 font-normal text-dls-accent"
+            onClick={() => platform.openLink(details.summary ?? "")}
+          >
+            <ExternalLink className="size-3.5 shrink-0" />
+            <span className="truncate">{details.summary}</span>
+          </Button>
+        ) : details.summary ? (
+          <div className="whitespace-pre-wrap wrap-break-word px-4 py-2 leading-5">{details.summary}</div>
+        ) : null}
+        {details.result && details.variant !== "memory" ? (
+          <pre className="m-0 max-h-[300px] overflow-auto border-t border-dls-border px-4 py-3 font-mono leading-5 text-dls-secondary">
+            {details.result}
+          </pre>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (details.kind === "mcp") {
+    const progressText = details.progress
+      ? [
+          details.progress.total === null
+            ? `${details.progress.current}`
+            : `${details.progress.current}/${details.progress.total}`,
+          details.progress.message,
+        ].filter(Boolean).join(" · ")
+      : null;
+    return (
+      <div data-tool-details="mcp" className="overflow-hidden rounded-lg border border-dls-border bg-dls-surface text-xs">
+        {progressText ? (
+          <div className="inline-flex w-full items-center gap-2 border-b border-dls-border bg-dls-surface-muted px-3 py-2 text-dls-secondary">
+            <LoadingSpinner className="size-3.5" />
+            <span>{progressText}</span>
+          </div>
+        ) : null}
+        {Object.keys(details.args).length > 0 ? (
+          <div className="border-b border-dls-border px-3 py-2">
+            <div className="mb-1 font-medium text-dls-secondary">{t("session.tool_mcp_parameters")}</div>
+            <pre className="m-0 max-h-[240px] overflow-auto whitespace-pre-wrap font-mono leading-5 text-dls-text">
+              {JSON.stringify(details.args, null, 2)}
+            </pre>
+          </div>
+        ) : null}
+        <div className="px-3 py-2">
+          <div className="mb-1 font-medium text-dls-secondary">{t("session.tool_result")}</div>
+          {details.errorMessage ? (
+            <pre className="m-0 whitespace-pre-wrap font-mono leading-5 text-dls-status-danger-fg">{details.errorMessage}</pre>
+          ) : details.content.length > 0 ? (
+            <div className="max-h-[360px] space-y-2 overflow-auto">
+              {details.content.map((item, index) => item.type === "image" ? (
+                <img
+                  key={`image:${index}`}
+                  src={`data:${item.mimeType};base64,${item.data}`}
+                  alt={t("session.tool_mcp_image_alt", { index: index + 1 })}
+                  className="max-h-[300px] max-w-full rounded-sm object-contain"
+                />
+              ) : (
+                <pre key={`${item.type}:${index}`} className="m-0 whitespace-pre-wrap wrap-break-word font-mono leading-5 text-dls-text">
+                  {item.text}
+                </pre>
+              ))}
+            </div>
+          ) : (
+            <span className="text-dls-secondary">{t("session.tool_no_result")}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (details.kind === "mcp-resource") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-dls-border bg-dls-surface text-xs">
+        {details.uri ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto w-full justify-start gap-2 rounded-none border-b border-dls-border px-3 py-2 font-normal text-dls-accent"
+            onClick={() => platform.openLink(details.uri)}
+          >
+            <Plug className="size-3.5 shrink-0" />
+            <span className="truncate">{details.uri}</span>
+          </Button>
+        ) : null}
+        {details.downloadPath ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto w-full justify-start gap-2 rounded-none border-b border-dls-border px-3 py-2 font-mono text-xs font-normal text-dls-secondary"
+            onClick={() => void openDesktopPath(details.downloadPath ?? "")}
+          >
+            <File className="size-3.5 shrink-0" />
+            <span className="truncate">{details.downloadPath}</span>
+          </Button>
+        ) : null}
+        <pre className="m-0 max-h-[360px] overflow-auto whitespace-pre-wrap wrap-break-word px-3 py-2 font-mono leading-5 text-dls-text">
+          {details.content || t("session.tool_no_result")}
+        </pre>
+      </div>
+    );
+  }
+
+  if (details.kind === "skill") {
+    return (
+      <div className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+        <Sparkles className="size-3.5" />
+        {details.skillName}
+      </div>
+    );
+  }
 
   if (details.kind === "command") return <CommandToolDetails details={details} />;
 

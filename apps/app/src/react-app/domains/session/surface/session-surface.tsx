@@ -2092,6 +2092,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     renderedMessageIds: renderedMessages.map((message) => message.id),
     containerRef: scrollRef,
     contentRef,
+    active: chatStreaming,
     sessionChangeScroll:
       props.personalAssistantHome && props.draftOnly ? "top" : "bottom",
   });
@@ -2513,7 +2514,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           <div
             ref={scrollRef}
             onWheel={(event) => {
-              sessionScroll.markScrollGesture(event.target);
+              sessionScroll.markWheelGesture(event.deltaY, event.target);
             }}
             onTouchStart={(event) => {
               sessionScroll.markScrollGesture(event.target);
