@@ -18,6 +18,7 @@ export default {
   "composer.no_matching_connectors": "没有匹配的连接器",
   "composer.no_matching_skills": "没有匹配的技能",
   "composer.placeholder": "今天帮你做些什么？ @ 引用对话文件， / 调用技能与指令",
+  "composer.prompt_templates": "提示词模板",
   "composer.remote_worker_paste_warning":
     "这是远程工作区。沙箱也是远程的。要共享文件，请上传到侧边栏的共享文件夹。",
   "composer.run_task": "运行任务",

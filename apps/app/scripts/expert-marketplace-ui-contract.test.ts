@@ -302,6 +302,18 @@ describe("expert marketplace UI contract", () => {
     expect(item).toContain(
       'props.selected ? "font-medium" : "font-normal"',
     );
+    expect(item).toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-online"',
+    );
+    expect(list).toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-online"',
+    );
+    expect(item).not.toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-accent"',
+    );
+    expect(list).not.toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-accent"',
+    );
   });
 
   test("expert page feeds selected route expert sessions back into the left conversation panel", () => {
@@ -358,6 +370,28 @@ describe("expert marketplace UI contract", () => {
     expect(tabs).toContain("setPendingSessionId(session.id)");
     expect(tabs).toContain("const active = session.id === activeSessionId");
     expect(actionRow).toContain("border-dls-accent bg-dls-decision-soft font-medium text-dls-accent");
+  });
+
+  test("expert session tabs separate expanded chrome and embed the collapse handle", () => {
+    const tabs = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx",
+    );
+
+    expect(tabs).toContain(
+      '? "h-11 border-b border-dls-mist px-3 shadow-sm"',
+    );
+    expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
+    expect(tabs).toContain(
+      'className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto"',
+    );
+    expect(tabs).toContain('variant="ghost"');
+    expect(tabs).toContain("rounded-t-none rounded-b-md");
+    expect(tabs).toContain(
+      "border-x border-b border-t-0 border-dls-mist",
+    );
+    expect(tabs).toContain('expanded ? "-rotate-90" : "rotate-90"');
+    expect(tabs).toContain("before:-top-px before:inset-x-0 before:h-px");
+    expect(tabs).not.toContain("rounded-full border-dls-border bg-dls-surface");
   });
 
   test("assistant automation session rows do not expose pinning", () => {
