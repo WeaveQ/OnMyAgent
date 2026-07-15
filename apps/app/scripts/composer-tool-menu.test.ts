@@ -37,6 +37,25 @@ describe("composer tool menu model", () => {
     expect(collaborationModeOptionKeys("legacy")).toEqual(["planning", "pursueGoal"]);
   });
 
+  test("nests assistant prompt templates in the add menu", () => {
+    const source = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain(
+      'type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";',
+    );
+    expect(source).toContain('t("composer.prompt_templates")');
+    expect(source).toContain("selectedPromptTemplate.prompts.map");
+    expect(source).toContain(
+      "applyPromptTemplate(selectedPromptTemplate.id, prompt)",
+    );
+  });
+
   test("filters skills by name or description while preserving source order", () => {
     const items = [
       { name: "review", description: "Review code changes" },
