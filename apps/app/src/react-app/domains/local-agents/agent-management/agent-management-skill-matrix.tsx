@@ -18,7 +18,7 @@ import {
   SKILL_AGENT_TONES,
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
-import { AgentSkillIcon } from "../../session/components/shared-pages/agent-skill-icon";
+import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy";
 

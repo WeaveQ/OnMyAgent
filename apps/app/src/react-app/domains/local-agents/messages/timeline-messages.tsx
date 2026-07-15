@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import { MarkdownBlock } from "../../session/surface/markdown";
+import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../session/surface/tool-call";
 

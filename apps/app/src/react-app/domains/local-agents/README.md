@@ -14,11 +14,11 @@ Local / ACP agent editing, cards, message timeline pieces, and agent-management 
 Domain barrel: `domains/local-agents/index.ts`. External callers (session host pages,
 session re-exports) import from the barrel. Internal modules may keep deep relative paths.
 
-Session host pages under `domains/session/chat/personal-local-agent-*` still cross the
-domain boundary via the barrel; those edges are frozen in `check-boundaries.mjs`
-`allowedDomainImports` (shrink-only).
+Session host pages under `domains/session/chat/personal-local-agent-*` consume this
+domain through its root barrel. Local-agents does not depend back on session.
 
 ## Lateral dependencies
 
-- Allowed: `app/lib`, `packages/types`, session artifact/markdown helpers only via existing whitelist edges.
-- Do not grow new `session ↔ local-agents` imports without a kernel/shared contract plan.
+- Allowed: `app/lib`, `packages/types`, neutral capabilities and design-system composites.
+- Shared artifact/markdown helpers live in `react-app/capabilities/artifacts`; do not
+  introduce a reverse `local-agents -> session` dependency.

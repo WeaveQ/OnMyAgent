@@ -8,7 +8,7 @@ import type {
   CloudImportedSkill,
   CloudImportedSkillHub,
 } from "../../../../app/cloud/import-state";
-import { classifySkillScope } from "../../plugins/skill-scope";
+import { classifySkillScope } from "../../plugins";
 
 export const OPENCODE_SKILL_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const OPENCODE_MCP_NAME_RE = /^[A-Za-z0-9_][A-Za-z0-9_-]*$/;

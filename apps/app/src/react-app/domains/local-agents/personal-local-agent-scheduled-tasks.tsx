@@ -10,13 +10,13 @@ import { CountBadge, StatusBadge, type StatusBadgeTone } from "@/components/ui/s
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { SelectMenu } from "../../../design-system/select-menu";
+import { SelectMenu } from "../../design-system/select-menu";
 import type {
   PersonalLocalAgent,
   PersonalLocalAgentConversation,
   PersonalLocalAgentHeartbeatJob,
   PersonalLocalAgentRunResult,
-} from "../../../../app/lib/desktop";
+} from "../../../app/lib/desktop";
 
 export type HeartbeatDraft = {
   title: string;

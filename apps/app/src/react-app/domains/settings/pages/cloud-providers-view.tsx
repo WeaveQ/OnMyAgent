@@ -5,7 +5,7 @@ import type { CloudImportedProvider } from "../../../../app/cloud/import-state";
 import type { DenOrgLlmProvider } from "../../../../app/lib/den";
 import { Separator } from "@/components/ui/separator";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import { useCloudSession } from "../cloud/cloud-session-provider";
 import { CloudProvidersSection, type CloudProviderRow } from "../cloud/sections";
 import type { useDenSession } from "../cloud/use-den-session";

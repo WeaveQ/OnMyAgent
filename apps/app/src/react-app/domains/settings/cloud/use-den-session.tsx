@@ -20,7 +20,7 @@ import {
   type DenSessionUpdatedDetail,
 } from "../../../../app/lib/den-session-events";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import { useCloudSession } from "./cloud-session-provider";
 
 type SettingsTone = "ready" | "warning" | "neutral" | "error";

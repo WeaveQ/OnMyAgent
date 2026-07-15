@@ -14,6 +14,10 @@ src/react-app/
 ├── shell/                     App bootstrap, providers, route frames (orchestration only)
 ├── kernel/                    App-wide state + provider contracts
 ├── infra/                     React-only runtime infra (e.g. QueryClient)
+├── capabilities/              Cross-domain application capabilities with neutral ownership
+│   ├── artifacts/             Markdown, open-target and artifact preview contracts
+│   ├── model-selection/       Shared model selection container + hidden-model state
+│   └── session-identity/      Session/workspace identity persistence shared by domains
 ├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
 └── domains/                   Feature-scoped code, one folder per product domain
     ├── session/               Live conversation runtime (transcript, composer, sync, goal)
@@ -41,7 +45,7 @@ src/react-app/
 `domains/plugins` barrel.
 
 **`domains/local-agents/`** ships a domain-level `index.ts` barrel. Session host pages
-and re-exports import via the barrel; reverse edges into session remain whitelisted.
+and re-exports import via the barrel; local-agents has no reverse dependency on session.
 
 Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` § 4 / § 4i).
 
@@ -64,10 +68,11 @@ Domain ownership gives every feature one obvious home.
 - `shared/` is **infra only** (env/extension/desktop-config/server-store + thin re-exports).
   Product features must not land here.
 
-Cross-domain imports go through domain public entrypoints (`domains/<name>/index.ts`
-where present) or explicit paths — not a growing shared blob. Historical cross-domain
-edges are frozen in `scripts/checks/check-boundaries.mjs` `allowedDomainImports`
-(shrink-only).
+Cross-domain imports must be declared by `scripts/checks/domain-boundary-policy.mjs`
+and go through the target public entrypoint (`domains/<name>/index.ts`). Deep imports
+and undeclared dependency directions fail `pnpm check:boundaries`; there is no
+file-specific transition allowlist. Reusable application behavior belongs in
+`capabilities/`, while reusable product composites belong in `design-system/`.
 
 ## Data flow
 

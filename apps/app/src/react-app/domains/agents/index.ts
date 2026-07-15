@@ -8,6 +8,7 @@ export { useEnsureAgentRegistry } from "./use-agent-registry";
 export {
   buildPendingAgentFromRecord,
   readCustomAgentIdForSession,
+  readCustomAgentSessionEntries,
   readSessionAgentSnapshot,
   useAgentRegistryStore,
   writeCustomAgentIdForSession,

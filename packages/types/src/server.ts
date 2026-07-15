@@ -327,3 +327,123 @@ export interface AuditEntry {
   summary: string;
   timestamp: number;
 }
+
+export interface SkillContentResponse {
+  item: SkillItem;
+  content: string;
+}
+
+export interface WorkspaceFileContentResponse {
+  path: string;
+  content: string;
+  bytes: number;
+  updatedAt: number;
+}
+
+export interface WorkspaceFileWriteResponse {
+  ok: boolean;
+  path: string;
+  bytes: number;
+  updatedAt: number;
+  revision?: string;
+}
+
+export interface WorkspaceExportResponse {
+  workspaceId: string;
+  exportedAt: number;
+  opencode?: Record<string, unknown>;
+  onmyagent?: Record<string, unknown>;
+  skills?: Array<{ name: string; description?: string; trigger?: string; content: string }>;
+  commands?: Array<{ name: string; description?: string; template?: string }>;
+  files?: Array<{ path: string; content: string }>;
+}
+
+export interface WorkspaceImportChange {
+  kind: "opencode" | "onmyagent" | "skill" | "command" | "file";
+  action: "create" | "update" | "replace" | "delete" | "unchanged";
+  label: string;
+  path: string;
+}
+
+export interface WorkspaceImportPreviewResponse {
+  fingerprint: string;
+  summary: {
+    total: number;
+    create: number;
+    update: number;
+    replace: number;
+    delete: number;
+    unchanged: number;
+  };
+  changes: WorkspaceImportChange[];
+}
+
+export interface ArtifactItem {
+  id: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  createdAt?: number;
+  updatedAt?: number;
+  mime?: string;
+}
+
+export interface ArtifactListResponse {
+  items: ArtifactItem[];
+}
+
+export interface ResolvedArtifactTarget {
+  id: string;
+  kind: "file" | "url";
+  value: string;
+  name: string;
+  preview: "browser" | "markdown" | "sheet" | "image" | "pdf" | "html" | "text" | "external";
+  confidence: number;
+  reason: string;
+  exists?: boolean;
+  size?: number;
+  updatedAt?: number;
+  contentType?: string;
+}
+
+export interface WorkspaceFileStatResponse {
+  ok: boolean;
+  path: string;
+  exists: boolean;
+  kind?: "file" | "dir" | "other";
+  size?: number;
+  updatedAt?: number;
+}
+
+export interface WorkspaceFileCatalogEntry {
+  path: string;
+  kind: "file" | "dir";
+  size: number;
+  mtimeMs: number;
+  revision: string;
+}
+
+export interface WorkspaceFileCatalogResponse {
+  items: WorkspaceFileCatalogEntry[];
+  total: number;
+  truncated: boolean;
+  generatedAt: number;
+}
+
+export interface InboxItem {
+  id: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  updatedAt?: number;
+}
+
+export interface InboxListResponse {
+  items: InboxItem[];
+}
+
+export interface InboxUploadResponse {
+  ok: boolean;
+  path: string;
+  bytes: number;
+}

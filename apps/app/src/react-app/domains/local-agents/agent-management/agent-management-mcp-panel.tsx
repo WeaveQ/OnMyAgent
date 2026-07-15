@@ -12,7 +12,7 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { AgentManagementMcpActionInput, AgentManagementMcpApp, AgentManagementMcpServer, AgentManagementMcpSnapshot } from "../../../../app/lib/desktop";
-import { AgentSkillIcon } from "../../session/components/shared-pages/agent-skill-icon";
+import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 import { SKILL_AGENT_TONES } from "./agent-management-skill-model";
 
 const MCP_APPS: AgentManagementMcpApp[] = ["claude", "codex", "gemini", "opencode", "hermes"];

@@ -27,10 +27,10 @@ import type {
   OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
-import { ArtifactIcon } from "../session/artifacts/artifact-icon";
-import type { OpenTarget } from "../session/artifacts/open-target";
-import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../session/artifacts/preview";
-import { workspaceFileOpenTarget } from "../session/artifacts/workspace-file-open-target";
+import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import type { OpenTarget } from "../../capabilities/artifacts/open-target";
+import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
+import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 
 const workspaceFilesTextClass = {
   pageTitle: "text-lg font-medium text-dls-text",

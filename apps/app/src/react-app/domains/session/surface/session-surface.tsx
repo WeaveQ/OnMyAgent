@@ -76,14 +76,14 @@ import {
   useSessionActivityStore,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
-import { usePendingAgentStore } from "../../agents/pending-agent-store";
-import type { PendingAgentContext } from "../../agents/pending-agent-store";
-import { AgentPromptSuggestions } from "../../agents/agent-prompt-suggestions";
-import { buildPendingAgentFromRecord } from "../../agents/agent-registry-store";
+import { usePendingAgentStore } from "../../agents";
+import type { PendingAgentContext } from "../../agents";
+import { AgentPromptSuggestions } from "../../agents";
+import { buildPendingAgentFromRecord } from "../../agents";
 import {
   readCustomAgentIdForSession,
   useAgentRegistryStore,
-} from "../../agents/agent-registry-store";
+} from "../../agents";
 import { PermissionApprovalPanel } from "../components/permission-modal";
 import { QuestionPanel } from "../modals/question-modal";
 import {
@@ -98,6 +98,7 @@ import {
 } from "../sync/session-sync";
 import {
   deriveGoalSummary,
+  manualStopNoticeKind,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
   shouldShowSessionActivity,
@@ -176,6 +177,7 @@ import {
   buildPlanExecutionHiddenSystemPrompt,
   formatGoalElapsed,
   formatInterruptionElapsed,
+  createSessionInterruptionNotice,
   goalCheckpointFromTodos,
   goalElapsedMs,
   GoalPreviewPanel,
@@ -185,7 +187,6 @@ import {
   preferLatestGoalRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
-  shouldSuppressCancelledAfterStop,
   transcriptNoticeLabel,
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
@@ -301,6 +302,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const storedSessionActivityError = useSessionActivityStore((state) =>
     state.getErrorMessage(props.workspaceId, props.sessionId),
+  );
+  const storedSessionStopRequested = useSessionActivityStore((state) =>
+    state.getStopRequested(props.workspaceId, props.sessionId),
   );
   const sessionActivityStatus = props.draftOnly
     ? "idle"
@@ -598,13 +602,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
     );
   const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
     useState<Record<string, boolean>>({});
-  const [activeRunStartedAt, setActiveRunStartedAt] = useState<number | null>(null);
+  const activeRunStartedAtRef = useRef<number | null>(null);
+  const activeRunKeyRef = useRef<string | null>(null);
   const compactWasActiveRef = useRef<Record<string, boolean>>({});
   const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
   useEffect(() => {
     writeSessionTranscriptNotices(transcriptNoticesBySessionId);
   }, [transcriptNoticesBySessionId]);
-  const stoppedRunStartedAtRef = useRef<Record<string, number>>({});
   const goalRuntimeRef = useRef<CollaborationGoalRuntime | null>(
     props.goalRuntime ?? null,
   );
@@ -633,7 +637,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setShowDelayedLoading(false);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
-    setActiveRunStartedAt(null);
+    activeRunStartedAtRef.current = null;
+    activeRunKeyRef.current = null;
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
@@ -757,6 +762,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const compacted = filterCompactionMessages(rawRenderedMessages, compactBoundary);
     return mergeBrowserUseTimeline(compacted, browserUseHistoryQuery.data ?? []);
   }, [browserUseHistoryQuery.data, compactBoundary, rawRenderedMessages]);
+  const renderedMessageCountRef = useRef(renderedMessages.length);
+  renderedMessageCountRef.current = renderedMessages.length;
   const appendTranscriptNotice = useCallback(
     (notice: SessionTranscriptNotice) => {
       setTranscriptNoticesBySessionId((current) => {
@@ -990,6 +997,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     chatStreaming,
     activityStatus: effectiveActivityStatus,
     goalRuntime: props.goalRuntime ?? null,
+    stopRequested: props.draftOnly ? false : storedSessionStopRequested,
   });
   useEffect(() => {
     if (!activityVisible) return;
@@ -1132,7 +1140,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (!snapshotSessionError) return;
     setSending(false);
-    setActiveRunStartedAt(null);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
   }, [snapshotSessionError]);
@@ -1269,32 +1276,34 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const recordSessionInterruption = useCallback(
     (kind: "cancelled" | "stopped") => {
       const now = Date.now();
-      const afterMessageCount = renderedMessages.length;
-      const runStartedAt =
-        activeRunStartedAt ??
-        goalRuntimeRef.current?.lastRunStartedAt ??
-        stoppedRunStartedAtRef.current[props.sessionId] ??
-        now;
-      const notice: SessionTranscriptNotice = {
-        id: `${props.sessionId}:${kind}:${afterMessageCount}:${now}`,
-        kind,
-        afterMessageCount,
-        runStartedAt,
-        elapsedMs:
-          kind === "stopped" ? Math.max(0, now - runStartedAt) : undefined,
-      };
-
-      if (
-        kind === "cancelled" &&
-        shouldSuppressCancelledAfterStop(
-          stoppedRunStartedAtRef.current[props.sessionId],
-        )
-      ) {
-        return;
-      }
-
+      const afterMessageCount = renderedMessageCountRef.current;
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
+        const latestTerminal = [...existing]
+          .reverse()
+          .find((notice) => notice.kind === "cancelled" || notice.kind === "stopped");
+        const storedRunIdentity = useSessionActivityStore
+          .getState()
+          .getRunIdentity(props.workspaceId, props.sessionId);
+        const runStartedAt =
+          activeRunStartedAtRef.current ??
+          storedRunIdentity?.runStartedAt ??
+          goalRuntimeRef.current?.lastRunStartedAt ??
+          latestTerminal?.runStartedAt ??
+          now;
+        const runKey =
+          activeRunKeyRef.current ??
+          storedRunIdentity?.runKey ??
+          latestTerminal?.runKey ??
+          `${props.sessionId}:remote:${runStartedAt}`;
+        const notice = createSessionInterruptionNotice({
+          sessionId: props.sessionId,
+          kind,
+          runKey,
+          afterMessageCount,
+          runStartedAt,
+          now,
+        });
         if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
           return current;
         }
@@ -1305,17 +1314,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ),
         };
       });
-      if (kind === "stopped") {
-        stoppedRunStartedAtRef.current = {
-          ...stoppedRunStartedAtRef.current,
-          [props.sessionId]: runStartedAt,
-        };
-      }
     },
     [
-      activeRunStartedAt,
       props.sessionId,
-      renderedMessages.length,
+      props.workspaceId,
     ],
   );
 
@@ -1363,14 +1365,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
     );
     setError(null);
     setDismissedErrorMessage(null);
+    const startedAt = Date.now();
+    const runKey = `${props.sessionId}:${startedAt}`;
+    activeRunStartedAtRef.current = startedAt;
+    activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .startRun(props.workspaceId, props.sessionId);
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: startedAt,
+        });
     }
     setSending(true);
-    const startedAt = Date.now();
-    setActiveRunStartedAt(startedAt);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     try {
@@ -1482,13 +1489,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
     setError(null);
     setDismissedErrorMessage(null);
+    const startedAt = Date.now();
+    const runKey = `${props.sessionId}:${startedAt}`;
+    activeRunStartedAtRef.current = startedAt;
+    activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .startRun(props.workspaceId, props.sessionId);
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: startedAt,
+        });
     }
     setSending(true);
-    setActiveRunStartedAt(Date.now());
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(executionMode);
@@ -1566,13 +1579,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
     setError(null);
     setDismissedErrorMessage(null);
+    const runKey = `${props.sessionId}:${now}`;
+    activeRunStartedAtRef.current = now;
+    activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
       useSessionActivityStore
         .getState()
-        .startRun(props.workspaceId, props.sessionId);
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: now,
+        });
     }
     setSending(true);
-    setActiveRunStartedAt(now);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(goalMode);
@@ -1681,7 +1699,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
-    if (isGoalIntentRuntime(goalRuntimeRef.current)) {
+    const collaborationKind = resolveSessionCollaborationKind(
+      effectiveCollaborationMode,
+      assistantFeatureCategoryId,
+    );
+    if (collaborationKind === "goal" && isGoalIntentRuntime(goalRuntimeRef.current)) {
       await pauseGoalRuntime();
       return;
     }
@@ -1696,10 +1718,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
         blockedReason: "cancelled",
       });
     }
-    recordSessionInterruption("stopped");
+    recordSessionInterruption(
+      manualStopNoticeKind(collaborationKind),
+    );
     await stopActiveRun();
   }, [
+    assistantFeatureCategoryId,
     chatStreaming,
+    effectiveCollaborationMode,
     pauseGoalRuntime,
     props.onPlanRuntimeChange,
     props.planRuntime,
@@ -1722,7 +1748,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (liveStatus.type === "idle") {
       setSending(false);
-      setActiveRunStartedAt(null);
     }
   }, [liveStatus.type]);
 

@@ -38,7 +38,7 @@ import {
 import { t } from "../../../../i18n";
 import type { DebugViewProps } from "../pages/debug-view";
 import type { ReleaseChannel } from "../../../../app/types";
-import type { OnMyAgentServerStore, OnMyAgentServerStoreSnapshot } from "../../shared/onmyagent-server-store";
+import type { OnMyAgentServerStore, OnMyAgentServerStoreSnapshot } from "../../shared";
 
 const STARTUP_PREFERENCE_KEY = "onmyagent.startupPreference";
 const ENGINE_SOURCE_KEY = "onmyagent.engineSource";
