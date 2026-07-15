@@ -1039,6 +1039,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       id: notice.id,
       afterMessageCount: notice.afterMessageCount,
       label: transcriptNoticeLabel(notice),
+      variant: notice.kind,
     }));
   }, [props.sessionId, transcriptNoticesBySessionId]);
   const hasTranscriptContent =

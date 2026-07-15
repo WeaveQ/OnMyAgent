@@ -635,8 +635,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
       color-mix(in srgb, var(--dls-text) 26%, transparent) 0%,
       color-mix(in srgb, var(--dls-text) 26%, transparent) 35%,
       color-mix(in srgb, var(--dls-text) 58%, transparent) 50%,
-      color-mix(in srgb, var(--dls-text) 26%, transparent) 65%,
-      color-mix(in srgb, var(--dls-text) 26%, transparent) 100%
+      color-mix(in srgb, var(--dls-text-primary) 26%, transparent) 65%,
+      color-mix(in srgb, var(--dls-text-primary) 26%, transparent) 100%
     );
     background-size: 200% 100%;
     background-clip: text;
@@ -646,6 +646,12 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   @media (prefers-reduced-motion: reduce) {
     .session-transcript-loading-shimmer {
+      background: none;
+      color: var(--dls-text-secondary);
+      animation: none;
+    }
+
+    .session-transcript-divider-compacting .session-transcript-divider-label {
       background: none;
       color: var(--dls-text-secondary);
       animation: none;
@@ -804,6 +810,29 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
       transparent 7px,
       transparent 15px
     );
+  }
+
+  .session-transcript-divider-compacting .session-transcript-divider-label {
+    color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      var(--dls-text-secondary),
+      var(--dls-text-primary),
+      var(--dls-text-secondary)
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    animation: session-transcript-loading-sweep 1.6s linear infinite;
+  }
+
+  .session-transcript-divider-compacted .session-transcript-divider-label,
+  .session-transcript-divider-permission-auto-approved .session-transcript-divider-label {
+    color: var(--dls-status-success-fg);
+  }
+
+  .session-transcript-divider-permission-rejected .session-transcript-divider-label,
+  .session-transcript-divider-stalled .session-transcript-divider-label {
+    color: var(--dls-status-danger);
   }
 
   .bg-dls-radial-shell {
