@@ -2461,13 +2461,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
           avatarUrl: null,
           avatarBackground: null,
         };
-  const assistantAvatarOverride = props.personalAssistantHome
-    ? {
-        name: onmyagentAssistantName(),
-        avatarUrl: resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR),
-        avatarBackground: "#eef7f2",
-      }
-    : undefined;
   const codeSceneToolbar =
     assistantCodeFeaturesActive && assistantFeatureCategoryId === "code" ? (
       <CodeSceneToolbar
@@ -2641,17 +2634,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       openTargets={verifiedOpenTargets}
                       onOpenTarget={props.onOpenTarget}
                       footer={assistantStatusFooter}
-                      assistantAvatar={
-                        effectiveAgent
-                          ? {
-                              name: effectiveAgent.name,
-                              avatarUrl: effectiveAgent.avatar.avatarUrl,
-                              avatarBackground:
-                                effectiveAgent.avatar.avatarBackground,
-                            }
-                          : assistantAvatarOverride
-                      }
-                      userIdentity={props.userIdentity}
+                      assistantAvatar={chatHeaderAgent}
                     />
                     {visibleTranscriptError ? (
                       <SessionErrorCard

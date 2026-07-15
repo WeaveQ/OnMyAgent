@@ -619,6 +619,77 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 }
 
 @layer utilities {
+  .session-transcript-root {
+    --session-transcript-line-height: 19px;
+    --session-transcript-font-size: 13px;
+  }
+
+  .session-transcript-user-row {
+    box-sizing: border-box;
+    padding: 32px 16px;
+  }
+
+  .session-transcript-user-bubble {
+    box-sizing: border-box;
+    display: flex;
+    width: fit-content;
+    min-width: 40px;
+    max-width: calc(100% - 32px);
+    max-height: 310px;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    border-radius: 16px 16px 0 16px;
+    background: var(--dls-chat-user-bg);
+    padding: 8px 12px;
+    font-size: var(--session-transcript-font-size);
+    line-height: var(--session-transcript-line-height);
+    scrollbar-color: var(--dls-border-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  .session-transcript-user-bubble::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .session-transcript-user-bubble::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: var(--dls-border-strong);
+  }
+
+  .session-transcript-assistant-row {
+    box-sizing: border-box;
+    padding-inline: 12px;
+  }
+
+  .session-transcript-assistant-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .session-transcript-assistant-identity > span {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+
+  .session-transcript-assistant-copy {
+    max-width: none;
+    background: transparent;
+    font-size: var(--session-transcript-font-size);
+    line-height: var(--session-transcript-line-height);
+  }
+
+  .session-transcript-assistant-copy .markdown-content,
+  .session-transcript-assistant-copy .markdown-content p,
+  .session-transcript-assistant-copy .markdown-content li {
+    font-size: var(--session-transcript-font-size);
+    line-height: var(--session-transcript-line-height);
+  }
+
   .bg-dls-radial-shell {
     background: radial-gradient(circle at top, rgba(var(--dls-accent-rgb), 0.12), transparent 42%), var(--app-bg, var(--dls-background));
   }
