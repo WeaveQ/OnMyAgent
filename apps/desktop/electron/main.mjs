@@ -79,6 +79,7 @@ import {
 } from "./code-workspace-actions.mjs";
 import { createEmbeddedBrowserPanel } from "./embedded-browser-panel.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
+import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
@@ -1379,6 +1380,8 @@ const {
   personalAgentNativeSessions,
   weixinService,
   feishuService,
+  telegramService,
+  discordService,
   channelInfrastructureApi,
 } = createDesktopPersonalRuntimeServices({
   app,
@@ -1989,7 +1992,7 @@ async function localAgentComposerSaveAttachment(input = {}) {
   return { path: absolute, relativePath: absolute, name: finalName, size: buffer.length };
 }
 
-async function handleDesktopInvoke(event, command, ...args) {
+async function dispatchDesktopCommand(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
@@ -2185,6 +2188,34 @@ async function handleDesktopInvoke(event, command, ...args) {
       return feishuService.simulateInbound(args[0] ?? {});
     case "feishuProbeAccessibleRoot":
       return probeAccessibleRoot(args[0] ?? {});
+    case "telegramSaveAccount":
+      return telegramService.saveAccount(args[0] ?? {});
+    case "telegramAccountStatus":
+      return telegramService.accountStatus(args[0] ?? {});
+    case "telegramStart":
+      return telegramService.start(args[0] ?? {});
+    case "telegramAutoStart":
+      return telegramService.autoStart(args[0] ?? {});
+    case "telegramStop":
+      return telegramService.stop();
+    case "telegramStatus":
+      return telegramService.status();
+    case "telegramSimulateInbound":
+      return telegramService.simulateInbound(args[0] ?? {});
+    case "discordSaveAccount":
+      return discordService.saveAccount(args[0] ?? {});
+    case "discordAccountStatus":
+      return discordService.accountStatus(args[0] ?? {});
+    case "discordStart":
+      return discordService.start(args[0] ?? {});
+    case "discordAutoStart":
+      return discordService.autoStart(args[0] ?? {});
+    case "discordStop":
+      return discordService.stop();
+    case "discordStatus":
+      return discordService.status();
+    case "discordSimulateInbound":
+      return discordService.simulateInbound(args[0] ?? {});
     // --- Channel Infrastructure API ---
     case "channelGetPendingPairingRequests":
       return channelInfrastructureApi.getPendingPairingRequests();
@@ -3222,6 +3253,8 @@ async function createMainWindow() {
 
   return mainWindow;
 }
+
+const handleDesktopInvoke = createDesktopCommandRouter(dispatchDesktopCommand);
 
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";

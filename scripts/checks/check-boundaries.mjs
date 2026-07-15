@@ -2,6 +2,11 @@ import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, extname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  domainDependencyIsAllowed,
+  domainImportUsesPublicEntrypoint,
+} from './domain-boundary-policy.mjs'
+
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts', '.cjs', '.cts'])
 const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'graphify-out'])
@@ -84,6 +89,7 @@ const allowedDomainImports = new Set([
   "apps/app/src/react-app/domains/messaging/feishu-channel-panel.tsx|../session/components/shared-pages/accessible-root-row",
   "apps/app/src/react-app/domains/messaging/messaging-channels-page.tsx|../session/chat/session-page-messaging-model",
   "apps/app/src/react-app/domains/messaging/weixin-channel-panel.tsx|../session/components/shared-pages/accessible-root-row",
+  "apps/app/src/react-app/domains/messaging/token-channel-panel.tsx|../session/components/shared-pages/accessible-root-row",
   "apps/app/src/react-app/domains/session/chat/session-page-messaging-page.tsx|../../messaging/messaging-channels-page",
   "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-helpers",
   "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-store",
@@ -289,14 +295,27 @@ function checkReactAppRules(filePath, relativePath, item) {
 
   const fromDomain = relativePath.split('/')[5]
   const toDomain = importedDomain(filePath, item.importPath)
-  if (!toDomain || toDomain === fromDomain || toDomain === 'shared') return
-  if (allowedDomainImports.has(`${relativePath}|${item.importPath}`)) return
+  if (!toDomain || toDomain === fromDomain) return
+
+  const targetPath = resolveDomainTarget(filePath, item.importPath)
+  const domainRelativePath = targetPath
+    ? toPosix(relative(domainRoot, targetPath))
+    : ''
+
+  if (
+    domainDependencyIsAllowed(fromDomain, toDomain) &&
+    domainImportUsesPublicEntrypoint(domainRelativePath, toDomain)
+  ) {
+    return
+  }
 
   violations.push({
     file: relativePath,
     line: item.line,
     importPath: item.importPath,
-    message: `domain '${fromDomain}' must not import domain '${toDomain}' directly; use kernel/shared contracts`,
+    message: domainDependencyIsAllowed(fromDomain, toDomain)
+      ? `domain '${fromDomain}' must import domain '${toDomain}' through its public index.ts entrypoint`
+      : `domain '${fromDomain}' must not depend on domain '${toDomain}'; use kernel/shared contracts or compose them in shell`,
   })
 }
 

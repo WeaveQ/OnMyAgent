@@ -3,6 +3,8 @@ import { readdir, stat } from "node:fs/promises";
 
 import { createFeishuService } from "./feishu/service.mjs";
 import { createWeixinService } from "./weixin/service.mjs";
+import { createTelegramService } from "./telegram/service.mjs";
+import { createDiscordService } from "./discord/service.mjs";
 
 import {
   channelEventBus,
@@ -44,6 +46,8 @@ export function createMessagingChannelServices(options = {}) {
 
   const weixinService = createWeixinService(platformServiceOptions.weixin);
   const feishuService = createFeishuService(platformServiceOptions.feishu);
+  const telegramService = createTelegramService(platformServiceOptions.telegram);
+  const discordService = createDiscordService(platformServiceOptions.discord);
 
   const registry = new ChannelPluginRegistry();
   registry.register(createLegacyServicePlugin({
@@ -58,6 +62,19 @@ export function createMessagingChannelServices(options = {}) {
     name: "飞书",
     service: feishuService,
   }));
+  // Telegram + Discord are now real, ready transports (parity with Weixin/Feishu).
+  registry.register(createLegacyServicePlugin({
+    id: "telegram",
+    type: "telegram",
+    name: "Telegram",
+    service: telegramService,
+  }));
+  registry.register(createLegacyServicePlugin({
+    id: "discord",
+    type: "discord",
+    name: "Discord",
+    service: discordService,
+  }));
   for (const stub of BUILT_IN_STUB_PLUGINS) {
     registry.register(createStubPlugin(stub));
   }
@@ -65,6 +82,8 @@ export function createMessagingChannelServices(options = {}) {
   const services = {
     weixinService,
     feishuService,
+    telegramService,
+    discordService,
     channelEventBus: infrastructure.eventBus,
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
@@ -138,7 +157,6 @@ const BUILT_IN_STUB_PLUGINS = [
   { id: "lark", type: "lark", name: "Lark" },
   { id: "wecom", type: "wecom", name: "企业微信" },
   { id: "dingtalk", type: "dingtalk", name: "钉钉" },
-  { id: "telegram", type: "telegram", name: "Telegram" },
 ];
 
 function createChannelInfrastructure({ userDataDir }) {
@@ -165,6 +183,8 @@ function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, infra
   return {
     weixin: { ...common, appendLog: createChannelLogFn("weixin") },
     feishu: { ...common, appendLog: createChannelLogFn("feishu") },
+    telegram: { ...common, appendLog: createChannelLogFn("telegram") },
+    discord: { ...common, appendLog: createChannelLogFn("discord") },
   };
 }
 
