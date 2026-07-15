@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { Check, ChevronLeft, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
@@ -576,7 +576,9 @@ export function ReactSessionComposer(props: ComposerProps) {
   useEffect(() => {
     setSkillSearchQuery("");
     setConnectorSearchQuery("");
-    if (!toolMenuOpen) setSelectedPromptTemplateId(null);
+    if (!toolMenuOpen || toolMenuSection !== "templates") {
+      setSelectedPromptTemplateId(null);
+    }
   }, [toolMenuOpen, toolMenuSection]);
 
   useEffect(() => {
@@ -1432,20 +1434,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                         <div className="absolute bottom-0 left-[calc(9rem-1px)] flex w-[min(calc(100vw-11.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
                           {toolMenuSection === "templates" ? (
                             <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
-                              {selectedPromptTemplate ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="xs"
-                                  className="-ml-2 min-w-0 text-dls-text hover:bg-dls-surface-muted"
-                                  onClick={() => setSelectedPromptTemplateId(null)}
-                                >
-                                  <ChevronLeft size={14} className="shrink-0" />
-                                  <span className="truncate">{selectedPromptTemplate.label}</span>
-                                </Button>
-                              ) : (
-                                t("composer.prompt_templates")
-                              )}
+                              {t("composer.prompt_templates")}
                             </div>
                           ) : toolMenuSection === "skills" ? (
                             <div className="space-y-2 border-b border-dls-border px-3 py-2">
@@ -1503,45 +1492,31 @@ export function ReactSessionComposer(props: ComposerProps) {
                           )}
                           <div className="max-h-72 overflow-y-auto p-2">
                             {toolMenuSection === "templates" ? (
-                              selectedPromptTemplate ? (
-                                <div className="grid gap-1">
-                                  {selectedPromptTemplate.prompts.map((prompt) => (
+                              <div className="grid gap-1">
+                                {promptTemplates.map((template) => {
+                                  const Icon = template.icon;
+                                  return (
                                     <MenuRowButton
-                                      key={prompt}
+                                      key={template.id}
                                       type="button"
-                                      align="start"
-                                      className="gap-2"
-                                      onClick={() => applyPromptTemplate(selectedPromptTemplate.id, prompt)}
+                                      align="center"
+                                      active={selectedPromptTemplate?.id === template.id}
+                                      className="justify-between gap-2"
+                                      onMouseEnter={() => setSelectedPromptTemplateId(template.id)}
+                                      onFocus={() => setSelectedPromptTemplateId(template.id)}
+                                      onClick={() => setSelectedPromptTemplateId(template.id)}
                                     >
-                                      <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                      <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>
-                                    </MenuRowButton>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="grid gap-1">
-                                  {promptTemplates.map((template) => {
-                                    const Icon = template.icon;
-                                    return (
-                                      <MenuRowButton
-                                        key={template.id}
-                                        type="button"
-                                        align="center"
-                                        className="justify-between gap-2"
-                                        onClick={() => setSelectedPromptTemplateId(template.id)}
-                                      >
-                                        <span className="flex min-w-0 items-center gap-2">
-                                          <Icon className="size-3.5 shrink-0 text-dls-secondary" />
-                                          <span className="truncate text-xs font-medium text-dls-text">
-                                            {template.label}
-                                          </span>
+                                      <span className="flex min-w-0 items-center gap-2">
+                                        <Icon className="size-3.5 shrink-0 text-dls-secondary" />
+                                        <span className="truncate text-xs font-medium text-dls-text">
+                                          {template.label}
                                         </span>
-                                        <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                                      </MenuRowButton>
-                                    );
-                                  })}
-                                </div>
-                              )
+                                      </span>
+                                      <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                                    </MenuRowButton>
+                                  );
+                                })}
+                              </div>
                             ) : null}
                             {toolMenuSection === "modes" ? (
                               <div className="grid gap-1">
@@ -1665,6 +1640,29 @@ export function ReactSessionComposer(props: ComposerProps) {
                           </div>
                         </div>
                       )}
+                      {toolMenuSection === "templates" && selectedPromptTemplate ? (
+                        <div className="absolute bottom-0 left-[calc(36rem-2px)] flex w-[clamp(18rem,calc(100vw-38.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                          <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                            <span className="truncate">{selectedPromptTemplate.label}</span>
+                          </div>
+                          <div className="max-h-72 overflow-y-auto p-2">
+                            <div className="grid gap-1">
+                              {selectedPromptTemplate.prompts.map((prompt) => (
+                                <MenuRowButton
+                                  key={prompt}
+                                  type="button"
+                                  align="start"
+                                  className="gap-2"
+                                  onClick={() => applyPromptTemplate(selectedPromptTemplate.id, prompt)}
+                                >
+                                  <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                  <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>
+                                </MenuRowButton>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

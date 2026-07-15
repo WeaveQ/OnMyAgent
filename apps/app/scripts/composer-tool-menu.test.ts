@@ -69,6 +69,10 @@ describe("composer tool menu model", () => {
     expect(source).toContain('t("composer.prompt_templates")');
     expect(source).toContain("selectedPromptTemplate.prompts.map");
     expect(source).toContain(
+      "onMouseEnter={() => setSelectedPromptTemplateId(template.id)}",
+    );
+    expect(source).toContain('left-[calc(36rem-2px)]');
+    expect(source).toContain(
       "applyPromptTemplate(selectedPromptTemplate.id, prompt)",
     );
   });
