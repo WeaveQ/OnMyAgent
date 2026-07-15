@@ -11,7 +11,9 @@ import {
   Copy,
   File as FileIcon,
   Folder,
+  GitFork,
   Globe,
+  RotateCcw,
   Search,
   Terminal,
 } from "lucide-react";
@@ -33,7 +35,7 @@ import {
   ToolApprovalCardFooter,
   ToolApprovalCardHeader,
 } from "@/components/ui/tool-approval-card";
-import { t } from "@/i18n";
+import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import {
   SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX,
@@ -47,8 +49,15 @@ import { applyTextHighlights } from "./text-highlights";
 import {
   computeTranscriptMaxContentWidth,
   DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
+  formatTranscriptDuration,
+  formatTranscriptMessageTime,
 } from "./transcript-presentation";
 import { buildTranscriptTurns } from "./transcript/turn-model";
+import {
+  formatTranscriptCost,
+  summarizeTranscriptTurn,
+  type TranscriptTurnPresentation,
+} from "./transcript/turn-presentation";
 import {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
@@ -183,6 +192,11 @@ type MessageBlock = {
 
 type MessageBlockItem = MessageBlock | StepClusterBlock | DividerBlock;
 type ConversationBlockItem = MessageBlock | StepClusterBlock;
+type TranscriptBlockTurnPresentation = TranscriptTurnPresentation & {
+  isFirstAssistantBlock: boolean;
+  isActionBlock: boolean;
+  hasExecutionDetails: boolean;
+};
 
 export type SessionTranscriptDivider = {
   id: string;
@@ -767,7 +781,7 @@ function CopyButton(props: { getText: () => string }) {
   return (
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon-xs"
       title={t("session.copy_message")}
       aria-label={t("session.copy_message")}
       onClick={async () => {
@@ -778,6 +792,131 @@ function CopyButton(props: { getText: () => string }) {
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </Button>
+  );
+}
+
+function transcriptTurnStatusLabel(state: TranscriptTurnPresentation["state"]) {
+  switch (state) {
+    case "pending":
+      return null;
+    case "streaming":
+      return t("session.status_running");
+    case "awaiting-approval":
+      return t("session.status_awaiting_approval");
+    case "completed":
+      return t("session.status_completed");
+    case "cancelled":
+      return t("session.user_cancelled");
+    case "failed":
+      return t("session.status_failed");
+  }
+}
+
+function TranscriptTurnStatus(props: {
+  presentation: TranscriptBlockTurnPresentation;
+  detailsExpanded: boolean;
+  onDetailsExpandedChange: (expanded: boolean) => void;
+}) {
+  const status = transcriptTurnStatusLabel(props.presentation.state);
+  if (!status) return null;
+  const duration = props.presentation.durationMs === null
+    ? null
+    : formatTranscriptDuration(props.presentation.durationMs);
+  const content = (
+    <>
+      <span>{status}{duration ? ` ${duration}` : ""}</span>
+      {props.presentation.hasExecutionDetails ? (
+        <ChevronDown
+          size={12}
+          className={cn(
+            "transition-transform",
+            !props.detailsExpanded && "-rotate-90",
+          )}
+        />
+      ) : null}
+    </>
+  );
+
+  if (!props.presentation.hasExecutionDetails) {
+    return <div className="session-transcript-turn-status">{content}</div>;
+  }
+
+  const isLockedOpen =
+    props.presentation.state === "streaming" ||
+    props.presentation.state === "awaiting-approval";
+  return (
+    <button
+      type="button"
+      className="session-transcript-turn-status session-transcript-turn-status-button"
+      aria-expanded={isLockedOpen || props.detailsExpanded}
+      disabled={isLockedOpen}
+      onClick={() => props.onDetailsExpandedChange(!props.detailsExpanded)}
+    >
+      {content}
+    </button>
+  );
+}
+
+function TranscriptTurnActions(props: {
+  presentation: TranscriptBlockTurnPresentation;
+  onRevertToMessage?: (messageId: string) => void;
+  onForkAtMessage?: (messageId: string) => void;
+}) {
+  if (
+    !props.presentation.isActionBlock ||
+    props.presentation.state === "pending" ||
+    props.presentation.state === "streaming" ||
+    props.presentation.state === "awaiting-approval"
+  ) {
+    return null;
+  }
+
+  const actionMessageId = props.presentation.actionMessageId;
+  const onRevertToMessage = props.onRevertToMessage;
+  const onForkAtMessage = props.onForkAtMessage;
+  const cost = formatTranscriptCost(props.presentation.cost);
+  const timestamp = formatTranscriptMessageTime(props.presentation.timestamp, {
+    locale: currentLocale(),
+    now: new Date(),
+    yesterdayLabel: t("session.transcript_yesterday"),
+  });
+  const model = props.presentation.modelId;
+
+  return (
+    <div className="session-transcript-turn-actions">
+      {props.presentation.copyText ? (
+        <CopyButton getText={() => props.presentation.copyText} />
+      ) : null}
+      {actionMessageId && onRevertToMessage ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title={t("session.undo_title")}
+          aria-label={t("session.undo_title")}
+          onClick={() => onRevertToMessage(actionMessageId)}
+        >
+          <RotateCcw size={14} />
+        </Button>
+      ) : null}
+      {actionMessageId && onForkAtMessage ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title={t("session.fork_message")}
+          aria-label={t("session.fork_message")}
+          onClick={() => onForkAtMessage(actionMessageId)}
+        >
+          <GitFork size={14} />
+        </Button>
+      ) : null}
+      {cost ? (
+        <span>{t("session.transcript_cost", { cost })}</span>
+      ) : null}
+      {model ? <span>{model}</span> : null}
+      {timestamp ? <span>{timestamp}</span> : null}
+    </div>
   );
 }
 
@@ -1428,6 +1567,8 @@ function StepsContainer(props: {
   isActive: boolean;
   expandedStepIds: Set<string>;
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
+  turnDetailsExpanded?: boolean;
+  onTurnDetailsExpandedChange?: (expanded: boolean) => void;
 }) {
   const toggleSteps = (id: string) => {
     props.onExpandedStepIdsChange((current) => {
@@ -1455,6 +1596,15 @@ function StepsContainer(props: {
     }
     wasAutoExpandedRef.current = autoExpanded;
   }, [autoExpanded]);
+  const detailsExpanded = autoExpanded || props.turnDetailsExpanded === true || containerExpanded;
+  const toggleContainer = () => {
+    if (autoExpanded) return;
+    if (props.onTurnDetailsExpandedChange) {
+      props.onTurnDetailsExpandedChange(!detailsExpanded);
+      return;
+    }
+    setContainerExpanded((value) => !value);
+  };
   const autoExpandedRowIds = props.stepGroups.flatMap((group) =>
     group.parts.flatMap((part, index) =>
       browserOperationAutoExpanded(part) ? [`${group.id}:${index}`] : [],
@@ -1505,14 +1655,14 @@ function StepsContainer(props: {
       <button
         type="button"
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-surface-muted hover:text-dls-text"
-        aria-expanded={containerExpanded}
-        onClick={() => setContainerExpanded((value) => !value)}
+        aria-expanded={detailsExpanded}
+        onClick={toggleContainer}
       >
         <ChevronDown
           size={14}
           className={cn(
             "shrink-0 text-muted-foreground transition-transform",
-            !containerExpanded && "-rotate-90",
+            !detailsExpanded && "-rotate-90",
           )}
         />
         <ToolActivityIcon category={clusterSummary.category} />
@@ -1523,7 +1673,7 @@ function StepsContainer(props: {
           </StatusBadge>
         ) : null}
       </button>
-      {!containerExpanded && previewItems.length > 0 ? (
+      {!detailsExpanded && previewItems.length > 0 ? (
         <div className="border-t border-dls-mist px-3 py-2 text-xs leading-5 text-dls-secondary">
           {previewItems.map((item) => (
             <div key={item} className="truncate">
@@ -1532,7 +1682,7 @@ function StepsContainer(props: {
           ))}
         </div>
       ) : null}
-      {containerExpanded ? (
+      {detailsExpanded ? (
         <div
           data-scrollable={!props.isNestedVariant ? "true" : undefined}
           className={cn(
@@ -1635,10 +1785,10 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
 
 function TranscriptDividerRow(props: { label: string }) {
   return (
-    <div className="mx-auto flex max-w-[760px] items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
-      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+    <div className="mx-auto flex items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
+      <div className="session-transcript-divider-line min-w-10 flex-1" />
       <span className="shrink-0">{props.label}</span>
-      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+      <div className="session-transcript-divider-line min-w-10 flex-1" />
     </div>
   );
 }
@@ -1662,9 +1812,21 @@ function MessageBlockRow(props: {
   onOpenTarget?: (target: OpenTarget) => void;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
   showAssistantIdentity: boolean;
+  turnPresentation?: TranscriptBlockTurnPresentation;
+  turnDetailsExpanded: boolean;
+  onTurnDetailsExpandedChange: (turnId: string, expanded: boolean) => void;
 
 }) {
   const block = props.block;
+  const turnPresentation = props.turnPresentation;
+  const onTurnDetailsExpandedChange = (expanded: boolean) => {
+    if (turnPresentation) {
+      props.onTurnDetailsExpandedChange(turnPresentation.turnId, expanded);
+    }
+  };
+  const controlledTurnDetailsChange = turnPresentation
+    ? onTurnDetailsExpandedChange
+    : undefined;
   const blockMessageIds = block.kind === "steps-cluster"
     ? block.messageIds
     : [...(block.leadingStepMessageIds ?? []), block.messageId];
@@ -1691,7 +1853,7 @@ function MessageBlockRow(props: {
           block.isUser && "justify-end",
           !props.isNestedVariant && block.isUser && "session-transcript-user-row",
           !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
-          showAssistantAvatar && "flex-col items-start",
+          !props.isNestedVariant && !block.isUser && "flex-col items-start",
         )}
         data-message-role={block.isUser ? "user" : "assistant"}
         data-message-id={block.messageIds[0] ?? ""}
@@ -1708,6 +1870,13 @@ function MessageBlockRow(props: {
               {assistantAvatar.name}
             </span>
           </div>
+        ) : null}
+        {turnPresentation?.isFirstAssistantBlock ? (
+          <TranscriptTurnStatus
+            presentation={turnPresentation}
+            detailsExpanded={props.turnDetailsExpanded}
+            onDetailsExpandedChange={onTurnDetailsExpandedChange}
+          />
         ) : null}
         <div
           className={cn(
@@ -1733,8 +1902,17 @@ function MessageBlockRow(props: {
             isActive={props.isStreaming && block.messageIds.includes(props.latestAssistantMessageId)}
             expandedStepIds={props.expandedStepIds}
             onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+            turnDetailsExpanded={props.turnDetailsExpanded}
+            onTurnDetailsExpandedChange={controlledTurnDetailsChange}
           />
         </div>
+        {turnPresentation ? (
+          <TranscriptTurnActions
+            presentation={turnPresentation}
+            onRevertToMessage={props.onRevertToMessage}
+            onForkAtMessage={props.onForkAtMessage}
+          />
+        ) : null}
       </div>
     );
   }
@@ -1762,7 +1940,7 @@ function MessageBlockRow(props: {
         className={cn(
           "flex group justify-start pb-4",
           !props.isNestedVariant && "session-transcript-assistant-row",
-          showAssistantAvatar && "flex-col items-start",
+          !props.isNestedVariant && "flex-col items-start",
         )}
         data-message-role="assistant"
         data-message-id={block.messageId}
@@ -1780,12 +1958,26 @@ function MessageBlockRow(props: {
             </span>
           </div>
         ) : null}
+        {turnPresentation?.isFirstAssistantBlock ? (
+          <TranscriptTurnStatus
+            presentation={turnPresentation}
+            detailsExpanded={props.turnDetailsExpanded}
+            onDetailsExpandedChange={onTurnDetailsExpandedChange}
+          />
+        ) : null}
         <div className={cn("w-full relative", !props.isNestedVariant && "max-w-[650px]", searchOutlineClass)}>
           <NoticeBox className="inline-flex max-w-full items-start gap-2 text-sm leading-5" role="alert" tone="error">
             <CircleAlert size={14} className="mt-0.5 shrink-0" />
             <div className="min-w-0 wrap-break-word">{messageText}</div>
           </NoticeBox>
         </div>
+        {turnPresentation ? (
+          <TranscriptTurnActions
+            presentation={turnPresentation}
+            onRevertToMessage={props.onRevertToMessage}
+            onForkAtMessage={props.onForkAtMessage}
+          />
+        ) : null}
       </div>
     );
   }
@@ -1798,7 +1990,7 @@ function MessageBlockRow(props: {
         !props.isNestedVariant && "pb-8",
         !props.isNestedVariant && block.isUser && "session-transcript-user-row",
         !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
-        showAssistantAvatar && "flex-col items-start",
+        !props.isNestedVariant && !block.isUser && "flex-col items-start",
       )}
       data-message-role={block.isUser ? "user" : "assistant"}
       data-message-id={block.messageId}
@@ -1815,6 +2007,13 @@ function MessageBlockRow(props: {
             {assistantAvatar.name}
           </span>
         </div>
+      ) : null}
+      {turnPresentation?.isFirstAssistantBlock ? (
+        <TranscriptTurnStatus
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
       ) : null}
       <div
         className={cn(
@@ -1836,6 +2035,8 @@ function MessageBlockRow(props: {
               isActive={props.isStreaming && (block.leadingStepMessageIds ?? []).includes(props.latestAssistantMessageId)}
               expandedStepIds={props.expandedStepIds}
               onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+              turnDetailsExpanded={props.turnDetailsExpanded}
+              onTurnDetailsExpandedChange={controlledTurnDetailsChange}
             />
           </div>
         ) : null}
@@ -1914,6 +2115,8 @@ function MessageBlockRow(props: {
                   isActive={isStreamingLatestAssistant}
                   expandedStepIds={props.expandedStepIds}
                   onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+                  turnDetailsExpanded={props.turnDetailsExpanded}
+                  onTurnDetailsExpandedChange={controlledTurnDetailsChange}
                 />
               ) : null}
             </div>
@@ -1922,7 +2125,7 @@ function MessageBlockRow(props: {
 
         {props.onOpenTarget ? <OpenableTargetsStrip targets={inlineOpenTargets} onOpenTarget={props.onOpenTarget} /> : null}
 
-        {!props.isNestedVariant ? (
+        {!props.isNestedVariant && block.isUser ? (
           <div
             className={cn(
               "absolute bottom-2 flex items-center gap-0.5 opacity-100 pointer-events-auto md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto md:group-focus-within:opacity-100 md:group-focus-within:pointer-events-auto transition-opacity select-none",
@@ -1933,6 +2136,13 @@ function MessageBlockRow(props: {
           </div>
         ) : null}
       </div>
+      {turnPresentation ? (
+        <TranscriptTurnActions
+          presentation={turnPresentation}
+          onRevertToMessage={props.onRevertToMessage}
+          onForkAtMessage={props.onForkAtMessage}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1946,12 +2156,24 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [expandedTurnIds, setExpandedTurnIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const expandedStepIds = props.expandedStepIds ?? internalExpandedStepIds;
   const onExpandedStepIdsChange =
     props.onExpandedStepIdsChange ??
     ((updater: (current: Set<string>) => Set<string>) => {
       setInternalExpandedStepIds((current) => updater(current));
     });
+  const onTurnDetailsExpandedChange = useCallback((turnId: string, expanded: boolean) => {
+    if (!turnId) return;
+    setExpandedTurnIds((current) => {
+      const next = new Set(current);
+      if (expanded) next.add(turnId);
+      else next.delete(turnId);
+      return next;
+    });
+  }, []);
 
   const transcriptMessages = useMemo<TranscriptMessage[]>(() => {
     return props.messages.map((message) => ({
@@ -2147,8 +2369,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return stable;
   }, [rawMessageBlocks]);
 
-  const assistantIdentityBlockKeys = useMemo(() => {
-    if (isNestedVariant) return new Set<string>();
+  const turnPresentationByBlockKey = useMemo(() => {
+    const presentations = new Map<string, TranscriptBlockTurnPresentation>();
+    if (isNestedVariant) return presentations;
     const turns = buildTranscriptTurns(props.messages, { isStreaming: props.isStreaming });
     const turnIdByAssistantMessageId = new Map<string, string>();
     turns.forEach((turn) => {
@@ -2156,9 +2379,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         turnIdByAssistantMessageId.set(message.id, turn.id);
       });
     });
-
-    const representedTurnIds = new Set<string>();
-    const identityBlockKeys = new Set<string>();
+    const blockKeysByTurnId = new Map<string, string[]>();
+    const turnsWithExecutionDetails = new Set<string>();
     messageBlocks.forEach((block) => {
       if (block.kind === "divider" || block.isUser) return;
       const messageIds = block.kind === "steps-cluster"
@@ -2167,11 +2389,33 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       const turnId = messageIds
         .map((messageId) => turnIdByAssistantMessageId.get(messageId))
         .find((candidate) => candidate !== undefined);
-      if (!turnId || representedTurnIds.has(turnId)) return;
-      representedTurnIds.add(turnId);
-      identityBlockKeys.add(blockIdentityKey(block));
+      if (!turnId) return;
+      const blockKeys = blockKeysByTurnId.get(turnId) ?? [];
+      blockKeys.push(blockIdentityKey(block));
+      blockKeysByTurnId.set(turnId, blockKeys);
+      const hasExecutionDetails = block.kind === "steps-cluster" || (
+        Boolean(block.leadingStepGroups?.length) ||
+        block.groups.some((group) => group.kind === "steps")
+      );
+      if (hasExecutionDetails) turnsWithExecutionDetails.add(turnId);
     });
-    return identityBlockKeys;
+
+    turns.forEach((turn) => {
+      const blockKeys = blockKeysByTurnId.get(turn.id);
+      const firstBlockKey = blockKeys?.[0];
+      const actionBlockKey = blockKeys?.at(-1);
+      if (!blockKeys || !firstBlockKey || !actionBlockKey) return;
+      const presentation = summarizeTranscriptTurn(turn, messageToText);
+      blockKeys.forEach((blockKey) => {
+        presentations.set(blockKey, {
+          ...presentation,
+          isFirstAssistantBlock: blockKey === firstBlockKey,
+          isActionBlock: blockKey === actionBlockKey,
+          hasExecutionDetails: turnsWithExecutionDetails.has(turn.id),
+        });
+      });
+    });
+    return presentations;
   }, [isNestedVariant, messageBlocks, props.isStreaming, props.messages]);
 
   const latestAssistantMessageId = useMemo(() => {
@@ -2314,6 +2558,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
               {virtualRows.map((virtualRow) => {
                 const block = messageBlocks[virtualRow.index];
                 if (!block) return null;
+                const turnPresentation = turnPresentationByBlockKey.get(
+                  blockIdentityKey(block),
+                );
                 return (
                   <div
                     key={virtualRow.key}
@@ -2342,7 +2589,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                         openTargets={props.openTargets}
                         onOpenTarget={props.onOpenTarget}
                         assistantAvatar={props.assistantAvatar}
-                        showAssistantIdentity={assistantIdentityBlockKeys.has(blockIdentityKey(block))}
+                        showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
+                        turnPresentation={turnPresentation}
+                        turnDetailsExpanded={turnPresentation ? expandedTurnIds.has(turnPresentation.turnId) : false}
+                        onTurnDetailsExpandedChange={onTurnDetailsExpandedChange}
                       />
                     )}
                   </div>
@@ -2353,12 +2603,15 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         </div>
       ) : (
         <div>
-          {messageBlocks.map((block, index) => (
-            block.kind === "divider" ? (
-              <TranscriptDividerRow key={blockIdentityKey(block)} label={block.label} />
-            ) : (
+          {messageBlocks.map((block, index) => {
+            const blockKey = blockIdentityKey(block);
+            if (block.kind === "divider") {
+              return <TranscriptDividerRow key={blockKey} label={block.label} />;
+            }
+            const turnPresentation = turnPresentationByBlockKey.get(blockKey);
+            return (
               <MessageBlockRow
-                key={blockIdentityKey(block)}
+                key={blockKey}
                 block={block}
                 blockIndex={index}
                 totalBlocks={messageBlocks.length}
@@ -2376,10 +2629,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                 openTargets={props.openTargets}
                 onOpenTarget={props.onOpenTarget}
                 assistantAvatar={props.assistantAvatar}
-                showAssistantIdentity={assistantIdentityBlockKeys.has(blockIdentityKey(block))}
+                showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
+                turnPresentation={turnPresentation}
+                turnDetailsExpanded={turnPresentation ? expandedTurnIds.has(turnPresentation.turnId) : false}
+                onTurnDetailsExpandedChange={onTurnDetailsExpandedChange}
               />
-            )
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -29,7 +29,8 @@ describe("session transcript layout contract", () => {
     const messageList = await Bun.file(messageListPath).text();
 
     expect(messageList).toContain("buildTranscriptTurns");
-    expect(messageList).toContain("assistantIdentityBlockKeys");
+    expect(messageList).toContain("turnPresentationByBlockKey");
+    expect(messageList).toContain("isFirstAssistantBlock");
     expect(messageList).not.toContain("function UserAvatar");
     expect(messageList).not.toContain("userIdentity?: { name: string }");
   });
@@ -39,5 +40,17 @@ describe("session transcript layout contract", () => {
 
     expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
     expect(sessionSurface).not.toContain("assistantAvatarOverride");
+  });
+
+  test("keeps final output visible while folding execution details", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+    const appStyles = await Bun.file(appStylesPath).text();
+
+    expect(messageList).toContain("function TranscriptTurnStatus");
+    expect(messageList).toContain("function TranscriptTurnActions");
+    expect(messageList).toContain("turnDetailsExpanded={props.turnDetailsExpanded}");
+    expect(messageList).toContain("<MarkdownBlock");
+    expect(appStyles).toContain(".session-transcript-divider-line");
+    expect(appStyles).toContain("repeating-linear-gradient");
   });
 });

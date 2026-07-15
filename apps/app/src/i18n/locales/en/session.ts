@@ -149,9 +149,13 @@ export default {
   "session.artifact_preview_unavailable":
     "Preview unavailable. Open externally to view this file.",
   "session.status_awaiting_approval": "Awaiting approval",
+  "session.status_completed": "Completed",
   "session.status_failed": "Failed",
   "session.status_running": "Running",
   "session.copy_message": "Copy message",
+  "session.fork_message": "Fork from this response",
+  "session.transcript_cost": "Cost {cost}",
+  "session.transcript_yesterday": "Yesterday",
   "session.expand_pasted_text": "Expand pasted text",
   "session.collapse_pasted_text": "Collapse pasted text",
   "session.dismiss_error": "Dismiss error",

@@ -690,6 +690,55 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     line-height: var(--session-transcript-line-height);
   }
 
+  .session-transcript-turn-status {
+    display: flex;
+    height: 24px;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--dls-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .session-transcript-turn-status-button {
+    cursor: pointer;
+  }
+
+  .session-transcript-turn-status-button:hover {
+    color: var(--dls-text);
+  }
+
+  .session-transcript-turn-status-button:disabled {
+    cursor: default;
+  }
+
+  .session-transcript-turn-actions {
+    display: flex;
+    min-height: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding-top: 12px;
+    color: var(--dls-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .session-transcript-divider-line {
+    height: 1px;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--dls-border-strong) 0,
+      var(--dls-border-strong) 7px,
+      transparent 7px,
+      transparent 15px
+    );
+  }
+
   .bg-dls-radial-shell {
     background: radial-gradient(circle at top, rgba(var(--dls-accent-rgb), 0.12), transparent 42%), var(--app-bg, var(--dls-background));
   }
