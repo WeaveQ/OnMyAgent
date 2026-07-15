@@ -7,6 +7,7 @@ import type { OnMyAgentSessionMessage, OnMyAgentSessionSnapshot } from "../../..
 import { normalizeEvent, safeStringify } from "../../../../app/utils";
 import type { OpencodeEvent } from "../../../../app/types";
 import { createClient } from "../../../../app/lib/opencode";
+import { createTranscriptMessageMetadata } from "./message-metadata";
 
 type TransportOptions = {
   baseUrl: string;
@@ -187,11 +188,10 @@ function mapToolPart(part: ToolPart): DynamicToolUIPart {
 
 export function snapshotToUIMessages(snapshot: OnMyAgentSessionSnapshot): UIMessage[] {
   return snapshot.messages.map((message) => {
-    const created = message.info.time?.created;
     return {
       id: message.info.id,
       role: message.info.role,
-      ...(typeof created === "number" ? { metadata: { opencode: { created } } } : {}),
+      metadata: createTranscriptMessageMetadata(message.info),
       parts: message.parts.flatMap<UIMessage["parts"][number]>((part) => {
         if (part.type === "text") {
           if (part.synthetic || part.ignored) return [];
