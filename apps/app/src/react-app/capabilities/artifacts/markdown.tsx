@@ -29,6 +29,20 @@ export type MarkdownCodeFenceInfo = {
   endLine: number | null;
 };
 
+export type MarkdownInlinePath = {
+  path: string;
+  startLine: number | null;
+  endLine: number | null;
+};
+
+export type MarkdownVerifiedCodePath = {
+  path: string;
+  resolvedPath: string;
+};
+
+const MARKDOWN_INLINE_PATH_RANGE = /^(.+?)#L(\d+)(?:-L(\d+))?$/;
+const MARKDOWN_INLINE_FILE = /^(?:[a-zA-Z]:[\\/]|[\\/])?(?:[^\\/]+[\\/])*[^\\/]+\.[a-zA-Z0-9]+$/;
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -100,6 +114,40 @@ export function parseMarkdownCodeFenceInfo(rawLanguage: string | undefined): Mar
     startLine: positiveLineNumber(match[hasLanguage ? 2 : 1] ?? ""),
     endLine: positiveLineNumber(match[hasLanguage ? 3 : 2] ?? ""),
   };
+}
+
+export function parseMarkdownInlinePath(code: string): MarkdownInlinePath | null {
+  const trimmed = code.trim();
+  const range = trimmed.match(MARKDOWN_INLINE_PATH_RANGE);
+  const path = range?.[1] ?? trimmed;
+  if (!MARKDOWN_INLINE_FILE.test(path)) return null;
+  return {
+    path,
+    startLine: range?.[2] ? positiveLineNumber(range[2]) : null,
+    endLine: range?.[3] ? positiveLineNumber(range[3]) : null,
+  };
+}
+
+export function truncateMarkdownPathDisplay(text: string, maxLength = 40) {
+  if (text.length <= maxLength) return text;
+  const separatorIndex = Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\"));
+  const fileName = separatorIndex >= 0 ? text.slice(separatorIndex + 1) : text;
+  const directory = separatorIndex >= 0 ? text.slice(0, separatorIndex + 1) : "";
+  if (!directory || fileName.length >= maxLength - 4) {
+    const available = maxLength - 3;
+    const head = Math.ceil(available / 2);
+    const tail = Math.floor(available / 2);
+    return `${text.slice(0, head)}...${text.slice(text.length - tail)}`;
+  }
+  const directoryBudget = maxLength - fileName.length - 3;
+  return `${directory.slice(0, Math.max(1, directoryBudget))}...${fileName}`;
+}
+
+function resolveVerifiedCodePath(paths: readonly MarkdownVerifiedCodePath[], path: string) {
+  const normalizedPath = path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
+  return paths.find((candidate) => (
+    candidate.path === normalizedPath || candidate.path.endsWith(`/${normalizedPath}`)
+  ))?.resolvedPath ?? null;
 }
 
 function markdownCodeCopyButton() {
@@ -242,7 +290,7 @@ const baseMarkedOptions = {
       return `<div data-markdown-code-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(info)}<pre class="overflow-x-auto px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(info.language)}>${escapeHtml(text)}</code></pre></div>`;
     },
     codespan({ text }) {
-      return `<code class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-foreground">${escapeHtml(text)}</code>`;
+      return `<code data-markdown-inline-code="${escapeAttribute(text)}" class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-foreground">${escapeHtml(text)}</code>`;
     },
     del({ raw, tokens }) {
       if (!raw.startsWith("~~")) return escapeHtml(raw);
@@ -328,6 +376,7 @@ function MarkdownBlockInner(props: {
   highlightQuery?: string;
   locale?: string;
   onOpenCodePath?: (path: string) => void;
+  verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const syncHtml = useMemo(() => {
@@ -395,6 +444,48 @@ function MarkdownBlockInner(props: {
         title.title = filePath;
       }
     });
+    root.querySelectorAll<HTMLButtonElement>("button[data-markdown-code-path]").forEach((pathButton) => {
+      const path = pathButton.dataset.markdownCodePath ?? "";
+      const resolvedPath = resolveVerifiedCodePath(props.verifiedCodePaths ?? [], path);
+      if (resolvedPath) {
+        pathButton.dataset.markdownCodePath = resolvedPath;
+        return;
+      }
+      pathButton.disabled = true;
+      pathButton.removeAttribute("data-markdown-code-path");
+      pathButton.removeAttribute("title");
+    });
+    root.querySelectorAll<HTMLElement>("[data-markdown-inline-code]").forEach((inlineCode) => {
+      const rawCode = inlineCode.dataset.markdownInlineCode ?? "";
+      const detected = parseMarkdownInlinePath(rawCode);
+      const resolvedPath = detected
+        ? resolveVerifiedCodePath(props.verifiedCodePaths ?? [], detected.path)
+        : null;
+      if (!detected || !resolvedPath) return;
+      inlineCode.dataset.markdownCodePath = resolvedPath;
+      inlineCode.setAttribute("role", "button");
+      inlineCode.tabIndex = 0;
+      inlineCode.title = t("files.open_file");
+      inlineCode.classList.add("cursor-pointer", "text-dls-accent", "hover:bg-dls-hover");
+      inlineCode.textContent = truncateMarkdownPathDisplay(rawCode);
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      icon.setAttribute("width", "14");
+      icon.setAttribute("height", "14");
+      icon.setAttribute("fill", "none");
+      icon.setAttribute("stroke", "currentColor");
+      icon.setAttribute("stroke-width", "2");
+      icon.setAttribute("stroke-linecap", "round");
+      icon.setAttribute("stroke-linejoin", "round");
+      icon.setAttribute("aria-hidden", "true");
+      icon.classList.add("mr-1", "inline-block", "align-text-bottom");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z");
+      const fold = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      fold.setAttribute("points", "14 2 14 8 20 8");
+      icon.append(path, fold);
+      inlineCode.prepend(icon);
+    });
     const resetTimers = new Set<number>();
     const handleClick = (event: MouseEvent) => {
       const target = event.target;
@@ -426,12 +517,21 @@ function MarkdownBlockInner(props: {
         resetTimers.add(timer);
       }).catch(() => undefined);
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("[data-markdown-inline-code][data-markdown-code-path]")) return;
+      event.preventDefault();
+      target.click();
+    };
     root.addEventListener("click", handleClick);
+    root.addEventListener("keydown", handleKeyDown);
     return () => {
       root.removeEventListener("click", handleClick);
+      root.removeEventListener("keydown", handleKeyDown);
       resetTimers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [copyLabel, copiedLabel, html, props.onOpenCodePath]);
+  }, [copyLabel, copiedLabel, html, props.onOpenCodePath, props.verifiedCodePaths]);
 
   if (!html && !props.streaming) return null;
 
