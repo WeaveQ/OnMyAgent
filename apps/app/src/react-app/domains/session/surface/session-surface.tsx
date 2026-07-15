@@ -2099,6 +2099,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const sessionScroll = useSessionScrollController({
     selectedSessionId: props.sessionId,
     renderedMessages,
+    renderedMessageIds: renderedMessages.map((message) => message.id),
     containerRef: scrollRef,
     contentRef,
     sessionChangeScroll:
