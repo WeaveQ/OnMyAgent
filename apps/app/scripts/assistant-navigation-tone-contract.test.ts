@@ -109,20 +109,15 @@ describe("assistant navigation tone contract", () => {
     );
   });
 
-  test("places draft prompt templates above the composer", () => {
+  test("keeps draft prompt templates inside the composer add menu", () => {
     const surface = readFileSync(
       join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
       "utf8",
     );
-    const templateStripIndex = surface.indexOf(
-      '<div className="mb-4 w-full max-w-5xl">',
-    );
-    const composerIndex = surface.indexOf("ref={composerShellRef}");
 
-    expect(templateStripIndex).toBeGreaterThan(-1);
-    expect(composerIndex).toBeGreaterThan(templateStripIndex);
-    expect(surface).not.toContain(
-      '<div className="mt-4 w-full max-w-5xl">',
-    );
+    expect(surface).toContain("promptTemplates={");
+    expect(surface).toContain("onSelectPromptTemplate={selectAssistantPromptTemplate}");
+    expect(surface).not.toContain("<PersonalAssistantAccessory");
+    expect(surface).not.toContain('<div className="mb-4 w-full max-w-5xl">');
   });
 });
