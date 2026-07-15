@@ -2000,7 +2000,7 @@ primitive" rule.
 **The extension workflow.** For any non-trivial DESIGN.md change:
 
 1. Optional local plan under `.loop/plans/` (gitignored). Do **not** commit
-   plan ledgers under `docs/plans/` or `docs/archive/` (also gitignored).
+   plan ledgers under `docs/plans/`, `docs/archive/`, `docs/features/`, or `docs/superpowers/` (all gitignored).
 2. Update `DESIGN.md` — YAML front matter first, then the narrative
    section that consumes it. Keep the two in lockstep so
    `extract-tokens.mjs` can diff cleanly.

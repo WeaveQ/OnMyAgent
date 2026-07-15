@@ -89,7 +89,7 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 | `docs/README.md` | 文档地图；不写动态 loop 状态 |
 | `.loop/archive/` | 本地历史归档，不提交 |
 
-卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；动态 loop 状态只写 `.loop/`；重复问题回写 `../../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。执行 plan 只写 `.loop/plans/`（`docs/plans/` / `docs/archive/` 已 gitignore，禁止提交）。
+卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；动态 loop 状态只写 `.loop/`；重复问题回写 `../../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。执行 plan 只写 `.loop/plans/`（`docs/plans/` / `docs/archive/` / `docs/features/` / `docs/superpowers/` 已 gitignore，禁止提交）。
 
 ### Durable Long Task / Plan Ledger Rule
 
