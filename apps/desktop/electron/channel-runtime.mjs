@@ -116,6 +116,8 @@ export function createMessagingChannelServices(options = {}) {
     // Platform channel services (legacy accessors kept for main.mjs).
     weixinService,
     feishuService,
+    telegramService,
+    discordService,
 
     // Shared infrastructure.
     channelEventBus: infrastructure.eventBus,
