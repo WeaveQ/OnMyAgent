@@ -44,6 +44,10 @@ export type TranscriptGeneratedImage = {
   localPath: string | null;
 };
 
+export type TranscriptMcpContent =
+  | { type: "text" | "resource"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
 export type TranscriptDiffLine = {
   kind: "added" | "removed" | "unchanged";
   text: string;
@@ -146,7 +150,32 @@ export type TranscriptSpecializedToolDetails =
       status: "generating" | "completed" | "error";
       images: TranscriptGeneratedImage[];
       errorMessage: string | null;
-    };
+    }
+  | {
+      kind: "compact-tool";
+      variant: "memory" | "preview-url" | "read-rules" | "upload-file" | "skill-manage" | "present-files" | "generic";
+      action: string | null;
+      title: string | null;
+      summary: string | null;
+      result: string | null;
+    }
+  | {
+      kind: "mcp";
+      serverName: string;
+      toolName: string;
+      args: Record<string, unknown>;
+      content: TranscriptMcpContent[];
+      errorMessage: string | null;
+      progress: { current: number; total: number | null; message: string | null } | null;
+    }
+  | {
+      kind: "mcp-resource";
+      server: string;
+      uri: string;
+      content: string;
+      downloadPath: string | null;
+    }
+  | { kind: "skill"; skillName: string };
 
 export type TranscriptToolPresentation = {
   family: TranscriptToolFamily;
@@ -229,6 +258,41 @@ function resultPayload(value: unknown) {
   if (!outer) return null;
   const result = parseRecord(outer.result);
   return result ?? outer;
+}
+
+function formattedValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function parsedArguments(value: unknown) {
+  if (typeof value !== "string") return recordValue(value) ?? {};
+  try {
+    return recordValue(JSON.parse(value)) ?? { arguments: value };
+  } catch {
+    return { arguments: value };
+  }
+}
+
+function compactToolVariant(name: string): Extract<TranscriptSpecializedToolDetails, { kind: "compact-tool" }>["variant"] | null {
+  if (["updatememory", "creatememory", "deletememory"].includes(name)) return "memory";
+  if (name === "previewurl") return "preview-url";
+  if (name === "readrules") return "read-rules";
+  if (name === "uploadfile") return "upload-file";
+  if (name === "skillmanage") return "skill-manage";
+  if (name === "presentfiles") return "present-files";
+  return null;
 }
 
 function basename(value: string) {
@@ -587,6 +651,73 @@ function specializedToolDetails(input: {
   const payload = resultPayload(input.toolOutput);
   const normalizedName = normalizedToolName(input.toolName);
 
+  if (normalizedName === "mcpcalltool") {
+    const output = parseRecord(input.toolOutput);
+    const result = parseRecord(output?.result) ?? output;
+    const progress = recordValue(toolInput?.mcpProgress);
+    const content = arrayValue(result, ["data"]).flatMap((value): TranscriptMcpContent[] => {
+      const item = recordValue(value);
+      const type = stringValue(item, ["type"]);
+      if (type === "image") {
+        const data = rawStringValue(item, ["data"]);
+        return data ? [{ type: "image", data, mimeType: stringValue(item, ["mimeType"]) ?? "image/png" }] : [];
+      }
+      if (type === "resource") {
+        const resource = recordValue(item?.resource);
+        const text = rawStringValue(resource, ["text"]) ?? formattedValue(resource);
+        return text ? [{ type: "resource", text }] : [];
+      }
+      const text = rawStringValue(item, ["text"]) ?? formattedValue(value);
+      return text ? [{ type: "text", text }] : [];
+    });
+    const current = optionalNumberValue(progress, ["progress"]);
+    return {
+      kind: "mcp",
+      serverName: stringValue(toolInput, ["serverName"]) ?? stringValue(result, ["serverName"]) ?? "",
+      toolName: stringValue(toolInput, ["toolName"]) ?? stringValue(result, ["toolName"]) ?? "",
+      args: parsedArguments(toolInput?.arguments),
+      content,
+      errorMessage: stringValue(result, ["error", "errorMessage"]),
+      progress: current === null ? null : {
+        current,
+        total: optionalNumberValue(progress, ["total"]),
+        message: stringValue(progress, ["message"]),
+      },
+    };
+  }
+
+  if (normalizedName === "fetchmcpresource") {
+    return {
+      kind: "mcp-resource",
+      server: stringValue(toolInput, ["server"]) ?? stringValue(payload, ["server"]) ?? "",
+      uri: stringValue(toolInput, ["uri"]) ?? stringValue(payload, ["uri"]) ?? "",
+      content: rawStringValue(payload, ["content"]) ?? "",
+      downloadPath: stringValue(payload, ["downloadPath"]) ?? stringValue(toolInput, ["downloadPath"]),
+    };
+  }
+
+  if (normalizedName === "useskill") {
+    return { kind: "skill", skillName: stringValue(toolInput, ["command"]) ?? "" };
+  }
+
+  const compactVariant = compactToolVariant(normalizedName);
+  if (compactVariant) {
+    return {
+      kind: "compact-tool",
+      variant: compactVariant,
+      action: stringValue(toolInput, ["action"]),
+      title: stringValue(toolInput, ["title", "name"]),
+      summary: compactVariant === "memory"
+        ? stringValue(toolInput, ["knowledge_to_store"])
+        : compactVariant === "preview-url"
+          ? stringValue(toolInput, ["url"])
+          : compactVariant === "read-rules"
+            ? stringValue(toolInput, ["ruleNames"])
+            : stringValue(toolInput, ["name", "path", "file"]),
+      result: formattedValue(payload),
+    };
+  }
+
   if (input.family === "command") {
     const plainOutput = typeof input.toolOutput === "string" ? input.toolOutput : "";
     return {
@@ -805,6 +936,17 @@ function specializedToolDetails(input: {
     };
   }
 
+  if (input.family === "generic") {
+    return {
+      kind: "compact-tool",
+      variant: "generic",
+      action: null,
+      title: null,
+      summary: input.toolName,
+      result: formattedValue(payload ?? input.toolOutput),
+    };
+  }
+
   return null;
 }
 
@@ -864,7 +1006,11 @@ export function buildTranscriptToolPresentation(input: {
     if (details.kind === "web-search") return details.query;
     if (details.kind === "plan") return details.name ?? details.overview;
     if (details.kind === "image-gen") return details.prompt;
-    return details.subagentName;
+    if (details.kind === "task") return details.subagentName;
+    if (details.kind === "mcp") return [details.serverName, details.toolName].filter(Boolean).join(" · ");
+    if (details.kind === "mcp-resource") return details.uri;
+    if (details.kind === "skill") return details.skillName;
+    return details.variant === "generic" ? null : details.summary;
   })();
 
   return {

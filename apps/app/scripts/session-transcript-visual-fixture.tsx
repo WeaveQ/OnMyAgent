@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ChevronDown, FilePenLine, Search, Terminal } from "lucide-react";
+import type { UIMessage } from "ai";
 
 import "../src/app/index.css";
 import {
@@ -11,6 +12,8 @@ import {
 } from "../src/react-app/domains/session/surface/specialized-tool-details";
 import { Button } from "../src/components/ui/button";
 import { TranscriptResourceChip } from "../src/react-app/domains/session/surface/transcript-resource-chip";
+import { SessionTranscript } from "../src/react-app/domains/session/surface/message-list";
+import { createTranscriptMessageMetadata } from "../src/react-app/domains/session/sync/message-metadata";
 import {
   buildTranscriptToolPresentation,
   type TranscriptSpecializedToolDetails,
@@ -128,6 +131,135 @@ const referenceDetails = detailsFor({
   },
 });
 
+const cancelledReasoningMessages: UIMessage[] = [
+  {
+    id: "reasoning-user-cancelled",
+    role: "user",
+    parts: [{ type: "text", text: "Compare the transcript behavior with WorkBuddy." }],
+  },
+  {
+    id: "reasoning-assistant-cancelled",
+    role: "assistant",
+    metadata: createTranscriptMessageMetadata({
+      time: { created: 1_000, completed: 8_000 },
+      error: { name: "MessageAbortedError" },
+    }),
+    parts: [
+      {
+        type: "reasoning",
+        text: "### Inspection\n\n- Read the renderer registry\n- Compare the cancellation state\n\n`reasoning` remains Markdown.",
+      },
+      { type: "text", text: "The inspection stopped before the final comparison." },
+    ],
+  },
+];
+
+const streamingReasoningText = `### Live inspection
+
+The active reasoning block follows new Markdown content while expanded.
+
+1. Live detail 1
+2. Live detail 2
+3. Live detail 3
+4. Live detail 4
+5. Live detail 5
+6. Live detail 6
+7. Live detail 7
+8. Live detail 8
+9. Live detail 9
+10. Live detail 10
+11. Live detail 11
+12. Live detail 12
+13. Live detail 13
+14. Live detail 14
+15. Live detail 15
+16. Live detail 16
+17. Live detail 17
+18. Live detail 18
+19. Live detail 19
+20. Live detail 20
+21. Live detail 21
+22. Live detail 22
+23. Live detail 23
+24. Live detail 24`;
+
+function reasoningMessages(growthCount: number): UIMessage[] {
+  const growth = Array.from(
+    { length: growthCount },
+    (_, index) => `${25 + index}. Streaming growth ${index + 1}`,
+  ).join("\n");
+  return [
+    {
+      id: "reasoning-user-streaming",
+      role: "user",
+      parts: [{ type: "text", text: "Continue inspecting the streaming state." }],
+    },
+    {
+      id: "reasoning-assistant-streaming",
+      role: "assistant",
+      parts: [{
+        type: "reasoning",
+        text: growth ? `${streamingReasoningText}\n${growth}` : streamingReasoningText,
+      }],
+    },
+  ];
+}
+
+const compactToolMessages: UIMessage[] = [
+  {
+    id: "compact-tools-user",
+    role: "user",
+    parts: [{ type: "text", text: "Use memory, MCP, and a skill to finish the report." }],
+  },
+  {
+    id: "compact-tools-assistant",
+    role: "assistant",
+    parts: [
+      {
+        type: "dynamic-tool",
+        toolName: "update_memory",
+        toolCallId: "memory-1",
+        state: "output-available",
+        input: {
+          action: "update",
+          title: "Report preference",
+          knowledge_to_store: "Keep the executive summary concise.",
+        },
+        output: { result: { success: true } },
+      },
+      {
+        type: "dynamic-tool",
+        toolName: "mcp_call_tool",
+        toolCallId: "mcp-1",
+        state: "output-available",
+        input: {
+          serverName: "Drive",
+          toolName: "search_files",
+          arguments: '{"query":"quarterly report"}',
+          mcpProgress: { progress: 2, total: 2, message: "Complete" },
+        },
+        output: {
+          result: {
+            data: [
+              { type: "text", text: "Found quarterly-report.md" },
+              { type: "resource", resource: { uri: "drive://quarterly-report", text: "Quarterly report resource" } },
+            ],
+          },
+        },
+      },
+      {
+        type: "dynamic-tool",
+        toolName: "use_skill",
+        toolCallId: "skill-1",
+        state: "output-available",
+        input: { command: "executive-writing" },
+        output: { result: { success: true } },
+      },
+      { type: "text", text: "The report sources and writing guidance are ready." },
+    ],
+  },
+];
+
 function ToolFixture(props: {
   details: TranscriptSpecializedToolDetails;
   icon: typeof Terminal;
@@ -169,6 +301,7 @@ function Fixture() {
   const [completedExpanded, setCompletedExpanded] = useState(true);
   const [generatingExpanded, setGeneratingExpanded] = useState(true);
   const [errorExpanded, setErrorExpanded] = useState(true);
+  const [streamingGrowthCount, setStreamingGrowthCount] = useState(0);
 
   return (
     <main className="h-screen overflow-y-auto bg-dls-background px-10 py-8 text-dls-text">
@@ -239,6 +372,38 @@ function Fixture() {
           <ToolFixture details={listDetails} icon={Search} />
           <ToolFixture details={searchDetails} icon={Search} />
           <ToolFixture details={referenceDetails} icon={Search} />
+        </section>
+
+        <section className="space-y-8 border-t border-dls-border pt-8">
+          <SessionTranscript
+            messages={compactToolMessages}
+            isStreaming={false}
+            developerMode={false}
+            showThinking={true}
+            assistantAvatar={{ name: "WorkBuddy", avatarUrl: null }}
+          />
+          <SessionTranscript
+            messages={cancelledReasoningMessages}
+            isStreaming={false}
+            developerMode={false}
+            showThinking={true}
+            assistantAvatar={{ name: "WorkBuddy", avatarUrl: null }}
+          />
+          <SessionTranscript
+            messages={reasoningMessages(streamingGrowthCount)}
+            isStreaming={true}
+            developerMode={false}
+            showThinking={true}
+            assistantAvatar={{ name: "WorkBuddy", avatarUrl: null }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => setStreamingGrowthCount((count) => count + 1)}
+          >
+            Append streaming reasoning
+          </Button>
         </section>
       </div>
     </main>

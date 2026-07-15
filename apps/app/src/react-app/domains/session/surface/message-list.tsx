@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type UIEvent } from "react";
 import { isToolUIPart, type DynamicToolUIPart, type UIMessage } from "ai";
 import type { Part } from "@opencode-ai/sdk/v2/client";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -44,6 +44,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { MessageRolePrefix, MessageRoleRow } from "@/components/ui/message-role";
 import {
   ToolApprovalCard,
   ToolApprovalCardBody,
@@ -251,6 +252,25 @@ export function isTranscriptDividerReady(
   messageCount: number,
 ): boolean {
   return Boolean(divider && divider.afterMessageCount <= messageCount);
+}
+
+function cancelledAssistantMessageIds(
+  messages: UIMessage[],
+  dividers: SessionTranscriptDivider[] | undefined,
+) {
+  const ids = new Set<string>();
+  for (const divider of dividers ?? []) {
+    if (divider.variant !== "cancelled") continue;
+    const precedingMessages = messages.slice(
+      0,
+      Math.min(messages.length, divider.afterMessageCount),
+    );
+    const assistantMessage = precedingMessages.findLast(
+      (message) => message.role === "assistant",
+    );
+    if (assistantMessage) ids.add(assistantMessage.id);
+  }
+  return ids;
 }
 
 export function isInternalAssistantNarration(text: string): boolean {
@@ -620,32 +640,6 @@ function humanMediaType(raw: string) {
   if (!raw || raw === "application/octet-stream") return null;
   const short = raw.replace(/^application\//, "").replace(/^text\//, "");
   return short.toUpperCase();
-}
-
-function cleanReasoningPreview(value: string) {
-  const cleaned = value
-    .replace(/\[REDACTED\]/g, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\s+\n/g, "\n")
-    .trim();
-
-  return cleaned
-    .replace(/^(?:thinking|reasoning)\s*(?::|-|–|—)\s*/i, "")
-    .replace(/^(?:thinking|reasoning)\s*\r?\n+/i, "")
-    .trim();
-}
-
-function splitReasoningPreview(value: string) {
-  const clean = cleanReasoningPreview(value);
-  if (!clean) return { headline: "", body: "" };
-  const lines = clean.split(/\r?\n/).flatMap((line) => {
-    const trimmed = line.trim();
-    return trimmed ? [trimmed] : [];
-  });
-  if (lines.length <= 1) return { headline: "", body: clean };
-  return { headline: lines[0] ?? "", body: lines.slice(1).join("\n") };
 }
 
 function formatStructuredValue(value: unknown) {
@@ -1112,6 +1106,7 @@ function TranscriptTurnStatus(props: {
   detailsExpanded: boolean;
   onDetailsExpandedChange: (expanded: boolean) => void;
 }) {
+  if (props.presentation.state === "cancelled") return null;
   const status = transcriptTurnStatusLabel(props.presentation.state);
   if (!status) return null;
   const duration = props.presentation.durationMs === null
@@ -1149,6 +1144,25 @@ function TranscriptTurnStatus(props: {
     >
       {content}
     </button>
+  );
+}
+
+function TranscriptCancelledIndicator(props: {
+  presentation?: TranscriptBlockTurnPresentation;
+}) {
+  if (
+    props.presentation?.state !== "cancelled" ||
+    !props.presentation.isActionBlock
+  ) {
+    return null;
+  }
+  return (
+    <div
+      data-cancelled-indicator="true"
+      className="max-w-[760px] text-sm leading-6 text-dls-secondary"
+    >
+      {t("session.user_cancelled")}
+    </div>
   );
 }
 
@@ -1451,13 +1465,101 @@ function FileCard(props: {
   );
 }
 
+function TranscriptReasoning(props: {
+  text: string;
+  complete: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef(true);
+  const trustedScrollRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || collapsed || props.complete || !autoScrollRef.current) return;
+    const nextScrollTop = Math.max(0, content.scrollHeight - content.clientHeight);
+    if (Math.abs(content.scrollTop - nextScrollTop) <= 1) {
+      trustedScrollRef.current = false;
+      lastScrollTopRef.current = content.scrollTop;
+      return;
+    }
+    trustedScrollRef.current = true;
+    content.scrollTo({ top: nextScrollTop, behavior: "auto" });
+  }, [collapsed, props.complete, props.text]);
+
+  const handleScroll = (event: UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const currentScrollTop = target.scrollTop;
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (trustedScrollRef.current) {
+      trustedScrollRef.current = false;
+      lastScrollTopRef.current = currentScrollTop;
+      return;
+    }
+    const scrollingUp = currentScrollTop < lastScrollTopRef.current;
+    if (!scrollingUp && Math.abs(distanceFromBottom) < 10) {
+      autoScrollRef.current = true;
+    } else if (scrollingUp && distanceFromBottom > 20) {
+      autoScrollRef.current = false;
+    }
+    lastScrollTopRef.current = currentScrollTop;
+  };
+
+  return (
+    <section
+      data-reasoning="true"
+      data-reasoning-state={props.complete ? "complete" : "streaming"}
+      className="flex max-w-[760px] flex-col gap-0.5 py-0.5 text-dls-secondary"
+    >
+      <DisclosureRowButton
+        type="button"
+        density="flush"
+        aria-expanded={!collapsed}
+        className="gap-1 text-sm leading-6 text-dls-secondary hover:bg-transparent hover:text-dls-text"
+        onClick={() => setCollapsed((current) => !current)}
+      >
+        <MessageRolePrefix role="thinking" />
+        <span className={cn(!props.complete && "session-transcript-loading-shimmer")}>
+          {t("session.reasoning")}
+        </span>
+        {props.complete ? (
+          <ChevronDown
+            size={12}
+            className={cn(
+              "transition-transform",
+              collapsed && "-rotate-90 opacity-0 group-hover:opacity-100",
+            )}
+          />
+        ) : null}
+      </DisclosureRowButton>
+      <MessageRoleRow
+        role="thinking"
+        ref={contentRef}
+        hidden={collapsed}
+        data-scrollable="true"
+        onScroll={handleScroll}
+        className="max-h-[200px] overflow-x-hidden overflow-y-auto rounded-none bg-transparent py-0.5 pl-3 pr-1 text-dls-text not-italic"
+      >
+        <MarkdownBlock
+          text={props.text}
+          streaming={!props.complete}
+          locale={currentLocale()}
+        />
+      </MessageRoleRow>
+    </section>
+  );
+}
+
 function StepRow(props: {
   id: string;
   part: TranscriptPart;
   expanded: boolean;
   onToggle: () => void;
   onOpenCodePath?: (path: string) => void;
+  isStreamingReasoning: boolean;
 }) {
+  const platform = usePlatform();
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
   const toolState = useMemo<Record<string, unknown>>(() => {
     if (props.part.type !== "tool" || !("state" in props.part)) return {};
@@ -1543,18 +1645,35 @@ function StepRow(props: {
   }
 
   if (props.part.type === "reasoning") {
-    const raw = props.part.text;
-    const preview = splitReasoningPreview(raw);
-    if (!preview.headline && !preview.body) return null;
-
+    if (!props.part.text.trim()) return null;
     return (
-      <div
-        data-reasoning="true"
-        className={`whitespace-pre-wrap ${messageTextClass.bodyMuted}`}
-      >
-        <div className="max-w-[760px]">
-          {preview.headline ? <div className="mb-2 text-muted-foreground">{preview.headline}</div> : null}
-          <div>{preview.body || headline}</div>
+      <TranscriptReasoning
+        text={props.part.text}
+        complete={!props.isStreamingReasoning}
+      />
+    );
+  }
+
+  if (
+    specializedDetails?.kind === "compact-tool" &&
+    specializedDetails.variant === "preview-url" &&
+    specializedDetails.summary
+  ) {
+    return (
+      <div className={messageTextClass.body}>
+        <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
+          <ToolActivityIcon category={summary.toolCategory} />
+          <span>{headline}</span>
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            className="h-auto min-w-0 justify-start p-0 font-normal"
+            title={specializedDetails.summary}
+            onClick={() => platform.openLink(specializedDetails.summary ?? "")}
+          >
+            <span className="truncate">{specializedDetails.summary}</span>
+          </Button>
         </div>
       </div>
     );
@@ -1967,6 +2086,7 @@ function StepsContainer(props: {
   turnDetailsExpanded?: boolean;
   onTurnDetailsExpandedChange?: (expanded: boolean) => void;
   onOpenCodePath?: (path: string) => void;
+  isTrailingMessageContent?: boolean;
 }) {
   const toggleSteps = (id: string) => {
     props.onExpandedStepIdsChange((current) => {
@@ -2053,10 +2173,12 @@ function StepsContainer(props: {
     return (
       <div className="max-w-[760px]">
         <div className="flex flex-col gap-5">
-          {props.stepGroups.map((group) => (
+          {props.stepGroups.map((group, groupIndex) => (
             <div key={group.id} className="flex flex-col gap-5">
               {group.parts.map((part, index) => {
                 const rowId = `${group.id}:${index}`;
+                const isLastPartInGroup = index === group.parts.length - 1;
+                const isLastStepGroup = groupIndex === props.stepGroups.length - 1;
                 return (
                   <StepRow
                     key={rowId}
@@ -2065,6 +2187,12 @@ function StepsContainer(props: {
                     expanded={props.expandedStepIds.has(rowId)}
                     onToggle={() => toggleSteps(rowId)}
                     onOpenCodePath={props.onOpenCodePath}
+                    isStreamingReasoning={
+                      props.isActive &&
+                      props.isTrailingMessageContent !== false &&
+                      isLastStepGroup &&
+                      isLastPartInGroup
+                    }
                   />
                 );
               })}
@@ -2116,10 +2244,12 @@ function StepsContainer(props: {
           )}
         >
           <div className="flex flex-col gap-5">
-            {props.stepGroups.map((group) => (
+            {props.stepGroups.map((group, groupIndex) => (
               <div key={group.id} className="flex flex-col gap-5">
                 {group.parts.map((part, index) => {
                   const rowId = `${group.id}:${index}`;
+                  const isLastPartInGroup = index === group.parts.length - 1;
+                  const isLastStepGroup = groupIndex === props.stepGroups.length - 1;
                   return (
                     <StepRow
                       key={rowId}
@@ -2128,6 +2258,12 @@ function StepsContainer(props: {
                       expanded={props.expandedStepIds.has(rowId)}
                       onToggle={() => toggleSteps(rowId)}
                       onOpenCodePath={props.onOpenCodePath}
+                      isStreamingReasoning={
+                        props.isActive &&
+                        props.isTrailingMessageContent !== false &&
+                        isLastStepGroup &&
+                        isLastPartInGroup
+                      }
                     />
                   );
                 })}
@@ -2344,6 +2480,7 @@ function MessageBlockRow(props: {
             isUser={block.isUser}
             isNestedVariant={props.isNestedVariant}
             isActive={props.isStreaming && block.messageIds.includes(props.latestAssistantMessageId)}
+            isTrailingMessageContent={true}
             expandedStepIds={props.expandedStepIds}
             onExpandedStepIdsChange={props.onExpandedStepIdsChange}
             turnDetailsExpanded={props.turnDetailsExpanded}
@@ -2351,6 +2488,7 @@ function MessageBlockRow(props: {
             onOpenCodePath={props.onOpenCodePath}
           />
         </div>
+        <TranscriptCancelledIndicator presentation={turnPresentation} />
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
@@ -2416,6 +2554,7 @@ function MessageBlockRow(props: {
             <div className="min-w-0 wrap-break-word">{messageText}</div>
           </NoticeBox>
         </div>
+        <TranscriptCancelledIndicator presentation={turnPresentation} />
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
@@ -2477,6 +2616,7 @@ function MessageBlockRow(props: {
               isUser={block.isUser}
               isNestedVariant={props.isNestedVariant}
               isActive={props.isStreaming && (block.leadingStepMessageIds ?? []).includes(props.latestAssistantMessageId)}
+              isTrailingMessageContent={false}
               expandedStepIds={props.expandedStepIds}
               onExpandedStepIdsChange={props.onExpandedStepIdsChange}
               turnDetailsExpanded={props.turnDetailsExpanded}
@@ -2509,7 +2649,7 @@ function MessageBlockRow(props: {
           </div>
         ) : null}
 
-        {block.groups.map((group) => {
+        {block.groups.map((group, groupIndex) => {
           const highlightQuery = hasSearchMatch ? props.searchHighlightQuery : undefined;
           const isStreamingLatestAssistant =
             !block.isUser && props.isStreaming && block.messageId === props.latestAssistantMessageId;
@@ -2574,6 +2714,7 @@ function MessageBlockRow(props: {
                   isInline={true}
                   isNestedVariant={props.isNestedVariant}
                   isActive={isStreamingLatestAssistant}
+                  isTrailingMessageContent={groupIndex === block.groups.length - 1}
                   expandedStepIds={props.expandedStepIds}
                   onExpandedStepIdsChange={props.onExpandedStepIdsChange}
                   turnDetailsExpanded={props.turnDetailsExpanded}
@@ -2599,6 +2740,7 @@ function MessageBlockRow(props: {
           />
         ) : null}
       </div>
+      <TranscriptCancelledIndicator presentation={turnPresentation} />
       {turnPresentation ? (
         <TranscriptTurnActions
           presentation={turnPresentation}
@@ -2835,9 +2977,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return stable;
   }, [rawMessageBlocks]);
 
+  const cancelledMessageIds = useMemo(
+    () => cancelledAssistantMessageIds(props.messages, props.dividers),
+    [props.dividers, props.messages],
+  );
   const transcriptTurns = useMemo(
-    () => buildTranscriptTurns(props.messages, { isStreaming: props.isStreaming }),
-    [props.isStreaming, props.messages],
+    () => buildTranscriptTurns(props.messages, {
+      isStreaming: props.isStreaming,
+      cancelledMessageIds,
+    }),
+    [cancelledMessageIds, props.isStreaming, props.messages],
   );
   const turnIdByMessageId = useMemo(() => {
     const turnIds = new Map<string, string>();

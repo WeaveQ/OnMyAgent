@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject, type UIEventHandler } from "react";
 
 import { getSessionScrollState, useSessionScrollStore } from "./scroll-store";
-import { classifyTranscriptScrollIntent } from "./transcript/scroll-intent";
+import {
+  classifyTranscriptScrollIntent,
+  shouldAutoStickTranscriptGrowth,
+  shouldPauseTranscriptFollowOnWheel,
+} from "./transcript/scroll-intent";
 import {
   anchoredTranscriptScrollTop,
   countPrependedTranscriptMessages,
@@ -23,6 +27,7 @@ type SessionScrollControllerOptions = {
   containerRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
   sessionChangeScroll?: "bottom" | "top";
+  active: boolean;
 };
 
 function scrollBottomGap(container: HTMLElement) {
@@ -148,6 +153,17 @@ export function useSessionScrollController(
       programmaticScrollResetRafBRef.current = undefined;
     }
   }, []);
+
+  const markWheelGesture = useCallback(
+    (deltaY: number, target?: EventTarget | null) => {
+      if (Math.abs(deltaY) <= 3) return;
+      markScrollGesture(target);
+      if (!shouldPauseTranscriptFollowOnWheel(deltaY)) return;
+      programmaticScrollRef.current = false;
+      clearProgrammaticScrollReset();
+    },
+    [clearProgrammaticScrollReset, markScrollGesture],
+  );
 
   const releaseProgrammaticScrollSoon = useCallback(() => {
     clearProgrammaticScrollReset();
@@ -309,12 +325,13 @@ export function useSessionScrollController(
       // touchpad, or scrollbar in the last SCROLL_GESTURE_WINDOW_MS, treat
       // that as intent to break out of autoscroll and leave their position
       // alone until the next handleScroll tick reclassifies the mode.
-      if (
-        grew &&
-        isAtBottom &&
-        options.sessionChangeScroll !== "top" &&
-        !hasScrollGesture()
-      ) {
+      if (shouldAutoStickTranscriptGrowth({
+        grew,
+        stickyBottom: isAtBottom,
+        active: options.active,
+        userInteracting: hasScrollGesture(),
+        sessionChangeScroll: options.sessionChangeScroll,
+      })) {
         scrollToBottom("auto");
         return;
       }
@@ -327,6 +344,7 @@ export function useSessionScrollController(
   }, [
     hasScrollGesture,
     isAtBottom,
+    options.active,
     options.contentRef,
     options.sessionChangeScroll,
     refreshTopClippedMessage,
@@ -463,6 +481,7 @@ export function useSessionScrollController(
     topClippedMessageId,
     handleScroll,
     markScrollGesture,
+    markWheelGesture,
     scrollToBottom,
     jumpToLatest,
     jumpToStartOfMessage,
