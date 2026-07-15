@@ -636,12 +636,16 @@ function formatStructuredValue(value: unknown) {
   }
 }
 
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function hasStructuredValue(value: unknown) {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") {
-    return Object.keys(value as Record<string, unknown>).length > 0;
+  if (isRecordValue(value)) {
+    return Object.keys(value).length > 0;
   }
   return true;
 }
@@ -668,7 +672,7 @@ function toolStatusText(status?: string) {
   if (!status) return null;
   const normalized = status.toLowerCase();
   if (normalized.includes("approval") || normalized.includes("pending")) return t("session.status_awaiting_approval");
-  if (normalized.includes("running") || normalized.includes("progress")) return "In progress";
+  if (normalized.includes("running") || normalized.includes("progress")) return t("session.status_in_progress");
   if (normalized.includes("error") || normalized.includes("failed")) return t("session.status_failed");
   return null;
 }
@@ -1301,7 +1305,10 @@ function FileCard(props: {
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isDataUrl = props.part.url?.startsWith("data:");
-  const title = props.part.filename || (isDataUrl ? "Attached file" : props.part.url) || "File";
+  const title =
+    props.part.filename ||
+    (isDataUrl ? t("session.attached_file") : props.part.url) ||
+    t("session.file");
   const ext = props.part.filename?.split(".").pop()?.toLowerCase();
   const badge = humanMediaType(props.part.mediaType) ?? (ext ? ext.toUpperCase() : null);
   const isImage = isImageAttachment(props.part.mediaType ?? "");
@@ -1402,19 +1409,17 @@ function StepRow(props: {
   onToggle: () => void;
 }) {
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
-  const toolState = useMemo(() => {
-    if (props.part.type !== "tool") return {} as Record<string, unknown>;
-    return (((props.part as { state?: unknown }).state ?? {}) as Record<string, unknown>);
+  const toolState = useMemo<Record<string, unknown>>(() => {
+    if (props.part.type !== "tool" || !("state" in props.part)) return {};
+    return isRecordValue(props.part.state) ? props.part.state : {};
   }, [props.part]);
-  const toolInput = toolState.input && typeof toolState.input === "object"
-    ? (toolState.input as Record<string, unknown>)
-    : undefined;
+  const toolInput = isRecordValue(toolState.input) ? toolState.input : undefined;
   const toolOutput = toolState.output;
   const toolError = typeof toolState.error === "string" ? toolState.error : null;
   const expandable =
     props.part.type === "tool" &&
     (hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
-  const headline = summary.title?.trim() || "Step updates progress";
+  const headline = summary.title?.trim() || t("session.step_progress");
   const statusText = toolStatusText(summary.status);
 
   if (props.part.type === "tool" && props.part.tool === "browser_use_operation") {
@@ -1431,9 +1436,7 @@ function StepRow(props: {
   }
 
   if (props.part.type === "reasoning") {
-    const raw = typeof (props.part as { text?: unknown }).text === "string"
-      ? (props.part as { text: string }).text
-      : "";
+    const raw = props.part.text;
     const preview = splitReasoningPreview(raw);
     if (!preview.headline && !preview.body) return null;
 
@@ -1482,7 +1485,7 @@ function StepRow(props: {
         <div className="mt-3 ml-7 space-y-3">
           {hasStructuredValue(toolInput) ? (
             <div>
-              <div className={messageTextClass.toolLabel}>Request</div>
+              <div className={messageTextClass.toolLabel}>{t("session.tool_request")}</div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
                 {formatStructuredValue(toolInput)}
               </pre>
@@ -1490,7 +1493,7 @@ function StepRow(props: {
           ) : null}
           {hasStructuredValue(toolOutput) ? (
             <div>
-              <div className={messageTextClass.toolLabel}>Result</div>
+              <div className={messageTextClass.toolLabel}>{t("session.tool_result")}</div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
                 {formatStructuredValue(toolOutput)}
               </pre>
@@ -1498,7 +1501,7 @@ function StepRow(props: {
           ) : null}
           {toolError ? (
             <div>
-              <div className={messageTextClass.toolLabel}>Error</div>
+              <div className={messageTextClass.toolLabel}>{t("session.tool_error")}</div>
               <pre className={messageStateClass.toolError}>
                 {toolError}
               </pre>
@@ -2016,7 +2019,7 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
   if (!props.targets.length) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs leading-none">
-      <span className="mr-0.5 text-muted-foreground">Openable items</span>
+      <span className="mr-0.5 text-muted-foreground">{t("session.openable_items")}</span>
       {props.targets.map((target) => (
           <Button
             key={target.id}
@@ -2029,7 +2032,11 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
           >
             <OpenTargetIcon target={target} />
             <span className="truncate">{target.name || target.value}</span>
-            <span className="text-muted-foreground">{target.kind === "url" ? "Open browser" : "Open artifact"}</span>
+            <span className="text-muted-foreground">
+              {target.kind === "url"
+                ? t("session.open_browser")
+                : t("session.open_artifact")}
+            </span>
           </Button>
         ))}
     </div>
