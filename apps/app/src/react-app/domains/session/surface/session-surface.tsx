@@ -1056,7 +1056,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     !chatStreaming;
   const assistantStatusFooter =
     showInlineActivityIndicator ? (
-      <AssistantWaitingCard collapseLayout />
+      <AssistantWaitingCard
+        collapseLayout
+        label={getSessionActivityStatusLabel(effectiveActivityStatus)}
+      />
     ) : showNoVisibleAssistantOutput ? (
       <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
     ) : reserveAssistantStatusSpace ? (

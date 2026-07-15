@@ -619,6 +619,39 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 }
 
 @layer utilities {
+  @keyframes session-transcript-loading-sweep {
+    0% {
+      background-position: 180% 0;
+    }
+    100% {
+      background-position: -80% 0;
+    }
+  }
+
+  .session-transcript-loading-shimmer {
+    width: fit-content;
+    background: linear-gradient(
+      110deg,
+      color-mix(in srgb, var(--dls-text) 26%, transparent) 0%,
+      color-mix(in srgb, var(--dls-text) 26%, transparent) 35%,
+      color-mix(in srgb, var(--dls-text) 58%, transparent) 50%,
+      color-mix(in srgb, var(--dls-text) 26%, transparent) 65%,
+      color-mix(in srgb, var(--dls-text) 26%, transparent) 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: session-transcript-loading-sweep 2.2s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .session-transcript-loading-shimmer {
+      background: none;
+      color: var(--dls-text-secondary);
+      animation: none;
+    }
+  }
+
   .session-transcript-root {
     --session-transcript-line-height: 19px;
     --session-transcript-font-size: 13px;

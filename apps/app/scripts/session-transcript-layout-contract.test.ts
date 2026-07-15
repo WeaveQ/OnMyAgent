@@ -9,6 +9,10 @@ const sessionSurfacePath = new URL(
   import.meta.url,
 );
 const appStylesPath = new URL("../src/app/index.css", import.meta.url);
+const assistantStatusPath = new URL(
+  "../src/react-app/domains/session/surface/chrome/assistant-status.tsx",
+  import.meta.url,
+);
 
 describe("session transcript layout contract", () => {
   test("keeps WorkBuddy geometry scoped to the root transcript", async () => {
@@ -63,5 +67,18 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("activeTurnMinHeight");
     expect(messageList).toContain('data-transcript-turn-active={isActiveTurn ? "true" : undefined}');
     expect(messageList).toContain('id: `block:${blockKey}`, turnId: null, blocks: [block]');
+  });
+
+  test("matches WorkBuddy loading shimmer and rotating tip timing", async () => {
+    const assistantStatus = await Bun.file(assistantStatusPath).text();
+    const appStyles = await Bun.file(appStylesPath).text();
+
+    expect(assistantStatus).toContain("const LOADING_TIP_DELAY_MS = 4_000");
+    expect(assistantStatus).toContain("const LOADING_TIP_ROTATION_MS = 10_000");
+    expect(assistantStatus).toContain("onMouseEnter={() => setTipsPaused(true)}");
+    expect(assistantStatus).toContain("onFocusCapture={() => setTipsPaused(true)}");
+    expect(assistantStatus).toContain("dismissTips");
+    expect(appStyles).toContain("session-transcript-loading-sweep 2.2s linear infinite");
+    expect(appStyles).toContain("prefers-reduced-motion: reduce");
   });
 });
