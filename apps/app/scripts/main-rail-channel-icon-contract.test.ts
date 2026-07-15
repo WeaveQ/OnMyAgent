@@ -34,10 +34,10 @@ describe("main rail channel icon contract", () => {
     expect(railSource).not.toContain("MessagesSquare");
     expect(railSource).toContain('get label() { return t("nav.channels"); }');
     expect(railSource).not.toContain("wechat.png");
-    expect(primitiveSource).toContain('true: "text-dls-text"');
+    expect(primitiveSource).toContain('true: "text-dls-accent"');
     expect(primitiveSource).not.toContain('true: "bg-dls-rail-active text-dls-text"');
     expect(primitiveSource).toContain(
-      'false: "text-dls-secondary hover:text-dls-text"',
+      'false: "text-dls-secondary hover:text-dls-accent"',
     );
     expect(primitiveSource).not.toContain("hover:bg-dls-rail-hover");
   });

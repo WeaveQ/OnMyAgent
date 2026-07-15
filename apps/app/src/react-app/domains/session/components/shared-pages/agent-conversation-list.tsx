@@ -58,7 +58,7 @@ function AgentStarterRow(props: {
         <span
           className={cn(
             "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2 border-dls-surface",
-            props.taskStatusVariant === "available" && "bg-dls-accent",
+            props.taskStatusVariant === "available" && "bg-dls-online",
             props.taskStatusVariant === "loading" && "bg-dls-status-warning",
             props.taskStatusVariant === "limited" && "bg-dls-status-warning",
             props.taskStatusVariant === "offline" && "bg-dls-status-danger",
