@@ -2029,10 +2029,13 @@ function messageGroupKey(messageId: string, group: MessageGroup) {
   return `${messageId}:text:${group.segment}:${partId}`;
 }
 
-function inlineOpenTargetsForMessage(message: UIMessage, verifiedTargets: OpenTarget[] | undefined) {
+export function selectTurnOpenTargets(
+  messages: UIMessage[],
+  verifiedTargets: OpenTarget[] | undefined,
+) {
   const verifiedById = new Map((verifiedTargets ?? []).map((target) => [target.id, target] as const));
   const inlineTargets = new Map<string, OpenTarget>();
-  for (const candidate of deriveOpenTargets([message], { includeFileMentions: true })) {
+  for (const candidate of deriveOpenTargets(messages, { includeFileMentions: true })) {
     const verified = verifiedById.get(candidate.id);
     if (candidate.kind === "url" && isLocalhostBrowserTarget(candidate)) {
       inlineTargets.set(candidate.id, verified ?? candidate);
@@ -2121,7 +2124,7 @@ function MessageBlockRow(props: {
   latestAssistantMessageId: string;
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
-  openTargets?: OpenTarget[];
+  turnOpenTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
   showAssistantIdentity: boolean;
@@ -2232,9 +2235,10 @@ function MessageBlockRow(props: {
   const groupSpacing = block.isUser ? "mb-3" : "mb-4";
   const isSyntheticSessionError =
     !block.isUser && block.messageId.startsWith(SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX);
-  const inlineOpenTargets = block.kind === "message" && !block.isUser && props.onOpenTarget
-    ? inlineOpenTargetsForMessage(block.message, props.openTargets)
-    : [];
+  const turnOpenTargets =
+    !block.isUser && turnPresentation?.isActionBlock && props.onOpenTarget
+      ? props.turnOpenTargets ?? []
+      : [];
   const assistantAvatar = props.assistantAvatar;
   const showAssistantAvatar =
     props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
@@ -2434,7 +2438,12 @@ function MessageBlockRow(props: {
           );
         })}
 
-        {props.onOpenTarget ? <OpenableTargetsStrip targets={inlineOpenTargets} onOpenTarget={props.onOpenTarget} /> : null}
+        {props.onOpenTarget ? (
+          <OpenableTargetsStrip
+            targets={turnOpenTargets}
+            onOpenTarget={props.onOpenTarget}
+          />
+        ) : null}
 
         {!props.isNestedVariant && block.isUser ? (
           <TranscriptUserToolbar
@@ -2783,6 +2792,17 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return "";
   }, [props.messages]);
 
+  const turnOpenTargetsByTurnId = useMemo(() => {
+    const targets = new Map<string, OpenTarget[]>();
+    transcriptTurns.forEach((turn) => {
+      targets.set(
+        turn.id,
+        selectTurnOpenTargets(turn.assistantMessages, props.openTargets),
+      );
+    });
+    return targets;
+  }, [props.openTargets, transcriptTurns]);
+
   const blockIndexByMessageId = useMemo(() => {
     const next = new Map<string, number>();
     renderItems.forEach((item, index) => {
@@ -2931,7 +2951,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         latestAssistantMessageId={latestAssistantMessageId}
         onRevertToMessage={props.onRevertToMessage}
         onForkAtMessage={props.onForkAtMessage}
-        openTargets={props.openTargets}
+        turnOpenTargets={turnPresentation
+          ? turnOpenTargetsByTurnId.get(turnPresentation.turnId)
+          : undefined}
         onOpenTarget={props.onOpenTarget}
         assistantAvatar={props.assistantAvatar}
         showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
