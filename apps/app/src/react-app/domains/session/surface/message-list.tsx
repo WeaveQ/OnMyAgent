@@ -72,6 +72,7 @@ import {
 } from "./transcript-presentation";
 import { buildTranscriptTurns } from "./transcript/turn-model";
 import { normalizeTranscriptQuestionAnswers } from "./transcript/question-answer";
+import { buildTranscriptToolPresentation } from "./transcript/tool-presentation";
 import {
   groupTranscriptRenderItems,
   type TranscriptRenderItem,
@@ -1457,8 +1458,16 @@ function StepRow(props: {
   const toolInput = isRecordValue(toolState.input) ? toolState.input : undefined;
   const toolOutput = toolState.output;
   const toolError = typeof toolState.error === "string" ? toolState.error : null;
+  const toolPresentation = props.part.type === "tool"
+    ? buildTranscriptToolPresentation({
+        toolName: props.part.tool,
+        toolInput,
+        toolOutput,
+      })
+    : null;
   const expandable =
     props.part.type === "tool" &&
+    toolPresentation?.family !== "read" &&
     (hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
   const headline = summary.title?.trim() || t("session.step_progress");
   const statusText = toolStatusText(summary.status);
@@ -1540,9 +1549,34 @@ function StepRow(props: {
           props.onToggle();
         }}
       >
-        <span className="inline-flex max-w-[760px] items-center gap-3">
+        <span className="inline-flex min-w-0 max-w-[760px] items-center gap-3">
           <ToolActivityIcon category={summary.toolCategory} />
-          <span className="min-w-0 wrap-break-word">{headline}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block wrap-break-word">{headline}</span>
+            {toolPresentation?.secondary ? (
+              <span
+                className="mt-0.5 block truncate font-mono text-xs text-dls-secondary"
+                title={toolPresentation.secondary}
+              >
+                {toolPresentation.secondary}
+              </span>
+            ) : null}
+          </span>
+          {toolPresentation?.lineRange ? (
+            <StatusBadge size="tiny" shape="soft">
+              {toolPresentation.lineRange}
+            </StatusBadge>
+          ) : null}
+          {toolPresentation && toolPresentation.addedLines > 0 ? (
+            <span className="text-xs text-dls-status-success-fg">
+              +{toolPresentation.addedLines}
+            </span>
+          ) : null}
+          {toolPresentation && toolPresentation.removedLines > 0 ? (
+            <span className="text-xs text-dls-status-danger-fg">
+              -{toolPresentation.removedLines}
+            </span>
+          ) : null}
           {expandable ? (
             <ChevronDown
               size={14}
@@ -1557,7 +1591,10 @@ function StepRow(props: {
       {statusText ? <div className={messageTextClass.toolStatus}>{statusText}</div> : null}
       {props.expanded ? (
         <div className="mt-3 ml-7 space-y-3">
-          {hasStructuredValue(toolInput) ? (
+          {hasStructuredValue(toolInput) && (
+            toolPresentation?.family === "generic" ||
+            toolPresentation?.family === "write"
+          ) ? (
             <div>
               <div className={messageTextClass.toolLabel}>{t("session.tool_request")}</div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
