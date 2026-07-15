@@ -113,4 +113,17 @@ describe("session transcript layout contract", () => {
     expect(personalAssistant).not.toContain('t("session.error_retry")');
     expect(personalAssistant).not.toContain('className="rounded-full text-dls-text');
   });
+
+  test("localizes WorkBuddy tool details and openable artifact actions", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+
+    expect(messageList).toContain('t("session.tool_request")');
+    expect(messageList).toContain('t("session.tool_result")');
+    expect(messageList).toContain('t("session.tool_error")');
+    expect(messageList).toContain('t("session.openable_items")');
+    expect(messageList).toContain('t("session.open_browser")');
+    expect(messageList).toContain('t("session.open_artifact")');
+    expect(messageList).not.toContain(">Openable items<");
+    expect(messageList).not.toContain(">Request<");
+  });
 });
