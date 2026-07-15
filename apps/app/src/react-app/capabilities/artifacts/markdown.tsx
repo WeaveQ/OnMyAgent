@@ -1,9 +1,9 @@
 /** @jsxImportSource react */
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Marked, type Tokens } from "marked";
 import { markedEmoji } from "marked-emoji";
-import markedShiki from "marked-shiki";
 import emojiKeywords from "emojilib";
+import "katex/dist/katex.min.css";
 import {
   transformerMetaHighlight,
   transformerMetaWordHighlight,
@@ -17,6 +17,18 @@ import { bundledLanguages, codeToHtml } from "shiki";
 
 import { StreamingCursor } from "@/components/ui/streaming-cursor";
 import { t } from "@/i18n";
+import {
+  localizeMarkdownMermaidMarkup,
+  renderMarkdownMermaidMarkup,
+  setupMarkdownMermaid,
+  type MarkdownMermaidLabels,
+} from "./markdown-mermaid";
+import {
+  isFullLatexDocument,
+  markdownMathExtension,
+  normalizeMarkdownMathDelimiters,
+  renderMarkdownMath,
+} from "./markdown-math";
 import { applyTextHighlights } from "./text-highlights";
 
 const MARKDOWN_COPY_LABEL_TOKEN = "__ONMYAGENT_MARKDOWN_COPY_LABEL__";
@@ -165,8 +177,24 @@ function markdownCodeHeader(info: MarkdownCodeFenceInfo) {
   return `<div class="flex min-h-9 items-center justify-between gap-3 border-b border-dls-mist bg-dls-surface-muted px-3"><button type="button" data-markdown-code-title class="min-w-0 truncate font-mono text-xs font-medium text-dls-secondary disabled:cursor-default"${pathAttribute}>${escapeHtml(title)}${lineRange}</button>${markdownCodeCopyButton()}</div>`;
 }
 
-function localizeMarkdownHtml(html: string, copyLabel: string) {
-  return html.replaceAll(MARKDOWN_COPY_LABEL_TOKEN, escapeAttribute(copyLabel));
+function renderSpecialMarkdownCodeFence(text: string, info: MarkdownCodeFenceInfo) {
+  const language = info.language.toLowerCase();
+  if (language === "mermaid") return renderMarkdownMermaidMarkup(text);
+  if (language === "latex" && !isFullLatexDocument(text)) {
+    return `<div data-markdown-code-block data-markdown-latex-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(info)}<div data-markdown-math="block" class="overflow-x-auto px-4 py-4 text-center">${escapeHtml(text)}</div></div>`;
+  }
+  return null;
+}
+
+function localizeMarkdownHtml(
+  html: string,
+  copyLabel: string,
+  mermaidLabels: MarkdownMermaidLabels,
+) {
+  return localizeMarkdownMermaidMarkup(
+    html.replaceAll(MARKDOWN_COPY_LABEL_TOKEN, escapeAttribute(copyLabel)),
+    mermaidLabels,
+  );
 }
 
 function createEmojiAliases() {
@@ -181,81 +209,28 @@ function createEmojiAliases() {
 
 const emojiAliases = createEmojiAliases();
 
+export function preprocessSessionMarkdown(markdown: string) {
+  const repeatLimit = 200;
+  const truncated = markdown.replace(/(.)\1{200,}/g, (match, character: string) => (
+    `${character.repeat(repeatLimit)}…${t("session.markdown_chars_omitted", { count: match.length - repeatLimit })}`
+  ));
+  return normalizeMarkdownMathDelimiters(truncated);
+}
+
 function normalizeShikiLanguage(lang: string) {
   const normalized = lang.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
   return normalized in bundledLanguages ? normalized : "text";
 }
 
-function hasFencedCodeBlock(text: string) {
-  return /(^|\n)```/.test(text);
-}
-
-const shikiAllowedTags = new Set(["div", "pre", "code", "span"]);
-const shikiAllowedAttributes = new Set([
-  "class",
-  "data-onmyagent-shiki",
-  "style",
-  "tabindex",
-]);
-const shikiAllowedStyleProperties = new Set([
-  "background-color",
-  "color",
-  "font-style",
-  "font-weight",
-  "text-decoration",
-]);
-
-function isSafeShikiStyle(value: string) {
-  const declarations = value.split(";").map((item) => item.trim()).filter(Boolean);
-  if (!declarations.length) return true;
-  return declarations.every((declaration) => {
-    const separator = declaration.indexOf(":");
-    if (separator <= 0) return false;
-    const property = declaration.slice(0, separator).trim().toLowerCase();
-    const rawValue = declaration.slice(separator + 1).trim().toLowerCase();
-    if (!shikiAllowedStyleProperties.has(property)) return false;
-    if (/url\s*\(|expression\s*\(|@import|javascript:|data:/i.test(rawValue)) return false;
-    return /^#[0-9a-f]{3,8}$/i.test(rawValue) || /^[a-z-]+$/i.test(rawValue) || /^[0-9.]+$/.test(rawValue);
-  });
-}
-
-function isSafeShikiHtml(text: string) {
-  if (!text.includes('data-onmyagent-shiki="true"')) return false;
-  if (/<\s*(script|style|iframe|object|embed|link|meta|img|svg|math)\b/i.test(text)) return false;
-
-  const tagPattern = /<\/?([a-z][a-z0-9-]*)(\s[^>]*)?>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = tagPattern.exec(text)) !== null) {
-    const tagName = match[1].toLowerCase();
-    if (!shikiAllowedTags.has(tagName)) return false;
-
-    const attributesText = match[2] ?? "";
-    const attributePattern = /([:@a-zA-Z0-9_-]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+))?/g;
-    let attributeMatch: RegExpExecArray | null;
-    while ((attributeMatch = attributePattern.exec(attributesText)) !== null) {
-      const attributeName = attributeMatch[1].toLowerCase();
-      if (!shikiAllowedAttributes.has(attributeName)) return false;
-      if (attributeName.startsWith("on")) return false;
-
-      const rawAttributeValue = attributeMatch[2] ?? "";
-      const attributeValue = rawAttributeValue.replace(/^['"]|['"]$/g, "");
-      if (/javascript:|data:/i.test(attributeValue)) return false;
-      if (attributeName === "style" && !isSafeShikiStyle(attributeValue)) return false;
-    }
-  }
-
-  return true;
-}
-
 const baseMarkedOptions = {
   async: false,
-  breaks: false,
+  breaks: true,
   gfm: true,
   pedantic: false,
   silent: true,
   renderer: {
-    html({ text }) {
-      return isSafeShikiHtml(text) ? text : "";
+    html() {
+      return "";
     },
     paragraph({ tokens }) {
       return `<p class="my-3 leading-relaxed">${this.parser.parseInline(tokens)}</p>`;
@@ -287,6 +262,8 @@ const baseMarkedOptions = {
     },
     code({ text, lang }) {
       const info = parseMarkdownCodeFenceInfo(lang);
+      const special = renderSpecialMarkdownCodeFence(text, info);
+      if (special) return special;
       return `<div data-markdown-code-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(info)}<pre class="overflow-x-auto px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(info.language)}>${escapeHtml(text)}</code></pre></div>`;
     },
     codespan({ text }) {
@@ -328,47 +305,32 @@ const baseMarkedOptions = {
 } satisfies ConstructorParameters<typeof Marked<string, string>>[0];
 
 const markdownParser = new Marked<string, string>(baseMarkedOptions).use(
+  markdownMathExtension,
   markedEmoji({
     emojis: emojiAliases,
     renderer: (token) => escapeHtml(token.emoji),
   }),
 );
 
-const highlightedMarkdownParser = new Marked<string, string>({
-  ...baseMarkedOptions,
-  async: true,
-}).use(
-  markedEmoji({
-    emojis: emojiAliases,
-    renderer: (token) => escapeHtml(token.emoji),
-  }),
-  markedShiki({
-    async highlight(code, lang, props) {
-      const info = parseMarkdownCodeFenceInfo(lang);
-      const language = normalizeShikiLanguage(info.language || lang);
-      const html = await codeToHtml(code, {
-        lang: language,
-        meta: { __raw: props.join(" ") },
-        theme: "github-light",
-        transformers: [
-          transformerNotationDiff({ matchAlgorithm: "v3" }),
-          transformerNotationHighlight({ matchAlgorithm: "v3" }),
-          transformerNotationWordHighlight({ matchAlgorithm: "v3" }),
-          transformerNotationFocus({ matchAlgorithm: "v3" }),
-          transformerNotationErrorLevel({ matchAlgorithm: "v3" }),
-          transformerMetaHighlight(),
-          transformerMetaWordHighlight(),
-        ],
-      });
-      const fileName = info.fileName ? ` data-markdown-highlight-file-name="${escapeAttribute(info.fileName)}"` : "";
-      const filePath = info.filePath ? ` data-markdown-highlight-file-path="${escapeAttribute(info.filePath)}"` : "";
-      const startLine = info.startLine ? ` data-markdown-highlight-start-line="${info.startLine}"` : "";
-      const endLine = info.endLine ? ` data-markdown-highlight-end-line="${info.endLine}"` : "";
-      return `<div data-markdown-highlight-language="${escapeAttribute(language)}"${fileName}${filePath}${startLine}${endLine}>${html}</div>`;
-    },
-    container: `<div data-onmyagent-shiki="true" data-markdown-code-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(parseMarkdownCodeFenceInfo(undefined))}<div class="overflow-x-auto p-4 text-xs leading-6">%s</div></div>`,
-  }),
-);
+export function renderSessionMarkdownHtml(markdown: string) {
+  return markdownParser.parse(preprocessSessionMarkdown(markdown), { async: false });
+}
+
+export function highlightSessionMarkdownCode(code: string, language: string, dark: boolean) {
+  return codeToHtml(code, {
+    lang: normalizeShikiLanguage(language),
+    theme: dark ? "github-dark" : "github-light",
+    transformers: [
+      transformerNotationDiff({ matchAlgorithm: "v3" }),
+      transformerNotationHighlight({ matchAlgorithm: "v3" }),
+      transformerNotationWordHighlight({ matchAlgorithm: "v3" }),
+      transformerNotationFocus({ matchAlgorithm: "v3" }),
+      transformerNotationErrorLevel({ matchAlgorithm: "v3" }),
+      transformerMetaHighlight(),
+      transformerMetaWordHighlight(),
+    ],
+  });
+}
 
 function MarkdownBlockInner(props: {
   text: string;
@@ -379,29 +341,11 @@ function MarkdownBlockInner(props: {
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const normalizedText = useMemo(() => preprocessSessionMarkdown(props.text), [props.text]);
   const syncHtml = useMemo(() => {
-    if (!props.text.trim()) return "";
-    return markdownParser.parse(props.text, { async: false });
-  }, [props.text]);
-  const [highlightedHtml, setHighlightedHtml] = useState<{ text: string; html: string } | null>(null);
-
-  useEffect(() => {
-    if (props.streaming || !hasFencedCodeBlock(props.text)) {
-      setHighlightedHtml(null);
-      return;
-    }
-
-    let cancelled = false;
-    void highlightedMarkdownParser.parse(props.text, { async: true }).then((html) => {
-      if (!cancelled && html.trim()) setHighlightedHtml({ text: props.text, html });
-    }).catch(() => {
-      if (!cancelled) setHighlightedHtml(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [props.streaming, props.text]);
-
+    if (!normalizedText.trim()) return "";
+    return renderSessionMarkdownHtml(props.text);
+  }, [normalizedText, props.text]);
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -414,36 +358,97 @@ function MarkdownBlockInner(props: {
 
   const copyLabel = t("common.copy");
   const copiedLabel = t("common.copied");
+  const mermaidLabels = useMemo<MarkdownMermaidLabels>(() => ({
+    code: t("session.markdown_mermaid_code"),
+    diagram: t("session.markdown_mermaid_diagram"),
+    copy: t("common.copy"),
+    copied: t("common.copied"),
+    expand: t("session.markdown_mermaid_expand"),
+    collapse: t("session.markdown_mermaid_collapse"),
+    theme: t("session.markdown_mermaid_theme"),
+    zoomIn: t("session.markdown_mermaid_zoom_in"),
+    zoomOut: t("session.markdown_mermaid_zoom_out"),
+    download: t("session.markdown_mermaid_download"),
+    downloadSvg: t("session.markdown_mermaid_download_svg"),
+    downloadPng: t("session.markdown_mermaid_download_png"),
+    syntaxError: t("session.markdown_mermaid_syntax_error"),
+    copyError: t("session.markdown_mermaid_copy_error"),
+  }), [props.locale]);
   const html = localizeMarkdownHtml(
-    highlightedHtml?.text === props.text ? highlightedHtml.html : syncHtml,
+    syncHtml,
     copyLabel,
+    mermaidLabels,
   );
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    root.querySelectorAll<HTMLElement>("[data-markdown-code-block]").forEach((block) => {
-      const metadata = block.querySelector<HTMLElement>("[data-markdown-highlight-language]");
-      const title = block.querySelector<HTMLButtonElement>("[data-markdown-code-title]");
-      if (!metadata || !title) return;
-      const language = metadata.dataset.markdownHighlightLanguage ?? "code";
-      const fileName = metadata.dataset.markdownHighlightFileName;
-      const filePath = metadata.dataset.markdownHighlightFilePath;
-      const startLine = metadata.dataset.markdownHighlightStartLine;
-      const endLine = metadata.dataset.markdownHighlightEndLine;
-      title.replaceChildren(document.createTextNode(fileName || language));
-      if (startLine && endLine) {
-        const range = document.createElement("span");
-        range.className = "ml-2 font-normal text-dls-secondary";
-        range.textContent = `L${startLine}-L${endLine}`;
-        title.append(range);
-      }
-      if (filePath) {
-        title.disabled = false;
-        title.dataset.markdownCodePath = filePath;
-        title.title = filePath;
-      }
+    void renderMarkdownMath(root).catch(() => undefined);
+  }, [html]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    return setupMarkdownMermaid(root, {
+      streaming: props.streaming === true,
+      labels: mermaidLabels,
     });
+  }, [html, mermaidLabels, props.streaming]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || props.streaming) return;
+    let cancelled = false;
+    let renderGeneration = 0;
+
+    const enhanceCodeBlocks = async () => {
+      const generation = ++renderGeneration;
+      const dark = document.documentElement.classList.contains("dark");
+      const theme = dark ? "dark" : "light";
+      const blocks = Array.from(root.querySelectorAll<HTMLElement>(
+        "[data-markdown-code-block]:not([data-markdown-latex-block])",
+      ));
+      await Promise.all(blocks.map(async (block) => {
+        const code = block.querySelector<HTMLElement>("pre code");
+        const pre = code?.closest<HTMLElement>("pre");
+        if (!code || !pre || code.dataset.markdownShikiTheme === theme) return;
+        const languageClass = Array.from(code.classList).find((className) => className.startsWith("language-"));
+        const language = languageClass?.slice("language-".length) ?? "text";
+        const highlighted = await highlightSessionMarkdownCode(code.textContent ?? "", language, dark);
+        if (cancelled || generation !== renderGeneration || !root.contains(code)) return;
+        const template = document.createElement("template");
+        template.innerHTML = highlighted;
+        const highlightedPre = template.content.querySelector<HTMLElement>("pre");
+        const highlightedCode = template.content.querySelector<HTMLElement>("code");
+        if (!highlightedCode) return;
+        code.innerHTML = highlightedCode.innerHTML;
+        code.dataset.markdownShikiTheme = theme;
+        const color = highlightedPre?.style.color;
+        if (color) pre.style.color = color;
+      }));
+      if (!cancelled && generation === renderGeneration) {
+        applyTextHighlights(root, props.highlightQuery ?? "");
+      }
+    };
+
+    void enhanceCodeBlocks().catch(() => undefined);
+    const themeObserver = new MutationObserver(() => {
+      void enhanceCodeBlocks().catch(() => undefined);
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+    return () => {
+      cancelled = true;
+      renderGeneration += 1;
+      themeObserver.disconnect();
+    };
+  }, [html, props.highlightQuery, props.streaming]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
     root.querySelectorAll<HTMLButtonElement>("button[data-markdown-code-path]").forEach((pathButton) => {
       const path = pathButton.dataset.markdownCodePath ?? "";
       const resolvedPath = resolveVerifiedCodePath(props.verifiedCodePaths ?? [], path);

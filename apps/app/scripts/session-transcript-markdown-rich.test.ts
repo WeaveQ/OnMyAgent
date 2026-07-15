@@ -1,0 +1,106 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  highlightSessionMarkdownCode,
+  preprocessSessionMarkdown,
+  renderSessionMarkdownHtml,
+} from "../src/react-app/capabilities/artifacts/markdown";
+import { localizeMarkdownMermaidMarkup } from "../src/react-app/capabilities/artifacts/markdown-mermaid";
+import {
+  isFullLatexDocument,
+  normalizeMarkdownMathDelimiters,
+} from "../src/react-app/capabilities/artifacts/markdown-math";
+
+const labels = {
+  code: "Code",
+  diagram: "Diagram",
+  copy: "Copy",
+  copied: "Copied",
+  expand: "Expand",
+  collapse: "Collapse",
+  theme: "Theme",
+  zoomIn: "Zoom in",
+  zoomOut: "Zoom out",
+  download: "Download",
+  downloadSvg: "Download SVG",
+  downloadPng: "Download PNG",
+  syntaxError: "Syntax error",
+  copyError: "Copy error",
+};
+
+describe("session transcript rich markdown", () => {
+  test("matches WorkBuddy line breaks and repeated-character truncation", () => {
+    const html = renderSessionMarkdownHtml("first line\nsecond line");
+    const truncated = preprocessSessionMarkdown("x".repeat(207));
+    expect(html).toContain("first line<br>second line");
+    expect(truncated).toContain(`${"x".repeat(200)}…[7 chars omitted]`);
+  });
+
+  test("normalizes WorkBuddy math delimiters", () => {
+    expect(normalizeMarkdownMathDelimiters("Inline \\(x + y\\) and block \\[x^2\\]"))
+      .toBe("Inline $x + y$ and block $$x^2$$");
+  });
+
+  test("keeps fenced blocks after a normalized display formula", () => {
+    const markdown = [
+      "\\[",
+      "\\int_0^1 x^2\\,dx = \\frac{1}{3}",
+      "\\]",
+      "",
+      "```latex",
+      "\\frac{a}{b}",
+      "```",
+      "",
+      "```mermaid",
+      "graph TD",
+      "A --> B",
+      "```",
+    ].join("\n");
+    const html = renderSessionMarkdownHtml(markdown);
+    expect(html).toContain("data-markdown-latex-block");
+    expect(html).toContain("data-markdown-mermaid-block");
+  });
+
+  test("enhances ordinary code independently from special fenced blocks", async () => {
+    const html = await highlightSessionMarkdownCode("const value = 1;", "typescript", false);
+    expect(html).toContain("class=\"shiki");
+    expect(html).toContain("<span");
+    expect(html).toContain("const");
+  });
+
+  test("emits KaTeX enhancement targets for inline and block math", () => {
+    const html = renderSessionMarkdownHtml("Inline $x + y$.\n\n$$\nx^2\n$$\n\n```mermaid\ngraph TD\nA --> B\n```");
+    expect(html).toContain('data-markdown-math="inline"');
+    expect(html).toContain('data-markdown-math="block"');
+    expect(html).toContain("x^2");
+    expect(html).toContain("data-markdown-mermaid-block");
+  });
+
+  test("renders latex fences as math but preserves full documents as code", () => {
+    const formula = renderSessionMarkdownHtml("```latex\n\\frac{a}{b}\n```");
+    const document = renderSessionMarkdownHtml("```latex\n\\documentclass{article}\n```");
+    expect(formula).toContain("data-markdown-latex-block");
+    expect(formula).toContain('data-markdown-math="block"');
+    expect(document).not.toContain("data-markdown-latex-block");
+    expect(document).toContain("language-latex");
+    expect(isFullLatexDocument("\\begin{document}x\\end{document}")).toBe(true);
+  });
+
+  test("dispatches mermaid fences to the WorkBuddy diagram surface", () => {
+    const html = renderSessionMarkdownHtml("```mermaid\ngraph TD\nA --> B\n```");
+    expect(html).toContain("data-markdown-mermaid-block");
+    expect(html).toContain('data-markdown-mermaid-action="diagram"');
+    expect(html).toContain("graph TD");
+    expect(html).not.toContain("data-markdown-code-block");
+  });
+
+  test("localizes mermaid controls without exposing placeholder tokens", () => {
+    const html = localizeMarkdownMermaidMarkup(
+      renderSessionMarkdownHtml("```mermaid\ngraph TD\nA --> B\n```"),
+      labels,
+    );
+    expect(html).toContain(">Diagram</button>");
+    expect(html).toContain("Download PNG");
+    expect(html).not.toContain("__ONMYAGENT_MERMAID_");
+  });
+});
