@@ -544,6 +544,20 @@ components:
       surface: "{colors.surface}"
       padding: "{spacing.row-padding}"
       title: "{typography.scale.sm}/500"
+    chat-message-row:
+      scope: "root session transcript only; nested transcripts retain their compact contract"
+      max-content-width-default: 832
+      max-content-width-rules: "<=1200:832; <=1600:65%; <=2000:60%; >2000:min(55%,1400)"
+      assistant-avatar-size: 24
+      assistant-name: "{typography.scale.sm}/600"
+      assistant-body: "13px/19px"                    # § 11 WorkBuddy parity exception
+      assistant-surface: transparent
+      user-padding: "8px 12px"
+      user-radius: "16px 16px 0 16px"                # § 11 WorkBuddy parity exception
+      user-max-height: 310
+      action-height: "{spacing.button-heights.xs}"   # 24
+      action-gap: "{spacing.scale.xs}"               # 8
+      composer-coupling: "none; transcript refactors must not alter composer geometry"
     artifact-card:
       radius: "{rounded.md}"                          # 8 (signature — see § 4)
       surface: "{colors.surface}"
@@ -928,13 +942,16 @@ components** are the four OnMyAgent-native identity anchors: agents
 generating these must not reinvent them, and any refactor to them
 requires updating this section in the same PR.
 
-- **`ChatMessage row`** — content-first row: 12px vertical rhythm,
-  `AgentAvatarMesh` at 32px on the left, message body `text-sm` with
-  `text-dls-text-primary`, timestamp `text-xs text-dls-text-tertiary`
-  right-aligned. No card chrome; rows are separated by hairlines
-  (`border-dls-mist`) only at grouping boundaries or on hover-selected
-  state. Streaming state shows a `signal`-colored dot appended to the
-  timestamp.
+- **`ChatMessage row`** — root session transcripts group one user prompt
+  and its following assistant / system / tool output into a turn. The
+  transcript is centered and uses the responsive width rules in
+  `components.contracts.chat-message-row`. The user prompt is a compact,
+  content-width bubble aligned right, with no user avatar or label. The
+  assistant identity appears once per turn with a 24px avatar; assistant
+  copy stays transparent and card-free. Execution metadata may collapse,
+  but final text, artifacts, and pending approvals never do. Nested
+  transcripts retain their existing compact layout. Transcript work must
+  not change the composer host or composer geometry.
 - **`SessionCard`** — the primary session / chat entry in rail-adjacent
   lists: `bg-dls-surface`, `rounded-md` (8), border hairline on hover,
   active state uses `dls-active`. Title `text-sm font-medium`,
@@ -1906,6 +1923,13 @@ in dedicated registry files, not in ordinary JSX:
   measured runtime geometry.
 - **Performance containment** — large message lists, composer surfaces:
   `contain`, `content-visibility`, virtualizer transforms.
+- **WorkBuddy root-transcript parity geometry** — the root session
+  `ChatMessage row` may use the measured 13px/19px assistant body and the
+  asymmetric `16px 16px 0 16px` user-bubble radius declared in
+  `components.contracts.chat-message-row`. These two values are scoped to
+  root transcripts and are not additions to the global typography or radius
+  scales. Implement them through named transcript styles or CSS variables,
+  never page-level `text-[13px]` / arbitrary-radius Tailwind classes.
 - **Pre-app boot / gate screens** — `architecture-mismatch-gate.tsx`.
   Full-screen dark hero shown before the app can launch. Its CTAs
   intentionally use `rounded-full` and a self-contained palette because
