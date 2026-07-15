@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { MessageTips } from "./message-tips";
-import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../session/surface/tool-call";
+import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
 
 export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefined) {
   const event = run?.events?.[run.events.length - 1];

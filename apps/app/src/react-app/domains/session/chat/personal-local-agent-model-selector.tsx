@@ -1,9 +1,10 @@
 import { SelectMenu } from "../../../design-system/select-menu";
 import { t } from "@/i18n";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import { personalLocalAgentSetAcpConfigOption, type PersonalLocalAgent } from "../../../../app/lib/desktop";
-import { modelSelectorLabel } from "../../local-agents/local-agent-page-model";
-import { type AcpModelInfo } from "../../local-agents/hooks/use-acp-model-info";
+import { modelSelectorLabel } from "../../local-agents";
+import { useAcpModelInfo } from "../../local-agents";
+type AcpModelInfo = ReturnType<typeof useAcpModelInfo>;
 
 type PersonalLocalAgentModelSelectorProps = {
   agent: PersonalLocalAgent | null;
