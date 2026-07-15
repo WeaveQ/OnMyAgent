@@ -360,6 +360,19 @@ describe("expert marketplace UI contract", () => {
     expect(actionRow).toContain("border-dls-accent bg-dls-decision-soft font-medium text-dls-accent");
   });
 
+  test("expert session tabs separate expanded chrome and embed the collapse handle", () => {
+    const tabs = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx",
+    );
+
+    expect(tabs).toContain('? "px-4 pb-2 pt-2 shadow-sm"');
+    expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
+    expect(tabs).toContain('variant="ghost"');
+    expect(tabs).toContain("rounded-t-none rounded-b-md bg-dls-surface-muted");
+    expect(tabs).toContain("before:-top-px before:inset-x-0 before:h-px");
+    expect(tabs).not.toContain("rounded-full border-dls-border bg-dls-surface");
+  });
+
   test("assistant automation session rows do not expose pinning", () => {
     const sections = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx");
     const taskItem = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/assistant-task-item.tsx");
