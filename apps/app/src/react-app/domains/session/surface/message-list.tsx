@@ -193,6 +193,7 @@ type DividerBlock = {
   kind: "divider";
   id: string;
   label: string;
+  variant?: SessionTranscriptDividerVariant;
   afterMessageCount: number;
   isUser: false;
 };
@@ -224,8 +225,18 @@ type TranscriptBlockTurnPresentation = TranscriptTurnPresentation & {
 export type SessionTranscriptDivider = {
   id: string;
   label: string;
+  variant?: SessionTranscriptDividerVariant;
   afterMessageCount: number;
 };
+
+export type SessionTranscriptDividerVariant =
+  | "cancelled"
+  | "stopped"
+  | "compacting"
+  | "compacted"
+  | "stalled"
+  | "permission-rejected"
+  | "permission-auto-approved";
 
 export function isTranscriptDividerReady(
   divider: SessionTranscriptDivider | undefined,
@@ -287,6 +298,7 @@ function blocksAreEquivalent(
     return (
       previous.id === next.id &&
       previous.label === next.label &&
+      previous.variant === next.variant &&
       previous.afterMessageCount === next.afterMessageCount
     );
   }
@@ -2134,11 +2146,20 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
   );
 }
 
-function TranscriptDividerRow(props: { label: string }) {
+function TranscriptDividerRow(props: {
+  label: string;
+  variant?: SessionTranscriptDividerVariant;
+}) {
   return (
-    <div className="mx-auto flex items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
+    <div
+      className={cn(
+        "session-transcript-divider mx-auto flex items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5",
+        props.variant && `session-transcript-divider-${props.variant}`,
+      )}
+      data-divider-variant={props.variant}
+    >
       <div className="session-transcript-divider-line min-w-10 flex-1" />
-      <span className="shrink-0">{props.label}</span>
+      <span className="session-transcript-divider-label shrink-0">{props.label}</span>
       <div className="session-transcript-divider-line min-w-10 flex-1" />
     </div>
   );
@@ -2583,6 +2604,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             kind: "divider",
             id: divider.id,
             label: divider.label,
+            variant: divider.variant,
             afterMessageCount: divider.afterMessageCount,
             isUser: false,
           });
@@ -2690,6 +2712,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
           kind: "divider",
           id: divider.id,
           label: divider.label,
+          variant: divider.variant,
           afterMessageCount: divider.afterMessageCount,
           isUser: false,
         });
@@ -2964,7 +2987,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const renderConversationBlock = (block: MessageBlockItem) => {
     const blockKey = blockIdentityKey(block);
     if (block.kind === "divider") {
-      return <TranscriptDividerRow key={blockKey} label={block.label} />;
+      return (
+        <TranscriptDividerRow
+          key={blockKey}
+          label={block.label}
+          variant={block.variant}
+        />
+      );
     }
     const blockIndex = blockIndexByKey.get(blockKey);
     if (blockIndex === undefined) return null;
@@ -3001,7 +3030,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const renderTranscriptItem = (item: TranscriptRenderItem<MessageBlockItem>) => {
     if (item.kind === "divider") {
       return item.block.kind === "divider"
-        ? <TranscriptDividerRow label={item.block.label} />
+        ? (
+            <TranscriptDividerRow
+              label={item.block.label}
+              variant={item.block.variant}
+            />
+          )
         : null;
     }
     const isActiveTurn = item.id === activeRenderItemId;

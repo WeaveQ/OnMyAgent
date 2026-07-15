@@ -60,6 +60,9 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("<MarkdownBlock");
     expect(appStyles).toContain(".session-transcript-divider-line");
     expect(appStyles).toContain("repeating-linear-gradient");
+    expect(messageList).toContain("data-divider-variant={props.variant}");
+    expect(appStyles).toContain(".session-transcript-divider-compacting");
+    expect(appStyles).toContain("session-transcript-loading-sweep 1.6s linear infinite");
   });
 
   test("virtualizes root transcripts by turn and reserves the active viewport", async () => {
