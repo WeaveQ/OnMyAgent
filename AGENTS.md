@@ -136,7 +136,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 - 可自动继续：代码实现、文档更新、运行/修复明确的 lint/typecheck/test。
 - 必须跳出问用户：schema/数据结构变更、线上/真实资源、push/deploy/外部消息、超出当前边界、连续 3 次同错失败、需要产品/架构取舍。
-- 本地状态：动态 progress/run log/intent debt/执行 plan 只写 `.loop/`（gitignored）。禁止把 plan ledger 提交到 `docs/plans/` 或 `docs/archive/`（亦已 ignore）。
+- 本地状态：动态 progress/run log/intent debt/执行 plan 只写 `.loop/`（gitignored）。禁止把 plan ledger 提交到 `docs/plans/`、`docs/archive/`、`docs/features/` 或 `docs/superpowers/`（均已 ignore）。
 
 ## 验证入口
 
