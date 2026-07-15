@@ -996,11 +996,11 @@ export function AssistantPage(props: AssistantPageProps) {
             >
               <ResizablePanel minSize="360px" className="min-w-0">
                 <main className={cn(
-                  "flex h-full min-w-0 flex-col overflow-hidden bg-dls-surface",
+                  "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
                   sidePanelVisible ? "border-r-0" : "border-r border-dls-border",
                 )}>
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-surface mac:bg-dls-surface">
+                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
                       {activeSidebarView === "store" ? (
                         <StorePage
                           workspaceId={props.selectedWorkspaceId}
@@ -1337,7 +1337,7 @@ export function AssistantPage(props: AssistantPageProps) {
                       `${ASSISTANT_SIDE_PANEL_MIN_WIDTH}px`
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden lg:flex lg:flex-col"
+                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "canvas" ? (
                       <InfiniteCanvasPanel

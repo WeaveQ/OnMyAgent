@@ -197,8 +197,8 @@ const railButtonVariants = cva(
   {
     variants: {
       active: {
-        true: "text-dls-text",
-        false: "text-dls-secondary hover:text-dls-text",
+        true: "text-dls-accent",
+        false: "text-dls-secondary hover:text-dls-accent",
       },
       size: {
         top: "min-h-12 w-[60px] gap-1 rounded-xl px-1.5 text-xs",
