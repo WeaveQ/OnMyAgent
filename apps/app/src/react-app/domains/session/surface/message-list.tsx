@@ -13,6 +13,7 @@ import {
   Folder,
   GitFork,
   Globe,
+  HelpCircle,
   MessageSquareWarning,
   MoreHorizontal,
   RotateCcw,
@@ -70,6 +71,7 @@ import {
   formatTranscriptMessageTime,
 } from "./transcript-presentation";
 import { buildTranscriptTurns } from "./transcript/turn-model";
+import { normalizeTranscriptQuestionAnswers } from "./transcript/question-answer";
 import {
   groupTranscriptRenderItems,
   type TranscriptRenderItem,
@@ -1448,6 +1450,10 @@ function StepRow(props: {
     (hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
   const headline = summary.title?.trim() || t("session.step_progress");
   const statusText = toolStatusText(summary.status);
+  const questionAnswers =
+    props.part.type === "tool" && props.part.tool.toLowerCase() === "question"
+      ? normalizeTranscriptQuestionAnswers(toolInput, toolOutput)
+      : [];
 
   if (props.part.type === "tool" && props.part.tool === "browser_use_operation") {
     return (
@@ -1459,6 +1465,35 @@ function StepRow(props: {
         expanded={props.expanded}
         onToggle={props.onToggle}
       />
+    );
+  }
+
+  if (questionAnswers.length > 0) {
+    return (
+      <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-sm">
+        <div className="mb-3 flex items-center gap-2 font-medium text-dls-text">
+          <HelpCircle className="size-4 text-dls-accent" />
+          <span>{t("session.question_answered")}</span>
+        </div>
+        <div className="space-y-3">
+          {questionAnswers.map((item, index) => (
+            <div key={`${item.question}:${index}`} className="space-y-1">
+              <div className="text-xs text-dls-secondary">
+                {item.header || t("common.question")}
+              </div>
+              <div className="leading-5 text-dls-text">{item.question}</div>
+              <div className="flex flex-wrap items-center gap-1.5 text-sm leading-5">
+                <span className="text-dls-secondary">{t("session.question_answer")}</span>
+                {item.answers.map((answer) => (
+                  <StatusBadge key={answer} size="tiny" shape="soft">
+                    {answer}
+                  </StatusBadge>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 

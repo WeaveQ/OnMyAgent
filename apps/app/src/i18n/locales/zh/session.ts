@@ -183,6 +183,8 @@ export default {
   "session.stop_run_failed": "停止运行失败。",
   "session.attachments_unavailable": "附件不可用。",
   "session.tool_result": "工具结果",
+  "session.question_answered": "已回答的问题",
+  "session.question_answer": "回答",
   "session.tool_request": "请求",
   "session.tool_error": "错误",
   "session.status_in_progress": "进行中",

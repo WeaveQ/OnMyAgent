@@ -187,6 +187,8 @@ export default {
   "session.stop_run_failed": "Failed to stop run.",
   "session.attachments_unavailable": "Attachments are unavailable.",
   "session.tool_result": "Tool result",
+  "session.question_answered": "Answered questions",
+  "session.question_answer": "Answer",
   "session.tool_request": "Request",
   "session.tool_error": "Error",
   "session.status_in_progress": "In progress",
