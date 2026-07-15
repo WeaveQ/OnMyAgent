@@ -2489,7 +2489,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         )}
       >
         {!personalAssistantDraftHome ? (
-          <header className="flex h-12 shrink-0 items-center justify-between bg-dls-surface px-5">
+          <header className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5">
             <div className="flex min-w-0 items-center gap-2.5">
               <PendingAgentAvatar
                 name={chatHeaderAgent.name}

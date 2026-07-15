@@ -27,17 +27,44 @@ describe("assistant navigation tone contract", () => {
     expect(panel).toContain('mode === "assistant" && "px-2.5"');
   });
 
-  test("keeps chat canvases on the editor surface", () => {
+  test("separates the WorkBuddy-style chat canvas from the right panel surface", () => {
     const chatPage = readFileSync(
       join(repoRoot, "apps/app/src/react-app/domains/session/chat/session-page.tsx"),
       "utf8",
     );
+    const assistantPage = readFileSync(
+      join(repoRoot, "apps/app/src/react-app/domains/session/pages/assistant.tsx"),
+      "utf8",
+    );
+    const expertPage = readFileSync(
+      join(repoRoot, "apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      "utf8",
+    );
+    const surface = readFileSync(
+      join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
+      "utf8",
+    );
 
     expect(chatPage).toContain(
-      "flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-surface mac:bg-dls-surface",
+      "relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background",
     );
     expect(chatPage).toContain(
-      "relative min-w-0 flex-1 overflow-hidden bg-dls-surface mac:bg-dls-surface",
+      'className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"',
+    );
+    expect(assistantPage).toContain(
+      "relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background",
+    );
+    expect(assistantPage).toContain(
+      'className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"',
+    );
+    expect(expertPage).toContain(
+      "relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background",
+    );
+    expect(expertPage).toContain(
+      'className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"',
+    );
+    expect(surface).toContain(
+      'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
     );
   });
 

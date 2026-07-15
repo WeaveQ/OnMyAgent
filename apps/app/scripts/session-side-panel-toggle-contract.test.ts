@@ -21,7 +21,7 @@ describe("right side panel toggle contract", () => {
     );
 
     expect(surface).toContain(
-      'className="flex h-12 shrink-0 items-center justify-between bg-dls-surface px-5"',
+      'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
     );
     expect(surface).not.toContain(
       'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
