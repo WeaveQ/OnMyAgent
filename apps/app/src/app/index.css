@@ -662,6 +662,36 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: var(--dls-border-strong);
   }
 
+  .session-transcript-user-toolbar {
+    position: absolute;
+    right: 16px;
+    top: calc(100% - 28px);
+    display: flex;
+    min-height: 24px;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    color: var(--dls-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .session-transcript-user-row:hover .session-transcript-user-toolbar,
+  .session-transcript-user-row:focus-within .session-transcript-user-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    .session-transcript-user-toolbar {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
   .session-transcript-assistant-row {
     box-sizing: border-box;
     padding-inline: 12px;
