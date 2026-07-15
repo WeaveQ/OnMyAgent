@@ -41,6 +41,56 @@ describe("readSnapshotSessionError", () => {
 
     expect(readSnapshotSessionError(snapshot)).toEqual({
       message: "Model access denied.",
+      createdAt: 1,
+    });
+  });
+
+  test("preserves WorkBuddy-style diagnostic identifiers from API errors", () => {
+    const snapshot = {
+      session: { id: "session" },
+      messages: [
+        {
+          info: {
+            id: "assistant",
+            sessionID: "session",
+            role: "assistant",
+            parentID: "user",
+            modelID: "model",
+            providerID: "provider",
+            mode: "build",
+            agent: "assistant",
+            path: { cwd: "/", root: "/" },
+            cost: 0,
+            tokens: {
+              input: 0,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 0, write: 0 },
+            },
+            time: { created: 1_000, completed: 2_000 },
+            error: {
+              name: "APIError",
+              data: {
+                message: "Provider rejected the request.",
+                code: 429,
+                requestId: "request-123",
+                traceId: "trace-456",
+              },
+            },
+          },
+          parts: [],
+        },
+      ],
+      todos: [],
+      status: { type: "idle" },
+    } satisfies OnMyAgentSessionSnapshot;
+
+    expect(readSnapshotSessionError(snapshot)).toEqual({
+      message: "Provider rejected the request.",
+      code: "429",
+      messageId: "request-123",
+      traceId: "trace-456",
+      createdAt: 1_000,
     });
   });
 

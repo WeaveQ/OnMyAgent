@@ -13,6 +13,10 @@ const assistantStatusPath = new URL(
   "../src/react-app/domains/session/surface/chrome/assistant-status.tsx",
   import.meta.url,
 );
+const personalAssistantPath = new URL(
+  "../src/react-app/domains/session/surface/chrome/personal-assistant.tsx",
+  import.meta.url,
+);
 
 describe("session transcript layout contract", () => {
   test("keeps WorkBuddy geometry scoped to the root transcript", async () => {
@@ -96,5 +100,17 @@ describe("session transcript layout contract", () => {
     expect(sessionSurface).not.toContain(
       'rounded-full border border-dls-border bg-dls-surface p-1',
     );
+  });
+
+  test("renders real WorkBuddy-style error diagnostics without a dead retry action", async () => {
+    const personalAssistant = await Bun.file(personalAssistantPath).text();
+
+    expect(personalAssistant).toContain("<TriangleAlert");
+    expect(personalAssistant).toContain('t("session.error_message_id")');
+    expect(personalAssistant).toContain('t("session.error_trace_id")');
+    expect(personalAssistant).toContain('t("session.error_date")');
+    expect(personalAssistant).toContain("navigator.clipboard.writeText(errorDetails)");
+    expect(personalAssistant).not.toContain('t("session.error_retry")');
+    expect(personalAssistant).not.toContain('className="rounded-full text-dls-text');
   });
 });
