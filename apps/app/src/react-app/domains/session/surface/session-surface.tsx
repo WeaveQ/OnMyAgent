@@ -2190,6 +2190,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
     renderedMessages.length === 0 &&
     !visibleTranscriptError &&
     effectiveActivityStatus === "idle";
+  const expertDraftHome =
+    !props.personalAssistantHome &&
+    props.draftOnly &&
+    Boolean(props.agentContext) &&
+    renderedMessages.length === 0 &&
+    !visibleTranscriptError &&
+    effectiveActivityStatus === "idle";
+  const composerOuterBorderVisible =
+    personalAssistantDraftHome || expertDraftHome;
   const assistantDraftHomeTitle =
     assistantCategoryId === "code"
       ? t("session.assistant_code_title")
@@ -2776,6 +2785,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               onUploadInboxFiles={
                 props.onUploadInboxFiles ?? handleUploadInboxFiles
               }
+              showOuterBorder={composerOuterBorderVisible}
               compactTopSpacing={Boolean(composerAccessory)}
               topAccessory={composerAccessory}
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
