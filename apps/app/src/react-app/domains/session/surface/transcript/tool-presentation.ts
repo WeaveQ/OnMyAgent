@@ -44,8 +44,74 @@ export type TranscriptGeneratedImage = {
   localPath: string | null;
 };
 
+export type TranscriptDiffLine = {
+  kind: "added" | "removed" | "unchanged";
+  text: string;
+};
+
+export type TranscriptWriteEdit = {
+  addedLines: number;
+  removedLines: number;
+  lines: TranscriptDiffLine[];
+  omittedCount: number;
+};
+
+export type TranscriptFileResult = {
+  path: string;
+  fileName: string;
+  isDirectory: boolean;
+  startLine: number | null;
+  endLine: number | null;
+  content: string | null;
+};
+
+export type TranscriptSearchReference = {
+  fileName: string;
+  source: string;
+  sourceType: string | null;
+  startPos: number | null;
+  endPos: number | null;
+  knowledgeBaseId: string | null;
+  chunk: string | null;
+};
+
 export type TranscriptSpecializedToolDetails =
   | { kind: "delete"; fileName: string; filePath: string }
+  | {
+      kind: "command";
+      command: string;
+      description: string | null;
+      stdout: string;
+      stderr: string;
+      exitCode: number | null;
+      requiresApproval: boolean;
+      standaloneTerminal: boolean;
+    }
+  | {
+      kind: "write";
+      fileName: string;
+      filePath: string;
+      operation: "create" | "modify";
+      addedLines: number;
+      removedLines: number;
+      lines: TranscriptDiffLine[];
+      edits: TranscriptWriteEdit[];
+      omittedCount: number;
+    }
+  | {
+      kind: "file-results";
+      mode: "list" | "search";
+      query: string;
+      directory: string;
+      items: TranscriptFileResult[];
+      omittedCount: number;
+    }
+  | {
+      kind: "references";
+      referenceType: "codebase" | "knowledge";
+      query: string;
+      references: TranscriptSearchReference[];
+    }
   | {
       kind: "lint";
       pathText: string;
@@ -105,6 +171,30 @@ function stringValue(record: Record<string, unknown> | null, keys: string[]) {
   return null;
 }
 
+function rawStringValue(record: Record<string, unknown> | null, keys: string[]) {
+  for (const key of keys) {
+    const value = record?.[key];
+    if (typeof value === "string") return value;
+  }
+  return null;
+}
+
+function booleanValue(record: Record<string, unknown> | null, keys: string[]) {
+  for (const key of keys) {
+    const value = record?.[key];
+    if (typeof value === "boolean") return value;
+  }
+  return false;
+}
+
+function optionalNumberValue(record: Record<string, unknown> | null, keys: string[]) {
+  for (const key of keys) {
+    const value = record?.[key];
+    if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
+  }
+  return null;
+}
+
 function numberValue(record: Record<string, unknown> | null, keys: string[]) {
   for (const key of keys) {
     const value = record?.[key];
@@ -153,13 +243,31 @@ function normalizedToolName(value: string) {
 function toolFamily(toolName: string): TranscriptToolFamily {
   const name = normalizedToolName(toolName);
   if (["read", "readfile"].includes(name)) return "read";
-  if (["write", "writefile", "edit", "editfile", "multiedit", "applypatch", "patch"].includes(name)) {
+  if ([
+    "write",
+    "writefile",
+    "edit",
+    "editfile",
+    "replaceinfile",
+    "multiedit",
+    "applypatch",
+    "patch",
+  ].includes(name)) {
     return "write";
   }
   if (["bash", "shell", "execute", "executecommand", "runterminalcmd"].includes(name)) {
     return "command";
   }
-  if (["grep", "glob", "search", "searchfile", "searchcontent", "find"].includes(name)) {
+  if ([
+    "grep",
+    "glob",
+    "search",
+    "searchfile",
+    "searchcontent",
+    "codebasesearch",
+    "ragsearch",
+    "find",
+  ].includes(name)) {
     return "search";
   }
   if (["list", "listfiles", "listdir", "ls"].includes(name)) return "list";
@@ -248,13 +356,343 @@ function normalizeTaskToolItem(value: unknown): TranscriptTaskToolItem | null {
   };
 }
 
+const WRITE_RENDER_LINE_LIMIT = 500;
+
+function splitLines(value: string) {
+  return value.split(/\r?\n/);
+}
+
+function matrixRow(matrix: Uint16Array[], index: number) {
+  const row = matrix[index];
+  if (!row) throw new Error("Incomplete transcript diff matrix");
+  return row;
+}
+
+function trimUnchangedEdges(lines: TranscriptDiffLine[]) {
+  const firstChanged = lines.findIndex((line) => line.kind !== "unchanged");
+  if (firstChanged < 0) return lines;
+  let lastChanged = lines.length - 1;
+  while (lastChanged > firstChanged && lines[lastChanged]?.kind === "unchanged") {
+    lastChanged -= 1;
+  }
+  return lines.slice(firstChanged, lastChanged + 1);
+}
+
+function buildDiff(oldText: string, newText: string): TranscriptWriteEdit {
+  const allOldLines = splitLines(oldText);
+  const allNewLines = splitLines(newText);
+  const oldLines = allOldLines.slice(0, WRITE_RENDER_LINE_LIMIT);
+  const newLines = allNewLines.slice(0, WRITE_RENDER_LINE_LIMIT);
+  const matrix = Array.from(
+    { length: oldLines.length + 1 },
+    () => new Uint16Array(newLines.length + 1),
+  );
+
+  for (let oldIndex = oldLines.length - 1; oldIndex >= 0; oldIndex -= 1) {
+    const row = matrixRow(matrix, oldIndex);
+    const nextRow = matrixRow(matrix, oldIndex + 1);
+    for (let newIndex = newLines.length - 1; newIndex >= 0; newIndex -= 1) {
+      row[newIndex] = oldLines[oldIndex] === newLines[newIndex]
+        ? nextRow[newIndex + 1] + 1
+        : Math.max(nextRow[newIndex], row[newIndex + 1]);
+    }
+  }
+
+  const rawLines: TranscriptDiffLine[] = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+  while (oldIndex < oldLines.length && newIndex < newLines.length) {
+    if (oldLines[oldIndex] === newLines[newIndex]) {
+      rawLines.push({ kind: "unchanged", text: oldLines[oldIndex] ?? "" });
+      oldIndex += 1;
+      newIndex += 1;
+      continue;
+    }
+    const nextOldScore = matrixRow(matrix, oldIndex + 1)[newIndex];
+    const nextNewScore = matrixRow(matrix, oldIndex)[newIndex + 1];
+    if (nextOldScore >= nextNewScore) {
+      rawLines.push({ kind: "removed", text: oldLines[oldIndex] ?? "" });
+      oldIndex += 1;
+    } else {
+      rawLines.push({ kind: "added", text: newLines[newIndex] ?? "" });
+      newIndex += 1;
+    }
+  }
+  while (oldIndex < oldLines.length) {
+    rawLines.push({ kind: "removed", text: oldLines[oldIndex] ?? "" });
+    oldIndex += 1;
+  }
+  while (newIndex < newLines.length) {
+    rawLines.push({ kind: "added", text: newLines[newIndex] ?? "" });
+    newIndex += 1;
+  }
+
+  const changedLines = trimUnchangedEdges(rawLines);
+  const displayedLines = changedLines.slice(0, WRITE_RENDER_LINE_LIMIT);
+  const sourceTailCount = Math.max(
+    allOldLines.length - oldLines.length,
+    allNewLines.length - newLines.length,
+  );
+  return {
+    addedLines: rawLines.filter((line) => line.kind === "added").length,
+    removedLines: rawLines.filter((line) => line.kind === "removed").length,
+    lines: displayedLines,
+    omittedCount: Math.max(0, changedLines.length - displayedLines.length) + sourceTailCount,
+  };
+}
+
+function normalizeWriteEdit(value: unknown): TranscriptWriteEdit | null {
+  const record = recordValue(value);
+  const oldText = rawStringValue(record, ["oldString", "old_string"]);
+  const newText = rawStringValue(record, ["newString", "new_string"]);
+  if (!oldText && !newText) return null;
+  return buildDiff(oldText ?? "", newText ?? "");
+}
+
+function addedContentLines(content: string) {
+  const allLines = splitLines(content);
+  return {
+    lines: allLines
+      .slice(0, WRITE_RENDER_LINE_LIMIT)
+      .map((text): TranscriptDiffLine => ({ kind: "added", text })),
+    omittedCount: Math.max(0, allLines.length - WRITE_RENDER_LINE_LIMIT),
+  };
+}
+
+function parsePatchText(value: string) {
+  const parsedLines: TranscriptDiffLine[] = [];
+  let filePath = "";
+  let operation: "create" | "modify" = "modify";
+  let insideHunk = false;
+  for (const line of splitLines(value)) {
+    const fileHeader = line.match(/^\*\*\* (Update|Add|Delete) File: (.+)$/);
+    if (fileHeader) {
+      if (!filePath) filePath = fileHeader[2]?.trim() ?? "";
+      if (fileHeader[1] === "Add") operation = "create";
+      insideHunk = false;
+      continue;
+    }
+    if (line.startsWith("@@")) {
+      insideHunk = true;
+      continue;
+    }
+    if (
+      line === "*** Begin Patch" ||
+      line === "*** End Patch" ||
+      line.startsWith("*** Move to:") ||
+      line.startsWith("--- ") ||
+      line.startsWith("+++ ")
+    ) {
+      continue;
+    }
+    if (!insideHunk) continue;
+    if (line.startsWith("+")) {
+      parsedLines.push({ kind: "added", text: line.slice(1) });
+    } else if (line.startsWith("-")) {
+      parsedLines.push({ kind: "removed", text: line.slice(1) });
+    } else if (line.startsWith(" ")) {
+      parsedLines.push({ kind: "unchanged", text: line.slice(1) });
+    }
+  }
+  const displayedLines = parsedLines.slice(0, WRITE_RENDER_LINE_LIMIT);
+  return {
+    filePath,
+    operation,
+    lines: displayedLines,
+    omittedCount: Math.max(0, parsedLines.length - displayedLines.length),
+    addedLines: parsedLines.filter((line) => line.kind === "added").length,
+    removedLines: parsedLines.filter((line) => line.kind === "removed").length,
+  };
+}
+
+function normalizeFileResult(value: unknown): TranscriptFileResult | null {
+  if (typeof value === "string") {
+    const path = value.trim();
+    if (!path) return null;
+    const isDirectory = path.endsWith("/");
+    return {
+      path,
+      fileName: basename(isDirectory ? path.slice(0, -1) : path),
+      isDirectory,
+      startLine: null,
+      endLine: null,
+      content: null,
+    };
+  }
+  const record = recordValue(value);
+  const path = stringValue(record, ["path", "filePath", "file", "name"]);
+  if (!path) return null;
+  const isDirectory = path.endsWith("/");
+  const matches = record?.matches;
+  return {
+    path,
+    fileName: basename(isDirectory ? path.slice(0, -1) : path),
+    isDirectory,
+    startLine: optionalNumberValue(record, ["line", "startLine"]),
+    endLine: optionalNumberValue(record, ["endLine"]),
+    content:
+      typeof matches === "number"
+        ? String(matches)
+        : rawStringValue(record, ["matches", "content"]),
+  };
+}
+
+function lineOrientedSearchResults(value: string) {
+  return splitLines(value).flatMap((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return [];
+    const match = trimmed.match(/^(.+?):(\d+):(.*)$/);
+    if (!match) {
+      const item = normalizeFileResult(trimmed);
+      return item ? [item] : [];
+    }
+    const path = match[1]?.trim() ?? "";
+    const lineNumber = Number.parseInt(match[2] ?? "", 10);
+    if (!path || !Number.isFinite(lineNumber)) return [];
+    return [{
+      path,
+      fileName: basename(path),
+      isDirectory: false,
+      startLine: lineNumber,
+      endLine: lineNumber,
+      content: match[3]?.trim() || null,
+    } satisfies TranscriptFileResult];
+  });
+}
+
+function normalizeSearchReference(value: unknown): TranscriptSearchReference | null {
+  const record = recordValue(value);
+  const metadata = recordValue(record?.metadata);
+  const source = stringValue(metadata, ["source"]) ?? "";
+  const fileName = stringValue(metadata, ["file_name"]) ?? basename(source);
+  if (!source && !fileName) return null;
+  return {
+    fileName,
+    source,
+    sourceType: stringValue(metadata, ["source_type"]),
+    startPos: optionalNumberValue(metadata, ["start_pos"]),
+    endPos: optionalNumberValue(metadata, ["end_pos"]),
+    knowledgeBaseId: stringValue(record, ["knowledgeBaseId", "knowledge_base_id"]),
+    chunk: rawStringValue(record, ["chunk"]),
+  };
+}
+
 function specializedToolDetails(input: {
+  toolName: string;
   family: TranscriptToolFamily;
   toolInput: Record<string, unknown> | undefined;
   toolOutput: unknown;
 }): TranscriptSpecializedToolDetails | null {
   const toolInput = input.toolInput ?? null;
   const payload = resultPayload(input.toolOutput);
+  const normalizedName = normalizedToolName(input.toolName);
+
+  if (input.family === "command") {
+    const plainOutput = typeof input.toolOutput === "string" ? input.toolOutput : "";
+    return {
+      kind: "command",
+      command: stringValue(toolInput, ["command", "cmd"]) ?? "",
+      description: stringValue(toolInput, ["description"]),
+      stdout: rawStringValue(payload, ["stdout"]) ?? plainOutput,
+      stderr: rawStringValue(payload, ["stderr"]) ?? "",
+      exitCode: optionalNumberValue(payload, ["exit_code", "exitCode"]),
+      requiresApproval: booleanValue(toolInput, ["requires_approval", "requiresApproval"]),
+      standaloneTerminal: booleanValue(payload, [
+        "use_standalone_terminal",
+        "standaloneTerminal",
+      ]),
+    };
+  }
+
+  if (input.family === "write") {
+    const inputFilePath = stringValue(toolInput, [
+      "filePath",
+      "file_path",
+      "name",
+      "file",
+      "path",
+    ]) ?? "";
+    const patchText = rawStringValue(toolInput, ["patchText", "patch", "diff"])
+      ?? rawStringValue(payload, ["patch", "diff"]);
+    const parsedPatch = patchText ? parsePatchText(patchText) : null;
+    const filePath = inputFilePath || parsedPatch?.filePath || "";
+    const content = rawStringValue(toolInput, ["content", "new_str"]);
+    const oldContent = rawStringValue(payload, ["oldContent"])
+      ?? rawStringValue(toolInput, ["old_str"]);
+    const edits = arrayValue(toolInput, ["edits"]).flatMap((value) => {
+      const edit = normalizeWriteEdit(value);
+      return edit ? [edit] : [];
+    });
+    const operation = parsedPatch?.operation
+      ?? (oldContent !== null || edits.length > 0 ? "modify" : "create");
+    const directDiff = oldContent !== null && content !== null
+      ? buildDiff(oldContent, content)
+      : content !== null
+        ? { ...addedContentLines(content), addedLines: splitLines(content).length, removedLines: 0 }
+        : parsedPatch ?? { lines: [], omittedCount: 0, addedLines: 0, removedLines: 0 };
+    const editAddedLines = edits.reduce((total, edit) => total + edit.addedLines, 0);
+    const editRemovedLines = edits.reduce((total, edit) => total + edit.removedLines, 0);
+    return {
+      kind: "write",
+      fileName: basename(filePath),
+      filePath,
+      operation,
+      addedLines: edits.length > 0 ? editAddedLines : directDiff.addedLines,
+      removedLines: edits.length > 0 ? editRemovedLines : directDiff.removedLines,
+      lines: edits.length > 0 ? [] : directDiff.lines,
+      edits,
+      omittedCount: edits.length > 0
+        ? edits.reduce((total, edit) => total + edit.omittedCount, 0)
+        : directDiff.omittedCount,
+    };
+  }
+
+  if (input.family === "list" || input.family === "search") {
+    const rawInput = recordValue(toolInput?._rawInput) ?? toolInput;
+    const query = stringValue(rawInput, ["pattern", "key", "query"]) ?? "";
+    const referenceValues = payload
+      ? Object.entries(payload).flatMap(([key, value]) => /^\d+$/.test(key) ? [value] : [])
+      : [];
+    const references = referenceValues.flatMap((value) => {
+      const reference = normalizeSearchReference(value);
+      return reference ? [reference] : [];
+    });
+    if (references.length > 0 || normalizedName === "ragsearch") {
+      return {
+        kind: "references",
+        referenceType: normalizedName === "ragsearch" ? "knowledge" : "codebase",
+        query,
+        references,
+      };
+    }
+    const directItems = Array.isArray(input.toolOutput)
+      ? input.toolOutput
+      : typeof input.toolOutput === "string" && !parseRecord(input.toolOutput)
+        ? lineOrientedSearchResults(input.toolOutput)
+        : [];
+    const itemValues = directItems.length > 0
+      ? directItems
+      : [
+          ...arrayValue(payload, ["files"]),
+          ...arrayValue(payload, ["results"]),
+          ...arrayValue(payload, ["matches"]),
+        ];
+    const allItems = itemValues.flatMap((value) => {
+      const item = normalizeFileResult(value);
+      return item ? [item] : [];
+    });
+    return {
+      kind: "file-results",
+      mode: input.family === "list" ? "list" : "search",
+      query,
+      directory:
+        stringValue(payload, ["path"]) ??
+        stringValue(rawInput, ["target_directory", "directory"]) ??
+        "",
+      items: allItems.slice(0, 50),
+      omittedCount: Math.max(0, allItems.length - 50),
+    };
+  }
 
   if (input.family === "image-gen") {
     const imagePayload = imageGenerationPayload(input.toolOutput);
@@ -387,7 +825,7 @@ export function buildTranscriptToolPresentation(input: {
   toolOutput: unknown;
 }): TranscriptToolPresentation {
   const family = toolFamily(input.toolName);
-  const outputRecord = recordValue(input.toolOutput);
+  const outputRecord = resultPayload(input.toolOutput) ?? recordValue(input.toolOutput);
   const path = stringValue(input.toolInput ?? null, [
     "filePath",
     "file_path",
@@ -401,7 +839,7 @@ export function buildTranscriptToolPresentation(input: {
   const query = stringValue(input.toolInput ?? null, ["query", "pattern", "key"]);
   const startLine = numberValue(input.toolInput ?? null, ["startLine", "start", "offset"]);
   const endLine = numberValue(input.toolInput ?? null, ["endLine", "end"]);
-  const directAdded = numberValue(outputRecord, ["addedLines", "added"]);
+  const directAdded = numberValue(outputRecord, ["addLineCount", "addedLines", "added"]);
   const directRemoved = numberValue(outputRecord, ["removedLines", "removed"]);
   const patch =
     stringValue(input.toolInput ?? null, ["patchText", "patch", "diff"]) ??
@@ -409,12 +847,17 @@ export function buildTranscriptToolPresentation(input: {
     (typeof input.toolOutput === "string" ? input.toolOutput : null);
   const counted = diffStats(patch);
   const details = specializedToolDetails({
+    toolName: input.toolName,
     family,
     toolInput: input.toolInput,
     toolOutput: input.toolOutput,
   });
   const specializedSecondary = (() => {
     if (!details) return null;
+    if (details.kind === "command") return details.description ?? details.command;
+    if (details.kind === "write") return details.filePath;
+    if (details.kind === "file-results") return details.query || details.directory;
+    if (details.kind === "references") return details.query;
     if (details.kind === "delete") return details.filePath;
     if (details.kind === "lint") return details.pathText;
     if (details.kind === "web-fetch") return details.title ?? details.url;
@@ -436,8 +879,10 @@ export function buildTranscriptToolPresentation(input: {
       family === "read" && (startLine > 0 || endLine > 0)
         ? `L${startLine || 1}-${endLine || "end"}`
         : null,
-    addedLines: directAdded || counted.addedLines,
-    removedLines: directRemoved || counted.removedLines,
+    addedLines:
+      directAdded || (details?.kind === "write" ? details.addedLines : counted.addedLines),
+    removedLines:
+      directRemoved || (details?.kind === "write" ? details.removedLines : counted.removedLines),
     details,
   };
 }
