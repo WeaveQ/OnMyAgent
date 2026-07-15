@@ -302,6 +302,18 @@ describe("expert marketplace UI contract", () => {
     expect(item).toContain(
       'props.selected ? "font-medium" : "font-normal"',
     );
+    expect(item).toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-online"',
+    );
+    expect(list).toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-online"',
+    );
+    expect(item).not.toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-accent"',
+    );
+    expect(list).not.toContain(
+      'props.taskStatusVariant === "available" && "bg-dls-accent"',
+    );
   });
 
   test("expert page feeds selected route expert sessions back into the left conversation panel", () => {
