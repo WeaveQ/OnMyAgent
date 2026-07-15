@@ -19,6 +19,10 @@ import { snapshotToUIMessages } from "./usechat-adapter";
 import type { OnMyAgentSessionSnapshot } from "@/app/lib/onmyagent-server";
 import { reconcileTranscriptMessages } from "./transcript-reconcile";
 import { useSessionActivityStore } from "../status/session-activity-store";
+import {
+  createTranscriptMessageMetadata,
+  type TranscriptMessageSourceInfo,
+} from "./message-metadata";
 
 type SyncOptions = {
   workspaceId: string;
@@ -959,8 +963,7 @@ function applyEvent(
         id?: string;
         role?: UIMessage["role"] | string;
         sessionID?: string;
-        time?: { created?: number };
-      };
+      } & TranscriptMessageSourceInfo;
     };
     const info = props.info;
     if (
@@ -976,13 +979,10 @@ function applyEvent(
       .getState()
       .markMessageRole(workspaceId, info.sessionID, info.id, info.role);
     if (!isTrackedSession(entry, info.sessionID)) return;
-    const created = info.time?.created;
     const next = {
       id: info.id,
       role: info.role,
-      ...(typeof created === "number"
-        ? { metadata: { opencode: { created } } }
-        : {}),
+      metadata: createTranscriptMessageMetadata(info),
       parts: [],
     } satisfies UIMessage;
     queryClient.setQueryData<UIMessage[]>(
