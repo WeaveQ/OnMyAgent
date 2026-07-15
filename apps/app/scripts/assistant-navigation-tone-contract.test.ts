@@ -44,6 +44,13 @@ describe("assistant navigation tone contract", () => {
       join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
       "utf8",
     );
+    const composer = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/surface/composer/composer.tsx",
+      ),
+      "utf8",
+    );
 
     expect(chatPage).toContain(
       "relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background",
@@ -65,6 +72,12 @@ describe("assistant navigation tone contract", () => {
     );
     expect(surface).toContain(
       'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
+    );
+    expect(composer).toContain(
+      "bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent",
+    );
+    expect(composer).not.toContain(
+      "bg-gradient-to-t from-dls-surface via-dls-surface/95 to-transparent",
     );
   });
 
