@@ -197,7 +197,9 @@ export function AgentSessionTabs(props: {
     <div
       className={cn(
         "relative shrink-0 bg-dls-surface-muted",
-        expanded ? " px-4 pb-2 pt-2" : "h-0 overflow-visible",
+        expanded
+          ? "px-4 pb-2 pt-2 shadow-sm"
+          : "h-0 overflow-visible shadow-none",
       )}
     >
       <style>{`
@@ -336,9 +338,9 @@ export function AgentSessionTabs(props: {
           setExpanded((value) => !value);
           setMenuState(null);
         }}
-        variant="outline"
-        size="xs"
-        className="absolute bottom-0 left-1/2 z-20 h-4 w-12 -translate-x-1/2 translate-y-1/2 rounded-full border-dls-border bg-dls-surface p-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+        variant="ghost"
+        size="icon-xs"
+        className="absolute bottom-0 left-1/2 z-20 h-2.5 w-14 -translate-x-1/2 translate-y-full overflow-visible rounded-t-none rounded-b-md bg-dls-surface-muted px-0 text-dls-secondary shadow-none transition-[height,color] duration-150 before:absolute before:-top-px before:inset-x-0 before:h-px before:bg-dls-surface-muted hover:h-4 hover:bg-dls-surface-muted hover:text-dls-text mac:titlebar-no-drag"
         title={expanded ? t("session.agent_tab_collapse") : t("session.agent_tab_expand")}
         aria-label={expanded ? t("session.agent_tab_collapse") : t("session.agent_tab_expand")}
       >
