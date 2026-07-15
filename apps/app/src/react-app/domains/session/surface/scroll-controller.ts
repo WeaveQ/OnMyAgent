@@ -2,6 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject, type U
 
 import { getSessionScrollState, useSessionScrollStore } from "./scroll-store";
 import { classifyTranscriptScrollIntent } from "./transcript/scroll-intent";
+import {
+  anchoredTranscriptScrollTop,
+  countPrependedTranscriptMessages,
+} from "./transcript/prepend-anchor";
 
 const EXACT_BOTTOM_GAP_PX = 1;
 // Widened from 250ms so a single wheel or trackpad flick isn't missed between
@@ -15,6 +19,7 @@ const MANUAL_BROWSE_UPWARD_THRESHOLD_PX = 16;
 type SessionScrollControllerOptions = {
   selectedSessionId: string | null;
   renderedMessages: unknown;
+  renderedMessageIds: readonly string[];
   containerRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
   sessionChangeScroll?: "bottom" | "top";
@@ -38,6 +43,17 @@ function latestMessageElement(container: HTMLElement) {
   for (let index = messageEls.length - 1; index >= 0; index -= 1) {
     const element = messageEls.item(index);
     if (element instanceof HTMLElement) return element;
+  }
+  return null;
+}
+
+function firstVisibleMessageElement(container: HTMLElement) {
+  const containerRect = container.getBoundingClientRect();
+  const messageEls = container.querySelectorAll("[data-message-id]");
+  for (const element of messageEls) {
+    if (!(element instanceof HTMLElement)) continue;
+    const rect = element.getBoundingClientRect();
+    if (rect.bottom >= containerRect.top - 1) return element;
   }
   return null;
 }
@@ -86,6 +102,13 @@ export function useSessionScrollController(
   const observedContentHeightRef = useRef(0);
   const lastGestureAtRef = useRef(0);
   const previousSessionIdRef = useRef<string | null>(null);
+  const previousMessageIdsRef = useRef<readonly string[]>([]);
+  const prependAnchorRef = useRef<{
+    sessionId: string;
+    messageId: string;
+    top: number;
+    scrollTop: number;
+  } | null>(null);
 
   const isAtBottom = scrollState.mode === "stickyBottom";
   const topClippedMessageId = scrollState.topClippedMessageId;
@@ -361,6 +384,67 @@ export function useSessionScrollController(
     scrollToBottom,
     selectedSessionId,
     setManualScroll,
+  ]);
+
+  const renderedMessageIdsKey = options.renderedMessageIds.join("\u0000");
+  useLayoutEffect(() => {
+    const previousIds = previousMessageIdsRef.current;
+    const prependedCount = countPrependedTranscriptMessages(
+      previousIds,
+      options.renderedMessageIds,
+    );
+    const pendingAnchor = prependAnchorRef.current;
+    const container = options.containerRef.current;
+
+    if (
+      prependedCount > 0 &&
+      pendingAnchor?.sessionId === selectedSessionId &&
+      scrollState.mode === "manual" &&
+      container
+    ) {
+      const anchor = messageElementById(container, pendingAnchor.messageId);
+      if (anchor) {
+        programmaticScrollRef.current = true;
+        container.scrollTop = anchoredTranscriptScrollTop({
+          scrollTop: pendingAnchor.scrollTop,
+          anchorTopBefore: pendingAnchor.top,
+          anchorTopAfter: anchor.getBoundingClientRect().top,
+        });
+        lastKnownScrollTopRef.current = container.scrollTop;
+        saveScrollPosition(container);
+        releaseProgrammaticScrollSoon();
+      }
+    }
+
+    prependAnchorRef.current = null;
+    previousMessageIdsRef.current = options.renderedMessageIds;
+
+    return () => {
+      const currentContainer = options.containerRef.current;
+      if (!selectedSessionId || !currentContainer || scrollState.mode !== "manual") {
+        prependAnchorRef.current = null;
+        return;
+      }
+      const anchor = firstVisibleMessageElement(currentContainer);
+      const messageId = anchor ? messageIdForElement(anchor) : null;
+      if (!anchor || !messageId) {
+        prependAnchorRef.current = null;
+        return;
+      }
+      prependAnchorRef.current = {
+        sessionId: selectedSessionId,
+        messageId,
+        top: anchor.getBoundingClientRect().top,
+        scrollTop: currentContainer.scrollTop,
+      };
+    };
+  }, [
+    options.containerRef,
+    releaseProgrammaticScrollSoon,
+    renderedMessageIdsKey,
+    saveScrollPosition,
+    scrollState.mode,
+    selectedSessionId,
   ]);
 
   useEffect(() => {
