@@ -6,7 +6,7 @@
  *   2. `userExtensionsRoot()` under runtime-state (user-installed)
  *
  * Each manifest may contribute `contributes.acpAdapters[]`, aligned to
- * AionUi's `acpAdapter` schema. Each adapter becomes a virtual custom
+ * Upstream's `acpAdapter` schema. Each adapter becomes a virtual custom
  * agent (`provider: "custom"`, id = `ext:<extensionName>:<adapterId>`).
  * State (enabled/disabled) is persisted at
  * `personalAgentExtensionStateFile()`.

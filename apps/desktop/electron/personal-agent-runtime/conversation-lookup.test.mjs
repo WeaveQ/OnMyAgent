@@ -30,8 +30,8 @@ async function tempWorkspace() {
   return workspaceRoot;
 }
 
-test("CHANNEL_AGENT_ID_RE matches the six known platforms", () => {
-  for (const platform of ["weixin", "feishu", "wecom", "lark", "dingtalk", "telegram"]) {
+test("CHANNEL_AGENT_ID_RE matches the seven known platforms", () => {
+  for (const platform of ["weixin", "feishu", "wecom", "lark", "dingtalk", "telegram", "discord"]) {
     assert.ok(
       CHANNEL_AGENT_ID_RE.test(`codex-${platform}-a1b2c3d4e5f6`),
       `should match scoped agent id for ${platform}`,

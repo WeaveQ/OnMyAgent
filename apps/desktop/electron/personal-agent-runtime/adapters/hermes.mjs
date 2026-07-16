@@ -3,8 +3,9 @@ import { createInterface } from "node:readline";
 
 import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
-import { createExecHelpers, stringifyAgentCommand } from "../utils.mjs";
+import { createExecHelpers, stringifyAgentCommand, terminateProcessTree } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
+import { unregisterAgentProcess } from "../process-registry.mjs";
 
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
 const TOOL_COMPLETION_GRACE_MS = 15_000;
@@ -377,13 +378,17 @@ export function createHermesAdapter({ appendEvent, registerCancel, requestApprov
         cwd: workdir,
         env: execHelpers.processEnv({ PWD: workdir, ...(mode === "auto" ? { HERMES_YOLO_MODE: "1" } : {}) }),
         windowsHide: true,
+        detached: true,
         stdio: ["pipe", "pipe", "pipe"],
       });
       child.unref?.();
       if (ctx.runId) active.set(ctx.runId, child);
       registerCancel?.(async () => {
-        child.kill("SIGTERM");
-        if (ctx.runId) active.delete(ctx.runId);
+        await terminateProcessTree(child);
+        if (ctx.runId) {
+          active.delete(ctx.runId);
+          unregisterAgentProcess(ctx.runId);
+        }
       });
       appendEvent({ type: "log", text: `pid ${child.pid ?? "unknown"}` });
 
@@ -493,15 +498,16 @@ export function createHermesAdapter({ appendEvent, registerCancel, requestApprov
       } finally {
         if (ctx.runId) active.delete(ctx.runId);
         rpc.dispose();
-        if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+        if (child.exitCode === null && child.signalCode === null) await terminateProcessTree(child);
         await waitForExit(child);
       }
     },
     async cancel(ctx) {
       const child = active.get(ctx.runId);
       if (!child) throw new Error("Hermes run is not active");
-      child.kill("SIGTERM");
+      await terminateProcessTree(child);
       active.delete(ctx.runId);
+      unregisterAgentProcess(ctx.runId);
     },
   };
 }

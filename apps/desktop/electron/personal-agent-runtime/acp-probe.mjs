@@ -57,6 +57,44 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
       if (!sessionId) {
         return { ok: false, step: "fail_acp", status: "offline", initialized, sessionResult, error: "session/new returned no sessionId", events };
       }
+      // Some CLIs (Kimi CLI, Qwen Code, GitHub Copilot CLI) accept
+      // initialize/session/new even when the user is not logged in, and
+      // declare the login flow via `authMethods` instead of failing.
+      // Detect that state by combining two signals:
+      //   1. initialize.authMethods is non-empty (a login flow exists), and
+      //   2. session configOptions expose a model `select` whose options list
+      //      is empty and currentValue is empty (no model catalog was
+      //      loaded, which happens when the account has not been resolved).
+      // When both hold, treat the agent as `needs_auth` so it stays out of
+      // the runtime picker until the user actually logs in.
+      const authMethods = Array.isArray(initialized?.authMethods) ? initialized.authMethods : [];
+      if (authMethods.length) {
+        const configOptions = Array.isArray(sessionResult?.configOptions) ? sessionResult.configOptions : [];
+        const modelSelect = configOptions.find((option) => {
+          if (!option || typeof option !== "object") return false;
+          const type = String(option.type ?? option.kind ?? "").toLowerCase();
+          if (type && type !== "select") return false;
+          const category = String(option.category ?? "").toLowerCase();
+          const id = String(option.id ?? option.name ?? "").toLowerCase();
+          return category === "model" || id === "model" || id === "models";
+        });
+        if (modelSelect) {
+          const opts = Array.isArray(modelSelect.options) ? modelSelect.options : [];
+          const currentValue = String(modelSelect.currentValue ?? modelSelect.value ?? "").trim();
+          if (opts.length === 0 && !currentValue) {
+            const authName = String(authMethods[0]?.name ?? authMethods[0]?.id ?? "login").trim() || "login";
+            return {
+              ok: false,
+              step: "needs_auth",
+              status: "needs_auth",
+              initialized,
+              sessionResult,
+              error: `authentication required (${authName})`,
+              events,
+            };
+          }
+        }
+      }
       return { ok: true, step: "online", status: "online", initialized, sessionResult, error: null, events };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

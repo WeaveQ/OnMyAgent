@@ -297,6 +297,10 @@ select:disabled {
   --dls-status-warning-soft: #FEF3C7;
   --dls-status-warning-fg: #92400E;
   --dls-status-warning-border: #FDE68A;
+  --dls-status-orange: #EA580C;
+  --dls-status-orange-soft: #FFEDD5;
+  --dls-status-orange-fg: #C2410C;
+  --dls-status-orange-border: #FDBA74;
   --dls-status-success-soft: #ECFDF5;
   --dls-status-success-fg: #047857;
   --dls-status-success-border: #A7F3D0;
@@ -490,6 +494,10 @@ select:disabled {
   --dls-status-warning-soft: #3A2E12;
   --dls-status-warning-fg: #FCD34D;
   --dls-status-warning-border: #78350F;
+  --dls-status-orange: #FB923C;
+  --dls-status-orange-soft: #3A2410;
+  --dls-status-orange-fg: #FDBA74;
+  --dls-status-orange-border: #7C2D12;
   --dls-status-success-soft: #0F2F24;
   --dls-status-success-fg: #6EE7B7;
   --dls-status-success-border: #14532D;

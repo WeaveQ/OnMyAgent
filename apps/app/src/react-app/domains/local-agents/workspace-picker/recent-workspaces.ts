@@ -1,5 +1,5 @@
 // Recent workspace roots used by local-agent conversations. Modeled after
-// AionUi's `packages/desktop/src/renderer/components/workspace/recentWorkspaces.ts`:
+// Upstream's `packages/desktop/src/renderer/components/workspace/recentWorkspaces.ts`:
 // pure browser-side storage, LRU ordered, small cap.
 //
 // Values are absolute filesystem paths. An empty override means "temporary

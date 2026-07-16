@@ -1,6 +1,6 @@
 // Detect locally installed CLI agents that are not yet registered in OnMyAgent.
 //
-// Mirrors the AionUi experience: scan the system PATH for known coding-agent
+// Mirrors the Upstream experience: scan the system PATH for known coding-agent
 // CLIs and return ready-to-add drafts. Unlike the 5 built-in providers
 // (opencode/codex/claude/openclaw/hermes) which are always listed, this only
 // surfaces agents that (a) have a binary on PATH and (b) are not already
@@ -27,13 +27,6 @@ const HOME = os.homedir();
  */
 export const KNOWN_DISCOVERABLE_AGENTS = [
   {
-    id: "codebuddy",
-    displayName: "CodeBuddy",
-    commands: ["codebuddy"],
-    skillsDirs: [join(HOME, ".codebuddy", "skills-marketplace", "skills")],
-    acpArgs: ["--acp"],
-  },
-  {
     id: "gemini",
     displayName: "Gemini CLI",
     commands: ["gemini"],
@@ -43,23 +36,24 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   {
     id: "kiro",
     displayName: "Kiro",
-    commands: ["kiro"],
+    commands: ["kiro", "kiro-cli"],
     skillsDirs: [join(HOME, ".kiro", "skills")],
-    acpArgs: ["--acp"],
+    wellKnownPaths: [join(HOME, ".local", "bin", "kiro-cli")],
+    acpArgs: ["acp"],
   },
   {
     id: "goose",
     displayName: "Goose",
     commands: ["goose"],
     skillsDirs: [join(HOME, ".goose", "skills")],
-    acpArgs: ["--acp"],
+    acpArgs: ["acp"],
   },
   {
     id: "cursor-agent",
     displayName: "Cursor Agent",
     commands: ["cursor-agent", "cursor"],
     skillsDirs: [],
-    acpArgs: ["--acp"],
+    acpArgs: ["agent", "acp"],
   },
   {
     id: "qwen",
@@ -72,8 +66,9 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     id: "kimi",
     displayName: "Kimi CLI",
     commands: ["kimi", "kimi-cli"],
-    skillsDirs: [],
-    acpArgs: ["--acp"],
+    skillsDirs: [join(HOME, ".kimi-code", "skills")],
+    wellKnownPaths: [join(HOME, ".kimi-code", "bin", "kimi")],
+    acpArgs: ["acp"],
   },
   {
     id: "copilot",
@@ -85,23 +80,23 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   {
     id: "qoder",
     displayName: "Qoder",
-    commands: ["qoder"],
+    commands: ["qoder", "qodercli"],
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
   {
     id: "augment",
     displayName: "Augment Code",
-    commands: ["augment", "augment-code"],
+    commands: ["augment", "augment-code", "auggie"],
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
   {
     id: "snow",
     displayName: "Snow CLI",
-    commands: ["snow", "snowcli"],
+    commands: ["snow", "snowcli", "cortex"],
     skillsDirs: [],
-    acpArgs: ["--acp"],
+    acpArgs: ["acp", "serve"],
   },
   {
     id: "nanobot",
@@ -110,7 +105,82 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
+  {
+    id: "codebuddy",
+    displayName: "CodeBuddy",
+    commands: ["codebuddy"],
+    wellKnownPaths: [join(HOME, ".local", "bin", "codebuddy"), join(HOME, "npm", "bin", "codebuddy")],
+    skillsDirs: [join(HOME, ".codebuddy", "skills")],
+    acpArgs: ["--acp"],
+  },
+  {
+    id: "trae",
+    displayName: "Trae",
+    commands: ["traecli", "trae-cli"],
+    skillsDirs: [],
+    acpArgs: ["acp", "serve"],
+  },
+  {
+    id: "mimo",
+    displayName: "MiMo Code",
+    commands: ["mimo"],
+    skillsDirs: [join(HOME, ".mimocode", "skills")],
+    // `mimo acp` starts the Agent Client Protocol stdio server
+    // (installed via `npm install -g @mimo-ai/cli`, binary: `mimo`)
+    acpArgs: ["acp"],
+  },
+  {
+    id: "grok",
+    displayName: "Grok Build",
+    commands: ["grok"],
+    skillsDirs: [join(HOME, ".grok", "skills")],
+    // `grok agent stdio` starts the ACP stdio server
+    // (installed via `npm install -g @xai-official/grok`, binary: `grok`)
+    acpArgs: ["agent", "stdio"],
+  },
 ];
+
+/**
+ * Turn the discoverable catalog into `detectAgent`-ready agent drafts.
+ *
+ * Unlike `detectAvailableLocalAgents` (which only returns agents whose binary is
+ * already on PATH so the user can one-click *add* them), this returns ALL known
+ * agents as custom-provider ACP drafts so the management page can *always list*
+ * them — installed or not — mirroring Upstream's "十多个都显示，没装也在" behaviour.
+ * The detection layer later resolves each draft to online / offline / missing;
+ * the user can hit "测试连接" on any of them regardless of install state.
+ */
+function resolveKnownAgentBinary(def) {
+  for (const cmd of def.commands) {
+    const found = resolveOnPath(cmd);
+    if (found) return found;
+  }
+  if (Array.isArray(def.wellKnownPaths)) {
+    for (const candidate of def.wellKnownPaths) {
+      try {
+        if (existsSync(candidate)) return candidate;
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return null;
+}
+
+export function discoverableAgentDrafts() {
+  return KNOWN_DISCOVERABLE_AGENTS.map((def) => ({
+    id: def.id,
+    name: def.displayName,
+    provider: /** @type {"custom"} */ ("custom"),
+    executablePath: resolveKnownAgentBinary(def) ?? def.commands[0],
+    connectionType: /** @type {"cli"} */ ("cli"),
+    supportsAcp: true,
+    acpArgs: Array.isArray(def.acpArgs) ? def.acpArgs : ["--acp"],
+    nativeSkillsDirs: (def.skillsDirs ?? []).filter(
+      (dir) => typeof dir === "string" && dir.length > 0,
+    ),
+  }));
+}
 
 // Resolve an executable name against PATH without spawning a shell. `command`
 // and `which` are shell builtins/redirects that are unreliable from
@@ -159,6 +229,18 @@ export async function detectAvailableLocalAgents(input = {}) {
       if (found) {
         resolved = found;
         break;
+      }
+    }
+    if (!resolved && Array.isArray(def.wellKnownPaths)) {
+      for (const candidate of def.wellKnownPaths) {
+        try {
+          if (existsSync(candidate)) {
+            resolved = candidate;
+            break;
+          }
+        } catch {
+          // ignore
+        }
       }
     }
     if (!resolved) continue;

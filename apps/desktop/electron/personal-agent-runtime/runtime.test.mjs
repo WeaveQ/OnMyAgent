@@ -15,8 +15,9 @@ import { appendContractEvent, runEventsToConversationMessages } from "./contract
 import { extractPromptUsageTotals, lookupModelContextLimit, normalizeContextUsagePayload } from "./context-usage.mjs";
 import { createConversation, getConversation, getOrCreateConversation, listConversations, readConversationEvents, updateConversation } from "./conversation-store.mjs";
 import { createPersonalAgentRuntime } from "./index.mjs";
+import { runLogRoot } from "./workdir.mjs";
 import { AcpE2EStreamInjector } from "./acp-e2e-stream-injector.mjs";
-import { clearAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess, recordAgentCrash, crashRestartBackoffMs, clearAgentCrashHistory } from "./process-registry.mjs";
+import { clearAgentProcesses, cleanupRegisteredAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess, recordAgentCrash, crashRestartBackoffMs, clearAgentCrashHistory } from "./process-registry.mjs";
 import {
   sessionArchiveDbFile,
   sessionArchiveLogRoot,
@@ -1065,6 +1066,54 @@ describe("personal agent process registry", () => {
     }
   });
 
+  it("reaps live process trees on cleanup and drops dead records", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      clearAgentProcesses({ persist: false });
+      const file = processRegistryFile();
+      await mkdir(path.dirname(file), { recursive: true });
+      const LIVE_PID = 56789;
+      const DEAD_PID = 56790;
+      await writeFile(file, JSON.stringify({
+        version: 1,
+        processes: [
+          { runId: "live-run", pid: LIVE_PID, pgid: LIVE_PID, provider: "codex", status: "stale", staleReason: "runtime_restarted", startedAt: 10 },
+          { runId: "dead-run", pid: DEAD_PID, pgid: DEAD_PID, provider: "codex", status: "stale", staleReason: "runtime_restarted", startedAt: 10 },
+        ],
+      }), "utf8");
+
+      const originalKill = process.kill;
+      const killCalls = [];
+      process.kill = ((pid, signal) => {
+        const n = Number(pid);
+        if (n === LIVE_PID || n === -LIVE_PID) {
+          killCalls.push([pid, signal]);
+          return; // fake live process: present, but never actually killed
+        }
+        return originalKill(pid, signal); // DEAD_PID -> ESRCH -> treated as dead
+      });
+      let result;
+      try {
+        result = await cleanupRegisteredAgentProcesses();
+      } finally {
+        process.kill = originalKill;
+      }
+
+      assert.ok(
+        killCalls.some(([, signal]) => signal === "SIGTERM" || signal === "SIGKILL"),
+        "live tree should be signalled (SIGTERM -> SIGKILL after grace)",
+      );
+      const raw = JSON.parse(await readFile(file, "utf8"));
+      const runIds = raw.processes.map((item) => item.runId);
+      assert.ok(!runIds.includes("dead-run"), "dead record should be dropped");
+      assert.ok(runIds.includes("live-run"), "survivor should be kept");
+      assert.deepEqual(result.killed, ["dead-run"]);
+      clearAgentProcesses();
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
   it("serializes concurrent process registry writes into valid JSON", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
@@ -1792,7 +1841,7 @@ describe("personal agent runtime facade", () => {
     const workspaceRoot = await tempWorkspace();
     try {
       const runId = "stale-running-run";
-      const logPath = path.join(workspaceRoot, ".opencode", "personal-assistant", "runs", `${runId}.jsonl`);
+      const logPath = path.join(runLogRoot(workspaceRoot), `${runId}.jsonl`);
       await mkdir(path.dirname(logPath), { recursive: true });
       await writeFile(logPath, [
         JSON.stringify({
@@ -1803,7 +1852,7 @@ describe("personal agent runtime facade", () => {
           agentProvider: "codex",
           connectionMode: "Codex app-server session",
           status: "running",
-          startedAt: Date.now() - 60_000,
+          startedAt: Date.now() - 3600_000,
           finishedAt: null,
         }),
         JSON.stringify({ type: "status", text: "codex harness flow started", at: Date.now() - 60_000 }),
@@ -1820,13 +1869,85 @@ describe("personal agent runtime facade", () => {
         },
       });
 
+      // Reconcile runs async (fire-and-forget); let it finalize the orphan log.
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
       const restored = runtime.getRun({ runId, workspaceRoot });
-      assert.equal(restored.status, "failed");
-      assert.equal(restored.agentId, "codex");
-      assert.equal(restored.agentProvider, "codex");
-      assert.equal(restored.connectionMode, "Codex app-server session");
-      assert.equal(restored.errorInfo?.code, "timeout");
-      assert.match(restored.error ?? "", /运行状态已丢失/);
+      // Orphaned (previous-session) runs are intentionally invisible to the UI
+      // so channels release their "still processing" lock — snapshotFromLog
+      // returns null for them. The persisted log is still finalized to "failed".
+      assert.equal(restored, null);
+      const finalizedMeta = JSON.parse(
+        (await readFile(logPath, "utf8")).split(/\r?\n/).find((line) => line.trim()),
+      );
+      assert.equal(finalizedMeta.status, "failed");
+      assert.equal(finalizedMeta.errorInfo?.code, "orphaned");
+      assert.equal(finalizedMeta.agentId, "codex");
+      assert.equal(finalizedMeta.agentProvider, "codex");
+      assert.equal(finalizedMeta.connectionMode, "Codex app-server session");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("reclaims a running run whose process is still alive (not only dead ones)", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runId = "alive-orphan-run";
+      const logPath = path.join(runLogRoot(workspaceRoot), `${runId}.jsonl`);
+      await mkdir(path.dirname(logPath), { recursive: true });
+      const FAKE_PID = 67891;
+      await writeFile(logPath, [
+        JSON.stringify({
+          type: "run_meta",
+          at: Date.now() - 60_000,
+          runId,
+          agentId: "codex",
+          agentProvider: "codex",
+          connectionMode: "Codex app-server session",
+          status: "running",
+          startedAt: Date.now() - 3600_000,
+          pid: FAKE_PID,
+          finishedAt: null,
+        }),
+        JSON.stringify({ type: "status", text: "codex harness flow started", at: Date.now() - 60_000 }),
+      ].join("\n") + "\n", "utf8");
+
+      const originalKill = process.kill;
+      const killCalls = [];
+      process.kill = ((pid, signal) => {
+        const n = Number(pid);
+        if (n === FAKE_PID || n === -FAKE_PID) {
+          killCalls.push([pid, signal]);
+          return; // fake alive process: present, never actually killed
+        }
+        return originalKill(pid, signal);
+      });
+      try {
+        createPersonalAgentRuntime({
+          legacy: {
+            normalizeAgent: async () => ({ id: "codex", provider: "codex" }),
+            detectAgent: async () => ({ id: "codex", provider: "codex", status: "online" }),
+            listAgents: async () => ({ agents: [] }),
+            start: async () => ({ status: "legacy-start" }),
+            run: async () => ({ status: "legacy-run" }),
+            status: () => ({ status: "missing" }),
+            cancel: async () => ({ ok: true }),
+          },
+        });
+        // Reconcile runs async (terminateProcessTreeByPid waits ~1s grace); wait
+        // for it to signal the (fake) live tree and finalize the orphan log.
+        await new Promise((resolve) => setTimeout(resolve, 1300));
+        const meta = JSON.parse((await readFile(logPath, "utf8")).split(/\r?\n/).find((line) => line.trim()));
+        assert.ok(
+          killCalls.some(([, signal]) => signal === "SIGTERM" || signal === "SIGKILL"),
+          `alive orphan tree should be signalled; killCalls=${JSON.stringify(killCalls)} metaPid=${meta.pid} metaStatus=${meta.status}`,
+        );
+        assert.equal(meta.status, "failed");
+        assert.equal(meta.errorInfo?.code, "orphaned");
+      } finally {
+        process.kill = originalKill;
+      }
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -2742,17 +2863,20 @@ describe("Codex app-server adapter approvals", () => {
   });
 
   it("maps Studio approval modes to explicit Codex approval and sandbox policy", () => {
+    // Aligned with Upstream acp_launch_policy: non-auto sessions default to
+    // Codex workspace-write with network access; only `auto` escalates to
+    // danger-full-access.
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("ask"), {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      threadSandbox: "read-only",
-      turnSandboxPolicy: { type: "readOnly", networkAccess: false },
+      threadSandbox: "workspace-write",
+      turnSandboxPolicy: { type: "workspaceWrite", networkAccess: true },
     });
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("read-only-auto"), {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      threadSandbox: "read-only",
-      turnSandboxPolicy: { type: "readOnly", networkAccess: false },
+      threadSandbox: "workspace-write",
+      turnSandboxPolicy: { type: "workspaceWrite", networkAccess: true },
     });
     assert.deepEqual(codexTest.codexRunPolicyForApprovalMode("auto"), {
       approvalPolicy: "never",

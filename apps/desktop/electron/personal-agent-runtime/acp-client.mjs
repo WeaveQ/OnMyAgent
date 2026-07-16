@@ -47,6 +47,9 @@ export function normalizeAcpUpdate(update) {
     endturn: "turn_end",
     availablecommands: "available_commands",
     availablecommandsupdate: "available_commands",
+    availablemodels: "available_models",
+    availablemodelsupdate: "available_models",
+    currentmodelupdate: "available_models",
     contextusage: "context_usage",
     command: "command",
     permission: "permission",
@@ -192,6 +195,10 @@ export class AcpJsonRpcClient {
 
   setConfigOption(sessionId, optionId, value, params = {}) {
     return this.request("config/set", { ...params, sessionId, optionId, value });
+  }
+
+  setModel(sessionId, model, params = {}) {
+    return this.request("session/set_model", { ...params, sessionId, model });
   }
 
   respond(id, result) {

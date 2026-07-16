@@ -19,6 +19,10 @@ const ACTIVE_RUN_POLL_INTERVAL_MS = 1_000;
 const ACTIVE_RUN_PENDING_POLL_INTERVAL_MS = 3_000;
 // Minimum spacing between "agent still busy" replies for the same chat+agent.
 const AGENT_BUSY_NOTICE_INTERVAL_MS = 15_000;
+// Backstop ceiling for a single channel conversation lock. The personal agent
+// runtime already enforces its own run timeout (max 6h), but that timer lives
+// in the runtime process and is lost if the desktop app restarts.
+const ACTIVE_RUN_MAX_AGE_MS = 6 * 60 * 60 * 1000 + 15 * 60 * 1000;
 const WEBHOOK_MAX_BODY_BYTES = 1024 * 1024;
 
 function sleep(ms) {
@@ -398,6 +402,9 @@ export function createFeishuService(options = {}) {
       workspaceRoot: session.options.workspaceRoot,
       accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
       prompt,
+      // Raw user text (without the channel transport header) so the runtime
+      // records it as the user message in the run log / conversation view.
+      userText: event.text,
       agent: runtimeAgent,
       approvalMode: session.options.approvalMode,
       timeoutMs: session.options.timeoutMs,
@@ -484,6 +491,14 @@ export function createFeishuService(options = {}) {
     if (clearedActiveRunKeys.has(pollKey)) return;
     const result = await runtime.getRun({ runId: record.runId, workspaceRoot: record.workspaceRoot });
     if (clearedActiveRunKeys.has(pollKey)) return;
+    if (!result) {
+      const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
+      await sendText(session, record.chatId, message).catch(() => undefined);
+      clearedActiveRunKeys.add(pollKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
+      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      return;
+    }
     setState({ lastRunId: record.runId });
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
@@ -518,6 +533,14 @@ export function createFeishuService(options = {}) {
       return;
     }
     if (clearedActiveRunKeys.has(pollKey)) return;
+    if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
+      const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
+      await sendText(session, record.chatId, message).catch(() => undefined);
+      clearedActiveRunKeys.add(pollKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
+      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      return;
+    }
     const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "running", pendingApprovals: [] });
     scheduleActiveRunPoll(session, updated, ACTIVE_RUN_POLL_INTERVAL_MS);
   }
@@ -544,6 +567,30 @@ export function createFeishuService(options = {}) {
   async function saveAccount(input = {}) {
     const account = await store.saveAccount(input);
     return { ok: true, account };
+  }
+
+  // AionUi-parity connectivity self-check: validates the saved Feishu app
+  // credentials by actually exchanging appId/appSecret for a tenant_access_token.
+  async function probe(input = {}) {
+    const accountId = String(input.accountId ?? input.appId ?? state.accountId ?? "").trim();
+    const account = accountId ? await store.loadAccount(accountId).catch(() => null) : await store.loadDefaultAccount().catch(() => null);
+    if (!account?.appId || !account?.appSecret) {
+      return { ok: false, hasToken: false, error: "Feishu app is not configured" };
+    }
+    try {
+      const token = await client.getTenantAccessToken({
+        baseUrl: account.baseUrl || FEISHU_BASE_URL,
+        appId: account.appId,
+        appSecret: account.appSecret,
+      });
+      if (!token) return { ok: false, hasToken: true, error: "Feishu returned empty tenant token" };
+      return { ok: true, hasToken: true, botUsername: account.appId };
+    } catch (error) {
+      const cause = error?.cause;
+      const detail = cause?.code || (cause?.hostname ? `host ${cause.hostname}` : (cause?.message ?? ""));
+      const message = [error?.message, detail].filter(Boolean).join(" — ");
+      return { ok: false, hasToken: true, error: message || String(error) };
+    }
   }
 
   async function accountStatus(input = {}) {
@@ -796,7 +843,7 @@ export function createFeishuService(options = {}) {
       chatId: event.chatId,
     }).catch(() => null);
     if (!channelSession) return null;
-    // Parity with AionCore create_conversation_for_session + bind_conversation:
+    // Parity with Upstream create_conversation_for_session + bind_conversation:
     // lazily create (once) a Studio conversation tagged source:"channel" and
     // persist the mapping on the channel session so the same chat always
     // reuses the same conversation and Studio can recognize its origin.
