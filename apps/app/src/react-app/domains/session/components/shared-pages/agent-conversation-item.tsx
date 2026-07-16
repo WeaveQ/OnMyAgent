@@ -6,7 +6,7 @@ import { isStreamingSessionStatus } from "../../sidebar/utils";
 import { formatConversationTime, type AgentConversationGroup, type TaskStatusIndicator } from "./conversation-model";
 
 const agentConversationTextClass = {
-  itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text",
+  itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text",
   itemMeta: "shrink-0 text-xs leading-none text-dls-secondary/70",
   itemDescription: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary",
 };
@@ -74,7 +74,7 @@ export function AgentConversationItem(props: {
           className={cn(
             "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
             props.selected ? "border-dls-list-selected" : "border-dls-surface",
-            props.taskStatusVariant === "available" && "bg-dls-accent",
+            props.taskStatusVariant === "available" && "bg-dls-online",
             props.taskStatusVariant === "loading" && "bg-dls-status-warning",
             props.taskStatusVariant === "limited" && "bg-dls-status-warning",
             props.taskStatusVariant === "offline" && "bg-dls-status-danger",
@@ -83,7 +83,12 @@ export function AgentConversationItem(props: {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-baseline gap-2">
-          <div className={agentConversationTextClass.itemTitle}>
+          <div
+            className={cn(
+              agentConversationTextClass.itemTitle,
+              props.selected ? "font-medium" : "font-normal",
+            )}
+          >
             {props.group.name}
           </div>
           <div className={agentConversationTextClass.itemMeta}>

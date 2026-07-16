@@ -53,7 +53,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
     <div
       className={cn(
         "group flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors",
-        props.selected ? "bg-dls-list-selected text-dls-text" : "text-dls-text hover:bg-dls-list-selected",
+        props.selected ? "bg-dls-list-selected text-dls-text" : "text-dls-text hover:bg-dls-list-hover",
       )}
       onPointerEnter={() =>
         props.onPrefetchSession?.(props.workspaceId, latestSession.id)
@@ -69,11 +69,14 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         onClick={() => props.onOpenSession(props.workspaceId, latestSession.id)}
         variant="ghost"
         size="xs"
-        className="h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-xs leading-5 hover:bg-transparent"
+        className={cn(
+          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-[13px] leading-5 hover:bg-transparent",
+          props.selected ? "font-medium" : "font-normal",
+        )}
       >
         {props.group.description}
       </Button>
-      <div className="shrink-0 text-xs leading-none text-dls-secondary/75 group-hover:hidden">
+      <div className="shrink-0 text-xs leading-5 text-dls-text/30 group-hover:hidden">
         {summaryTime}
       </div>
       <Button

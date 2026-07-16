@@ -25,7 +25,7 @@ afterEach(async () => {
 });
 
 describe("automation run", () => {
-  test("accepts an empty successful prompt response and creates the execution directory", async () => {
+  test("runs plain prompts and slash commands in their execution directories", async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), "onmyagent-automation-e2e-"));
     const stateRoot = await mkdtemp(join(tmpdir(), "onmyagent-automation-state-"));
     roots.push(workspaceRoot);
@@ -68,6 +68,22 @@ describe("automation run", () => {
           const promptDirectory = directory ? decodeURIComponent(directory) : "";
           await writeFile(join(promptDirectory, "执行结果.md"), "Detailed artifact.\n");
           return new Response(null, { status: 204 });
+        }
+        if (
+          request.method === "POST" &&
+          url.pathname === "/session/ses_automation_204/command"
+        ) {
+          const commandDirectory = directory ? decodeURIComponent(directory) : "";
+          await writeFile(join(commandDirectory, "执行结果.md"), "Command artifact.\n");
+          return Response.json({
+            info: {
+              id: "msg_command",
+              sessionID: "ses_automation_204",
+              role: "assistant",
+              time: { created: Date.now() },
+            },
+            parts: [],
+          });
         }
         if (request.method === "GET" && url.pathname === "/session/status") {
           return Response.json({});
@@ -163,6 +179,40 @@ describe("automation run", () => {
       body: {
         model: { providerID: "test-provider", modelID: "test-model" },
       },
+    });
+
+    const commandTask = await createAutomation(workspaceRoot, {
+      scene: "office",
+      title: "Command execution",
+      prompt: "/review inspect the latest changes",
+      schedule: { mode: "weekly", day: "daily", time: "09:00" },
+    });
+    const commandResponse = await fetch(
+      `http://127.0.0.1:${server.port}/workspace/ws_automation/automations/${commandTask.id}/run`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.token}` },
+      },
+    );
+    expect(commandResponse.status).toBe(200);
+    const commandBody = await commandResponse.json();
+    const commandOutputDirectory = commandBody.item.lastRun.outputDirectory;
+    expect(await readFile(join(commandOutputDirectory, "执行结果.md"), "utf8")).toBe(
+      "Command artifact.\n",
+    );
+    const commandRequest = requests.find(
+      (request) => request.pathname === "/session/ses_automation_204/command",
+    );
+    expect(commandRequest).toMatchObject({
+      method: "POST",
+      directory: commandOutputDirectory,
+      body: {
+        command: "review",
+        model: "test-provider/test-model",
+      },
+    });
+    expect(commandRequest?.body).toMatchObject({
+      arguments: expect.stringContaining("inspect the latest changes"),
     });
   });
 });

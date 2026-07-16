@@ -227,6 +227,7 @@ describe("session run controller", () => {
         activityStatus: "thinking",
         goalRuntime: goalRuntime("paused"),
         stopRequested: false,
+        runInterrupted: false,
       }),
     ).toBe(false);
     expect(
@@ -235,6 +236,7 @@ describe("session run controller", () => {
         activityStatus: "thinking",
         goalRuntime: goalRuntime("running"),
         stopRequested: false,
+        runInterrupted: false,
       }),
     ).toBe(true);
   });
@@ -246,6 +248,19 @@ describe("session run controller", () => {
         activityStatus: "idle",
         goalRuntime: null,
         stopRequested: true,
+        runInterrupted: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("a terminal notice keeps a stopped run hidden after the stop latch clears", () => {
+    expect(
+      shouldShowSessionActivity({
+        chatStreaming: true,
+        activityStatus: "idle",
+        goalRuntime: null,
+        stopRequested: false,
+        runInterrupted: true,
       }),
     ).toBe(false);
   });
@@ -276,6 +291,32 @@ describe("session run controller", () => {
         now: 6_000,
       }).elapsedMs,
     ).toBe(5_000);
+  });
+
+  test("uses cumulative goal runtime after a resumed run is stopped", () => {
+    const elapsedMs = goalElapsedMs(
+      {
+        ...explicitGoalRuntime("running"),
+        startedAt: 1_000,
+        updatedAt: 16_000,
+        totalPausedMs: 5_000,
+        lastRunStartedAt: 16_000,
+      },
+      25_000,
+    );
+
+    expect(elapsedMs).toBe(19_000);
+    expect(
+      createSessionInterruptionNotice({
+        sessionId: "ses_1",
+        kind: "stopped",
+        runKey: "ses_1:16000",
+        afterMessageCount: 8,
+        runStartedAt: 16_000,
+        now: 25_000,
+        elapsedMs,
+      }).elapsedMs,
+    ).toBe(19_000);
   });
 
   test("paused goals can resume only when the run is otherwise idle", () => {

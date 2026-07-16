@@ -19,6 +19,7 @@ export default {
   "composer.no_matching_connectors": "No matching connectors",
   "composer.no_matching_skills": "No matching skills",
   "composer.placeholder": "What can I help with today? @ reference conversation files, / use skills and commands",
+  "composer.prompt_templates": "Prompt templates",
   "composer.remote_worker_paste_warning":
     "This is a remote worker. Sandboxes are remote too. To share files with it, upload them to the Shared folder in the sidebar.",
   "composer.run_task": "Run task",

@@ -1442,7 +1442,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 }}
                 className="group relative z-10 cursor-col-resize touch-none outline-none"
               >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" />
+                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
               </div>
             ) : null}
             <ResizablePanelGroup
@@ -1453,9 +1453,9 @@ export function ExpertPage(props: ExpertPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-surface">
+                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-background">
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-surface mac:bg-dls-surface">
+                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
                       {activeSidebarView === "agents" ? (
                         props.renderAgentsPage({
                           workspaceId: props.selectedWorkspaceId,
@@ -1490,7 +1490,6 @@ export function ExpertPage(props: ExpertPageProps) {
                           runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          headerActions={headerPanelControls}
                         />
                       ) : null}
 
@@ -1627,6 +1626,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       !showDelayedSessionLoadingState &&
                       canRenderReactSurface ? (
                         <SessionSurface
+                          key={renderedSessionId}
                           {...props.surface!}
                           onSendDraft={wrappedOnSendDraft}
                           client={props.onmyagentServerClient!}
@@ -1795,7 +1795,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       `${EXPERT_SIDE_PANEL_MIN_WIDTH}px`
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden lg:flex lg:flex-col"
+                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "canvas" ? (
                       <InfiniteCanvasPanel

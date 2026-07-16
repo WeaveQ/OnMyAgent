@@ -580,7 +580,7 @@ export default {
   "session.spaces_tab": "空間",
   "session.spaces_count": "空間 ({count})",
   "session.automations_tab": "自動化",
-  "session.task_list": "任務列表",
+  "session.task_list": "任務",
   "session.task_filter_all": "全部",
   "session.task_filter_tasks": "任務",
   "session.task_filter_space_tasks": "空間任務",

@@ -136,7 +136,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 - 可自动继续：代码实现、文档更新、运行/修复明确的 lint/typecheck/test。
 - 必须跳出问用户：schema/数据结构变更、线上/真实资源、push/deploy/外部消息、超出当前边界、连续 3 次同错失败、需要产品/架构取舍。
-- 本地状态：动态 progress/run log/intent debt/执行 plan 只写 `.loop/`（gitignored）。禁止把 plan ledger 提交到 `docs/plans/` 或 `docs/archive/`（亦已 ignore）。
+- 本地状态：动态 progress/run log/intent debt/执行 plan 只写 `.loop/`（gitignored）。禁止把 plan ledger 提交到 `docs/plans/`、`docs/archive/`、`docs/features/` 或 `docs/superpowers/`（均已 ignore）。
 
 ## 验证入口
 
@@ -163,27 +163,6 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 
 动态状态只写 `.loop/`。文档目录见 `docs/README.md`。
 
-## 项目 Skills（多 harness）
+## 项目 Skills
 
-**唯一编辑源：`.agents/skills/<name>/SKILL.md`。**
-工具适配层是 symlink（不要复制第二份实体文件）：
-
-```text
-.agents/skills/          ← source of truth
-.codex/skills  → ../.agents/skills
-.claude/skills → ../.agents/skills
-.grok/skills   → ../.agents/skills
-```
-
-说明与新增流程见 `.agents/README.md`。同步策略见 `.agents/skills/documentation-audit/references/skills-sync.md`。
-
-| Skill | 何时读取 |
-|------|----------|
-| `documentation-audit` | 扫描/整理文档、旧命令、断链、状态文档膨胀 |
-| `ui-regression-audit` | UI 主题/i18n/截图回归巡检 |
-| `frontend-primitive-refactor` | 组件复用、尺寸统一、design token 防偏移 |
-| `skills-audit` | 审计 skill 目录本身（重复、过期、断链） |
-
-- 不要把仓库 skill 同步到 `~/.codex/skills/` / `~/.grok/skills/` 等全局目录。
-- 桌面 **产品** bundled skills：`apps/desktop/resources/bundled-skills/**` 是分发内容，与工程 skill 分离，保持真实文件、不走 symlink。
-- `.opencode/` 是 OpenCode 工作区/产品配置，不是本目录的镜像。
+编辑源、跨 harness symlink、Skill 目录、新增流程与产品/工程 skill 分工全部在 `.agents/README.md`。工程 skill 只在 `.agents/skills/**` 编辑；不要复制到 `.codex/` / `.claude/` / `.grok/` 或 `~/.codex/skills/`。桌面 **产品** bundled skills 在 `apps/desktop/resources/bundled-skills/**`，`.opencode/` 是 OpenCode 工作区配置，二者都不与工程 skill 同步。

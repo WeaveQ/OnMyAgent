@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Settings2 } from "lucide-react";
+import { ChevronDown, Check, Settings2 } from "lucide-react";
 
 import type { ModelOption, ModelRef } from "@/app/types";
 import {
@@ -154,11 +154,17 @@ export function ModelSelectView({
         </TooltipContent>
       </Tooltip>
       <PopoverContent
-        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden p-px **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
+        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
         align="start"
         initialFocus={false}
       >
-        <Command items={groups} value={search} onValueChange={setSearch}>
+        <Command
+          autoHighlight={false}
+          items={groups}
+          keepHighlight={false}
+          value={search}
+          onValueChange={setSearch}
+        >
           <CommandHeader>
             <CommandInput
               ref={searchInputRef}
@@ -174,26 +180,34 @@ export function ModelSelectView({
               >
                 <CommandGroupLabel>{group.value}</CommandGroupLabel>
                 <CommandCollection>
-                  {(option: ModelOption) => (
-                    <CommandItem
-                      className="gap-2"
-                      key={`${option.providerID}:${option.modelID}`}
-                      value={`${option.providerID}:${option.modelID}`}
-                      onClick={() => handleSelect(option)}
-                      data-checked={isSameModel(value, option)}
-                    >
-                      {renderProviderIcon?.(option)}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-foreground">
-                          {option.title}
+                  {(option: ModelOption) => {
+                    const selected = isSameModel(value, option);
+                    return (
+                      <CommandItem
+                        className={selected
+                          ? "gap-2 bg-dls-list-selected data-highlighted:bg-dls-list-selected"
+                          : "gap-2 data-highlighted:bg-dls-list-hover"}
+                        key={`${option.providerID}:${option.modelID}`}
+                        value={`${option.providerID}:${option.modelID}`}
+                        onClick={() => handleSelect(option)}
+                        data-checked={selected}
+                      >
+                        {renderProviderIcon?.(option)}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-foreground">
+                            {option.title}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {option.description ??
+                              getProviderDisplayName(option.providerID)}
+                          </span>
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {option.description ??
-                            getProviderDisplayName(option.providerID)}
-                        </span>
-                      </span>
-                    </CommandItem>
-                  )}
+                        {selected ? (
+                          <Check className="size-4 shrink-0 text-dls-accent" />
+                        ) : null}
+                      </CommandItem>
+                    );
+                  }}
                 </CommandCollection>
               </CommandGroup>
             )}

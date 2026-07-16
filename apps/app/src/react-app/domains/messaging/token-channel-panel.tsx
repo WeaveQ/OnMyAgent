@@ -72,7 +72,7 @@ type TokenAccountStatusPayload = {
   error?: string;
 };
 
-type BusyAction = "refresh" | "save" | "start" | "stop" | "simulate" | null;
+type BusyAction = "refresh" | "save" | "start" | "stop" | "simulate" | "test" | null;
 type TokenPromptMode = "raw" | "debug";
 
 const APPROVAL_MODE_OPTIONS: Array<{ value: PersonalLocalAgentApprovalMode; label: string }> = [
@@ -676,7 +676,7 @@ export function TokenChannelPanel(props: {
         {probeResult ? (
           <div className="mt-2">
             {probeResult.ok ? (
-              <NoticeBox tone="success" className="break-words leading-5">
+              <NoticeBox tone="info" className="break-words leading-5">
                 {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
               </NoticeBox>
             ) : (

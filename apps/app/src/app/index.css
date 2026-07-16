@@ -268,7 +268,7 @@ select:disabled {
   --dls-canvas: #FFFFFF;
   --dls-surface: #FFFFFF;
   --dls-surface-muted: #F8FAFC;
-  --dls-sidebar: #F8FAFC;
+  --dls-sidebar: #F3F3F3;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #CBD5E1;
   --dls-accent: var(--ow-primary);
@@ -279,7 +279,8 @@ select:disabled {
   --dls-text-secondary: var(--ow-slate);
   --dls-hover: #EEF4FF;
   --dls-active: #DDEBFF;
-  --dls-list-selected: #E6E6E6;
+  --dls-list-selected: #E5E5E5;
+  --dls-list-hover: #EFEFEF;
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -343,9 +344,9 @@ select:disabled {
   --dls-brand-coupang: #473600;
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
-  --dls-rail-bg: #F3F6FB;
-  --dls-rail-active: #FFFFFF;
-  --dls-rail-hover: #E8EFFA;
+  --dls-rail-bg: #ECECEC;
+  --dls-rail-active: #EBEBEB;
+  --dls-rail-hover: #EFEFEF;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
      public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
      dls-text-tertiary / dls-app-bg / dls-slate / dls-success-fg) and
@@ -462,7 +463,7 @@ select:disabled {
   --dls-canvas: #1E1E1E;
   --dls-surface: #1E1E1E;
   --dls-surface-muted: #2A2A2A;
-  --dls-sidebar: #171717;
+  --dls-sidebar: #252526;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #4A4A4A;
   --dls-accent: var(--ow-primary);
@@ -474,6 +475,7 @@ select:disabled {
   --dls-hover: #2A2A2A;
   --dls-active: #333333;
   --dls-list-selected: #333333;
+  --dls-list-hover: #2A2A2A;
   --dls-scrollbar-thumb: rgb(248 250 252 / 0.12);
   --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.18);
   --dls-decision-bg: var(--ow-primary);
@@ -506,7 +508,7 @@ select:disabled {
   --dls-brand-terminal: #2A2A2A;
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #2F2F2F;
-  --dls-rail-bg: #171717;
+  --dls-rail-bg: #1C1C1C;
   --dls-rail-active: #333333;
   --dls-rail-hover: #303030;
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most

@@ -19,16 +19,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { t } from "../../../../../i18n";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
 import type { AgentConversationGroup } from "./conversation-model";
+import type { AssistantAutomationGroup } from "./assistant-automation-groups";
 import { AssistantTaskItem } from "./assistant-task-item";
 
 type AssistantConversationTab = "all" | "tasks" | "spaces" | "automations";
-const ASSISTANT_TASK_PREVIEW_LIMIT = 10;
+const ASSISTANT_TASK_PREVIEW_LIMIT = 20;
 
 type AssistantConversationSectionsProps = {
   categoryId: AssistantCategoryId;
   workspaceId: string;
   selectedSessionId: string | null;
-  automationGroups: [string, AgentConversationGroup[]][];
+  automationGroups: AssistantAutomationGroup<AgentConversationGroup>[];
   pinnedGroups: AgentConversationGroup[];
   taskGroups: AgentConversationGroup[];
   spaceGroups: [string, AgentConversationGroup[]][];
@@ -96,6 +97,19 @@ function takeVisibleGroupedEntries(
     if (remaining.value <= 0) break;
     const nextItems = takeVisibleGroups(items, remaining);
     if (nextItems.length > 0) visible.push([directory, nextItems]);
+  }
+  return visible;
+}
+
+function takeVisibleAutomationGroups(
+  groups: AssistantAutomationGroup<AgentConversationGroup>[],
+  remaining: { value: number },
+) {
+  const visible: AssistantAutomationGroup<AgentConversationGroup>[] = [];
+  for (const group of groups) {
+    if (remaining.value <= 0) break;
+    const items = takeVisibleGroups(group.items, remaining);
+    if (items.length > 0) visible.push({ ...group, items });
   }
   return visible;
 }
@@ -173,7 +187,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     0,
   );
   const automationsCount = props.automationGroups.reduce(
-    (count, [, items]) => count + items.length,
+    (count, group) => count + group.items.length,
     0,
   );
   const allCount = taskCount + spacesCount + automationsCount;
@@ -224,7 +238,12 @@ export function AssistantConversationSections(props: AssistantConversationSectio
       setActiveFilter((current) => current === "all" ? current : "spaces");
       return;
     }
-    if (groupedEntriesIncludeSession(props.automationGroups, props.selectedSessionId)) {
+    if (
+      groupIncludesSession(
+        props.automationGroups.flatMap((group) => group.items),
+        props.selectedSessionId,
+      )
+    ) {
       setActiveFilter((current) => current === "all" ? current : "automations");
     }
   }, [
@@ -246,7 +265,9 @@ export function AssistantConversationSections(props: AssistantConversationSectio
   const visiblePinnedGroups = showTasks ? takeVisibleGroups(props.pinnedGroups, remainingRows) : [];
   const visibleTaskGroups = showTasks ? takeVisibleGroups(props.taskGroups, remainingRows) : [];
   const visibleSpaceGroups = showSpaces ? takeVisibleGroupedEntries(props.spaceGroups, remainingRows) : [];
-  const visibleAutomationGroups = showAutomations ? takeVisibleGroupedEntries(props.automationGroups, remainingRows) : [];
+  const visibleAutomationGroups = showAutomations
+    ? takeVisibleAutomationGroups(props.automationGroups, remainingRows)
+    : [];
 
   const hasContent =
     (showTasks && taskCount > 0) ||
@@ -254,8 +275,9 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     (showAutomations && automationsCount > 0);
 
   return (
-    <div className="flex flex-col pt-2">
+    <div className="flex flex-col pt-1">
       <div
+        data-assistant-task-list-header="true"
         role="button"
         tabIndex={0}
         onClick={() => setExpanded((value) => !value)}
@@ -264,11 +286,11 @@ export function AssistantConversationSections(props: AssistantConversationSectio
           event.preventDefault();
           setExpanded((value) => !value);
         }}
-        className="flex h-8 w-full cursor-pointer items-center justify-between rounded-lg px-2 text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
+        className="sticky top-0 z-10 flex h-8 w-full cursor-pointer items-center justify-between rounded-lg bg-dls-sidebar px-2 text-dls-text transition-colors hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
         aria-expanded={expanded}
         title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
       >
-        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+        <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-normal text-dls-secondary">
           {expanded ? (
             <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
           ) : (
@@ -278,7 +300,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         </span>
         <span className="flex min-w-0 items-center gap-1">
           {activeFilterItem && (
-            <span className="min-w-0 truncate text-xs text-dls-secondary">
+            <span className="min-w-0 truncate text-xs font-normal text-dls-secondary">
               <span>{activeFilterItem.label}</span>
               <span>({activeFilterItem.count})</span>
             </span>
@@ -291,7 +313,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   variant="ghost"
                   size="icon-xs"
                   onClick={(event) => event.stopPropagation()}
-                  className="shrink-0 text-dls-secondary hover:bg-dls-active hover:text-dls-text data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
+                  className="shrink-0 text-dls-text-tertiary hover:bg-dls-active hover:text-dls-secondary data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
                   title={t("session.filter_tasks")}
                   aria-label={t("session.filter_tasks")}
                 >
@@ -340,7 +362,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         <div className="space-y-1.5">
           {showTasks && visiblePinnedGroups.length > 0 ? (
             <div>
-              <div className="flex h-8 w-full items-center gap-2 px-2 text-left text-xs font-medium text-dls-secondary">
+              <div className="flex h-8 w-full items-center gap-2 px-2 text-left text-[13px] font-medium text-dls-secondary">
                 <span className="min-w-0 flex-1 truncate">
                   {t("session.pinned_count", {
                     count: props.pinnedGroups.length,
@@ -393,7 +415,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                             : [...current, directory],
                         )
                       }
-                      className="hover:bg-dls-hover"
+                      className="text-[13px] hover:bg-dls-hover"
                       title={directory}
                       aria-expanded={expandedDir}
                     >
@@ -425,25 +447,28 @@ export function AssistantConversationSections(props: AssistantConversationSectio
             : null}
 
           {showAutomations && visibleAutomationGroups.length > 0
-            ? visibleAutomationGroups.map(([groupName, items]) => {
-                const expandedAuto = props.expandedAutomationDirectories.includes(groupName);
+            ? visibleAutomationGroups.map((group) => {
+                const expandedAuto = props.expandedAutomationDirectories.includes(group.id);
+                const groupLabel = t("automation.session_group_title", {
+                  title: group.title,
+                });
                 return (
-                  <div key={groupName}>
+                  <div key={group.id}>
                     <NavListButton
                       type="button"
                       size="compact"
                       onClick={() =>
                         props.onExpandedAutomationDirectoriesChange((current) =>
-                          current.includes(groupName)
-                            ? current.filter((item) => item !== groupName)
-                            : [...current, groupName],
+                          current.includes(group.id)
+                            ? current.filter((item) => item !== group.id)
+                            : [...current, group.id],
                         )
                       }
-                      className="hover:bg-dls-hover"
-                      title={groupName}
+                      className="text-[13px] hover:bg-dls-hover"
+                      title={groupLabel}
                       aria-expanded={expandedAuto}
                     >
-                      <span className="min-w-0 flex-1 truncate">{groupName}</span>
+                      <span className="min-w-0 flex-1 truncate">{groupLabel}</span>
                       {expandedAuto ? (
                         <ChevronDown className="size-3 shrink-0 text-dls-secondary" />
                       ) : (
@@ -453,7 +478,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                     {expandedAuto ? (
                       <div className="ml-5 space-y-0.5">
                         <AssistantTaskRows
-                          groups={items}
+                          groups={group.items}
                           workspaceId={props.workspaceId}
                           selectedSessionId={props.selectedSessionId}
                           typeIcon={<CalendarClock className="size-3.5 text-dls-secondary" />}
@@ -503,7 +528,8 @@ export function AssistantConversationSections(props: AssistantConversationSectio
               type="button"
               variant="ghost"
               size="sm"
-              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center rounded-lg text-xs text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
+              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center bg-dls-sidebar text-xs text-dls-secondary font-normal hover:bg-dls-list-hover hover:text-dls-text"
+              data-assistant-task-list-disclosure="true"
               onClick={() => setShowAllRows((value) => !value)}
             >
               {showAllRows ? (

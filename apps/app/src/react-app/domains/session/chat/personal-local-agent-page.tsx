@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Activity,
   Bot,
@@ -146,8 +146,6 @@ type PersonalLocalAgentPageProps = {
    * expert and assistant surfaces do.
    */
   onOpenTargetsChange?: (targets: OpenTarget[]) => void;
-  /** Right-aligned controls injected by the host page (Browser/Workspace toggles). */
-  headerActions?: ReactNode;
   /** Navigate to the Agent Management tab (skills panel by default). */
   onOpenAgentManagement?: (panel?: "skills" | "mcp" | "providers" | "agents") => void;
   resumeRequest?: SessionArchiveResumeRequest | null;
@@ -1307,7 +1305,279 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: message }));
     }
   }, [props.workspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
- return ( <div data-onmyagent-view="personal-assistant" className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"><aside className="flex shrink-0 flex-col overflow-hidden bg-dls-background pb-5" style={{ width: agentListWidth }} ><div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4"><InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="flex-1"><InputGroupAddon align="inline-start" inset="tight"><Search className="size-4" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("local_agent.search")} className="text-sm placeholder:text-dls-secondary/75" /></InputGroup><Button type="button" variant="ghost" size="icon-sm" onClick={() => setShowActiveRunsPanel(true)} title={t("local_agent.active_runs_title")} aria-label={t("local_agent.active_runs_title")} aria-expanded={showActiveRunsPanel} ><Activity className="size-4" />{activeRuns.length ? (<CountBadge size="dot" className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface">{activeRuns.length}</CountBadge>) : null}</Button><Button type="button" variant="ghost" size="icon-sm" onClick={() => props.onOpenAgentManagement?.("agents")} disabled={!props.onOpenAgentManagement} title={t("local_agent.manage_agents")} aria-label={t("local_agent.manage_agents")} ><Settings2 className="size-4" /></Button></div> <div className="min-h-0 flex-1 overflow-y-auto">  {filteredAgents.length > 0 ? ( <div> {filteredAgents.map((agent) => { const agentActiveRunKey = Object.entries(activeRunIdByAgent).find(([chatKey, runId]) => Boolean(runId) && agentIdFromChatKey(chatKey) === agent.id)?.[0] ?? null; const lastRun = agentActiveRunKey ? lastRunForAgent(messagesByAgent[agentActiveRunKey]) : lastRunForAgent(messagesByAgent[agent.id]); const iconUrl = providerIconUrl(agent.provider); const hasActiveRun = Boolean( agentActiveRunKey && lastRun && lastRun.runId === activeRunIdByAgent[agentActiveRunKey] && lastRun.status === "running", ); return ( <SessionRowButton key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} active={selectedAgentId === agent.id} className={localAgentLayoutClass.agentRow} ><div className="relative shrink-0"><div className={cn( localAgentLayoutClass.agentAvatar, selectedAgentId === agent.id ? localAgentLayoutClass.agentAvatarSelected : localAgentLayoutClass.agentAvatarDefault, )} > {iconUrl ? ( <img src={iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} /> ) : ( <Bot className="size-5" /> )} </div><span className={cn(localAgentLayoutClass.agentStatusDot, selectedAgentId === agent.id ? "border-dls-list-selected" : "border-dls-surface", agent.status === "online" ? "bg-dls-online" : "bg-dls-secondary")} /> {hasActiveRun ? ( <StatusPing inset size="md" className="absolute -right-0.5 -top-0.5 items-center justify-center" title={t("local_agent.background_run_title")} aria-label={t("local_agent.background_run_aria")} /> ) : null} </div><div className="min-w-0 flex-1"><div className="flex min-w-0 items-baseline gap-2"><div className={localAgentTextClass.rowTitle}>{agent.name}</div></div><div className="mt-1 flex min-w-0 items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">{agent.status === "online" ? agentSubtitle(agent) : agent.error || t("local_agent.check_install_or_login")}</div> {hasActiveRun ? <StatusDot size="md" tone="active" /> : null} </div></div></SessionRowButton> ); })} </div> ) : refreshing ? ( <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary"><Loader2 className="size-5 animate-spin text-dls-accent" /><div> {t("local_agent.detecting")} <div className="mt-1 text-xs text-dls-secondary/75">{t("local_agent.detecting_desc")}</div></div></div> ) : ( <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary"> {t("local_agent.empty")} </div> )} </div></aside><div role="separator" aria-label={t("session.resize_agent_list")} aria-orientation="vertical" tabIndex={0} onPointerDown={startAgentListResize} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setAgentListWidth((width) => Math.min( LOCAL_AGENT_LIST_MAX_WIDTH, Math.max( LOCAL_AGENT_LIST_MIN_WIDTH, width + (event.key === "ArrowLeft" ? -16 : 16), ), ), ); } }} className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-dls-accent focus-visible:ring-offset-1 focus-visible:ring-offset-dls-surface" style={{ left: agentListWidth }} ><div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" /></div><main className="flex min-w-0 flex-1 flex-col bg-dls-surface"><header className={localAgentLayoutClass.header}>
+return (
+  <div
+    data-onmyagent-view="personal-assistant"
+    className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"
+  >
+    <aside
+      className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5"
+      style={{
+        width: agentListCollapsed ? 0 : agentListWidth,
+      }}
+    >
+      {agentListCollapsed ? null : (
+        <>
+          <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4">
+            <InputGroup
+              controlSize="sm"
+              radius="md"
+              tone="surfaceMuted"
+              className="flex-1"
+            >
+              <InputGroupAddon align="inline-start" inset="tight">
+                <Search className="size-4.5" />
+              </InputGroupAddon>
+
+              <InputGroupInput
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("local_agent.search")}
+                className="text-sm placeholder:text-dls-secondary/75"
+              />
+            </InputGroup>
+
+            <Button
+              type="button"
+              size="icon-sm"
+              onClick={() => setShowActiveRunsPanel(true)}
+              className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              title={t("local_agent.active_runs_title")}
+              aria-label={t("local_agent.active_runs_title")}
+              aria-expanded={showActiveRunsPanel}
+            >
+              <Activity className="size-4.5" />
+              {activeRuns.length ? (
+                <CountBadge
+                  size="dot"
+                  className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface"
+                >
+                  {activeRuns.length}
+                </CountBadge>
+              ) : null}
+            </Button>
+
+            <Button
+              type="button"
+              size="icon-sm"
+              onClick={() => void createNewConversation()}
+              className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              title={t("local_agent.new_conversation")}
+              aria-label={t("local_agent.new_conversation")}
+            >
+              <Plus className="size-4.5" />
+            </Button>
+
+            <Button
+              type="button"
+              size="icon-sm"
+              onClick={() => setShowAddForm((value) => !value)}
+              className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              title={t("local_agent.add")}
+              aria-label={t("local_agent.add")}
+            >
+              <Bot className="size-4.5" />
+              <Plus
+                className="absolute right-1.5 top-1.5 size-2.5"
+                strokeWidth={3}
+              />
+            </Button>
+          </div>
+
+          {showAddForm ? (
+            <div className="mx-4 mt-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3">
+              <div className={localAgentTextClass.panelTitle}>
+                {t("local_agent.add")}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => void refreshAgents()}
+                disabled={refreshing}
+              >
+                {refreshing ? (
+                  <LoadingSpinner size="sm" className="mr-1.5" />
+                ) : null}
+                {t("local_agent.redetect")}
+              </Button>
+            </div>
+          ) : null}
+
+          {props.onOpenAgentManagement ? (
+            <div className="mx-4 mt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-dls-accent hover:bg-transparent hover:text-dls-accent"
+                onClick={() => props.onOpenAgentManagement?.("agents")}
+              >
+                {t("local_agent.manage_agents")}…
+              </Button>
+            </div>
+          ) : null}
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {filteredAgents.length > 0 ? (
+              <div>
+                {filteredAgents.map((agent) => {
+                  const agentActiveRunKey =
+                    Object.entries(activeRunIdByAgent).find(
+                      ([chatKey, runId]) =>
+                        Boolean(runId) &&
+                        agentIdFromChatKey(chatKey) === agent.id,
+                    )?.[0] ?? null;
+
+                  const lastRun = agentActiveRunKey
+                    ? lastRunForAgent(messagesByAgent[agentActiveRunKey])
+                    : lastRunForAgent(messagesByAgent[agent.id]);
+
+                  const iconUrl = providerIconUrl(agent.provider);
+
+                  const hasActiveRun = Boolean(
+                    agentActiveRunKey &&
+                      lastRun &&
+                      lastRun.runId === activeRunIdByAgent[agentActiveRunKey] &&
+                      lastRun.status === "running",
+                  );
+
+                  return (
+                    <SessionRowButton
+                      key={agent.id}
+                      type="button"
+                      onClick={() => setSelectedAgentId(agent.id)}
+                      active={selectedAgentId === agent.id}
+                      className={localAgentLayoutClass.agentRow}
+                    >
+                      <div className="relative shrink-0">
+                        <div
+                          className={cn(
+                            localAgentLayoutClass.agentAvatar,
+                            selectedAgentId === agent.id
+                              ? localAgentLayoutClass.agentAvatarSelected
+                              : localAgentLayoutClass.agentAvatarDefault,
+                          )}
+                        >
+                          {iconUrl ? (
+                            <img
+                              src={iconUrl}
+                              alt=""
+                              className="size-7 object-contain"
+                              loading="lazy"
+                              draggable={false}
+                            />
+                          ) : (
+                            <Bot className="size-5" />
+                          )}
+                        </div>
+
+                        <span
+                          className={cn(
+                            localAgentLayoutClass.agentStatusDot,
+                            selectedAgentId === agent.id
+                              ? "border-dls-list-selected"
+                              : "border-dls-surface",
+                            agent.status === "online"
+                              ? "bg-dls-online"
+                              : "bg-dls-secondary",
+                          )}
+                        />
+
+                        {hasActiveRun ? (
+                          <StatusPing
+                            inset
+                            size="md"
+                            className="absolute -right-0.5 -top-0.5 items-center justify-center"
+                            title={t("local_agent.background_run_title")}
+                            aria-label={t("local_agent.background_run_aria")}
+                          />
+                        ) : null}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-baseline gap-2">
+                          <div className={localAgentTextClass.rowTitle}>
+                            {agent.name}
+                          </div>
+                        </div>
+
+                        <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                          <div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">
+                            {agent.status === "online"
+                              ? agentSubtitle(agent)
+                              : agent.error ||
+                                t("local_agent.check_install_or_login")}
+                          </div>
+
+                          {hasActiveRun ? (
+                            <StatusDot size="md" tone="active" />
+                          ) : null}
+                        </div>
+                      </div>
+                    </SessionRowButton>
+                  );
+                })}
+              </div>
+            ) : refreshing ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm leading-5 text-dls-secondary">
+                <LoadingSpinner size="default" className="text-dls-accent" />
+                <div>
+                  {t("local_agent.detecting")}
+                  <div className="mt-1 text-xs text-dls-secondary/75">
+                    {t("local_agent.detecting_desc")}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary">
+                {t("local_agent.empty")}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </aside>
+
+    {agentListCollapsed ? null : (
+      <div
+        role="separator"
+        aria-label={t("session.resize_agent_list")}
+        aria-orientation="vertical"
+        tabIndex={0}
+        onPointerDown={startAgentListResize}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+
+            setAgentListWidth((width) =>
+              Math.min(
+                LOCAL_AGENT_LIST_MAX_WIDTH,
+                Math.max(
+                  LOCAL_AGENT_LIST_MIN_WIDTH,
+                  width + (event.key === "ArrowLeft" ? -16 : 16),
+                ),
+              ),
+            );
+          }
+        }}
+        className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none"
+        style={{ left: agentListWidth }}
+      >
+        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
+      </div>
+    )}
+
+    <SidebarPaneCollapseToggle
+      collapsed={agentListCollapsed}
+      onToggle={() => setAgentListCollapsed((value) => !value)}
+      style={{
+        left: agentListCollapsed ? 0 : agentListWidth,
+      }}
+    />
+
+    <main className="flex min-w-0 flex-1 flex-col bg-dls-surface">
+   <header className={localAgentLayoutClass.header}>
   <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
     <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
       {isChannelView ? (
@@ -1387,7 +1657,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         </CountBadge>
       ) : null}
     </Button>
-    {props.headerActions ? <div className="ml-1 flex items-center border-l border-dls-border pl-2">{props.headerActions}</div> : null}
   </div>
   {showScheduledTasks && selectedAgent ? (
     <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">

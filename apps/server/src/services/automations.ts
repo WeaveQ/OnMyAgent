@@ -55,6 +55,13 @@ const MIN_INTERVAL_MINUTES = 5;
 const MAX_INTERVAL_MINUTES = 30 * 24 * 60;
 const storeLocks = new Map<string, Promise<void>>();
 
+export function parseAutomationPromptCommand(prompt: string): { name: string; arguments: string } | null {
+  const match = prompt.trim().match(/^\/([^\s]+)\s*(.*)$/s);
+  const name = match?.[1]?.trim();
+  if (!name) return null;
+  return { name, arguments: match?.[2]?.trim() ?? "" };
+}
+
 export function automationStorePath(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "onmyagent", "automations.json");
 }

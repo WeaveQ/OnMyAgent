@@ -1,6 +1,7 @@
 import { APP_NAME } from "../brand";
 
 export default {
+  "time.days_ago": "{count}天前",
   "time.hours_ago": "{count}小时前",
   "time.just_now": "刚刚",
   "time.minutes_ago": "{count}分钟前",

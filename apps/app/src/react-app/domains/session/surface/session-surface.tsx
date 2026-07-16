@@ -121,7 +121,6 @@ import {
   ONMYAGENT_ASSISTANT_AVATAR,
   onmyagentAssistantName,
   type AssistantCategoryId,
-  type AssistantScenario,
 } from "./personal-assistant-config";
 import {
   assistantFallbackText,
@@ -184,7 +183,6 @@ import {
   GoalRuntimePanel,
   isGoalIntentRuntime,
   normalizedTodoItems,
-  preferLatestGoalRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
   transcriptNoticeLabel,
@@ -193,9 +191,7 @@ import {
 import {
   assistantScenarioDraftToken,
   isUserCancelledError,
-  PersonalAssistantAccessory,
   PersonalAssistantHero,
-  removeAssistantScenarioDraftTokens,
   SessionErrorCard,
 } from "./chrome/personal-assistant";
 
@@ -306,6 +302,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const storedSessionStopRequested = useSessionActivityStore((state) =>
     state.getStopRequested(props.workspaceId, props.sessionId),
   );
+  const storedSessionRunKey = useSessionActivityStore((state) =>
+    state.recordsByWorkspaceId[props.workspaceId]?.[props.sessionId]?.runKey ?? null,
+  );
   const sessionActivityStatus = props.draftOnly
     ? "idle"
     : storedSessionActivityStatus;
@@ -331,8 +330,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [assistantScenarioId, setAssistantScenarioId] = useState<string | null>(
     null,
   );
-  const [assistantPromptCardsVisible, setAssistantPromptCardsVisible] =
-    useState(false);
   const [showFolderRequiredBubble, setShowFolderRequiredBubble] =
     useState(false);
   const [accessMode, setAccessMode] = useState<ComposerAccessMode>("default");
@@ -420,10 +417,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     PERSONAL_ASSISTANT_CATEGORIES.find(
       (category) => category.id === assistantCategoryId,
     ) ?? PERSONAL_ASSISTANT_CATEGORIES[1]!;
-  const assistantScenario =
-    assistantCategory.scenarios.find(
-      (scenario) => scenario.id === assistantScenarioId,
-    ) ?? null;
   const assistantScenarioTags = assistantCategory.scenarios.map((scenario) => ({
     id: scenario.id,
     label: scenario.label,
@@ -443,7 +436,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (!assistantScenarioId) return;
     if (draft.includes(assistantScenarioDraftToken(assistantScenarioId))) return;
     setAssistantScenarioId(null);
-    setAssistantPromptCardsVisible(false);
   }, [assistantScenarioId, draft]);
 
   // Subscribe to the global registry store so we re-run the restore effect
@@ -609,21 +601,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     writeSessionTranscriptNotices(transcriptNoticesBySessionId);
   }, [transcriptNoticesBySessionId]);
-  const goalRuntimeRef = useRef<CollaborationGoalRuntime | null>(
-    props.goalRuntime ?? null,
-  );
   const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
-
-  useEffect(() => {
-    goalRuntimeRef.current = props.goalRuntime ?? null;
-  }, [props.sessionId]);
-
-  useEffect(() => {
-    goalRuntimeRef.current = preferLatestGoalRuntime(
-      goalRuntimeRef.current,
-      props.goalRuntime,
-    );
-  }, [props.goalRuntime]);
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -656,7 +634,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   useEffect(() => {
     if (!props.personalAssistantHome) return;
     setAssistantScenarioId(null);
-    setAssistantPromptCardsVisible(false);
     setComposerDraft(props.sessionId, "");
   }, [
     assistantCategoryId,
@@ -998,6 +975,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
     activityStatus: effectiveActivityStatus,
     goalRuntime: props.goalRuntime ?? null,
     stopRequested: props.draftOnly ? false : storedSessionStopRequested,
+    runInterrupted:
+      !props.draftOnly &&
+      storedSessionRunKey !== null &&
+      (transcriptNoticesBySessionId[props.sessionId] ?? []).some(
+        (notice) =>
+          (notice.kind === "cancelled" || notice.kind === "stopped") &&
+          notice.runKey === storedSessionRunKey,
+      ),
   });
   useEffect(() => {
     if (!activityVisible) return;
@@ -1274,9 +1259,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
 
   const recordSessionInterruption = useCallback(
-    (kind: "cancelled" | "stopped") => {
+    (
+      kind: "cancelled" | "stopped",
+      goalRuntime?: CollaborationGoalRuntime,
+    ) => {
       const now = Date.now();
       const afterMessageCount = renderedMessageCountRef.current;
+      const elapsedMs =
+        kind === "stopped" && goalRuntime
+          ? goalElapsedMs(goalRuntime, now)
+          : undefined;
       setTranscriptNoticesBySessionId((current) => {
         const existing = current[props.sessionId] ?? [];
         const latestTerminal = [...existing]
@@ -1288,7 +1280,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         const runStartedAt =
           activeRunStartedAtRef.current ??
           storedRunIdentity?.runStartedAt ??
-          goalRuntimeRef.current?.lastRunStartedAt ??
+          goalRuntime?.lastRunStartedAt ??
           latestTerminal?.runStartedAt ??
           now;
         const runKey =
@@ -1303,6 +1295,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           afterMessageCount,
           runStartedAt,
           now,
+          ...(elapsedMs !== undefined ? { elapsedMs } : {}),
         });
         if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
           return current;
@@ -1550,8 +1543,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   ]);
 
   const resumeGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
-      ? goalRuntimeRef.current
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
       : null;
     if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
     const now = Date.now();
@@ -1594,7 +1587,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     updateCollaborationMode(goalMode);
-    goalRuntimeRef.current = nextRuntime;
     props.onGoalRuntimeChange?.(nextRuntime);
     try {
       await props.onSendDraft({
@@ -1614,7 +1606,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
           .getState()
           .setError(props.workspaceId, props.sessionId, parsed.message);
       }
-      goalRuntimeRef.current = runtime;
       props.onGoalRuntimeChange?.(runtime);
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
@@ -1623,6 +1614,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [
     buildDraft,
     props.draftOnly,
+    props.goalRuntime,
     props.onDraftChange,
     props.onGoalRuntimeChange,
     props.onSendDraft,
@@ -1675,15 +1667,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
 
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(goalRuntimeRef.current)
-      ? goalRuntimeRef.current
+    const runtime = isGoalIntentRuntime(props.goalRuntime)
+      ? props.goalRuntime
       : null;
     if (
       runtime &&
       (runtime.status === "running" || runtime.status === "waiting")
     ) {
       const now = Date.now();
-      recordSessionInterruption("stopped");
+      recordSessionInterruption("stopped", runtime);
       const pausedRuntime = {
         ...runtime,
         status: "paused",
@@ -1691,11 +1683,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
         updatedAt: now,
         pauseStartedAt: now,
       } satisfies CollaborationGoalRuntime;
-      goalRuntimeRef.current = pausedRuntime;
       props.onGoalRuntimeChange?.(pausedRuntime);
     }
     await stopActiveRun();
-  }, [props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
+  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
     if (!chatStreaming) return;
@@ -1703,7 +1694,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       effectiveCollaborationMode,
       assistantFeatureCategoryId,
     );
-    if (collaborationKind === "goal" && isGoalIntentRuntime(goalRuntimeRef.current)) {
+    if (collaborationKind === "goal" && isGoalIntentRuntime(props.goalRuntime)) {
       await pauseGoalRuntime();
       return;
     }
@@ -1727,6 +1718,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     chatStreaming,
     effectiveCollaborationMode,
     pauseGoalRuntime,
+    props.goalRuntime,
     props.onPlanRuntimeChange,
     props.planRuntime,
     recordSessionInterruption,
@@ -2174,26 +2166,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   useControlAction(sessionReadTranscriptControlAction);
 
-  const selectAssistantScenario = useCallback(
-    (scenario: AssistantScenario) => {
+  const selectAssistantPromptTemplate = useCallback(
+    (scenarioId: string, prompt: string) => {
+      const scenario = assistantCategory.scenarios.find((item) => item.id === scenarioId);
+      if (!scenario) return;
       setAssistantScenarioId(scenario.id);
-      setAssistantPromptCardsVisible(true);
-      const nextText =
-        `${assistantScenarioDraftToken(scenario.id)} ${removeAssistantScenarioDraftTokens(draft)}`.trimEnd();
-      void typeComposerText(nextText);
+      void typeComposerText(`${assistantScenarioDraftToken(scenario.id)} ${prompt}`);
     },
-    [draft, typeComposerText],
-  );
-
-  const selectAssistantPrompt = useCallback(
-    (prompt: string) => {
-      setAssistantPromptCardsVisible(false);
-      const prefix = assistantScenario
-        ? `${assistantScenarioDraftToken(assistantScenario.id)} `
-        : "";
-      void typeComposerText(`${prefix}${prompt}`);
-    },
-    [assistantScenario, typeComposerText],
+    [assistantCategory.scenarios, typeComposerText],
   );
 
   const personalAssistantDraftHome =
@@ -2202,6 +2182,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
     renderedMessages.length === 0 &&
     !visibleTranscriptError &&
     effectiveActivityStatus === "idle";
+  const expertDraftHome =
+    !props.personalAssistantHome &&
+    props.draftOnly &&
+    Boolean(props.agentContext) &&
+    renderedMessages.length === 0 &&
+    !visibleTranscriptError &&
+    effectiveActivityStatus === "idle";
+  const composerOuterBorderVisible =
+    personalAssistantDraftHome || expertDraftHome;
   const assistantDraftHomeTitle =
     assistantCategoryId === "code"
       ? t("session.assistant_code_title")
@@ -2211,16 +2200,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       ? t("session.assistant_code_subtitle")
       : t("session.assistant_work_subtitle");
 
-  const assistantComposerAccessory =
-    props.personalAssistantHome && props.draftOnly && !personalAssistantDraftHome ? (
-      <PersonalAssistantAccessory
-        categoryId={assistantCategoryId}
-        selectedScenario={assistantScenario}
-        showPrompts={assistantPromptCardsVisible}
-        onSelectScenario={selectAssistantScenario}
-        onSelectPrompt={selectAssistantPrompt}
-      />
-    ) : null;
   const draftWorkspaceAccessoryActive =
     Boolean(props.personalAssistantHome || props.assistantFeatureCategoryId) &&
     Boolean(props.draftOnly);
@@ -2430,8 +2409,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       </div>
     ) : null;
 
-  const composerAccessory =
-    sessionComposerAccessory ?? assistantComposerAccessory;
+  const composerAccessory = sessionComposerAccessory;
 
   const chatHeaderAgent = effectiveAgent
     ? {
@@ -2478,7 +2456,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         )}
       >
         {!personalAssistantDraftHome ? (
-          <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5">
+          <header className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5">
             <div className="flex min-w-0 items-center gap-2.5">
               <PendingAgentAvatar
                 name={chatHeaderAgent.name}
@@ -2699,6 +2677,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
         ) : null}
         {personalAssistantDraftHome ? (
           <div className="mb-7 flex flex-col items-center text-center">
+            <img
+              src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+              alt=""
+              aria-hidden="true"
+              className="mb-3 size-20 object-contain opacity-10"
+              draggable={false}
+            />
             <div className="flex items-center gap-2 text-dls-text">
               <AssistantDraftHomeMark categoryId={assistantCategoryId} />
               <h2 className={sessionSurfaceTextClass.draftHomeTitle}>
@@ -2710,7 +2695,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
             </p>
           </div>
         ) : null}
-
         <div
           ref={composerShellRef}
           className={cn(
@@ -2723,6 +2707,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
               draft={draft}
               mentions={mentions}
               scenarioTags={assistantScenarioTags}
+              promptTemplates={
+                props.personalAssistantHome && props.draftOnly
+                  ? assistantCategory.scenarios
+                  : undefined
+              }
+              onSelectPromptTemplate={selectAssistantPromptTemplate}
               placeholder={assistantOfficeFeaturesActive || assistantCodeFeaturesActive ? composerPlaceholder : undefined}
               onDraftChange={handleComposerDraftChange}
               onSend={handleSend}
@@ -2787,6 +2777,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               onUploadInboxFiles={
                 props.onUploadInboxFiles ?? handleUploadInboxFiles
               }
+              showOuterBorder={composerOuterBorderVisible}
               compactTopSpacing={Boolean(composerAccessory)}
               topAccessory={composerAccessory}
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
@@ -2870,17 +2861,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
             />
           </DevProfiler>
         </div>
-        {personalAssistantDraftHome ? (
-          <div className="mt-4 w-full max-w-5xl">
-            <PersonalAssistantAccessory
-              categoryId={assistantCategoryId}
-              selectedScenario={assistantScenario}
-              showPrompts={assistantPromptCardsVisible}
-              onSelectScenario={selectAssistantScenario}
-              onSelectPrompt={selectAssistantPrompt}
-            />
-          </div>
-        ) : null}
         {/* Error display moved inline into the session conversation area */}
         {props.developerMode ? (
           <SessionDebugPanel model={model} snapshot={snapshot} />

@@ -727,7 +727,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
       {probeResult ? (
         <div className="mt-2">
           {probeResult.ok ? (
-            <NoticeBox tone="success" className="break-words leading-5">
+            <NoticeBox tone="info" className="break-words leading-5">
               {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
             </NoticeBox>
           ) : (

@@ -26,14 +26,16 @@ colors:
     surface-muted: "#F8FAFC"
     background: "#FAFAFA"
     app-bg: "#F8FAFC"
-    sidebar: "#F8FAFC"
-    rail-bg: "#F3F6FB"
-    rail-active: "#FFFFFF"
-    rail-hover: "#E8EFFA"
+    sidebar: "#F3F3F3"
+    rail-bg: "#ECECEC"
+    rail-active: "#EBEBEB"
+    rail-hover: "#EFEFEF"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"
     hover: "#EEF4FF"
     active: "#DDEBFF"
+    list-selected: "#E5E5E5"
+    list-hover: "#EFEFEF"
     danger: "#EF4444"
     warning: "#D19A2A"
     success-fg: "#047857"
@@ -66,14 +68,16 @@ colors:
     surface-muted: "#2A2A2A"
     background: "#262626"
     app-bg: "#262626"
-    sidebar: "#171717"
-    rail-bg: "#171717"
+    sidebar: "#252526"
+    rail-bg: "#1C1C1C"
     rail-active: "#333333"
     rail-hover: "#303030"
     border: "#3A3A3A"
     border-strong: "#4A4A4A"
     hover: "#2A2A2A"
     active: "#333333"
+    list-selected: "#333333"
+    list-hover: "#2A2A2A"
     danger: "#F87171"
     warning: "#FBBF24"
     success-fg: "#6EE7B7"
@@ -492,7 +496,8 @@ components:
       height: "{spacing.button-heights.chrome}"      # 48
       radius: "{rounded.md}"                          # 8
       surface: "{colors.rail-bg}"
-      surface-active: "{colors.rail-active}"
+      surface-active: transparent
+      surface-hover: transparent
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40
@@ -539,6 +544,20 @@ components:
       surface: "{colors.surface}"
       padding: "{spacing.row-padding}"
       title: "{typography.scale.sm}/500"
+    chat-message-row:
+      scope: "root session transcript only; nested transcripts retain their compact contract"
+      max-content-width-default: 832
+      max-content-width-rules: "<=1200:832; <=1600:65%; <=2000:60%; >2000:min(55%,1400)"
+      assistant-avatar-size: 24
+      assistant-name: "{typography.scale.sm}/600"
+      assistant-body: "13px/19px"                    # § 11 WorkBuddy parity exception
+      assistant-surface: transparent
+      user-padding: "8px 12px"
+      user-radius: "16px 16px 0 16px"                # § 11 WorkBuddy parity exception
+      user-max-height: 310
+      action-height: "{spacing.button-heights.xs}"   # 24
+      action-gap: "{spacing.scale.xs}"               # 8
+      composer-coupling: "none; transcript refactors must not alter composer geometry"
     artifact-card:
       radius: "{rounded.md}"                          # 8 (signature — see § 4)
       surface: "{colors.surface}"
@@ -923,13 +942,16 @@ components** are the four OnMyAgent-native identity anchors: agents
 generating these must not reinvent them, and any refactor to them
 requires updating this section in the same PR.
 
-- **`ChatMessage row`** — content-first row: 12px vertical rhythm,
-  `AgentAvatarMesh` at 32px on the left, message body `text-sm` with
-  `text-dls-text-primary`, timestamp `text-xs text-dls-text-tertiary`
-  right-aligned. No card chrome; rows are separated by hairlines
-  (`border-dls-mist`) only at grouping boundaries or on hover-selected
-  state. Streaming state shows a `signal`-colored dot appended to the
-  timestamp.
+- **`ChatMessage row`** — root session transcripts group one user prompt
+  and its following assistant / system / tool output into a turn. The
+  transcript is centered and uses the responsive width rules in
+  `components.contracts.chat-message-row`. The user prompt is a compact,
+  content-width bubble aligned right, with no user avatar or label. The
+  assistant identity appears once per turn with a 24px avatar; assistant
+  copy stays transparent and card-free. Execution metadata may collapse,
+  but final text, artifacts, and pending approvals never do. Nested
+  transcripts retain their existing compact layout. Transcript work must
+  not change the composer host or composer geometry.
 - **`SessionCard`** — the primary session / chat entry in rail-adjacent
   lists: `bg-dls-surface`, `rounded-md` (8), border hairline on hover,
   active state uses `dls-active`. Title `text-sm font-medium`,
@@ -1901,6 +1923,13 @@ in dedicated registry files, not in ordinary JSX:
   measured runtime geometry.
 - **Performance containment** — large message lists, composer surfaces:
   `contain`, `content-visibility`, virtualizer transforms.
+- **WorkBuddy root-transcript parity geometry** — the root session
+  `ChatMessage row` may use the measured 13px/19px assistant body and the
+  asymmetric `16px 16px 0 16px` user-bubble radius declared in
+  `components.contracts.chat-message-row`. These two values are scoped to
+  root transcripts and are not additions to the global typography or radius
+  scales. Implement them through named transcript styles or CSS variables,
+  never page-level `text-[13px]` / arbitrary-radius Tailwind classes.
 - **Pre-app boot / gate screens** — `architecture-mismatch-gate.tsx`.
   Full-screen dark hero shown before the app can launch. Its CTAs
   intentionally use `rounded-full` and a self-contained palette because
@@ -1995,7 +2024,7 @@ primitive" rule.
 **The extension workflow.** For any non-trivial DESIGN.md change:
 
 1. Optional local plan under `.loop/plans/` (gitignored). Do **not** commit
-   plan ledgers under `docs/plans/` or `docs/archive/` (also gitignored).
+   plan ledgers under `docs/plans/`, `docs/archive/`, `docs/features/`, or `docs/superpowers/` (all gitignored).
 2. Update `DESIGN.md` — YAML front matter first, then the narrative
    section that consumes it. Keep the two in lockstep so
    `extract-tokens.mjs` can diff cleanly.

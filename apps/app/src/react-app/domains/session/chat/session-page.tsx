@@ -155,7 +155,10 @@ function CodeSidePanelMenu(props: {
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-side-panel-menu="true">
-      <header className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary">
+      <header
+        data-panel-titlebar="true"
+        className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary mac:titlebar-drag"
+      >
         <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
           <Expand className="size-3.5" />
         </Button>
@@ -211,7 +214,10 @@ function CodeSidePanelPlaceholder(props: {
   const Icon = props.icon;
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4">
+      <header
+        data-panel-titlebar="true"
+        className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4 mac:titlebar-drag"
+      >
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Icon className="size-4 text-muted-foreground" />
           {props.title}
@@ -683,7 +689,7 @@ export function SessionPage(props: SessionPageProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-surface mac:bg-dls-surface">
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <OnMyAgentRail
             activeView={railActiveView}
@@ -749,7 +755,7 @@ export function SessionPage(props: SessionPageProps) {
                 }}
                 className="group relative z-10 cursor-col-resize touch-none outline-none"
               >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent" />
+                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
               </div>
             ) : null}
             <ResizablePanelGroup
@@ -780,7 +786,6 @@ export function SessionPage(props: SessionPageProps) {
                           workspaceName={props.selectedWorkspaceDisplay.name}
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          headerActions={headerPanelControls}
                           onmyagentServerClient={props.onmyagentServerClient}
                           runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                         />
@@ -893,6 +898,7 @@ export function SessionPage(props: SessionPageProps) {
                       !showDelayedSessionLoadingState &&
                       pageView.canRenderReactSurface ? (
                         <SessionSurface
+                          key={pageView.renderedSessionId}
                           // Spread `surface` first so the explicit per-workspace
                           // routing props below CAN'T be silently overridden by
                           // anything that leaks into `surface`. SessionSurface's
@@ -1154,7 +1160,7 @@ export function SessionPage(props: SessionPageProps) {
                       activeAssistantCategoryId === "code" ? "560px" : activeSidePanel === "extensions" ? "420px" : "320px"
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden lg:flex lg:flex-col"
+                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "codeMenu" ? (
                       <CodeSidePanelMenu
