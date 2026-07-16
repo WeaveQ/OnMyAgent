@@ -45,8 +45,10 @@ export function shouldShowSessionActivity(input: {
   activityStatus: SessionActivityStatus;
   goalRuntime: CollaborationGoalRuntime | null;
   stopRequested: boolean;
+  runInterrupted: boolean;
 }): boolean {
   if (input.stopRequested) return false;
+  if (input.runInterrupted) return false;
   if (input.goalRuntime?.status === "paused") return false;
   return input.chatStreaming || input.activityStatus !== "idle";
 }

@@ -9,6 +9,67 @@ function readWorkspaceFile(path: string): string {
 }
 
 describe("right side panel toggle contract", () => {
+  test("chat header stays borderless while right panel titlebars keep their divider", () => {
+    const surface = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
+    );
+    const sessionPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/chat/session-page.tsx",
+    );
+    const workspacePanel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
+    );
+
+    expect(surface).toContain(
+      'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
+    );
+    expect(surface).not.toContain(
+      'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
+    );
+    expect(sessionPage).toContain(
+      "flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist",
+    );
+    expect(workspacePanel).toContain(
+      "flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist",
+    );
+  });
+
+  test("sidebar resize handles do not draw a persistent divider", () => {
+    const sources = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+    ];
+
+    for (const source of sources) {
+      expect(source).toContain(
+        "bg-transparent transition-colors group-focus-visible:bg-dls-accent",
+      );
+      expect(source).not.toContain(
+        "bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent",
+      );
+    }
+  });
+
+  test("local agent pages do not inherit the session side-panel toggle", () => {
+    const sources = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+    ];
+
+    for (const source of sources) {
+      const localAgentStart = source.indexOf("<PersonalLocalAgentPage");
+      const localAgentEnd = source.indexOf("/>", localAgentStart);
+      const localAgentView = source.slice(localAgentStart, localAgentEnd);
+
+      expect(localAgentStart).toBeGreaterThan(-1);
+      expect(localAgentEnd).toBeGreaterThan(localAgentStart);
+      expect(localAgentView).not.toContain("headerActions={headerPanelControls}");
+    }
+  });
+
   test("chat code mode uses the panel icon and hides the header toggle while expanded", () => {
     const source = readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx");
 

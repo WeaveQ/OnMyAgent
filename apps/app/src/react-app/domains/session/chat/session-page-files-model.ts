@@ -138,6 +138,17 @@ export function findWorkspaceFileNode(
   return null;
 }
 
+export function workspaceFileBreadcrumbs(path: string): Array<{
+  name: string;
+  path: string;
+}> {
+  const parts = path.split("/").filter(Boolean);
+  return parts.map((name, index) => ({
+    name,
+    path: parts.slice(0, index + 1).join("/"),
+  }));
+}
+
 export function shouldHideEntry(path: string): boolean {
   const parts = path.split("/").filter(Boolean);
   for (const part of parts) {

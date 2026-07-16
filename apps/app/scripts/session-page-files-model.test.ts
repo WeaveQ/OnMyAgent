@@ -11,6 +11,7 @@ import {
   shouldHideEntry,
   workspaceNameFromRoot,
 } from "../src/react-app/domains/session/chat/session-page-files-model";
+import * as workspaceFileModel from "../src/react-app/domains/session/chat/session-page-files-model";
 
 function entry(path: string, kind: "file" | "dir" = "file", size = 100): OnMyAgentWorkspaceFileCatalogEntry {
   return { path, kind, size, mtimeMs: 1000 };
@@ -55,6 +56,22 @@ describe("session page files model", () => {
     expect(filtered?.children[0]?.children[0]?.name).toBe("task-2");
     expect(filterWorkspaceFileTree(tree, "missing")).toBeNull();
     expect(filterWorkspaceFileTree(tree, "  ")).toBe(tree);
+  });
+
+  test("builds clickable breadcrumb entries for nested folders", () => {
+    const breadcrumbBuilder = Reflect.get(
+      workspaceFileModel,
+      "workspaceFileBreadcrumbs",
+    );
+    expect(typeof breadcrumbBuilder).toBe("function");
+    if (typeof breadcrumbBuilder !== "function") return;
+
+    expect(breadcrumbBuilder("agent-a/task-1/nested")).toEqual([
+      { name: "agent-a", path: "agent-a" },
+      { name: "task-1", path: "agent-a/task-1" },
+      { name: "nested", path: "agent-a/task-1/nested" },
+    ]);
+    expect(breadcrumbBuilder("")).toEqual([]);
   });
 
   test("hides dotfiles and opencode config entries", () => {

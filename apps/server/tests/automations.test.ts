@@ -12,6 +12,7 @@ import {
   listAutomationRuns,
   listAutomations,
   nextRunAt,
+  parseAutomationPromptCommand,
   recordOverlappingAutomationSkips,
   recordAutomationRun,
   reconcileAutomationRunSuccess,
@@ -28,6 +29,14 @@ function localDateString(date: Date) {
 }
 
 describe("automations", () => {
+  test("parses slash commands selected from automation prompt tools", () => {
+    expect(parseAutomationPromptCommand("/review inspect the latest changes")).toEqual({
+      name: "review",
+      arguments: "inspect the latest changes",
+    });
+    expect(parseAutomationPromptCommand("Summarize the latest changes")).toBeNull();
+  });
+
   test("creates and persists workspace automation tasks", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "onmyagent-automations-"));
 

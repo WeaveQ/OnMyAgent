@@ -3175,7 +3175,7 @@ async function createMainWindow() {
     Object.assign(windowAppearanceOptions, {
       backgroundColor: "#00000001",
       titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 4, y: 12 },
+      trafficLightPosition: { x: 6, y: 12 },
       vibrancy: macosVibrancyForCurrentTheme(),
       visualEffectState: "active",
     });
