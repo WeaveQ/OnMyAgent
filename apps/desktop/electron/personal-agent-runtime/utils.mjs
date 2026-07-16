@@ -301,6 +301,9 @@ export async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
 // ({ pid, pgid }). Used when we no longer hold the ChildProcess (startup /
 // exit cleanup, reconcile) — there is no exit event to await, so we probe
 // liveness manually after the grace window.
+/**
+ * @param {{ pid?: number | string; pgid?: number | string; graceMs?: number }} [options]
+ */
 export async function terminateProcessTreeByPid({ pid, pgid, graceMs = 1_000 } = {}) {
   const nPid = Number(pid);
   if (!nPid) return;

@@ -188,7 +188,7 @@ export function createTelegramService(options = {}) {
     }
     const account = await store.loadDefaultAccount().catch(() => null);
     if (!account?.token) {
-      return { ok: false, skipped: true, reason: `no saved ${platformName} account`, status: dispatcher.status() };
+      return { ok: false, skipped: true, reason: `no saved Telegram account`, status: dispatcher.status() };
     }
     return start({ ...(config.lastStartOptions ?? {}), ...input, accountId: account.accountId, autoStart: true });
   }

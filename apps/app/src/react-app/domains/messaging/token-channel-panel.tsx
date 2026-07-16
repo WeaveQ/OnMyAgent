@@ -470,7 +470,7 @@ export function TokenChannelPanel(props: {
         : await discordSimulateInbound(input as DiscordSimulateInboundInput);
       if (!result.ok) throw new Error(String((result as { error?: unknown }).error ?? "simulate failed"));
       if (result.status) applyServiceState(result.status as TokenPanelState);
-      window.setTimeout(() => void refresh(), 500);
+      void refresh();
     } catch (simulateError) {
       setError(simulateError instanceof Error ? simulateError.message : String(simulateError));
     } finally {

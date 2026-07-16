@@ -56,7 +56,7 @@ before(async () => {
   // network read — reproducing a genuinely stuck run.
   blackhole = net.createServer((sock) => sock.on("error", () => {}));
   await new Promise((resolve) => blackhole.listen(0, "127.0.0.1", resolve));
-  blackholePort = blackhole.address().port;
+  blackholePort = /** @type {{ port: number }} */ (blackhole.address()).port;
 });
 
 after(async () => {
@@ -76,6 +76,7 @@ function psTreeAlive(pid) {
 }
 
 test("reaps a real hung codex process tree via cleanupRegisteredAgentProcesses", async (t) => {
+  // @ts-ignore -- setTimeout is present at runtime in node:test TestContext
   t.setTimeout?.(40_000);
 
   const codexHome = path.join(runtimeRoot, "codex-home");
