@@ -126,6 +126,8 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     personalAgentNativeSessions,
     weixinService: channels.weixinService,
     feishuService: channels.feishuService,
+    telegramService: channels.telegramService,
+    discordService: channels.discordService,
     channelInfrastructureApi: channels.channelInfrastructureApi,
     channelInfrastructure: channels,
   };

@@ -73,11 +73,11 @@ function normalizeCapability(agent) {
 }
 
 
-// Mirror AionCore's `derive_models_from_config_options`: some CLIs (notably
+// Mirror Upstream's `derive_models_from_config_options`: some CLIs (notably
 // claude-agent-acp) never publish `available_models` on session/update but do
 // expose a `model` select inside `config_options`. When that happens, expand
 // the select options into a proper models catalog so the UI's model dropdown
-// gets the same choices AionUi surfaces.
+// gets the same choices Upstream surfaces.
 function deriveModelsFromConfigOptions(configOptions) {
   if (!Array.isArray(configOptions) || !configOptions.length) return [];
   const select = configOptions.find((option) => {
@@ -192,6 +192,8 @@ export function personalAgentMetadataFromAgent(agent) {
     available,
     command,
     args,
+    acpArgs: stringList(agent?.acpArgs),
+    connectionType: agent?.connectionType ?? null,
     env,
     native_skills_dirs: stringList(agent?.nativeSkillsDirs ?? agent?.native_skills_dirs),
     behavior_policy: {

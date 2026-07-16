@@ -15,11 +15,15 @@ function normalizeToolText(value: unknown) {
   return value.replace(/(?:\r?\n\s*)+$/, "");
 }
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function hasStructuredValue(value: unknown) {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") return Object.keys(value as Record<string, unknown>).length > 0;
+  if (isRecordStringUnknown(value)) return Object.keys(value).length > 0;
   return true;
 }
 
@@ -40,9 +44,7 @@ function toolCallStatusTone(status: "completed" | "error" | "running"): StatusBa
 }
 
 function toToolStateValue(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
+  return isRecordStringUnknown(value) ? value : {};
 }
 
 function toSummaryToolState(part: DynamicToolUIPart): ToolState {
@@ -87,33 +89,8 @@ function toSummaryToolPart(part: DynamicToolUIPart): Part {
   };
 }
 
-function diffLineClass(line: string) {
-  if (line.startsWith("+")) return "text-dls-status-success-fg bg-dls-status-success-soft";
-  if (line.startsWith("-")) return "text-dls-status-danger-fg bg-dls-status-danger-soft";
-  if (line.startsWith("@@")) return "text-dls-accent bg-dls-decision-soft";
-  return "text-dls-text";
-}
-
-function extractDiff(output: unknown) {
-  if (typeof output !== "string") return null;
-  if (output.includes("@@") || output.includes("+++ ") || output.includes("--- ")) {
-    return output;
-  }
-  return null;
-}
-
-function toKeyedLines(value: string) {
-  let offset = 0;
-  return value.split("\n").map((line) => {
-    const key = `${offset}:${line}`;
-    offset += line.length + 1;
-    return { key, line };
-  });
-}
-
-async function copyText(text: string) {
-  await navigator.clipboard.writeText(text);
-}
+export { diffLineClass, extractDiff, toKeyedLines, copyText } from "../../../capabilities/artifacts/diff-utils";
+import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
 
 export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -167,7 +144,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
           {Boolean(diff) ? (
             <div className="rounded-lg border bg-dls-surface-muted p-2">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-dls-secondary">Diff</div>
+                <div className="text-xs font-medium text-dls-secondary">{t("session.diff")}</div>
                 <Button
                   type="button"
                   variant="outline"
@@ -175,7 +152,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
                   className="rounded-full text-dls-text hover:bg-dls-hover"
                   onClick={() => void copyText(diff ?? "")}
                 >
-                  Copy
+                  {t("session.copy")}
                 </Button>
               </div>
               <div className="mt-2 grid gap-1 overflow-hidden rounded-md">
@@ -194,7 +171,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
           {hasStructuredValue(input) ? (
             <div>
               <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-dls-secondary">Tool request</div>
+                <div className="text-xs font-medium text-dls-secondary">{t("session.tool_request")}</div>
                 <Button
                   type="button"
                   variant="outline"
@@ -202,7 +179,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
                   className="rounded-full text-dls-text hover:bg-dls-hover"
                   onClick={() => void copyText(formatStructuredValue(input))}
                 >
-                  Copy
+                  {t("session.copy")}
                 </Button>
               </div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
@@ -222,7 +199,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
                   className="rounded-full text-dls-text hover:bg-dls-hover"
                   onClick={() => void copyText(formatStructuredValue(output))}
                 >
-                  Copy
+                  {t("session.copy")}
                 </Button>
               </div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">

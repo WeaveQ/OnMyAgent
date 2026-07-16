@@ -11,7 +11,7 @@ import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
-import { detectAvailableLocalAgents } from "./detect-local-agents.mjs";
+import { detectAvailableLocalAgents, discoverableAgentDrafts } from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
@@ -28,14 +28,16 @@ import {
   writeConversationEvents,
 } from "./conversation-store.mjs";
 import { clearSession, readSession, writeSession } from "./session-store.mjs";
-import { runId } from "./utils.mjs";
+import { runId, isProcessTreeAlive, terminateProcessTreeByPid } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { reconcileChannelActiveRuns } from "./reconcile-channel-active-runs.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
-import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
+import { cleanupRegisteredAgentProcesses, getAgentProcess, listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
+import { personalAgentCapability, personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
 import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
@@ -361,12 +363,30 @@ function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
 
 export function createPersonalAgentRuntime(options) {
   configurePersonalAgentRuntimeState(options ?? {});
+  // Capture the reconcile cutoff at runtime start so orphaned "running" logs
+  // from the current session are never treated as stale-and-finalized.
+  const reconcileCutoffMs = Date.now();
   const runs = new Map();
   const legacy = options.legacy;
   const injectedAdapters = options.adapters ?? {};
   const bundledExtensionRoots = Array.isArray(options.bundledExtensionRoots) ? options.bundledExtensionRoots.filter(Boolean) : [];
   void recoverAgentProcesses().catch(() => undefined);
+  // Reap any process trees left behind by the previous runtime session before
+  // finalizing their orphaned run logs. `recoverAgentProcesses` only marks them
+  // stale; this actually SIGTERM -> SIGKILLs the (possibly still-alive, hung)
+  // trees so `reconcileOrphanRuns` can reclaim the logs.
+  void cleanupRegisteredAgentProcesses().catch(() => undefined);
   void reconcileOrphanRuns().catch(() => undefined);
+  // Channel active-run locks (<userDataDir>/<platform>/accounts/*.active-runs.json)
+  // are normally reclaimed by each channel's poll loop, but that loop only runs
+  // while the channel service is active. If the app restarts mid-run the lock
+  // can be left behind forever, locking the conversation ("还在处理上一条消息").
+  // Reconcile them here against the same run snapshots reconcileOrphanRuns uses.
+  void reconcileChannelActiveRuns({
+    userDataDir: String(options.userDataDir ?? "").trim(),
+    getRun: status,
+    reconcileCutoffMs,
+  }).catch(() => undefined);
   const adapterFactories = {
     opencode: createOpenCodeAdapter,
     codex: createCodexAdapter,
@@ -392,7 +412,10 @@ export function createPersonalAgentRuntime(options) {
     if (provider === "claude") return "Claude Code ACP session";
     if (provider === "openclaw") return "OpenClaw ACP session";
     if (provider === "remote") return "Remote ACP WebSocket session";
-    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return "Custom ACP session";
+    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) {
+      const name = agent && typeof agent.name === "string" && agent.name.trim() ? agent.name.trim() : null;
+      return `${name ?? "Custom"} ACP session`;
+    }
     return "本地 Agent harness session";
   }
 
@@ -536,7 +559,6 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  const reconcileCutoffMs = Date.now();
   // On startup, reconcile every persisted run log across all workspaces and
   // finalize any orphaned "running" runs (process is already gone) the previous
   // process session left behind.
@@ -563,7 +585,18 @@ export function createPersonalAgentRuntime(options) {
         const startedAt = Number(meta.startedAt ?? meta.at ?? 0);
         if (startedAt && startedAt >= reconcileCutoff) continue;
         if (runs.has(meta.runId)) continue;
-        if (isProcessAlive(meta.pid)) continue;
+        // Do NOT skip a running run merely because its pid is still alive — a
+        // process can be hung (e.g. blocked on the network) yet never finish,
+        // which is the phantom-lock bug. If we can identify the tree via the
+        // registry, reap it (SIGTERM -> SIGKILL); otherwise best-effort reap by
+        // pid. Either way finalize the log so the channel lock is released.
+        const registered = getAgentProcess(meta.runId);
+        if (registered && isProcessTreeAlive(registered)) {
+          await terminateProcessTreeByPid({ pid: registered.pid, pgid: registered.pgid });
+          unregisterAgentProcess(meta.runId);
+        } else if (isProcessAlive(meta.pid)) {
+          await terminateProcessTreeByPid({ pid: meta.pid });
+        }
         await finalizeStaleRunLog(filePath, meta);
       }
     }
@@ -813,6 +846,13 @@ export function createPersonalAgentRuntime(options) {
       fileChanges: [],
     };
     runs.set(id, state);
+    // Record the user's prompt as the first event of the run so the Studio
+    // conversation view (and conversation-store hydration) can render the user
+    // message for channel-initiated runs, which have no renderer-side optimistic
+    // input. Prefer the raw user text (input.userText) when available — for
+    // Telegram/Discord the wrapped `prompt` carries transport metadata that is
+    // not useful to display.
+    appendContractEvent(events, { type: "user", text: String(input.userText ?? prompt ?? "").trim() });
     appendContractEvent(events, { type: "status", text: `${provider} ACP flow started` });
     state.updatedAt = Date.now();
     void persistRun(state);
@@ -849,6 +889,12 @@ export function createPersonalAgentRuntime(options) {
     state.conversationId = conversation.id;
     state.providerSessionId = conversation.providerSessionId;
     state.resumeKey = conversation.resumeKey;
+    // When the conversation has no committed workdir (a brand-new conversation
+    // whose project was picked via the workspace chip after creation), fall
+    // back to the workdir passed on the send so the run executes in the mounted
+    // project instead of the default workspace root.
+    const requestedWorkdir = input.workdir ? String(input.workdir).trim() || null : null;
+    state.conversationWorkdir = conversation.workdir || requestedWorkdir || null;
     state.conversationWorkdir = conversation.workdir;
     const browserUseContext = await browserUseContextForRun({
       workspaceRoot,
@@ -888,6 +934,7 @@ export function createPersonalAgentRuntime(options) {
               registerAgentProcess({
                 runId: state.runId,
                 pid: state.pid,
+                pgid: state.pid,
                 provider: state.agentProvider,
                 backend: state.agentProvider,
                 conversationId: state.conversationId,
@@ -925,7 +972,7 @@ export function createPersonalAgentRuntime(options) {
           conversationId: conversation.id,
           providerSessionId: conversation.providerSessionId,
           resumeKey: conversation.resumeKey,
-          conversationWorkdir: conversation.workdir,
+          conversationWorkdir: state.conversationWorkdir,
           agent: detected,
           model: detected.model,
           prompt,
@@ -1003,7 +1050,7 @@ export function createPersonalAgentRuntime(options) {
           title: conversation.title,
           providerSessionId: result.providerSessionId ?? result.sessionId ?? state.providerSessionId ?? null,
           resumeKey: result.resumeKey ?? result.providerSessionId ?? result.sessionId ?? state.resumeKey ?? null,
-          workdir: result.workdir ?? state.workdir ?? null,
+          workdir: result.workdir ?? state.conversationWorkdir ?? null,
           lastRunId: state.runId,
           lastStatus: "completed",
           source: conversation.source ?? "studio-created",
@@ -1022,6 +1069,7 @@ export function createPersonalAgentRuntime(options) {
           registerAgentProcess({
             runId: state.runId,
             pid: result.pid,
+            pgid: result.pid,
             provider: state.agentProvider,
             backend: state.agentProvider,
             conversationId: conversation.id,
@@ -1325,6 +1373,25 @@ export function createPersonalAgentRuntime(options) {
             sessionMetadata: warmSessionMetadata,
             handshakeAt: Date.now(),
           });
+          // Custom agents are stored with provider="custom" but warmed up
+          // via their detected adapter provider (e.g. CodeBuddy detects as
+          // "opencode"). listAgents hydrates with agent.provider ("custom"),
+          // so mirror the session metadata under the original provider key
+          // too, otherwise the handshake stays cold and the model selector
+          // never appears for custom ACP agents.
+          const originalProvider = String(input.agent?.provider ?? agent.provider ?? "").trim();
+          if (originalProvider && originalProvider !== provider) {
+            try {
+              const priorOriginal = await readSession(workspaceRoot, originalProvider, agentId).catch(() => ({}));
+              await writeSession(workspaceRoot, originalProvider, agentId, {
+                ...(priorOriginal && typeof priorOriginal === "object" ? priorOriginal : {}),
+                sessionMetadata: warmSessionMetadata,
+                handshakeAt: Date.now(),
+              });
+            } catch {
+              // best-effort mirror; the primary write above already succeeded.
+            }
+          }
         } catch (error) {
           // eslint-disable-next-line no-console
           console.warn(`[personal-agent-runtime] warmup session-store write failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -1450,11 +1517,19 @@ export function createPersonalAgentRuntime(options) {
     const optionId = String(input.optionId ?? input.configOptionId ?? input.id ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
     if (!optionId) throw new Error("optionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
-    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
+    // Custom agents are stored with provider="custom" but their ACP adapter
+    // is resolved via detectAgent (e.g. CodeBuddy detects as "opencode").
+    // Without detecting, adapterFactoryForProvider("custom", agent) returns
+    // null because the normalized agent lacks connectionType/supportsAcp,
+    // and setConfigOption fails with "No adapter for custom". Aligns with
+    // warmupConversation which uses detected.provider.
+    const detected = await legacy.detectAgent(agent, workspaceRoot).catch(() => agent);
+    const provider = detected.provider ?? agent.provider;
+    const adapterFactory = adapterFactoryForProvider(provider, detected);
+    if (!adapterFactory) throw new Error(`No adapter for ${provider}`);
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.setConfigOption !== "function") throw new Error(`${agent.provider} does not support config/set`);
-    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent });
+    if (typeof adapter.setConfigOption !== "function") throw new Error(`${provider} does not support config/set`);
+    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected });
   }
 
   async function getConversationStatus(input = {}) {
@@ -1521,12 +1596,162 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
+  // Two-step ACP probe result → { status, error, step } for a CLI+ACP agent.
+  // Used by both the discoverable catalog and CLI+ACP custom agents so
+  // entries whose binary exists but who fail `initialize` (unsupported CLI,
+  // e.g. GitHub Copilot) or `session/new` (未登陆, e.g. Kimi CLI) do not
+  // surface as `online` in the 本地 tab picker. The management tab still
+  // sees them (via `listAgents` without the `available` filter) with the
+  // right diagnostic.
+  async function probeCliAcpAgent(command, acpArgs, workspaceRoot) {
+    try {
+      const probe = await probeAcpCommand({
+        command,
+        args: Array.isArray(acpArgs) ? acpArgs : [],
+        cwd: workspaceRoot || process.cwd(),
+        timeoutMs: 8_000,
+      });
+      if (probe.ok) return { status: "online", error: null, step: probe.step };
+      if (probe.step === "needs_auth") return { status: "needs_auth", error: probe.error ?? "authentication required", step: probe.step };
+      if (probe.step === "fail_cli") return { status: "missing", error: probe.error ?? null, step: probe.step };
+      return { status: "offline", error: probe.error ?? "ACP handshake failed", step: probe.step };
+    } catch (probeError) {
+      const message = probeError instanceof Error ? probeError.message : String(probeError);
+      return { status: "offline", error: message, step: "fail_acp" };
+    }
+  }
+
+  // Resolve the discoverable catalog into agent cards for the management page.
+  // Each draft is run through the normal detection layer so status (online /
+  // offline / missing), version and connectionMode are computed the same way as
+  // the 5 built-ins. Not-installed agents resolve to offline/missing but are
+  // still returned (that's the whole point) with `discoverable: true` so the UI
+  // can render them read-only (no edit/delete) yet still test-connectable.
+  async function buildDiscoverableAgents(workspaceRoot, registeredAgents, includeModels) {
+    const existingIds = new Set();
+    for (const agent of Array.isArray(registeredAgents) ? registeredAgents : []) {
+      if (agent?.id) existingIds.add(String(agent.id).toLowerCase());
+      if (agent?.provider) existingIds.add(String(agent.provider).toLowerCase());
+      const exe = String(agent?.executablePath ?? "").split(/[\\/]/).pop();
+      if (exe) existingIds.add(exe.toLowerCase());
+    }
+    const drafts = discoverableAgentDrafts().filter(
+      (draft) => !existingIds.has(String(draft.id).toLowerCase()),
+    );
+    return Promise.all(
+      drafts.map(async (draft) => {
+        let detected = null;
+        try {
+          detected = await legacy.detectAgent(
+            {
+              id: draft.id,
+              name: draft.name,
+              provider: "custom",
+              executablePath: draft.executablePath,
+              connectionType: "cli",
+              supportsAcp: true,
+              acpArgs: draft.acpArgs,
+            },
+            workspaceRoot,
+            { includeModels },
+          );
+        } catch {
+          detected = null;
+        }
+        const base = detected && typeof detected === "object" ? detected : {};
+        // A discoverable catalog entry is either installed (detectAgent resolves
+        // it to "online" with a real version) or not installed. Anything that is
+        // not "online" is treated as not-installed: surface it as "missing" with
+        // no error so the card shows a clean "未安装" state instead of a red
+        // error box / raw "spawn X ENOENT" (the whole point is "listed even when
+        // not installed", not "broken").
+        const versionOk = base.status === "online";
+        // `--version` succeeded only proves the binary exists. To keep entries
+        // like Kimi (未登陆) or Copilot (不支持 ACP) out of the 本地 tab,
+        // additionally run a 2-step ACP probe: `initialize` + `session/new`.
+        // Only draft agents that pass both steps are treated as truly online;
+        // anything else (`needs_auth` / `fail_acp` / `fail_cli`) is downgraded
+        // so `personalAgentAvailableMetadataList`'s `available` filter drops
+        // them from the runtime picker but the management tab still surfaces
+        // them read-only with the right diagnostic.
+        let effectiveStatus = versionOk ? "online" : "missing";
+        let effectiveError = versionOk ? (base.error ?? null) : null;
+        let acpProbeStep = null;
+        if (versionOk) {
+          const probeResult = await probeCliAcpAgent(draft.executablePath, draft.acpArgs, workspaceRoot);
+          effectiveStatus = probeResult.status;
+          effectiveError = probeResult.error;
+          acpProbeStep = probeResult.step;
+        }
+        // Force identity/kind fields back to the catalog values: detectAgent may
+        // normalize a not-installed custom draft in ways that drop our metadata.
+        return {
+          ...base,
+          id: draft.id,
+          name: draft.name,
+          provider: "custom",
+          connectionType: "cli",
+          supportsAcp: true,
+          acpArgs: draft.acpArgs,
+          nativeSkillsDirs: draft.nativeSkillsDirs,
+          discoverable: true,
+          status: effectiveStatus,
+          error: effectiveError,
+          acpProbeStep,
+        };
+      }),
+    );
+  }
+
   async function listAgents(input = {}) {
     const result = await legacy.listAgents(input);
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const customAgents = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
+    const customAgentsRaw = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
+    // Custom agents come straight from the store without going through the
+    // legacy detector, so `capability` / `connectionMode` were never
+    // populated. Compute them here (Upstream-aligned: cli + supportsAcp => ACP)
+    // so `agent_type` becomes "acp", the ACP warmup path kicks in, and the
+    // UI's model selector sees supportsModelOverride based on the handshake
+    // instead of the raw stored bool.
+    // Known discoverable agent ids so that a previously-detected-and-added
+    // custom agent (e.g. CodeBuddy) retains its catalog identity rather than
+    // being demoted to the "custom" group. Without this, the agent shows up
+    // in "自定义 AI 同事" instead of "已识别 AI 同事" — and is then filtered
+    // out of the discoverable draft set (duplicate id) so it never appears in
+    // the right section.
+    const discoverableIdSet = new Set(
+      discoverableAgentDrafts().map((d) => String(d.id).toLowerCase()),
+    );
+    const customAgents = await Promise.all(customAgentsRaw.map(async (agent) => {
+      // Probe CLI+ACP custom agents (both user-added and previously-detected
+      // discoverable ones like Kimi) so `未登陆 / 不支持 ACP` entries drop out
+      // of the runtime picker. Non-ACP or raw-cmd agents keep their stored
+      // status untouched.
+      const isCliAcp = agent?.connectionType === "cli" && agent?.supportsAcp !== false;
+      let status = agent?.status === "offline" ? "offline" : "online";
+      let error = agent?.error ?? null;
+      let acpProbeStep = agent?.acpProbeStep ?? null;
+      if (isCliAcp && agent?.executablePath) {
+        const probeResult = await probeCliAcpAgent(agent.executablePath, agent.acpArgs, workspaceRoot);
+        status = probeResult.status;
+        error = probeResult.error;
+        acpProbeStep = probeResult.step;
+      }
+      const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
+      const connectionMode = agent.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, agent);
+      const discoverable = agent.discoverable === true || discoverableIdSet.has(String(agent?.id ?? "").toLowerCase());
+      return { ...agent, capability, connectionMode, discoverable, status, error, acpProbeStep };
+    }));
     const extensionAgents = await loadExtensionAdapters();
-    const agents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
+    const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
+    // Management page only: always list the known-but-not-installed agent
+    // catalog (Upstream-style "十多个都显示，没装也在") so users can test-connect
+    // any of them. Gated behind includeDiscoverable so the runtime/session
+    // dropdowns (which call listAgents without the flag) stay unaffected.
+    const discoverableAgents = input.includeDiscoverable
+      ? await buildDiscoverableAgents(workspaceRoot, registeredAgents, input.includeModels !== false)
+      : [];
+    const agents = [...registeredAgents, ...discoverableAgents];
     // Hydrate ACP session metadata cached from the last warmup so the
     // handshake exposes available_commands / config options / models before
     // the user sends a message. Falls back to the raw agent when the
@@ -1537,13 +1762,41 @@ export function createPersonalAgentRuntime(options) {
           const agentId = String(agent?.id ?? provider).trim();
           if (!provider || !agentId) return agent;
           try {
-            const stored = await readSession(workspaceRoot, provider, agentId);
+            // Custom ACP agents are stored with provider="custom" but warmed
+            // up via their detected adapter provider (e.g. CodeBuddy is
+            // detected as the "opencode" provider). The warmup path mirrors
+            // the session metadata under the original provider key, but as a
+            // safety net also try the backend / "opencode" keys.
+            const candidateProviders = [provider];
+            const backend = String(agent?.backend ?? "").trim();
+            if (backend && !candidateProviders.includes(backend)) candidateProviders.push(backend);
+            if (!candidateProviders.includes("opencode")) candidateProviders.push("opencode");
+            let stored = null;
+            for (const candidate of candidateProviders) {
+              stored = await readSession(workspaceRoot, candidate, agentId);
+              if (stored?.sessionMetadata && typeof stored.sessionMetadata === "object") break;
+            }
             const meta = stored?.sessionMetadata;
             if (!meta || typeof meta !== "object") return agent;
             const nextAvailableCommands = Array.isArray(meta.availableCommands) && meta.availableCommands.length
               ? meta.availableCommands
               : (Array.isArray(agent?.availableCommands) ? agent.availableCommands : []);
-            return { ...agent, sessionMetadata: meta, availableCommands: nextAvailableCommands };
+            // Merge warmup-captured config options / models into the agent
+            // handshake so acpConfigOptions() and the renderer's
+            // useAcpModelInfo can see them without waiting for the first
+            // message. Aligns with Upstream's preload_advertised_catalogs
+            // which seeds advertised models/modes from the agent handshake.
+            const handshake = { ...(agent.handshake ?? {}) };
+            if (Array.isArray(meta.configOptions) && meta.configOptions.length && !Array.isArray(handshake.config_options)) {
+              handshake.config_options = meta.configOptions;
+            }
+            if (Array.isArray(meta.availableModels) && meta.availableModels.length && !(Array.isArray(handshake.available_models) && handshake.available_models.length)) {
+              handshake.available_models = meta.availableModels;
+            }
+            if (meta.currentModelId && !handshake.current_model_id) {
+              handshake.current_model_id = meta.currentModelId;
+            }
+            return { ...agent, handshake, sessionMetadata: meta, availableCommands: nextAvailableCommands };
           } catch {
             return agent;
           }
@@ -1589,7 +1842,14 @@ export function createPersonalAgentRuntime(options) {
     // renderer via handshake.available_commands. Directly calling
     // `legacy.listAgents` would return raw agent objects and drop the
     // session-store hydration.
-    const result = await listAgents(input);
+    //
+    // Force `includeDiscoverable: true` here so any binary from the built-in
+    // discoverable catalog (grok / kimi / goose / trae / mimo / codebuddy...)
+    // that is already installed on PATH auto-surfaces in the 本地 tab as an
+    // online agent. `personalAgentAvailableMetadataList` filters by
+    // `enabled && available`, so not-installed drafts (status: "missing")
+    // are dropped and only actually-usable ones make it into the picker.
+    const result = await listAgents({ ...input, includeDiscoverable: true });
     const agents = Array.isArray(result?.agents) ? result.agents : [];
     return { agents: personalAgentAvailableMetadataList(agents) };
   }
@@ -1677,14 +1937,25 @@ export function createPersonalAgentRuntime(options) {
       // Collapse legacy "error" status into "offline" so the 5-state model
       // (online / needs_auth / offline / missing / unknown) is always returned.
       const rawStatus = detected.status === "error" ? "offline" : detected.status;
-      const status = rawStatus === "offline" && /auth|login|认证|登录/i.test(String(detected.error ?? ""))
-        ? "needs_auth"
-        : rawStatus;
+      const errorText = String(detected.error ?? "");
+      const errorCode = detected.errorInfo?.code ?? detected.errorCode ?? "";
+      // A missing binary (not installed) is reported as "missing" with a clean
+      // human message — never the raw "spawn X ENOENT" / "未配置可执行命令".
+      const isMissing =
+        rawStatus === "missing" ||
+        String(errorCode).toLowerCase() === "missing_binary" ||
+        /enoent|not found|command not found|no such file|未配置|未安装/i.test(errorText);
+      let status = rawStatus;
+      if (isMissing) {
+        status = "missing";
+      } else if (rawStatus === "offline" && /auth|login|unauthorized|forbidden|api key|credential|认证|登录|未授权|凭证/i.test(errorText)) {
+        status = "needs_auth";
+      }
       return {
         ok: false,
         status,
         step: status === "missing" ? "fail_cli" : status === "needs_auth" ? "needs_auth" : "fail_cli",
-        error: detected.error ?? `${detected.name ?? agent.name ?? agent.provider} unavailable`,
+        error: isMissing ? `${detected.name ?? agent.name ?? agent.provider} 未安装` : (detected.error ?? `${detected.name ?? agent.name ?? agent.provider} unavailable`),
         capabilities: null,
         models: [],
         configOptions: [],
@@ -1693,7 +1964,16 @@ export function createPersonalAgentRuntime(options) {
     }
     const provider = detected.provider ?? agent.provider;
     let executablePath = detected.executablePath || provider;
-    let args = ["acp", ...(Array.isArray(detected.customArgs) ? detected.customArgs : [])];
+    // Built-in providers expose ACP via the `acp` subcommand, but custom / cli
+    // agents (incl. the discoverable catalog like CodeBuddy/Gemini) switch into
+    // ACP mode via their own flag (e.g. `--acp`) carried on `acpArgs`. Using the
+    // hard-coded `acp` subcommand for those would spawn the wrong process.
+    const detectedAcpArgs = Array.isArray(detected.acpArgs) ? detected.acpArgs.filter(Boolean) : [];
+    const detectedCustomArgs = Array.isArray(detected.customArgs) ? detected.customArgs : [];
+    let args =
+      (provider === "custom" || detected.connectionType === "cli") && detectedAcpArgs.length
+        ? [...detectedAcpArgs, ...detectedCustomArgs]
+        : ["acp", ...detectedCustomArgs];
     try {
       if (provider === "codex" || provider === "claude") {
         const tool = await resolveManagedAcpTool(provider);
@@ -1704,11 +1984,14 @@ export function createPersonalAgentRuntime(options) {
       }
       const probe = await probeAcpCommand({ command: executablePath, args, cwd: workspaceRoot || process.cwd(), timeoutMs: Number(input.timeoutMs) || 12_000 });
       const meta = probe.sessionResult ? extractProbeMetadata(probe.sessionResult, probe.initialized) : extractProbeMetadata(probe.initialized);
+      // If the probe determined the binary is simply not installed, replace the
+      // raw "spawn X ENOENT" with a clean "未安装" message.
+      const probeMissing = probe.status === "missing";
       return {
         ok: probe.ok,
         status: probe.status,
         step: probe.step,
-        error: probe.error ?? null,
+        error: probeMissing ? `${detected.name ?? agent.name ?? agent.provider} 未安装` : (probe.error ?? null),
         capabilities: probe.initialized?.capabilities ?? null,
         models: meta.models,
         configOptions: meta.configOptions,

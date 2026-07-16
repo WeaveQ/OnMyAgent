@@ -200,6 +200,13 @@ export function personalLocalAgentConnectionMode(provider, extra = null) {
   if (provider === "claude") return "Claude Code ACP session";
   if (provider === "openclaw") return "OpenClaw ACP session";
   if (provider === "hermes") return "Hermes ACP session";
-  if (provider === "custom" && extra && extra.connectionType === "cli" && extra.supportsAcp !== false) return "Custom ACP session";
+  // CLI ACP agents (the discoverable catalog like Gemini/Kimi/Goose and the
+  // user's own custom agents) keep provider "custom" for the connection layer;
+  // surface their real identity (agent name) in the connection mode instead of
+  // the collapsed "Custom" marker, mirroring AionUi's per-agent backend label.
+  if (provider === "custom" && extra && extra.connectionType === "cli" && extra.supportsAcp !== false) {
+    const name = extra && typeof extra.name === "string" && extra.name.trim() ? extra.name.trim() : null;
+    return `${name ?? "Custom"} ACP session`;
+  }
   return "Custom command";
 }

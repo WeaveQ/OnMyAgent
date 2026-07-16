@@ -122,8 +122,18 @@ import type {
   FeishuSaveAccountInput,
   FeishuServiceStartInput,
   FeishuSimulateInboundInput,
+  DiscordAccountStatus,
+  DiscordAccountStatusInput,
+  DiscordSaveAccountInput,
+  DiscordServiceStartInput,
+  DiscordSimulateInboundInput,
   MessagingAccessibleRootProbe,
   MessagingChannelStatus,
+  TelegramAccountStatus,
+  TelegramAccountStatusInput,
+  TelegramSaveAccountInput,
+  TelegramServiceStartInput,
+  TelegramSimulateInboundInput,
   WeixinAccountStatusInput,
   WeixinAccountStatus,
   WeixinLoginPollInput,
@@ -204,6 +214,13 @@ declare global {
         }>;
         download?: () => Promise<{ ok: boolean; reason?: string }>;
         installAndRestart?: () => Promise<{ ok: boolean; reason?: string }>;
+      };
+      channels?: {
+        onStatus?: (
+          callback: (payload: { platformType: string; status: MessagingChannelStatus }) => void,
+        ) => () => void;
+        onPairing?: (callback: (payload: unknown) => void) => () => void;
+        onUserAuthorized?: (callback: (payload: unknown) => void) => () => void;
       };
       browser?: {
         show?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
@@ -1632,6 +1649,117 @@ export function feishuSimulateInbound(input: FeishuSimulateInboundInput): Promis
 
 export function feishuProbeAccessibleRoot(input: { root: string } | { folderPath: string }): Promise<MessagingAccessibleRootProbe> {
   return invokeElectronHelper<MessagingAccessibleRootProbe>("feishuProbeAccessibleRoot", input);
+}
+
+export function telegramSaveAccount(input: TelegramSaveAccountInput): Promise<TelegramAccountStatus> {
+  return invokeElectronHelper<TelegramAccountStatus>("telegramSaveAccount", input);
+}
+
+export function telegramAccountStatus(input?: TelegramAccountStatusInput): Promise<TelegramAccountStatus> {
+  return invokeElectronHelper<TelegramAccountStatus>("telegramAccountStatus", input ?? {});
+}
+
+export function telegramStart(input: TelegramServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramStart", input);
+}
+
+export function telegramAutoStart(input?: TelegramServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramAutoStart", input ?? {});
+}
+
+export function telegramStop(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramStop");
+}
+
+export function telegramStatus(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramStatus");
+}
+
+export function telegramSimulateInbound(input: TelegramSimulateInboundInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("telegramSimulateInbound", input);
+}
+
+export function discordSaveAccount(input: DiscordSaveAccountInput): Promise<DiscordAccountStatus> {
+  return invokeElectronHelper<DiscordAccountStatus>("discordSaveAccount", input);
+}
+
+export function discordAccountStatus(input?: DiscordAccountStatusInput): Promise<DiscordAccountStatus> {
+  return invokeElectronHelper<DiscordAccountStatus>("discordAccountStatus", input ?? {});
+}
+
+export function discordStart(input: DiscordServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordStart", input);
+}
+
+export function discordAutoStart(input?: DiscordServiceStartInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordAutoStart", input ?? {});
+}
+
+export function discordStop(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordStop");
+}
+
+export function discordStatus(): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordStatus");
+}
+
+export function discordSimulateInbound(input: DiscordSimulateInboundInput): Promise<MessagingChannelStatus> {
+  return invokeElectronHelper<MessagingChannelStatus>("discordSimulateInbound", input);
+}
+
+// --- Channel connectivity probe (self-check) ---
+// Tests whether the saved account token / bot can actually reach the platform
+// (parity: AionUi testPlugin connection self-check). Returns ok + botUsername
+// or an error explaining why the connection failed.
+
+export type ChannelProbeResult = {
+  ok: boolean;
+  botUsername?: string;
+  hasToken?: boolean;
+  error?: string;
+};
+
+export function channelTestPlugin(
+  pluginId: string,
+  input?: { accountId?: string },
+): Promise<ChannelProbeResult> {
+  return invokeElectronHelper<ChannelProbeResult>("channelTestPlugin", { pluginId, ...(input ?? {}) });
+}
+
+// AionUi-parity unified connectivity self-check: a single dispatcher entry that
+// forwards to each plugin's own probe() by pluginId (telegram / discord / weixin
+// already implement it; feishu gets one too). No per-channel switch on the host.
+export function testChannelConnection(
+  kind: TokenChannelKindLike,
+  input?: { accountId?: string },
+): Promise<ChannelProbeResult> {
+  return channelTestPlugin(kind, input);
+}
+
+type TokenChannelKindLike = "telegram" | "discord" | "weixin" | "feishu";
+
+// --- Channel event subscriptions ---
+// Subscribe to backend channel status / pairing pushes (parity: AionUi event
+// push for pluginStatusChanged / pairingRequested). Returns an unsubscribe fn.
+
+export function onChannelStatus(
+  callback: (payload: { platformType: string; status: MessagingChannelStatus }) => void,
+): () => void {
+  const api = window.__ONMYAGENT_ELECTRON__;
+  if (!api?.channels?.onStatus) return () => {};
+  return api.channels.onStatus(callback);
+}
+
+export function onChannelPairing(callback: (payload: unknown) => void): () => void {
+  const api = window.__ONMYAGENT_ELECTRON__;
+  if (!api?.channels?.onPairing) return () => {};
+  return api.channels.onPairing(callback);
+}
+
+export function onChannelUserAuthorized(callback: (payload: unknown) => void): () => void {
+  const api = window.__ONMYAGENT_ELECTRON__;
+  if (!api?.channels?.onUserAuthorized) return () => {};
+  return api.channels.onUserAuthorized(callback);
 }
 
 // --- Channel Infrastructure API ---

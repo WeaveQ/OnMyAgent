@@ -3,6 +3,9 @@ import { readdir, stat } from "node:fs/promises";
 
 import { createFeishuService } from "./feishu/service.mjs";
 import { createWeixinService } from "./weixin/service.mjs";
+import { createTelegramService } from "./telegram/service.mjs";
+import { createDiscordService } from "./discord/service.mjs";
+import { proxyFetch } from "./proxy-fetch.mjs";
 
 import {
   channelEventBus,
@@ -44,6 +47,8 @@ export function createMessagingChannelServices(options = {}) {
 
   const weixinService = createWeixinService(platformServiceOptions.weixin);
   const feishuService = createFeishuService(platformServiceOptions.feishu);
+  const telegramService = createTelegramService(platformServiceOptions.telegram);
+  const discordService = createDiscordService(platformServiceOptions.discord);
 
   const registry = new ChannelPluginRegistry();
   registry.register(createLegacyServicePlugin({
@@ -58,6 +63,19 @@ export function createMessagingChannelServices(options = {}) {
     name: "飞书",
     service: feishuService,
   }));
+  // Telegram + Discord are now real, ready transports (parity with Weixin/Feishu).
+  registry.register(createLegacyServicePlugin({
+    id: "telegram",
+    type: "telegram",
+    name: "Telegram",
+    service: telegramService,
+  }));
+  registry.register(createLegacyServicePlugin({
+    id: "discord",
+    type: "discord",
+    name: "Discord",
+    service: discordService,
+  }));
   for (const stub of BUILT_IN_STUB_PLUGINS) {
     registry.register(createStubPlugin(stub));
   }
@@ -65,6 +83,8 @@ export function createMessagingChannelServices(options = {}) {
   const services = {
     weixinService,
     feishuService,
+    telegramService,
+    discordService,
     channelEventBus: infrastructure.eventBus,
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
@@ -97,6 +117,8 @@ export function createMessagingChannelServices(options = {}) {
     // Platform channel services (legacy accessors kept for main.mjs).
     weixinService,
     feishuService,
+    telegramService,
+    discordService,
 
     // Shared infrastructure.
     channelEventBus: infrastructure.eventBus,
@@ -138,7 +160,6 @@ const BUILT_IN_STUB_PLUGINS = [
   { id: "lark", type: "lark", name: "Lark" },
   { id: "wecom", type: "wecom", name: "企业微信" },
   { id: "dingtalk", type: "dingtalk", name: "钉钉" },
-  { id: "telegram", type: "telegram", name: "Telegram" },
 ];
 
 function createChannelInfrastructure({ userDataDir }) {
@@ -160,11 +181,16 @@ function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, infra
     channelPairingService: infrastructure.pairingService,
     channelSessionStore: infrastructure.sessionStore,
     channelAssistantBindingStore: infrastructure.assistantBindingStore,
+    // Tunnel channel HTTP through the proxy when HTTPS_PROXY/ALL_PROXY is set
+    // (region/corporate firewalls block api.telegram.org etc. otherwise).
+    fetchFn: proxyFetch,
   };
 
   return {
     weixin: { ...common, appendLog: createChannelLogFn("weixin") },
     feishu: { ...common, appendLog: createChannelLogFn("feishu") },
+    telegram: { ...common, appendLog: createChannelLogFn("telegram") },
+    discord: { ...common, appendLog: createChannelLogFn("discord") },
   };
 }
 
@@ -383,7 +409,10 @@ export function createChannelInfrastructureApi(services, extras = {}) {
       try {
         return await service.probe(input);
       } catch (error) {
-        return { ok: false, error: error?.message ?? String(error) };
+        const cause = error?.cause;
+        const detail = cause?.code || (cause?.hostname ? `host ${cause.hostname}` : (cause?.message ?? ""));
+        const message = [error?.message, detail].filter(Boolean).join(" — ");
+        return { ok: false, error: message || String(error) };
       }
     },
 

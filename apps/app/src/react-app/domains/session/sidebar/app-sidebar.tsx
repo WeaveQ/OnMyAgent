@@ -775,7 +775,7 @@ export function AppSidebar(props: AppSidebarProps) {
                 className={cn(
                   "shrink-0 border-sidebar-border/70 bg-dls-rail-hover text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                   props.activeView === "devices" &&
-                    "border-dls-accent/30 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent",
+                    "border-dls-accent/30 bg-dls-decision-soft text-dls-accent hover:bg-dls-decision-soft hover:text-dls-accent",
                 )}
                 onClick={() => props.onOpenPrimaryView("devices")}
                 title={t("nav.devices")}
