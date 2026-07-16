@@ -1,6 +1,6 @@
 import { normalizeContextUsagePayload } from "./context-usage.mjs";
 
-const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "acp_tool_call", "error", "exit", "approval_request", "approval_decision", "artifact", "plan", "thinking", "tips"]);
+const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "acp_tool_call", "error", "exit", "approval_request", "approval_decision", "artifact", "plan", "thinking", "tips", "user"]);
 const TOOL_DETAIL_PREVIEW_CHARS = 2000;
 const TOOL_DESCRIPTION_PREVIEW_CHARS = 160;
 
@@ -208,7 +208,24 @@ export function runEventsToConversationMessages(events = []) {
   for (const event of Array.isArray(events) ? events : []) {
     const normalized = normalizeRunEvent(event);
     const at = Number(event?.at) || Date.now();
-    if (normalized.type === "assistant_chunk") {
+    if (normalized.type === "user") {
+      // A user prompt event (recorded by the runtime before dispatching to the
+      // adapter). Close any in-flight assistant turn so the user message starts
+      // a fresh bubble, then emit it as a top-level user text message. This is
+      // what makes channel-initiated runs (Telegram/Discord/Weixin/Feishu) —
+      // which have no renderer-side optimistic user input — show the user's
+      // message in the Studio conversation view alongside the agent reply.
+      if (liveAssistantIndex !== -1) closeAssistantTurn();
+      if (normalized.text) {
+        pushConversationMessage(messages, {
+          type: "text",
+          role: "user",
+          text: normalized.text,
+          createdAt: at,
+          sourceEventType: normalized.type,
+        });
+      }
+    } else if (normalized.type === "assistant_chunk") {
       if (!normalized.text) continue;
       assistantText += normalized.text;
       if (liveAssistantIndex === -1) {

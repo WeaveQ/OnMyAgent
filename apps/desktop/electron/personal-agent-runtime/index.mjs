@@ -28,13 +28,14 @@ import {
   writeConversationEvents,
 } from "./conversation-store.mjs";
 import { clearSession, readSession, writeSession } from "./session-store.mjs";
-import { runId } from "./utils.mjs";
+import { runId, isProcessTreeAlive, terminateProcessTreeByPid } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { reconcileChannelActiveRuns } from "./reconcile-channel-active-runs.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
-import { listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
+import { cleanupRegisteredAgentProcesses, getAgentProcess, listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
 import { personalAgentCapability, personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
@@ -362,12 +363,30 @@ function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
 
 export function createPersonalAgentRuntime(options) {
   configurePersonalAgentRuntimeState(options ?? {});
+  // Capture the reconcile cutoff at runtime start so orphaned "running" logs
+  // from the current session are never treated as stale-and-finalized.
+  const reconcileCutoffMs = Date.now();
   const runs = new Map();
   const legacy = options.legacy;
   const injectedAdapters = options.adapters ?? {};
   const bundledExtensionRoots = Array.isArray(options.bundledExtensionRoots) ? options.bundledExtensionRoots.filter(Boolean) : [];
   void recoverAgentProcesses().catch(() => undefined);
+  // Reap any process trees left behind by the previous runtime session before
+  // finalizing their orphaned run logs. `recoverAgentProcesses` only marks them
+  // stale; this actually SIGTERM -> SIGKILLs the (possibly still-alive, hung)
+  // trees so `reconcileOrphanRuns` can reclaim the logs.
+  void cleanupRegisteredAgentProcesses().catch(() => undefined);
   void reconcileOrphanRuns().catch(() => undefined);
+  // Channel active-run locks (<userDataDir>/<platform>/accounts/*.active-runs.json)
+  // are normally reclaimed by each channel's poll loop, but that loop only runs
+  // while the channel service is active. If the app restarts mid-run the lock
+  // can be left behind forever, locking the conversation ("还在处理上一条消息").
+  // Reconcile them here against the same run snapshots reconcileOrphanRuns uses.
+  void reconcileChannelActiveRuns({
+    userDataDir: String(options.userDataDir ?? "").trim(),
+    getRun: status,
+    reconcileCutoffMs,
+  }).catch(() => undefined);
   const adapterFactories = {
     opencode: createOpenCodeAdapter,
     codex: createCodexAdapter,
@@ -540,7 +559,6 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  const reconcileCutoffMs = Date.now();
   // On startup, reconcile every persisted run log across all workspaces and
   // finalize any orphaned "running" runs (process is already gone) the previous
   // process session left behind.
@@ -567,7 +585,18 @@ export function createPersonalAgentRuntime(options) {
         const startedAt = Number(meta.startedAt ?? meta.at ?? 0);
         if (startedAt && startedAt >= reconcileCutoff) continue;
         if (runs.has(meta.runId)) continue;
-        if (isProcessAlive(meta.pid)) continue;
+        // Do NOT skip a running run merely because its pid is still alive — a
+        // process can be hung (e.g. blocked on the network) yet never finish,
+        // which is the phantom-lock bug. If we can identify the tree via the
+        // registry, reap it (SIGTERM -> SIGKILL); otherwise best-effort reap by
+        // pid. Either way finalize the log so the channel lock is released.
+        const registered = getAgentProcess(meta.runId);
+        if (registered && isProcessTreeAlive(registered)) {
+          await terminateProcessTreeByPid({ pid: registered.pid, pgid: registered.pgid });
+          unregisterAgentProcess(meta.runId);
+        } else if (isProcessAlive(meta.pid)) {
+          await terminateProcessTreeByPid({ pid: meta.pid });
+        }
         await finalizeStaleRunLog(filePath, meta);
       }
     }
@@ -817,6 +846,13 @@ export function createPersonalAgentRuntime(options) {
       fileChanges: [],
     };
     runs.set(id, state);
+    // Record the user's prompt as the first event of the run so the Studio
+    // conversation view (and conversation-store hydration) can render the user
+    // message for channel-initiated runs, which have no renderer-side optimistic
+    // input. Prefer the raw user text (input.userText) when available — for
+    // Telegram/Discord the wrapped `prompt` carries transport metadata that is
+    // not useful to display.
+    appendContractEvent(events, { type: "user", text: String(input.userText ?? prompt ?? "").trim() });
     appendContractEvent(events, { type: "status", text: `${provider} ACP flow started` });
     state.updatedAt = Date.now();
     void persistRun(state);
@@ -898,6 +934,7 @@ export function createPersonalAgentRuntime(options) {
               registerAgentProcess({
                 runId: state.runId,
                 pid: state.pid,
+                pgid: state.pid,
                 provider: state.agentProvider,
                 backend: state.agentProvider,
                 conversationId: state.conversationId,
@@ -1032,6 +1069,7 @@ export function createPersonalAgentRuntime(options) {
           registerAgentProcess({
             runId: state.runId,
             pid: result.pid,
+            pgid: result.pid,
             provider: state.agentProvider,
             backend: state.agentProvider,
             conversationId: conversation.id,
@@ -1558,6 +1596,31 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
+  // Two-step ACP probe result → { status, error, step } for a CLI+ACP agent.
+  // Used by both the discoverable catalog and CLI+ACP custom agents so
+  // entries whose binary exists but who fail `initialize` (unsupported CLI,
+  // e.g. GitHub Copilot) or `session/new` (未登陆, e.g. Kimi CLI) do not
+  // surface as `online` in the 本地 tab picker. The management tab still
+  // sees them (via `listAgents` without the `available` filter) with the
+  // right diagnostic.
+  async function probeCliAcpAgent(command, acpArgs, workspaceRoot) {
+    try {
+      const probe = await probeAcpCommand({
+        command,
+        args: Array.isArray(acpArgs) ? acpArgs : [],
+        cwd: workspaceRoot || process.cwd(),
+        timeoutMs: 8_000,
+      });
+      if (probe.ok) return { status: "online", error: null, step: probe.step };
+      if (probe.step === "needs_auth") return { status: "needs_auth", error: probe.error ?? "authentication required", step: probe.step };
+      if (probe.step === "fail_cli") return { status: "missing", error: probe.error ?? null, step: probe.step };
+      return { status: "offline", error: probe.error ?? "ACP handshake failed", step: probe.step };
+    } catch (probeError) {
+      const message = probeError instanceof Error ? probeError.message : String(probeError);
+      return { status: "offline", error: message, step: "fail_acp" };
+    }
+  }
+
   // Resolve the discoverable catalog into agent cards for the management page.
   // Each draft is run through the normal detection layer so status (online /
   // offline / missing), version and connectionMode are computed the same way as
@@ -1602,7 +1665,24 @@ export function createPersonalAgentRuntime(options) {
         // no error so the card shows a clean "未安装" state instead of a red
         // error box / raw "spawn X ENOENT" (the whole point is "listed even when
         // not installed", not "broken").
-        const installed = base.status === "online";
+        const versionOk = base.status === "online";
+        // `--version` succeeded only proves the binary exists. To keep entries
+        // like Kimi (未登陆) or Copilot (不支持 ACP) out of the 本地 tab,
+        // additionally run a 2-step ACP probe: `initialize` + `session/new`.
+        // Only draft agents that pass both steps are treated as truly online;
+        // anything else (`needs_auth` / `fail_acp` / `fail_cli`) is downgraded
+        // so `personalAgentAvailableMetadataList`'s `available` filter drops
+        // them from the runtime picker but the management tab still surfaces
+        // them read-only with the right diagnostic.
+        let effectiveStatus = versionOk ? "online" : "missing";
+        let effectiveError = versionOk ? (base.error ?? null) : null;
+        let acpProbeStep = null;
+        if (versionOk) {
+          const probeResult = await probeCliAcpAgent(draft.executablePath, draft.acpArgs, workspaceRoot);
+          effectiveStatus = probeResult.status;
+          effectiveError = probeResult.error;
+          acpProbeStep = probeResult.step;
+        }
         // Force identity/kind fields back to the catalog values: detectAgent may
         // normalize a not-installed custom draft in ways that drop our metadata.
         return {
@@ -1615,8 +1695,9 @@ export function createPersonalAgentRuntime(options) {
           acpArgs: draft.acpArgs,
           nativeSkillsDirs: draft.nativeSkillsDirs,
           discoverable: true,
-          status: installed ? "online" : "missing",
-          error: installed ? (base.error ?? null) : null,
+          status: effectiveStatus,
+          error: effectiveError,
+          acpProbeStep,
         };
       }),
     );
@@ -1641,13 +1722,26 @@ export function createPersonalAgentRuntime(options) {
     const discoverableIdSet = new Set(
       discoverableAgentDrafts().map((d) => String(d.id).toLowerCase()),
     );
-    const customAgents = customAgentsRaw.map((agent) => {
-      const status = agent?.status === "offline" ? "offline" : "online";
+    const customAgents = await Promise.all(customAgentsRaw.map(async (agent) => {
+      // Probe CLI+ACP custom agents (both user-added and previously-detected
+      // discoverable ones like Kimi) so `未登陆 / 不支持 ACP` entries drop out
+      // of the runtime picker. Non-ACP or raw-cmd agents keep their stored
+      // status untouched.
+      const isCliAcp = agent?.connectionType === "cli" && agent?.supportsAcp !== false;
+      let status = agent?.status === "offline" ? "offline" : "online";
+      let error = agent?.error ?? null;
+      let acpProbeStep = agent?.acpProbeStep ?? null;
+      if (isCliAcp && agent?.executablePath) {
+        const probeResult = await probeCliAcpAgent(agent.executablePath, agent.acpArgs, workspaceRoot);
+        status = probeResult.status;
+        error = probeResult.error;
+        acpProbeStep = probeResult.step;
+      }
       const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
       const connectionMode = agent.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, agent);
       const discoverable = agent.discoverable === true || discoverableIdSet.has(String(agent?.id ?? "").toLowerCase());
-      return { ...agent, capability, connectionMode, discoverable };
-    });
+      return { ...agent, capability, connectionMode, discoverable, status, error, acpProbeStep };
+    }));
     const extensionAgents = await loadExtensionAdapters();
     const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
     // Management page only: always list the known-but-not-installed agent
@@ -1748,7 +1842,14 @@ export function createPersonalAgentRuntime(options) {
     // renderer via handshake.available_commands. Directly calling
     // `legacy.listAgents` would return raw agent objects and drop the
     // session-store hydration.
-    const result = await listAgents(input);
+    //
+    // Force `includeDiscoverable: true` here so any binary from the built-in
+    // discoverable catalog (grok / kimi / goose / trae / mimo / codebuddy...)
+    // that is already installed on PATH auto-surfaces in the 本地 tab as an
+    // online agent. `personalAgentAvailableMetadataList` filters by
+    // `enabled && available`, so not-installed drafts (status: "missing")
+    // are dropped and only actually-usable ones make it into the picker.
+    const result = await listAgents({ ...input, includeDiscoverable: true });
     const agents = Array.isArray(result?.agents) ? result.agents : [];
     return { agents: personalAgentAvailableMetadataList(agents) };
   }

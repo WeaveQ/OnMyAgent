@@ -4,7 +4,7 @@ import net from "node:net";
 import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { extractAcpSessionId, normalizeAcpSessionList, normalizeAcpUpdate, spawnAcpClient, textFromAcpContent } from "../acp-client.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
-import { createExecHelpers, stringifyAgentCommand } from "../utils.mjs";
+import { createExecHelpers, stringifyAgentCommand, terminateProcessTree, waitForExit } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
 import { extractPromptUsageTotals, lookupModelContextLimit } from "../context-usage.mjs";
 
@@ -384,66 +384,12 @@ function supportsSessionSetModel(provider) {
   return provider !== "claude" && provider !== "openclaw";
 }
 
-function waitForExit(child, timeoutMs = 10_000) {
-  return new Promise((resolve) => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      resolve();
-      return;
-    }
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      resolve();
-    }, timeoutMs);
-    timer.unref?.();
-    child.once("close", () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
+// `waitForExit` and `terminateProcessTree` now live in `../utils.mjs` so the
+// adapters and the registry can share one process-tree kill implementation.
+// The ACP bridge is spawned detached (its own process group), so
+// `terminateProcessTree` signals the whole group — the bridge plus any agent
+// CLI it forked — escalating SIGTERM -> grace -> SIGKILL.
 
-// Kill the whole process tree, not just the direct child. On non-Windows the
-// child was spawned detached (its own process group), so a
-// negative pid signals every process in that group — the ACP bridge plus any
-// agent CLI it forked. Escalate SIGTERM → SIGKILL. Windows uses taskkill /T /F.
-async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  const pid = child.pid;
-  if (process.platform === "win32") {
-    if (pid) {
-      try {
-        spawn("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-      } catch {
-        child.kill("SIGKILL");
-      }
-    }
-    await waitForExit(child, graceMs + 2_000);
-    return;
-  }
-  const killGroup = (signal) => {
-    if (!pid) return child.kill(signal);
-    try {
-      process.kill(-pid, signal);
-    } catch {
-      // Process group already gone, or child was not a group leader; fall back
-      // to signalling the direct child.
-      try {
-        child.kill(signal);
-      } catch {
-        // Already exited.
-      }
-    }
-  };
-  killGroup("SIGTERM");
-  await Promise.race([
-    waitForExit(child, graceMs),
-    new Promise((resolve) => setTimeout(resolve, graceMs).unref?.()),
-  ]);
-  if (child.exitCode === null && child.signalCode === null) {
-    killGroup("SIGKILL");
-    await waitForExit(child, 2_000);
-  }
-}
 
 function acpPermissionKind(params = {}) {
   const text = JSON.stringify(params).toLowerCase();

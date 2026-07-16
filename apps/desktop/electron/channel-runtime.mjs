@@ -5,6 +5,7 @@ import { createFeishuService } from "./feishu/service.mjs";
 import { createWeixinService } from "./weixin/service.mjs";
 import { createTelegramService } from "./telegram/service.mjs";
 import { createDiscordService } from "./discord/service.mjs";
+import { proxyFetch } from "./proxy-fetch.mjs";
 
 import {
   channelEventBus,
@@ -180,6 +181,9 @@ function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, infra
     channelPairingService: infrastructure.pairingService,
     channelSessionStore: infrastructure.sessionStore,
     channelAssistantBindingStore: infrastructure.assistantBindingStore,
+    // Tunnel channel HTTP through the proxy when HTTPS_PROXY/ALL_PROXY is set
+    // (region/corporate firewalls block api.telegram.org etc. otherwise).
+    fetchFn: proxyFetch,
   };
 
   return {
@@ -405,7 +409,10 @@ export function createChannelInfrastructureApi(services, extras = {}) {
       try {
         return await service.probe(input);
       } catch (error) {
-        return { ok: false, error: error?.message ?? String(error) };
+        const cause = error?.cause;
+        const detail = cause?.code || (cause?.hostname ? `host ${cause.hostname}` : (cause?.message ?? ""));
+        const message = [error?.message, detail].filter(Boolean).join(" — ");
+        return { ok: false, error: message || String(error) };
       }
     },
 

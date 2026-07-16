@@ -27,6 +27,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
 import { formatAgentReply } from "./AgentReplyHeader.mjs";
+import { CHANNEL_EVENTS } from "./ChannelEventBus.mjs";
 
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
 const DEFAULT_HISTORY_LIMIT = 12;
@@ -36,6 +37,11 @@ const ACTIVE_RUN_PENDING_POLL_INTERVAL_MS = 3_000;
 // Minimum spacing between "agent still busy" replies for the same chat+agent.
 const AGENT_BUSY_NOTICE_INTERVAL_MS = 15_000;
 const MESSAGE_DEDUP_TTL_MS = 5 * 60_000;
+// Backstop ceiling for a single channel conversation lock. The personal agent
+// runtime already enforces its own run timeout (max 6h), but that timer lives
+// in the runtime process and is lost if the desktop app restarts. This
+// guarantees a conversation is never stuck behind a "running" task forever.
+const ACTIVE_RUN_MAX_AGE_MS = 6 * 60 * 60 * 1000 + 15 * 60 * 1000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -153,9 +159,45 @@ export function createChannelAgentDispatcher(options = {}) {
     };
   }
 
+  // Signature of the fields that matter to the UI. Used to avoid spamming the
+  // event bus with no-op publishes (parity: AionUi only pushes on real status
+  // change, not on every internal mutation).
+  let lastPublishedStateSig = "";
+
+  function publishStateChanged(next) {
+    if (!channelEventBus) return;
+    const sig = JSON.stringify({
+      status: next.status,
+      lastError: next.lastError,
+      processedCount: next.processedCount,
+      sentCount: next.sentCount,
+      botUsername: next.botUsername,
+      hasToken: next.hasToken,
+      activeAgentId: next.activeAgentId,
+      approvalMode: next.approvalMode,
+      accountId: next.accountId,
+      startedAt: next.startedAt,
+      lastPollAt: next.lastPollAt,
+      lastMessageAt: next.lastMessageAt,
+      lastRunId: next.lastRunId,
+    });
+    if (sig === lastPublishedStateSig) return;
+    lastPublishedStateSig = sig;
+    try {
+      channelEventBus.publish(CHANNEL_EVENTS.CHANNEL_STATE_CHANGED, {
+        platformType,
+        status: next,
+      });
+    } catch {
+      // Publishing must never break the dispatch hot path.
+    }
+  }
+
   function setState(patch) {
     state = { ...state, ...patch };
-    return snapshot();
+    const next = snapshot();
+    publishStateChanged(next);
+    return next;
   }
 
   function runtimeOptions(input = {}) {
@@ -251,7 +293,14 @@ export function createChannelAgentDispatcher(options = {}) {
     if (!account) return null;
     const session = active ?? { account, store, options: runtimeOptions(input), controller: new AbortController() };
     const event = normalizeInbound(raw, account);
-    return processEvent(session, event);
+    try {
+      return await processEvent(session, event);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setState({ lastError: `inbound processing failed: ${message}` });
+      appendLog({ type: "error", text: `${platformType} inbound processing failed: ${message}` });
+      return null;
+    }
   }
 
   async function processEvent(session, event) {
@@ -260,7 +309,9 @@ export function createChannelAgentDispatcher(options = {}) {
     const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
     if (dedup.hasOrAdd(contentKey)) return null;
     if (!isAllowed(session.options, event, event.senderId)) {
+      const policyMessage = `${platformType} 消息被策略拦截（sender=${event.senderId}, chatType=${event.chatType}）`;
       appendLog({ type: "warn", text: `${platformType} inbound dropped (policy): sender=${event.senderId} chatType=${event.chatType}` });
+      setState({ lastError: policyMessage });
       return null;
     }
     if (!(await ensureChannelUserAuthorized(session, { platformType, platformUserId: event.senderId, chatId: event.chatId, displayName: event.senderId }))) {
@@ -341,6 +392,9 @@ export function createChannelAgentDispatcher(options = {}) {
       workspaceRoot: session.options.workspaceRoot,
       accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
       prompt,
+      // Raw user text (without the channel transport header) so the runtime can
+      // record it as the user message in the run log / conversation view.
+      userText: event.text,
       agent: runtimeAgent,
       approvalMode: session.options.approvalMode,
       timeoutMs: session.options.timeoutMs,
@@ -435,6 +489,19 @@ export function createChannelAgentDispatcher(options = {}) {
     if (clearedActiveRunKeys.has(pollKey)) return;
     const result = await runtime.getRun({ runId: record.runId, workspaceRoot: record.workspaceRoot });
     if (clearedActiveRunKeys.has(pollKey)) return;
+    // The runtime no longer tracks this run (process restarted, orphaned, or
+    // already finalized as failed). Treat it as dead so the conversation lock
+    // is released — otherwise getChannelRunSnapshotState maps a `null` snapshot
+    // to "running" and the poll loops forever, locking the chat behind a
+    // phantom task.
+    if (!result) {
+      const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
+      await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+      clearActiveRunPoll(session.account.accountId, runKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
+      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      return;
+    }
     setState({ lastRunId: record.runId });
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
@@ -474,6 +541,17 @@ export function createChannelAgentDispatcher(options = {}) {
     }
     if (resultState.isRunning) {
       if (clearedActiveRunKeys.has(pollKey)) return;
+      // Backstop: never let a conversation stay locked behind a "running" task
+      // beyond the runtime's own ceiling. If the runtime's timeout/cancel was
+      // lost (e.g. desktop app restarted), force-release the lock here.
+      if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
+        const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
+        await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+        clearActiveRunPoll(session.account.accountId, runKey);
+        agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
+        await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+        return;
+      }
       const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "running", pendingApprovals: [] });
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_POLL_INTERVAL_MS);
       return;
@@ -491,26 +569,47 @@ export function createChannelAgentDispatcher(options = {}) {
     if (chunks.length === 0) return null;
     if (chunks.length === 1) {
       const result = await sendTextTo(chatId, chunks[0], peerId).catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
+      if (result?.ok === false) {
+        const message = `reply send failed: ${result.error ?? "unknown error"}`;
+        setState({ lastError: message });
+        appendLog({ type: "error", text: `${platformType} ${message}` });
+        return result;
+      }
       setState({ sentCount: state.sentCount + 1 });
       return result;
     }
     let messageId = null;
     let accumulated = "";
+    let failed = false;
     for (let index = 0; index < chunks.length; index += 1) {
       if (index === 0) {
-        const result = await sendTextTo(chatId, chunks[0], peerId).catch(() => null);
+        const result = await sendTextTo(chatId, chunks[0], peerId).catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
+        if (result?.ok === false) {
+          failed = true;
+          const message = `reply send failed: ${result.error ?? "unknown error"}`;
+          setState({ lastError: message });
+          appendLog({ type: "error", text: `${platformType} ${message}` });
+          break;
+        }
         messageId = result?.messageId ?? null;
         accumulated = chunks[0];
       } else if (editMessageTo && messageId) {
         accumulated += (index > 0 ? "\n" : "") + chunks[index];
         await editMessageTo(chatId, messageId, accumulated).catch(() => undefined);
       } else {
-        await sendTextTo(chatId, chunks[index], peerId).catch(() => undefined);
+        const result = await sendTextTo(chatId, chunks[index], peerId).catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
+        if (result?.ok === false) {
+          failed = true;
+          const message = `reply send failed: ${result.error ?? "unknown error"}`;
+          setState({ lastError: message });
+          appendLog({ type: "error", text: `${platformType} ${message}` });
+          break;
+        }
       }
       if (index < chunks.length - 1) await sleep(sendChunkDelayMs);
     }
-    setState({ sentCount: state.sentCount + chunks.length });
-    return { ok: true, messageId };
+    if (!failed) setState({ sentCount: state.sentCount + chunks.length });
+    return failed ? { ok: false, error: state.lastError } : { ok: true, messageId };
   }
 
   async function ensureChannelUserAuthorized(session, input) {
@@ -525,7 +624,9 @@ export function createChannelAgentDispatcher(options = {}) {
       await deliverReply(session, input.chatId, input.platformUserId, `需要先在 Studio 本机批准配对。配对码：${code}`).catch(() => undefined);
       appendLog({ type: "warn", text: `${platformType} pairing requested for ${input.platformUserId}, code=${code}` });
     } else {
-      appendLog({ type: "warn", text: `${platformType} pairing request returned no code for ${input.platformUserId}` });
+      const pairingMessage = `${platformType} pairing request returned no code for ${input.platformUserId}`;
+      appendLog({ type: "warn", text: pairingMessage });
+      setState({ lastError: pairingMessage });
     }
     return false;
   }
@@ -689,7 +790,10 @@ export function createChannelAgentDispatcher(options = {}) {
       }
       return { ok: true, botUsername: account.botUsername ?? undefined, hasToken: true };
     } catch (error) {
-      return { ok: false, error: error?.message ?? String(error) };
+      const cause = error?.cause;
+      const detail = cause?.code || (cause?.hostname ? `host ${cause.hostname}` : (cause?.message ?? ""));
+      const message = [error?.message, detail].filter(Boolean).join(" — ");
+      return { ok: false, error: message || String(error) };
     }
   }
 

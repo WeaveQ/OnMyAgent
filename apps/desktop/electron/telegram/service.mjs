@@ -175,7 +175,22 @@ export function createTelegramService(options = {}) {
   }
 
   async function autoStart(input = {}) {
-    return dispatcher.autoStart(input);
+    // IMPORTANT: must call this service's own `start()`, NOT
+    // `dispatcher.autoStart()`. The dispatcher's autoStart -> start only flips
+    // the dispatcher state to "running"; it does NOT set `activeToken` or
+    // launch `pollLoop` (the Telegram long-poll loop), both of which live in
+    // this service's `start()` wrapper. Delegating to dispatcher.autoStart
+    // left the dispatcher reporting "running" while no one was actually
+    // polling getUpdates -> all inbound messages went unconsumed.
+    const config = await store.readConfig().catch(() => ({}));
+    if (config.autoStart === false && input.force !== true) {
+      return { ok: false, skipped: true, reason: "autoStart disabled", status: dispatcher.status() };
+    }
+    const account = await store.loadDefaultAccount().catch(() => null);
+    if (!account?.token) {
+      return { ok: false, skipped: true, reason: `no saved ${platformName} account`, status: dispatcher.status() };
+    }
+    return start({ ...(config.lastStartOptions ?? {}), ...input, accountId: account.accountId, autoStart: true });
   }
 
   async function accountStatus(input = {}) {

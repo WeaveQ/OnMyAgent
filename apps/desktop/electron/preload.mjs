@@ -164,6 +164,23 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     platform: normalizePlatform(process.platform),
     version: process.versions.electron,
   },
+  channels: {
+    onStatus(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on("onmyagent:channel:status", handler);
+      return () => ipcRenderer.removeListener("onmyagent:channel:status", handler);
+    },
+    onPairing(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on("onmyagent:channel:pairing", handler);
+      return () => ipcRenderer.removeListener("onmyagent:channel:pairing", handler);
+    },
+    onUserAuthorized(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on("onmyagent:channel:user:authorized", handler);
+      return () => ipcRenderer.removeListener("onmyagent:channel:user:authorized", handler);
+    },
+  },
 });
 
 ipcRenderer.on(NATIVE_DEEP_LINK_EVENT, (_event, urls) => {

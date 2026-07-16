@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, FolderOpen, Play, RefreshCw, Save, Send, Square } from "lucide-react";
+import { ExternalLink, FolderOpen, Play, Plug, RefreshCw, Save, Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,9 @@ import {
   telegramStart,
   telegramStatus,
   telegramStop,
+  onChannelStatus,
+  testChannelConnection,
+  type ChannelProbeResult,
 } from "../../../app/lib/desktop";
 
 type TokenChannelKind = "telegram" | "discord";
@@ -229,6 +232,7 @@ export function TokenChannelPanel(props: {
   const [serviceState, setServiceState] = useState<TokenPanelState>({ status: "stopped" });
   const [busy, setBusy] = useState<BusyAction>(null);
   const [error, setError] = useState<string | null>(null);
+  const [probeResult, setProbeResult] = useState<ChannelProbeResult | null>(null);
   const [accountId, setAccountId] = useState("default");
   const [token, setToken] = useState("");
   const [allowedUsers, setAllowedUsers] = useState("");
@@ -331,6 +335,20 @@ export function TokenChannelPanel(props: {
     })();
   }, [kind, refresh]);
 
+  // While the channel is running, subscribe to backend status pushes instead
+  // of polling. The electron main process forwards channel state-change events
+  // (parity: AionUi event-push for pluginStatusChanged) so the UI updates the
+  // moment processed/sent counts or lastError change — no more silent "no
+  // response" after sending a message.
+  useEffect(() => {
+    if (!running) return;
+    const unsubscribe = onChannelStatus((payload) => {
+      if (payload.platformType !== kind) return;
+      applyServiceState(payload.status as TokenPanelState);
+    });
+    return unsubscribe;
+  }, [running, kind, applyServiceState]);
+
   const chooseAccessWorkspace = useCallback(async () => {
     const selected = await pickDirectory({
       title: t("messaging.weixin_access_workspace_pick_title"),
@@ -361,7 +379,12 @@ export function TokenChannelPanel(props: {
       const result = kind === "telegram"
         ? await telegramSaveAccount(input)
         : await discordSaveAccount(input);
-      const nextAccount = (result as TokenAccountStatusPayload).account ?? null;
+      const typedSave = result as { ok?: boolean; account?: TokenAccount | null; error?: unknown };
+      if (typedSave.ok === false) {
+        setError(typedSave.error != null ? String(typedSave.error) : "save account failed");
+        return;
+      }
+      const nextAccount = typedSave.account ?? null;
       setAccount(nextAccount);
       setToken("");
       await refresh();
@@ -391,7 +414,12 @@ export function TokenChannelPanel(props: {
       const result = kind === "telegram"
         ? await telegramStart(input as TelegramServiceStartInput)
         : await discordStart(input as DiscordServiceStartInput);
-      if (result.status) applyServiceState(result.status as TokenPanelState);
+      const typedStart = result as { ok?: boolean; status?: TokenPanelState; error?: unknown };
+      if (typedStart.ok === false) {
+        setError(typedStart.error != null ? String(typedStart.error) : "start failed");
+        return;
+      }
+      if (typedStart.status) applyServiceState(typedStart.status);
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : String(startError));
     } finally {
@@ -449,6 +477,23 @@ export function TokenChannelPanel(props: {
       setBusy(null);
     }
   }, [agentsPayload, allowedUsers, applyServiceState, effectiveAccessibleRoots, effectiveAccountId, effectiveWorkspaceRoot, kind, promptMode, refresh, selectedAgentPayload, simulateText]);
+
+  const testConnection = useCallback(async () => {
+    setBusy("test");
+    setError(null);
+    setProbeResult(null);
+    try {
+      const result = await testChannelConnection(kind, { accountId: effectiveAccountId });
+      if (!result.ok) throw new Error(result.error ?? "connection test failed");
+      setProbeResult(result);
+    } catch (probeError) {
+      const message = probeError instanceof Error ? probeError.message : String(probeError);
+      setProbeResult({ ok: false, error: message });
+      setError(message);
+    } finally {
+      setBusy(null);
+    }
+  }, [effectiveAccountId, kind]);
 
   const canStart = Boolean(effectiveAccountId && effectiveWorkspaceRoot) && !running;
   const canSave = Boolean(accountId.trim() && token.trim()) && !busy;
@@ -616,7 +661,31 @@ export function TokenChannelPanel(props: {
             {busy === "simulate" ? busyIcon : <Send className="size-4" />}
             {t(cfg.simulateKey)}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={testConnection}
+            disabled={!effectiveAccountId || Boolean(busy)}
+            title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
+          >
+            {busy === "test" ? busyIcon : <Plug className="size-4" />}
+            {t("messaging.weixin_test_connection")}
+          </Button>
         </div>
+        {probeResult ? (
+          <div className="mt-2">
+            {probeResult.ok ? (
+              <NoticeBox tone="success" className="break-words leading-5">
+                {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
+              </NoticeBox>
+            ) : (
+              <NoticeBox tone="error" className="break-words leading-5">
+                {probeResult.error ?? t("messaging.weixin_test_failed")}
+              </NoticeBox>
+            )}
+          </div>
+        ) : null}
       </PanelSection>
 
       {serviceState.lastError || error ? (

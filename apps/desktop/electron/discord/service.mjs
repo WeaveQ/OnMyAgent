@@ -104,6 +104,7 @@ export function createDiscordService(options = {}) {
       allowAllUsers,
       client: injectedClient,
       onMessage: (event) => {
+        console.log(`[discord-diag] onMessage -> processInbound | sender=${event.senderId} chat=${event.chatId} chatType=${event.chatType}`);
         void dispatcher.processInbound(event, {}).catch((error) => {
           appendLog({ type: "error", text: `discord inbound failed: ${error?.message ?? error}` });
         });
@@ -135,7 +136,18 @@ export function createDiscordService(options = {}) {
   }
 
   async function autoStart(input = {}) {
-    return dispatcher.autoStart(input);
+    // Must call this service's own `start()` (which connects the discord.js
+    // gateway), NOT `dispatcher.autoStart()` — the latter only flips dispatcher
+    // state to "running" without ever starting the gateway transport.
+    const config = await store.readConfig().catch(() => ({}));
+    if (config.autoStart === false && input.force !== true) {
+      return { ok: false, skipped: true, reason: "autoStart disabled", status: dispatcher.status() };
+    }
+    const account = await store.loadDefaultAccount().catch(() => null);
+    if (!account?.token) {
+      return { ok: false, skipped: true, reason: "no saved Discord account", status: dispatcher.status() };
+    }
+    return start({ ...(config.lastStartOptions ?? {}), ...input, accountId: account.accountId, autoStart: true });
   }
 
   async function accountStatus(input = {}) {
