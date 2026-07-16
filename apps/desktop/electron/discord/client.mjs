@@ -10,14 +10,55 @@
  * is not yet installed (e.g. unit tests inject a mock client).
  */
 
+import { createRequire } from "node:module";
+import path from "node:path";
+import { setGlobalDispatcher, ProxyAgent } from "undici";
+import { resolveActiveProxy } from "../proxy-fetch.mjs";
+
 export const DISCORD_MESSAGE_LIMIT = 2000;
 
 const REQUIRED_INTENTS = ["Guilds", "GuildMessages", "DirectMessages", "MessageContent"];
+
+// discord.js neither reads HTTPS_PROXY nor exposes a proxy option. In Node,
+// @discordjs/ws uses the `ws` package (NOT the global WebSocket) for the
+// gateway and captures `ws.WebSocket` into `WebSocketConstructor` at
+// module-load time; the REST API (@discordjs/rest) uses undici fetch. To route
+// BOTH through the configured proxy we must, before `discord.js` is imported:
+//   1. set undici's global dispatcher (covers REST), and
+//   2. monkey-patch `ws.WebSocket` to a subclass that injects an
+//      https-proxy-agent (covers the gateway WebSocket).
+// No-op when no proxy env var is set.
+let discordProxyApplied = false;
+function applyDiscordProxyOnce() {
+  if (discordProxyApplied) return;
+  discordProxyApplied = true;
+  const proxyUrl = resolveActiveProxy();
+  if (!proxyUrl) return;
+  // 1) REST API via undici global dispatcher.
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  // 2) Gateway WebSocket via `ws` + https-proxy-agent. Resolve ws from
+  //    discord.js' dependency tree (this app does not depend on ws directly).
+  const req = createRequire(import.meta.url);
+  const discordJsDir = path.dirname(req.resolve("discord.js"));
+  const wsModule = req(req.resolve("ws", { paths: [discordJsDir] }));
+  const { HttpsProxyAgent } = req(
+    req.resolve("https-proxy-agent", { paths: [discordJsDir] })
+  );
+  const agent = new HttpsProxyAgent(proxyUrl);
+  const OriginalWebSocket = wsModule.WebSocket;
+  class ProxiedWebSocket extends OriginalWebSocket {
+    constructor(address, protocols, options = {}) {
+      super(address, protocols, { ...options, agent });
+    }
+  }
+  wsModule.WebSocket = ProxiedWebSocket;
+}
 
 async function loadDiscordJs() {
   // Use a variable specifier so TypeScript does not statically resolve the
   // optional `discord.js` dependency (it may be absent in some environments;
   // the runtime still loads it normally when present).
+  applyDiscordProxyOnce();
   const specifier = "discord.js";
   const mod = await import(specifier);
   return {
@@ -62,13 +103,15 @@ export async function createDiscordGateway(options = {}) {
   const allowed = new Set(allowedUserIds.map(String));
 
   client.on("messageCreate", (message) => {
-    if (message?.author?.bot) return;
+    const _dbg = (t) => console.log(`[discord-diag] ${t} | author=${message?.author?.id} bot=${message?.author?.bot} chanType=${message?.channel?.type} chanId=${message?.channel?.id} text=${String(message?.content ?? "").slice(0, 60)}`);
+    _dbg("messageCreate");
+    if (message?.author?.bot) { _dbg("skip: author is bot"); return; }
     const userId = String(message?.author?.id ?? "").trim();
-    if (!userId) return;
-    if (!allowAllUsers && allowed.size > 0 && !allowed.has(userId)) return;
+    if (!userId) { _dbg("skip: no userId"); return; }
+    if (!allowAllUsers && allowed.size > 0 && !allowed.has(userId)) { _dbg(`skip: not in allowedUserIds (allowed=${[...allowed].join(",")})`); return; }
     const channel = message?.channel ?? {};
     const chatId = String(channel?.id ?? "").trim();
-    if (!chatId) return;
+    if (!chatId) { _dbg("skip: no chatId"); return; }
     const isThread = typeof channel.isThread === "function"
       ? channel.isThread()
       : Boolean(channel.isThread);
@@ -81,6 +124,7 @@ export async function createDiscordGateway(options = {}) {
       text: String(message?.content ?? "").trim(),
       raw: message,
     };
+    _dbg(`-> onMessage chatType=${channelType}`);
     if (onMessage) onMessage(event);
   });
 

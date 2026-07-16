@@ -795,14 +795,37 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             turnFinishedRef.current[runId] = true;
           }
           const fallbackAgent = agents.find((agent) => agent.id === effectiveSnapshot.agentId) ?? agents.find((agent) => agent.id === agentId) ?? selectedAgent;
-          setMessagesByAgent((current) => ({
-            ...current,
-            [chatKey]: (current[chatKey] ?? (fallbackAgent ? [welcomeMessageForAgent(fallbackAgent)] : [])).map((message) =>
+          setMessagesByAgent((current) => {
+            const list = current[chatKey] ?? (fallbackAgent ? [welcomeMessageForAgent(fallbackAgent)] : []);
+            // For channel-initiated runs there is no renderer-side optimistic
+            // user input, so the user's message would be invisible. Extract it
+            // from the run's conversationMessages (recorded by the runtime as a
+            // `user` event) and surface it as a real user ChatMessage bubble
+            // right before the assistant reply. Dedup by a stable id so polling
+            // never duplicates it.
+            const userText = effectiveSnapshot.conversationMessages
+              ?.find((m) => m.role === "user" && String(m.text ?? "").trim())
+              ?.text?.trim() ?? "";
+            const userMessageId = `user-${runId}`;
+            const next = list.map((message) =>
               message.run?.runId === runId
                 ? { ...message, text: messageTextForRun(effectiveSnapshot, message.text), run: effectiveSnapshot }
                 : message,
-            ),
-          }));
+            );
+            if (!userText || next.some((m) => m.id === userMessageId)) {
+              return { ...current, [chatKey]: next };
+            }
+            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
+            if (assistantIndex === -1) return { ...current, [chatKey]: next };
+            const userMessage = {
+              id: userMessageId,
+              role: "user" as const,
+              text: userText,
+              createdAt: effectiveSnapshot.startedAt ?? Date.now(),
+            };
+            const withUser = [...next.slice(0, assistantIndex), userMessage, ...next.slice(assistantIndex)];
+            return { ...current, [chatKey]: withUser };
+          });
           rememberRunResult(agentId, effectiveSnapshot);
           if (effectiveSnapshot.status !== "running") {
             setActiveRunIdByAgent((current) => ({

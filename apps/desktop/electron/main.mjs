@@ -32,6 +32,8 @@ import {
 } from "electron";
 import { registerMigrationIpc } from "./migration.mjs";
 import { createDesktopPersonalRuntimeServices, createRuntimeManager } from "./runtime.mjs";
+import { cleanupRegisteredAgentProcesses } from "./personal-agent-runtime/process-registry.mjs";
+import { channelEventBus, CHANNEL_EVENTS } from "./channels/index.mjs";
 import { registerUpdaterIpc } from "./updater.mjs";
 import {
   exportWorkspaceConfig,
@@ -1392,6 +1394,23 @@ const {
     browserUseEnvironmentManager.environmentForRun(input),
 });
 
+// Push channel state / pairing changes from the main process to the renderer
+// (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
+// singleton event bus is shared by every channel service's dispatcher, so a
+// single subscription here covers Telegram, Discord, Weixin and Feishu.
+(function wireChannelStatusPush() {
+  if (!channelEventBus) return;
+  channelEventBus.subscribe(CHANNEL_EVENTS.CHANNEL_STATE_CHANGED, (event) => {
+    mainWindow?.webContents?.send("onmyagent:channel:status", event?.payload ?? {});
+  });
+  channelEventBus.subscribe(CHANNEL_EVENTS.PAIRING_REQUESTED, (event) => {
+    mainWindow?.webContents?.send("onmyagent:channel:pairing", event?.payload ?? {});
+  });
+  channelEventBus.subscribe(CHANNEL_EVENTS.USER_AUTHORIZED, (event) => {
+    mainWindow?.webContents?.send("onmyagent:channel:user:authorized", event?.payload ?? {});
+  });
+})();
+
 const codeWorkspaceActions = createCodeWorkspaceActions({
   runtimeManager,
   shell,
@@ -1408,6 +1427,7 @@ async function disposeRuntimeBeforeQuit() {
   await Promise.all([
     personalAgentHeartbeatScheduler.close().catch(() => undefined),
     runtimeManager.dispose().catch(() => undefined),
+    cleanupRegisteredAgentProcesses().catch(() => undefined),
   ]);
 }
 
@@ -2217,6 +2237,8 @@ async function dispatchDesktopCommand(event, command, ...args) {
     case "discordSimulateInbound":
       return discordService.simulateInbound(args[0] ?? {});
     // --- Channel Infrastructure API ---
+    case "channelTestPlugin":
+      return channelInfrastructureApi.testChannelPlugin(args[0]?.pluginId, args[0] ?? {});
     case "channelGetPendingPairingRequests":
       return channelInfrastructureApi.getPendingPairingRequests();
     case "channelApprovePairing":
@@ -3428,6 +3450,17 @@ if (!app.requestSingleInstanceLock()) {
     });
     void feishuService.autoStart().catch((error) => {
       console.warn("[feishu] auto start failed", error);
+    });
+    // Telegram & Discord were missing from the launch auto-start sequence —
+    // only weixin/feishu were auto-started, so every app restart left the
+    // Telegram poller dead until the user manually toggled it on in Studio
+    // (messages then went unconsumed -> "又不理我了"). autoStart() is a no-op
+    // when the config flag is false or no account is configured.
+    void telegramService.autoStart().catch((error) => {
+      console.warn("[telegram] auto start failed", error);
+    });
+    void discordService.autoStart().catch((error) => {
+      console.warn("[discord] auto start failed", error);
     });
 
     queueDeepLinks(forwardedDeepLinks(process.argv));

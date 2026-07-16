@@ -3,8 +3,9 @@ import { createInterface } from "node:readline";
 
 import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
-import { createExecHelpers, stringifyAgentCommand } from "../utils.mjs";
+import { createExecHelpers, stringifyAgentCommand, terminateProcessTree } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
+import { unregisterAgentProcess } from "../process-registry.mjs";
 
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
 
@@ -151,7 +152,7 @@ function approvalKind(method) {
 
 function cleanupChildAsync(child, rpc) {
   rpc.dispose();
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  if (child.exitCode === null && child.signalCode === null) terminateProcessTree(child).catch(() => undefined);
 }
 
 class CodexRpcClient {
@@ -401,13 +402,17 @@ export function createCodexAdapter({ appendEvent, registerCancel, requestApprova
         cwd: ctx.workspaceRoot,
         env: execHelpers.processEnv({ PWD: ctx.workspaceRoot }),
         windowsHide: true,
+        detached: true,
         stdio: ["pipe", "pipe", "pipe"],
       });
       child.unref?.();
       if (ctx.runId) active.set(ctx.runId, child);
       registerCancel?.(async () => {
-        child.kill("SIGTERM");
-        if (ctx.runId) active.delete(ctx.runId);
+        await terminateProcessTree(child);
+        if (ctx.runId) {
+          active.delete(ctx.runId);
+          unregisterAgentProcess(ctx.runId);
+        }
       });
       appendEvent({ type: "log", text: `pid ${child.pid ?? "unknown"}` });
 
@@ -527,8 +532,9 @@ export function createCodexAdapter({ appendEvent, registerCancel, requestApprova
     async cancel(ctx) {
       const child = active.get(ctx.runId);
       if (!child) throw new Error("Codex run is not active");
-      child.kill("SIGTERM");
+      await terminateProcessTree(child);
       active.delete(ctx.runId);
+      unregisterAgentProcess(ctx.runId);
     },
   };
 }

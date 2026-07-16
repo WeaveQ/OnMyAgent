@@ -3,8 +3,9 @@ import { spawn } from "node:child_process";
 import { extractOpenClawPayloadText, isOpenClawFallbackSuccessLine, isRecoverableOpenClawFallbackLine } from "../../personal-local-agent-runtime.mjs";
 import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
-import { createExecHelpers, runId, stringifyAgentCommand } from "../utils.mjs";
+import { createExecHelpers, runId, stringifyAgentCommand, terminateProcessTree } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
+import { unregisterAgentProcess } from "../process-registry.mjs";
 
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
 
@@ -153,13 +154,17 @@ export function createOpenClawAdapter({ appendEvent, registerCancel }) {
         cwd: workdir,
         env: execHelpers.processEnv({ PWD: workdir }),
         windowsHide: true,
+        detached: true,
         stdio: ["ignore", "pipe", "pipe"],
       });
       child.unref?.();
       if (ctx.runId) active.set(ctx.runId, child);
       registerCancel?.(async () => {
-        child.kill("SIGTERM");
-        if (ctx.runId) active.delete(ctx.runId);
+        await terminateProcessTree(child);
+        if (ctx.runId) {
+          active.delete(ctx.runId);
+          unregisterAgentProcess(ctx.runId);
+        }
       });
       appendEvent({ type: "log", text: `pid ${child.pid ?? "unknown"}` });
 
@@ -205,8 +210,9 @@ export function createOpenClawAdapter({ appendEvent, registerCancel }) {
     async cancel(ctx) {
       const child = active.get(ctx.runId);
       if (!child) throw new Error("OpenClaw run is not active");
-      child.kill("SIGTERM");
+      await terminateProcessTree(child);
       active.delete(ctx.runId);
+      unregisterAgentProcess(ctx.runId);
     },
   };
 }

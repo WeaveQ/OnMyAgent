@@ -1,7 +1,9 @@
 import path from "node:path";
 
 import { personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
-import { readJsonLikeFile, writeJsonFile } from "./utils.mjs";
+import { isProcessTreeAlive, readJsonLikeFile, terminateProcessTreeByPid, writeJsonFile } from "./utils.mjs";
+
+const CLEANUP_GRACE_MS = 1_000;
 
 const processes = new Map();
 const REGISTRY_RELATIVE_PATH = path.join("personal-assistant", "process-registry.json");
@@ -137,6 +139,37 @@ export function clearAgentProcesses(options = {}) {
   processes.clear();
   crashHistory.clear();
   if (options.persist !== false) persistRegistryBestEffort();
+}
+
+// On startup / shutdown, the registry may still hold processes from a previous
+// runtime session that died or restarted mid-run (they were only marked
+// `stale` by `recoverAgentProcesses`, never actually reaped). Reap every live
+// tree: SIGTERM the whole process group, wait a grace window, then SIGKILL
+// whatever is still alive. This mirrors AionUi's
+// `cleanupRegisteredAgentProcesses` and is the missing link that lets
+// `reconcileOrphanRuns` reclaim "running" runs whose underlying process is
+// merely *hung* (pid still alive, e.g. blocked on network) rather than gone.
+export async function cleanupRegisteredAgentProcesses(options = {}) {
+  const graceMs = Number(options.graceMs) > 0 ? Number(options.graceMs) : CLEANUP_GRACE_MS;
+  const registry = await readPersistentRegistry();
+  const survivors = [];
+  const killed = [];
+  for (const record of registry.processes) {
+    if (isProcessTreeAlive(record)) {
+      await terminateProcessTreeByPid({ pid: record.pid, pgid: record.pgid, graceMs });
+    }
+    // A record that is now dead (or was already dead) has been reaped: drop it
+    // from the registry and report it. Anything still alive could not be killed
+    // (e.g. insufficient permission) — keep it so we do not lose track of it.
+    if (isProcessTreeAlive(record)) {
+      survivors.push(record);
+    } else {
+      killed.push(record.runId);
+      processes.delete(record.runId);
+    }
+  }
+  await writePersistentRegistry(survivors);
+  return { killed };
 }
 
 // Crash restart policy: 3 restarts inside a 60s window with exponential

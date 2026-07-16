@@ -137,15 +137,25 @@ export function createChannelStore(options = {}) {
   }
 
   // --- active runs ---
+  // NOTE: `runKey` is the JSON object key, but the dispatcher's poll scheduler
+  // (scheduleActiveRunPoll) and poll loop (pollActiveRun) rely on `run.runKey`
+  // being present ON the record. Every reader therefore attaches `runKey` to
+  // the returned object. `writeActiveRun` MERGES into the existing record
+  // (instead of full-replacing) so partial status updates from pollActiveRun
+  // (e.g. `{status:"running",pendingApprovals:[]}`) don't wipe runId /
+  // workspaceRoot / chatId — which would otherwise make the next poll bail and
+  // silently strand the conversation lock ("还在处理上一条消息" forever).
   async function readActiveRun(accountId, runKey) {
     const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
-    return all[runKey] ?? null;
+    const record = all[runKey] ?? null;
+    return record ? { ...record, runKey } : null;
   }
   async function writeActiveRun(accountId, runKey, record) {
     const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
-    all[runKey] = record;
+    const merged = { ...(all[runKey] ?? {}), ...record, runKey };
+    all[runKey] = merged;
     await writeJsonFile(activeRunsFile(accountId), all);
-    return record;
+    return merged;
   }
   async function deleteActiveRun(accountId, runKey) {
     const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
@@ -156,7 +166,7 @@ export function createChannelStore(options = {}) {
   }
   async function listActiveRuns(accountId) {
     const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
-    return Object.values(all);
+    return Object.entries(all).map(([runKey, record]) => ({ ...record, runKey }));
   }
 
   // --- per-chat history ---

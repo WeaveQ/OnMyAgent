@@ -151,6 +151,7 @@ export type DesktopCommandName =
   | "discordStop"
   | "discordStatus"
   | "discordSimulateInbound"
+  | "channelTestPlugin"
   | "channelGetPendingPairingRequests"
   | "channelApprovePairing"
   | "channelDenyPairing"
