@@ -12,7 +12,7 @@
 
 import { createRequire } from "node:module";
 import path from "node:path";
-import { setGlobalDispatcher, ProxyAgent } from "undici";
+import { ProxyAgent } from "undici";
 import { resolveActiveProxy } from "../proxy-fetch.mjs";
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
@@ -23,19 +23,26 @@ const REQUIRED_INTENTS = ["Guilds", "GuildMessages", "DirectMessages", "MessageC
 // @discordjs/ws uses the `ws` package (NOT the global WebSocket) for the
 // gateway and captures `ws.WebSocket` into `WebSocketConstructor` at
 // module-load time; the REST API (@discordjs/rest) uses undici fetch. To route
-// BOTH through the configured proxy we must, before `discord.js` is imported:
-//   1. set undici's global dispatcher (covers REST), and
+// BOTH through the configured proxy — and ONLY discord's traffic, without
+// hijacking the process-wide global dispatcher (which would force every other
+// in-app HTTPS request through the proxy and cause stray TLS errors / crashes):
+//   1. inject a *local* undici ProxyAgent into the Client's `rest.agent`
+//      option (covers REST), and
 //   2. monkey-patch `ws.WebSocket` to a subclass that injects an
 //      https-proxy-agent (covers the gateway WebSocket).
-// No-op when no proxy env var is set.
+// Both are applied once, before `discord.js` is imported. No-op with no proxy.
 let discordProxyApplied = false;
+let discordRestAgent = null;
 function applyDiscordProxyOnce() {
   if (discordProxyApplied) return;
   discordProxyApplied = true;
   const proxyUrl = resolveActiveProxy();
   if (!proxyUrl) return;
-  // 1) REST API via undici global dispatcher.
-  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  // 1) REST API (undici fetch inside @discordjs/rest) routes through a
+  //    *local* dispatcher injected via the Client's `rest.agent` option — this
+  //    does NOT touch the global undici dispatcher, so unrelated in-app HTTPS
+  //    requests keep using their normal (direct) path.
+  discordRestAgent = new ProxyAgent(proxyUrl);
   // 2) Gateway WebSocket via `ws` + https-proxy-agent. Resolve ws from
   //    discord.js' dependency tree (this app does not depend on ws directly).
   const req = createRequire(import.meta.url);
@@ -98,6 +105,7 @@ export async function createDiscordGateway(options = {}) {
 
   const client = injectedClient ?? new Client({
     intents: REQUIRED_INTENTS.map((name) => GatewayIntentBits[name]),
+    ...(discordRestAgent ? { rest: { agent: discordRestAgent } } : {}),
   });
 
   const allowed = new Set(allowedUserIds.map(String));
