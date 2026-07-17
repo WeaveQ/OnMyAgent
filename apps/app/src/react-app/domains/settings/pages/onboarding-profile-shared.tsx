@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { SegmentedTabButton } from "@/components/ui/action-row";
+import { FilterChip } from "@/components/ui/action-row";
 import { t } from "@/i18n";
 export {
   normalizeProfileOptionValue,
@@ -61,19 +61,23 @@ export const taskOptions: ProfileOption[] = [
 
 
 
-export function ToggleChip(props: { label: string; selected: boolean; onClick: () => void }) {
+/**
+ * Soft filter / multi-select chip (image-1 style):
+ * selected = solid elevated pill; idle = plain label, no border.
+ */
+export function ToggleChip(props: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
   return (
-    <SegmentedTabButton
-      type="button"
+    <FilterChip
+      label={props.label}
+      selected={props.selected}
       onClick={props.onClick}
-      active={props.selected}
-      tone="chip"
-      size="chip"
-      width="hug"
-      className="rounded-full"
-    >
-      {props.label}
-    </SegmentedTabButton>
+      className={props.className}
+    />
   );
 }
 

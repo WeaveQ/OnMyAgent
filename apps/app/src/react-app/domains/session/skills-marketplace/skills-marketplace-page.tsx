@@ -10,6 +10,7 @@ import {
 import type { LocalSkillCard } from "@/app/lib/desktop";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
+import { FilterChip } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -632,26 +633,17 @@ export function SkillsMarketplacePage(props: {
         }}
         onImportFiles={handleImportFiles}
       />
-      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto px-6 py-2.5">
+      <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
         {SKILL_MARKETPLACE_CATEGORIES.map((category) => {
           const active = categoryId === category.id;
           return (
-            <Button
+            <FilterChip
               key={category.id}
-              type="button"
-              size="sm"
-              variant="ghost"
+              label={t(category.labelKey)}
+              selected={active}
               onClick={() => setCategoryId(category.id)}
-              aria-pressed={active}
-              className={cn(
-                "h-7 shrink-0 rounded-full border px-2.5 text-xs font-medium mac:titlebar-no-drag",
-                active
-                  ? "border-dls-accent/55 bg-dls-accent/12 text-dls-accent hover:bg-dls-accent/12 hover:text-dls-accent"
-                  : "border-dls-border bg-dls-surface-muted/70 text-dls-secondary hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text",
-              )}
-            >
-              {t(category.labelKey)}
-            </Button>
+              className="mac:titlebar-no-drag"
+            />
           );
         })}
       </div>

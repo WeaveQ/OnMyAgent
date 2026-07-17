@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -83,14 +83,15 @@ const segmentedTabButtonVariants = cva(
       },
       tone: {
         default: "",
-        chip: "border",
+        // Soft filter chip: selected elevated solid pill; idle is plain text (no border).
+        chip: "rounded-full",
       },
       size: {
         default: "px-3 py-2 text-xs",
         compact: "px-3 py-1.5 text-xs",
         comfortable: "px-3.5 py-1.5 text-sm font-medium",
-        // Compact hug pill for settings multi-select (memory profile, etc.)
-        chip: "min-h-7 px-2.5 text-xs font-medium",
+        // Compact hug pill for category filters / memory multi-select.
+        chip: "h-7 min-h-7 px-2.5 text-xs font-medium",
       },
       width: {
         fill: "flex-1",
@@ -111,17 +112,16 @@ const segmentedTabButtonVariants = cva(
         className: "bg-transparent text-dls-secondary hover:text-dls-text",
       },
       {
-        // Soft accent wash (not solid decision fill) — stays readable in dark.
         tone: "chip",
         active: true,
         className:
-          "border-dls-border bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
+          "bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:bg-dls-list-selected dark:shadow-none",
       },
       {
         tone: "chip",
         active: false,
         className:
-          "border-transparent bg-transparent text-dls-secondary hover:text-dls-text",
+          "bg-transparent text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
       },
     ],
     defaultVariants: {
@@ -383,6 +383,32 @@ function SegmentedTabButton({
   return <ButtonPrimitive className={cn(segmentedTabButtonVariants({ active, tone, size, width }), className)} {...props} />
 }
 
+/** Soft free-floating filter chip: solid pill when active, plain label when idle. */
+function FilterChip({
+  className,
+  selected = false,
+  label,
+  ...props
+}: Omit<ButtonPrimitive.Props, "children"> & {
+  selected?: boolean
+  label: ReactNode
+}) {
+  return (
+    <SegmentedTabButton
+      type="button"
+      active={selected}
+      tone="chip"
+      size="chip"
+      width="hug"
+      aria-pressed={selected}
+      className={className}
+      {...props}
+    >
+      {label}
+    </SegmentedTabButton>
+  )
+}
+
 const segmentedTabGroupVariants = cva(
   "inline-flex border border-dls-border/50 bg-dls-surface-muted p-0.5",
   {
@@ -486,4 +512,4 @@ function IconTile({
   return <div className={cn(iconTileVariants({ size, tone, shape, border }), className)} {...props} />
 }
 
-export { ActionRowButton, DisclosureRowButton, IconTile, MatrixButton, MenuRowButton, MenuRowSurface, NavListButton, NavTabButton, RailButton, SegmentedTabButton, SegmentedTabGroup, SessionRowButton, TreeRowButton }
+export { ActionRowButton, DisclosureRowButton, FilterChip, IconTile, MatrixButton, MenuRowButton, MenuRowSurface, NavListButton, NavTabButton, RailButton, SegmentedTabButton, SegmentedTabGroup, SessionRowButton, TreeRowButton }
