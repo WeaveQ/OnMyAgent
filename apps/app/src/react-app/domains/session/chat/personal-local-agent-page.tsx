@@ -100,7 +100,6 @@ import {
   safeWriteCachedAgents,
   transcriptMessagesForAgent,
   welcomeMessageForAgent,
-  providerIconUrl,
   modelSelectorLabel,
   type PersistedLocalAgentChatState,
   type AgentHealthResult,
@@ -120,6 +119,7 @@ import {
   writeWorkspaceOverride,
   useConversationHistoryHydration,
 } from "../../local-agents";
+import { resolveAgentIconUrlFor } from "../../local-agents";
 import { SidebarPaneCollapseToggle } from "../components/shared-pages/sidebar-pane-collapse-toggle";
 import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
@@ -411,7 +411,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const running = Boolean(activeRun?.status === "running" || (selectedAgent && startingByAgent[selectedChatKey]));
   const selectedError = selectedAgent ? errorsByAgent[selectedAgent.id] ?? null : null;
   const selectedCapability = selectedAgent?.capability ?? null;
-  const selectedAgentIconUrl = selectedAgent ? providerIconUrl(selectedAgent.provider) : null;
+  const selectedAgentIconUrl = selectedAgent ? resolveAgentIconUrlFor(selectedAgent) : null;
   const composerContextUsage = useMemo(() => {
     for (let index = selectedMessages.length - 1; index >= 0; index -= 1) {
       const message = selectedMessages[index];
@@ -1433,7 +1433,7 @@ return (
                     ? lastRunForAgent(messagesByAgent[agentActiveRunKey])
                     : lastRunForAgent(messagesByAgent[agent.id]);
 
-                  const iconUrl = providerIconUrl(agent.provider);
+                  const iconUrl = resolveAgentIconUrlFor(agent);
 
                   const hasActiveRun = Boolean(
                     agentActiveRunKey &&

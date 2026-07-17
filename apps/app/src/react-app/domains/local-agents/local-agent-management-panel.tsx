@@ -20,6 +20,7 @@ import {
 import { InlineAgentEditor, type InlineAgentEditorValue } from "./inline-agent-editor";
 import { ExtensionListPanel } from "./extension-list-panel";
 import { LocalAgentCard } from "./local-agent-card";
+import { resolveAgentIconUrlFor } from "./agent-icon-map";
 import { LocalAgentRepairPanel, type LocalAgentRepairAction } from "./local-agent-repair-panel";
 import {
   LOCAL_AGENT_FILTER_IDS,
@@ -34,7 +35,7 @@ export type LocalAgentManagementPanelProps = {
   selectedAgentId?: string | null;
   refreshing?: boolean;
   providerLabel: (agent: PersonalLocalAgent) => string;
-  providerIconUrl: (agent: PersonalLocalAgent) => string | null;
+  providerIconUrl?: (agent: PersonalLocalAgent) => string | null;
   onSelectAgent?: (agentId: string) => void;
   onRefresh?: () => void;
   onAgentsChange?: (agents: PersonalLocalAgent[]) => void;
@@ -305,7 +306,7 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
             <div key={agent.id} className="space-y-2">
               <LocalAgentCard
                 agent={agent}
-                iconUrl={props.providerIconUrl(agent)}
+                iconUrl={props.providerIconUrl ? props.providerIconUrl(agent) : resolveAgentIconUrlFor(agent)}
                 providerLabel={props.providerLabel(agent)}
                 selected={agent.id === props.selectedAgentId}
                 testing={Boolean(testingByAgent[agent.id])}

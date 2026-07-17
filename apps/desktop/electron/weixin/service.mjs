@@ -398,11 +398,13 @@ export function createWeixinService(options = {}) {
       const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
       const prompt = buildPrompt(event, { mode: promptMode, history, agent });
       if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
+        const legacyModel = await currentModelForChat(session, event.chatId);
         const result = await runAgentTurn(runtime, {
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
           prompt,
           agent: runtimeAgent,
+          model: legacyModel || undefined,
           approvalMode: session.options.approvalMode,
           timeoutMs: session.options.timeoutMs,
         });
@@ -410,6 +412,7 @@ export function createWeixinService(options = {}) {
         await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
         return result;
       }
+      const chatModel = await currentModelForChat(session, event.chatId);
       const started = await runtime.startMessage({
         workspaceRoot: session.options.workspaceRoot,
         accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -418,6 +421,7 @@ export function createWeixinService(options = {}) {
         // records it as the user message in the run log / conversation view.
         userText: event.text,
         agent: runtimeAgent,
+        model: chatModel || undefined,
         approvalMode: session.options.approvalMode,
         timeoutMs: session.options.timeoutMs,
       });
@@ -871,6 +875,39 @@ export function createWeixinService(options = {}) {
       return true;
     }
 
+    const modelCommand = parseModelSwitchCommand(event.text);
+    if (modelCommand) {
+      const boundAgent = await currentAgentForChat(session, event.chatId);
+      const currentModel = await currentModelForChat(session, event.chatId);
+      const rawTarget = modelCommand.target;
+      if (!rawTarget) {
+        await sendText(session, event.chatId, renderModelHelp(boundAgent, currentModel), event.senderId).catch((error) => {
+          appendLog({ type: "error", text: `weixin model-switch help send failed: ${error?.message ?? error}` });
+        });
+        return true;
+      }
+      const lowered = rawTarget.toLowerCase();
+      if (lowered === "default" || lowered === "reset" || lowered === "清除" || lowered === "重置") {
+        session.options.modelByChat.set(event.chatId, "");
+        await store.writeChatSetting(session.account.accountId, event.chatId, { model: "" }).catch((error) => {
+          appendLog({ type: "error", text: `weixin model-switch: writeChatSetting failed: ${error?.message ?? error}` });
+        });
+        await sendText(session, event.chatId, `已恢复当前微信会话的默认模型（${agentLabel(boundAgent)}）。`, event.senderId).catch(() => undefined);
+        return true;
+      }
+      const resolved = resolveAgentModelId(boundAgent, rawTarget);
+      if (!resolved) {
+        await sendText(session, event.chatId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(boundAgent, currentModel)}`, event.senderId).catch(() => undefined);
+        return true;
+      }
+      session.options.modelByChat.set(event.chatId, resolved);
+      await store.writeChatSetting(session.account.accountId, event.chatId, { model: resolved }).catch((error) => {
+        appendLog({ type: "error", text: `weixin model-switch: writeChatSetting failed: ${error?.message ?? error}` });
+      });
+      await sendText(session, event.chatId, `已切换当前微信会话的模型：${resolved}`, event.senderId).catch(() => undefined);
+      return true;
+    }
+
     const agentCommand = parseAgentSwitchCommand(event.text);
     if (!agentCommand) return false;
     const availableIds = (session.options.availableAgents ?? []).map((a) => `${a.provider}/${a.id}`);
@@ -1197,6 +1234,7 @@ function normalizeRuntimeOptions(input = {}) {
     agent,
     availableAgents,
     agentByChat: new Map(),
+    modelByChat: new Map(),
     promptModeByChat: new Map(),
     approvalMode: normalizeApprovalMode(input.approvalMode),
     promptMode: normalizePromptMode(input.promptMode),
@@ -1306,6 +1344,66 @@ async function currentPromptModeForChat(session, chatId) {
   return mode;
 }
 
+async function currentModelForChat(session, chatId) {
+  const memory = session.options.modelByChat.get(chatId);
+  if (memory !== undefined) return memory;
+  const setting = await storeSafeReadChatSetting(session, chatId);
+  const stored = typeof setting?.model === "string" ? setting.model.trim() : "";
+  session.options.modelByChat.set(chatId, stored);
+  return stored;
+}
+
+function agentModelOptionsFor(agent) {
+  if (!agent) return [];
+  const options = Array.isArray(agent.modelOptions) ? agent.modelOptions : [];
+  return options
+    .map((option) => {
+      if (option && typeof option === "object") {
+        const id = String(option.id ?? option.value ?? option.name ?? "").trim();
+        if (!id) return null;
+        const label = String(option.label ?? option.name ?? id).trim() || id;
+        return { id, label };
+      }
+      const id = String(option ?? "").trim();
+      return id ? { id, label: id } : null;
+    })
+    .filter(Boolean);
+}
+
+function resolveAgentModelId(agent, target) {
+  const raw = String(target ?? "").trim();
+  if (!raw) return null;
+  const options = agentModelOptionsFor(agent);
+  const exact = options.find((option) => option.id === raw);
+  if (exact) return exact.id;
+  const lower = raw.toLowerCase();
+  const ci = options.find((option) => option.id.toLowerCase() === lower || option.label.toLowerCase() === lower);
+  if (ci) return ci.id;
+  return options.length === 0 ? raw : null;
+}
+
+function renderModelHelp(agent, currentModel) {
+  const label = agent ? agentLabel(agent) : "unknown";
+  const options = agentModelOptionsFor(agent);
+  const current = currentModel ? currentModel : (agent?.defaultModel || agent?.model || "");
+  const header = current
+    ? `当前 ${label} 使用模型：${current}`
+    : `当前 ${label} 使用默认模型`;
+  if (options.length === 0) {
+    return [
+      header,
+      "该 Agent 未提供可选模型列表。可发送 #model <模型名> 手动切换；发送 #model default 恢复默认。",
+    ].join("\n");
+  }
+  return [
+    header,
+    "可用模型：",
+    ...options.map((option) => `- ${option.id}${option.label && option.label !== option.id ? ` (${option.label})` : ""}`),
+    "",
+    "发送 #model <id> 切换当前微信会话的模型；发送 #model default 恢复默认。",
+  ].join("\n");
+}
+
 async function storeSafeReadChatSetting(session, chatId) {
   try {
     return await session.store.readChatSetting(session.account.accountId, chatId);
@@ -1324,6 +1422,13 @@ function parseAgentSwitchCommand(text) {
 function parseModeCommand(text) {
   const raw = String(text ?? "").trim();
   const match = raw.match(/^(?:#mode|\/mode|#prompt|\/prompt|切换模式)(?:\s+(.+))?$/i);
+  if (!match) return null;
+  return { target: String(match[1] ?? "").trim() };
+}
+
+function parseModelSwitchCommand(text) {
+  const raw = String(text ?? "").trim();
+  const match = raw.match(/^(?:#model|\/model|切换模型)(?:\s+(.+))?$/i);
   if (!match) return null;
   return { target: String(match[1] ?? "").trim() };
 }
@@ -1524,6 +1629,7 @@ export const __test__ = {
   normalizePromptMode,
   parseAgentSwitchCommand,
   parseModeCommand,
+  parseModelSwitchCommand,
   parseRunCommand,
   parseApprovalCommand,
   currentAgentForChat,
