@@ -1,10 +1,25 @@
 import { nativeDeepLinkEvent } from "./deep-link-bridge";
 import { desktopCommandNames } from "@onmyagent/types/desktop-ipc-commands";
 import type {
-  DesktopCommandMap,
   DesktopCommandName,
   DesktopInvoke,
 } from "@onmyagent/types/desktop-ipc";
+import {
+  invokeDesktopCommand,
+  invokeElectronHelper,
+} from "./desktop-invoke";
+
+export {
+  invokeDesktopCommand,
+  invokeElectronHelper,
+} from "./desktop-invoke";
+export type {
+  DesktopCommandMap,
+  DesktopCommandName,
+  DesktopCommandArgsOf,
+  DesktopCommandResultOf,
+  DesktopInvoke,
+} from "./desktop-invoke";
 
 export type * from "./desktop-types";
 export type {
@@ -40,111 +55,75 @@ export type {
   SystemPermissionType,
   SystemPermissionStatus,
   SystemPermissionResult,
+  BuiltinSkillPackageInstallInput,
+  BuiltinSkillPackageInstallResult,
+  ChannelProbeResult,
+  DesktopChannelAuthorizedUser,
+  DesktopChannelEventHistoryEntry,
+  DesktopChannelPairingRequest,
+  DesktopChannelSession,
+  ExpertMarketplaceName,
+  ExpertPackageInstallInput,
+  ExpertPackageInstallResult,
+  ExpertPackageListEntry,
+  ExpertRegistryListEntry,
+  MyExpertPackageWriteInput,
 } from "./desktop-types";
 
 import type { WorkspaceList } from "./desktop-types";
-import type {
-  CodeWorkspaceOpenTargetId,
-  CodeWorkspaceOpenTargetsResult,
-  CodeWorkspaceOpenResult,
-  CodeWorkspaceEnvironmentSnapshot,
-  CodeWorkspaceGitActionResult,
-  CodeWorkspaceTerminal,
-  CodeWorkspaceTerminalSnapshot,
-  CodeWorkspaceFileContent,
-  CodeWorkspaceFileEntry,
-} from "@onmyagent/types";
+import type { CodeWorkspaceOpenTargetId } from "@onmyagent/types";
 import type {
   AgentManagementProviderActionInput,
-  AgentManagementProviderActionResult,
   AgentManagementFetchModelsInput,
-  AgentManagementFetchModelsResult,
   AgentManagementMcpActionInput,
-  AgentManagementMcpActionResult,
-  AgentManagementMcpSnapshot,
   AgentManagementSkillActionInput,
-  AgentManagementSkillActionResult,
-  AgentManagementSnapshot,
   PersonalLocalAgent,
   PersonalLocalAgentAcpConfigOptionInput,
-  PersonalLocalAgentAcpConfigOptionResult,
   PersonalLocalAgentApprovalDecision,
   PersonalLocalAgentApprovalMode,
   PersonalLocalAgentApprovalInput,
-  PersonalLocalAgentConversationCreateResult,
   PersonalLocalAgentCustomAgentInput,
-  PersonalLocalAgentCustomAgentResult,
-  PersonalLocalAgentDeleteCustomAgentResult,
-  PersonalLocalAgentDetectResult,
-  PersonalLocalAgentDetectAvailableAgent,
-  PersonalLocalAgentExtensionListResult,
-  PersonalLocalAgentExtensionSetEnabledResult,
-  PersonalLocalAgentOverridesResult,
-  PersonalLocalAgentConversationConfirmationsResult,
-  PersonalLocalAgentConversationGetResult,
-  PersonalLocalAgentConversationGetByIdResult,
-  PersonalLocalAgentChannelConversationsListResult,
-  PersonalLocalAgentConversationsListByProviderResult,
   PersonalLocalAgentConversationImportInput,
-  PersonalLocalAgentConversationImportResult,
   PersonalLocalAgentConversationInput,
-  PersonalLocalAgentConversationStatusResult,
-  PersonalLocalAgentConversationWarmupResult,
   PersonalLocalAgentConversationTranscriptInput,
-  PersonalLocalAgentConversationTranscriptResult,
-  PersonalLocalAgentConversationsListResult,
   PersonalLocalAgentHostStatusInput,
-  PersonalLocalAgentHostStatusResult,
   PersonalLocalAgentHeartbeatCreateInput,
-  PersonalLocalAgentHeartbeatCreateResult,
   PersonalLocalAgentHeartbeatDeleteInput,
-  PersonalLocalAgentHeartbeatDeleteResult,
   PersonalLocalAgentHeartbeatRunNowInput,
-  PersonalLocalAgentHeartbeatRunNowResult,
   PersonalLocalAgentHeartbeatRunsInput,
-  PersonalLocalAgentHeartbeatRunsResult,
   PersonalLocalAgentHeartbeatsListInput,
-  PersonalLocalAgentHeartbeatsListResult,
   PersonalLocalAgentHeartbeatUpdateInput,
-  PersonalLocalAgentHeartbeatUpdateResult,
-  PersonalLocalAgentMetadataListResult,
-  PersonalLocalAgentNativeSessionsListResult,
-  PersonalLocalAgentProviderSessionsListResult,
-  PersonalLocalAgentProviderSessionLoadResult,
-  PersonalLocalAgentProviderSessionCloseResult,
-  PersonalLocalAgentProviderSessionForkResult,
-  PersonalLocalAgentProcessRecord,
-  PersonalLocalAgentProvider,
-  PersonalLocalAgentStatus,
   PersonalLocalAgentResetConversationInput,
-  PersonalLocalAgentResetConversationResult,
   PersonalLocalAgentRunInput,
-  PersonalLocalAgentRunResult,
-  PersonalLocalAgentsListResult,
+  BuiltinSkillPackageInstallInput,
+  ChannelProbeResult,
+  DesktopChannelAuthorizedUser,
+  DesktopChannelPairingRequest,
+  DesktopChannelSession,
+  ExpertMarketplaceName,
+  ExpertPackageInstallInput,
+  ExpertPackageInstallResult,
+  MyExpertPackageWriteInput,
   FeishuAccountStatusInput,
-  FeishuAccountStatus,
   FeishuSaveAccountInput,
   FeishuServiceStartInput,
   FeishuSimulateInboundInput,
-  DiscordAccountStatus,
   DiscordAccountStatusInput,
   DiscordSaveAccountInput,
   DiscordServiceStartInput,
   DiscordSimulateInboundInput,
-  MessagingAccessibleRootProbe,
   MessagingChannelStatus,
-  TelegramAccountStatus,
   TelegramAccountStatusInput,
   TelegramSaveAccountInput,
   TelegramServiceStartInput,
   TelegramSimulateInboundInput,
   WeixinAccountStatusInput,
-  WeixinAccountStatus,
   WeixinLoginPollInput,
   WeixinLoginStartInput,
   WeixinSaveAccountInput,
   WeixinServiceStartInput,
   WeixinSimulateInboundInput,
+  UserAgentRegistryWriteResult,
 } from "./desktop-types";
 
 // ---------------------------------------------------------------------------
@@ -393,26 +372,6 @@ export type SoftwareEnvironmentProgress = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Untyped-compatible helper; prefer `invokeDesktopCommand` for map-backed typing. */
-async function invokeElectronHelper<T>(
-  command: DesktopCommandName,
-  ...args: unknown[]
-): Promise<T> {
-  const invokeDesktop = window.__ONMYAGENT_ELECTRON__?.invokeDesktop;
-  if (!invokeDesktop) {
-    throw new Error(`Electron desktop helper is unavailable: ${command}`);
-  }
-  return (await invokeDesktop(command, ...(args as never[]))) as T;
-}
-
-/** Map-backed typed invoke for a low-risk subset of call sites. */
-export async function invokeDesktopCommand<C extends DesktopCommandName>(
-  command: C,
-  ...args: DesktopCommandMap[C]["args"]
-): Promise<DesktopCommandMap[C]["result"]> {
-  return invokeElectronHelper(command, ...args);
-}
-
 // Pure utility — resolves the selected workspace ID from a workspace list
 // payload, handling legacy fields.
 export function resolveWorkspaceListSelectedId(
@@ -509,12 +468,11 @@ export const desktopFetch: typeof globalThis.fetch = async (input, init) => {
     body = typeof init?.body === "string" ? init.body : undefined;
   }
 
-  const result = await invokeElectronHelper<{
-    status: number;
-    statusText: string;
-    headers: [string, string][];
-    body: string;
-  }>("__fetch", url, { method, headers, body });
+  const result = await invokeDesktopCommand("__fetch", url, {
+    method,
+    headers,
+    body,
+  });
 
   // Response constructor rejects bodies for null-body status codes, so we
   // must pass null instead of an empty string for those.
@@ -551,12 +509,12 @@ export async function desktopFetchViaMain(input: RequestInfo | URL, init?: Reque
     body = typeof init?.body === "string" ? init.body : undefined;
   }
 
-  const result = await invokeElectronHelper<{
-    status: number;
-    statusText: string;
-    headers: [string, string][];
-    body: string;
-  }>("__fetch", url, { method, headers, body, timeoutMs });
+  const result = await invokeDesktopCommand("__fetch", url, {
+    method,
+    headers,
+    body,
+    timeoutMs,
+  });
 
   const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
   const responseBody = NULL_BODY_STATUSES.has(result.status) ? null : result.body;
@@ -584,142 +542,80 @@ export async function openDesktopUrl(url: string): Promise<void> {
 }
 
 export async function openDesktopPath(target: string): Promise<void> {
-  const result = await invokeElectronHelper<string | null>("__openPath", target);
+  const result = await invokeDesktopCommand("__openPath", target);
   if (typeof result === "string" && result.trim()) {
     throw new Error(result);
   }
 }
 
 export async function revealDesktopItemInDir(target: string): Promise<void> {
-  await invokeElectronHelper<void>("__revealItemInDir", target);
+  await invokeDesktopCommand("__revealItemInDir", target);
 }
 
-export async function listCodeWorkspaceOpenTargets(): Promise<CodeWorkspaceOpenTargetsResult> {
-  return invokeElectronHelper<CodeWorkspaceOpenTargetsResult>(
-    "codeWorkspaceOpenTargets",
-  );
-}
+export const listCodeWorkspaceOpenTargets = () =>
+  invokeDesktopCommand("codeWorkspaceOpenTargets");
 
-export async function openCodeWorkspaceTarget(input: {
+export const openCodeWorkspaceTarget = (input: {
   targetId: CodeWorkspaceOpenTargetId;
   workspacePath: string;
-}): Promise<CodeWorkspaceOpenResult> {
-  return invokeElectronHelper<CodeWorkspaceOpenResult>(
-    "codeWorkspaceOpen",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceOpen", input);
 
-export async function getCodeWorkspaceEnvironment(input: {
-  workspacePath?: string | null;
-  sessionId?: string | null;
-} = {}): Promise<CodeWorkspaceEnvironmentSnapshot> {
-  return invokeElectronHelper<CodeWorkspaceEnvironmentSnapshot>(
-    "codeWorkspaceEnvironment",
-    input,
-  );
-}
+export const getCodeWorkspaceEnvironment = (
+  input: {
+    workspacePath?: string | null;
+    sessionId?: string | null;
+  } = {},
+) => invokeDesktopCommand("codeWorkspaceEnvironment", input);
 
-export async function switchCodeWorkspaceBranch(input: {
+export const switchCodeWorkspaceBranch = (input: {
   workspacePath: string;
   sessionId: string;
   branch: string;
-}): Promise<CodeWorkspaceGitActionResult> {
-  return invokeElectronHelper<CodeWorkspaceGitActionResult>(
-    "codeWorkspaceGitSwitchBranch",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceGitSwitchBranch", input);
 
-export async function commitCodeWorkspaceChanges(input: {
+export const commitCodeWorkspaceChanges = (input: {
   workspacePath: string;
   sessionId: string;
   message: string;
   push: boolean;
-}): Promise<CodeWorkspaceGitActionResult> {
-  return invokeElectronHelper<CodeWorkspaceGitActionResult>(
-    "codeWorkspaceGitCommit",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceGitCommit", input);
 
-export async function pushCodeWorkspaceChanges(input: {
+export const pushCodeWorkspaceChanges = (input: {
   workspacePath: string;
   sessionId: string;
-}): Promise<CodeWorkspaceGitActionResult> {
-  return invokeElectronHelper<CodeWorkspaceGitActionResult>(
-    "codeWorkspaceGitPush",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceGitPush", input);
 
-export async function createCodeWorkspaceTerminal(input: {
+export const createCodeWorkspaceTerminal = (input: {
   workspacePath?: string | null;
-}): Promise<CodeWorkspaceTerminal> {
-  return invokeElectronHelper<CodeWorkspaceTerminal>(
-    "codeWorkspaceTerminalCreate",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceTerminalCreate", input);
 
-export async function writeCodeWorkspaceTerminal(input: {
+export const writeCodeWorkspaceTerminal = (input: {
   terminalId: string;
   data: string;
-}): Promise<{ ok: true }> {
-  return invokeElectronHelper<{ ok: true }>(
-    "codeWorkspaceTerminalWrite",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceTerminalWrite", input);
 
-export async function resizeCodeWorkspaceTerminal(input: {
+export const resizeCodeWorkspaceTerminal = (input: {
   terminalId: string;
   cols: number;
   rows: number;
-}): Promise<{ ok: true }> {
-  return invokeElectronHelper<{ ok: true }>(
-    "codeWorkspaceTerminalResize",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceTerminalResize", input);
 
-export async function getCodeWorkspaceTerminalSnapshot(input: {
+export const getCodeWorkspaceTerminalSnapshot = (input: {
   terminalId: string;
-}): Promise<CodeWorkspaceTerminalSnapshot> {
-  return invokeElectronHelper<CodeWorkspaceTerminalSnapshot>(
-    "codeWorkspaceTerminalSnapshot",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceTerminalSnapshot", input);
 
-export async function closeCodeWorkspaceTerminal(input: {
-  terminalId: string;
-}): Promise<{ ok: true }> {
-  return invokeElectronHelper<{ ok: true }>(
-    "codeWorkspaceTerminalClose",
-    input,
-  );
-}
+export const closeCodeWorkspaceTerminal = (input: { terminalId: string }) =>
+  invokeDesktopCommand("codeWorkspaceTerminalClose", input);
 
-export async function listCodeWorkspaceFiles(input: {
+export const listCodeWorkspaceFiles = (input: {
   workspacePath: string;
   relativePath?: string;
-}): Promise<{ items: CodeWorkspaceFileEntry[] }> {
-  return invokeElectronHelper<{ items: CodeWorkspaceFileEntry[] }>(
-    "codeWorkspaceFilesList",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceFilesList", input);
 
-export async function readCodeWorkspaceFile(input: {
+export const readCodeWorkspaceFile = (input: {
   workspacePath: string;
   relativePath: string;
-}): Promise<CodeWorkspaceFileContent> {
-  return invokeElectronHelper<CodeWorkspaceFileContent>(
-    "codeWorkspaceFileRead",
-    input,
-  );
-}
+}) => invokeDesktopCommand("codeWorkspaceFileRead", input);
 
 export async function relaunchDesktopApp(): Promise<void> {
   await window.__ONMYAGENT_ELECTRON__?.shell?.relaunch?.();
@@ -750,46 +646,27 @@ if (typeof window !== "undefined") {
   });
 }
 
-export async function getDesktopHomeDir(): Promise<string> {
-  return invokeElectronHelper<string>("__homeDir");
-}
+export const getDesktopHomeDir = () => invokeDesktopCommand("__homeDir");
 
-export async function joinDesktopPath(...parts: string[]): Promise<string> {
-  return invokeElectronHelper<string>("__joinPath", ...parts);
-}
+export const joinDesktopPath = (...parts: string[]) =>
+  invokeDesktopCommand("__joinPath", ...parts);
 
-export type UserAgentRegistryFile = {
-  path: string;
-  content: string;
-  bytes: number;
-  updatedAt: number;
-};
+export type {
+  UserAgentRegistryFile,
+  UserAgentRegistryWriteResult,
+} from "@onmyagent/types/desktop-ipc";
 
-export type UserAgentRegistryWriteResult = {
-  ok: boolean;
-  path: string;
-  bytes: number;
-  updatedAt: number;
-};
-
-export async function readUserAgentRegistry(): Promise<UserAgentRegistryFile | null> {
-  return invokeElectronHelper<UserAgentRegistryFile | null>(
-    "userAgentRegistryRead",
-  );
-}
+export const readUserAgentRegistry = () =>
+  invokeDesktopCommand("userAgentRegistryRead");
 
 export async function writeUserAgentRegistry(
   content: string,
 ): Promise<UserAgentRegistryWriteResult> {
-  return invokeElectronHelper<UserAgentRegistryWriteResult>(
-    "userAgentRegistryWrite",
-    { content },
-  );
+  return invokeDesktopCommand("userAgentRegistryWrite", { content });
 }
 
-export async function setDesktopZoomFactor(value: number): Promise<boolean> {
-  return invokeElectronHelper<boolean>("__setZoomFactor", value);
-}
+export const setDesktopZoomFactor = (value: number) =>
+  invokeDesktopCommand("__setZoomFactor", value);
 
 export async function subscribeDesktopDeepLinks(
   handler: (urls: string[]) => void,
@@ -868,574 +745,261 @@ const {
   setWindowDecorations,
 } = desktopBridge;
 
-export type ExpertPackageInstallInput = {
-  source: "builtin";
-  marketplace: "experts" | "my-experts";
-  packageName: string;
-};
+export const installExpertPackage = (input: ExpertPackageInstallInput) =>
+  invokeDesktopCommand("installExpertPackage", input);
 
-export type ExpertPackageInstallResult = {
-  ok: true;
-  path: string;
-  packageName: string;
-  marketplace: "experts" | "my-experts";
-};
-
-export type BuiltinSkillPackageInstallInput = {
-  source: "builtin";
-  packageName: string;
-  skillName: string;
-};
-
-export type BuiltinSkillPackageInstallResult = {
-  ok: true;
-  path: string;
-  packageName: string;
-  skillName: string;
-};
-
-export type ExpertPackageListEntry = {
-  id: string;
-  packageName: string;
-  source: "installed" | "mine";
-  packagePath: string;
-  displayName: string;
-  profession: string;
-  description: string;
-  categoryId: string;
-  tags: string[];
-  quickPrompts: string[];
-  avatarUrl: string | null;
-  expertType: "agent" | "team";
-  leadAgentName: string;
-  systemPrompt: string;
-  version: string | null;
-};
-
-export type ExpertRegistryListEntry = {
-  id: string;
-  name: string;
-  source: "installed" | "mine";
-  packageName: string;
-  packagePath: string;
-};
-
-export type MyExpertPackageWriteInput = {
-  id: string;
-  packageName: string;
-  name: string;
-  description: string;
-  quote: string;
-};
-
-export function installExpertPackage(
-  input: ExpertPackageInstallInput,
-): Promise<ExpertPackageInstallResult> {
-  return invokeElectronHelper<ExpertPackageInstallResult>(
-    "installExpertPackage",
-    input,
-  );
-}
-
-export function installBuiltinSkillPackage(
+export const installBuiltinSkillPackage = (
   input: BuiltinSkillPackageInstallInput,
-): Promise<BuiltinSkillPackageInstallResult> {
-  return invokeElectronHelper<BuiltinSkillPackageInstallResult>(
-    "installBuiltinSkillPackage",
-    input,
-  );
-}
+) => invokeDesktopCommand("installBuiltinSkillPackage", input);
 
-export function onmyagentMarketplaceRoot(
-  marketplace: "experts" | "my-experts",
-): Promise<string> {
-  return invokeElectronHelper<string>("onmyagentMarketplaceRoot", marketplace);
-}
+export const onmyagentMarketplaceRoot = (marketplace: ExpertMarketplaceName) =>
+  invokeDesktopCommand("onmyagentMarketplaceRoot", marketplace);
 
-export function listExpertPackages(
-  marketplace: "experts" | "my-experts",
-): Promise<ExpertPackageListEntry[]> {
-  return invokeElectronHelper<ExpertPackageListEntry[]>(
-    "listExpertPackages",
-    marketplace,
-  );
-}
+export const listExpertPackages = (marketplace: ExpertMarketplaceName) =>
+  invokeDesktopCommand("listExpertPackages", marketplace);
 
-export function listExpertRegistryRecords(
-  marketplace: "experts" | "my-experts",
-): Promise<ExpertRegistryListEntry[]> {
-  return invokeElectronHelper<ExpertRegistryListEntry[]>(
-    "listExpertRegistryRecords",
-    marketplace,
-  );
-}
+export const listExpertRegistryRecords = (marketplace: ExpertMarketplaceName) =>
+  invokeDesktopCommand("listExpertRegistryRecords", marketplace);
 
-export function writeMyExpertPackage(
-  input: MyExpertPackageWriteInput,
-): Promise<ExpertPackageInstallResult> {
-  return invokeElectronHelper<ExpertPackageInstallResult>(
-    "writeMyExpertPackage",
-    input,
-  );
-}
+export const writeMyExpertPackage = (input: MyExpertPackageWriteInput) =>
+  invokeDesktopCommand("writeMyExpertPackage", input);
 
-export function personalLocalAgentsList(input?: {
+export const personalLocalAgentsList = (input?: {
   agents?: Array<Partial<PersonalLocalAgent>>;
   workspaceRoot?: string;
   includeModels?: boolean;
-}): Promise<PersonalLocalAgentsListResult> {
-  return invokeElectronHelper<PersonalLocalAgentsListResult>(
-    "personalLocalAgentsList",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentsList", input ?? {});
 
-export function personalLocalAgentMetadataList(input?: {
+export const personalLocalAgentMetadataList = (input?: {
   agents?: Array<Partial<PersonalLocalAgent>>;
   workspaceRoot?: string;
   includeModels?: boolean;
-}): Promise<PersonalLocalAgentMetadataListResult> {
-  return invokeElectronHelper<PersonalLocalAgentMetadataListResult>(
-    "personalLocalAgentMetadataList",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentMetadataList", input ?? {});
 
-export function personalLocalAgentAcpAgentsList(input?: {
+export const personalLocalAgentAcpAgentsList = (input?: {
   agents?: Array<Partial<PersonalLocalAgent>>;
   workspaceRoot?: string;
   includeModels?: boolean;
-}): Promise<PersonalLocalAgentMetadataListResult> {
-  return invokeElectronHelper<PersonalLocalAgentMetadataListResult>(
-    "personalLocalAgentAcpAgentsList",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentAcpAgentsList", input ?? {});
 
-export function personalLocalAgentAcpAgentsRefresh(input?: {
+export const personalLocalAgentAcpAgentsRefresh = (input?: {
   agents?: Array<Partial<PersonalLocalAgent>>;
   workspaceRoot?: string;
   includeModels?: boolean;
-}): Promise<PersonalLocalAgentMetadataListResult> {
-  return invokeElectronHelper<PersonalLocalAgentMetadataListResult>(
-    "personalLocalAgentAcpAgentsRefresh",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentAcpAgentsRefresh", input ?? {});
 
-export function personalLocalAgentAcpHealth(input?: {
+export const personalLocalAgentAcpHealth = (input?: {
   agents?: Array<Partial<PersonalLocalAgent>>;
   workspaceRoot?: string;
-}): Promise<{ ok: boolean; agents: Array<Record<string, unknown>> }> {
-  return invokeElectronHelper<{ ok: boolean; agents: Array<Record<string, unknown>> }>(
-    "personalLocalAgentAcpHealth",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentAcpHealth", input ?? {});
 
-export type LocalAgentComposerFileEntry = {
-  path: string;
-  relativePath: string;
-  name: string;
-  isDirectory: boolean;
-};
+export type { LocalAgentComposerFileEntry } from "./desktop-types";
 
-export function localAgentComposerListFiles(input: {
+export const localAgentComposerListFiles = (input: {
   workspaceRoot: string;
   query?: string;
   limit?: number;
-}): Promise<{ files: LocalAgentComposerFileEntry[] }> {
-  return invokeElectronHelper<{ files: LocalAgentComposerFileEntry[] }>(
-    "localAgentComposerListFiles",
-    input,
-  );
-}
+}) => invokeDesktopCommand("localAgentComposerListFiles", input);
 
-export function localAgentComposerSaveAttachment(input: {
+export const localAgentComposerSaveAttachment = (input: {
   workspaceRoot: string;
   name: string;
   dataUrl: string;
-}): Promise<{ path: string; relativePath: string; name: string; size: number }> {
-  return invokeElectronHelper<{ path: string; relativePath: string; name: string; size: number }>(
-    "localAgentComposerSaveAttachment",
-    input,
-  );
-}
+}) => invokeDesktopCommand("localAgentComposerSaveAttachment", input);
 
-export function personalLocalAgentAcpSend(
-  input: PersonalLocalAgentRunInput,
-): Promise<PersonalLocalAgentRunResult> {
-  return invokeElectronHelper<PersonalLocalAgentRunResult>(
-    "personalLocalAgentAcpSend",
-    input,
-  );
-}
+export const personalLocalAgentAcpSend = (input: PersonalLocalAgentRunInput) =>
+  invokeDesktopCommand("personalLocalAgentAcpSend", input);
 
-export function personalLocalAgentAcpCancel(
-  runId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>(
-    "personalLocalAgentAcpCancel",
-    runId,
-  );
-}
+export const personalLocalAgentAcpCancel = (runId: string) =>
+  invokeDesktopCommand("personalLocalAgentAcpCancel", runId);
 
-export function personalLocalAgentAcpResolveApproval(
+export const personalLocalAgentAcpResolveApproval = (
   input: PersonalLocalAgentApprovalInput,
-): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>(
-    "personalLocalAgentAcpResolveApproval",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentAcpResolveApproval", input);
 
-export function personalLocalAgentAcpConfigOptions(input?: {
+export const personalLocalAgentAcpConfigOptions = (input?: {
   agent?: Partial<PersonalLocalAgent>;
   workspaceRoot?: string;
-}): Promise<{ configOptions: unknown[]; availableModels: unknown[]; availableCommands: unknown[]; capabilities?: Record<string, boolean>; unsupportedReason?: string | null }> {
-  return invokeElectronHelper<{ configOptions: unknown[]; availableModels: unknown[]; availableCommands: unknown[]; capabilities?: Record<string, boolean>; unsupportedReason?: string | null }>(
-    "personalLocalAgentAcpConfigOptions",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentAcpConfigOptions", input ?? {});
 
-export function personalLocalAgentSetAcpConfigOption(
+export const personalLocalAgentSetAcpConfigOption = (
   input: PersonalLocalAgentAcpConfigOptionInput,
-): Promise<PersonalLocalAgentAcpConfigOptionResult> {
-  return invokeElectronHelper<PersonalLocalAgentAcpConfigOptionResult>(
-    "personalLocalAgentSetAcpConfigOption",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentSetAcpConfigOption", input);
 
-export function personalLocalAgentCreateCustomAgent(
+export const personalLocalAgentCreateCustomAgent = (
   input: PersonalLocalAgentCustomAgentInput,
-): Promise<PersonalLocalAgentCustomAgentResult> {
-  return invokeElectronHelper<PersonalLocalAgentCustomAgentResult>("personalLocalAgentCreateCustomAgent", input);
-}
+) => invokeDesktopCommand("personalLocalAgentCreateCustomAgent", input);
 
-export function personalLocalAgentUpdateCustomAgent(
+export const personalLocalAgentUpdateCustomAgent = (
   input: PersonalLocalAgentCustomAgentInput,
-): Promise<PersonalLocalAgentCustomAgentResult> {
-  return invokeElectronHelper<PersonalLocalAgentCustomAgentResult>("personalLocalAgentUpdateCustomAgent", input);
-}
+) => invokeDesktopCommand("personalLocalAgentUpdateCustomAgent", input);
 
-export function personalLocalAgentDeleteCustomAgent(input: {
+export const personalLocalAgentDeleteCustomAgent = (input: {
   workspaceRoot: string;
   id: string;
-}): Promise<PersonalLocalAgentDeleteCustomAgentResult> {
-  return invokeElectronHelper<PersonalLocalAgentDeleteCustomAgentResult>("personalLocalAgentDeleteCustomAgent", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentDeleteCustomAgent", input);
 
-export function personalLocalAgentDetectAvailableAgents(input: {
+export const personalLocalAgentDetectAvailableAgents = (input: {
   workspaceRoot: string;
   existingIds?: string[];
-}): Promise<PersonalLocalAgentDetectResult> {
-  return invokeElectronHelper<PersonalLocalAgentDetectResult>("personalLocalAgentDetectAvailableAgents", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentDetectAvailableAgents", input);
 
+export const personalLocalAgentListExtensions = () =>
+  invokeDesktopCommand("personalLocalAgentExtensionsList", {});
 
-export function personalLocalAgentListExtensions(): Promise<PersonalLocalAgentExtensionListResult> {
-  return invokeElectronHelper<PersonalLocalAgentExtensionListResult>("personalLocalAgentExtensionsList", {});
-}
-
-export function personalLocalAgentSetExtensionEnabled(input: {
+export const personalLocalAgentSetExtensionEnabled = (input: {
   name: string;
   enabled: boolean;
-}): Promise<PersonalLocalAgentExtensionSetEnabledResult> {
-  return invokeElectronHelper<PersonalLocalAgentExtensionSetEnabledResult>("personalLocalAgentExtensionSetEnabled", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentExtensionSetEnabled", input);
 
-
-export function personalLocalAgentGetAgentOverrides(input: {
+export const personalLocalAgentGetAgentOverrides = (input: {
   workspaceRoot: string;
   id: string;
-}): Promise<PersonalLocalAgentOverridesResult> {
-  return invokeElectronHelper<PersonalLocalAgentOverridesResult>("personalLocalAgentGetAgentOverrides", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentGetAgentOverrides", input);
 
-export function personalLocalAgentSetAgentOverrides(input: {
+export const personalLocalAgentSetAgentOverrides = (input: {
   workspaceRoot: string;
   id: string;
   overrides: Record<string, unknown>;
-}): Promise<PersonalLocalAgentOverridesResult> {
-  return invokeElectronHelper<PersonalLocalAgentOverridesResult>("personalLocalAgentSetAgentOverrides", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentSetAgentOverrides", input);
 
-export function personalLocalAgentAcpProcessesList(input?: {
+export const personalLocalAgentAcpProcessesList = (input?: {
+  workspaceRoot?: string;
   provider?: string;
   conversationId?: string;
-}): Promise<{ processes: PersonalLocalAgentProcessRecord[] }> {
-  return invokeElectronHelper<{ processes: PersonalLocalAgentProcessRecord[] }>(
-    "personalLocalAgentAcpProcessesList",
-    input ?? {},
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentAcpProcessesList", input ?? {});
 
-export type PersonalLocalAgentTestConnectionResult = {
-  ok: boolean;
-  status: PersonalLocalAgentStatus;
-  step: "fail_cli" | "fail_acp" | "needs_auth" | "online" | string;
-  error: string | null;
-  capabilities: Record<string, unknown> | null;
-  models: Array<{ id: string; label: string }>;
-  configOptions: unknown[];
-  checkedAt: number;
-};
+export type {
+  PersonalLocalAgentTestConnectionResult,
+  PersonalLocalAgentProviderHealthResult,
+  PersonalLocalAgentTestCustomAgentResult,
+} from "./desktop-types";
 
-export type PersonalLocalAgentProviderHealthResult = PersonalLocalAgentTestConnectionResult & {
-  healthy: boolean;
-  reason: string | null;
-};
-
-export function personalLocalAgentTestConnection(input: {
+export const personalLocalAgentTestConnection = (input: {
   agent: Partial<PersonalLocalAgent>;
   workspaceRoot?: string;
   timeoutMs?: number;
-}): Promise<PersonalLocalAgentTestConnectionResult> {
-  return invokeElectronHelper<PersonalLocalAgentTestConnectionResult>(
-    "personalLocalAgentTestConnection",
-    input,
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentTestConnection", input);
 
-export type PersonalLocalAgentTestCustomAgentResult = {
-  step: "success" | "fail_cli" | "fail_acp";
-  error: string | null;
-  durationMs: number;
-};
-
-export function personalLocalAgentTestCustomAgent(input: {
+export const personalLocalAgentTestCustomAgent = (input: {
   command: string;
   acpArgs?: string[];
   args?: string[];
   env?: Record<string, string>;
   timeoutMs?: number;
-}): Promise<PersonalLocalAgentTestCustomAgentResult> {
-  return invokeElectronHelper<PersonalLocalAgentTestCustomAgentResult>(
-    "personalLocalAgentTestCustomAgent",
-    input,
-  );
-}
+}) => invokeDesktopCommand("personalLocalAgentTestCustomAgent", input);
 
-export function personalLocalAgentCheckProviderHealth(input: {
+export const personalLocalAgentCheckProviderHealth = (input: {
   agent: Partial<PersonalLocalAgent>;
   workspaceRoot?: string;
   timeoutMs?: number;
-}): Promise<PersonalLocalAgentProviderHealthResult> {
-  return invokeElectronHelper<PersonalLocalAgentProviderHealthResult>("personalLocalAgentCheckProviderHealth", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentCheckProviderHealth", input);
 
-export function personalLocalAgentCheckManagedAgentHealthById(input: {
+export const personalLocalAgentCheckManagedAgentHealthById = (input: {
   id?: string;
   agentId?: string;
   provider?: string;
   workspaceRoot?: string;
   timeoutMs?: number;
-}): Promise<PersonalLocalAgentProviderHealthResult> {
-  return invokeElectronHelper<PersonalLocalAgentProviderHealthResult>("personalLocalAgentCheckManagedAgentHealthById", input);
-}
+}) => invokeDesktopCommand("personalLocalAgentCheckManagedAgentHealthById", input);
 
-export function personalLocalAgentValidate(
-  agent: Partial<PersonalLocalAgent>,
-): Promise<PersonalLocalAgent> {
-  return invokeElectronHelper<PersonalLocalAgent>(
-    "personalLocalAgentValidate",
-    agent,
-  );
-}
+export const personalLocalAgentValidate = (agent: Partial<PersonalLocalAgent>) =>
+  invokeDesktopCommand("personalLocalAgentValidate", agent);
 
-export function personalLocalAgentStart(
-  input: PersonalLocalAgentRunInput,
-): Promise<PersonalLocalAgentRunResult> {
-  return invokeElectronHelper<PersonalLocalAgentRunResult>(
-    "personalLocalAgentStart",
-    input,
-  );
-}
+export const personalLocalAgentStart = (input: PersonalLocalAgentRunInput) =>
+  invokeDesktopCommand("personalLocalAgentStart", input);
 
-export function personalLocalAgentStatus(
+export const personalLocalAgentStatus = (
   input: string | { runId: string; workspaceRoot?: string },
-): Promise<PersonalLocalAgentRunResult> {
-  return invokeElectronHelper<PersonalLocalAgentRunResult>(
-    "personalLocalAgentStatus",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentStatus", input);
 
-export function personalLocalAgentRun(
-  input: PersonalLocalAgentRunInput,
-): Promise<PersonalLocalAgentRunResult> {
-  return invokeElectronHelper<PersonalLocalAgentRunResult>(
-    "personalLocalAgentRun",
-    input,
-  );
-}
+export const personalLocalAgentRun = (input: PersonalLocalAgentRunInput) =>
+  invokeDesktopCommand("personalLocalAgentRun", input);
 
-export function personalLocalAgentCancel(
-  runId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>(
-    "personalLocalAgentCancel",
-    runId,
-  );
-}
+export const personalLocalAgentCancel = (runId: string) =>
+  invokeDesktopCommand("personalLocalAgentCancel", runId);
 
-export function personalLocalAgentResolveApproval(
+export const personalLocalAgentResolveApproval = (
   input: PersonalLocalAgentApprovalInput,
-): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>(
-    "personalLocalAgentResolveApproval",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentResolveApproval", input);
 
-export function personalLocalAgentResetConversation(
+export const personalLocalAgentResetConversation = (
   input: PersonalLocalAgentResetConversationInput,
-): Promise<PersonalLocalAgentResetConversationResult> {
-  return invokeElectronHelper<PersonalLocalAgentResetConversationResult>(
-    "personalLocalAgentResetConversation",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentResetConversation", input);
 
-export function personalLocalAgentConversationsList(
+export const personalLocalAgentConversationsList = (
   input: PersonalLocalAgentConversationInput,
-): Promise<PersonalLocalAgentConversationsListResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationsListResult>(
-    "personalLocalAgentConversationsList",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationsList", input);
 
-export function personalLocalAgentConversationCreate(
+export const personalLocalAgentConversationCreate = (
   input: PersonalLocalAgentConversationInput,
-): Promise<PersonalLocalAgentConversationCreateResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationCreateResult>(
-    "personalLocalAgentConversationCreate",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationCreate", input);
 
-export function personalLocalAgentConversationGet(
+export const personalLocalAgentConversationGet = (
   input: PersonalLocalAgentConversationInput,
-): Promise<PersonalLocalAgentConversationGetResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationGetResult>(
-    "personalLocalAgentConversationGet",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationGet", input);
 
-export function personalLocalAgentConversationGetById(
-  input: { workspaceRoot: string; conversationId: string },
-): Promise<PersonalLocalAgentConversationGetByIdResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationGetByIdResult>(
-    "personalLocalAgentConversationGetById",
-    input,
-  );
-}
+export const personalLocalAgentConversationGetById = (input: {
+  workspaceRoot: string;
+  conversationId: string;
+}) => invokeDesktopCommand("personalLocalAgentConversationGetById", input);
 
-export function personalLocalAgentChannelConversationsList(
-  input: { workspaceRoot: string },
-): Promise<PersonalLocalAgentChannelConversationsListResult> {
-  return invokeElectronHelper<PersonalLocalAgentChannelConversationsListResult>(
-    "personalLocalAgentChannelConversationsList",
-    input,
-  );
-}
+export const personalLocalAgentChannelConversationsList = (input: {
+  workspaceRoot: string;
+}) => invokeDesktopCommand("personalLocalAgentChannelConversationsList", input);
 
-export function personalLocalAgentConversationsListByProvider(
+export const personalLocalAgentConversationsListByProvider = (
   input: PersonalLocalAgentConversationInput,
-): Promise<PersonalLocalAgentConversationsListByProviderResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationsListByProviderResult>(
-    "personalLocalAgentConversationsListByProvider",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationsListByProvider", input);
 
-export function personalLocalAgentConversationImportFromArchive(
+export const personalLocalAgentConversationImportFromArchive = (
   input: PersonalLocalAgentConversationImportInput,
-): Promise<PersonalLocalAgentConversationImportResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationImportResult>(
-    "personalLocalAgentConversationImportFromArchive",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationImportFromArchive", input);
 
-export function personalLocalAgentConversationStatus(
+export const personalLocalAgentConversationStatus = (
   input: PersonalLocalAgentConversationInput & { conversationId?: string | null },
-): Promise<PersonalLocalAgentConversationStatusResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationStatusResult>(
-    "personalLocalAgentConversationStatus",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationStatus", input);
 
-export function personalLocalAgentConversationWarmup(
-  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; approvalMode?: PersonalLocalAgentApprovalMode; model?: string | null },
-): Promise<PersonalLocalAgentConversationWarmupResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationWarmupResult>(
-    "personalLocalAgentConversationWarmup",
-    input,
-  );
-}
+export const personalLocalAgentConversationWarmup = (
+  input: PersonalLocalAgentConversationInput & {
+    conversationId?: string | null;
+    approvalMode?: PersonalLocalAgentApprovalMode;
+    model?: string | null;
+  },
+) => invokeDesktopCommand("personalLocalAgentConversationWarmup", input);
 
-
-export function personalLocalAgentProviderSessionsList(
+export const personalLocalAgentProviderSessionsList = (
   input: PersonalLocalAgentConversationInput,
-): Promise<PersonalLocalAgentProviderSessionsListResult> {
-  return invokeElectronHelper<PersonalLocalAgentProviderSessionsListResult>(
-    "personalLocalAgentProviderSessionsList",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentProviderSessionsList", input);
 
-export function personalLocalAgentProviderSessionLoad(
+export const personalLocalAgentProviderSessionLoad = (
   input: PersonalLocalAgentConversationInput & { sessionId: string; title?: string },
-): Promise<PersonalLocalAgentProviderSessionLoadResult> {
-  return invokeElectronHelper<PersonalLocalAgentProviderSessionLoadResult>(
-    "personalLocalAgentProviderSessionLoad",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentProviderSessionLoad", input);
 
-export function personalLocalAgentProviderSessionClose(
-  input: PersonalLocalAgentConversationInput & { conversationId?: string | null; sessionId: string },
-): Promise<PersonalLocalAgentProviderSessionCloseResult> {
-  return invokeElectronHelper<PersonalLocalAgentProviderSessionCloseResult>(
-    "personalLocalAgentProviderSessionClose",
-    input,
-  );
-}
+export const personalLocalAgentProviderSessionClose = (
+  input: PersonalLocalAgentConversationInput & {
+    conversationId?: string | null;
+    sessionId: string;
+  },
+) => invokeDesktopCommand("personalLocalAgentProviderSessionClose", input);
 
-export function personalLocalAgentProviderSessionFork(
-  input: PersonalLocalAgentConversationInput & { sessionId: string; title?: string; messageId?: string },
-): Promise<PersonalLocalAgentProviderSessionForkResult> {
-  return invokeElectronHelper<PersonalLocalAgentProviderSessionForkResult>(
-    "personalLocalAgentProviderSessionFork",
-    input,
-  );
-}
+export const personalLocalAgentProviderSessionFork = (
+  input: PersonalLocalAgentConversationInput & {
+    sessionId: string;
+    title?: string;
+    messageId?: string;
+  },
+) => invokeDesktopCommand("personalLocalAgentProviderSessionFork", input);
 
-export function personalLocalAgentConversationConfirmationsList(
+export const personalLocalAgentConversationConfirmationsList = (
   input: PersonalLocalAgentConversationInput,
-): Promise<PersonalLocalAgentConversationConfirmationsResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationConfirmationsResult>(
-    "personalLocalAgentConversationConfirmationsList",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationConfirmationsList", input);
 
-export function personalLocalAgentHostStatus(
+export const personalLocalAgentHostStatus = (
   input: PersonalLocalAgentHostStatusInput,
-): Promise<PersonalLocalAgentHostStatusResult> {
-  return invokeElectronHelper<PersonalLocalAgentHostStatusResult>(
-    "personalLocalAgentHostStatus",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHostStatus", input);
 
-export function personalLocalAgentConversationConfirmationConfirm(
+export const personalLocalAgentConversationConfirmationConfirm = (
   input: PersonalLocalAgentConversationInput & {
     runId?: string | null;
     approvalId?: string | null;
@@ -1443,255 +1007,154 @@ export function personalLocalAgentConversationConfirmationConfirm(
     decision: PersonalLocalAgentApprovalDecision;
     alwaysAllow?: boolean;
   },
-): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>(
-    "personalLocalAgentConversationConfirmationConfirm",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationConfirmationConfirm", input);
 
-export function personalLocalAgentNativeSessionsList(input: {
+export const personalLocalAgentNativeSessionsList = (input: {
   workspaceRoot: string;
   limit?: number;
-  agent?: Partial<PersonalLocalAgent> & {
-    provider?: PersonalLocalAgentProvider;
-    customArgs?: string[];
-  };
-}): Promise<PersonalLocalAgentNativeSessionsListResult> {
-  return invokeElectronHelper<PersonalLocalAgentNativeSessionsListResult>(
-    "personalLocalAgentNativeSessionsList",
-    input,
-  );
-}
+  agent?: Partial<PersonalLocalAgent>;
+}) => invokeDesktopCommand("personalLocalAgentNativeSessionsList", input);
 
-export function personalLocalAgentConversationTranscript(
+export const personalLocalAgentConversationTranscript = (
   input: PersonalLocalAgentConversationTranscriptInput,
-): Promise<PersonalLocalAgentConversationTranscriptResult> {
-  return invokeElectronHelper<PersonalLocalAgentConversationTranscriptResult>(
-    "personalLocalAgentConversationTranscript",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentConversationTranscript", input);
 
-export function personalLocalAgentHeartbeatsList(
+export const personalLocalAgentHeartbeatsList = (
   input: PersonalLocalAgentHeartbeatsListInput,
-): Promise<PersonalLocalAgentHeartbeatsListResult> {
-  return invokeElectronHelper<PersonalLocalAgentHeartbeatsListResult>(
-    "personalLocalAgentHeartbeatsList",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHeartbeatsList", input);
 
-export function personalLocalAgentHeartbeatCreate(
+export const personalLocalAgentHeartbeatCreate = (
   input: PersonalLocalAgentHeartbeatCreateInput,
-): Promise<PersonalLocalAgentHeartbeatCreateResult> {
-  return invokeElectronHelper<PersonalLocalAgentHeartbeatCreateResult>(
-    "personalLocalAgentHeartbeatCreate",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHeartbeatCreate", input);
 
-export function personalLocalAgentHeartbeatUpdate(
+export const personalLocalAgentHeartbeatUpdate = (
   input: PersonalLocalAgentHeartbeatUpdateInput,
-): Promise<PersonalLocalAgentHeartbeatUpdateResult> {
-  return invokeElectronHelper<PersonalLocalAgentHeartbeatUpdateResult>(
-    "personalLocalAgentHeartbeatUpdate",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHeartbeatUpdate", input);
 
-export function personalLocalAgentHeartbeatDelete(
+export const personalLocalAgentHeartbeatDelete = (
   input: PersonalLocalAgentHeartbeatDeleteInput,
-): Promise<PersonalLocalAgentHeartbeatDeleteResult> {
-  return invokeElectronHelper<PersonalLocalAgentHeartbeatDeleteResult>(
-    "personalLocalAgentHeartbeatDelete",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHeartbeatDelete", input);
 
-export function personalLocalAgentHeartbeatRunNow(
+export const personalLocalAgentHeartbeatRunNow = (
   input: PersonalLocalAgentHeartbeatRunNowInput,
-): Promise<PersonalLocalAgentHeartbeatRunNowResult> {
-  return invokeElectronHelper<PersonalLocalAgentHeartbeatRunNowResult>(
-    "personalLocalAgentHeartbeatRunNow",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHeartbeatRunNow", input);
 
-export function personalLocalAgentHeartbeatRuns(
+export const personalLocalAgentHeartbeatRuns = (
   input: PersonalLocalAgentHeartbeatRunsInput,
-): Promise<PersonalLocalAgentHeartbeatRunsResult> {
-  return invokeElectronHelper<PersonalLocalAgentHeartbeatRunsResult>(
-    "personalLocalAgentHeartbeatRuns",
-    input,
-  );
-}
+) => invokeDesktopCommand("personalLocalAgentHeartbeatRuns", input);
 
-export function weixinLoginStart(input?: WeixinLoginStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinLoginStart", input ?? {});
-}
+export const weixinLoginStart = (input?: WeixinLoginStartInput) =>
+  invokeDesktopCommand("weixinLoginStart", input ?? {});
 
-export function weixinLoginPoll(input: WeixinLoginPollInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinLoginPoll", input);
-}
+export const weixinLoginPoll = (input: WeixinLoginPollInput) =>
+  invokeDesktopCommand("weixinLoginPoll", input);
 
-export function weixinSaveAccount(input: WeixinSaveAccountInput): Promise<WeixinAccountStatus> {
-  return invokeElectronHelper<WeixinAccountStatus>("weixinSaveAccount", input);
-}
+export const weixinSaveAccount = (input: WeixinSaveAccountInput) =>
+  invokeDesktopCommand("weixinSaveAccount", input);
 
-export function weixinAccountStatus(input?: WeixinAccountStatusInput): Promise<WeixinAccountStatus> {
-  return invokeElectronHelper<WeixinAccountStatus>("weixinAccountStatus", input ?? {});
-}
+export const weixinAccountStatus = (input?: WeixinAccountStatusInput) =>
+  invokeDesktopCommand("weixinAccountStatus", input ?? {});
 
-export function weixinStart(input: WeixinServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinStart", input);
-}
+export const weixinStart = (input: WeixinServiceStartInput) =>
+  invokeDesktopCommand("weixinStart", input);
 
-export function weixinAutoStart(input?: WeixinServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinAutoStart", input ?? {});
-}
+export const weixinAutoStart = (input?: WeixinServiceStartInput) =>
+  invokeDesktopCommand("weixinAutoStart", input ?? {});
 
-export function weixinStop(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinStop");
-}
+export const weixinStop = () => invokeDesktopCommand("weixinStop");
+export const weixinStatus = () => invokeDesktopCommand("weixinStatus");
 
-export function weixinStatus(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinStatus");
-}
+export const weixinSimulateInbound = (input: WeixinSimulateInboundInput) =>
+  invokeDesktopCommand("weixinSimulateInbound", input);
 
-export function weixinSimulateInbound(input: WeixinSimulateInboundInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("weixinSimulateInbound", input);
-}
+export const weixinProbeAccessibleRoot = (
+  input: { root: string } | { folderPath: string },
+) => invokeDesktopCommand("weixinProbeAccessibleRoot", input);
 
-export function weixinProbeAccessibleRoot(input: { root: string } | { folderPath: string }): Promise<MessagingAccessibleRootProbe> {
-  return invokeElectronHelper<MessagingAccessibleRootProbe>("weixinProbeAccessibleRoot", input);
-}
+export const feishuSaveAccount = (input: FeishuSaveAccountInput) =>
+  invokeDesktopCommand("feishuSaveAccount", input);
 
-export function feishuSaveAccount(input: FeishuSaveAccountInput): Promise<FeishuAccountStatus> {
-  return invokeElectronHelper<FeishuAccountStatus>("feishuSaveAccount", input);
-}
+export const feishuAccountStatus = (input?: FeishuAccountStatusInput) =>
+  invokeDesktopCommand("feishuAccountStatus", input ?? {});
 
-export function feishuAccountStatus(input?: FeishuAccountStatusInput): Promise<FeishuAccountStatus> {
-  return invokeElectronHelper<FeishuAccountStatus>("feishuAccountStatus", input ?? {});
-}
+export const feishuStart = (input: FeishuServiceStartInput) =>
+  invokeDesktopCommand("feishuStart", input);
 
-export function feishuStart(input: FeishuServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("feishuStart", input);
-}
+export const feishuAutoStart = (input?: FeishuServiceStartInput) =>
+  invokeDesktopCommand("feishuAutoStart", input ?? {});
 
-export function feishuAutoStart(input?: FeishuServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("feishuAutoStart", input ?? {});
-}
+export const feishuStop = () => invokeDesktopCommand("feishuStop");
+export const feishuStatus = () => invokeDesktopCommand("feishuStatus");
 
-export function feishuStop(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("feishuStop");
-}
+export const feishuSimulateInbound = (input: FeishuSimulateInboundInput) =>
+  invokeDesktopCommand("feishuSimulateInbound", input);
 
-export function feishuStatus(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("feishuStatus");
-}
+export const feishuProbeAccessibleRoot = (
+  input: { root: string } | { folderPath: string },
+) => invokeDesktopCommand("feishuProbeAccessibleRoot", input);
 
-export function feishuSimulateInbound(input: FeishuSimulateInboundInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("feishuSimulateInbound", input);
-}
+export const telegramSaveAccount = (input: TelegramSaveAccountInput) =>
+  invokeDesktopCommand("telegramSaveAccount", input);
 
-export function feishuProbeAccessibleRoot(input: { root: string } | { folderPath: string }): Promise<MessagingAccessibleRootProbe> {
-  return invokeElectronHelper<MessagingAccessibleRootProbe>("feishuProbeAccessibleRoot", input);
-}
+export const telegramAccountStatus = (input?: TelegramAccountStatusInput) =>
+  invokeDesktopCommand("telegramAccountStatus", input ?? {});
 
-export function telegramSaveAccount(input: TelegramSaveAccountInput): Promise<TelegramAccountStatus> {
-  return invokeElectronHelper<TelegramAccountStatus>("telegramSaveAccount", input);
-}
+export const telegramStart = (input: TelegramServiceStartInput) =>
+  invokeDesktopCommand("telegramStart", input);
 
-export function telegramAccountStatus(input?: TelegramAccountStatusInput): Promise<TelegramAccountStatus> {
-  return invokeElectronHelper<TelegramAccountStatus>("telegramAccountStatus", input ?? {});
-}
+export const telegramAutoStart = (input?: TelegramServiceStartInput) =>
+  invokeDesktopCommand("telegramAutoStart", input ?? {});
 
-export function telegramStart(input: TelegramServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("telegramStart", input);
-}
+export const telegramStop = () => invokeDesktopCommand("telegramStop");
+export const telegramStatus = () => invokeDesktopCommand("telegramStatus");
 
-export function telegramAutoStart(input?: TelegramServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("telegramAutoStart", input ?? {});
-}
+export const telegramSimulateInbound = (input: TelegramSimulateInboundInput) =>
+  invokeDesktopCommand("telegramSimulateInbound", input);
 
-export function telegramStop(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("telegramStop");
-}
+export const discordSaveAccount = (input: DiscordSaveAccountInput) =>
+  invokeDesktopCommand("discordSaveAccount", input);
 
-export function telegramStatus(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("telegramStatus");
-}
+export const discordAccountStatus = (input?: DiscordAccountStatusInput) =>
+  invokeDesktopCommand("discordAccountStatus", input ?? {});
 
-export function telegramSimulateInbound(input: TelegramSimulateInboundInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("telegramSimulateInbound", input);
-}
+export const discordStart = (input: DiscordServiceStartInput) =>
+  invokeDesktopCommand("discordStart", input);
 
-export function discordSaveAccount(input: DiscordSaveAccountInput): Promise<DiscordAccountStatus> {
-  return invokeElectronHelper<DiscordAccountStatus>("discordSaveAccount", input);
-}
+export const discordAutoStart = (input?: DiscordServiceStartInput) =>
+  invokeDesktopCommand("discordAutoStart", input ?? {});
 
-export function discordAccountStatus(input?: DiscordAccountStatusInput): Promise<DiscordAccountStatus> {
-  return invokeElectronHelper<DiscordAccountStatus>("discordAccountStatus", input ?? {});
-}
+export const discordStop = () => invokeDesktopCommand("discordStop");
+export const discordStatus = () => invokeDesktopCommand("discordStatus");
 
-export function discordStart(input: DiscordServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("discordStart", input);
-}
-
-export function discordAutoStart(input?: DiscordServiceStartInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("discordAutoStart", input ?? {});
-}
-
-export function discordStop(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("discordStop");
-}
-
-export function discordStatus(): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("discordStatus");
-}
-
-export function discordSimulateInbound(input: DiscordSimulateInboundInput): Promise<MessagingChannelStatus> {
-  return invokeElectronHelper<MessagingChannelStatus>("discordSimulateInbound", input);
-}
+export const discordSimulateInbound = (input: DiscordSimulateInboundInput) =>
+  invokeDesktopCommand("discordSimulateInbound", input);
 
 // --- Channel connectivity probe (self-check) ---
-// Tests whether the saved account token / bot can actually reach the platform
-// (parity: AionUi testPlugin connection self-check). Returns ok + botUsername
-// or an error explaining why the connection failed.
-
-export type ChannelProbeResult = {
-  ok: boolean;
-  botUsername?: string;
-  hasToken?: boolean;
-  error?: string;
-};
-
 export function channelTestPlugin(
   pluginId: string,
   input?: { accountId?: string },
-): Promise<ChannelProbeResult> {
-  return invokeElectronHelper<ChannelProbeResult>("channelTestPlugin", { pluginId, ...(input ?? {}) });
+) {
+  return invokeDesktopCommand("channelTestPlugin", {
+    pluginId,
+    ...(input ?? {}),
+  });
 }
 
-// AionUi-parity unified connectivity self-check: a single dispatcher entry that
-// forwards to each plugin's own probe() by pluginId (telegram / discord / weixin
-// already implement it; feishu gets one too). No per-channel switch on the host.
 export function testChannelConnection(
   kind: TokenChannelKindLike,
   input?: { accountId?: string },
-): Promise<ChannelProbeResult> {
+) {
   return channelTestPlugin(kind, input);
 }
 
 type TokenChannelKindLike = "telegram" | "discord" | "weixin" | "feishu";
 
 // --- Channel event subscriptions ---
-// Subscribe to backend channel status / pairing pushes (parity: AionUi event
-// push for pluginStatusChanged / pairingRequested). Returns an unsubscribe fn.
-
 export function onChannelStatus(
-  callback: (payload: { platformType: string; status: MessagingChannelStatus }) => void,
+  callback: (payload: {
+    platformType: string;
+    status: MessagingChannelStatus;
+  }) => void,
 ): () => void {
   const api = window.__ONMYAGENT_ELECTRON__;
   if (!api?.channels?.onStatus) return () => {};
@@ -1704,209 +1167,124 @@ export function onChannelPairing(callback: (payload: unknown) => void): () => vo
   return api.channels.onPairing(callback);
 }
 
-export function onChannelUserAuthorized(callback: (payload: unknown) => void): () => void {
+export function onChannelUserAuthorized(
+  callback: (payload: unknown) => void,
+): () => void {
   const api = window.__ONMYAGENT_ELECTRON__;
   if (!api?.channels?.onUserAuthorized) return () => {};
   return api.channels.onUserAuthorized(callback);
 }
 
 // --- Channel Infrastructure API ---
-// Wrappers for channel pairing, session, and event APIs
+export type ChannelPairingRequest = DesktopChannelPairingRequest;
+export type ChannelAuthorizedUser = DesktopChannelAuthorizedUser;
+export type ChannelSession = DesktopChannelSession;
 
-export interface ChannelPairingRequest {
-  code: string;
-  platformType: string;
-  platformUserId: string;
-  displayName?: string;
-  requestedAt: number;
-  expiresAt: number;
-  status: string;
-}
+export const channelGetPendingPairingRequests = () =>
+  invokeDesktopCommand("channelGetPendingPairingRequests");
 
-export interface ChannelAuthorizedUser {
-  id: string;
-  platformType: string;
-  platformUserId: string;
-  displayName?: string;
-  authorizedAt: number;
-  lastActive?: number;
-}
+export const channelApprovePairing = (code: string) =>
+  invokeDesktopCommand("channelApprovePairing", { code });
 
-export interface ChannelSession {
-  id: string;
-  platformType: string;
-  platformUserId: string;
-  agentType: string;
-  workspace?: string;
-  chatId?: string;
-  createdAt: number;
-  lastActivity: number;
-  messages: Array<{ id: string; role: string; content: string; timestamp: number }>;
-  metadata: Record<string, unknown>;
-  closedAt?: number;
-}
+export const channelDenyPairing = (code: string) =>
+  invokeDesktopCommand("channelDenyPairing", { code });
 
-/**
- * Get all pending pairing requests
- * Security: Safe, only returns pending request metadata
- */
-export function channelGetPendingPairingRequests(): Promise<ChannelPairingRequest[]> {
-  return invokeElectronHelper<ChannelPairingRequest[]>("channelGetPendingPairingRequests");
-}
+export const channelGetAuthorizedUsers = () =>
+  invokeDesktopCommand("channelGetAuthorizedUsers");
 
-/**
- * Approve a pairing request
- * Security: This can only be called from local UI, never from remote IM
- */
-export function channelApprovePairing(code: string): Promise<{ ok: boolean; error?: string; user?: ChannelAuthorizedUser }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string; user?: ChannelAuthorizedUser }>("channelApprovePairing", { code });
-}
+export const channelIsUserAuthorized = (
+  platformType: string,
+  platformUserId: string,
+) =>
+  invokeDesktopCommand("channelIsUserAuthorized", {
+    platformType,
+    platformUserId,
+  });
 
-/**
- * Deny a pairing request
- * Security: This can only be called from local UI, never from remote IM
- */
-export function channelDenyPairing(code: string): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>("channelDenyPairing", { code });
-}
+export const channelRevokeUserAuthorization = (
+  platformType: string,
+  platformUserId: string,
+) =>
+  invokeDesktopCommand("channelRevokeUserAuthorization", {
+    platformType,
+    platformUserId,
+  });
 
-/**
- * Get all authorized users
- */
-export function channelGetAuthorizedUsers(): Promise<ChannelAuthorizedUser[]> {
-  return invokeElectronHelper<ChannelAuthorizedUser[]>("channelGetAuthorizedUsers");
-}
-
-/**
- * Check if a user is authorized
- */
-export function channelIsUserAuthorized(platformType: string, platformUserId: string): Promise<boolean> {
-  return invokeElectronHelper<boolean>("channelIsUserAuthorized", { platformType, platformUserId });
-}
-
-/**
- * Revoke user authorization
- * Security: This can only be called from local UI
- */
-export function channelRevokeUserAuthorization(platformType: string, platformUserId: string): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>("channelRevokeUserAuthorization", { platformType, platformUserId });
-}
-
-/**
- * Get or create a session for a user + agent combination
- */
-export function channelGetOrCreateSession(options: {
+export const channelGetOrCreateSession = (options: {
   platformType: string;
   platformUserId: string;
   agentType: string;
   workspace?: string;
   chatId?: string;
-}): Promise<{ ok: boolean; session?: ChannelSession; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; session?: ChannelSession; error?: string }>("channelGetOrCreateSession", options);
-}
+}) => invokeDesktopCommand("channelGetOrCreateSession", options);
 
-/**
- * Get session by ID
- */
-export function channelGetSession(sessionId: string): Promise<{ ok: boolean; session?: ChannelSession; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; session?: ChannelSession; error?: string }>("channelGetSession", { sessionId });
-}
+export const channelGetSession = (sessionId: string) =>
+  invokeDesktopCommand("channelGetSession", { sessionId });
 
-/**
- * Get all sessions for a platform
- */
-export function channelGetSessionsByPlatform(platformType: string): Promise<ChannelSession[]> {
-  return invokeElectronHelper<ChannelSession[]>("channelGetSessionsByPlatform", { platformType });
-}
+export const channelGetSessionsByPlatform = (platformType: string) =>
+  invokeDesktopCommand("channelGetSessionsByPlatform", { platformType });
 
-/**
- * Get all sessions for a user on a platform
- */
-export function channelGetSessionsByUser(platformType: string, platformUserId: string): Promise<ChannelSession[]> {
-  return invokeElectronHelper<ChannelSession[]>("channelGetSessionsByUser", { platformType, platformUserId });
-}
+export const channelGetSessionsByUser = (
+  platformType: string,
+  platformUserId: string,
+) =>
+  invokeDesktopCommand("channelGetSessionsByUser", {
+    platformType,
+    platformUserId,
+  });
 
-/**
- * Close (archive) a session
- */
-export function channelCloseSession(sessionId: string): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>("channelCloseSession", { sessionId });
-}
+export const channelCloseSession = (sessionId: string) =>
+  invokeDesktopCommand("channelCloseSession", { sessionId });
 
-/**
- * Update session metadata
- */
-export function channelUpdateSessionMetadata(sessionId: string, metadata: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
-  return invokeElectronHelper<{ ok: boolean; error?: string }>("channelUpdateSessionMetadata", { sessionId, metadata });
-}
+export const channelUpdateSessionMetadata = (
+  sessionId: string,
+  metadata: Record<string, unknown>,
+) =>
+  invokeDesktopCommand("channelUpdateSessionMetadata", {
+    sessionId,
+    metadata,
+  });
 
-/**
- * Get recent channel event history
- */
-export function channelGetEventHistory(limit?: number, filterEvent?: string): Promise<Array<{ id: string; name: string; payload: unknown; timestamp: number }>> {
-  return invokeElectronHelper<Array<{ id: string; name: string; payload: unknown; timestamp: number }>>("channelGetEventHistory", { limit, filterEvent });
-}
+export const channelGetEventHistory = (
+  limit?: number,
+  filterEvent?: string,
+) =>
+  invokeDesktopCommand("channelGetEventHistory", { limit, filterEvent });
+
 // --- End Channel Infrastructure API ---
 
+export const agentManagementSnapshot = (input: { workspaceRoot: string }) =>
+  invokeDesktopCommand("agentManagementSnapshot", input);
 
-export function agentManagementSnapshot(input: {
-  workspaceRoot: string;
-}): Promise<AgentManagementSnapshot> {
-  return invokeElectronHelper<AgentManagementSnapshot>(
-    "agentManagementSnapshot",
-    input,
-  );
-}
-
-
-export function agentManagementProviderAction(
+export const agentManagementProviderAction = (
   input: AgentManagementProviderActionInput,
-): Promise<AgentManagementProviderActionResult> {
-  return invokeElectronHelper<AgentManagementProviderActionResult>(
-    "agentManagementProviderAction",
-    input,
-  );
-}
+) => invokeDesktopCommand("agentManagementProviderAction", input);
 
-export function agentManagementFetchModels(
+export const agentManagementFetchModels = (
   input: AgentManagementFetchModelsInput,
-): Promise<AgentManagementFetchModelsResult> {
-  return invokeElectronHelper<AgentManagementFetchModelsResult>(
-    "agentManagementFetchModels",
-    input,
-  );
-}
+) => invokeDesktopCommand("agentManagementFetchModels", input);
 
-export function agentManagementSkillAction(
+export const agentManagementSkillAction = (
   input: AgentManagementSkillActionInput,
-): Promise<AgentManagementSkillActionResult> {
-  return invokeElectronHelper<AgentManagementSkillActionResult>(
-    "agentManagementSkillAction",
-    input,
-  );
-}
+) => invokeDesktopCommand("agentManagementSkillAction", input);
 
-export function agentManagementMcpSnapshot(): Promise<AgentManagementMcpSnapshot> {
-  return invokeElectronHelper<AgentManagementMcpSnapshot>(
-    "agentManagementMcpSnapshot",
-  );
-}
+export const agentManagementMcpSnapshot = () =>
+  invokeDesktopCommand("agentManagementMcpSnapshot");
 
-export function agentManagementMcpAction(
-  input: AgentManagementMcpActionInput,
-): Promise<AgentManagementMcpActionResult> {
-  return invokeElectronHelper<AgentManagementMcpActionResult>(
-    "agentManagementMcpAction",
-    input,
-  );
-}
+export const agentManagementMcpAction = (input: AgentManagementMcpActionInput) =>
+  invokeDesktopCommand("agentManagementMcpAction", input);
 
 // Typed wrappers for workspace OnMyAgent config IPC (channel kept as Openwork*
 // for desktop main-process compatibility).
 export function workspaceOnMyAgentRead(input: {
   workspacePath: string;
 }): Promise<Record<string, unknown>> {
-  return invokeElectronHelper<Record<string, unknown>>("workspaceOpenworkRead", input);
+  // IPC channel remains Openwork*; public API uses workspacePath while the map
+  // accepts optional workspace id/path string.
+  return invokeDesktopCommand(
+    "workspaceOpenworkRead",
+    input.workspacePath,
+  ) as Promise<Record<string, unknown>>;
 }
 
 export {
