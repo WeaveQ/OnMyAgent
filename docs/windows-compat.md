@@ -160,3 +160,11 @@ Windows roadmap.
 - [ ] NSIS installer smoke (install → launch → quit) on `windows-2022`
 - [ ] Recovery panel copy pass for Windows-specific paths
 - [ ] Investigate WSL2 fallback for `sandbox-exec` equivalent
+
+## Known gaps not yet fixed
+
+These are tracked, but each needs a follow-up PR:
+
+- **Adapter child-process cleanup**: `apps/desktop/electron/personal-agent-runtime/adapters/{claude,codex,hermes,openclaw}.mjs` call `child.kill("SIGTERM")` directly. On Windows this reliably terminates only the immediate child, not its subprocess tree. The `acp-generic.mjs` adapter has a working `taskkill /T /F` fallback that should be extracted into a shared helper.
+- **"Open terminal" for workspace target**: `apps/desktop/electron/code-workspace-actions.mjs` uses `cmd.exe /c start "" <path>` for the terminal target on Windows, which opens the default file-association for the path (Explorer) rather than launching a terminal in that directory. Preferred: try `wt.exe -d <path>` (Windows Terminal), then `powershell.exe -NoExit -Command "Set-Location <path>"`, then fall back to `cmd.exe /K cd /D <path>`.
+- **opencode binary discovery on Windows**: the runtime now looks under `%LOCALAPPDATA%\opencode\bin\opencode.exe` and `%LOCALAPPDATA%\Programs\opencode\opencode.exe` as well as PATH. If your install lives elsewhere, set `OPENCODE_BIN` or `ONMYAGENT_LOCAL_OPENCODE_BIN`.

@@ -432,6 +432,15 @@ function extraPathEntries() {
       path.join(home, ".cargo", "bin"),
       process.env.APPDATA ? path.join(process.env.APPDATA, "npm") : null,
       process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "pnpm") : null,
+      process.env.ProgramFiles
+        ? path.join(process.env.ProgramFiles, "Docker", "Docker", "resources", "bin")
+        : null,
+      process.env["ProgramFiles(x86)"]
+        ? path.join(process.env["ProgramFiles(x86)"], "Docker", "Docker", "resources", "bin")
+        : null,
+      process.env.LOCALAPPDATA
+        ? path.join(process.env.LOCALAPPDATA, "Programs", "Docker", "Docker", "resources", "bin")
+        : null,
     );
   }
 
@@ -929,6 +938,14 @@ export function createRuntimeManager({
         "/usr/local/bin/opencode",
         "/usr/bin/opencode",
       );
+    } else {
+      if (process.env.LOCALAPPDATA) {
+        candidates.push(
+          path.join(process.env.LOCALAPPDATA, "opencode", "bin", "opencode.exe"),
+          path.join(process.env.LOCALAPPDATA, "Programs", "opencode", "opencode.exe"),
+        );
+      }
+      candidates.push(path.join(app.getPath("home"), ".opencode", "bin", "opencode.exe"));
     }
 
     return [...new Set(candidates.filter(Boolean))];
