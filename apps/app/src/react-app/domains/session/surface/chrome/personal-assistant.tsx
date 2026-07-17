@@ -31,7 +31,7 @@ export function PersonalAssistantHero() {
       <img
         src={resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR)}
         alt=""
-        className="size-36 rounded-xl object-cover"
+        className="size-28 rounded-full object-cover shadow-sm ring-1 ring-dls-border/60"
         draggable={false}
       />
       <h2 className={sessionSurfaceTextClass.assistantHeroTitle}>

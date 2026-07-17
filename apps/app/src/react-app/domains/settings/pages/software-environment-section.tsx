@@ -216,7 +216,7 @@ export function SoftwareEnvironmentSection() {
           const actions = (() => {
             if (isStatusLoading) {
               return (
-                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 text-sm text-dls-secondary">
                   <LoadingSpinner size="default" />
                   {t("settings.software_env.loading")}
                 </span>
@@ -232,7 +232,7 @@ export function SoftwareEnvironmentSection() {
                       : t("settings.software_env.installed")}
                   </span>
                   {detail?.version ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-dls-secondary">
                       {detail.version}
                     </span>
                   ) : null}
@@ -242,12 +242,12 @@ export function SoftwareEnvironmentSection() {
             if (state === "installing") {
               return (
                 <div className="flex min-w-40 flex-col items-end gap-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5 text-sm text-dls-secondary">
                     <LoadingSpinner size="default" />
                     {installProgress?.message ??
                       t("settings.software_env.installing")}
                   </span>
-                  <div className="h-1.5 w-36 overflow-hidden rounded-full bg-muted">
+                  <div className="h-1.5 w-36 overflow-hidden rounded-full bg-dls-surface-muted">
                     <div
                       className="h-full rounded-full bg-primary transition-[width] duration-300"
                       style={{
@@ -293,7 +293,7 @@ export function SoftwareEnvironmentSection() {
               );
             }
             return (
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-dls-secondary">
                 {t("settings.software_env.bundled_missing")}
               </span>
             );

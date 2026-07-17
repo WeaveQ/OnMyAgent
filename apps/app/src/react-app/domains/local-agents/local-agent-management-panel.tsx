@@ -2,6 +2,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { CountBadge } from "@/components/ui/status-badge";
 import { NoticeBox, EmptyStateBox } from "@/components/ui/notice-box";
@@ -200,24 +201,26 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
   return (
     <section className="flex flex-col gap-4" data-testid="local-agent-management-panel">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <SegmentedTabGroup className="flex flex-wrap items-center">
           {LOCAL_AGENT_FILTER_IDS.map((id) => (
-            <Button
+            <NavTabButton
               key={id}
               type="button"
-              variant={filter === id ? "default" : "outline"}
-              size="sm"
+              active={filter === id}
+              size="default"
+              shape="tab"
               onClick={() => setFilter(id)}
               data-testid={`local-agent-filter-${id}`}
               aria-pressed={filter === id}
+              className="gap-1.5"
             >
               {t(FILTER_LABEL_KEYS[id])}
-              <CountBadge size="dot" className={cn("ml-1.5", filter === id ? "bg-white/20 text-white" : "bg-dls-surface-muted")}>
+              <CountBadge size="dot" className={cn(filter === id ? "bg-dls-surface-muted" : "bg-dls-hover")}>
                 {counts[id]}
               </CountBadge>
-            </Button>
+            </NavTabButton>
           ))}
-        </div>
+        </SegmentedTabGroup>
         <Button
           type="button"
           variant="outline"
@@ -275,7 +278,7 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
               {detected.map((draft) => (
                 <li key={draft.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-dls-border bg-dls-surface px-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-dls-primary">{draft.name}</div>
+                    <div className="text-sm font-medium text-dls-text">{draft.name}</div>
                     <div className="truncate font-mono text-xs text-dls-secondary">{draft.command}</div>
                   </div>
                   <Button

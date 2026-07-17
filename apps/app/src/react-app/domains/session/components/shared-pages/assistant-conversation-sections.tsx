@@ -126,13 +126,13 @@ function AssistantListEmptyState(props: {
   })();
 
   return (
-    <div className="mx-1 mt-3 flex flex-col items-center gap-2.5 px-4 py-7 text-center">
-      <IconTile size="lg" shape="xl" tone="neutral" className="bg-transparent text-dls-secondary">
+    <div className="mx-1 mt-3 flex flex-col items-center gap-2.5 rounded-xl border border-dls-border/60 bg-dls-surface/40 px-3 py-6 text-center">
+      <IconTile size="md" shape="lg" tone="neutral" className="bg-dls-surface text-dls-secondary">
         {icon}
       </IconTile>
       <div className="space-y-1">
         <div className="text-sm font-medium text-dls-text">{props.title}</div>
-        <p className="mx-auto max-w-44 text-xs leading-5 text-dls-secondary">
+        <p className="mx-auto max-w-48 text-xs leading-5 text-dls-secondary">
           {props.description}
         </p>
       </div>

@@ -101,7 +101,7 @@ export function OpenAiImageGenConfig(props: OpenAiImageGenConfigProps) {
           </Alert>
         ) : null}
       </CardContent>
-      <CardFooter className="flex-wrap gap-2 border-t border-border justify-between">
+      <CardFooter className="flex-wrap gap-2 border-t border-dls-border justify-between">
         <Button
           onClick={() => void props.onInstall(apiKey)}
           disabled={props.busy || !canSubmit}

@@ -582,7 +582,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 )}
               </div>
             ) : (
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-dls-secondary">
                 {t("settings.computer_use_app_authorizations_empty")}
               </div>
             )}
@@ -611,7 +611,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 <div className="text-sm font-medium">
                   {t("settings.computer_use_skysight_toggle")}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-dls-secondary">
                   {result?.skysight?.recording
                     ? t("settings.computer_use_skysight_recording")
                     : t("settings.computer_use_skysight_stopped")}
@@ -629,7 +629,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 <div className="text-sm font-medium">
                   {t("settings.computer_use_skysight_pause")}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-dls-secondary">
                   {result?.skysight?.paused
                     ? t("settings.computer_use_skysight_paused")
                     : t("settings.computer_use_skysight_active")}
@@ -647,7 +647,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 <div className="text-sm font-medium">
                   {t("settings.computer_use_skysight_private_browsing")}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-dls-secondary">
                   {t("settings.computer_use_skysight_private_browsing_description")}
                 </div>
               </div>
@@ -745,7 +745,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                     </SettingsActionRow>
                   ))
               ) : (
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-dls-secondary">
                   {t("settings.computer_use_skysight_exclusions_empty")}
                 </div>
               )}
@@ -765,9 +765,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
         </SetupRow>
       </CardContent>
 
-      <CardFooter className="border-t border-border">
+      <CardFooter className="border-t border-dls-border">
         <div className={computerUseLayoutClass.footer}>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-dls-secondary">
             {allGranted
               ? t("settings.computer_use_permissions_verified")
               : t("settings.computer_use_verify_hint")}
@@ -866,10 +866,10 @@ function SetupRow(props: {
         <div className="flex min-w-0 flex-1 gap-3">
           <StatusIcon complete={props.complete} />
           <div className="min-w-0">
-            <div className="text-sm font-medium text-card-foreground">
+            <div className="text-sm font-medium text-dls-text">
               {props.title}
             </div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <div className="mt-1 text-xs leading-relaxed text-dls-secondary">
               {props.description}
             </div>
           </div>
@@ -926,7 +926,7 @@ function StatusIcon(props: { complete: boolean; muted?: boolean }) {
   }
   return (
     <CircleAlert
-      className={`mt-0.5 size-4 shrink-0 ${props.muted ? "text-muted-foreground" : "text-dls-status-warning"}`}
+      className={`mt-0.5 size-4 shrink-0 ${props.muted ? "text-dls-secondary" : "text-dls-status-warning"}`}
     />
   );
 }

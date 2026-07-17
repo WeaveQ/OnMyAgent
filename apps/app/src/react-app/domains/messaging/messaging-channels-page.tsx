@@ -160,31 +160,40 @@ function CollapsibleChannelContent(props: {
   onDiscordStatusChange?: (status: MessagingChannelStatus) => void;
 }) {
   return (
-    <div className="px-4 pb-4 pt-2 border-t border-dls-border">
-      {/* Config tip */}
-      <div className="mb-3 rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
-        {t("messaging.channel_panel_config_hint")}
-      </div>
-
-      {/* Channel config form */}
+    <div className="space-y-5 border-t border-dls-border px-4 pb-4 pt-3">
       {props.channel.id === "wechat" ? (
-        <WeixinChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onWeixinStatusChange} />
+        <WeixinChannelPanel
+          workspaceRoot={props.workspaceRoot}
+          onStatusChange={props.onWeixinStatusChange}
+        />
       ) : null}
       {props.channel.id === "feishu" ? (
-        <FeishuChannelPanel workspaceRoot={props.workspaceRoot} onStatusChange={props.onFeishuStatusChange} />
+        <FeishuChannelPanel
+          workspaceRoot={props.workspaceRoot}
+          onStatusChange={props.onFeishuStatusChange}
+        />
       ) : null}
       {props.channel.id === "telegram" ? (
-        <TokenChannelPanel kind="telegram" workspaceRoot={props.workspaceRoot} onStatusChange={props.onTelegramStatusChange} />
+        <TokenChannelPanel
+          kind="telegram"
+          workspaceRoot={props.workspaceRoot}
+          onStatusChange={props.onTelegramStatusChange}
+        />
       ) : null}
       {props.channel.id === "discord" ? (
-        <TokenChannelPanel kind="discord" workspaceRoot={props.workspaceRoot} onStatusChange={props.onDiscordStatusChange} />
+        <TokenChannelPanel
+          kind="discord"
+          workspaceRoot={props.workspaceRoot}
+          onStatusChange={props.onDiscordStatusChange}
+        />
       ) : null}
 
-      {/* Pairing and user management */}
-      <div className="mt-4 pt-4 border-t border-dls-border">
-        <h4 className="text-sm font-medium text-dls-text mb-3">{t("messaging.pairing_management")}</h4>
+      <section className="space-y-2.5 border-t border-dls-border pt-4">
+        <h4 className="text-sm font-medium text-dls-text">
+          {t("messaging.pairing_management")}
+        </h4>
         <ChannelPairingPanel />
-      </div>
+      </section>
     </div>
   );
 }
@@ -205,8 +214,8 @@ function CollapsibleChannelItem(props: {
   return (
     <div
       className={cn(
-        "rounded-lg border border-dls-border bg-dls-card overflow-hidden",
-        props.expanded && "border-dls-accent",
+        "overflow-hidden rounded-lg border border-dls-border bg-dls-card",
+        props.expanded && "border-dls-border-strong",
       )}
       data-channel-id={props.channel.id}
       data-channel-status={props.channel.status}

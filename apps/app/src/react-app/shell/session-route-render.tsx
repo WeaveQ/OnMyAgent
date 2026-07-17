@@ -732,6 +732,7 @@ export function SessionRouteRender() {
     selectedWorkspaceEndpoint,
     selectedWorkspaceId,
     sessionModelOverrideById,
+    setSessionModelOverrideById,
     sessionWorkspaceRoot,
     setModelOptions,
     sidebarActiveWorkspaceId,

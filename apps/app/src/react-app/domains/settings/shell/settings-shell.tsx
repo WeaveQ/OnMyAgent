@@ -57,25 +57,29 @@ export type SettingsShellProps = SettingsPageFrameProps & {
 };
 
 const settingsShellClass = {
-  compactRoot: "flex h-full min-h-0 w-full flex-col overflow-hidden bg-background",
+  // Canvas lane: cool work surface; cards sit on dls-surface inside.
+  compactRoot: "flex h-full min-h-0 w-full flex-col overflow-hidden bg-dls-background",
   compactHeader: "flex h-11 shrink-0 items-center justify-between gap-2 border-b border-dls-border px-3 mac:titlebar-drag",
   compactMenuGroup: "flex min-w-0 items-center gap-2 mac:titlebar-no-drag",
   titlebarActions: "flex shrink-0 items-center gap-2 mac:titlebar-no-drag",
-  closeButton: "shrink-0 rounded-md text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text",
+  closeButton: "shrink-0 rounded-md text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
   main: "flex min-h-0 flex-1 flex-col overflow-hidden",
   errorCompact: "mx-auto w-full max-w-3xl px-4 pb-6",
   errorFull: "mx-auto max-w-5xl px-6 pb-24 md:px-10 md:pb-10",
   errorNotice: "flex flex-col gap-y-3",
-  root: "flex h-dvh min-h-screen w-full overflow-hidden",
-  provider: "relative min-h-0 flex-1",
-  inset: "min-h-0 overflow-hidden bg-background mac:bg-background/80 mac:[&_header]:transition-[padding-left] mac:[&_header]:duration-200 mac:[&_header]:ease-linear mac:peer-data-[state=collapsed]:[&_header]:pl-16 [&_header]:pl-16 md:[&_header]:pl-6",
-  contentMain: "flex min-w-0 flex-1 flex-col overflow-hidden",
+  // Full settings: sidebar lane + canvas; opaque fills avoid warm wallpaper bleed.
+  root: "flex h-dvh min-h-screen w-full overflow-hidden bg-dls-background",
+  provider: "relative min-h-0 flex-1 bg-dls-background",
+  inset:
+    "min-h-0 overflow-hidden bg-dls-background mac:[&_header]:transition-[padding-left] mac:[&_header]:duration-200 mac:[&_header]:ease-linear mac:peer-data-[state=collapsed]:[&_header]:pl-16 [&_header]:pl-16 md:[&_header]:pl-6",
+  contentMain: "flex min-w-0 flex-1 flex-col overflow-hidden bg-dls-background",
   header: "flex min-h-16 shrink-0 items-center justify-between gap-4 px-4 py-3 md:px-10 mac:titlebar-drag",
   headerTitleGroup: "flex min-w-0 flex-1 items-center gap-3",
   title: "truncate text-xl font-medium leading-7 text-dls-text",
   subtitle: "mt-0.5 truncate text-sm leading-5 text-dls-secondary",
   headerMeta: "hidden text-xs text-dls-secondary lg:inline",
-  mobileCloseButton: "flex size-9 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-surface-muted hover:text-dls-text md:hidden",
+  mobileCloseButton:
+    "flex size-9 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-list-hover hover:text-dls-text md:hidden",
   sectionTrigger: "min-w-0 max-w-46 justify-start gap-2",
   workspaceTrigger: "min-w-0 max-w-36 justify-start gap-2 text-dls-secondary",
 };

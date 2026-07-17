@@ -41,7 +41,8 @@ export type AssistantCategory = {
 export function onmyagentAssistantName() {
   return t("assistant.name");
 }
-export const ONMYAGENT_ASSISTANT_AVATAR = "/on-my-agent-logo.png";
+/** Full-bleed circular brand avatar (no nested squircle frame). */
+export const ONMYAGENT_ASSISTANT_AVATAR = "/onmyagent-assistant-avatar.png";
 
 export const PERSONAL_ASSISTANT_CATEGORIES: AssistantCategory[] = [
   {

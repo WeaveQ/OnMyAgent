@@ -273,7 +273,7 @@ export function ChannelPairingPanel() {
         </div>
 
         {pendingRequests.length === 0 ? (
-          <div className="rounded-lg border border-dls-border bg-dls-muted/50 p-6 text-center">
+          <div className="rounded-lg border border-dls-border bg-dls-surface-muted/50 p-6 text-center">
             <p className="text-sm text-dls-secondary">{t("session.channel_pairing_pending_empty")}</p>
           </div>
         ) : (
@@ -304,7 +304,7 @@ export function ChannelPairingPanel() {
         </div>
 
         {authorizedUsers.length === 0 ? (
-          <div className="rounded-lg border border-dls-border bg-dls-muted/50 p-6 text-center">
+          <div className="rounded-lg border border-dls-border bg-dls-surface-muted/50 p-6 text-center">
             <p className="text-sm text-dls-secondary">{t("session.channel_pairing_authorized_empty")}</p>
           </div>
         ) : (

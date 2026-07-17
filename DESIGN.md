@@ -22,20 +22,21 @@ colors:
     # `border` so `mist < border < border-strong` scans as three
     # levels. Distinct hex, not aliased to `border`.
     mist: "#EEF0F3"
+    # Shell three-tier (WeChat light): rail < sidebar < background < surface.
     surface: "#FFFFFF"
-    surface-muted: "#F8FAFC"
+    surface-muted: "#F4F4F5"
     background: "#FAFAFA"
-    app-bg: "#F8FAFC"
-    sidebar: "#F3F3F3"
-    rail-bg: "#ECECEC"
-    rail-active: "#EBEBEB"
-    rail-hover: "#EFEFEF"
+    app-bg: "#F5F5F5"
+    sidebar: "#F0F0F0"
+    rail-bg: "#E8E8E8"
+    rail-active: "#DEDEDE"
+    rail-hover: "#E2E2E2"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"
     hover: "#EEF4FF"
     active: "#DDEBFF"
-    list-selected: "#E5E5E5"
-    list-hover: "#EFEFEF"
+    list-selected: "#E4E4E4"
+    list-hover: "#E8E8E8"
     danger: "#EF4444"
     warning: "#D19A2A"
     success-fg: "#047857"
@@ -64,20 +65,23 @@ colors:
     # mist (dark) — one step darker than `border` so the ladder
     # stays visible on dark surfaces.
     mist: "#2E2E2E"
-    surface: "#1E1E1E"
-    surface-muted: "#2A2A2A"
-    background: "#262626"
-    app-bg: "#262626"
-    sidebar: "#252526"
-    rail-bg: "#1C1C1C"
-    rail-active: "#333333"
-    rail-hover: "#303030"
+    # Shell three-tier (WeChat dark): rail (deepest) < background (main)
+    # < sidebar (list lift) < surface (cards). Keep ≥1 perceptual step
+    # between each shell lane so the three-column shell does not flatten.
+    surface: "#2C2C2C"
+    surface-muted: "#333333"
+    background: "#1F1F1F"
+    app-bg: "#1F1F1F"
+    sidebar: "#2A2A2A"
+    rail-bg: "#141414"
+    rail-active: "#2E2E2E"
+    rail-hover: "#222222"
     border: "#3A3A3A"
     border-strong: "#4A4A4A"
-    hover: "#2A2A2A"
-    active: "#333333"
-    list-selected: "#333333"
-    list-hover: "#2A2A2A"
+    hover: "#323232"
+    active: "#3A3A3A"
+    list-selected: "#363636"
+    list-hover: "#323232"
     danger: "#F87171"
     warning: "#FBBF24"
     success-fg: "#6EE7B7"
@@ -749,8 +753,11 @@ The visual voice is **precise and quiet, not playful**:
   filters, and identity chips — never to primary CTAs.
 - **Signal cyan is a status, not a brand.** Reserved for online / running /
   activity marks. Never a primary action fill.
-- **Three-tier surface hierarchy.** `rail → background → surface`. Rail is
-  cold and quiet, background is neutral, surface is where content lives.
+- **Shell lane hierarchy (WeChat three-column).** `rail → background →
+  sidebar → surface`. Rail is cold and deepest, background is the main
+  canvas, sidebar is the list lane lifted above the canvas, surface is
+  cards/composer floating on the canvas. Keep ≥1 perceptual step between
+  adjacent shell lanes so the three-column layout does not flatten.
 
 ## 2. Color Palette
 

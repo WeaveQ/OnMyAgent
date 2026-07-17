@@ -238,7 +238,7 @@ function AccessCard(props: {
             ? "text-dls-secondary/70"
             : props.selected
               ? "text-dls-accent"
-              : "text-muted-foreground",
+              : "text-dls-secondary",
         )}
       />
     </ActionRowButton>

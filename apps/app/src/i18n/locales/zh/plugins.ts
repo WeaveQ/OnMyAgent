@@ -24,6 +24,7 @@ export default {
   "plugins.suggested_heading": "建议的插件",
   "plugins.title": "插件",
   "plugins.artifact_title": "文件处理插件",
+  "plugins.artifact_tab": "插件",
   "plugins.artifact_description": "使用内置技能创建、编辑和分析文档、PDF与电子表格。",
   "plugins.artifact_loading": "正在加载文件处理插件",
   "plugins.artifact_detail_loading": "正在加载插件详情",

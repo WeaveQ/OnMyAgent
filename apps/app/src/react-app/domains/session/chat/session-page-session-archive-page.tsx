@@ -11,8 +11,10 @@ import type {
 import { formatRelativeTime } from "../../../../app/utils";
 import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
@@ -265,41 +267,37 @@ export function SessionArchivePage(props: Props) {
 
       {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
 
-      {/* Agent filter bar */}
+      {/* Agent filter bar — same SegmentedTab track as store / assistant switches */}
       {groups.length > 0 ? (
-        <div className="flex items-center gap-1.5">
-          <button
+        <SegmentedTabGroup className="flex max-w-full flex-wrap items-center gap-0.5">
+          <NavTabButton
             type="button"
             onClick={() => setAgentFilter(null)}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-              !agentFilter
-                ? "bg-dls-accent text-white"
-                : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-            )}
+            active={!agentFilter}
+            size="default"
+            shape="tab"
+            className="gap-1"
           >
             {t("session_archive.agent_filter_all")}
-          </button>
+          </NavTabButton>
           {groups.map((g) => (
-            <button
+            <NavTabButton
               key={g.agent}
               type="button"
               onClick={() => setAgentFilter(g.agent === agentFilter ? null : g.agent)}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                g.agent === agentFilter
-                  ? "bg-dls-accent text-white"
-                  : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-              )}
+              active={g.agent === agentFilter}
+              size="default"
+              shape="tab"
+              className="gap-1"
             >
               <AgentSkillIcon agent={g.agent as AgentManagementSkillAgent} />
               {agentLabel(g.agent)}
-              <span className="ml-0.5 opacity-70 tabular-nums">
+              <span className="tabular-nums opacity-70">
                 {(g as { totalCount?: number }).totalCount ?? g.sessions.length}
               </span>
-            </button>
+            </NavTabButton>
           ))}
-        </div>
+        </SegmentedTabGroup>
       ) : null}
 
       <div className="flex min-h-0 flex-1 gap-3">
@@ -308,9 +306,7 @@ export function SessionArchivePage(props: Props) {
             <span className="text-xs font-medium text-dls-secondary">
               {t("session_archive.agent_group_count", { count: totalKnown })}
             </span>
-            {loadingList ? (
-              <RefreshCw className="size-3.5 animate-spin text-dls-secondary" />
-            ) : null}
+            {loadingList ? <LoadingSpinner size="sm" /> : null}
           </div>
           <div className="flex-1 overflow-auto">
             {filteredGroups.length === 0 && !loadingList ? (
@@ -438,7 +434,7 @@ export function SessionArchivePage(props: Props) {
                     size="sm"
                     onClick={handleDelete}
                     disabled={!selectedSession}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-dls-danger hover:bg-dls-danger-soft hover:text-dls-danger"
                   >
                     <Trash2 className="size-4" />
                     {t("session_archive.delete")}
@@ -448,7 +444,7 @@ export function SessionArchivePage(props: Props) {
               <div className="flex-1 overflow-auto p-4">
                 {loadingMessages ? (
                   <div className="flex items-center gap-2 text-xs text-dls-secondary">
-                    <RefreshCw className="size-3 animate-spin" />
+                    <LoadingSpinner size="sm" />
                     {t("session_archive.loading_messages")}
                   </div>
                 ) : messages.length === 0 ? (

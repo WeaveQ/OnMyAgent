@@ -155,12 +155,25 @@ function writeAgentManagementUi(cacheKey: string, ui: AgentManagementUiCache) {
 
 function AgentManagementMetric(props: { label: string; value: string | number }) {
   return (
-    <div className="flex min-w-0 items-baseline gap-2 rounded-md border border-dls-border bg-dls-surface px-2.5 py-1.5">
-      <div className="truncate text-xs text-dls-secondary">{props.label}</div>
-      <div className="ml-auto shrink-0 text-sm font-medium tabular-nums text-dls-text">{props.value}</div>
+    <div className="flex min-w-0 items-baseline gap-1.5 px-0.5 py-0.5">
+      <span className="truncate text-xs text-dls-secondary">{props.label}</span>
+      <span className="shrink-0 text-xs font-medium tabular-nums text-dls-text">{props.value}</span>
     </div>
   );
 }
+
+const PANEL_TABS: Array<{
+  id: AgentManagementPanel;
+  icon: typeof ShoppingBag;
+  labelKey: string;
+  archiveOnly?: boolean;
+}> = [
+  { id: "providers", icon: ShoppingBag, labelKey: "agent_manager.providers" },
+  { id: "agents", icon: Cpu, labelKey: "agent_manager.agent_check" },
+  { id: "skills", icon: FileText, labelKey: "agent_manager.skill_management" },
+  { id: "mcp", icon: Plug, labelKey: "agent_manager.mcp.tab" },
+  { id: "archive", icon: Archive, labelKey: "nav.session_archive", archiveOnly: true },
+];
 
 export function AgentManagementPage(props: {
   workspaceRoot: string;
@@ -573,99 +586,105 @@ export function AgentManagementPage(props: {
   const onlineAgents = snapshot?.agents.filter((agent) => agent.status === "online").length ?? 0;
   const managedProviderTotal = snapshot?.providers.total ?? 0;
 
+  const panelDescription =
+    activePanel === "archive"
+      ? t("agent_manager.session_archive_desc")
+      : activePanel === "mcp"
+        ? t("agent_manager.mcp.desc")
+        : activePanel === "providers"
+          ? t("agent_manager.providers_desc")
+          : activePanel === "agents"
+            ? t("agent_manager.agents_desc")
+            : t("agent_manager.skills_desc");
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-surface px-6">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-background px-6">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-medium">
+          <h2 className="truncate text-base font-medium text-dls-text">
             {t("agent_manager.title")}
           </h2>
           <p className="truncate text-xs text-dls-secondary">
             {t("agent_manager.description")}
           </p>
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={() => void refresh({ force: true })} title={t("common.refresh")} aria-label={t("common.refresh")}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => void refresh({ force: true })}
+          title={t("common.refresh")}
+          aria-label={t("common.refresh")}
+          className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+        >
           {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
         </Button>
       </header>
 
-      <div className={cn("min-h-0 flex-1 p-5", activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto")}>
-        <div className={cn("w-full", activePanel === "archive" ? "flex h-full min-h-0 flex-col gap-5" : "space-y-5")}>
+      <div
+        className={cn(
+          "min-h-0 flex-1 px-6 py-4",
+          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto w-full max-w-6xl",
+            activePanel === "archive" ? "flex h-full min-h-0 flex-col gap-4" : "space-y-4",
+          )}
+        >
           {error ? <NoticeBox size="comfortable" tone="error">{error}</NoticeBox> : null}
 
-          {activePanel === "providers" || activePanel === "agents" ? (
-            <section className="grid gap-2 sm:grid-cols-4">
-              <AgentManagementMetric label={t("agent_manager.online_agents")} value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`} />
-              <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
-              <AgentManagementMetric label={t("agent_manager.recognized_skills")} value={snapshot?.skills.length ?? 0} />
-              <AgentManagementMetric label={t("agent_manager.managed_providers")} value={managedProviderTotal} />
-            </section>
-          ) : null}
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dls-border pb-3">
-            <SegmentedTabGroup>
-              <NavTabButton
-                active={activePanel === "providers"}
-                onClick={() => setActivePanel("providers")}
-                size="tab"
-                shape="tab"
-              >
-                <ShoppingBag className="size-4" />
-                {t("agent_manager.providers")}
-              </NavTabButton>
-              <NavTabButton
-                active={activePanel === "agents"}
-                onClick={() => setActivePanel("agents")}
-                size="tab"
-                shape="tab"
-              >
-                <Cpu className="size-4" />
-                {t("agent_manager.agent_check")}
-              </NavTabButton>
-              <NavTabButton
-                active={activePanel === "skills"}
-                onClick={() => setActivePanel("skills")}
-                size="tab"
-                shape="tab"
-              >
-                <FileText className="size-4" />
-                {t("agent_manager.skill_management")}
-              </NavTabButton>
-              <NavTabButton
-                active={activePanel === "mcp"}
-                onClick={() => setActivePanel("mcp")}
-                size="tab"
-                shape="tab"
-              >
-                <Plug className="size-4" />
-                {t("agent_manager.mcp.tab")}
-              </NavTabButton>
-              {props.sessionArchiveSlot ? (
-                <NavTabButton
-                  active={activePanel === "archive"}
-                  onClick={() => setActivePanel("archive")}
-                  size="tab"
-                  shape="tab"
-                >
-                  <Archive className="size-4" />
-                  {t("nav.session_archive")}
-                </NavTabButton>
-              ) : null}            </SegmentedTabGroup>
-            <div className="text-xs text-dls-secondary">
-              {activePanel === "archive"
-                  ? t("agent_manager.session_archive_desc")
-                : activePanel === "mcp"
-                  ? t("agent_manager.mcp.desc")
-                : activePanel === "providers"
-                  ? t("agent_manager.providers_desc")
-                  : activePanel === "agents"
-                    ? t("agent_manager.agents_desc")
-                    : t("agent_manager.skills_desc")}
+          <div className="flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SegmentedTabGroup className="h-9 gap-0.5 rounded-xl border-dls-border bg-dls-surface-muted/80 p-0.5">
+                {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
+                  (tab) => {
+                    const Icon = tab.icon;
+                    const active = activePanel === tab.id;
+                    return (
+                      <NavTabButton
+                        key={tab.id}
+                        active={active}
+                        onClick={() => setActivePanel(tab.id)}
+                        size="default"
+                        shape="tab"
+                        className={cn(
+                          "h-8 gap-1.5 px-2.5 text-xs font-medium",
+                          active
+                            ? "bg-dls-surface text-dls-text shadow-sm"
+                            : "text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text",
+                        )}
+                      >
+                        <Icon className="size-3.5 shrink-0" />
+                        {t(tab.labelKey)}
+                      </NavTabButton>
+                    );
+                  },
+                )}
+              </SegmentedTabGroup>
+              {activePanel === "agents" ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <AgentManagementMetric
+                    label={t("agent_manager.online_agents")}
+                    value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`}
+                  />
+                  <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
+                  <AgentManagementMetric
+                    label={t("agent_manager.recognized_skills")}
+                    value={snapshot?.skills.length ?? 0}
+                  />
+                  <AgentManagementMetric
+                    label={t("agent_manager.managed_providers")}
+                    value={managedProviderTotal}
+                  />
+                </div>
+              ) : null}
             </div>
+            <p className="text-xs leading-5 text-dls-secondary">{panelDescription}</p>
           </div>
 
           {activePanel === "archive" && props.sessionArchiveSlot ? (
-            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-dls-border bg-dls-surface">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
               {props.sessionArchiveSlot}
             </div>
           ) : activePanel === "providers" ? (

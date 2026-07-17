@@ -20,7 +20,7 @@ describe("assistant navigation spacing contract", () => {
     expect(source).toContain('className="space-y-0 pb-1 pt-3"');
   });
 
-  test("keeps category tabs fluid and aligned with the primary actions", () => {
+  test("keeps category tabs compact and content-sized", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -29,8 +29,10 @@ describe("assistant navigation spacing contract", () => {
       "utf8",
     );
 
-    expect(source).toContain("h-8 min-w-0 w-full");
-    expect(source).toContain("mb-[18px] grid w-full grid-cols-2");
+    expect(source).toContain('className="h-8 w-fit shrink-0 gap-0.5 rounded-full');
+    expect(source).toContain("h-7 w-auto shrink-0 gap-1.5 px-2.5 text-xs");
+    expect(source).not.toContain("flex-1 gap-1.5");
+    expect(source).not.toContain('className="flex w-full"');
     expect(source).not.toContain("min-w-24");
     expect(source).not.toContain("w-24 rounded-lg");
   });

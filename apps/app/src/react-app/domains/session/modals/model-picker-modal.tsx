@@ -316,7 +316,7 @@ function ProviderAccordion({
           <div className="min-w-0 flex-1">
             <span className="text-sm font-medium text-dls-text">{group.name}</span>
             <span className="ml-2 text-xs text-dls-secondary">
-              {totalModels} model{totalModels === 1 ? "" : "s"}
+              {t("session.models_count", { count: String(totalModels) })}
             </span>
           </div>
           <span className="flex shrink-0 items-center gap-1.5">
@@ -340,7 +340,9 @@ function ProviderAccordion({
             onClick={(e) => { e.stopPropagation(); onToggleProvider?.(group.id, group.isDisabled); }}
             title={group.isDisabled ? t("session.enable_provider") : t("session.disable_provider")}
           >
-            {group.isDisabled ? "Enable" : "Enabled"}
+            {group.isDisabled
+              ? t("session.provider_enable")
+              : t("session.provider_enabled")}
           </Button>
         ) : null}
       </div>
@@ -351,7 +353,7 @@ function ProviderAccordion({
           {group.recommended.length > 0 ? (
             <>
               <div className="px-2 pb-1 pt-2 text-xs font-medium text-dls-secondary">
-                Recommended
+                {t("session.models_recommended")}
               </div>
               {group.recommended.map((opt) => (
                 <DefaultModelRow key={opt.modelID} opt={opt} current={current} onSelect={onSelect} recommended />
@@ -362,7 +364,7 @@ function ProviderAccordion({
             <>
               {group.recommended.length > 0 ? (
                 <div className="px-2 pb-1 pt-2 text-xs font-medium text-dls-secondary">
-                  All models
+                  {t("session.models_all")}
                 </div>
               ) : null}
               {group.other.map((opt) => (

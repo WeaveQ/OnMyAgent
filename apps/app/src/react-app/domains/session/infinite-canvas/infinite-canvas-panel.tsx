@@ -227,7 +227,7 @@ export function InfiniteCanvasPanel(props: InfiniteCanvasPanelProps) {
   );
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-dls-surface text-dls-text">
+    <section className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <header
         data-panel-titlebar="true"
         className="flex shrink-0 items-center gap-2 border-b border-dls-border px-3 py-2 mac:titlebar-drag"

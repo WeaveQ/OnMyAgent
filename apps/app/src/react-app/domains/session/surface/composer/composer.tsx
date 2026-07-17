@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { desktopBridge } from "../../../../../app/lib/desktop";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { ComposerAccessMode, ComposerAttachment, ComposerCollaborationMode, McpServerEntry, McpStatusMap, ModelRef, SkillCard, SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
@@ -62,19 +63,22 @@ type CollaborationModeOption = {
 const composerTextClass = {
   sourceBadge: "bg-dls-accent/10 text-dls-accent",
   commandBadge: "bg-dls-signal/15 text-dls-text",
-  modelUnavailable: "text-xs font-medium text-dls-status-danger",
+  modelUnavailable:
+    "inline-flex max-w-48 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-dls-status-danger-fg hover:bg-dls-status-danger-soft",
 };
 
 const composerMenuClass = {
   anchor: "absolute bottom-full left-[-1px] right-[-1px] z-30",
-  panel: "overflow-hidden rounded-t-[20px] border border-dls-border bg-dls-surface",
-  panelWithoutBottomBorder: "overflow-hidden rounded-t-[20px] border border-dls-border border-b-0 bg-dls-surface",
+  panel: "overflow-hidden rounded-t-[20px] border border-dls-border bg-dls-surface-solid",
+  panelWithoutBottomBorder:
+    "overflow-hidden rounded-t-[20px] border border-dls-border border-b-0 bg-dls-surface-solid",
   scrollArea: "max-h-64 overflow-y-auto p-2",
   itemIcon: "mt-0.5 shrink-0 text-dls-secondary",
   itemTitle: "truncate text-xs font-medium",
   itemMeta: "truncate text-xs text-dls-secondary",
-  toolButton: "text-dls-secondary hover:bg-dls-hover",
-  activeToolButton: "bg-dls-hover text-dls-text",
+  // Neutral muted wash — not blue-tinted dls-hover.
+  toolButton: "text-dls-secondary hover:bg-dls-surface-muted",
+  activeToolButton: "bg-dls-surface-muted text-dls-text",
 };
 
 const EMPTY_COLLABORATION_MODE: ComposerCollaborationMode = {
@@ -858,10 +862,16 @@ export function ReactSessionComposer(props: ComposerProps) {
     fileInputRef.current?.click();
   };
 
-  const applyCollaborationModeSelection = (option: CollaborationModeOption) => {
+  const applyCollaborationModeSelection = (
+    option: CollaborationModeOption,
+    options?: { keepMenuOpen?: boolean },
+  ) => {
     props.onCollaborationModeChange(collaborationModeValue(option.key));
-    setShowDefaultCollaborationChip(true);
-    setToolMenuOpen(false);
+    // Craft/default is silent — only surface a chip for non-default modes.
+    setShowDefaultCollaborationChip(option.key !== "craft");
+    if (!options?.keepMenuOpen) {
+      setToolMenuOpen(false);
+    }
   };
 
   const clearCollaborationModeSelection = () => {
@@ -1048,8 +1058,12 @@ export function ReactSessionComposer(props: ComposerProps) {
     ]);
   };
 
+  const canCaptureAppshot = Boolean(
+    typeof window !== "undefined" && window.__ONMYAGENT_ELECTRON__?.computerUse,
+  );
+
   const captureAppshot = async () => {
-    if (!props.attachmentsEnabled) return;
+    if (!props.attachmentsEnabled || !canCaptureAppshot) return;
     setToolMenuOpen(false);
     try {
       await attachAppshot(await desktopBridge.captureComputerUseAppshot());
@@ -1233,7 +1247,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       }}
     >
       <div className="mx-auto w-full max-w-[1120px]">
-        {/* Main composer panel */}
+        {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
           className={`relative overflow-visible rounded-xl bg-dls-surface ${props.showOuterBorder ? "border border-dls-mist" : ""} ${panelRoundedClass}`}
         >
@@ -1426,82 +1440,82 @@ export function ReactSessionComposer(props: ComposerProps) {
                   </Button>
                   {toolMenuOpen ? (
                     <div className="absolute bottom-full left-0 z-40 mb-3 h-0 w-0">
-                      <div className="absolute bottom-0 left-0 w-36 rounded-xl border border-dls-border bg-dls-surface p-2">
-                        <MenuRowButton
-                          type="button"
-                          align="center"
-                          active={toolMenuSection === "files"}
-                          className="mb-1 justify-between gap-2"
-                          disabled={!props.attachmentsEnabled}
-                          onMouseEnter={() => setToolMenuSection("files")}
-                          onFocus={() => setToolMenuSection("files")}
-                          onClick={openFilePicker}
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <Paperclip size={14} className="shrink-0 text-dls-secondary" />
-                            <span className="truncate">{t("composer.add_file")}</span>
-                          </span>
-                        </MenuRowButton>
-                        <MenuRowButton
-                          type="button"
-                          align="center"
-                          className="mb-1 gap-2"
-                          disabled={!props.attachmentsEnabled}
-                          onClick={() => void captureAppshot()}
-                        >
-                          <Camera size={14} className="shrink-0 text-dls-secondary" />
-                          <span className="truncate">{t("composer.capture_appshot")}</span>
-                        </MenuRowButton>
-                        {promptTemplates.length > 0 ? (
+                      {/* Primary list — WorkBuddy-style short labels, no truncation at rest. */}
+                      <div
+                        className="absolute bottom-0 left-0 w-44 rounded-xl border border-dls-border bg-dls-surface-solid p-1.5"
+                        style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
+                      >
+                        <div className="grid gap-0.5">
                           <MenuRowButton
                             type="button"
                             align="center"
-                            active={toolMenuSection === "templates"}
-                            className="mb-1 justify-between gap-2"
-                            onMouseEnter={() => setToolMenuSection("templates")}
-                            onFocus={() => setToolMenuSection("templates")}
-                            onClick={() => setToolMenuSection("templates")}
+                            density="compact"
+                            active={toolMenuSection === "files"}
+                            className="justify-between gap-2"
+                            disabled={!props.attachmentsEnabled}
+                            onMouseEnter={() => setToolMenuSection("files")}
+                            onFocus={() => setToolMenuSection("files")}
+                            onClick={openFilePicker}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <Sparkles size={14} className="shrink-0 text-dls-secondary" />
-                              <span className="truncate">{t("composer.prompt_templates")}</span>
+                              <Paperclip className="size-3.5 shrink-0 text-dls-secondary" />
+                              <span className="truncate text-sm">{t("composer.add_file")}</span>
                             </span>
-                            <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
                           </MenuRowButton>
-                        ) : null}
-                        {([
-                          ["modes", t("composer.collaboration_mode"), MessageCircle],
-                          ["skills", t("dashboard.skills"), Zap],
-                          ["mcps", t("composer.connectors_label"), Plug],
-                        ] as const).map(([section, label, Icon]) => (
-                          <MenuRowButton
-                            key={section}
-                            type="button"
-                            align="center"
-                            active={toolMenuSection === section}
-                            className="mb-1 justify-between gap-2"
-                            onMouseEnter={() => setToolMenuSection(section)}
-                            onFocus={() => setToolMenuSection(section)}
-                            onClick={() => setToolMenuSection(section)}
-                          >
-                            <span className="flex min-w-0 items-center gap-2">
-                              <Icon size={14} className="shrink-0 text-dls-secondary" />
-                              <span className="truncate">{label}</span>
-                            </span>
-                            <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                          </MenuRowButton>
-                        ))}
+                          {canCaptureAppshot ? (
+                            <MenuRowButton
+                              type="button"
+                              align="center"
+                              density="compact"
+                              className="gap-2"
+                              disabled={!props.attachmentsEnabled}
+                              onClick={() => void captureAppshot()}
+                            >
+                              <Camera className="size-3.5 shrink-0 text-dls-secondary" />
+                              <span className="truncate text-sm">{t("composer.capture_appshot")}</span>
+                            </MenuRowButton>
+                          ) : null}
+                          {([
+                            ["modes", t("composer.collaboration_mode"), Sparkles] as const,
+                            ...(promptTemplates.length > 0
+                              ? ([["templates", t("composer.prompt_templates_short"), ClipboardList]] as const)
+                              : []),
+                            ["skills", t("dashboard.skills"), Zap] as const,
+                            ["mcps", t("composer.connectors_label"), Plug] as const,
+                          ]).map(([section, label, Icon]) => (
+                            <MenuRowButton
+                              key={section}
+                              type="button"
+                              align="center"
+                              density="compact"
+                              active={toolMenuSection === section}
+                              className="justify-between gap-2"
+                              onMouseEnter={() => setToolMenuSection(section)}
+                              onFocus={() => setToolMenuSection(section)}
+                              onClick={() => setToolMenuSection(section)}
+                            >
+                              <span className="flex min-w-0 items-center gap-2">
+                                <Icon className="size-3.5 shrink-0 text-dls-secondary" />
+                                <span className="truncate text-sm">{label}</span>
+                              </span>
+                              <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+                            </MenuRowButton>
+                          ))}
+                        </div>
                       </div>
                       {toolMenuSection === "files" ? null : (
-                        <div className="absolute bottom-0 left-[calc(9rem-1px)] flex w-[min(calc(100vw-11.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                        <div
+                          className="absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),20rem)] min-h-0 max-w-[20rem] flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
+                        >
                           {toolMenuSection === "templates" ? (
-                            <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                            <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
                               {t("composer.prompt_templates")}
                             </div>
                           ) : toolMenuSection === "skills" ? (
                             <div className="space-y-2 border-b border-dls-border px-3 py-2">
                               <div className="flex min-h-8 items-center justify-between gap-3">
-                                <div className="text-xs font-medium text-dls-text">{t("dashboard.skills")}</div>
+                                <div className="text-sm font-medium text-dls-text">{t("dashboard.skills")}</div>
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -1531,7 +1545,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                             </div>
                           ) : toolMenuSection === "mcps" ? (
                             <div className="space-y-2 border-b border-dls-border px-3 py-2">
-                              <div className="flex min-h-8 items-center text-xs font-medium text-dls-text">
+                              <div className="flex min-h-8 items-center text-sm font-medium text-dls-text">
                                 {t("composer.connectors_label")}
                               </div>
                               <InputGroup controlSize="sm" radius="md" tone="surface">
@@ -1547,14 +1561,14 @@ export function ReactSessionComposer(props: ComposerProps) {
                                 />
                               </InputGroup>
                             </div>
-                          ) : (
-                            <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
-                              {toolMenuSection === "modes" ? t("composer.collaboration_choose_mode") : null}
+                          ) : toolMenuSection === "modes" && collaborationVariant !== "office" ? (
+                            <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
+                              {t("composer.collaboration_choose_mode")}
                             </div>
-                          )}
-                          <div className="max-h-72 overflow-y-auto p-2">
+                          ) : null}
+                          <div className="max-h-72 overflow-x-hidden overflow-y-auto p-2">
                             {toolMenuSection === "templates" ? (
-                              <div className="grid gap-1">
+                              <div className="grid gap-0.5">
                                 {promptTemplates.map((template) => {
                                   const Icon = template.icon;
                                   return (
@@ -1562,6 +1576,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                       key={template.id}
                                       type="button"
                                       align="center"
+                                      density="compact"
                                       active={selectedPromptTemplate?.id === template.id}
                                       className="justify-between gap-2"
                                       onMouseEnter={() => setSelectedPromptTemplateId(template.id)}
@@ -1570,56 +1585,123 @@ export function ReactSessionComposer(props: ComposerProps) {
                                     >
                                       <span className="flex min-w-0 items-center gap-2">
                                         <Icon className="size-3.5 shrink-0 text-dls-secondary" />
-                                        <span className="truncate text-xs font-medium text-dls-text">
+                                        <span className="truncate text-sm text-dls-text">
                                           {template.label}
                                         </span>
                                       </span>
-                                      <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                                      <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
                                     </MenuRowButton>
                                   );
                                 })}
                               </div>
                             ) : null}
                             {toolMenuSection === "modes" ? (
-                              <div className="grid gap-1">
-                                {modeOptions.map((option) => {
-                                  const checked = selectedModeKey === option.key;
-                                  const Icon = option.Icon;
-                                  return (
-                                    <MenuRowButton
-                                      key={option.key}
-                                      type="button"
-                                      align="center"
-                                      active={checked}
-                                      className="gap-3"
-                                      onClick={() => applyCollaborationModeSelection(option)}
-                                      role="menuitemradio"
-                                      aria-checked={checked}
-                                    >
-                                      <Icon size={16} className="shrink-0 text-dls-secondary" />
-                                      <div className="min-w-0 flex-1">
-                                        <div className="truncate text-xs font-medium text-dls-text">{option.label}</div>
-                                        <div className="truncate text-xs text-dls-secondary">{option.description}</div>
-                                      </div>
-                                      {checked ? <Check size={14} className="shrink-0 text-dls-text" /> : null}
-                                    </MenuRowButton>
-                                  );
-                                })}
-                              </div>
+                              collaborationVariant === "office" ? (
+                                <div className="space-y-3 px-1 py-1">
+                                  <p className="text-sm leading-5 text-dls-secondary">
+                                    {(
+                                      modeOptions.find((option) => option.key === (selectedModeKey ?? "craft")) ??
+                                      modeOptions[0]
+                                    )?.description}
+                                  </p>
+                                  <div className="h-px bg-dls-border" />
+                                  <div className="grid gap-3">
+                                    {(
+                                      [
+                                        {
+                                          key: "plan" as const,
+                                          label: t("composer.collaboration_plan_toggle"),
+                                        },
+                                        {
+                                          key: "ask" as const,
+                                          label: t("composer.collaboration_ask_toggle"),
+                                        },
+                                      ] as const
+                                    ).map((item) => {
+                                      const checked = selectedModeKey === item.key;
+                                      return (
+                                        <div
+                                          key={item.key}
+                                          className="flex items-center justify-between gap-3"
+                                        >
+                                          <span className="text-sm text-dls-text">{item.label}</span>
+                                          <Switch
+                                            size="sm"
+                                            checked={checked}
+                                            onCheckedChange={(next) => {
+                                              if (next) {
+                                                applyCollaborationModeSelection(
+                                                  modeOptions.find((option) => option.key === item.key)!,
+                                                  { keepMenuOpen: true },
+                                                );
+                                                return;
+                                              }
+                                              applyCollaborationModeSelection(
+                                                modeOptions.find((option) => option.key === "craft")!,
+                                                { keepMenuOpen: true },
+                                              );
+                                            }}
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="grid gap-0.5">
+                                  {modeOptions.map((option) => {
+                                    const checked = selectedModeKey === option.key;
+                                    const Icon = option.Icon;
+                                    return (
+                                      <MenuRowButton
+                                        key={option.key}
+                                        type="button"
+                                        align="center"
+                                        density="compact"
+                                        active={checked}
+                                        className="gap-3"
+                                        onClick={() => applyCollaborationModeSelection(option)}
+                                        role="menuitemradio"
+                                        aria-checked={checked}
+                                      >
+                                        <Icon className="size-3.5 shrink-0 text-dls-secondary" />
+                                        <div className="min-w-0 flex-1">
+                                          <div className="truncate text-sm font-medium text-dls-text">
+                                            {option.label}
+                                          </div>
+                                          <div className="truncate text-xs text-dls-secondary">
+                                            {option.description}
+                                          </div>
+                                        </div>
+                                        {checked ? (
+                                          <Check className="size-3.5 shrink-0 text-dls-text" />
+                                        ) : null}
+                                      </MenuRowButton>
+                                    );
+                                  })}
+                                </div>
+                              )
                             ) : null}
                             {toolMenuSection === "skills" ? (
                               hasSkillMatches ? (
-                                <div className="grid gap-1">
+                                <div className="grid min-w-0 gap-1">
                                   {filteredSkillItems.map((command) => (
                                     <MenuRowButton
                                       key={command.id}
                                       type="button"
+                                      className="w-full min-w-0 max-w-full overflow-hidden"
                                       onClick={() => applyCommandSelection(command)}
                                     >
                                       <Zap size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                      <div className="min-w-0">
-                                        <div className="truncate text-xs font-medium text-dls-secondary">/{command.name}</div>
-                                        {command.description ? <div className="truncate text-xs text-dls-secondary">{command.description}</div> : null}
+                                      <div className="min-w-0 flex-1 overflow-hidden">
+                                        <div className="truncate text-xs font-medium text-dls-text">
+                                          /{command.name}
+                                        </div>
+                                        {command.description ? (
+                                          <div className="truncate text-xs text-dls-secondary">
+                                            {command.description}
+                                          </div>
+                                        ) : null}
                                       </div>
                                     </MenuRowButton>
                                   ))}
@@ -1627,13 +1709,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                                     <MenuRowButton
                                       key={`${file.configObjectId}:${file.path}`}
                                       type="button"
+                                      className="w-full min-w-0 max-w-full overflow-hidden"
                                       onClick={() => applyPluginFileSelection(file)}
                                     >
                                       <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-xs font-medium text-dls-secondary">{file.title}</div>
-                                          <StatusBadge size="tiny" tone="neutral">
+                                      <div className="min-w-0 flex-1 overflow-hidden">
+                                        <div className="flex min-w-0 items-center justify-between gap-2">
+                                          <div className="min-w-0 truncate text-xs font-medium text-dls-text">
+                                            {file.title}
+                                          </div>
+                                          <StatusBadge size="tiny" tone="neutral" className="shrink-0">
                                             {formatPluginObjectType(file.objectType)}
                                           </StatusBadge>
                                         </div>
@@ -1719,22 +1804,26 @@ export function ReactSessionComposer(props: ComposerProps) {
                         </div>
                       )}
                       {toolMenuSection === "templates" && selectedPromptTemplate ? (
-                        <div className="absolute bottom-0 left-[calc(36rem-2px)] flex w-[clamp(18rem,calc(100vw-38.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                          <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                        <div
+                          className="absolute bottom-0 left-[calc(11rem+20rem-2px)] flex w-[min(calc(100vw-33.5rem),18rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
+                        >
+                          <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
                             <span className="truncate">{selectedPromptTemplate.label}</span>
                           </div>
-                          <div className="max-h-72 overflow-y-auto p-2">
-                            <div className="grid gap-1">
+                          <div className="max-h-72 overflow-x-hidden overflow-y-auto p-2">
+                            <div className="grid gap-0.5">
                               {selectedPromptTemplate.prompts.map((prompt) => (
                                 <MenuRowButton
                                   key={prompt}
                                   type="button"
                                   align="start"
+                                  density="compact"
                                   className="gap-2"
                                   onClick={() => applyPromptTemplate(selectedPromptTemplate.id, prompt)}
                                 >
-                                  <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                  <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>
+                                  <MessageCircle className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
+                                  <span className="line-clamp-2 text-sm text-dls-text">{prompt}</span>
                                 </MenuRowButton>
                               ))}
                             </div>
@@ -1742,22 +1831,23 @@ export function ReactSessionComposer(props: ComposerProps) {
                         </div>
                       ) : null}
                       {toolMenuSection === "mcps" && selectedComposerExtension?.suggestedPrompts?.length ? (
-                        <div className="absolute bottom-0 left-[calc(36rem-2px)] flex w-[clamp(18rem,calc(100vw-38.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                          <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                        <div className="absolute bottom-0 left-[calc(11rem+20rem-2px)] flex w-[min(calc(100vw-33.5rem),18rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                          <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
                             <span className="truncate">{selectedComposerExtension.name}</span>
                           </div>
                           <div className="max-h-72 overflow-y-auto p-2">
-                            <div className="grid gap-1">
+                            <div className="grid gap-0.5">
                               {selectedComposerExtension.suggestedPrompts.map((prompt) => (
                                 <MenuRowButton
                                   key={prompt}
                                   type="button"
                                   align="start"
+                                  density="compact"
                                   className="gap-2"
                                   onClick={() => applyExtensionSuggestion(selectedComposerExtension, prompt)}
                                 >
-                                  <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                  <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>
+                                  <MessageCircle className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
+                                  <span className="line-clamp-2 text-sm text-dls-text">{prompt}</span>
                                 </MenuRowButton>
                               ))}
                             </div>
@@ -1788,21 +1878,32 @@ export function ReactSessionComposer(props: ComposerProps) {
                     onChange={props.onAccessModeChange}
                   />
                 )}
-                {props.modelUnavailable ? (
-                  <span className={composerTextClass.modelUnavailable}>
-                    {t("settings.model_unavailable")}
-                  </span>
-                ) : null}
-                <ModelBehaviorSelect
-                  value={props.modelVariant}
-                  label={props.modelVariantLabel}
-                  options={props.modelBehaviorOptions}
-                  onChange={props.onModelVariantChange}
-                  disabled={props.busy}
-                />
+                {props.modelUnavailable ? null : (
+                  <ModelBehaviorSelect
+                    value={props.modelVariant}
+                    label={props.modelVariantLabel}
+                    options={props.modelBehaviorOptions}
+                    onChange={props.onModelVariantChange}
+                    disabled={props.busy}
+                  />
+                )}
               </div>
 
               <div className="ml-auto flex shrink-0 items-center gap-1">
+                {props.modelUnavailable ? (
+                  <button
+                    type="button"
+                    className={composerTextClass.modelUnavailable}
+                    onClick={() => props.onModelPickerOpenChange(true)}
+                    title={t("settings.model_change")}
+                    aria-label={t("settings.model_unavailable")}
+                  >
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    <span className="min-w-0 truncate">
+                      {t("settings.model_unavailable")}
+                    </span>
+                  </button>
+                ) : null}
                 <ModelSelectContainer
                   open={props.modelPickerOpen}
                   value={props.selectedModel}
@@ -1823,21 +1924,40 @@ export function ReactSessionComposer(props: ComposerProps) {
                 ) : (
                   <SendButton
                     type="button"
-                    onClick={canSend ? props.onSend : props.busy ? props.onStop : undefined}
-                    disabled={props.disabled || (!canSend && !props.busy)}
-                    title={t("composer.send_message")}
-                    aria-label={t("composer.send_message")}
+                    onClick={
+                      canSend && !props.modelUnavailable
+                        ? props.onSend
+                        : props.busy
+                          ? props.onStop
+                          : undefined
+                    }
+                    disabled={
+                      props.disabled ||
+                      props.modelUnavailable ||
+                      (!canSend && !props.busy)
+                    }
+                    title={
+                      props.modelUnavailable
+                        ? t("settings.model_unavailable")
+                        : t("composer.send_message")
+                    }
+                    aria-label={
+                      props.modelUnavailable
+                        ? t("settings.model_unavailable")
+                        : t("composer.send_message")
+                    }
                   />
                 )}
               </div>
             </div>
           </div>
-          {props.bottomAccessory ? (
-            <div className="relative z-10  rounded-b-xl bg-dls-background px-4 py-1.5">
-              {props.bottomAccessory}
-            </div>
-          ) : null}
         </div>
+        {/* Secondary chrome under the card (workspace / permission), not inside it. */}
+        {props.bottomAccessory ? (
+          <div className="relative z-10 mt-1.5 flex min-h-8 items-center rounded-xl bg-dls-surface-muted/40 px-2 py-0.5 text-xs font-normal leading-none text-dls-secondary">
+            {props.bottomAccessory}
+          </div>
+        ) : null}
       </div>
     </div>
   );

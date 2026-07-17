@@ -411,6 +411,9 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const isDark =
+      document.documentElement.dataset.theme === "dark" ||
+      document.documentElement.classList.contains("dark");
     const terminal = new XTerm({
       allowProposedApi: false,
       convertEol: true,
@@ -419,13 +422,22 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
       fontSize: 14,
       lineHeight: 1.2,
       scrollback: 10_000,
-      theme: {
-        background: "#FFFFFF",
-        foreground: "#0F172A",
-        cursor: "#0F172A",
-        selectionBackground: "rgba(0, 93, 255, 0.18)",
-        selectionForeground: "#0F172A",
-      },
+      theme: isDark
+        ? {
+            // Match shell three-tier dark canvas (DESIGN.md / index.css).
+            background: "#1F1F1F",
+            foreground: "#F8FAFC",
+            cursor: "#F8FAFC",
+            selectionBackground: "rgba(47, 123, 255, 0.28)",
+            selectionForeground: "#F8FAFC",
+          }
+        : {
+            background: "#FFFFFF",
+            foreground: "#0F172A",
+            cursor: "#0F172A",
+            selectionBackground: "rgba(0, 93, 255, 0.18)",
+            selectionForeground: "#0F172A",
+          },
     });
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
@@ -513,10 +525,10 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
   }, [props.terminal.terminalId]);
 
   return (
-    <div className="relative h-full min-h-0 bg-white text-black">
+    <div className="relative h-full min-h-0 bg-dls-background text-dls-text">
       <div
         ref={containerRef}
-        className="h-full min-h-0 w-full overflow-hidden bg-white p-3 text-black [&_.xterm]:h-full [&_.xterm-viewport]:bg-white [&_.xterm-screen]:outline-none"
+        className="h-full min-h-0 w-full overflow-hidden bg-dls-background p-3 text-dls-text [&_.xterm]:h-full [&_.xterm-viewport]:bg-dls-background [&_.xterm-screen]:outline-none"
         data-code-terminal="true"
       />
       {error ? (
@@ -656,7 +668,7 @@ export function CodeWorkspaceSidePanel(props: {
   ]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-workspace-side-panel="true">
+    <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-workspace-side-panel="true">
       <header
         data-panel-titlebar="true"
         className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"

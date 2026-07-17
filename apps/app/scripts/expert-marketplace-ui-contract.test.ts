@@ -101,10 +101,14 @@ describe("expert marketplace UI contract", () => {
     const installHelper = readMarketplaceFile("install.ts");
     const pendingAgent = readMarketplaceFile("pending-agent.ts");
 
-    expect(storePage).toContain('export type StorePrimaryTab = "experts" | "skills"');
+    expect(storePage).toContain(
+      'export type StorePrimaryTab = "experts" | "skills" | "plugins"',
+    );
     expect(storePage).toContain("function StorePrimaryTabs");
     expect(storePage).toContain("<ExpertMarketplacePage");
-    expect(storePage).toContain('t("store.experts_marketplace")');
+    expect(storePage).toContain('t("store.experts_tab")');
+    expect(storePage).toContain('t("store.skills_tab")');
+    expect(storePage).toContain('t("plugins.artifact_tab")');
     expect(storePage).toContain('t("store.all_experts")');
     expect(storePage).toContain('t("store.add_skill")');
     expect(expertPage).toContain("const openExpertMarket = useCallback");

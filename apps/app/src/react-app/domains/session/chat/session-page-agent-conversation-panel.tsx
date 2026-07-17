@@ -19,17 +19,17 @@ import { snapshotConversationSummary } from "./session-page-conversation-model";
 import type { TaskStatusIndicator } from "./session-page-model";
 
 const agentConversationPanelClass = {
-  shell: "flex shrink-0 flex-col overflow-hidden bg-dls-surface px-4 pb-5 pt-2",
+  shell: "flex shrink-0 flex-col overflow-hidden bg-dls-sidebar px-4 pb-5 pt-2",
   toolbar: "flex h-10 items-center gap-2.5",
   searchInput: "text-sm placeholder:text-dls-secondary/75",
   agentsButton: "relative shrink-0 rounded-xl border border-dls-border bg-dls-surface text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   listViewport: "mt-5 min-h-0 flex-1 overflow-y-auto pr-1",
   list: "space-y-2",
   empty: "flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary",
-  row: "gap-2.5 rounded-xl px-2.5 data-[active=true]:bg-dls-decision-soft",
+  row: "gap-2.5 rounded-xl px-2.5 data-[active=true]:bg-dls-list-selected",
   avatarWrap: "relative shrink-0",
-  avatar: "flex size-11 items-center justify-center overflow-hidden rounded-full border border-dls-surface bg-dls-decision-soft text-base font-medium text-dls-accent",
-  statusDot: "absolute bottom-0.5 right-0.5 size-2.5 rounded-full border-2 border-dls-surface",
+  avatar: "flex size-11 items-center justify-center overflow-hidden rounded-full border border-dls-sidebar bg-dls-decision-soft text-base font-medium text-dls-accent",
+  statusDot: "absolute bottom-0.5 right-0.5 size-2.5 rounded-full border-2 border-dls-sidebar",
   rowBody: "min-w-0 flex-1 py-3",
   rowHeader: "flex min-w-0 items-center gap-2",
   rowTitle: "min-w-0 flex-1 truncate text-sm font-medium",

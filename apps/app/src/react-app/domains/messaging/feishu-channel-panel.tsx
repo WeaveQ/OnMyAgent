@@ -139,17 +139,17 @@ function agentPayload(agent: PersonalLocalAgent) {
 
 function PanelSection(props: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-dls-border bg-dls-card p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="space-y-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-xs font-medium text-dls-text">{props.title}</div>
+          <div className="text-sm font-medium text-dls-text">{props.title}</div>
           {props.description ? (
-            <div className="mt-1 text-xs leading-5 text-dls-secondary">{props.description}</div>
+            <p className="mt-0.5 max-w-2xl text-xs leading-5 text-dls-secondary">{props.description}</p>
           ) : null}
         </div>
-        {props.actions ? <div className="flex shrink-0 flex-wrap gap-2">{props.actions}</div> : null}
+        {props.actions ? <div className="flex shrink-0 flex-wrap items-center gap-1.5">{props.actions}</div> : null}
       </div>
-      <div className="mt-3">{props.children}</div>
+      {props.children}
     </section>
   );
 }
@@ -159,7 +159,7 @@ function FieldLabel(props: { label: string; children: ReactNode; hint?: string }
     <label className="min-w-0 text-xs text-dls-secondary">
       <span className="mb-1 block">{props.label}</span>
       {props.children}
-      {props.hint ? <span className="mt-1 block text-xs leading-4 text-dls-muted">{props.hint}</span> : null}
+      {props.hint ? <span className="mt-1 block text-xs leading-4 text-dls-secondary">{props.hint}</span> : null}
     </label>
   );
 }
@@ -416,25 +416,21 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
   }, [effectiveAccountId]);
 
   return (
-    <div className="mt-4 space-y-4 rounded-lg border border-dls-border bg-dls-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium text-dls-text">{t("messaging.feishu_native_title")}</div>
-          <div className="mt-1 text-xs leading-5 text-dls-secondary">{t("messaging.feishu_native_desc")}</div>
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
           <StatusBadge tone={statusTone(serviceState.status)}>{serviceState.status ?? "stopped"}</StatusBadge>
           <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={Boolean(busy)} aria-label={t("common.refresh")}>
             {busy === "refresh" ? <LoadingSpinner size="default" /> : <RefreshCw className="size-4" />}
           </Button>
         </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric label={t("messaging.feishu_app_id")} value={account?.appId || effectiveAccountId || "--"} />
-        <Metric label={t("messaging.feishu_connection_mode")} value={serviceState.connectionMode || connectionMode} />
-        <Metric label={t("messaging.weixin_access_workspace_metric")} value={effectiveWorkspaceRoot || "--"} />
-        <Metric label={connectionMode === "websocket" ? t("messaging.feishu_websocket_state") : t("messaging.weixin_last_message")} value={connectionMode === "websocket" ? (serviceState.websocketState || "closed") : shortTime(serviceState.lastMessageAt)} />
+        <span className="hidden h-3 w-px bg-dls-border sm:block" aria-hidden />
+        <MetricInline label={t("messaging.feishu_app_id")} value={account?.appId || effectiveAccountId || "--"} />
+        <MetricInline label={t("messaging.feishu_connection_mode")} value={serviceState.connectionMode || connectionMode} />
+        <MetricInline
+          label={connectionMode === "websocket" ? t("messaging.feishu_websocket_state") : t("messaging.weixin_last_message")}
+          value={connectionMode === "websocket" ? (serviceState.websocketState || "closed") : shortTime(serviceState.lastMessageAt)}
+        />
       </div>
 
       <PanelSection
@@ -584,19 +580,27 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </NoticeBox>
       ) : null}
 
-      {/* Agent switch tip */}
-      <div className="rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
+      <p className="text-xs leading-5 text-dls-secondary">
         {t("messaging.feishu_agent_command_help")}
-      </div>
+      </p>
     </div>
+  );
+}
+
+function MetricInline(props: { label: string; value: string }) {
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-baseline gap-1.5">
+      <span className="shrink-0">{props.label}</span>
+      <span className="truncate font-medium text-dls-text">{props.value}</span>
+    </span>
   );
 }
 
 function Metric(props: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-dls-border bg-dls-card px-3 py-2">
+    <div className="min-w-0">
       <div className="text-xs text-dls-secondary">{props.label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-dls-text">{props.value}</div>
+      <div className="mt-0.5 truncate text-sm font-medium text-dls-text">{props.value}</div>
     </div>
   );
 }

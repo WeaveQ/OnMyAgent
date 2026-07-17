@@ -75,6 +75,7 @@ html.onmyagent-electron.onmyagent-platform-mac body::before {
   /* Re-declare for browsers that lower specificity on pseudo-elements. */
   -webkit-app-region: drag;
 }
+
 html,
 body {
   height: 100%;
@@ -164,38 +165,39 @@ select:disabled {
 
 .dark,
 [data-theme="dark"] {
-  --background: var(--slate-1);
-  --foreground: var(--slate-12);
-  --card: var(--slate-2);
-  --card-foreground: var(--slate-12);
-  --popover: var(--slate-1);
-  --popover-foreground: var(--slate-12);
+  /* Bridge shadcn aliases to DLS so dual classnames stay color-consistent */
+  --background: var(--dls-background);
+  --foreground: var(--dls-text-primary);
+  --card: var(--dls-surface);
+  --card-foreground: var(--dls-text-primary);
+  --popover: var(--dls-surface);
+  --popover-foreground: var(--dls-text-primary);
   --primary: var(--ow-primary);
-  --primary-foreground: var(--slate-12);
-  --secondary: var(--slate-3);
-  --secondary-foreground: var(--slate-12);
-  --muted: var(--slate-3);
-  --muted-foreground: var(--slate-10);
-  --accent: var(--slate-3);
-  --accent-foreground: var(--slate-12);
-  --destructive: var(--red-9);
-  --warning: var(--amber-11);
-  --border: var(--slate-3);
-  --input: var(--slate-6);
-  --ring: var(--slate-8);
+  --primary-foreground: var(--dls-decision-fg);
+  --secondary: var(--dls-surface-muted);
+  --secondary-foreground: var(--dls-text-primary);
+  --muted: var(--dls-surface-muted);
+  --muted-foreground: var(--dls-text-secondary);
+  --accent: var(--dls-hover);
+  --accent-foreground: var(--dls-text-primary);
+  --destructive: var(--dls-status-danger);
+  --warning: var(--dls-status-warning);
+  --border: var(--dls-border);
+  --input: var(--dls-border-strong);
+  --ring: var(--dls-focus, var(--dls-accent));
   --chart-1: var(--sky-9);
   --chart-2: var(--blue-9);
   --chart-3: var(--indigo-9);
   --chart-4: var(--violet-9);
   --chart-5: var(--purple-9);
-  --sidebar: var(--slate-2);
-  --sidebar-foreground: var(--slate-12);
+  --sidebar: var(--dls-sidebar);
+  --sidebar-foreground: var(--dls-text-primary);
   --sidebar-primary: var(--ow-primary);
-  --sidebar-primary-foreground: var(--slate-12);
-  --sidebar-accent: var(--slate-3);
-  --sidebar-accent-foreground: var(--slate-12);
-  --sidebar-border: var(--slate-6);
-  --sidebar-ring: var(--slate-8);
+  --sidebar-primary-foreground: var(--dls-decision-fg);
+  --sidebar-accent: var(--dls-hover);
+  --sidebar-accent-foreground: var(--dls-text-primary);
+  --sidebar-border: var(--dls-border);
+  --sidebar-ring: var(--dls-focus, var(--dls-accent));
 }
 
 @theme inline {
@@ -263,12 +265,17 @@ select:disabled {
   --ow-slate: #64748B;
   --ow-mist: #E5E7EB;
 
-  --dls-app-bg: #F8FAFC;
+  /* Shell three-tier (WeChat-style): rail < sidebar < background < surface.
+     Rail is cold chrome, sidebar is the list lane, background is the work
+     canvas, surface is cards/composer floating on the canvas. */
+  --dls-app-bg: #F5F5F5;
   --dls-background: #FAFAFA;
-  --dls-canvas: #FFFFFF;
+  --dls-canvas: #FAFAFA;
   --dls-surface: #FFFFFF;
-  --dls-surface-muted: #F8FAFC;
-  --dls-sidebar: #F3F3F3;
+  /* Floating menus/popovers — never glass-mixed (mac vibrancy still transparent). */
+  --dls-surface-solid: #FFFFFF;
+  --dls-surface-muted: #F4F4F5;
+  --dls-sidebar: #F0F0F0;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #CBD5E1;
   --dls-accent: var(--ow-primary);
@@ -277,10 +284,11 @@ select:disabled {
   --dls-signal: var(--ow-signal);
   --dls-text-primary: var(--ow-ink);
   --dls-text-secondary: var(--ow-slate);
-  --dls-hover: #EEF4FF;
-  --dls-active: #DDEBFF;
-  --dls-list-selected: #E5E5E5;
-  --dls-list-hover: #EFEFEF;
+  /* Neutral grays — blue-tinted hover (#EEF4FF) read as “selected chip” on menus. */
+  --dls-hover: #F0F0F1;
+  --dls-active: #E6E6E8;
+  --dls-list-selected: #E4E4E4;
+  --dls-list-hover: #E8E8E8;
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -344,9 +352,9 @@ select:disabled {
   --dls-brand-coupang: #473600;
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
-  --dls-rail-bg: #ECECEC;
-  --dls-rail-active: #EBEBEB;
-  --dls-rail-hover: #EFEFEF;
+  --dls-rail-bg: #E8E8E8;
+  --dls-rail-active: #DEDEDE;
+  --dls-rail-hover: #E2E2E2;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
      public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
      dls-text-tertiary / dls-app-bg / dls-slate / dls-success-fg) and
@@ -464,12 +472,16 @@ select:disabled {
   --ow-slate: #94A3B8;
   --ow-mist: #3A3A3A;
 
-  --dls-app-bg: #262626;
-  --dls-background: #262626;
-  --dls-canvas: #1E1E1E;
-  --dls-surface: #1E1E1E;
-  --dls-surface-muted: #2A2A2A;
-  --dls-sidebar: #252526;
+  /* Shell three-tier (WeChat dark): rail (deepest) < background (main) <
+     sidebar (list lift) < surface (cards). Avoid flat #1C/#25/#26 stack. */
+  --dls-app-bg: #1F1F1F;
+  --dls-background: #1F1F1F;
+  --dls-canvas: #1F1F1F;
+  --dls-surface: #2C2C2C;
+  /* Floating menus/popovers — never glass-mixed (mac vibrancy still transparent). */
+  --dls-surface-solid: #2C2C2C;
+  --dls-surface-muted: #333333;
+  --dls-sidebar: #2A2A2A;
   --dls-border: var(--ow-mist);
   --dls-border-strong: #4A4A4A;
   --dls-accent: var(--ow-primary);
@@ -478,10 +490,10 @@ select:disabled {
   --dls-signal: var(--ow-signal);
   --dls-text-primary: var(--ow-ink);
   --dls-text-secondary: var(--ow-slate);
-  --dls-hover: #2A2A2A;
-  --dls-active: #333333;
-  --dls-list-selected: #333333;
-  --dls-list-hover: #2A2A2A;
+  --dls-hover: #323232;
+  --dls-active: #3A3A3A;
+  --dls-list-selected: #363636;
+  --dls-list-hover: #323232;
   --dls-scrollbar-thumb: rgb(248 250 252 / 0.12);
   --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.18);
   --dls-decision-bg: var(--ow-primary);
@@ -513,10 +525,10 @@ select:disabled {
   --dls-brand-windows-yellow: #FFB900;
   --dls-brand-terminal: #2A2A2A;
   --dls-brand-orange: #FF8A33;
-  --dls-chat-user-bg: #2F2F2F;
-  --dls-rail-bg: #1C1C1C;
-  --dls-rail-active: #333333;
-  --dls-rail-hover: #303030;
+  --dls-chat-user-bg: #333333;
+  --dls-rail-bg: #141414;
+  --dls-rail-active: #2E2E2E;
+  --dls-rail-hover: #222222;
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most
      dls-* semantic aliases (dls-primary / dls-danger / dls-warning /
      dls-success-fg / dls-slate) inherit through the
@@ -528,8 +540,8 @@ select:disabled {
   --dls-text-tertiary: #64748B;
   /* Mist (dark) — one perceptual step darker than `--dls-border`
      (#3A3A3A) so the three-tier hairline ladder (mist < border <
-     border-strong) stays visible on dark surfaces (#1E1E1E surface,
-     #262626 background). */
+     border-strong) stays visible on dark surfaces (#2C2C2C surface,
+     #1F1F1F background). */
   --dls-mist: #2E2E2E;
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
@@ -1300,6 +1312,15 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: radial-gradient(circle at top, rgba(var(--dls-accent-rgb), 0.12), transparent 42%), var(--app-bg, var(--dls-background));
   }
 
+  /* macOS: do not paint an opaque shell veil over native vibrancy. */
+  html.onmyagent-electron.onmyagent-platform-mac .bg-dls-radial-shell {
+    background: radial-gradient(
+      circle at top,
+      rgba(var(--dls-accent-rgb), 0.06),
+      transparent 42%
+    );
+  }
+
   .bg-dls-list-selected {
     background: var(--dls-list-selected);
   }
@@ -1371,4 +1392,50 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   [data-theme="dark"] .text-\[\#475569\] {
     color: var(--dls-text-secondary) !important;
   }
+}
+
+/*
+ * macOS Electron vibrancy (WeChat-like translucency).
+ * Must come AFTER light/dark token blocks so these color-mix overrides win.
+ * Electron already sets vibrancy + near-transparent window background; opaque
+ * shell fills would hide the material. Opacity ladder:
+ * rail (most open) → sidebar → background → surface (most solid).
+ */
+html.onmyagent-electron.onmyagent-platform-mac,
+html.onmyagent-electron.onmyagent-platform-mac body,
+html.onmyagent-electron.onmyagent-platform-mac #root {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html.onmyagent-electron.onmyagent-platform-mac:not([data-theme="dark"]) {
+  --dls-rail-bg: color-mix(in srgb, #e8e8e8 62%, transparent);
+  --dls-sidebar: color-mix(in srgb, #f0f0f0 74%, transparent);
+  --dls-background: color-mix(in srgb, #fafafa 88%, transparent);
+  --dls-surface: color-mix(in srgb, #ffffff 92%, transparent);
+  --dls-surface-muted: color-mix(in srgb, #f4f4f5 84%, transparent);
+  --dls-app-bg: transparent;
+  --dls-canvas: transparent;
+  --background: transparent;
+  --dls-list-selected: color-mix(in srgb, #e4e4e4 82%, transparent);
+  --dls-list-hover: color-mix(in srgb, #e8e8e8 70%, transparent);
+  --dls-rail-active: color-mix(in srgb, #dedede 78%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #e2e2e2 68%, transparent);
+}
+
+html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] {
+  --dls-rail-bg: color-mix(in srgb, #141414 52%, transparent);
+  --dls-sidebar: color-mix(in srgb, #2a2a2a 68%, transparent);
+  --dls-background: color-mix(in srgb, #1f1f1f 82%, transparent);
+  --dls-surface: color-mix(in srgb, #2c2c2c 88%, transparent);
+  --dls-surface-muted: color-mix(in srgb, #333333 80%, transparent);
+  --dls-app-bg: transparent;
+  --dls-canvas: transparent;
+  --background: transparent;
+  --dls-list-selected: color-mix(in srgb, #363636 78%, transparent);
+  --dls-list-hover: color-mix(in srgb, #323232 68%, transparent);
+  --dls-rail-active: color-mix(in srgb, #2e2e2e 72%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #222222 60%, transparent);
+  --dls-hover: color-mix(in srgb, #323232 68%, transparent);
+  --dls-active: color-mix(in srgb, #3a3a3a 76%, transparent);
 }

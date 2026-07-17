@@ -1357,7 +1357,7 @@ export function ExpertPage(props: ExpertPageProps) {
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-3 mac:pointer-events-auto mac:titlebar-drag" />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-surface mac:bg-dls-surface">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <OnMyAgentRail
             activeView={activeSidebarView}
@@ -1604,10 +1604,10 @@ export function ExpertPage(props: ExpertPageProps) {
                             <img
                               src={resolvePublicAssetUrl(NO_EXPERT_CONVERSATIONS_ASSET)}
                               alt=""
-                              className="mb-6 w-full max-w-xs select-none object-contain"
+                              className="mb-5 w-full max-w-[220px] select-none object-contain"
                               draggable={false}
                             />
-                            <h2 className="text-xl font-medium text-dls-text">
+                            <h2 className="text-lg font-medium tracking-tight text-dls-text">
                               {t("session.no_expert_conversations_title")}
                             </h2>
                             <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">
@@ -1816,7 +1816,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         onClose={closeRightPane}
                       />
                     ) : activeSidePanel === "extensions" && props.settingsSlot ? (
-                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
                         {props.settingsSlot}
                       </div>
                     ) : activeSidePanel === "voice" ? (

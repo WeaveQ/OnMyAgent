@@ -846,7 +846,7 @@ export function AssistantPage(props: AssistantPageProps) {
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-3 mac:pointer-events-auto mac:titlebar-drag" />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-surface mac:bg-dls-surface">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <OnMyAgentRail
             activeView={railActiveView}
@@ -1331,7 +1331,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         onClose={closeRightPane}
                       />
                     ) : activeSidePanel === "extensions" && props.settingsSlot ? (
-                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
                         {props.settingsSlot}
                       </div>
                     ) : activeSidePanel === "voice" ? (

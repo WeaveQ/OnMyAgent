@@ -81,9 +81,9 @@ const VOICE_SUGGESTIONS = [
   t("session.voice_suggestion_send_composer"),
 ];
 const voiceTextClass = {
-  errorLabel: "mb-1 text-xs font-medium text-destructive",
+  errorLabel: "mb-1 text-xs font-medium text-dls-danger",
   meta: "ml-2 text-xs opacity-70",
-  panelLabel: "text-xs font-medium text-muted-foreground",
+  panelLabel: "text-xs font-medium text-dls-secondary",
 };
 
 const VOICE_GRADIENT_FILL_STYLE = { width: "100%", height: "100%" } satisfies CSSProperties;
@@ -274,7 +274,7 @@ function VoiceOrb(props: { status: VoiceStatus; muted: boolean }) {
         : ["#8ddde7", "#4f8b7b", "#bfdfa4", "#102b24"];
 
   return (
-    <div className="relative mx-auto flex size-34 items-center justify-center rounded-full border border-border bg-card">
+    <div className="relative mx-auto flex size-34 items-center justify-center rounded-full border border-dls-border bg-dls-surface">
       <div className="absolute inset-2 overflow-hidden rounded-full">
         <PaperGrainGradient
           speed={props.status === "speaking" ? 18 : active ? 12 : 4}
@@ -290,8 +290,8 @@ function VoiceOrb(props: { status: VoiceStatus; muted: boolean }) {
       <div className="absolute inset-0 rounded-full bg-dls-voice-highlight" />
       <div
         className={cn(
-          "absolute -bottom-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground",
-          active && "text-foreground",
+          "absolute -bottom-2 rounded-md border border-dls-border bg-dls-background px-3 py-1 text-xs font-medium text-dls-secondary",
+          active && "text-dls-text",
         )}
       >
         {props.status === "speaking"
@@ -319,7 +319,7 @@ function VoiceTimelineRow(props: {
 
   if (entry.role === "user") {
     return (
-      <article className="ml-8 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground">
+      <article className="ml-8 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-dls-text">
         {entry.text}
       </article>
     );
@@ -327,7 +327,7 @@ function VoiceTimelineRow(props: {
 
   if (entry.role === "assistant") {
     return (
-      <article className="mr-8 rounded-xl border border-border bg-card px-3 py-2 text-sm leading-relaxed text-card-foreground">
+      <article className="mr-8 rounded-xl border border-dls-border bg-dls-surface px-3 py-2 text-sm leading-relaxed text-dls-text">
         {entry.error ? (
           <div className={voiceTextClass.errorLabel}>
             Error
@@ -342,9 +342,9 @@ function VoiceTimelineRow(props: {
     <DisclosureRowButton
       type="button"
       className={cn(
-        "group flex w-full items-start gap-2 rounded-xl border bg-muted/40 px-2.5 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted",
+        "group flex w-full items-start gap-2 rounded-xl border bg-dls-surface-muted/40 px-2.5 py-2 text-left text-xs text-dls-secondary transition-colors hover:bg-dls-surface-muted",
         entry.error &&
-          "border-destructive/35 bg-destructive/10 text-destructive hover:bg-destructive/15",
+          "border-dls-status-danger-border bg-dls-danger-soft text-dls-danger hover:bg-dls-danger-soft",
       )}
       onClick={canExpand ? props.onToggle : undefined}
     >
@@ -358,7 +358,7 @@ function VoiceTimelineRow(props: {
         <StatusDot tone="current" className="mt-1.5 opacity-60" />
       )}
       <span className="min-w-0 flex-1">
-        <span className="font-medium text-foreground/80">
+        <span className="font-medium text-dls-text/80">
           {entry.toolName
             ? humanToolLabel(entry.toolName)
             : entry.error
@@ -1003,26 +1003,26 @@ export function VoicePanel(props: VoicePanelProps) {
   useControlAction(statusAction);
 
   return (
-    <div ref={panelRef} className="flex h-full min-h-0 flex-col bg-background">
+    <div ref={panelRef} className="flex h-full min-h-0 flex-col bg-dls-background">
       <div
         data-panel-titlebar="true"
-        className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 mac:titlebar-drag"
+        className="flex shrink-0 items-center justify-between border-b border-dls-border px-4 py-3 mac:titlebar-drag"
       >
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
             <span
               className={cn(
-                "size-2 rounded-full bg-muted-foreground",
+                "size-2 rounded-full bg-dls-surface-muted-foreground",
                 status === "connecting" && "animate-pulse bg-dls-status-warning",
                 (status === "listening" || status === "speaking") &&
                   "bg-dls-accent",
-                status === "error" && "bg-destructive",
+                status === "error" && "bg-dls-danger",
               )}
             />
             <Radio className="text-primary" />
             Voice Mode
           </div>
-          <div className="truncate text-xs text-muted-foreground">
+          <div className="truncate text-xs text-dls-secondary">
             Realtime voice over {APP_NAME} UI MCP controls
           </div>
         </div>
@@ -1041,10 +1041,10 @@ export function VoicePanel(props: VoicePanelProps) {
           <VoiceOrb status={status} muted={micMuted} />
 
           <div className="text-center">
-            <div className="text-sm font-medium text-foreground">
+            <div className="text-sm font-medium text-dls-text">
               {statusText}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 text-xs text-dls-secondary">
               Say things like "type a follow-up", "send it", or "read the latest
               session message".
             </div>
@@ -1102,7 +1102,7 @@ export function VoicePanel(props: VoicePanelProps) {
               <CardHeader>
                 <CardTitle>{t("session.voice_host_required")}</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
+              <CardContent className="text-sm text-dls-secondary">
                 {t("session.voice_host_required_desc", { app: APP_NAME })}
               </CardContent>
             </Card>
@@ -1128,7 +1128,7 @@ export function VoicePanel(props: VoicePanelProps) {
                     {t("session.voice_rendering_response")}
                   </div>
                   <div
-                    className="whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground"
+                    className="whitespace-pre-wrap break-words text-sm leading-relaxed text-dls-text"
                     aria-live="polite"
                   >
                     {assistantPreview}
@@ -1164,9 +1164,9 @@ export function VoicePanel(props: VoicePanelProps) {
                 />
                 <InputGroupAddon
                   align="block-end"
-                  className="justify-between border-t border-border"
+                  className="justify-between border-t border-dls-border"
                 >
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-dls-secondary">
                     {t("session.voice_enter_to_send")}
                   </span>
                   <SendButton

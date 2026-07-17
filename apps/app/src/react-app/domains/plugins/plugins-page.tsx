@@ -105,37 +105,37 @@ function getPluginCategories(): CategoryDefinition[] {
 
 const pluginsTextClass = {
   cardTitle: "truncate text-sm font-medium leading-5 text-dls-text",
-  featuredTitle: "truncate text-base font-medium leading-6 text-dls-text",
-  cardDescription: "mt-0.5 truncate text-xs leading-5 text-dls-secondary",
+  featuredTitle: "truncate text-sm font-medium leading-5 text-dls-text",
+  cardDescription: "mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary",
   cardDescriptionClamp: "mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary",
-  statusMeta: "flex items-center gap-1 pt-0.5 text-xs font-medium text-dls-brand-subtle-text",
-  sectionTitle: "mb-4 text-base font-medium leading-6 text-dls-text",
+  statusMeta: "flex items-center gap-1 pt-0.5 text-xs font-medium text-dls-secondary",
+  sectionTitle: "mb-2.5 text-sm font-medium leading-5 text-dls-text",
   emptyTitle: "text-sm font-medium text-dls-text",
   emptyDescription: "mt-1.5 text-xs text-dls-secondary",
   helper: "text-xs text-dls-secondary",
-  pathHint: "truncate text-xs text-dls-brand-subtle-text opacity-0 transition-opacity group-hover:opacity-100",
+  pathHint: "truncate text-xs text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100",
 };
 
 const pluginsLayoutClass = {
   page: "flex h-full min-h-0 flex-col bg-dls-background",
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
-  pageContainer: "w-full px-8 pb-10 pt-7",
-  pluginPageContainer: "w-full space-y-10 px-8 pb-10 pt-7",
-  card: "rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors",
+  pageContainer: "mx-auto w-full max-w-5xl px-6 pb-10 pt-5",
+  pluginPageContainer: "mx-auto w-full max-w-5xl space-y-8 px-6 pb-10 pt-5",
+  card: "rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
-  cardDisabled: "opacity-55",
-  cardInteractive: "hover:border-dls-border-strong",
-  cardMd: "min-h-[86px]",
-  cardLg: "min-h-[92px]",
-  iconButton: "rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-  disabledIconButton: "rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none",
-  cardGrid: "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3",
-  skillSectionTitle: "mb-2 flex items-baseline gap-2.5",
-  skillSectionDescription: "mb-4 pl-6",
-  originTabs: "mb-4 flex gap-2 pl-6",
-  originActive: "bg-dls-brand-github text-white hover:text-white",
-  originDefault: "bg-dls-surface-muted text-dls-secondary hover:bg-dls-brand-neutral-soft hover:text-dls-secondary",
+  cardDisabled: "opacity-70",
+  cardInteractive: "hover:border-dls-border-strong hover:bg-dls-list-hover/30",
+  cardMd: "min-h-[72px]",
+  cardLg: "min-h-[80px]",
+  iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+  disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
+  cardGrid: "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3",
+  skillSectionTitle: "mb-2 flex items-baseline gap-2",
+  skillSectionDescription: "mb-3 pl-6",
+  originTabs: "mb-3 flex flex-wrap gap-1.5 pl-6",
+  originActive: "bg-dls-list-selected text-dls-text hover:bg-dls-list-selected hover:text-dls-text",
+  originDefault: "bg-dls-surface-muted text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
 };
 
 function getSamplePlugins(): PluginItem[] {
@@ -488,7 +488,7 @@ function PluginLogo(props: { iconKey: string; className?: string }) {
     default:
       return (
         <div
-          className={cn(shared, "bg-muted text-foreground", props.className)}
+          className={cn(shared, "bg-dls-surface-muted text-dls-text", props.className)}
         >
           <Blocks className="size-5" />
         </div>
@@ -524,7 +524,7 @@ function PluginStoreCard(props: {
 
 function PluginCard(props: { item: PluginItem }) {
   return (
-    <PluginStoreCard minHeight="sm">
+    <PluginStoreCard minHeight="sm" className="gap-3">
       <PluginLogo iconKey={props.item.iconKey} />
       <div className="min-w-0 flex-1">
         <div className={pluginsTextClass.featuredTitle}>
@@ -540,7 +540,7 @@ function PluginCard(props: { item: PluginItem }) {
         className={pluginsLayoutClass.iconButton}
         aria-label={t("session.plugins_add_aria", { name: props.item.name })}
       >
-        <Plus className="size-4" />
+        <Plus className="size-3.5" />
       </Button>
     </PluginStoreCard>
   );
@@ -649,12 +649,15 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   };
 
   return (
-    <section className="space-y-6" aria-labelledby="artifact-plugins-heading">
-      <div>
-        <h2 id="artifact-plugins-heading" className="font-heading text-lg font-semibold text-dls-text">
+    <section className="space-y-4" aria-labelledby="artifact-plugins-heading">
+      <div className="space-y-1">
+        <h2
+          id="artifact-plugins-heading"
+          className="text-base font-medium leading-6 text-dls-text"
+        >
           {t("plugins.artifact_title")}
         </h2>
-        <p className="mt-1 text-sm text-dls-secondary">
+        <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
           {t("plugins.artifact_description")}
         </p>
       </div>
@@ -666,7 +669,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
       ) : null}
 
       {loading ? (
-        <div className="flex min-h-20 items-center justify-center" role="status" aria-label={t("plugins.artifact_loading")}>
+        <div
+          className="flex min-h-16 items-center justify-center"
+          role="status"
+          aria-label={t("plugins.artifact_loading")}
+        >
           <LoadingSpinner />
         </div>
       ) : loadError ? (
@@ -674,11 +681,9 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
           {t("plugins.artifact_load_error")}
         </NoticeBox>
       ) : plugins.length === 0 ? (
-        <EmptyStateBox size="comfortable">
-          {t("plugins.artifact_empty")}
-        </EmptyStateBox>
+        <EmptyStateBox size="comfortable">{t("plugins.artifact_empty")}</EmptyStateBox>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className={pluginsLayoutClass.cardGrid}>
           {plugins.map((plugin) => (
             <ArtifactPluginCard
               key={plugin.id}
@@ -686,7 +691,9 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
               enabledLabel={labels.enabled}
               disabledLabel={labels.disabled}
               openLabel={t("plugins.artifact_open")}
-              toggleLabel={t("plugins.artifact_card_toggle", { name: plugin.manifest.interface.displayName })}
+              toggleLabel={t("plugins.artifact_card_toggle", {
+                name: plugin.manifest.interface.displayName,
+              })}
               onOpen={() => void openPlugin(plugin.id)}
               onEnabledChange={(enabled) => setPluginEnabled(plugin.id, enabled)}
             />
@@ -695,7 +702,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
       )}
 
       {detailLoading ? (
-        <div className="flex min-h-20 items-center justify-center" role="status" aria-label={t("plugins.artifact_detail_loading")}>
+        <div
+          className="flex min-h-16 items-center justify-center"
+          role="status"
+          aria-label={t("plugins.artifact_detail_loading")}
+        >
           <LoadingSpinner />
         </div>
       ) : selectedPlugin && selectedDetail ? (
@@ -742,10 +753,8 @@ export function PluginsPage(props: PluginsPageProps) {
             const items = filteredByCategory.get(category.id) ?? [];
             if (items.length === 0) return null;
             return (
-              <section key={category.id}>
-                <div className={pluginsTextClass.sectionTitle}>
-                  {category.title}
-                </div>
+              <section key={category.id} className="space-y-0">
+                <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
                 <div className={pluginsLayoutClass.cardGrid}>
                   {items.map((item) => (
                     <PluginCard key={item.id} item={item} />

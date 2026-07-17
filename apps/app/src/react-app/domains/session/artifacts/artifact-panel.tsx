@@ -192,13 +192,13 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div
         data-panel-titlebar="true"
-        className="shrink-0 border-b border-border bg-background mac:bg-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
+        className="shrink-0 border-b border-dls-border bg-dls-background mac:bg-dls-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
       >
         {targets.length > 0 ? (
-          <div className="flex h-10 items-center gap-1 border-b border-border/60 px-2">
+          <div className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2">
             <div className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag">
               <PanelTabList values={targets.map((item) => item.id)} onReorder={() => {}}>
                 {targets.map((item) => (
@@ -222,10 +222,10 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
         ) : null}
         <div className="flex h-10 items-center gap-2 pe-2 ps-4">
           <div className="min-w-0 flex-1 flex items-center gap-1.5">
-            <h3 className="text-sm font-medium text-foreground">
+            <h3 className="text-sm font-medium text-dls-text">
               <span className="truncate">{target.name}</span>
             </h3>
-            <span className="truncate text-xs text-muted-foreground">
+            <span className="truncate text-xs text-dls-secondary">
               {target.exists === false ? "missing" : target.size !== undefined ? `${formatFileSize(target.size)}` : ""}
             </span>
           </div>

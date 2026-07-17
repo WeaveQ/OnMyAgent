@@ -80,7 +80,7 @@ export function UpdatesView(props: UpdatesViewProps) {
             <LayoutSectionItemDescription className="font-mono">
               v{props.appVersion}
               {updateLastCheckedAt ? (
-                <span className="ml-2 font-sans text-xs text-muted-foreground">
+                <span className="ml-2 font-sans text-xs text-dls-secondary">
                   {t("settings.update_last_checked", undefined, {
                     time: formatRelativeTime(updateLastCheckedAt),
                   })}
@@ -155,7 +155,7 @@ export function UpdatesView(props: UpdatesViewProps) {
       ) : null}
 
       {updateState === "available" && updateNotes ? (
-        <LayoutSectionItem className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
+        <LayoutSectionItem className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-dls-secondary">
           {updateNotes}
         </LayoutSectionItem>
       ) : null}

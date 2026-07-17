@@ -421,7 +421,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
           </Alert>
         ) : null}
       </CardContent>
-      <CardFooter className="border-t border-border">
+      <CardFooter className="border-t border-dls-border">
         <FieldGroup className="gap-3">
           <Field orientation="horizontal">
             <Checkbox
@@ -494,7 +494,7 @@ function PullProgressRow({ progress, isPulling }: PullProgressRowProps) {
       <Field orientation="horizontal" size="sm">
         <div className="relative flex aspect-square size-4 shrink-0 items-center justify-center">
           {isPulling ? (
-            <LoadingSpinner size="default" className="text-muted-foreground" aria-hidden />
+            <LoadingSpinner size="default" className="text-dls-secondary" aria-hidden />
           ) : null}
         </div>
         <FieldContent className="flex-row justify-between w-full">

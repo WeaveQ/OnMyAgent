@@ -47,10 +47,10 @@ type EditorProps = {
 };
 
 const composerEditorTokenClass = {
-  fileMention: "inline-flex items-center rounded-full border border-dls-border bg-dls-hover px-2.5 py-1 text-xs font-medium text-dls-secondary",
-  agentMention: "inline-flex items-center rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  slashCommand: "inline-flex items-center rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  scenario: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  fileMention: "inline-flex items-center rounded-md border border-dls-border bg-dls-hover px-2.5 py-1 text-xs font-medium text-dls-secondary",
+  agentMention: "inline-flex items-center rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  slashCommand: "inline-flex items-center rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  scenario: "inline-flex items-center gap-1 rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
   scenarioButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/10 hover:text-dls-accent",
 };
 
@@ -724,7 +724,7 @@ export function LexicalPromptEditor(props: EditorProps) {
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              className="min-h-[60px] max-h-[280px] w-full resize-none overflow-y-auto bg-transparent text-assistant text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-[1.5rem] [&_p]:m-0"
+              className="min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-[15px] leading-[22px] text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
               aria-placeholder={props.placeholder}
               placeholder={<span />}
               onPaste={props.onPaste}
@@ -734,7 +734,7 @@ export function LexicalPromptEditor(props: EditorProps) {
             />
           }
           placeholder={
-            <div className="pointer-events-none absolute left-0 top-0 text-assistant text-dls-secondary/70">
+            <div className="pointer-events-none absolute left-0 top-0 text-[15px] leading-[22px] text-dls-secondary/70">
               {props.placeholder}
             </div>
           }

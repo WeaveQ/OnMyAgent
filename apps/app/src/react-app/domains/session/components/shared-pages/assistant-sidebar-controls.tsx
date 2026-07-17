@@ -2,13 +2,13 @@
 import type { ComponentType } from "react";
 import { BookOpen } from "lucide-react";
 
-import { NavListButton } from "@/components/ui/action-row";
-import { cn } from "@/lib/utils";
+import {
+  NavListButton,
+  NavTabButton,
+  SegmentedTabGroup,
+} from "@/components/ui/action-row";
 import { t } from "../../../../../i18n";
 import type { AssistantCategoryId } from "../../surface/personal-assistant-config";
-
-const assistantCategoryTabClass =
-  "inline-flex h-8 min-w-0 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm transition-colors";
 
 function AssistantCodeTabIcon(props: { className?: string }) {
   return (
@@ -53,29 +53,36 @@ export function AssistantCategorySwitch(props: {
   ];
 
   return (
-    <div className="mx-auto mb-[18px] grid w-full grid-cols-2 items-center gap-1 mac:titlebar-no-drag">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active = props.value === item.id;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => props.onChange(item.id)}
-            className={cn(
-              assistantCategoryTabClass,
-              "mac:titlebar-no-drag",
-              active
-                ? "bg-dls-list-selected font-medium text-dls-text"
-                : "font-normal text-dls-text hover:bg-dls-list-hover",
-            )}
-            aria-pressed={active}
-          >
-            <Icon className="size-3.5 shrink-0" />
-            <span className="truncate">{item.label}</span>
-          </button>
-        );
-      })}
+    <div className="mb-3 w-full px-0 mac:titlebar-no-drag">
+      <SegmentedTabGroup
+        className="flex h-9 w-full gap-0.5 rounded-full border-dls-border bg-dls-surface-muted/80 p-0.5"
+        role="tablist"
+      >
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = props.value === item.id;
+          return (
+            <NavTabButton
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => props.onChange(item.id)}
+              active={active}
+              size="default"
+              shape="pill"
+              className={
+                active
+                  ? "h-8 min-w-0 flex-1 gap-1.5 px-3 text-xs font-medium"
+                  : "h-8 min-w-0 flex-1 gap-1.5 px-3 text-xs font-medium text-dls-secondary hover:text-dls-text"
+              }
+            >
+              <Icon className="size-3.5 shrink-0 opacity-80" />
+              <span className="truncate">{item.label}</span>
+            </NavTabButton>
+          );
+        })}
+      </SegmentedTabGroup>
     </div>
   );
 }

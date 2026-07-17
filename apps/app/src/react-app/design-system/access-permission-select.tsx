@@ -12,6 +12,8 @@ type AccessPermissionSelectProps = {
   value: ComposerAccessMode;
   onChange: (value: ComposerAccessMode) => void;
   disabled?: boolean;
+  /** Compact chrome for composer bottom accessory row. */
+  density?: "default" | "compact";
 };
 
 type AccessPermissionOption = {
@@ -51,6 +53,15 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const selected = optionFor(props.value);
+  const compact = props.density === "compact";
+  // Match composer bottom chrome chips: text-xs / icon size-3.5 / chevron size-3.5.
+  const triggerClass = compact
+    ? props.value === "full"
+      ? "h-7 max-w-44 shrink min-w-0 gap-1.5 rounded-md px-1.5 text-xs font-normal leading-none text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
+      : "h-7 max-w-44 shrink min-w-0 gap-1.5 rounded-md px-1.5 text-xs font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
+    : props.value === "full"
+      ? "max-h-9 max-w-44 shrink min-w-0 gap-1.5 px-2 text-sm font-normal text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60"
+      : "max-h-9 max-w-44 shrink min-w-0 gap-1.5 px-2 text-sm font-normal text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60";
 
   useEffect(() => {
     if (!open) return;
@@ -72,11 +83,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
         type="button"
         variant="ghost"
         size="sm"
-        className={
-          props.value === "full"
-            ? "max-h-9 max-w-44 shrink min-w-0 px-2 text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60"
-            : "max-h-9 max-w-44 shrink min-w-0 px-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60"
-        }
+        className={triggerClass}
         onClick={() => setOpen((value) => !value)}
         disabled={props.disabled}
         aria-expanded={open}
@@ -84,12 +91,12 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
         title={selected.label}
       >
         {props.value === "full" ? (
-          <ShieldAlert size={14} className="shrink-0 text-dls-danger" />
+          <ShieldAlert className="size-3.5 shrink-0 text-dls-danger" />
         ) : (
-          <Shield size={14} className="shrink-0" />
+          <Shield className="size-3.5 shrink-0" />
         )}
         <span className="min-w-0 truncate">{selected.label}</span>
-        <ChevronDown size={14} className="shrink-0" />
+        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </Button>
 
       {open ? (

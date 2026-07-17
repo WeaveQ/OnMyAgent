@@ -153,7 +153,8 @@ const sidebarAccountMenuGridClass = cn(
 
 const sidebarAccountSubTriggerClass = cn(
   sidebarAccountMenuGridClass,
-  "data-popup-open:!bg-dls-decision-soft data-popup-open:!text-dls-accent data-open:!bg-dls-decision-soft data-open:!text-dls-accent aria-expanded:!bg-dls-decision-soft aria-expanded:!text-dls-accent [&>svg:last-child]:hidden",
+  // Soft surface highlight — avoid dark-mode decision-soft navy slabs.
+  "data-popup-open:!bg-dls-surface-muted data-popup-open:!text-dls-text data-open:!bg-dls-surface-muted data-open:!text-dls-text aria-expanded:!bg-dls-surface-muted aria-expanded:!text-dls-text [&>svg:last-child]:hidden",
 );
 
 function SessionStatusIndicator(props: {
@@ -219,7 +220,7 @@ function SessionActions({ className, sessionId }: SessionActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="size-6 text-muted-foreground"
+        className="size-6 text-dls-secondary"
         render={
           <Button
             variant="ghost"
@@ -872,21 +873,21 @@ export function SidebarAccountButton(props: {
             <span className={appSidebarTextClass.billingTitle}>
               {t("account_menu.free_plan")}
             </span>
-            <StatusBadge size="sm" className="bg-muted text-muted-foreground">
+            <StatusBadge size="sm" className="bg-dls-surface-muted text-dls-secondary">
               {t("account_menu.view_details")}
             </StatusBadge>
           </div>
-          <div className="mb-2 h-1 overflow-hidden rounded-full bg-muted">
+          <div className="mb-2 h-1 overflow-hidden rounded-full bg-dls-surface-muted">
             <div className="h-full w-[28%] rounded-full bg-dls-accent" />
           </div>
           <div className="flex items-center justify-between gap-3 text-sidebar-foreground">
             <span className={appSidebarTextClass.billingUsage}>
               146 / 520 {t("account_menu.credits")}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
+              <span className="ml-1 text-xs font-normal text-dls-secondary">
                 {t("account_menu.used_percent")}
               </span>
             </span>
-            <ChevronRight className="size-3.5 text-muted-foreground" />
+            <ChevronRight className="size-3.5 text-dls-secondary" />
           </div>
         </button>
       </div>
@@ -1061,7 +1062,7 @@ function SidebarAccountSubMenu(props: {
       <DropdownMenuSubTrigger className={sidebarAccountSubTriggerClass}>
         <Icon className="size-3.5 justify-self-center" />
         <span className="min-w-0 truncate">{props.label}</span>
-        <ChevronRight className="size-3 justify-self-center text-muted-foreground" />
+        <ChevronRight className="size-3 justify-self-center text-dls-secondary" />
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent
         sideOffset={8}
@@ -1077,7 +1078,9 @@ function SidebarAccountSubMenu(props: {
               onClick={() => props.onSelect(item.value)}
               className={cn(
                 sidebarAccountMenuGridClass,
-                selected ? "!bg-dls-decision-soft !text-dls-accent" : "",
+                selected
+                  ? "!bg-dls-list-selected !text-dls-text data-highlighted:!bg-dls-list-selected"
+                  : "",
               )}
             >
               {ItemIcon ? (
@@ -1087,7 +1090,7 @@ function SidebarAccountSubMenu(props: {
               )}
               <span className="min-w-0 truncate">{item.label}</span>
               {selected ? (
-                <span className="size-1.5 justify-self-center rounded-full bg-dls-accent" />
+                <span className="size-1.5 justify-self-center rounded-full bg-dls-text" />
               ) : null}
             </DropdownMenuItem>
           );
@@ -1125,7 +1128,7 @@ function SidebarAccountMenuItem(props: {
               <Icon className="size-3.5 justify-self-center" />
       <span className="min-w-0 truncate">{props.label}</span>
       {!props.destructive ? (
-        <ChevronRight className="size-3 justify-self-center text-muted-foreground" />
+        <ChevronRight className="size-3 justify-self-center text-dls-secondary" />
       ) : null}
     </DropdownMenuItem>
   );
@@ -1298,7 +1301,7 @@ function SessionListForWorkspace({
             <SidebarMenuSubItem>
               <SidebarMenuSubButton
                 aria-disabled
-                className="h-9 text-xs text-muted-foreground"
+                className="h-9 text-xs text-dls-secondary"
               >
                 <span className="truncate">{t("workspace.loading_tasks")}</span>
               </SidebarMenuSubButton>
@@ -1318,7 +1321,7 @@ function SessionListForWorkspace({
               {rootSessions.length > previewCount ? (
                 <SidebarMenuSubItem>
                   <SidebarMenuSubButton
-                    className="h-9 text-xs text-muted-foreground"
+                    className="h-9 text-xs text-dls-secondary"
                     onClick={() =>
                       showMoreSessions(workspace.id, rootSessions.length)
                     }
@@ -1336,7 +1339,7 @@ function SessionListForWorkspace({
                   "h-9 text-xs",
                   taskLoadError.tone === "offline"
                     ? appSidebarStateClass.activeText
-                    : "text-destructive",
+                    : "text-dls-danger",
                 )}
               >
                 <span className="truncate">{taskLoadError.message}</span>
@@ -1429,7 +1432,7 @@ function SessionMenuItem({
                     {displayTitle}
                   </span>
                   <span className="flex items-center justify-center size-6 absolute right-2 top-1/2 -translate-y-1/2">
-                    <ChevronRight className="size-4 text-muted-foreground transition-transform duration-200 group-data-open/session-collapsible:rotate-90 hover:text-foreground" />
+                    <ChevronRight className="size-4 text-dls-secondary transition-transform duration-200 group-data-open/session-collapsible:rotate-90 hover:text-dls-text" />
                   </span>
                 </SidebarMenuSubButton>
               }

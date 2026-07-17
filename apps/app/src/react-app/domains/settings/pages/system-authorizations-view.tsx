@@ -190,7 +190,7 @@ export function SystemAuthorizationsView() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
-                  <HelpCircle className="size-4 cursor-help text-muted-foreground hover:text-foreground" />
+                  <HelpCircle className="size-4 cursor-help text-dls-secondary hover:text-dls-text" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>{t("settings.permission_revoke_hint")}</p>
@@ -204,7 +204,7 @@ export function SystemAuthorizationsView() {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className="text-dls-secondary"
             onClick={() => void checkPermissions()}
             disabled={loading}
             aria-label={t("settings.permission_checking")}
@@ -274,7 +274,7 @@ export function SystemAuthorizationsView() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-sm leading-relaxed text-foreground">
+            <p className="text-sm leading-relaxed text-dls-text">
               {hintDialogHint}
             </p>
           </div>
