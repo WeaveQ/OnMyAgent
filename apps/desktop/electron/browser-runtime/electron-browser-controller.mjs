@@ -1,0 +1,296 @@
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+
+import { createBrowserCapabilityAuthority } from "./browser-capability-authority.mjs";
+import { createBrowserRpcServer, resolveBrowserRpcEndpoint } from "./browser-rpc-server.mjs";
+import { createBrowserRuntime } from "./index.mjs";
+
+const DEFAULT_URL = "https://www.google.com";
+
+function normalizeUrl(input, fallback = DEFAULT_URL) {
+  const value = typeof input === "string" && input.trim() ? input.trim() : fallback;
+  if (value === "about:blank") return value;
+  return /^(?:https?|file):\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function canNavigate(webContents, direction) {
+  const history = webContents?.navigationHistory;
+  if (direction === "back") return history?.canGoBack?.() ?? webContents?.canGoBack?.() ?? false;
+  return history?.canGoForward?.() ?? webContents?.canGoForward?.() ?? false;
+}
+
+export function createElectronBrowserController(options) {
+  if (typeof options?.WebContentsView !== "function") {
+    throw new TypeError("WebContentsView is required");
+  }
+  const records = new Map();
+  let order = [];
+  let mainWindow = null;
+  let activeTabId = null;
+  let visible = false;
+  let bounds = null;
+  let rpcServer = null;
+  let rpcEnvironment = null;
+
+  const sendState = () => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+    mainWindow.webContents.send("onmyagent:browser:state", browserStatePayload());
+  };
+
+  const createView = () => {
+    const view = new options.WebContentsView({
+      webPreferences: {
+        backgroundThrottling: false,
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        partition: "persist:onmyagent-browser",
+      },
+    });
+    view.webContents.setWindowOpenHandler?.(({ url }) => {
+      void openAllowedExternalUrl(url);
+      return { action: "deny" };
+    });
+    for (const eventName of [
+      "did-navigate",
+      "did-navigate-in-page",
+      "page-title-updated",
+      "did-start-loading",
+      "did-stop-loading",
+    ]) {
+      view.webContents.on?.(eventName, sendState);
+    }
+    return view;
+  };
+
+  const detach = (view) => {
+    if (!mainWindow || !view) return;
+    if (mainWindow.contentView.children.includes(view)) {
+      mainWindow.contentView.removeChildView(view);
+    }
+  };
+
+  const attachSelected = () => {
+    if (!mainWindow || !visible) return;
+    const selected = records.get(activeTabId)?.view;
+    for (const record of records.values()) {
+      if (record.view !== selected) detach(record.view);
+    }
+    if (!selected) return;
+    if (!mainWindow.contentView.children.includes(selected)) {
+      mainWindow.contentView.addChildView(selected);
+    }
+    if (bounds && bounds.width > 0 && bounds.height > 0) selected.setBounds(bounds);
+  };
+
+  const runtime = createBrowserRuntime({
+    createView,
+    requestApproval: options.requestApproval,
+    clipboard: options.clipboard,
+    getSelectedTabId: () => activeTabId,
+    history: options.history,
+    nameSession: options.nameSession,
+    consoleLogs: options.consoleLogs,
+  });
+
+  // The host owns security and lifecycle; this controller owns Electron layout.
+  const host = runtime.host;
+  const originalRegisterUserTab = host.registerUserTab.bind(host);
+  const originalDispatch = runtime.dispatch.bind(runtime);
+
+  runtime.dispatch = async (method, params, context) => {
+    const before = new Set(host.listAllTabs().map((tab) => tab.tabId));
+    const result = await originalDispatch(method, params, context);
+    if (method === "createTab") {
+      const tabId = result?.tab?.tabId;
+      if (tabId && !before.has(tabId) && !records.has(tabId)) {
+        const view = host.getView?.(tabId);
+        if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
+        records.set(tabId, { tab: result.tab, view });
+        order.push(tabId);
+      }
+    }
+    for (const tabId of [...order]) {
+      if (!host.listAllTabs().some((tab) => tab.tabId === tabId)) {
+        detach(records.get(tabId)?.view);
+        records.delete(tabId);
+        order = order.filter((id) => id !== tabId);
+        if (activeTabId === tabId) activeTabId = order[0] ?? null;
+      }
+    }
+    attachSelected();
+    sendState();
+    return result;
+  };
+
+  function listBrowserTabs() {
+    return order.flatMap((tabId) => {
+      const record = records.get(tabId);
+      if (!record || record.view.webContents.isDestroyed()) return [];
+      const described = host.describeTab(tabId);
+      return [{
+        ...described,
+        favicon: record.favicon ?? null,
+        canGoBack: canNavigate(record.view.webContents, "back"),
+        canGoForward: canNavigate(record.view.webContents, "forward"),
+        isLoading: record.view.webContents.isLoading(),
+        isActive: tabId === activeTabId,
+      }];
+    });
+  }
+
+  function browserStatePayload() {
+    const active = listBrowserTabs().find((tab) => tab.isActive);
+    return {
+      url: active?.url ?? "",
+      title: active?.title ?? "",
+      canGoBack: active?.canGoBack ?? false,
+      canGoForward: active?.canGoForward ?? false,
+      isLoading: active?.isLoading ?? false,
+      activeTabId,
+      tabs: listBrowserTabs(),
+    };
+  }
+
+  function createBrowserTab(url = "about:blank", { select = true } = {}) {
+    const tabId = `tab-${randomUUID()}`;
+    const view = createView();
+    const tab = originalRegisterUserTab(tabId, view);
+    records.set(tabId, { tab, view, favicon: null });
+    order.push(tabId);
+    void view.webContents.loadURL(normalizeUrl(url, "about:blank"));
+    if (select || !activeTabId) activeTabId = tabId;
+    attachSelected();
+    sendState();
+    return { ...tab, view };
+  }
+
+  function selectBrowserTab(tabId) {
+    if (!records.has(tabId)) throw new Error(`Unknown browser tab: ${tabId}`);
+    activeTabId = tabId;
+    attachSelected();
+    sendState();
+    return host.describeTab(tabId);
+  }
+
+  function closeBrowserTab(tabId = activeTabId) {
+    if (!tabId) return null;
+    const record = records.get(tabId);
+    if (!record) return null;
+    if (host.describeTab(tabId).owner !== "user") {
+      throw new Error("Agent tabs must be finalized by their owning session");
+    }
+    detach(record.view);
+    host.closeUserTab(tabId);
+    records.delete(tabId);
+    order = order.filter((id) => id !== tabId);
+    if (activeTabId === tabId) activeTabId = order[0] ?? null;
+    attachSelected();
+    sendState();
+    return tabId;
+  }
+
+  function openAllowedExternalUrl(url) {
+    if (typeof url !== "string") return Promise.resolve(false);
+    try {
+      const parsed = new URL(url.trim());
+      if (!["http:", "https:", "mailto:"].includes(parsed.protocol)) return Promise.resolve(false);
+    } catch {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(options.openExternal(url.trim())).then(() => true);
+  }
+
+  return {
+    runtime,
+    setMainWindow(window) { mainWindow = window; attachSelected(); },
+    hasActiveBrowserTab: () => activeTabId !== null,
+    createBrowserTab,
+    listBrowserTabs,
+    browserStatePayload,
+    selectBrowserTab,
+    closeBrowserTab,
+    closeAllBrowserTabs() {
+      const userTabIds = order.filter((tabId) => records.get(tabId)?.tab.owner === "user");
+      for (const tabId of userTabIds) closeBrowserTab(tabId);
+      return userTabIds;
+    },
+    reorderBrowserTabs(tabIds) {
+      const next = Array.isArray(tabIds) ? tabIds.map(String) : [];
+      if (next.length !== order.length || new Set(next).size !== order.length || next.some((id) => !records.has(id))) {
+        throw new Error("Tab order must include every open tab exactly once.");
+      }
+      order = next;
+      sendState();
+      return listBrowserTabs();
+    },
+    attachBrowserView(nextBounds) { bounds = nextBounds; visible = true; attachSelected(); },
+    hideBrowserView() { visible = false; for (const record of records.values()) detach(record.view); },
+    setBounds(nextBounds) { bounds = nextBounds; attachSelected(); },
+    navigate(url, _options = {}) {
+      const record = records.get(activeTabId);
+      if (!record || record.tab.owner !== "user") throw new Error("Select a user-owned tab to navigate directly");
+      return record.view.webContents.loadURL(normalizeUrl(url));
+    },
+    goBack() { records.get(activeTabId)?.view.webContents.navigationHistory?.goBack?.(); },
+    goForward() { records.get(activeTabId)?.view.webContents.navigationHistory?.goForward?.(); },
+    reload() { records.get(activeTabId)?.view.webContents.reload(); },
+    openAllowedExternalUrl,
+    showBrowserTabContextMenu(_tabId, _point) { return false; },
+    destroyBrowserView() { for (const record of records.values()) detach(record.view); visible = false; },
+    async startRpc({ runtimeDir, instanceId = randomUUID() }) {
+      if (rpcServer) return { ...rpcEnvironment };
+      const bootstrap = randomBytes(32).toString("base64url");
+      const authority = createBrowserCapabilityAuthority();
+      const endpoint = resolveBrowserRpcEndpoint({ platform: process.platform, runtimeDir, instanceId });
+      rpcServer = createBrowserRpcServer({
+        authority,
+        dispatch: (method, params, context) => runtime.dispatch(method, params, context),
+        resolvePeer(_socket, request) {
+          const peerPid = request?.method === "getCapability" ? request.params?.peerPid : null;
+          if (!Number.isSafeInteger(peerPid) || peerPid <= 0) {
+            throw new Error("browser peer PID is invalid");
+          }
+          return {
+            peerPid,
+            peerIdentity: process.platform === "win32"
+              ? `sid:${process.env.USERNAME ?? "unknown"}`
+              : `uid:${process.getuid?.() ?? 0}`,
+          };
+        },
+        authorizeBootstrap(value) {
+          if (typeof value !== "string") return false;
+          const actual = Buffer.from(value);
+          const expected = Buffer.from(bootstrap);
+          return actual.length === expected.length && timingSafeEqual(actual, expected);
+        },
+      });
+      await rpcServer.listen(endpoint);
+      rpcEnvironment = Object.freeze({
+        ONMYAGENT_BROWSER_RPC_ENDPOINT: endpoint,
+        ONMYAGENT_BROWSER_RPC_BOOTSTRAP: bootstrap,
+      });
+      return { ...rpcEnvironment };
+    },
+    browserEnvironment() { return rpcEnvironment ? { ...rpcEnvironment } : {}; },
+    diagnostics() {
+      return {
+        protocolVersion: 1,
+        inAppBrowser: true,
+        rpcListening: rpcServer !== null,
+        backend: "in-app",
+        platform: process.platform === "win32" ? "windows" : process.platform,
+        openTabs: order.length,
+        agentTabs: order.filter((tabId) => host.describeTab(tabId).owner !== "user").length,
+      };
+    },
+    async close() {
+      if (rpcServer) await rpcServer.close();
+      rpcServer = null;
+      rpcEnvironment = null;
+      await runtime.close();
+      records.clear();
+      order = [];
+      activeTabId = null;
+    },
+  };
+}

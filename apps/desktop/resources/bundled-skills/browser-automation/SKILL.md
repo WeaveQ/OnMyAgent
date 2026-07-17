@@ -1,116 +1,30 @@
 ---
 name: browser-automation
-description: Local OnMyAgent Electron browser automation with CDP. Use when driving a local Electron dev app, browser_list, browser_snapshot, browser_eval, composer automation, or local UI smoke tests.
-display_name_zh: "浏览器自动化"
-display_name_en: "Browser Automation"
-description_zh: "通过 Chrome DevTools 协议控制 Electron 浏览器，驱动应用 UI 并调试任务流程"
-description_en: "Control Electron browser via CDP to drive app UI and debug task flows"
+description: Control OnMyAgent's in-app browser through a persistent Node REPL for navigation, page inspection, clicking, typing, screenshots, uploads, downloads, dialogs, and local web testing. Use when a task requires interacting with a website or browser UI; prefer purpose-built APIs or connectors for semantic operations when available.
 ---
 
 # Browser Automation
 
-## What I Do
+Use `onmyagent_browser_node_repl` for every browser operation. State persists within the current session, so keep Browser and Tab handles in variables instead of rediscovering them after each action.
 
-- Attach OpenCode browser tools to the OnMyAgent Electron app during local development.
-- Drive the app UI through Electron's Chrome DevTools Protocol endpoint.
-- Send a task/session from the composer and confirm the response in the UI.
+## Workflow
 
-## Local Dev Setup
-
-`pnpm dev` enables Electron CDP by default:
-
-```sh
-ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT=${ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT:-9823}
-```
-
-The default browser URL for OpenCode browser tools is:
-
-```text
-http://127.0.0.1:9823
-```
-
-The app UI normally loads at:
-
-```text
-http://localhost:5173/
-```
-
-To use a different CDP port, launch with an override:
-
-```sh
-ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT=9830 pnpm dev
-```
-
-To disable Electron CDP for a run:
-
-```sh
-ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT=0 pnpm dev
-```
-
-## Background Launch
-
-Use a detached launch when the user wants the app running in the background:
-
-```sh
-nohup pnpm dev > /var/folders/d9/xqhkvsp94rg0n0n523snqztm0000gn/T/opencode/onmyagent-dev.log 2>&1 &
-```
-
-Then wait for the CDP port:
-
-```sh
-lsof -nP -iTCP:9823 -sTCP:LISTEN
-```
-
-## Browser Tool Flow
-
-1. List targets with `browser_list` using `browser_url: "http://127.0.0.1:9823"`.
-2. Select the `OnMyAgent` target ID.
-3. Read state with `browser_eval` or `browser_snapshot`.
-4. Fill the Lexical composer by targeting `[contenteditable="true"][data-lexical-editor="true"]`.
-5. Click the `Run task` button.
-6. Confirm the session response by checking `document.body.innerText` or the current URL.
-
-## Send A Session
-
-Use this `browser_eval` pattern after selecting the OnMyAgent target:
+1. Get the default Browser and inspect its tabs.
+2. Reuse a suitable owned Tab or create a background Tab.
+3. Observe before acting. Prefer role, label, text, placeholder, or test-id locators.
+4. Perform the smallest safe action and verify the resulting state.
+5. Use DOM-CUA when semantic locators are insufficient and coordinate CUA only as a last resort.
+6. Finalize temporary Tabs when the task is complete. Leave user-owned Tabs open unless the user requests otherwise.
 
 ```js
-(() => {
-  const editor = document.querySelector(
-    '[contenteditable="true"][data-lexical-editor="true"]',
-  );
-  if (!editor) return { ok: false, reason: "editor not found" };
-
-  editor.focus();
-  const data = new DataTransfer();
-  data.setData("text/plain", "Say hello from the Electron browser test.");
-  editor.dispatchEvent(
-    new ClipboardEvent("paste", {
-      bubbles: true,
-      cancelable: true,
-      clipboardData: data,
-    }),
-  );
-
-  const run = Array.from(document.querySelectorAll("button")).find(
-    (button) => button.innerText.trim() === "Run task",
-  );
-  if (!run) return { ok: false, reason: "Run task not found", inserted };
-  if (run.disabled)
-    return {
-      ok: false,
-      reason: "Run task disabled",
-      inserted,
-      text: editor.innerText,
-    };
-
-  run.click();
-  return { ok: true, inserted: true, text: editor.innerText };
-})();
+globalThis.browser ??= await agent.browsers.getDefault()
+globalThis.tab ??= await browser.tabs.new({ url: "https://example.com" })
+await tab.playwright.getByRole("link", { name: "More information" }).click()
+await tab.screenshot()
 ```
 
-## Notes
+Do not request or invent a session ID. The tool binds workspace, session, message, turn, agent, and backend identity from its hidden execution context.
 
-- Electron CDP is used for development test tooling. User browser tasks should use the built-in OnMyAgent Browser target.
-- A successful local attach should show an `OnMyAgent` target at `http://127.0.0.1:9823`.
-- The known-good smoke prompt is `Say hello from the Electron browser test.` and the expected response is `Hello from the Electron browser test.`
+Never bypass an approval by switching between Locator, DOM-CUA, coordinate CUA, raw CDP, or evaluation. Ask the user to take over for authentication, CAPTCHA, payment confirmation, or other sensitive handoff states.
+
+Read [references/api.md](references/api.md) when an operation needs an API not shown above.

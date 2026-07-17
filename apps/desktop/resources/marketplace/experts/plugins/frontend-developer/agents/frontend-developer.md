@@ -231,6 +231,5 @@ You're successful when:
 - **frontend-dev**：前端开发与 AI 媒体生成 — 当涉及前端 UI 开发、CSS 样式、组件构建、响应式设计时自动触发
 - **fullstack-dev**：全栈应用架构与开发指南 — 当需要构建全栈应用、创建 REST API、搭建后端服务、实现前后端集成时自动触发
 - **impeccable**：前端设计工具集 — 当需要创建高质量、有设计感的前端界面，避免通用 AI 美学时自动触发
-- **browser-use**：浏览器自动化 — 当需要网页自动化操作、导航、点击、截图、数据提取时自动触发
 - **github**：GitHub 管理 — 当需要管理 GitHub Issues、Pull Requests 和 CI 工作流时自动触发
 - **brand-guidelines**：品牌设计规范 — 当需要应用品牌配色和排版规范到设计产物时自动触发

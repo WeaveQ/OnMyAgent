@@ -18,7 +18,7 @@ const commandGroups = /** @type {const} */ ({
     "codeWorkspaceGitSwitchBranch", "codeWorkspaceGitCommit", "codeWorkspaceGitPush",
   ],
   system: [
-    "browserUseStatus", "userAgentRegistryRead", "userAgentRegistryWrite",
+    "userAgentRegistryRead", "userAgentRegistryWrite",
     "prepareFreshRuntime", "appBuildInfo", "getUiControlBridgeInfo",
     "getComputerUseMcpCommand", "checkComputerUsePermissions",
     "setComputerUseSkysightEnabled", "setComputerUseSkysightPaused",
@@ -47,8 +47,7 @@ const commandGroups = /** @type {const} */ ({
     "personalLocalAgentAcpProcessesList", "personalLocalAgentTestConnection",
     "personalLocalAgentTestCustomAgent", "personalLocalAgentCheckProviderHealth",
     "personalLocalAgentCheckManagedAgentHealthById", "personalLocalAgentValidate",
-    "personalLocalAgentStart", "browserUseAgentStart", "browserUseAgentStatus",
-    "browserUseAgentHistory", "browserUseAgentCancel", "browserUseAgentApprove",
+    "personalLocalAgentStart",
     "personalLocalAgentStatus", "personalLocalAgentRun", "personalLocalAgentCancel",
     "personalLocalAgentResolveApproval", "personalLocalAgentResetConversation",
     "personalLocalAgentConversationsList", "personalLocalAgentConversationGet",

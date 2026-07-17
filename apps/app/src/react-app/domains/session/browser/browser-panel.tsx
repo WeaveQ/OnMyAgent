@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent } from "react";
-import { ArrowLeft, ArrowRight, Globe, Loader2, Plus, RotateCw, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, Globe, Plus, RotateCw, X } from "lucide-react";
 import { useDragControls } from "motion/react";
 import { isElectronRuntime } from "@/app/utils";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
@@ -171,18 +171,20 @@ function BrowserTab({ tab }: BrowserTabProps) {
             showTabContextMenu();
           }}
           title={label}
-          aria-label={`Select tab: ${label}`}
+          aria-label={t("session.browser_select_tab", { label })}
         >
           {tab.favicon ? (
             <img src={tab.favicon} alt="" className="size-3.5 shrink-0 rounded-xs" />
           ) : tab.isLoading ? (
             <LoadingSpinner size="default" />
           ) : (
-            <Globe />
+            tab.owner === "agent" || tab.owner === "claimed" ? <Bot /> : <Globe />
           )}
           <span className="min-w-0 flex-1 truncate text-left">{label}</span>
         </PanelTab>
-        <PanelTabClose active={tab.isActive} label={label} onClose={closeTab} />
+        {tab.owner === "user" || !tab.owner ? (
+          <PanelTabClose active={tab.isActive} label={label} onClose={closeTab} />
+        ) : null}
       </div>
     </PanelTabItem>
   );
@@ -370,7 +372,7 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
   if (!isElectronRuntime() || !browser) {
     return (
       <div className="flex h-full items-center justify-center p-4 text-center text-muted-foreground">
-        <p className="text-sm">Browser panel is only available in the desktop app.</p>
+        <p className="text-sm">{t("session.browser_desktop_only")}</p>
       </div>
     );
   }

@@ -1,0 +1,9 @@
+{
+  "name": "com.onmyagent.browser",
+  "description": "OnMyAgent Browser native messaging bridge",
+  "path": "__ONMYAGENT_NATIVE_HOST_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://__ONMYAGENT_EXTENSION_ID__/"
+  ]
+}
