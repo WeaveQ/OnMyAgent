@@ -2,21 +2,18 @@
 import { useEffect, useRef } from "react";
 
 import { t } from "@/i18n";
-import { useLocal } from "../../kernel/local-provider";
-import { usePlatform } from "../../kernel/platform";
-import {
-  useSessionActivityStore,
-  type SessionActivityStatus,
-} from "../session/status/session-activity-store";
 import {
   buildAgentReadyNotificationBody,
   shouldNotifyAgentReadyTransition,
-} from "./agent-ready-desktop-notifications";
+  type AgentActivityPhase,
+} from "../domains/shell-feedback";
+import { useSessionActivityStore } from "../domains/session";
+import { useLocal } from "../kernel/local-provider";
+import { usePlatform } from "../kernel/platform";
 
 /**
- * Opt-in desktop alerts when an agent turn becomes idle and the window is
- * not focused. Preference lives in LocalPreferences.desktopNotifyOnAgentReady
- * (default false).
+ * Composes session activity + preferences in the shell layer so domains stay
+ * decoupled. Opt-in via LocalPreferences.desktopNotifyOnAgentReady (default false).
  */
 export function AgentReadyDesktopNotificationMonitor() {
   const local = useLocal();
@@ -27,20 +24,24 @@ export function AgentReadyDesktopNotificationMonitor() {
   platformRef.current = platform;
 
   const previousStatusesRef = useRef<
-    Record<string, Record<string, SessionActivityStatus>>
+    Record<string, Record<string, AgentActivityPhase>>
   >({});
   /** Dedup: sessionId → last notified at */
   const lastNotifiedAtRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     return useSessionActivityStore.subscribe((state) => {
+      const nextMap = state.statusesByWorkspaceId as Record<
+        string,
+        Record<string, AgentActivityPhase>
+      >;
+
       if (!enabledRef.current) {
-        previousStatusesRef.current = state.statusesByWorkspaceId;
+        previousStatusesRef.current = nextMap;
         return;
       }
 
       const previousMap = previousStatusesRef.current;
-      const nextMap = state.statusesByWorkspaceId;
 
       for (const [workspaceId, sessions] of Object.entries(nextMap)) {
         const prevSessions = previousMap[workspaceId] ?? {};

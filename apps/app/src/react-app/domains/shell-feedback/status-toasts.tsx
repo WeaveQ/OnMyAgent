@@ -12,7 +12,6 @@ import {
 
 import { StatusToast } from "./status-toast";
 import { ComputerUseStatusMonitor } from "./computer-use-status-monitor";
-import { AgentReadyDesktopNotificationMonitor } from "./agent-ready-desktop-notification-monitor";
 
 export type AppStatusToastTone = "success" | "info" | "warning" | "error";
 
@@ -108,7 +107,6 @@ export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
   return (
     <StatusToastsContext.Provider value={store}>
       <ComputerUseStatusMonitor showToast={showToast} />
-      <AgentReadyDesktopNotificationMonitor />
       {children}
     </StatusToastsContext.Provider>
   );
