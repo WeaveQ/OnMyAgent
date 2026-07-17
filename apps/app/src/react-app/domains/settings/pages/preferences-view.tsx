@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,11 @@ import { isDesktopRuntime } from "../../../../app/utils";
 
 import { t } from "@/i18n";
 import { FontSizeBlockRow } from "../appearance/font-size-section";
-import { SettingsBlock, SettingsBlockRow } from "../settings-section";
+import {
+  SettingsBlock,
+  SettingsBlockRow,
+  SettingsPageSection,
+} from "../settings-section";
 import { LayoutStack } from "../settings-layout";
 
 export type PreferencesViewProps = {
@@ -29,18 +33,6 @@ export type PreferencesViewProps = {
   /** Called with the next enabled state; may request OS permission when turning on. */
   onDesktopNotifyOnAgentReadyChange: (enabled: boolean) => void | Promise<void>;
 };
-
-function PreferenceSection(props: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-lg font-medium text-foreground">{props.title}</h3>
-      {props.children}
-    </section>
-  );
-}
 
 export function PreferencesView(props: PreferencesViewProps) {
   const [notificationPermission, setNotificationPermission] = useState<
@@ -92,13 +84,13 @@ export function PreferencesView(props: PreferencesViewProps) {
 
   return (
     <LayoutStack>
-      <PreferenceSection title={t("settings.font_size_title")}>
+      <SettingsPageSection title={t("settings.font_size_title")}>
         <SettingsBlock>
           <FontSizeBlockRow />
         </SettingsBlock>
-      </PreferenceSection>
+      </SettingsPageSection>
 
-      <PreferenceSection title={t("settings.personalization_title")}>
+      <SettingsPageSection title={t("settings.personalization_title")}>
         <SettingsBlock>
           <SettingsBlockRow
             title={t("settings.response_tone")}
@@ -142,9 +134,9 @@ export function PreferencesView(props: PreferencesViewProps) {
             />
           </SettingsBlockRow>
         </SettingsBlock>
-      </PreferenceSection>
+      </SettingsPageSection>
 
-      <PreferenceSection title={t("settings.model_title")}>
+      <SettingsPageSection title={t("settings.model_title")}>
         <SettingsBlock>
           <SettingsBlockRow
             title={t("settings.show_model_reasoning")}
@@ -171,9 +163,9 @@ export function PreferencesView(props: PreferencesViewProps) {
             }
           />
         </SettingsBlock>
-      </PreferenceSection>
+      </SettingsPageSection>
 
-      <PreferenceSection title={t("settings.notifications_section_title")}>
+      <SettingsPageSection title={t("settings.notifications_section_title")}>
         <SettingsBlock>
           <SettingsBlockRow
             title={t("settings.desktop_notifications_label")}
@@ -232,7 +224,7 @@ export function PreferencesView(props: PreferencesViewProps) {
             }
           />
         </SettingsBlock>
-      </PreferenceSection>
+      </SettingsPageSection>
     </LayoutStack>
   );
 }

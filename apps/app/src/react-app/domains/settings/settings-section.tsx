@@ -115,6 +115,52 @@ export function SettingsCard({ children, className, size = "default", tone = "mu
 }
 
 /**
+ * Canonical in-page section chrome for settings content.
+ *
+ * Typography scale (settings):
+ * - Page title (shell h1): text-xl font-medium
+ * - Page subtitle (shell): text-sm text-dls-secondary
+ * - Section title (this h3): text-lg font-medium text-dls-text
+ * - Section description: text-sm text-muted-foreground
+ * - Row title (SettingsBlockRow): text-sm font-medium
+ * - Row / field hint: text-sm | text-xs text-muted-foreground
+ */
+export function SettingsPageSection({
+  title,
+  description,
+  actions,
+  children,
+  className,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("flex w-full max-w-3xl flex-col gap-3", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="text-lg font-medium leading-7 text-dls-text">{title}</h3>
+          {description ? (
+            <p className="max-w-[52ch] text-sm leading-5 text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {actions}
+          </div>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
  * ChatGPT-style settings card: rounded block with divided rows.
  * Use with SettingsBlockRow; section title stays outside the card.
  */
@@ -299,7 +345,12 @@ interface SettingsItemHeaderTitleProps {
 
 export function SettingsSectionHeaderTitle({ children, className }: SettingsItemHeaderTitleProps) {
   return (
-    <div className={cn("flex items-center gap-2 text-lg font-medium text-dls-text", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 text-lg font-medium leading-7 text-dls-text",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -311,7 +362,11 @@ interface SectionItemHeaderDescriptionProps {
 }
 
 export function SettingsSectionHeaderDescription({ children, className }: SectionItemHeaderDescriptionProps) {
-  return <div className={cn("text-sm text-muted-foreground", className)}>{children}</div>;
+  return (
+    <div className={cn("max-w-[52ch] text-sm leading-5 text-muted-foreground", className)}>
+      {children}
+    </div>
+  );
 }
 
 

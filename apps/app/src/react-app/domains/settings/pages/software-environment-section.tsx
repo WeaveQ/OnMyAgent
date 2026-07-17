@@ -12,7 +12,11 @@ import {
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
-import { SettingsBlock, SettingsBlockRow } from "../settings-section";
+import {
+  SettingsBlock,
+  SettingsBlockRow,
+  SettingsPageSection,
+} from "../settings-section";
 
 type SoftwareEnvStatus = {
   node: boolean;
@@ -200,16 +204,10 @@ export function SoftwareEnvironmentSection() {
   const isStatusError = statusLoadState === "error";
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-lg font-medium text-foreground">
-          {t("settings.software_env.title")}
-        </h3>
-        <p className="max-w-[52ch] text-sm text-muted-foreground">
-          {t("settings.software_env.description")}
-        </p>
-      </div>
-
+    <SettingsPageSection
+      title={t("settings.software_env.title")}
+      description={t("settings.software_env.description")}
+    >
       <SettingsBlock>
         {tools.map((tool) => {
           const state = getInstallState(tool.id);
@@ -316,6 +314,6 @@ export function SoftwareEnvironmentSection() {
           );
         })}
       </SettingsBlock>
-    </section>
+    </SettingsPageSection>
   );
 }

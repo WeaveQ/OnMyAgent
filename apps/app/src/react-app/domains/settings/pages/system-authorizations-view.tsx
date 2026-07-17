@@ -24,7 +24,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { desktopBridge } from "../../../../app/lib/desktop";
-import { SettingsBlock, SettingsBlockRow } from "../settings-section";
+import {
+  SettingsBlock,
+  SettingsBlockRow,
+  SettingsPageSection,
+} from "../settings-section";
 import type {
   SystemPermissionResult,
   SystemPermissionType,
@@ -179,38 +183,36 @@ export function SystemAuthorizationsView() {
 
   return (
     <>
-      <section className="flex w-full max-w-3xl flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <h3 className="flex items-center gap-2 text-lg font-medium text-foreground">
-              {t("settings.system_authorizations")}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle className="size-4 cursor-help text-muted-foreground hover:text-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t("settings.permission_revoke_hint")}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.system_authorizations_description")}
-            </p>
-          </div>
+      <SettingsPageSection
+        title={
+          <span className="inline-flex items-center gap-2">
+            {t("settings.system_authorizations")}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <HelpCircle className="size-4 cursor-help text-muted-foreground hover:text-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t("settings.permission_revoke_hint")}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </span>
+        }
+        description={t("settings.system_authorizations_description")}
+        actions={
           <Button
             variant="ghost"
             size="icon-sm"
-            className="shrink-0 text-muted-foreground"
+            className="text-muted-foreground"
             onClick={() => void checkPermissions()}
             disabled={loading}
             aria-label={t("settings.permission_checking")}
           >
             <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
           </Button>
-        </div>
-
+        }
+      >
         <SettingsBlock>
           {PERMISSIONS.map((perm) => {
             const status = result?.permissions[perm.id];
@@ -253,7 +255,7 @@ export function SystemAuthorizationsView() {
             );
           })}
         </SettingsBlock>
-      </section>
+      </SettingsPageSection>
 
       <Dialog
         open={Boolean(hintDialogHint)}
