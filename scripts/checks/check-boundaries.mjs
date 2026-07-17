@@ -63,76 +63,13 @@ const packageRules = [
 // NOTE: This Set is documentation + reserved for optional re-enforcement;
 // active checks use domain-boundary-policy + public-barrel rules.
 const allowedDomainImports = new Set([
-  // session host pages → domain barrels (allowed direction session>local-agents etc.)
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx|../../local-agents",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-page-helpers.ts|../../local-agents",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-active-runs.tsx|../../local-agents",
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-model-selector.tsx|../../local-agents",
-  "apps/app/src/react-app/domains/session/chat/use-workspace-override.ts|../../local-agents",
-  "apps/app/src/react-app/domains/session/index.ts|../local-agents",
-  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../local-agents",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../local-agents",
-  // Remaining transitional deep edges after domain extraction (prefer barrels).
-  "apps/app/src/react-app/domains/agents/agent-default-registry.ts|../plugins",
-  "apps/app/src/react-app/domains/agents/agents-page.tsx|../connections/provider-list-query",
-  "apps/app/src/react-app/domains/agents/agents-page.tsx|../plugins/bundled-skill-locale",
-  "apps/app/src/react-app/domains/agents/agents-page.tsx|../plugins/skill-scope",
-  "apps/app/src/react-app/domains/agents/agents-page.tsx|../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/messaging/automation-session-groups.ts|../agents/agent-registry-store",
-  "apps/app/src/react-app/domains/messaging/messaging-channels-page.tsx|../session/chat/session-page-messaging-model",
-  "apps/app/src/react-app/domains/session/chat/session-page-messaging-page.tsx|../../messaging/messaging-channels-page",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-helpers",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-store",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/agent-registry-types",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../agents/pending-agent-store",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../connections/provider-auth-modal",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../messaging",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../workspace",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../workspace/share-workspace-modal",
-  "apps/app/src/react-app/domains/session/chat/session-page.tsx|../../workspace/workspace-modal-types",
-  "apps/app/src/react-app/domains/session/components/model-select/model-select-container.tsx|@/react-app/domains/connections/provider-list-query",
-  // session chrome (former shared-pages) → domain barrels
-  "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx|../../agents",
-  "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx|../../messaging",
-  "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx|../../shell-feedback",
-  "apps/app/src/react-app/domains/session/sidebar/assistant-selection-memory.ts|../../agents",
-  "apps/app/src/react-app/domains/session/sidebar/conversation-model.ts|../../agents",
-  "apps/app/src/react-app/domains/session/sidebar/session-panel-model.ts|../../shared",
-  "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx|../../shell-feedback",
-  "apps/app/src/react-app/domains/session/expert-marketplace/pending-agent.ts|../../agents/pending-agent-store",
-  "apps/app/src/react-app/domains/session/index.ts|../messaging/automation-session-groups",
-  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../agents/pending-agent-store",
-  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../connections/provider-auth-modal",
-  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../messaging",
-  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../workspace",
-  "apps/app/src/react-app/domains/session/pages/assistant.tsx|../../workspace/share-workspace-modal",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-registry-helpers",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-registry-store",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-registry-types",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/agent-session-state",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../agents/pending-agent-store",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../connections/provider-auth-modal",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../messaging",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../workspace",
-  "apps/app/src/react-app/domains/session/pages/expert.tsx|../../workspace/share-workspace-modal",
-  "apps/app/src/react-app/domains/session/pages/index.tsx|../../agents/agent-registry-types",
-  "apps/app/src/react-app/domains/session/pages/index.tsx|../../connections/provider-auth-modal",
-  "apps/app/src/react-app/domains/session/pages/index.tsx|../../workspace/workspace-modal-types",
-  "apps/app/src/react-app/domains/session/surface/session-surface.tsx|../../agents/agent-prompt-suggestions",
-  "apps/app/src/react-app/domains/session/surface/session-surface.tsx|../../agents/agent-registry-store",
-  "apps/app/src/react-app/domains/session/surface/session-surface.tsx|../../agents/pending-agent-store",
-  "apps/app/src/react-app/domains/settings/cloud/use-den-session.tsx|../../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/settings/pages/cloud-marketplaces-view.tsx|../../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/settings/pages/cloud-providers-view.tsx|../../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/settings/pages/cloud-workers-view.tsx|../../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/settings/pages/environment-variable-provider.tsx|../../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/settings/pages/environment-view.tsx|../../shell-feedback/status-toasts",
-  "apps/app/src/react-app/domains/settings/pages/mcp-view.tsx|../../connections/add-mcp-modal",
-  "apps/app/src/react-app/domains/settings/state/extensions-store-model.ts|../../plugins/skill-scope",
-  "apps/app/src/react-app/domains/shared/index.ts|../agents/agent-session-state",
-  // personal-local-agent hosts import local-agents via barrel only (see session/chat/*).
-  // model-selector still deep-imports shell-feedback toast helper (not local-agents).
-  "apps/app/src/react-app/domains/session/chat/personal-local-agent-model-selector.tsx|../../shell-feedback/status-toasts",
+  // Documentation-only residual list (active checks use public-barrel rules).
+  // Shrink-only: remove an entry when the import is gone or already a barrel.
+  // Cross-domain imports must hit domains/<name>/index.ts (or barrel path).
+  //
+  // Allowed domain directions (session>agents, settings>shell-feedback, etc.)
+  // are enforced via domain-boundary-policy.mjs. Host pages may import local-agents
+  // and other allowed domains through their public barrels only.
 ])
 
 // Domain barrels the shell may import from with a shallow path (`../domains/<domain>`
