@@ -51,7 +51,7 @@ const fileUrl = absolutePath ? `file://${absolutePath}` : "";
 
 try {
   const client = makeClient({ baseUrl: server.baseUrl, directory: server.cwd });
-  await step("health", async () => waitForHealthy(client));
+  await step("health", async () => waitForHealthy(client, { server }));
 
   let sessionId = "";
   await step("session.create", async () => {

@@ -64,7 +64,7 @@ function extractLastText(messages) {
 
 try {
   const client = makeClient({ baseUrl: server.baseUrl, directory: server.cwd });
-  await waitForHealthy(client);
+  await waitForHealthy(client, { server });
 
   let sessionA;
   let sessionB;

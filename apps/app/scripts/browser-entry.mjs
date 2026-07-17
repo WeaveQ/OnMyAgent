@@ -223,7 +223,7 @@ try {
   const client = makeClient({ baseUrl: opencode.baseUrl, directory: opencode.cwd });
 
   await step("health", async () => {
-    const health = await waitForHealthy(client);
+    const health = await waitForHealthy(client, { server });
     return health;
   });
 
