@@ -271,7 +271,8 @@ export function createBrowserHost(options) {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
         // Prefer native capture + downscale so tool transcripts stay small.
-        // Full-page PNG data URLs routinely exceed model/tool output limits.
+        // Return scale metadata so CUA clicks from the image can be mapped back
+        // to CSS viewport coordinates: pageX = imageX * scaleX.
         const maxWidthRaw = Number(params?.maxWidth);
         const maxWidth =
           Number.isFinite(maxWidthRaw) && maxWidthRaw > 0
@@ -283,6 +284,18 @@ export function createBrowserHost(options) {
             ? Math.min(Math.max(Math.floor(qualityRaw), 1), 100)
             : 55;
         const preferPng = params?.format === "png";
+        let viewportWidth = 0;
+        let viewportHeight = 0;
+        try {
+          const metrics = await evaluateValue(
+            view,
+            "({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 })",
+          );
+          viewportWidth = Number(metrics?.width) || 0;
+          viewportHeight = Number(metrics?.height) || 0;
+        } catch {
+          // optional
+        }
         if (typeof view.webContents.capturePage === "function") {
           let image = await view.webContents.capturePage();
           const size = image.getSize?.() ?? { width: 0, height: 0 };
@@ -293,24 +306,36 @@ export function createBrowserHost(options) {
             });
           }
           const outSize = image.getSize?.() ?? size;
+          const imageWidth = outSize.width || 1;
+          const imageHeight = outSize.height || 1;
+          const scaleX = viewportWidth > 0 ? viewportWidth / imageWidth : 1;
+          const scaleY = viewportHeight > 0 ? viewportHeight / imageHeight : 1;
+          const meta = {
+            width: imageWidth,
+            height: imageHeight,
+            viewportWidth,
+            viewportHeight,
+            scaleX,
+            scaleY,
+            coordinateNote:
+              "For tab.cua.click from this image use page coords: { x: imageX * scaleX, y: imageY * scaleY }. Prefer playwright/dom_cua when possible.",
+          };
           if (preferPng && typeof image.toPNG === "function") {
             const buffer = image.toPNG();
             return {
               image: `data:image/png;base64,${buffer.toString("base64")}`,
-              width: outSize.width,
-              height: outSize.height,
               bytes: buffer.length,
               format: "png",
+              ...meta,
             };
           }
           const buffer = image.toJPEG(quality);
           return {
             image: `data:image/jpeg;base64,${buffer.toString("base64")}`,
-            width: outSize.width,
-            height: outSize.height,
             bytes: buffer.length,
             format: "jpeg",
             quality,
+            ...meta,
           };
         }
         const result = await sendCdp(view, "Page.captureScreenshot", {
@@ -321,6 +346,10 @@ export function createBrowserHost(options) {
           image: typeof result?.data === "string"
             ? `data:image/${preferPng ? "png" : "jpeg"};base64,${result.data}`
             : null,
+          viewportWidth,
+          viewportHeight,
+          scaleX: 1,
+          scaleY: 1,
         };
       }
       if (method === "coordinateAction") {
@@ -568,12 +597,16 @@ export function createBrowserHost(options) {
       for (const tab of registry.list()) destroyTab(tab.tabId);
       domRefs.clear();
     },
-    registerUserTab(tabId, view) {
+    registerUserTab(tabId, view, optionsInput = {}) {
       views.set(tabId, view);
+      const sessionId =
+        typeof optionsInput?.sessionId === "string" && optionsInput.sessionId.trim()
+          ? optionsInput.sessionId.trim()
+          : null;
       const tab = registry.register({
         tabId,
         owner: "user",
-        sessionId: null,
+        sessionId,
         temporary: false,
       });
       options.onTabCreated?.(tab, view);

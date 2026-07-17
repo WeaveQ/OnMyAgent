@@ -45,18 +45,28 @@ await tab.markDeliverable()
 await tab.markHandoff()
 ```
 
-### Screenshots (keep them small)
+### Screenshots (keep them small, map coords if clicking from the image)
 
-Full-page PNG base64 often exceeds tool/transcript limits ("截图过大被截断"). Always:
+Full-page PNG base64 often exceeds tool/transcript limits ("截图过大被截断"). Defaults are jpeg + maxWidth 960.
 
 ```js
 const shot = await tab.screenshot({ maxWidth: 800, format: "jpeg", quality: 50 })
 // Prefer emitting as an image block instead of dumping base64 text:
 nodeRepl.emitImage(shot.image)
-return { width: shot.width, height: shot.height, bytes: shot.bytes }
+return {
+  width: shot.width,
+  height: shot.height,
+  viewportWidth: shot.viewportWidth,
+  viewportHeight: shot.viewportHeight,
+  scaleX: shot.scaleX,
+  scaleY: shot.scaleY,
+  bytes: shot.bytes,
+}
+// If you must click from image coordinates:
+// await tab.cua.click({ x: imageX * shot.scaleX, y: imageY * shot.scaleY })
 ```
 
-Prefer `tab.dom_cua.observe()` over screenshots when you only need interactive structure.
+Prefer `tab.playwright` / `tab.dom_cua` for clicks (no coordinate mapping). Use screenshots for visual understanding; map with `scaleX`/`scaleY` only when using CUA from the image.
 
 `tab.evaluate(expression)` is read-only. It rejects mutation, module loading, process access, and live DOM object results.
 

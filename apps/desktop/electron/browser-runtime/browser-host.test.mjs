@@ -162,6 +162,7 @@ test("host captures screenshots and dispatches coordinate input through CDP", as
   }, context);
 
   assert.deepEqual(factory.views[0].webContents.commands.map((command) => command.method), [
+    "Runtime.evaluate",
     "Page.captureScreenshot",
     "Input.dispatchMouseEvent",
     "Input.dispatchMouseEvent",
