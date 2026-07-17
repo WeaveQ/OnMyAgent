@@ -114,14 +114,14 @@ export const workspaceImportConfig = (input: { path: string }) =>
  * (`{ workspacePath, config }`) or map-style `(config, workspaceId?)`.
  */
 export const workspaceOnMyAgentWrite = (...args: unknown[]) =>
-  invokeElectronHelper("workspaceOpenworkWrite", ...args);
+  invokeElectronHelper("workspaceOnMyAgentWrite", ...args);
 
-/** Typed read wrapper; IPC channel remains Openwork* for main-process compatibility. */
+/** Typed read wrapper; prefers modern IPC, falls back to legacy channel name. */
 export function workspaceOnMyAgentRead(input: {
   workspacePath: string;
 }): Promise<Record<string, unknown>> {
   return invokeDesktopCommand(
-    "workspaceOpenworkRead",
+    "workspaceOnMyAgentRead",
     input.workspacePath,
   ) as Promise<Record<string, unknown>>;
 }

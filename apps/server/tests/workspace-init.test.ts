@@ -339,8 +339,8 @@ describe("ensureWorkspaceFiles", () => {
         "utf8",
       );
       await writeFile(
-        join(root, ".opencode", "agents", "openwork.md"),
-        `${legacyBlock("openwork")}\n`,
+        join(root, ".opencode", "agents", "legacy-brand.md"),
+        `${legacyBlock("LegacyBrand")}\n`,
         "utf8",
       );
 
@@ -350,15 +350,15 @@ describe("ensureWorkspaceFiles", () => {
         join(root, ".opencode", "agents", "teamwork.md"),
         "utf8",
       );
-      const openwork = await readFile(
-        join(root, ".opencode", "agents", "openwork.md"),
+      const legacyBrand = await readFile(
+        join(root, ".opencode", "agents", "legacy-brand.md"),
         "utf8",
       );
       expect(teamwork).not.toContain("_BROWSER_START");
       expect(teamwork).not.toContain("9823");
       expect(teamwork).toContain("Custom instructions");
       expect(teamwork).toContain("Keep this.");
-      expect(openwork).not.toContain("_BROWSER_START");
+      expect(legacyBrand).not.toContain("_BROWSER_START");
       expect(result.reloadReasons).toContain("agents");
     });
   });
