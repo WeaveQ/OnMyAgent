@@ -53,6 +53,7 @@ import type {
 } from "@onmyagent/types/session-archive";
 import type {
   Actor,
+  ArtifactPluginCatalogItem,
   ArtifactItem,
   ArtifactListResponse,
   AuditEntry,
@@ -80,6 +81,7 @@ import type {
   WorkspaceImportChange,
   WorkspaceImportPreviewResponse,
 } from "@onmyagent/types/server";
+import type { ArtifactPluginConnectionState } from "@onmyagent/types/artifact-plugin";
 import { desktopFetch } from "../desktop";
 import { isDesktopRuntime } from "../../utils";
 import type { ExecResult, OpencodeConfigFile, WorkspaceInfo, WorkspaceList } from "../desktop";
@@ -1136,6 +1138,51 @@ export function createOnMyAgentServerClient(options: { baseUrl: string; token?: 
         { token, hostToken },
       );
     },
+    listArtifactPlugins: (workspaceId: string) =>
+      requestJson<{
+        items: ArtifactPluginCatalogItem[];
+        diagnostics: Array<{ pluginDirectory: string; message: string }>;
+      }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/artifact-plugins`,
+        { token, hostToken },
+      ),
+    getArtifactPlugin: (workspaceId: string, pluginId: string) =>
+      requestJson<{
+        item: ArtifactPluginCatalogItem;
+        diagnostics: Array<{ pluginDirectory: string; message: string }>;
+      }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/artifact-plugins/${encodeURIComponent(pluginId)}`,
+        { token, hostToken },
+      ),
+    setArtifactPluginEnabled: (
+      workspaceId: string,
+      pluginId: string,
+      enabled: boolean,
+    ) =>
+      requestJson<{ item: ArtifactPluginCatalogItem }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/artifact-plugins/${encodeURIComponent(pluginId)}/enabled`,
+        { token, hostToken, method: "PUT", body: { enabled } },
+      ),
+    setArtifactPluginSkillEnabled: (
+      workspaceId: string,
+      pluginId: string,
+      skillId: string,
+      enabled: boolean,
+    ) =>
+      requestJson<{ item: ArtifactPluginCatalogItem["skills"][number] }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/artifact-plugins/${encodeURIComponent(pluginId)}/skills/${encodeURIComponent(skillId)}/enabled`,
+        { token, hostToken, method: "PUT", body: { enabled } },
+      ),
+    getArtifactPluginConnection: (workspaceId: string, pluginId: string) =>
+      requestJson<ArtifactPluginConnectionState>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/artifact-plugins/${encodeURIComponent(pluginId)}/connection`,
+        { token, hostToken },
+      ),
     addPlugin: (workspaceId: string, spec: string) =>
       requestJson<{ items: OnMyAgentPluginItem[]; loadOrder: string[] }>(
         baseUrl,

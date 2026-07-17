@@ -1,0 +1,25 @@
+{
+  "skills": [
+    {
+      "id": "spreadsheets",
+      "defaultEnabled": true
+    },
+    {
+      "id": "excel-live-control",
+      "defaultEnabled": true
+    }
+  ],
+  "routing": {
+    "extensions": [".xlsx", ".xls", ".csv", ".tsv"],
+    "mimeTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+      "text/tab-separated-values"
+    ]
+  },
+  "runtime": {
+    "entry": "runtime/artifact_runtime.py",
+    "requiredTools": ["python", "libreoffice"]
+  }
+}

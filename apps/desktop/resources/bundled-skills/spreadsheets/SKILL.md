@@ -1,6 +1,6 @@
 ---
-name: xlsx
-description: "请在任何以电子表格文件为主要输入或输出的任务中使用此技能。这意味着用户希望执行以下操作的任何任务：打开、读取、编辑或修复现有的 .xlsx、.xlsm、.csv 或 .tsv 文件（例如：添加列、计算公式、设置格式、绘制图表、清理混乱的数据）；从零开始或从其他数据源创建新的电子表格；或在表格文件格式之间进行转换。当用户通过名称或路径引用电子表格文件时——即使是很随意的说法（例如'我下载文件夹里的那个 xlsx'）——并希望对该文件执行某些操作或从中生成某些内容时，尤其需要触发此技能。此外，在将混乱的表格数据文件（格式错误的数据行、放错位置的标题、垃圾数据）清理或重组为规范的电子表格时，也应触发此技能。交付物必须是一个电子表格文件。请勿在主要交付物是 Word 文档、HTML 报告、独立的 Python 脚本、数据库管道或 Google Sheets API 集成时触发此技能，即使其中涉及表格数据。"
+name: spreadsheets
+description: "Create, read, edit, analyze, recalculate, render, and verify standalone spreadsheet files, including .xlsx, .xls, .xlsm, .csv, and .tsv, plus local XLSX files intended for Google Sheets import. Use when the durable input or output is a workbook or spreadsheet file. Do not use this skill to control a workbook already open in the Microsoft Excel desktop app; use excel-live-control when that capability is actually available."
 display_name_zh: "电子表格"
 display_name_en: "Spreadsheets"
 description_zh: "创建、编辑、读取、分析、格式化和转换 Excel 电子表格（.xlsx、.csv、.tsv）"
@@ -9,6 +9,27 @@ license: Proprietary. LICENSE.txt has complete terms
 ---
 
 # Requirements for Outputs
+
+## OnMyAgent execution contract
+
+- Work on a copy unless the user explicitly requests an in-place edit.
+- Use local spreadsheet libraries and the scripts shipped with this skill; do not assume a Codex-only artifact runtime exists.
+- Preserve established workbook styles, formulas, named ranges, validations, conditional formatting, charts, hidden sheets, and print settings when editing an existing file.
+- Keep numbers, dates, currencies, and percentages as typed cell values with appropriate number formats. Keep identifiers as text where leading zeros matter.
+- Store derived results as formulas when users are expected to audit or update the model. Put assumptions in visible cells and avoid unexplained constants inside formulas.
+- A Google Sheets target is first delivered as a verified local XLSX. Import it only when a real Google Sheets/Drive connector is available and returns success.
+
+## Required verification sequence
+
+For every create or edit task:
+
+1. Inspect the key ranges, formulas, and sheet names after writing.
+2. Run `python scripts/recalc.py <workbook.xlsx>` when LibreOffice is available, and resolve every reported formula error.
+3. Run `python scripts/render_workbook.py <workbook.xlsx> --output-dir <qa-dir>`.
+4. Inspect every generated `page-*.png` for clipped labels, unreadable numbers, broken charts, accidental blank sheets, overflow, and inconsistent formatting.
+5. Fix defects and repeat the relevant checks before delivery.
+
+If LibreOffice or Poppler is unavailable, perform the structural and formula checks that remain possible, report the missing visual QA explicitly, and never claim the workbook was visually verified.
 
 ## All Excel files
 
