@@ -1,0 +1,16 @@
+{
+  "skills": [
+    {
+      "id": "pdf",
+      "defaultEnabled": true
+    }
+  ],
+  "routing": {
+    "extensions": [".pdf"],
+    "mimeTypes": ["application/pdf"]
+  },
+  "runtime": {
+    "entry": "runtime/artifact_runtime.py",
+    "requiredTools": ["python", "poppler"]
+  }
+}

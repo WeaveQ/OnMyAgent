@@ -52,6 +52,11 @@ export function bundledSkillsDir(): string | null {
   return value && existsSync(value) ? value : null;
 }
 
+export function bundledArtifactPluginsDir(): string | null {
+  const value = process.env.ONMYAGENT_BUNDLED_PLUGINS_DIR?.trim();
+  return value && existsSync(value) ? value : null;
+}
+
 export function projectCommandsDir(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "commands");
 }

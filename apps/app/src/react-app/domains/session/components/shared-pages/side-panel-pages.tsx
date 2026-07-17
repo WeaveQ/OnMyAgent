@@ -30,6 +30,10 @@ import type { ExpertMarketplaceEntry } from "../../expert-marketplace/types";
 import { SkillsMarketplacePage } from "../../skills-marketplace/skills-marketplace-page";
 import { useStatusToasts } from "../../../shell-feedback";
 import { FeaturePreviewPlaceholder } from "../feature-preview-placeholder";
+import {
+  PluginsPage,
+  type ArtifactPluginPromptSelection,
+} from "@/react-app/domains/plugins";
 
 const sidePanelTextClass = {
   emptyTitle: "mt-5 text-base font-medium text-dls-text",
@@ -275,10 +279,7 @@ export function DevicesPage() {
   );
 }
 
-export type StorePrimaryTab = "experts" | "skills";
-
-const storeTabButtonClass =
-  "relative z-10 inline-flex h-7 min-w-24 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors mac:titlebar-no-drag";
+export type StorePrimaryTab = "experts" | "skills" | "plugins";
 
 function StorePrimaryTabs(props: {
   value: StorePrimaryTab;
@@ -287,40 +288,29 @@ function StorePrimaryTabs(props: {
   const items: Array<{ id: StorePrimaryTab; label: string }> = [
     { id: "experts", label: t("store.experts_marketplace") },
     { id: "skills", label: t("store.skills_marketplace") },
+    { id: "plugins", label: t("plugins.artifact_title") },
   ];
-  const activeIndex = items.findIndex((item) => item.id === props.value);
-  const indicatorTransform =
-    activeIndex === 1
-        ? "translateX(6.125rem)"
-        : "translateX(0)";
 
   return (
-    <div className="relative grid w-fit grid-cols-2 items-center gap-0.5 rounded-md bg-dls-surface-muted p-0.5 mac:titlebar-no-drag">
-      <span
-        className="pointer-events-none absolute bottom-0.5 left-0.5 top-0.5 w-24 rounded-sm bg-dls-surface transition-transform duration-200 ease-out"
-        style={{ transform: indicatorTransform }}
-        aria-hidden
-      />
+    <SegmentedTabGroup className="mac:titlebar-no-drag">
       {items.map((item) => {
         const active = props.value === item.id;
         return (
-          <button
+          <NavTabButton
             key={item.id}
             type="button"
             onClick={() => props.onChange(item.id)}
-            className={cn(
-              storeTabButtonClass,
-              active
-                ? "text-dls-text"
-                : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-            )}
+            active={active}
+            size="tab"
+            shape="tab"
+            className="mac:titlebar-no-drag"
             aria-pressed={active}
           >
             <span className="truncate">{item.label}</span>
-          </button>
+          </NavTabButton>
         );
       })}
-    </div>
+    </SegmentedTabGroup>
   );
 }
 
@@ -333,6 +323,7 @@ export function StorePage(props: {
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
   onSummonMarketplaceExpert?: (expert: ExpertMarketplaceEntry) => void;
   onCreateExpert?: () => void;
+  onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
 }) {
   const { showToast } = useStatusToasts();
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
@@ -397,7 +388,7 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2.5 mac:titlebar-no-drag">
-          {expertView === "market" && skillView === "market" ? (
+          {activeTab !== "plugins" && expertView === "market" && skillView === "market" ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-72 mac:titlebar-no-drag">
               <InputGroupAddon align="inline-start">
                 <Search className="size-3.5" />
@@ -471,6 +462,13 @@ export function StorePage(props: {
             importOpen={skillImportOpen}
             onImportOpenChange={setSkillImportOpen}
             onInstalledCountChange={setInstalledSkillCount}
+          />
+        ) : activeTab === "plugins" ? (
+          <PluginsPage
+            workspaceId={props.workspaceId}
+            workspaceRoot={props.workspaceRoot}
+            client={props.client}
+            onSelectArtifactPrompt={props.onSelectArtifactPrompt}
           />
         ) : null}
       </div>
