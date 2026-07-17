@@ -7,11 +7,14 @@ import { fileURLToPath } from "node:url";
 // page in the default browser. No download, no in-place install — keeps
 // the update surface simple and portable across macOS / Windows / Linux
 // with zero code-signing requirements for the update flow itself.
+//
+// Channel note: only the stable `releases/latest` feed is supported. Alpha
+// is intentionally not wired — setChannel always snaps back to stable.
 
 const RELEASES_LATEST_API =
-  "https://api.github.com/repos/WeaveQ/onmyagent/releases/latest";
+  "https://api.github.com/repos/WeaveQ/OnMyAgent/releases/latest";
 const RELEASES_HTML_URL =
-  "https://github.com/WeaveQ/onmyagent/releases/latest";
+  "https://github.com/WeaveQ/OnMyAgent/releases/latest";
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
 const INITIAL_CHECK_DELAY_MS = 30 * 1000; // 30s
 const FETCH_TIMEOUT_MS = 10 * 1000;
@@ -96,17 +99,46 @@ function isVersionNewer(candidate, current) {
   return comparison === null ? candidate !== current : comparison > 0;
 }
 
+function channelState(app) {
+  return {
+    channel: "stable",
+    feedUrl: RELEASES_HTML_URL,
+    currentVersion: resolveAppVersion(app),
+    /** Lightweight checker has no alpha feed. */
+    alphaSupported: false,
+  };
+}
+
+function friendlyFetchError(error) {
+  const name = error && typeof error === "object" ? error.name : null;
+  const message = String(error?.message ?? error ?? "");
+  if (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    /aborted|timeout/i.test(message)
+  ) {
+    return "Network timed out while contacting GitHub. Check your connection or try again later.";
+  }
+  return message || "Failed to check for updates.";
+}
+
 async function fetchLatestRelease() {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(
+    () => controller.abort(new Error("timeout")),
+    FETCH_TIMEOUT_MS,
+  );
   try {
     const response = await fetch(RELEASES_LATEST_API, {
       headers: {
-        "Accept": "application/vnd.github+json",
+        Accept: "application/vnd.github+json",
         "User-Agent": "OnMyAgent-UpdateChecker",
       },
       signal: controller.signal,
     });
+    if (response.status === 404) {
+      return { notPublished: true };
+    }
     if (!response.ok) {
       throw new Error(`GitHub API responded ${response.status}`);
     }
@@ -123,8 +155,19 @@ async function fetchLatestRelease() {
   }
 }
 
+/**
+ * @param {{
+ *   app: import("electron").App,
+ *   ipcMain: import("electron").IpcMain,
+ *   getMainWindow: () => import("electron").BrowserWindow | null | undefined,
+ *   Notification?: typeof import("electron").Notification,
+ *   shell?: import("electron").Shell,
+ * }} options
+ */
 export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, shell }) {
   let lastNotifiedVersion = null;
+  /** @type {Record<string, unknown> | null} */
+  let lastKnownAvailable = null;
 
   function openReleasePage(url) {
     const target = url || RELEASES_HTML_URL;
@@ -133,16 +176,43 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
     }
   }
 
+  function emitAvailable(payload) {
+    try {
+      const win = typeof getMainWindow === "function" ? getMainWindow() : null;
+      if (win?.webContents && !win.isDestroyed()) {
+        win.webContents.send("onmyagent:updater:available", payload);
+      }
+    } catch {
+      // Renderer may be gone; ignore.
+    }
+  }
+
+  /**
+   * @param {{ silent: boolean }} options
+   *   silent: when true, skip OS notification (manual Settings check).
+   *   Renderer event is still emitted so UI badges/pages stay in sync.
+   */
   async function performCheck({ silent }) {
     const currentVersion = resolveAppVersion(app);
     try {
       const release = await fetchLatestRelease();
+      if (release?.notPublished) {
+        const payload = {
+          available: false,
+          currentVersion,
+          reason: "No releases have been published yet.",
+        };
+        lastKnownAvailable = payload;
+        return payload;
+      }
       if (!release?.tagName) {
-        return {
+        const payload = {
           available: false,
           reason: "No release found.",
           currentVersion,
         };
+        lastKnownAvailable = payload;
+        return payload;
       }
       const available = isVersionNewer(release.tagName, currentVersion);
       const payload = {
@@ -155,6 +225,16 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
         releaseDate: release.publishedAt,
         releaseNotes: release.body,
       };
+      lastKnownAvailable = available
+        ? payload
+        : { ...payload, available: false };
+
+      // Always tell the renderer so Settings / badges reflect the latest
+      // check, even when we suppress the OS notification.
+      if (available) {
+        emitAvailable(payload);
+      }
+
       if (available && !silent && lastNotifiedVersion !== release.tagName) {
         lastNotifiedVersion = release.tagName;
         try {
@@ -170,39 +250,40 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
         } catch {
           // Notifications may fail on headless CI; ignore.
         }
-        try {
-          const win = typeof getMainWindow === "function" ? getMainWindow() : null;
-          if (win?.webContents && !win.isDestroyed()) {
-            win.webContents.send("onmyagent:updater:available", payload);
-          }
-        } catch {
-          // Renderer may be gone; ignore.
-        }
       }
       return payload;
     } catch (error) {
-      return {
+      const payload = {
         available: false,
         currentVersion,
-        reason: String(error?.message ?? error),
+        reason: friendlyFetchError(error),
       };
+      lastKnownAvailable = payload;
+      return payload;
     }
   }
 
-  ipcMain.handle("onmyagent:updater:getChannel", async () => ({
-    channel: "stable",
-    feedUrl: RELEASES_HTML_URL,
-    currentVersion: resolveAppVersion(app),
-  }));
+  ipcMain.handle("onmyagent:updater:getChannel", async () => channelState(app));
 
-  ipcMain.handle("onmyagent:updater:setChannel", async () => ({
-    channel: "stable",
-    feedUrl: RELEASES_HTML_URL,
-    currentVersion: resolveAppVersion(app),
-  }));
+  ipcMain.handle("onmyagent:updater:setChannel", async (_event, rawChannel) => {
+    // Honest contract: alpha is not supported. Always report stable so the
+    // renderer can snap prefs back instead of pretending alpha is active.
+    const state = channelState(app);
+    const requested =
+      rawChannel === "alpha" || rawChannel === "stable" ? rawChannel : "stable";
+    return {
+      ...state,
+      requestedChannel: requested,
+      reason:
+        requested === "alpha"
+          ? "Alpha channel is not supported by the lightweight updater."
+          : undefined,
+    };
+  });
 
+  // Manual / renderer-driven check: no OS notification (user is already in UI).
   ipcMain.handle("onmyagent:updater:check", async () => {
-    const result = await performCheck({ silent: false });
+    const result = await performCheck({ silent: true });
     return {
       ...result,
       channel: "stable",
@@ -210,24 +291,36 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
     };
   });
 
-  // Legacy download IPC: instead of downloading in-app, open the browser to
-  // the release page so the user can grab the appropriate installer.
+  ipcMain.handle("onmyagent:updater:getLastKnown", async () => {
+    return (
+      lastKnownAvailable ?? {
+        available: false,
+        currentVersion: resolveAppVersion(app),
+      }
+    );
+  });
+
+  // Open the release page so the user can grab the appropriate installer.
+  // Does not download or install in-app.
   ipcMain.handle("onmyagent:updater:download", async () => {
     try {
       const release = await fetchLatestRelease();
+      if (release?.notPublished) {
+        openReleasePage(RELEASES_HTML_URL);
+        return { ok: true, reason: "No releases have been published yet." };
+      }
       openReleasePage(release?.htmlUrl);
       return { ok: true };
     } catch (error) {
       openReleasePage(RELEASES_HTML_URL);
-      return { ok: true, reason: String(error?.message ?? error) };
+      return { ok: true, reason: friendlyFetchError(error) };
     }
   });
 
-  // Legacy install IPC: no-op with browser fallback so old renderer code
-  // paths keep working during the migration.
+  // Legacy install IPC: open the release page. Never claims an install completed.
   ipcMain.handle("onmyagent:updater:installAndRestart", async () => {
     openReleasePage(RELEASES_HTML_URL);
-    return { ok: true };
+    return { ok: true, reason: "opened-release-page" };
   });
 
   let scheduledInitial = null;
@@ -235,6 +328,8 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
 
   function scheduleAutoChecks() {
     if (scheduledInitial || intervalHandle) return;
+    // Background poller owns OS notifications (silent: false).
+    // Renderer manual checks use silent: true to avoid double toasts.
     scheduledInitial = setTimeout(() => {
       scheduledInitial = null;
       void performCheck({ silent: false });

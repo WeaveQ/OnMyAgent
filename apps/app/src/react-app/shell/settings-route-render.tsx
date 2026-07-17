@@ -90,7 +90,6 @@ import {
 import {
   isDesktopRuntime,
   isElectronRuntime,
-  isMacPlatform,
   resolveModelDisplayName,
   resolveProviderDisplayName,
   safeStringify,
@@ -1982,7 +1981,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             installUpdateAndRestart={electronUpdaterState.installUpdateAndRestart}
             releaseChannel={local.prefs.releaseChannel ?? "stable"}
             onReleaseChannelChange={electronUpdaterState.setReleaseChannel}
-            alphaChannelSupported={isElectronRuntime() && isMacPlatform()}
+            // Lightweight GitHub Releases checker is stable-only; main reports
+            // alphaSupported=false. Prefer that over platform heuristics.
+            alphaChannelSupported={electronUpdaterState.alphaSupported === true}
           />
         );
       case "recovery":

@@ -209,11 +209,15 @@ declare global {
           channel: "stable" | "alpha";
           feedUrl: string;
           currentVersion: string;
+          alphaSupported?: boolean;
         }>;
         setChannel?: (channel: "stable" | "alpha") => Promise<{
           channel: "stable" | "alpha";
           feedUrl: string;
           currentVersion: string;
+          alphaSupported?: boolean;
+          requestedChannel?: "stable" | "alpha";
+          reason?: string;
         }>;
         check?: (channel?: "stable" | "alpha") => Promise<{
           available: boolean;
@@ -227,6 +231,24 @@ declare global {
         }>;
         download?: () => Promise<{ ok: boolean; reason?: string }>;
         installAndRestart?: () => Promise<{ ok: boolean; reason?: string }>;
+        getLastKnown?: () => Promise<{
+          available: boolean;
+          currentVersion?: string;
+          latestVersion?: string | null;
+          releaseDate?: string | null;
+          releaseNotes?: unknown;
+          reason?: string | null;
+        }>;
+        onAvailable?: (
+          callback: (payload: {
+            available: boolean;
+            currentVersion?: string;
+            latestVersion?: string | null;
+            releaseDate?: string | null;
+            releaseNotes?: unknown;
+            reason?: string | null;
+          }) => void,
+        ) => () => void;
       };
       channels?: {
         onStatus?: (
