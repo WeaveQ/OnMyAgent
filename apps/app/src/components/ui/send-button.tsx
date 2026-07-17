@@ -16,7 +16,9 @@ type SendButtonProps = Omit<
 };
 
 /**
- * Circular send control: muted disk when idle/disabled, solid disk when ready.
+ * Circular send control (DESIGN.md §11): brand-blue solid disk when ready,
+ * muted disk when idle/disabled. Avoid bg-dls-text + white icon — in dark
+ * mode both are light and the glyph vanishes.
  * No Tooltip — nested TooltipTrigger wrappers were producing empty white bubbles.
  */
 export function SendButton({
@@ -40,18 +42,18 @@ export function SendButton({
       className={cn(
         "rounded-full border-0 shadow-none",
         ready
-          ? "bg-dls-text text-white hover:bg-dls-text/90 hover:text-white"
-          : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-secondary",
+          ? "bg-dls-decision text-white hover:bg-dls-decision-hover hover:text-white"
+          : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-secondary disabled:opacity-100",
         className,
       )}
       {...props}
     >
       {loading ? (
-        <LoadingSpinner size="default" />
+        <LoadingSpinner size="default" className={ready ? "text-white" : "text-dls-secondary"} />
       ) : (
         <Navigation
           className="size-4 -translate-y-px rotate-45 fill-current"
-          strokeWidth={1.75}
+          strokeWidth={2}
           aria-hidden
         />
       )}
