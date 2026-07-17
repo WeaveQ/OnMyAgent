@@ -28,6 +28,11 @@ safelist: [
     fontSize: {
       "2xs": ["var(--dls-text-2xs)", { lineHeight: "var(--dls-leading-normal)" }],
       xs: ["var(--dls-text-xs)", { lineHeight: "var(--dls-leading-normal)" }],
+      // Named WorkBuddy parity size (DESIGN.md § 11). Prefer text-sm for new UI.
+      assistant: [
+        "var(--dls-text-assistant)",
+        { lineHeight: "var(--dls-leading-assistant)" },
+      ],
       sm: ["var(--dls-text-sm)", { lineHeight: "var(--dls-leading-normal)" }],
       base: ["var(--dls-text-base)", { lineHeight: "var(--dls-leading-normal)" }],
       lg: ["var(--dls-text-lg)", { lineHeight: "var(--dls-leading-tight)" }],

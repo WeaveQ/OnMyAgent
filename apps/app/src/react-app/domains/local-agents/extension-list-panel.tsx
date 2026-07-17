@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
 import {
   personalLocalAgentListExtensions,
@@ -70,7 +71,9 @@ export function ExtensionListPanel() {
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-dls-primary">
                     <span>{ext.displayName || ext.name}</span>
-                    <span className="rounded-md border border-dls-border px-1.5 py-0.5 text-2xs uppercase text-dls-secondary">{ext.source}</span>
+                    <StatusBadge tone="neutral" shape="soft" size="tiny" className="uppercase">
+                      {ext.source}
+                    </StatusBadge>
                     <span className="text-2xs text-dls-secondary">v{ext.version}</span>
                   </div>
                   {ext.description ? <p className="text-xs text-dls-secondary">{ext.description}</p> : null}

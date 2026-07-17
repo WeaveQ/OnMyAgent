@@ -398,6 +398,9 @@ select:disabled {
   --dls-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
   --dls-text-2xs: 10px;
   --dls-text-xs: 12px;
+  /* DESIGN.md § 11 WorkBuddy parity — assistant body / dense workbench chrome */
+  --dls-text-assistant: 13px;
+  --dls-leading-assistant: 19px;
   --dls-text-sm: 14px;
   --dls-text-base: 16px;
   --dls-text-lg: 18px;
