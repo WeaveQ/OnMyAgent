@@ -16,6 +16,7 @@ This project follows a lightweight changelog format during early development. Re
 - `FilterChip` free-float category filter primitive (soft `list-selected` active state) and expert marketplace card hover **召唤** CTA (`session.summon` i18n).
 - `DesktopCommandMap` + domain IPC handlers under `apps/desktop/electron/desktop-handlers/` (typed desktop bridge).
 - Main rail bottom **Devices** icon entry (with channels).
+- Safety-net CI: `ui-contracts` suite in `test:ui`, `check:architecture-paths` in `pnpm check`, e2e health-binding scan, desktop-handlers domain smoke.
 
 ### Changed
 
