@@ -170,33 +170,33 @@ export function InlineAgentEditor(props: {
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_id")}</span>
-          <Input data-testid="local-agent-editor-id" variant="dls" value={id} disabled={props.busy || Boolean(props.agent)} onChange={(event) => setId(event.target.value)} />
+          <Input data-testid="local-agent-editor-id" variant="dls" value={id} disabled={props.busy || Boolean(props.agent)} onChange={(event) => setId(event.target.value)} placeholder={t("local_agent.editor_id_placeholder")} />
         </label>
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_name")}</span>
-          <Input data-testid="local-agent-editor-name" variant="dls" value={name} disabled={props.busy} onChange={(event) => setName(event.target.value)} />
+          <Input data-testid="local-agent-editor-name" variant="dls" value={name} disabled={props.busy} onChange={(event) => setName(event.target.value)} placeholder={t("local_agent.editor_name_placeholder")} />
         </label>
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_command")}</span>
-          <Input data-testid="local-agent-editor-command" variant="dls" value={command} disabled={props.busy} onChange={(event) => setCommand(event.target.value)} />
+          <Input data-testid="local-agent-editor-command" variant="dls" value={command} disabled={props.busy} onChange={(event) => setCommand(event.target.value)} placeholder={t("local_agent.editor_command_placeholder")} />
         </label>
         <label className="space-y-1 text-xs text-dls-secondary">
           <span>{t("local_agent.editor_args")}</span>
-          <Input data-testid="local-agent-editor-args" variant="dls" value={args} disabled={props.busy} onChange={(event) => setArgs(event.target.value)} />
+          <Input data-testid="local-agent-editor-args" variant="dls" value={args} disabled={props.busy} onChange={(event) => setArgs(event.target.value)} placeholder={t("local_agent.editor_args_placeholder")} />
         </label>
       </div>
       <label className="block space-y-1 text-xs text-dls-secondary">
         <span>{t("local_agent.editor_description")}</span>
-        <Textarea data-testid="local-agent-editor-description" className="min-h-20 resize-y bg-dls-surface" value={description} disabled={props.busy} onChange={(event) => setDescription(event.target.value)} />
+        <Textarea data-testid="local-agent-editor-description" className="min-h-20 resize-y bg-dls-surface" value={description} disabled={props.busy} onChange={(event) => setDescription(event.target.value)} placeholder={t("local_agent.editor_description_placeholder")} />
       </label>
       <EnvVarEditor rows={env} disabled={props.busy} onChange={setEnv} />
       <label className="block space-y-1 text-xs text-dls-secondary">
         <span>{t("local_agent.editor_native_skills_dirs")}</span>
-        <Textarea data-testid="local-agent-editor-native-skills" variant="dlsMono" className="min-h-20 resize-y text-xs" value={nativeSkillsDirs} disabled={props.busy} onChange={(event) => setNativeSkillsDirs(event.target.value)} />
+        <Textarea data-testid="local-agent-editor-native-skills" variant="dlsMono" className="min-h-20 resize-y text-xs" value={nativeSkillsDirs} disabled={props.busy} onChange={(event) => setNativeSkillsDirs(event.target.value)} placeholder={t("local_agent.editor_native_skills_dirs_placeholder")} />
       </label>
       <label className="block space-y-1 text-xs text-dls-secondary">
         <span>{t("local_agent.editor_behavior_policy")}</span>
-        <Textarea data-testid="local-agent-editor-behavior-policy" variant="dlsMono" className="min-h-20 resize-y text-xs" value={behaviorPolicy} disabled={props.busy} onChange={(event) => setBehaviorPolicy(event.target.value)} />
+        <Textarea data-testid="local-agent-editor-behavior-policy" variant="dlsMono" className="min-h-20 resize-y text-xs" value={behaviorPolicy} disabled={props.busy} onChange={(event) => setBehaviorPolicy(event.target.value)} placeholder={t("local_agent.editor_behavior_policy_placeholder")} />
       </label>
       <fieldset data-testid="local-agent-editor-acp" className="space-y-2 rounded-lg border border-dls-border/70 bg-dls-surface p-3">
         <legend className="px-1 text-xs font-medium text-dls-secondary">{t("local_agent.editor_acp_section")}</legend>
@@ -217,7 +217,8 @@ export function InlineAgentEditor(props: {
           </label>
           <label className="space-y-1 text-xs text-dls-secondary">
             <span>{t("local_agent.editor_acp_args")}</span>
-            <Input data-testid="local-agent-editor-acp-args" variant="dls" value={acpArgs} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAcpArgs(event.target.value)} placeholder="acp" />
+            <Input data-testid="local-agent-editor-acp-args" variant="dls" value={acpArgs} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAcpArgs(event.target.value)} placeholder="--acp" />
+            <p className="text-[11px] leading-tight text-dls-tertiary">{t("local_agent.editor_acp_args_hint")}</p>
           </label>
         </div>
         <div className="grid gap-2 md:grid-cols-2">

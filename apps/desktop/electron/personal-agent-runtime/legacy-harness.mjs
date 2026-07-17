@@ -406,10 +406,21 @@ export function createPersonalAgentLegacyHarness(options = {}) {
         const first = meta ?? events[0] ?? {};
         const last = meta ?? events.at(-1) ?? {};
         const provider = String(first.agentProvider ?? last.agentProvider ?? first.provider ?? last.provider ?? "unknown").trim();
+        const agentId = String(first.agentId ?? last.agentId ?? "").trim();
         const status = String(last.status ?? first.status ?? "completed").trim();
         const startedAt = Number(first.startedAt ?? first.at ?? 0);
         const finishedAt = Number(last.finishedAt ?? last.at ?? 0);
-        const key = isPersonalLocalAgentProvider(provider) ? provider : "custom";
+        // The synthetic "custom" provider is shared by EVERY custom/local agent
+        // (user-registered agents, the discoverable catalog like kimi/kiro/goose,
+        // and extension adapters). Keying it by provider would merge all of their
+        // runs into one bucket, so a run of codebuddy would show up on kimi.
+        // Key custom logs by their own agentId instead. The real built-in
+        // providers (opencode/codex/claude/openclaw/hermes) keep their canonical
+        // single-agent key. Orphaned logs (no agentId — e.g. generic
+        // "OpenCode SDK session flow started" entries with provider "unknown")
+        // fall to the empty key and are matched by no agent, so they are never
+        // mis-attributed to any catalog or unlinked custom agent.
+        const key = provider === "custom" ? agentId : (isPersonalLocalAgentProvider(provider) ? provider : agentId);
         const summary = summaries.get(key) ?? emptyAgentUsageSummary();
         summary.runs += 1;
         if (status === "completed") summary.completed += 1;

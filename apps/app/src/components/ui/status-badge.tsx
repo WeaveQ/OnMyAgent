@@ -14,6 +14,7 @@ const statusBadgeVariants = cva(
         success: "bg-dls-status-success-soft text-dls-status-success-fg ring-1 ring-dls-status-success-border",
         warning: "bg-dls-status-warning/12 text-dls-status-warning ring-1 ring-dls-status-warning/25",
         danger: "bg-dls-status-danger-soft text-dls-status-danger-fg ring-1 ring-dls-status-danger/30",
+        orange: "bg-dls-status-orange-soft text-dls-status-orange-fg ring-1 ring-dls-status-orange-border",
       },
       shape: {
         pill: "rounded-full",

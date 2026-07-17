@@ -6,7 +6,7 @@ import type {
 } from "../../../../app/lib/desktop";
 
 export type AgentManagementHealthResult = {
-  status: "idle" | "running" | "passed" | "failed";
+  status: "idle" | "running" | "passed" | "failed" | "missing" | "needs_auth";
   at: number | null;
   runId: string | null;
   output: string;
@@ -34,8 +34,13 @@ export function summarizeAgentManagementHealth(run: PersonalLocalAgentRunResult)
 
 export function agentManagerStatusTone(status: string): StatusBadgeTone {
   if (status === "online") return "success";
-  if (status === "offline") return "danger";
-  return "warning";
+  // Upstream parity (AgentCard.tsx color map): online=green, needs_auth=gold,
+  // missing=red, offline=orange, unknown=gray. missing is a problem (red);
+  // offline/unknown are degraded-but-not-error (orange / gray).
+  if (status === "needs_auth") return "warning";
+  if (status === "missing") return "danger";
+  if (status === "offline") return "orange";
+  return "neutral";
 }
 
 export function formatAgentManagerTime(value: number | null | undefined) {
@@ -56,20 +61,21 @@ export function formatAgentManagerDuration(value: number) {
 }
 
 export function agentManagerHealthLabel(agent: AgentManagementAgent, health?: AgentManagementHealthResult) {
-  if (health?.status === "running") return t("agent_manager.health_checking");
-  if (health?.status === "passed") {
-    return t("agent_manager.health_passed", { time: formatAgentManagerTime(health.at) });
-  }
-  if (health?.status === "failed") {
-    return t("agent_manager.health_failed", { time: formatAgentManagerTime(health.at) });
-  }
-  if (agent.status === "online") return t("agent_manager.health_checkable");
-  return t("agent_manager.health_not_checkable");
+  if (health?.status === "running") return "检查中";
+  if (health?.status === "passed") return `已连接 · ${formatAgentManagerTime(health.at)}`;
+  if (health?.status === "needs_auth") return `需要登录 · ${formatAgentManagerTime(health.at)}`;
+  if (health?.status === "missing") return `未安装 · ${formatAgentManagerTime(health.at)}`;
+  if (health?.status === "failed") return `未连接 · ${formatAgentManagerTime(health.at)}`;
+  return "可测试";
 }
 
 export function agentManagerHealthTone(agent: AgentManagementAgent, health?: AgentManagementHealthResult): StatusBadgeTone {
   if (health?.status === "running") return "accent";
   if (health?.status === "passed") return "success";
-  if (health?.status === "failed" || agent.status !== "online") return "danger";
+  // Upstream parity (AgentCard.tsx color map): needs_auth=gold (warn, one step
+  // away), missing=red (problem), failed/offline=orange (degraded, not error).
+  if (health?.status === "needs_auth") return "warning";
+  if (health?.status === "missing") return "danger";
+  if (health?.status === "failed") return "orange";
   return "neutral";
 }

@@ -1,5 +1,5 @@
 // Context window fallback + normalization for Local Agent runtime.
-// Aligns with AionUi's MODEL_CONTEXT_LIMITS strategy: prefer usage.total from
+// Aligns with Upstream's MODEL_CONTEXT_LIMITS strategy: prefer usage.total from
 // the CLI when present, otherwise look up the model in a static table, and
 // finally fall back to a conservative default.
 

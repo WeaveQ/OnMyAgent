@@ -143,16 +143,19 @@ function permissionCopy(permission: string): Pick<PermissionPresentation, "title
   };
 }
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function fileChangeLine(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
+  if (!isRecordStringUnknown(value)) return null;
   const path =
-    (typeof record.relativePath === "string" && record.relativePath.trim()) ||
-    (typeof record.filePath === "string" && record.filePath.trim()) ||
-    (typeof record.path === "string" && record.path.trim()) ||
+    (typeof value.relativePath === "string" && value.relativePath.trim()) ||
+    (typeof value.filePath === "string" && value.filePath.trim()) ||
+    (typeof value.path === "string" && value.path.trim()) ||
     null;
   if (!path) return null;
-  const type = typeof record.type === "string" && record.type.trim() ? record.type.trim() : "change";
+  const type = typeof value.type === "string" && value.type.trim() ? value.type.trim() : "change";
   return `${type}: ${path}`;
 }
 
@@ -236,16 +239,13 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
   const presentation = useMemo(() => describePermissionRequest(props.permission), [props.permission]);
-  const metadata =
-    props.permission.metadata && typeof props.permission.metadata === "object"
-      ? props.permission.metadata
-      : {};
+  const metadata = isRecordStringUnknown(props.permission.metadata) ? props.permission.metadata : {};
   const hasMetadata = Object.keys(metadata).length > 0;
   const detailRows = permissionDetailRows(metadata);
   const Icon = presentation.isDoomLoop ? RefreshCcw : ShieldCheck;
   const iconClass = presentation.isDoomLoop
     ? "bg-dls-status-warning-soft text-dls-status-warning-fg"
-    : "bg-dls-accent/10 text-dls-accent";
+    : "bg-dls-decision-soft text-dls-accent";
 
   useEffect(() => {
     previousActiveElementRef.current =
@@ -418,10 +418,7 @@ function permissionRiskTier(permission: PendingPermission, isDoomLoop: boolean):
 
 export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
   const presentation = useMemo(() => describePermissionRequest(props.permission), [props.permission]);
-  const metadata =
-    props.permission.metadata && typeof props.permission.metadata === "object"
-      ? props.permission.metadata
-      : {};
+  const metadata = isRecordStringUnknown(props.permission.metadata) ? props.permission.metadata : {};
   const hasMetadata = Object.keys(metadata).length > 0;
   const Icon = presentation.isDoomLoop ? RefreshCcw : ShieldCheck;
 

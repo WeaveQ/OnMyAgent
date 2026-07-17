@@ -196,3 +196,150 @@ export function stringifyAgentCommand(execPath, args) {
 export function appendRunEvent(events, event) {
   events.push({ ...event, at: Date.now() });
 }
+
+// --- Process-tree lifecycle primitives (shared by adapters + registry) ---
+// Mirrors AionUi's `backend-launcher.ts` / `acp-generic.mjs` kill semantics:
+// escalate SIGTERM -> grace -> SIGKILL, and target the whole process group
+// (negative pid) so a detached child plus everything it forked is reaped.
+
+export function isProcessAlive(pid) {
+  const n = Number(pid);
+  if (!n) return false;
+  try {
+    process.kill(n, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// A registry record carries `pid` and optionally `pgid`. Prefer the process
+// group (a detached child's pgid equals its pid on POSIX) and fall back to the
+// bare pid. Either way we report "alive" only if at least one signal probe
+// succeeds — a process that is merely hung waiting on the network still shows
+// up here, which is exactly why callers must *kill* it rather than skip it.
+export function isProcessTreeAlive(record) {
+  const nPid = Number(record?.pid);
+  const nPgid = Number(record?.pgid);
+  if (nPgid > 1) {
+    try {
+      process.kill(-nPgid, 0);
+      return true;
+    } catch {
+      // Fall through to a direct pid probe.
+    }
+  }
+  return isProcessAlive(nPid);
+}
+
+export function waitForExit(child, timeoutMs = 10_000) {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // Already gone.
+      }
+      resolve();
+    }, timeoutMs);
+    timer.unref?.();
+    child.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+// Kill a live ChildProcess object and its descendants. Used by adapter cancel
+// paths and ACP teardown.
+export async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const pid = child.pid;
+  if (process.platform === "win32") {
+    if (pid) {
+      try {
+        spawn("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      } catch {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Already gone.
+        }
+      }
+    }
+    await waitForExit(child, graceMs + 2_000);
+    return;
+  }
+  const killGroup = (signal) => {
+    if (!pid) return child.kill(signal);
+    try {
+      process.kill(-pid, signal);
+    } catch {
+      try {
+        child.kill(signal);
+      } catch {
+        // Already exited.
+      }
+    }
+  };
+  killGroup("SIGTERM");
+  await Promise.race([
+    waitForExit(child, graceMs),
+    new Promise((resolve) => setTimeout(resolve, graceMs).unref?.()),
+  ]);
+  if (child.exitCode === null && child.signalCode === null) {
+    killGroup("SIGKILL");
+    await waitForExit(child, 2_000);
+  }
+}
+
+// Kill a process tree addressed only by a persisted registry record
+// ({ pid, pgid }). Used when we no longer hold the ChildProcess (startup /
+// exit cleanup, reconcile) — there is no exit event to await, so we probe
+// liveness manually after the grace window.
+/**
+ * @param {{ pid?: number | string; pgid?: number | string; graceMs?: number }} [options]
+ */
+export async function terminateProcessTreeByPid({ pid, pgid, graceMs = 1_000 } = {}) {
+  const nPid = Number(pid);
+  if (!nPid) return;
+  if (process.platform === "win32") {
+    await runTaskkill(nPid, false);
+    return;
+  }
+  const target = Number(pgid) > 1 ? -Number(pgid) : -nPid;
+  const signalTarget = (signal) => {
+    try {
+      process.kill(target, signal);
+    } catch {
+      try {
+        process.kill(nPid, signal);
+      } catch {
+        // Already exited.
+      }
+    }
+  };
+  signalTarget("SIGTERM");
+  await new Promise((resolve) => setTimeout(resolve, graceMs));
+  if (isProcessTreeAlive({ pid: nPid, pgid: Number(pgid) > 1 ? Number(pgid) : null })) {
+    signalTarget("SIGKILL");
+  }
+}
+
+function runTaskkill(pid, force = false) {
+  return new Promise((resolve) => {
+    const args = ["/PID", String(pid), "/T"];
+    if (force) args.unshift("/F");
+    try {
+      const child = spawn("taskkill", args, { stdio: "ignore", windowsHide: true });
+      child.once("error", () => resolve());
+      child.once("exit", () => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}

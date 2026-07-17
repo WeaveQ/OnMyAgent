@@ -57,6 +57,35 @@ export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
+// Discoverable catalog agents (gemini/kiro/goose/kimi/...) are stored with the
+// shared provider "custom" so the ACP test-connection path works, but each keeps
+// its own real identity in `agent.id`. Mirror AionUi: surface that identity for
+// display instead of the collapsed "Custom" marker. Keyed by the same ids the
+// card icon map uses (see AgentManagementAgentIcon in agent-management-agent-card).
+export const AGENT_TYPE_LABELS_BY_ID: Record<string, string> = {
+  gemini: "Gemini CLI",
+  kiro: "Kiro",
+  goose: "Goose",
+  "cursor-agent": "Cursor Agent",
+  qwen: "Qwen Code",
+  kimi: "Kimi CLI",
+  copilot: "GitHub Copilot",
+  qoder: "Qoder",
+  augment: "Augment Code",
+  snow: "Snow CLI",
+  nanobot: "Nano Bot",
+  codebuddy: "CodeBuddy",
+  trae: "Trae",
+  mimo: "MiMo Code",
+  grok: "Grok Build",
+};
+
+export function localAgentTypeLabel(agent: { id?: string; provider?: string; name?: string }): string {
+  if (agent.id && AGENT_TYPE_LABELS_BY_ID[agent.id]) return AGENT_TYPE_LABELS_BY_ID[agent.id];
+  if (agent.provider && AGENT_MANAGER_PROVIDER_LABELS[agent.provider]) return AGENT_MANAGER_PROVIDER_LABELS[agent.provider];
+  return agent.provider || agent.id || agent.name || "Custom";
+}
+
 const SKILL_AGENT_LABELS: Record<string, string> = {
   opencode: "OpenCode",
   claude: "Claude Code",
@@ -64,8 +93,13 @@ const SKILL_AGENT_LABELS: Record<string, string> = {
   hermes: "Hermes",
   codex: "Codex",
   onmyagent: "OnMyAgent",
-  unknown: "unknown",
+  unknown: t("agent_manager.skill_agent_unknown"),
 };
+
+function skillAgentLabel(agent: string) {
+  if (agent === "unknown") return t("agent_manager.skill_agent_unknown");
+  return SKILL_AGENT_LABELS[agent] ?? agent;
+}
 
 const providerTextClass = {
   sectionTitle: "text-sm font-medium uppercase tracking-[0.08em] text-dls-secondary",
@@ -233,16 +267,19 @@ function extractCodexBaseUrlFromToml(config: string) {
   return config.match(/^\s*base_url\s*=\s*["']([^"']+)["']/m)?.[1] ?? "";
 }
 
+function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function formatCodexCatalog(settings: Record<string, unknown>) {
-  const modelCatalog = settings.modelCatalog && typeof settings.modelCatalog === "object" ? settings.modelCatalog as Record<string, unknown> : null;
+  const modelCatalog = isRecordStringUnknown(settings.modelCatalog) ? settings.modelCatalog : null;
   const rows = Array.isArray(modelCatalog?.models) ? modelCatalog.models : [];
   return rows
     .map((row) => {
-      if (!row || typeof row !== "object") return "";
-      const item = row as Record<string, unknown>;
-      const displayName = String(item.displayName ?? item.display_name ?? "").trim();
-      const model = String(item.model ?? "").trim();
-      const contextWindow = String(item.contextWindow ?? item.context_window ?? "").trim();
+      if (!isRecordStringUnknown(row)) return "";
+      const displayName = String(row.displayName ?? row.display_name ?? "").trim();
+      const model = String(row.model ?? "").trim();
+      const contextWindow = String(row.contextWindow ?? row.context_window ?? "").trim();
       if (!model) return "";
       return `${displayName || model} | ${model} | ${contextWindow}`.trimEnd();
     })
@@ -262,9 +299,9 @@ function codexCatalogRowsFromSettings(settings: Record<string, unknown>, fallbac
 
 export function providerDraftFromProvider(provider: AgentManagementManagedProvider): ProviderDraft {
   const settings = provider.settingsConfig ?? {};
-  const options = typeof settings.options === "object" && settings.options ? settings.options as Record<string, unknown> : {};
-  const env = typeof settings.env === "object" && settings.env ? settings.env as Record<string, unknown> : {};
-  const codexAuth = typeof settings.auth === "object" && settings.auth ? settings.auth as Record<string, unknown> : {};
+  const options = isRecordStringUnknown(settings.options) ? settings.options : {};
+  const env = isRecordStringUnknown(settings.env) ? settings.env : {};
+  const codexAuth = isRecordStringUnknown(settings.auth) ? settings.auth : {};
   const codexConfig = typeof settings.config === "string" ? settings.config : "";
   const baseUrl =
     provider.appType === "codex"
@@ -310,17 +347,10 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
 }
 
 function providerModelSummary(provider: AgentManagementManagedProvider) {
-  if (provider.models.length === 0) return t("agent_manager.models_none");
-  if (provider.models.length === 1) return provider.models[0]?.name || provider.models[0]?.id;
-  return t("agent_manager.models_and_more", {
-    name: provider.models[0]?.name || provider.models[0]?.id || "",
-    count: provider.models.length,
-  });
-}
-
-function skillAgentLabel(appType: string) {
-  if (appType === "unknown") return t("agent_manager.agent_unknown");
-  return SKILL_AGENT_LABELS[appType] ?? appType;
+  if (provider.models.length === 0) return t("agent_manager.provider_no_models");
+  const first = provider.models[0]?.name || provider.models[0]?.id;
+  if (provider.models.length === 1) return first;
+  return t("agent_manager.provider_models_more", { name: first, count: provider.models.length });
 }
 
 function ProviderBrandIcon(props: { provider?: AgentManagementManagedProvider; appType: AgentManagementProviderApp }) {
@@ -658,14 +688,14 @@ export function AgentManagementProviderModal(props: {
                         <Input
                           value={row.displayName}
                           onChange={(event) => updateCodexCatalogRow(row.rowId, { displayName: event.currentTarget.value })}
-                          placeholder={t("agent_manager.provider_modal.model_display_name_example")}
+                          placeholder={t("agent_manager.provider_modal.example_model_name", { name: "DeepSeek V4 Pro" })}
                           className={fieldClass}
                         />
                         <Input
                           value={row.model}
                           onChange={(event) => updateCodexCatalogRow(row.rowId, { model: event.currentTarget.value })}
                           list={fetchedModels.length ? `agent-provider-models-${props.appType}` : undefined}
-                          placeholder={t("agent_manager.provider_modal.model_id_example")}
+                          placeholder={t("agent_manager.provider_modal.example_model_id", { name: "deepseek-v4-pro" })}
                           className={fieldClass}
                         />
                         <Input
@@ -953,7 +983,7 @@ export function AgentManagementProviderPanel(props: {
           })}
         </div>
         <div className="mt-4 rounded-lg border border-dls-border bg-dls-surface-muted p-3 text-xs leading-5 text-dls-secondary">
-          <div className="font-medium text-dls-text">Studio Switch DB</div>
+          <div className="font-medium text-dls-text">{t("agent_manager.provider_studio_db_title")}</div>
           <div className="mt-1 break-all">{props.snapshot?.providers.databasePath}</div>
         </div>
       </aside>

@@ -23,7 +23,7 @@ export type WorkspaceFootnoteProps = {
 };
 
 /**
- * Local-agent variant of AionUi's `GuidWorkspaceFootnote`. Renders a compact
+ * Local-agent variant of Upstream's `GuidWorkspaceFootnote`. Renders a compact
  * chip beneath the composer that toggles between three states (empty /
  * picked / temporary) and a searchable dropdown of recent workspace roots
  * with browse + clear actions.

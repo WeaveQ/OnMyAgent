@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t } from "../../../../i18n";
 import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 
 export const SKILL_AGENT_LABELS: Record<string, string> = {
@@ -9,7 +9,7 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
   codex: "Codex",
   gemini: "Gemini",
   onmyagent: "OnMyAgent",
-  unknown: "unknown",
+  unknown: t("agent_manager.skill_agent_unknown"),
 };
 
 export function skillAgentLabel(agent: string) {

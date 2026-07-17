@@ -32,6 +32,8 @@ import {
 } from "electron";
 import { registerMigrationIpc } from "./migration.mjs";
 import { createDesktopPersonalRuntimeServices, createRuntimeManager } from "./runtime.mjs";
+import { cleanupRegisteredAgentProcesses } from "./personal-agent-runtime/process-registry.mjs";
+import { channelEventBus, CHANNEL_EVENTS } from "./channels/index.mjs";
 import { registerUpdaterIpc } from "./updater.mjs";
 import {
   exportWorkspaceConfig,
@@ -785,7 +787,7 @@ async function agentManagementSnapshot(input = {}) {
   const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
   if (!workspaceRoot) throw new Error("workspaceRoot is required");
   const [{ agents }, managedSkills, usageByProvider, providers, mcp] = await Promise.all([
-    personalAgentRuntime.listAgents({ workspaceRoot, includeModels: true }),
+    personalAgentRuntime.listAgents({ workspaceRoot, includeModels: true, includeDiscoverable: true }),
     scanAgentManagementSkills(workspaceRoot),
     personalAgentLegacyHarness.readPersonalAgentUsageSummary(workspaceRoot),
     readAgentManagementProvidersSnapshot(),
@@ -802,7 +804,11 @@ async function agentManagementSnapshot(input = {}) {
     workspaceRoot,
     agents: agents.map((agent) => ({
       ...agent,
-      usage: usageByProvider.get(agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
+      // Custom agents share the literal provider "custom", so we must NOT key
+      // their lookup by provider (that would hit the empty pre-seeded "custom"
+      // bucket and hide their real stats). Their run logs are keyed by agentId
+      // == agent.id. Built-in providers are keyed by provider directly.
+      usage: usageByProvider.get(agent.provider === "custom" ? agent.id : agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
       skillCount: skillCounts.get(agent.provider) ?? 0,
     })),
     skills: managedSkills,
@@ -1389,6 +1395,8 @@ const {
   personalAgentNativeSessions,
   weixinService,
   feishuService,
+  telegramService,
+  discordService,
   channelInfrastructureApi,
 } = createDesktopPersonalRuntimeServices({
   app,
@@ -1398,6 +1406,23 @@ const {
   browserUseEnvironment: (input) =>
     browserUseEnvironmentManager.environmentForRun(input),
 });
+
+// Push channel state / pairing changes from the main process to the renderer
+// (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
+// singleton event bus is shared by every channel service's dispatcher, so a
+// single subscription here covers Telegram, Discord, Weixin and Feishu.
+(function wireChannelStatusPush() {
+  if (!channelEventBus) return;
+  channelEventBus.subscribe(CHANNEL_EVENTS.CHANNEL_STATE_CHANGED, (event) => {
+    mainWindow?.webContents?.send("onmyagent:channel:status", event?.payload ?? {});
+  });
+  channelEventBus.subscribe(CHANNEL_EVENTS.PAIRING_REQUESTED, (event) => {
+    mainWindow?.webContents?.send("onmyagent:channel:pairing", event?.payload ?? {});
+  });
+  channelEventBus.subscribe(CHANNEL_EVENTS.USER_AUTHORIZED, (event) => {
+    mainWindow?.webContents?.send("onmyagent:channel:user:authorized", event?.payload ?? {});
+  });
+})();
 
 const codeWorkspaceActions = createCodeWorkspaceActions({
   runtimeManager,
@@ -1415,6 +1440,7 @@ async function disposeRuntimeBeforeQuit() {
   await Promise.all([
     personalAgentHeartbeatScheduler.close().catch(() => undefined),
     runtimeManager.dispose().catch(() => undefined),
+    cleanupRegisteredAgentProcesses().catch(() => undefined),
   ]);
 }
 
@@ -2195,7 +2221,37 @@ async function dispatchDesktopCommand(event, command, ...args) {
       return feishuService.simulateInbound(args[0] ?? {});
     case "feishuProbeAccessibleRoot":
       return probeAccessibleRoot(args[0] ?? {});
+    case "telegramSaveAccount":
+      return telegramService.saveAccount(args[0] ?? {});
+    case "telegramAccountStatus":
+      return telegramService.accountStatus(args[0] ?? {});
+    case "telegramStart":
+      return telegramService.start(args[0] ?? {});
+    case "telegramAutoStart":
+      return telegramService.autoStart(args[0] ?? {});
+    case "telegramStop":
+      return telegramService.stop();
+    case "telegramStatus":
+      return telegramService.status();
+    case "telegramSimulateInbound":
+      return telegramService.simulateInbound(args[0] ?? {});
+    case "discordSaveAccount":
+      return discordService.saveAccount(args[0] ?? {});
+    case "discordAccountStatus":
+      return discordService.accountStatus(args[0] ?? {});
+    case "discordStart":
+      return discordService.start(args[0] ?? {});
+    case "discordAutoStart":
+      return discordService.autoStart(args[0] ?? {});
+    case "discordStop":
+      return discordService.stop();
+    case "discordStatus":
+      return discordService.status();
+    case "discordSimulateInbound":
+      return discordService.simulateInbound(args[0] ?? {});
     // --- Channel Infrastructure API ---
+    case "channelTestPlugin":
+      return channelInfrastructureApi.testChannelPlugin(args[0]?.pluginId, args[0] ?? {});
     case "channelGetPendingPairingRequests":
       return channelInfrastructureApi.getPendingPairingRequests();
     case "channelApprovePairing":
@@ -3196,7 +3252,7 @@ async function createMainWindow() {
       mainWindow?.setTitle(APP_NAME);
     }
     mainWindow?.show();
-    if (isDevMode) {
+    if (isDevMode && process.env.ONMYAGENT_OPEN_DEVTOOLS === "1") {
       try {
         mainWindow?.webContents.openDevTools({ mode: "detach" });
       } catch (error) {
@@ -3432,6 +3488,17 @@ if (!app.requestSingleInstanceLock()) {
     });
     void feishuService.autoStart().catch((error) => {
       console.warn("[feishu] auto start failed", error);
+    });
+    // Telegram & Discord were missing from the launch auto-start sequence —
+    // only weixin/feishu were auto-started, so every app restart left the
+    // Telegram poller dead until the user manually toggled it on in Studio
+    // (messages then went unconsumed -> "又不理我了"). autoStart() is a no-op
+    // when the config flag is false or no account is configured.
+    void telegramService.autoStart().catch((error) => {
+      console.warn("[telegram] auto start failed", error);
+    });
+    void discordService.autoStart().catch((error) => {
+      console.warn("[discord] auto start failed", error);
     });
 
     queueDeepLinks(forwardedDeepLinks(process.argv));

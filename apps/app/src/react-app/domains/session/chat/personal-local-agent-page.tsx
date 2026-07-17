@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Plus,
   Search,
+  Settings2,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,6 @@ import {
   personalLocalAgentAcpProcessesList,
   personalLocalAgentAcpResolveApproval,
   personalLocalAgentAcpSend,
-  personalLocalAgentSetAcpConfigOption,
   personalLocalAgentConversationCreate,
   personalLocalAgentConversationTranscript,
   personalLocalAgentConversationGetById,
@@ -125,6 +125,8 @@ import type { SessionArchiveResumeRequest } from "./session-page-session-archive
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { useArchiveResume } from "./use-archive-resume";
 import { ActiveRunsOverview } from "./personal-local-agent-active-runs";
+import { useWorkspaceOverride } from "./use-workspace-override";
+import { PersonalLocalAgentModelSelector } from "./personal-local-agent-model-selector";
 import {
   agentSubtitle,
   lastRunForAgent,
@@ -294,21 +296,46 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // Per-conversation workspace binding: an existing conversation shows its own
   // `workdir` and locks the chip (read-only). A not-yet-created / empty
   // conversation uses the page-level override (editable) so the user can pick a
-  // directory before the first message. This matches AionUi's per-navigation
+  // directory before the first message. This matches Upstream's per-navigation
   // workspace semantics instead of a single global override.
   const selectedConversationWorkdir = selectedConversation?.workdir?.trim() || "";
-  const chipEditable = !selectedConversationWorkdir && !selectedConversation;
   const displayWorkspaceRoot = selectedConversationWorkdir || effectiveWorkspaceRoot;
   const selectedAcpModelInfo = useAcpModelInfo(selectedAgent);
   const selectedHeartbeatJobs = selectedAgent ? heartbeatJobs.filter((job) => job.agent?.id === selectedAgent.id) : [];
   const selectedChatKey = selectedAgent ? localAgentChatKey(selectedAgent.id, selectedConversationId) : "";
+  // The workspace chip stays editable ONLY while the conversation is truly
+  // fresh: it has no committed `workdir` AND no real messages yet. Before the
+  // first message the user may freely pick / re-pick a project (so a wrong
+  // choice can be corrected). Sending the first message commits the workdir on
+  // the server and permanently locks the chip. This keeps the chip's editable
+  // state consistent with `selectedIsFreshConversation()` (the rebase guard),
+  // avoiding the case where the chip looks editable but re-picking silently
+  // does nothing.
   const handleWarmupResult = useCallback((result: { ok: boolean; providerSessionId?: string | null }) => {
-    if (!result.ok || !selectedAgent || !selectedConversationId || !result.providerSessionId) return;
-    setConversationsByAgent((current) => ({
-      ...current,
-      [selectedAgent.id]: (current[selectedAgent.id] ?? []).map((conversation) => conversation.id === selectedConversationId ? { ...conversation, providerSessionId: result.providerSessionId ?? conversation.providerSessionId, resumeKey: result.providerSessionId ?? conversation.resumeKey } : conversation),
-    }));
-  }, [selectedAgent, selectedConversationId]);
+    if (!result.ok || !selectedAgent || !selectedConversationId) return;
+    if (result.providerSessionId) {
+      setConversationsByAgent((current) => ({
+        ...current,
+        [selectedAgent.id]: (current[selectedAgent.id] ?? []).map((conversation) => conversation.id === selectedConversationId ? { ...conversation, providerSessionId: result.providerSessionId ?? conversation.providerSessionId, resumeKey: result.providerSessionId ?? conversation.resumeKey } : conversation),
+      }));
+    }
+    // After the ACP warmup handshake completes, the runtime has persisted the
+    // session metadata (available_models, config options, commands) into the
+    // session-store. Re-pull the agent list so `listAgents` hydrates that
+    // metadata into `agent.handshake` — this is what makes the model selector
+    // appear for custom/ACP agents (which have no static `modelOptions`),
+    // matching Upstream's "models become selectable after the session handshake"
+    // behavior. Without this the handshake stays cold and the selector never
+    // shows. `useAcpInitialMessage` de-dupes warmups by key, so refreshing the
+    // agents here cannot cause a warmup loop.
+    void personalLocalAgentAcpAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: false })
+      .then((listed) => {
+        const nextAgents = listed.agents.map(agentFromAcpMetadata);
+        setAgents(nextAgents);
+        safeWriteCachedAgents(props.workspaceRoot, nextAgents);
+      })
+      .catch(() => undefined);
+  }, [effectiveWorkspaceRoot, props.workspaceRoot, selectedAgent, selectedConversationId]);
   useAcpInitialMessage({ workspaceRoot: effectiveWorkspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, disabled: isChannelView, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: effectiveWorkspaceRoot, agent: isChannelView ? null : selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
   const filteredAgents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -358,7 +385,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const selectedSlashCommands = useMemo(() => {
     // Fold live `available_commands` events (last one wins) on top of the
     // handshake snapshot so slash suggestions stay in sync when the CLI adds
-    // or removes commands mid-session — this matches AionUi's behavior.
+    // or removes commands mid-session — this matches Upstream's behavior.
     let liveCommands: unknown = null;
     for (let index = selectedMessages.length - 1; index >= 0 && !liveCommands; index -= 1) {
       const runMessages = selectedMessages[index]?.run?.conversationMessages;
@@ -382,8 +409,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     [activeRunId, selectedMessages],
   );
   const running = Boolean(activeRun?.status === "running" || (selectedAgent && startingByAgent[selectedChatKey]));
-  const selectedModelOptions = selectedAcpModelInfo.options;
-  const loadingSelectedModels = Boolean(selectedAgent && selectedAgent.status === "online" && selectedModelOptions.length === 0);
   const selectedError = selectedAgent ? errorsByAgent[selectedAgent.id] ?? null : null;
   const selectedCapability = selectedAgent?.capability ?? null;
   const selectedAgentIconUrl = selectedAgent ? providerIconUrl(selectedAgent.provider) : null;
@@ -669,25 +694,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setRefreshing(false);
     }
   }, [props.workspaceRoot, selectedAgentId]);
-  const handleNewConversation = useCallback(async () => {
-    const targetAgent = selectedAgent ?? agents[0] ?? null;
-    if (!targetAgent) return;
-    try {
-      const result = await personalLocalAgentConversationCreate({
-        workspaceRoot: effectiveWorkspaceRoot,
-        title: "",
-        agent: targetAgent,
-      });
-      setConversationsByAgent((current) => ({
-        ...current,
-        [targetAgent.id]: [result.conversation, ...(current[targetAgent.id] ?? [])],
-      }));
-      setSelectedConversationIdByAgent((current) => ({ ...current, [targetAgent.id]: result.conversation.id }));
-    } catch (error) {
-      setErrorsByAgent((current) => ({ ...current, [targetAgent.id]: error instanceof Error ? error.message : String(error) }));
-    }
-  }, [agents, effectiveWorkspaceRoot, selectedAgent]);
-
   useEffect(() => {
     void refreshAgents();
   }, [refreshAgents]);
@@ -787,14 +793,37 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             turnFinishedRef.current[runId] = true;
           }
           const fallbackAgent = agents.find((agent) => agent.id === effectiveSnapshot.agentId) ?? agents.find((agent) => agent.id === agentId) ?? selectedAgent;
-          setMessagesByAgent((current) => ({
-            ...current,
-            [chatKey]: (current[chatKey] ?? (fallbackAgent ? [welcomeMessageForAgent(fallbackAgent)] : [])).map((message) =>
+          setMessagesByAgent((current) => {
+            const list = current[chatKey] ?? (fallbackAgent ? [welcomeMessageForAgent(fallbackAgent)] : []);
+            // For channel-initiated runs there is no renderer-side optimistic
+            // user input, so the user's message would be invisible. Extract it
+            // from the run's conversationMessages (recorded by the runtime as a
+            // `user` event) and surface it as a real user ChatMessage bubble
+            // right before the assistant reply. Dedup by a stable id so polling
+            // never duplicates it.
+            const userText = effectiveSnapshot.conversationMessages
+              ?.find((m) => m.role === "user" && String(m.text ?? "").trim())
+              ?.text?.trim() ?? "";
+            const userMessageId = `user-${runId}`;
+            const next = list.map((message) =>
               message.run?.runId === runId
                 ? { ...message, text: messageTextForRun(effectiveSnapshot, message.text), run: effectiveSnapshot }
                 : message,
-            ),
-          }));
+            );
+            if (!userText || next.some((m) => m.id === userMessageId)) {
+              return { ...current, [chatKey]: next };
+            }
+            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
+            if (assistantIndex === -1) return { ...current, [chatKey]: next };
+            const userMessage = {
+              id: userMessageId,
+              role: "user" as const,
+              text: userText,
+              createdAt: effectiveSnapshot.startedAt ?? Date.now(),
+            };
+            const withUser = [...next.slice(0, assistantIndex), userMessage, ...next.slice(assistantIndex)];
+            return { ...current, [chatKey]: withUser };
+          });
           rememberRunResult(agentId, effectiveSnapshot);
           if (effectiveSnapshot.status !== "running") {
             setActiveRunIdByAgent((current) => ({
@@ -873,6 +902,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         prompt,
         approvalMode,
         conversationId: runConversationId,
+        workdir: effectiveWorkspaceRoot || null,
         agent: {
           ...runAgent,
           model: requestedModel,
@@ -972,36 +1002,35 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
     }
   }, [props.workspaceRoot, resetAgentChat, running, selectedAgent, selectedConversationId]);
-  const applyWorkspaceOverride = useCallback((next: string) => {
-    const trimmed = next.trim();
-    writeWorkspaceOverride(trimmed);
-    setWorkspaceOverrideState(trimmed);
-    if (trimmed) {
-      setRecentWorkspaces(addRecentWorkspace(trimmed));
-    }
-  }, []);
-  const clearWorkspaceOverride = useCallback(() => {
-    writeWorkspaceOverride("");
-    setWorkspaceOverrideState("");
-  }, []);
-  const browseWorkspaceOverride = useCallback(async () => {
-    const picked = await pickDirectory({
-      title: t("local_agent.workspace_choose_different_folder"),
-      defaultPath: effectiveWorkspaceRoot || props.workspaceRoot || undefined,
-    });
-    const target = Array.isArray(picked) ? picked[0] : picked;
-    if (typeof target === "string" && target.trim()) {
-      applyWorkspaceOverride(target.trim());
-    }
-  }, [applyWorkspaceOverride, effectiveWorkspaceRoot, props.workspaceRoot]);
-  const workspaceRecentList = useMemo(() => {
-    const base = recentWorkspaces.slice();
-    const rootTrim = (props.workspaceRoot ?? "").trim();
-    if (rootTrim && !base.includes(rootTrim)) {
-      base.push(rootTrim);
-    }
-    return base;
-  }, [recentWorkspaces, props.workspaceRoot]);
+  // Workspace freshness + override logic (chip editable state, re-base into a
+  // different project partition, recent-workspace list). Extracted into
+  // `useWorkspaceOverride` so this page stays below the god-file line gate while
+  // keeping the original behavior identical.
+  const {
+    chipEditable,
+    applyWorkspaceOverride,
+    clearWorkspaceOverride,
+    browseWorkspaceOverride,
+    workspaceRecentList,
+  } = useWorkspaceOverride({
+    selectedConversation,
+    selectedConversationId,
+    selectedAgent,
+    running,
+    effectiveWorkspaceRoot,
+    propsWorkspaceRoot: props.workspaceRoot,
+    selectedChatKey,
+    selectedConversationWorkdir,
+    messagesByAgent,
+    recentWorkspaces,
+    setConversationsByAgent,
+    setSelectedConversationIdByAgent,
+    setMessagesByAgent,
+    setDraftsByAgent,
+    setActiveRunIdByAgent,
+    setWorkspaceOverrideState,
+    setRecentWorkspaces,
+  });
   const createNewConversation = useCallback(async () => {
     if (!selectedAgent || running) return;
     const agent = selectedAgent;
@@ -1011,7 +1040,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const result = await personalLocalAgentConversationCreate({
         workspaceRoot: effectiveWorkspaceRoot,
         agent,
-        workdir: effectiveWorkspaceRoot || null,
+        // Do NOT pre-commit a `workdir` here. A brand-new conversation must stay
+        // "fresh" (no committed workdir) so the workspace chip stays editable and
+        // the user can mount a project. The run commits the workdir later based
+        // on the page-level override (see `startAgentRun` -> `workdir`).
+        workdir: null,
       });
       setConversationsByAgent((current) => ({
         ...current,
@@ -1159,7 +1192,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const acpMatch = selectedSlashCommands.find((command) => command.source === "acp" && command.name.toLowerCase() === trimmed.toLowerCase());
       if (acpMatch) {
         // ACP-provided commands (including /compact) are transparently forwarded
-        // to the CLI as a normal prompt. AionUi does the same: the CLI itself
+        // to the CLI as a normal prompt. Upstream does the same: the CLI itself
         // owns the compaction/summarization semantics.
       } else if (trimmed === "/new") {
         await createNewConversation();
@@ -1327,7 +1360,7 @@ return (
             <Button
               type="button"
               size="icon-sm"
-              onClick={() => void handleNewConversation()}
+              onClick={() => void createNewConversation()}
               className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
               title={t("local_agent.new_conversation")}
               aria-label={t("local_agent.new_conversation")}
@@ -1596,31 +1629,14 @@ return (
       {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <LoadingSpinner size="default" /> : <Plus className="size-4" />}
     </Button>
     {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
-      <div className="min-w-[160px] max-w-[220px]">
-        <SelectMenu
-          size="compact"
-          ariaLabel={modelSelectorLabel(selectedAgent)}
-          options={[
-            { value: "", label: t("local_agent.use_default_config") },
-            ...(loadingSelectedModels ? [{ value: "__loading", label: t("local_agent.loading_models") }] : []),
-            ...selectedModelOptions.map((option) => ({ value: option.id, label: option.label })),
-          ]}
-          value={selectedModel}
-          onChange={(value) => {
-            if (value === "__loading") return;
-            setSelectedModel(value);
-            if (value && selectedAgent && selectedAcpModelInfo.supportsModelOverride) {
-              void personalLocalAgentSetAcpConfigOption({
-                workspaceRoot: effectiveWorkspaceRoot,
-                agent: selectedAgent,
-                optionId: selectedAcpModelInfo.modelOptionId,
-                value,
-              });
-            }
-          }}
-          disabled={!selectedAgent || running}
-        />
-      </div>
+      <PersonalLocalAgentModelSelector
+        agent={selectedAgent}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
+        workspaceRoot={effectiveWorkspaceRoot}
+        disabled={!selectedAgent || running}
+        acpModelInfo={selectedAcpModelInfo}
+      />
     ) : null}
     <Button
       ref={scheduledTasksButtonRef}

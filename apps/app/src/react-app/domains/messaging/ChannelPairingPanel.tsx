@@ -12,6 +12,7 @@ import {
   channelDenyPairing,
   channelRevokeUserAuthorization,
   channelGetSessionsByPlatform,
+  onChannelPairing,
   type ChannelPairingRequest,
   type ChannelAuthorizedUser,
   type ChannelSession,
@@ -193,11 +194,14 @@ export function ChannelPairingPanel() {
     }
   }, []);
 
-  // Initial load and periodic refresh
+  // Initial load, then refresh on backend pairing pushes (parity: AionUi
+  // event-push for pairingRequested) instead of a fixed 5s poll.
   useEffect(() => {
     void loadData();
-    const interval = setInterval(loadData, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
+    const unsubscribe = onChannelPairing(() => {
+      void loadData();
+    });
+    return unsubscribe;
   }, [loadData]);
 
   // Handle approve pairing
