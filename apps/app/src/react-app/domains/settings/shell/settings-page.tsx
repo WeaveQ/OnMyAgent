@@ -174,7 +174,7 @@ export function getWorkspaceSettingsTabs(): SettingsTab[] {
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  const tabs: SettingsTab[] = ["ai", "environment"];
+  const tabs: SettingsTab[] = ["ai", "environment", "updates"];
   if (developerMode) tabs.push("debug");
   return tabs;
 }
