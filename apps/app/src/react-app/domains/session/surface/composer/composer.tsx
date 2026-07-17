@@ -6,7 +6,7 @@ import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { desktopBridge } from "../../../../../app/lib/desktop";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { MenuRowButton, MenuRowSurface } from "@/components/ui/action-row";
+import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SendButton } from "@/components/ui/send-button";
@@ -1143,8 +1143,24 @@ export function ReactSessionComposer(props: ComposerProps) {
                             </div>
                           ) : toolMenuSection === "mcps" ? (
                             <div className="space-y-2 border-b border-dls-border px-3 py-2">
-                              <div className="flex min-h-8 items-center text-sm font-medium text-dls-text">
-                                {t("composer.connectors_label")}
+                              {/* Match skills panel: title + quiet configure, then search */}
+                              <div className="flex min-h-8 items-center justify-between gap-3">
+                                <div className="text-sm font-medium text-dls-text">
+                                  {t("composer.connectors_label")}
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="xs"
+                                  className="shrink-0 gap-1 text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
+                                  onClick={() => {
+                                    setToolMenuOpen(false);
+                                    openToolMenuSettings();
+                                  }}
+                                >
+                                  <Settings className="size-3.5" />
+                                  {t("composer.configure")}
+                                </Button>
                               </div>
                               <InputGroup controlSize="sm" radius="md" tone="surface">
                                 <InputGroupAddon align="inline-start">
@@ -1346,33 +1362,51 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                             {toolMenuSection === "mcps" ? (
                               hasConnectorMatches ? (
-                                <div className="grid gap-0.5">
-                                  {filteredMcpItems.map(({ entry, status }) => (
-                                    <MenuRowSurface key={entry.name} align="center" className="gap-3">
-                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                        <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-sm font-medium text-dls-text">
-                                            {entry.name}
+                                <div className="grid min-w-0 gap-0.5">
+                                  {filteredMcpItems.map(({ entry, status }) => {
+                                    const description = mcpServerDescription(entry);
+                                    return (
+                                      <MenuRowButton
+                                        key={entry.name}
+                                        type="button"
+                                        align="center"
+                                        className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
+                                        // Display-only MCP status rows; keep soft skills-like chrome.
+                                        tabIndex={-1}
+                                        onClick={(event) => event.preventDefault()}
+                                      >
+                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                          <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                        </div>
+                                        <div className="min-w-0 flex-1 overflow-hidden">
+                                          <div className="flex min-w-0 items-center justify-between gap-2">
+                                            <div className="min-w-0 truncate text-sm font-medium text-dls-text">
+                                              {entry.name}
+                                            </div>
+                                            <StatusBadge
+                                              size="tiny"
+                                              shape="soft"
+                                              tone={mcpStatusBadgeTone(status)}
+                                              className="shrink-0"
+                                            >
+                                              {formatMcpStatusLabel(status)}
+                                            </StatusBadge>
                                           </div>
-                                          <StatusBadge size="tiny" shape="soft" tone={mcpStatusBadgeTone(status)}>
-                                            {formatMcpStatusLabel(status)}
-                                          </StatusBadge>
+                                          {description ? (
+                                            <div className="truncate text-xs text-dls-secondary">
+                                              {description}
+                                            </div>
+                                          ) : null}
                                         </div>
-                                        <div className="truncate text-xs text-dls-secondary">
-                                          {mcpServerDescription(entry)}
-                                        </div>
-                                      </div>
-                                    </MenuRowSurface>
-                                  ))}
+                                      </MenuRowButton>
+                                    );
+                                  })}
                                   {filteredComposerExtensions.map((entry) => (
                                     <MenuRowButton
                                       key={entry.id ?? entry.serverName ?? entry.name}
                                       type="button"
                                       align="center"
-                                      className="gap-3"
+                                      className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
                                       active={selectedComposerExtension === entry}
                                       onMouseEnter={() => setSelectedComposerExtension(
                                         entry.suggestedPrompts?.length ? entry : null,
@@ -1388,23 +1422,37 @@ export function ReactSessionComposer(props: ComposerProps) {
                                         applyExtensionSelection(entry);
                                       }}
                                     >
+                                      {/* Same icon tile language as skills rows */}
                                       <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
                                         {extensionIcon(entry, 16)}
                                       </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-sm font-medium text-dls-text">
+                                      <div className="min-w-0 flex-1 overflow-hidden">
+                                        <div className="flex min-w-0 items-center justify-between gap-2">
+                                          <div className="min-w-0 truncate text-sm font-medium text-dls-text">
                                             {entry.name}
                                           </div>
                                           {entry.defaultEnabled ? (
-                                            <StatusBadge size="tiny" shape="soft" tone="accent">{t("plugins.enabled")}</StatusBadge>
+                                            <StatusBadge
+                                              size="tiny"
+                                              shape="soft"
+                                              tone="accent"
+                                              className="shrink-0"
+                                            >
+                                              {t("plugins.enabled")}
+                                            </StatusBadge>
+                                          ) : entry.suggestedPrompts?.length ? (
+                                            <ChevronRight
+                                              className="size-3.5 shrink-0 text-dls-secondary"
+                                              aria-hidden="true"
+                                            />
                                           ) : null}
                                         </div>
-                                        <div className="truncate text-xs text-dls-secondary">{entry.description}</div>
+                                        {entry.description ? (
+                                          <div className="truncate text-xs text-dls-secondary">
+                                            {entry.description}
+                                          </div>
+                                        ) : null}
                                       </div>
-                                      {entry.suggestedPrompts?.length ? (
-                                        <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
-                                      ) : null}
                                     </MenuRowButton>
                                   ))}
                                 </div>
