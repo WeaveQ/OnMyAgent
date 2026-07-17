@@ -70,6 +70,12 @@ import type {
   ReloadEvent,
   ReloadTrigger,
   ResolvedArtifactTarget,
+  RuntimeServiceName,
+  RuntimeServiceSnapshot,
+  RuntimeVersionsResponse,
+  ServerClientCapabilities,
+  ServerHealthResponse,
+  ServerStatusResponse,
   SkillContentResponse,
   SkillItem,
   WorkspaceExportResponse,
@@ -86,86 +92,21 @@ import { desktopFetch } from "../desktop";
 import { isDesktopRuntime } from "../../utils";
 import type { ExecResult, OpencodeConfigFile, WorkspaceInfo, WorkspaceList } from "../desktop";
 
-export type OnMyAgentServerCapabilities = {
-  skills: { read: boolean; write: boolean; source: "onmyagent" | "opencode" };
-  hub?: {
-    skills?: {
-      read: boolean;
-      install: boolean;
-      repo?: { owner: string; name: string; ref: string };
-    };
-  };
-  plugins: { read: boolean; write: boolean };
-  mcp: { read: boolean; write: boolean };
-  commands: { read: boolean; write: boolean };
-  config: { read: boolean; write: boolean };
-  sandbox?: { enabled: boolean; backend: "none" | "docker" | "container" };
-  proxy?: { opencode: boolean };
-  toolProviders?: {
-    browser?: {
-      enabled: boolean;
-      placement: "in-sandbox" | "host-machine" | "client-machine" | "external";
-      mode: "none" | "headless" | "interactive";
-    };
-    files?: {
-      injection: boolean;
-      outbox: boolean;
-      inboxPath: string;
-      outboxPath: string;
-      maxBytes: number;
-    };
-  };
-};
+/** @deprecated Prefer ServerClientCapabilities from @onmyagent/types/server */
+export type OnMyAgentServerCapabilities = ServerClientCapabilities;
 
 export type OnMyAgentServerStatus = "connected" | "disconnected" | "limited";
 
-export type OnMyAgentServerDiagnostics = {
-  ok: boolean;
-  version: string;
-  uptimeMs: number;
-  readOnly: boolean;
-  approval: { mode: "manual" | "auto"; timeoutMs: number };
-  corsOrigins: string[];
-  workspaceCount: number;
-  activeWorkspaceId?: string | null;
-  selectedWorkspaceId?: string | null;
+/** @deprecated Prefer ServerStatusResponse from @onmyagent/types/server */
+export type OnMyAgentServerDiagnostics = Omit<ServerStatusResponse, "workspace"> & {
   workspace: OnMyAgentWorkspaceInfo | null;
-  authorizedRoots: string[];
-  server: { host: string; port: number; configPath?: string | null };
-  tokenSource: { client: string; host: string };
 };
 
-export type OnMyAgentRuntimeServiceName = "onmyagent-server" | "opencode";
-
-export type OnMyAgentRuntimeServiceSnapshot = {
-  name: OnMyAgentRuntimeServiceName;
-  enabled: boolean;
-  running: boolean;
-  targetVersion: string | null;
-  actualVersion: string | null;
-  upgradeAvailable: boolean;
-};
-
-export type OnMyAgentRuntimeSnapshot = {
-  ok: boolean;
-  orchestrator?: {
-    version: string;
-    startedAt: number;
-  };
-  worker?: {
-    workspace: string;
-    sandboxMode: string;
-  };
-  upgrade?: {
-    status: "idle" | "running" | "failed";
-    startedAt: number | null;
-    finishedAt: number | null;
-    error: string | null;
-    operationId: string | null;
-    services: OnMyAgentRuntimeServiceName[];
-  };
-  services: OnMyAgentRuntimeServiceSnapshot[];
-};
+export type OnMyAgentRuntimeServiceName = RuntimeServiceName;
+export type OnMyAgentRuntimeServiceSnapshot = RuntimeServiceSnapshot;
+/** @deprecated Prefer RuntimeVersionsResponse from @onmyagent/types/server */
+export type OnMyAgentRuntimeSnapshot = RuntimeVersionsResponse;
+export type OnMyAgentServerHealth = ServerHealthResponse;
 
 export type OnMyAgentServerSettings = {
   urlOverride?: string;
@@ -946,7 +887,7 @@ export function createOnMyAgentServerClient(options: { baseUrl: string; token?: 
     baseUrl,
     token,
     health: () =>
-      requestJson<{ ok: boolean; version: string; uptimeMs: number }>(baseUrl, "/health", { token, hostToken, timeoutMs: timeouts.health }),
+      requestJson<ServerHealthResponse>(baseUrl, "/health", { token, hostToken, timeoutMs: timeouts.health }),
     runtimeVersions: () =>
       requestJson<OnMyAgentRuntimeSnapshot>(baseUrl, "/runtime/versions", { token, hostToken, timeoutMs: timeouts.status }),
     status: () => requestJson<OnMyAgentServerDiagnostics>(baseUrl, "/status", { token, hostToken, timeoutMs: timeouts.status }),
