@@ -24,7 +24,13 @@ export function ConversationItemView(props: ConversationItemViewProps) {
     case "tool":
       return <ToolItemRow item={item} className={className} />;
     case "thinking":
-      return <ThinkingBlock item={item} className={className} />;
+      return (
+        <ThinkingBlock
+          item={item}
+          className={className}
+          defaultExpanded={streaming ? true : undefined}
+        />
+      );
     case "plan":
       return <PlanBlock item={item} className={className} streaming={streaming} />;
     case "approval":

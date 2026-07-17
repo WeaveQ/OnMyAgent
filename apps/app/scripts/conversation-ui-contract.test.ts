@@ -80,4 +80,60 @@ describe("conversation shared UI contract", () => {
     expect(read("ui/approval-card.tsx")).toContain("export function ApprovalCard");
     expect(read("ui/plan-block.tsx")).toContain("export function PlanBlock");
   });
+
+  test("OpenCode tool-block primary path uses shared ConversationItemView", () => {
+    const toolBlock = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/message-list/tool-block.tsx",
+      ),
+      "utf8",
+    );
+    expect(toolBlock).toContain('from "../../../../capabilities/conversation"');
+    expect(toolBlock).toContain("ConversationItemView");
+    expect(toolBlock).toContain("mapOpenCodeToolPartToItem");
+    expect(toolBlock).toContain("mapOpenCodeReasoningPartToItem");
+    // Reasoning (thinking) primary path is shared for streaming and complete.
+    expect(toolBlock).toContain("mapOpenCodeReasoningPartToItem");
+    expect(toolBlock).toMatch(/part\.type === "reasoning"[\s\S]*ConversationItemView/);
+    // Simple tools use shared row.
+    expect(toolBlock).toContain("useSharedSimpleToolRow");
+    expect(toolBlock).toContain("<ConversationItemView");
+  });
+
+  test("Personal timeline primary path uses shared ConversationItemView", () => {
+    const timeline = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/local-agents/messages/timeline-messages.tsx",
+      ),
+      "utf8",
+    );
+    expect(timeline).toContain("ConversationItemView");
+    expect(timeline).toContain("personalMessagesToConversationItems");
+    expect(timeline).toContain('kind: "tool"');
+    // Compact tools + approval + default kinds go through shared view.
+    expect(timeline).toContain("PersonalConversationItem");
+    expect(timeline).toContain("<ConversationItemView");
+    // Rich expandable I/O remains host extension-style only.
+    expect(timeline).toContain("toolNeedsRichInputOutputCard");
+    expect(timeline).toContain("LocalAgentToolCard");
+  });
+
+  test("personal host remains under local-agents domain", () => {
+    const hostDir = join(
+      import.meta.dir,
+      "../src/react-app/domains/local-agents/host",
+    );
+    expect(statSync(hostDir).isDirectory()).toBe(true);
+    expect(statSync(join(hostDir, "personal-local-agent-page.tsx")).isFile()).toBe(
+      true,
+    );
+    const barrel = readFileSync(
+      join(import.meta.dir, "../src/react-app/domains/local-agents/index.ts"),
+      "utf8",
+    );
+    expect(barrel).toContain("PersonalLocalAgentPage");
+    expect(barrel).toContain("./host/personal-local-agent-page");
+  });
 });
