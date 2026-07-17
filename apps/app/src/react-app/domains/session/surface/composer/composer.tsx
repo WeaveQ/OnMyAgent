@@ -1427,14 +1427,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                             {toolMenuSection === "mcps" ? (
                               hasConnectorMatches ? (
-                                <div className="grid gap-1">
+                                <div className="grid gap-0.5">
                                   {filteredMcpItems.map(({ entry, status }) => (
-                                    <MenuRowSurface key={entry.name}>
-                                      <Plug size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                    <MenuRowSurface key={entry.name} align="center" className="gap-3">
+                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                        <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                      </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-xs font-medium text-dls-secondary">{entry.name}</div>
-                                          <StatusBadge size="tiny" tone={mcpStatusBadgeTone(status)}>
+                                          <div className="truncate text-sm font-medium text-dls-text">{entry.name}</div>
+                                          <StatusBadge size="tiny" shape="soft" tone={mcpStatusBadgeTone(status)}>
                                             {formatMcpStatusLabel(status)}
                                           </StatusBadge>
                                         </div>
@@ -1446,6 +1448,8 @@ export function ReactSessionComposer(props: ComposerProps) {
                                     <MenuRowButton
                                       key={entry.id ?? entry.serverName ?? entry.name}
                                       type="button"
+                                      align="center"
+                                      className="gap-3"
                                       active={selectedComposerExtension === entry}
                                       onMouseEnter={() => setSelectedComposerExtension(
                                         entry.suggestedPrompts?.length ? entry : null,
@@ -1461,14 +1465,14 @@ export function ReactSessionComposer(props: ComposerProps) {
                                         applyExtensionSelection(entry);
                                       }}
                                     >
-                                      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
                                         {extensionIcon(entry, 16)}
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-xs font-medium text-dls-secondary">{entry.name}</div>
+                                          <div className="truncate text-sm font-medium text-dls-text">{entry.name}</div>
                                           {entry.defaultEnabled ? (
-                                            <StatusBadge size="tiny" tone="accent">{t("plugins.enabled")}</StatusBadge>
+                                            <StatusBadge size="tiny" shape="soft" tone="accent">{t("plugins.enabled")}</StatusBadge>
                                           ) : null}
                                         </div>
                                         <div className="truncate text-xs text-dls-secondary">{entry.description}</div>
