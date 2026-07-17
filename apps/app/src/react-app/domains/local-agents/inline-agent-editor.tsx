@@ -218,7 +218,7 @@ export function InlineAgentEditor(props: {
           <label className="space-y-1 text-xs text-dls-secondary">
             <span>{t("local_agent.editor_acp_args")}</span>
             <Input data-testid="local-agent-editor-acp-args" variant="dls" value={acpArgs} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAcpArgs(event.target.value)} placeholder="--acp" />
-            <p className="text-[11px] leading-tight text-dls-tertiary">{t("local_agent.editor_acp_args_hint")}</p>
+            <p className="text-xs leading-tight text-dls-tertiary">{t("local_agent.editor_acp_args_hint")}</p>
           </label>
         </div>
         <div className="grid gap-2 md:grid-cols-2">

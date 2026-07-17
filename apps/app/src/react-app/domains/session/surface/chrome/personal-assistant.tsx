@@ -166,7 +166,7 @@ export function SessionErrorCard({
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-3 sm:px-5">
-      <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-[13px] leading-[18px]">
+      <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-assistant">
         <div className="flex items-start gap-2">
           <TriangleAlert className="mt-px size-4 shrink-0 text-dls-status-danger" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -186,7 +186,7 @@ export function SessionErrorCard({
                 <X className="size-3.5" />
               </Button>
             </div>
-            <div className="space-y-1 border-t border-dls-border pt-2 text-[11px] leading-4 text-dls-secondary">
+            <div className="space-y-1 border-t border-dls-border pt-2 text-xs leading-4 text-dls-secondary">
               {error.messageId || error.traceId ? (
                 <div className="flex items-center gap-1.5 break-all text-dls-text">
                   <span className="min-w-0 flex-1">
