@@ -752,13 +752,6 @@ export function createPersonalAgentRuntime(options) {
     };
   }
 
-  async function browserUseContextForRun(input) {
-    if (typeof options.browserUseEnvironment !== "function") {
-      return { environment: {}, pathEntries: [] };
-    }
-    return options.browserUseEnvironment(input);
-  }
-
   async function start(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
@@ -850,12 +843,6 @@ export function createPersonalAgentRuntime(options) {
     state.providerSessionId = conversation.providerSessionId;
     state.resumeKey = conversation.resumeKey;
     state.conversationWorkdir = conversation.workdir;
-    const browserUseContext = await browserUseContextForRun({
-      workspaceRoot,
-      conversationId: conversation.id,
-      runId: id,
-    });
-
     state.timeoutTimer = setTimeout(() => {
       if (state.status !== "running") return;
       state.timedOut = true;
@@ -931,8 +918,6 @@ export function createPersonalAgentRuntime(options) {
           prompt,
           rawPrompt: prompt,
           approvalMode: state.approvalMode,
-          browserUseEnvironment: browserUseContext.environment,
-          browserUsePathEntries: browserUseContext.pathEntries,
           requestApproval: (request) => requestRunApproval(state, request),
         };
         let sendPromise = adapter.sendMessage(sendContext);
@@ -1284,11 +1269,6 @@ export function createPersonalAgentRuntime(options) {
       detected.connectionMode = defaultConnectionMode(provider, detected);
     }
     const conversation = await getOrCreateConversation(workspaceRoot, provider, agentId, input.conversationId);
-    const browserUseContext = await browserUseContextForRun({
-      workspaceRoot,
-      conversationId: conversation.id,
-      runId: `warmup-${Date.now()}`,
-    });
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.warmupConversation !== "function") return { ok: false, conversation, unsupportedReason: "warmup_not_supported" };
     try {
@@ -1303,8 +1283,6 @@ export function createPersonalAgentRuntime(options) {
         agent: detected,
         model: input.model ?? detected.model,
         approvalMode: normalizeApprovalMode(input.approvalMode),
-        browserUseEnvironment: browserUseContext.environment,
-        browserUsePathEntries: browserUseContext.pathEntries,
       });
       // Persist warmup-derived ACP session metadata (available_commands,
       // available models, config options) so listAgents can hydrate the

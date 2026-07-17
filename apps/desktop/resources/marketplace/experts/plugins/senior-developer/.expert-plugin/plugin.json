@@ -54,7 +54,6 @@
     }
   ],
   "skills": [
-    "./skills/browser-use",
     "./skills/capability-evolver",
     "./skills/frontend-dev",
     "./skills/fullstack-dev"

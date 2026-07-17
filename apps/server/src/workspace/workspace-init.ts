@@ -6,21 +6,12 @@ import { ApiError } from "../core/errors.js";
 import { onmyagentConfigPath, opencodeConfigPath } from "./workspace-files.js";
 import {
   readJsoncFile,
-  updateJsoncPath,
-  updateJsoncTopLevel,
   writeJsoncFile,
 } from "../core/jsonc.js";
 import type { ReloadReason } from "@onmyagent/types/server";
 import { APP_NAME, APP_NAME_LOWER } from "../core/brand.js";
 
-const BROWSER_PLUGIN = "opencode-chrome-devtools";
 const DEFAULT_OPENCODE_AGENT = APP_NAME_LOWER;
-const LEGACY_BROWSER_MCP_KEYS = [
-  "onmyagent-browser",
-  "chrome",
-  "chrome-devtools",
-  "control-chrome",
-];
 
 const ONMYAGENT_ARTIFACT_GUIDANCE = `<!-- ${APP_NAME}_ARTIFACTS_START -->
 ## ${APP_NAME} Artifacts
@@ -72,20 +63,6 @@ Your job:
 
 ${ONMYAGENT_LANGUAGE_GUIDANCE}
 
-<!-- ${APP_NAME}_BROWSER_START -->
-## Browser
-
-${APP_NAME} has a built-in browser that agents can control directly.
-Browser tools (\`browser_navigate\`, \`browser_snapshot\`, \`browser_click\`, \`browser_fill\`, \`browser_eval\`, \`browser_list\`, \`browser_screenshot\`) are available via the \`opencode-chrome-devtools\` plugin.
-
-**${APP_NAME} Browser**:
-- \`browser_url\`: always use \`"http://127.0.0.1:{{BROWSER_CDP_PORT}}"\`.
-- Use for browsing tasks. The user sees what you do in real time.
-- Always call \`browser_list\` first to discover available targets, then use the appropriate \`target_id\`.
-- Choose the built-in browser target (usually \`about:blank\` or the page URL). Do not navigate the ${APP_NAME} app target itself (title \`${APP_NAME}\` or URL containing \`:5173/#/workspace\`).
-- If the user asks for personal browser cookies, sign-ins, or installed extensions, explain that only the built-in ${APP_NAME} Browser is currently supported.
-<!-- ${APP_NAME}_BROWSER_END -->
-
 ## Memory
 
 Two kinds:
@@ -129,10 +106,6 @@ function normalizePreset(preset: string | null | undefined): string {
   return trimmed;
 }
 
-function isSchemaOnlyOpencodeConfig(config: Record<string, unknown>): boolean {
-  return Object.keys(config).every((key) => key === "$schema");
-}
-
 async function ensureWorkspaceOnMyAgentConfig(
   workspaceRoot: string,
   preset: string,
@@ -165,15 +138,12 @@ async function ensureOpencodeConfig(workspaceRoot: string): Promise<boolean> {
   await writeJsoncFile(path, {
     $schema: "https://opencode.ai/config.json",
     default_agent: DEFAULT_OPENCODE_AGENT,
-    plugin: [BROWSER_PLUGIN],
   });
   return true;
 }
 
 function resolveAgentTemplate(): string {
-  const cdpPort =
-    process.env.ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT?.trim() || "9222";
-  return ONMYAGENT_AGENT.replace("{{BROWSER_CDP_PORT}}", cdpPort);
+  return ONMYAGENT_AGENT;
 }
 
 async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
@@ -235,24 +205,14 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
     changed = true;
   }
 
-  // Patch browser section (replace with resolved CDP port)
+  // Remove the retired browser prompt from workspaces created by older builds.
   const browserStart = `<!-- ${APP_NAME}_BROWSER_START -->`;
   const browserEnd = `<!-- ${APP_NAME}_BROWSER_END -->`;
   const bsIdx = current.indexOf(browserStart);
   const beIdx = current.indexOf(browserEnd);
-  const resolvedBrowser = agentContent.slice(
-    agentContent.indexOf(browserStart),
-    agentContent.indexOf(browserEnd) + browserEnd.length,
-  );
   if (bsIdx >= 0 && beIdx > bsIdx) {
-    const oldBrowser = current.slice(bsIdx, beIdx + browserEnd.length);
-    if (oldBrowser !== resolvedBrowser) {
-      current =
-        current.slice(0, bsIdx) +
-        resolvedBrowser +
-        current.slice(beIdx + browserEnd.length);
-      changed = true;
-    }
+    current = `${current.slice(0, bsIdx).trimEnd()}\n\n${current.slice(beIdx + browserEnd.length).trimStart()}`;
+    changed = true;
   }
 
   // Patch language section (insert near the top, replace if present,
@@ -282,7 +242,6 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
     // Pick a stable anchor right before the first section we know about
     // so the block lands near "Your job:" where the template puts it.
     const anchors = [
-      `<!-- ${APP_NAME}_BROWSER_START -->`,
       "## Browser",
       "## Memory",
       "## Working style",
@@ -308,64 +267,6 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
   return false;
 }
 
-async function ensureBrowserPlugin(workspaceRoot: string): Promise<boolean> {
-  const configPath = opencodeConfigPath(workspaceRoot);
-  const { data: config } = await readJsoncFile<Record<string, unknown>>(
-    configPath,
-    {},
-  );
-
-  const hasPlugin =
-    Array.isArray(config.plugin) &&
-    (config.plugin as string[]).includes(BROWSER_PLUGIN);
-  const mcp =
-    typeof config.mcp === "object" && config.mcp !== null
-      ? (config.mcp as Record<string, unknown>)
-      : null;
-  const hasLegacyMcps = mcp
-    ? LEGACY_BROWSER_MCP_KEYS.some((key) => key in mcp)
-    : false;
-  const shouldClaimDesktopCreatedConfig =
-    (await exists(onmyagentConfigPath(workspaceRoot))) &&
-    isSchemaOnlyOpencodeConfig(config);
-  const isOnMyAgentOwned =
-    config.default_agent === DEFAULT_OPENCODE_AGENT ||
-    shouldClaimDesktopCreatedConfig;
-
-  if (hasPlugin && !hasLegacyMcps) return false;
-
-  const updates: Record<string, unknown> = {};
-
-  // Add the plugin if missing (only for OnMyAgent-owned workspaces or legacy migrations)
-  if (!hasPlugin && (isOnMyAgentOwned || hasLegacyMcps)) {
-    const existing = Array.isArray(config.plugin)
-      ? (config.plugin as string[])
-      : [];
-    updates.plugin = [...existing, BROWSER_PLUGIN];
-  }
-
-  if (shouldClaimDesktopCreatedConfig) {
-    updates.default_agent = DEFAULT_OPENCODE_AGENT;
-  }
-
-  if (!Object.keys(updates).length && !hasLegacyMcps) return false;
-
-  if (Object.keys(updates).length) {
-    await updateJsoncTopLevel(configPath, updates);
-  }
-
-  // Remove stale MCP entries individually to avoid clobbering other keys
-  if (hasLegacyMcps && mcp) {
-    for (const key of LEGACY_BROWSER_MCP_KEYS) {
-      if (key in mcp) {
-        await updateJsoncPath(configPath, ["mcp", key], undefined);
-      }
-    }
-  }
-
-  return true;
-}
-
 export async function ensureWorkspaceFiles(
   workspaceRoot: string,
   presetInput: string,
@@ -381,7 +282,6 @@ export async function ensureWorkspaceFiles(
   await ensureDir(workspaceRoot);
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureBrowserPlugin(workspaceRoot)) reloadReasons.add("config");
   if (await ensureOnMyAgentAgent(workspaceRoot)) reloadReasons.add("agents");
   const onmyagentConfigChanged = await ensureWorkspaceOnMyAgentConfig(
     workspaceRoot,

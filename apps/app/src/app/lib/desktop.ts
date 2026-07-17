@@ -206,6 +206,15 @@ declare global {
         installAndRestart?: () => Promise<{ ok: boolean; reason?: string }>;
       };
       browser?: {
+        diagnostics?: () => Promise<{
+          protocolVersion: number;
+          inAppBrowser: boolean;
+          rpcListening: boolean;
+          backend: "in-app";
+          platform: "darwin" | "linux" | "windows";
+          openTabs: number;
+          agentTabs: number;
+        }>;
         show?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
         hide?: () => Promise<void>;
         navigate?: (url: string, options?: { announcePanelOpen?: boolean }) => Promise<void>;
@@ -222,6 +231,11 @@ declare global {
           activeTabId?: string | null;
           tabs?: Array<{
             tabId: string;
+            owner?: "user" | "agent" | "claimed";
+            sessionId?: string | null;
+            temporary?: boolean;
+            deliverable?: boolean;
+            handoff?: boolean;
             url: string;
             title: string;
             favicon?: string | null;
@@ -237,6 +251,11 @@ declare global {
         selectTab?: (tabId: string) => Promise<string>;
         reorderTabs?: (tabIds: string[]) => Promise<Array<{
           tabId: string;
+          owner?: "user" | "agent" | "claimed";
+          sessionId?: string | null;
+          temporary?: boolean;
+          deliverable?: boolean;
+          handoff?: boolean;
           url: string;
           title: string;
           favicon?: string | null;
@@ -266,6 +285,11 @@ declare global {
           activeTabId?: string | null;
           tabs?: Array<{
             tabId: string;
+            owner?: "user" | "agent" | "claimed";
+            sessionId?: string | null;
+            temporary?: boolean;
+            deliverable?: boolean;
+            handoff?: boolean;
             url: string;
             title: string;
             favicon?: string | null;
@@ -815,7 +839,6 @@ export type ExpertPackageListEntry = {
   leadAgentName: string;
   systemPrompt: string;
   version: string | null;
-  runtime: "browser-use-agent" | null;
 };
 
 export type ExpertRegistryListEntry = {
@@ -1158,135 +1181,6 @@ export function personalLocalAgentStart(
     "personalLocalAgentStart",
     input,
   );
-}
-
-export type BrowserUseAgentAction = {
-  name: string;
-  params: unknown;
-};
-
-type BrowserUseAgentEventBase = {
-  id: string;
-  runId: string;
-  sequence: number;
-  timestamp: number;
-};
-
-export type BrowserUseAgentEvent = BrowserUseAgentEventBase & (
-  | { type: "ready"; agentClass?: string; model?: string; phase?: string }
-  | { type: "phase"; phase: string }
-  | {
-      type: "model_update";
-      step: number;
-      evaluation: string;
-      nextGoal: string;
-      actions: BrowserUseAgentAction[];
-      raw: {
-        evaluationPreviousGoal: string;
-        nextGoal: string;
-        actions: BrowserUseAgentAction[];
-      };
-    }
-  | { type: "narration"; step: number; text: string; nextGoal: string }
-  | {
-      type: "operation_started";
-      operationId: string;
-      step: number;
-      actions: BrowserUseAgentAction[];
-      actionCount: number;
-      url: string;
-      title: string;
-    }
-  | {
-      type: "operation_progress";
-      operationId: string;
-      step: number;
-      action: BrowserUseAgentAction | null;
-      observationSource: string;
-    }
-  | {
-      type: "operation_completed";
-      operationId: string;
-      step: number;
-      results: unknown[];
-      success: boolean;
-      url: string;
-      title: string;
-      error: string;
-    }
-  | { type: "approval"; approval: BrowserUseAgentApproval }
-  | {
-      type: "approval_resolved";
-      approvalId: string;
-      operationId: string | null;
-      decision: "accept" | "reject";
-    }
-  | { type: "done"; result: unknown }
-  | { type: "error"; error: string; errorCode?: string; errorType?: string }
-  | { type: "cancelled" }
-  | { type: "protocol_warning"; message: string }
-  | { type: "truncated"; omittedCount: number }
-);
-
-export type BrowserUseAgentApproval = {
-  id: string;
-  operationId: string | null;
-  title: string;
-  summary: string;
-  action: unknown;
-};
-
-export type BrowserUseAgentRunResult = {
-  runId: string;
-  sessionId: string;
-  userMessageId: string | null;
-  ownerId: string;
-  status: "running" | "pending_approval" | "completed" | "failed" | "cancelled" | "interrupted";
-  createdAt: number;
-  updatedAt: number;
-  pendingApprovals: BrowserUseAgentApproval[];
-  events: BrowserUseAgentEvent[];
-  result?: unknown;
-  error?: string;
-};
-
-export function browserUseAgentStart(input: {
-  task: string;
-  ownerId: string;
-  sessionId: string;
-  userMessageId: string;
-  model: { providerID: string; modelID: string };
-  language: string;
-  retainTabs?: boolean;
-  useVision?: boolean | "auto";
-}): Promise<BrowserUseAgentRunResult> {
-  return invokeElectronHelper<BrowserUseAgentRunResult>("browserUseAgentStart", input);
-}
-
-export function browserUseAgentStatus(
-  runId: string,
-): Promise<BrowserUseAgentRunResult | null> {
-  return invokeElectronHelper<BrowserUseAgentRunResult | null>("browserUseAgentStatus", { runId });
-}
-
-export function browserUseAgentHistory(
-  sessionId: string,
-): Promise<BrowserUseAgentRunResult[]> {
-  return invokeElectronHelper<BrowserUseAgentRunResult[]>("browserUseAgentHistory", { sessionId });
-}
-
-export function browserUseAgentCancel(
-  runId: string,
-): Promise<BrowserUseAgentRunResult | null> {
-  return invokeElectronHelper<BrowserUseAgentRunResult | null>("browserUseAgentCancel", { runId });
-}
-
-export function browserUseAgentApprove(input: {
-  runId: string;
-  approvalId: string;
-  decision: "accept" | "reject";
-}): Promise<{ ok: boolean; error?: string; run?: BrowserUseAgentRunResult }> {
-  return invokeElectronHelper("browserUseAgentApprove", input);
 }
 
 export function personalLocalAgentStatus(

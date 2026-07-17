@@ -187,8 +187,7 @@ describe("ensureWorkspaceFiles", () => {
       const config = await readFile(configPath, "utf8");
 
       expect(config).toContain('"default_agent": "onmyagent"');
-      expect(config).toContain('"opencode-chrome-devtools"');
-      expect(result.reloadReasons).toContain("config");
+      expect(result.reloadReasons).not.toContain("config");
     });
   });
 });

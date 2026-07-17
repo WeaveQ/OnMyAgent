@@ -32,22 +32,6 @@ function applyShellDocumentMarkers() {
   }
 }
 
-function notifyMenuOverlayDismiss() {
-  ipcRenderer.send("onmyagent:menu-overlay:dismiss");
-}
-
-function installMenuOverlayDismissListeners() {
-  try {
-    const target = window;
-    target.addEventListener("pointerdown", notifyMenuOverlayDismiss, { capture: true });
-    target.addEventListener("wheel", notifyMenuOverlayDismiss, { capture: true, passive: true });
-    target.addEventListener("keydown", notifyMenuOverlayDismiss, { capture: true });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
   invokeDesktop(command, ...args) {
     return ipcRenderer.invoke(DESKTOP_IPC_CHANNEL, command, ...args).catch((error) => {
@@ -135,6 +119,7 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     reload() { return ipcRenderer.invoke("onmyagent:browser:reload"); },
     setBounds(bounds) { return ipcRenderer.invoke("onmyagent:browser:bounds", bounds); },
     getState() { return ipcRenderer.invoke("onmyagent:browser:state"); },
+    diagnostics() { return ipcRenderer.invoke("onmyagent:browser:diagnostics"); },
     createTab(url) { return ipcRenderer.invoke("onmyagent:browser:createTab", url); },
     closeTab(tabId) { return ipcRenderer.invoke("onmyagent:browser:closeTab", tabId); },
     closeAllTabs() { return ipcRenderer.invoke("onmyagent:browser:closeAllTabs"); },
@@ -183,8 +168,4 @@ ipcRenderer.on(NATIVE_MENU_TOGGLE_SIDEBAR_EVENT, () => {
 
 if (!applyShellDocumentMarkers() && typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", applyShellDocumentMarkers, { once: true });
-}
-
-if (!installMenuOverlayDismissListeners() && typeof document !== "undefined") {
-  document.addEventListener("DOMContentLoaded", installMenuOverlayDismissListeners, { once: true });
 }

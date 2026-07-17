@@ -15,7 +15,6 @@ const testTargets = new Map([
   ['automation-model', ['bun', ['test', 'scripts/automation-model.test.ts']]],
   ['extensions-store', ['bun', ['test', 'scripts/extensions-store.test.ts']]],
   ['expert-marketplace-ui-contract', ['bun', ['test', 'scripts/expert-marketplace-ui-contract.test.ts']]],
-  ['browser-use-timeline', ['bun', ['test', 'scripts/browser-use-timeline.test.ts']]],
   ['infinite-canvas-model', ['bun', ['test', 'scripts/infinite-canvas-model.test.ts']]],
   ['infinite-canvas-ui-contract', ['bun', ['test', 'scripts/infinite-canvas-ui-contract.test.ts']]],
   ['infinite-canvas-ui-smoke', ['node', ['--experimental-websocket', 'scripts/infinite-canvas-ui-smoke.mjs']]],

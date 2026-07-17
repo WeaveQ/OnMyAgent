@@ -24,7 +24,6 @@ export type ExpertMarketplaceEntry = {
   leadAgentName: string;
   systemPrompt: string;
   version: string | null;
-  runtime: "browser-use-agent" | null;
 };
 
 export type ExpertRegistryRecord = {

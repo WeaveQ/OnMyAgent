@@ -118,12 +118,6 @@ function uniqueNormalizedCategoryIds(input: string[] | null | undefined): string
     .filter((id) => id !== "all");
 }
 
-function normalizeExpertRuntime(
-  input: string | null | undefined,
-): "browser-use-agent" | null {
-  return input?.trim() === "browser-use-agent" ? "browser-use-agent" : null;
-}
-
 function titleFromReadme(readme: string, fallback: string): string {
   const heading = readme.match(/^#\s+(.+)$/m)?.[1]?.trim();
   return heading || fallback;
@@ -238,7 +232,6 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         leadAgentName,
         systemPrompt: agentMarkdown || readme,
         version: manifest.version?.trim() || null,
-        runtime: normalizeExpertRuntime(manifest.runtime),
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));
