@@ -209,6 +209,25 @@ export function artifactPluginEnablementPath(serverConfigPath) {
   return path.join(configDirectory, "artifact-plugins.json");
 }
 
+export async function isBrowserAutomationSkillEnabled({
+  pluginRoot,
+  enablementPath,
+} = {}) {
+  if (!pluginRoot || !existsSync(pluginRoot)) return true;
+  const catalog = await scanBundledArtifactPlugins(pluginRoot);
+  const browserPlugin = catalog.items.find((plugin) => plugin.pluginId === "browser");
+  if (!browserPlugin) return true;
+  const snapshot = await readArtifactPluginEnablementSnapshot({
+    enablementPath:
+      enablementPath ??
+      artifactPluginEnablementPath(
+        process.env.ONMYAGENT_SERVER_CONFIG?.trim() || undefined,
+      ),
+    catalog,
+  });
+  return snapshot.enabledSkillIds.has("browser-automation");
+}
+
 export async function readArtifactPluginEnablementSnapshot({ enablementPath, catalog }) {
   let state = { plugins: {} };
   if (existsSync(enablementPath)) {

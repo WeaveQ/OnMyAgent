@@ -1,8 +1,9 @@
 import { basename, join } from "node:path";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 
 import { ensureDir, exists } from "../core/utils.js";
 import { ApiError } from "../core/errors.js";
+import { isBrowserAutomationEnabled } from "../services/browser-plugin-enablement.js";
 import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
 import { onmyagentConfigPath, opencodeConfigPath } from "./workspace-files.js";
 import {
@@ -374,17 +375,27 @@ function resolveAgentTemplate(): string {
   return ONMYAGENT_AGENT;
 }
 
-async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
+async function ensureOnMyAgentAgent(
+  workspaceRoot: string,
+  browserEnabled: boolean,
+): Promise<boolean> {
   const agentsDir = join(workspaceRoot, ".opencode", "agents");
   const agentPath = join(agentsDir, `${DEFAULT_OPENCODE_AGENT}.md`);
   const agentContent = resolveAgentTemplate();
   await ensureDir(agentsDir);
   if (!(await exists(agentPath))) {
-    await writeFile(
-      agentPath,
-      agentContent.endsWith("\n") ? agentContent : `${agentContent}\n`,
-      "utf8",
-    );
+    let initial = agentContent.endsWith("\n") ? agentContent : `${agentContent}\n`;
+    if (!browserEnabled) {
+      const start = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`;
+      const end = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
+      const startIdx = initial.indexOf(start);
+      const endIdx = initial.indexOf(end);
+      if (startIdx >= 0 && endIdx > startIdx) {
+        initial = `${initial.slice(0, startIdx).trimEnd()}\n\n${initial.slice(endIdx + end.length).trimStart()}`;
+        if (!initial.endsWith("\n")) initial = `${initial}\n`;
+      }
+    }
+    await writeFile(agentPath, initial, "utf8");
     return true;
   }
   let current = await readFile(agentPath, "utf8");
@@ -449,19 +460,25 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
   }
 
   // Patch browser automation section (uses a distinct marker so the legacy
-  // *_BROWSER_START retire pass leaves it in place).
+  // *_BROWSER_START retire pass leaves it in place). When the Browser
+  // artifact plugin is disabled, strip the block so agents stop using it.
   const browserAutoStart = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`;
   const browserAutoEnd = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
   const browserAutoStartIdx = current.indexOf(browserAutoStart);
   const browserAutoEndIdx = current.indexOf(browserAutoEnd);
-  if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
-    const patched = `${current.slice(0, browserAutoStartIdx)}${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}${current.slice(browserAutoEndIdx + browserAutoEnd.length)}`;
-    if (patched !== current) {
-      current = patched;
+  if (browserEnabled) {
+    if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
+      const patched = `${current.slice(0, browserAutoStartIdx)}${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}${current.slice(browserAutoEndIdx + browserAutoEnd.length)}`;
+      if (patched !== current) {
+        current = patched;
+        changed = true;
+      }
+    } else {
+      current = `${current.trimEnd()}\n\n${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}\n`;
       changed = true;
     }
-  } else {
-    current = `${current.trimEnd()}\n\n${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}\n`;
+  } else if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
+    current = `${current.slice(0, browserAutoStartIdx).trimEnd()}\n\n${current.slice(browserAutoEndIdx + browserAutoEnd.length).trimStart()}`;
     changed = true;
   }
 
@@ -542,14 +559,22 @@ async function retireLegacyBrowserPrompts(workspaceRoot: string): Promise<boolea
   return changed;
 }
 
-async function ensureVisualTools(workspaceRoot: string): Promise<boolean> {
+async function ensureVisualTools(
+  workspaceRoot: string,
+  browserEnabled: boolean,
+): Promise<boolean> {
   const toolsDir = join(workspaceRoot, ".opencode", "tools");
   await ensureDir(toolsDir);
-  const managedTools = [
+  const managedTools: Array<[string, string]> = [
     ["get_design_spec.ts", visualDesignSpecToolSource()],
     ["render_visual.ts", renderVisualToolSource()],
-    ["onmyagent_browser_node_repl.ts", opencodeBrowserNodeReplToolSource()],
-  ] as const;
+  ];
+  if (browserEnabled) {
+    managedTools.push([
+      "onmyagent_browser_node_repl.ts",
+      opencodeBrowserNodeReplToolSource(),
+    ]);
+  }
   let changed = false;
 
   for (const [name, source] of managedTools) {
@@ -559,6 +584,14 @@ async function ensureVisualTools(workspaceRoot: string): Promise<boolean> {
     if (current === content) continue;
     await writeFile(path, content, "utf8");
     changed = true;
+  }
+
+  if (!browserEnabled) {
+    const browserToolPath = join(toolsDir, "onmyagent_browser_node_repl.ts");
+    if (await exists(browserToolPath)) {
+      await rm(browserToolPath, { force: true });
+      changed = true;
+    }
   }
 
   return changed;
@@ -576,11 +609,16 @@ export async function ensureWorkspaceFiles(
     );
   }
   await ensureDir(workspaceRoot);
+  const browserEnabled = await isBrowserAutomationEnabled();
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureOnMyAgentAgent(workspaceRoot)) reloadReasons.add("agents");
+  if (await ensureOnMyAgentAgent(workspaceRoot, browserEnabled)) {
+    reloadReasons.add("agents");
+  }
   if (await retireLegacyBrowserPrompts(workspaceRoot)) reloadReasons.add("agents");
-  if (await ensureVisualTools(workspaceRoot)) reloadReasons.add("commands");
+  if (await ensureVisualTools(workspaceRoot, browserEnabled)) {
+    reloadReasons.add("commands");
+  }
   const onmyagentConfigChanged = await ensureWorkspaceOnMyAgentConfig(
     workspaceRoot,
     preset,

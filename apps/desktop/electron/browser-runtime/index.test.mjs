@@ -56,3 +56,31 @@ test("session deletion clears its Node kernel", async () => {
     await runtime.close();
   }
 });
+
+test("disabled Browser plugin rejects automation without blocking session cleanup", async () => {
+  const calls = [];
+  const runtime = createBrowserRuntime({
+    isBrowserEnabled: async () => false,
+    host: {
+      async dispatch(method) {
+        calls.push(method);
+        return {};
+      },
+      destroy() {},
+    },
+  });
+  try {
+    await assert.rejects(
+      runtime.dispatch("nodeReplWrite", { code: "1 + 1" }, context),
+      /Browser automation is disabled/,
+    );
+    await assert.rejects(
+      runtime.dispatch("createTab", { url: "https://example.com" }, context),
+      /Browser automation is disabled/,
+    );
+    await runtime.dispatch("sessionDeleted", {}, context);
+    assert.equal(calls.includes("sessionDeleted"), true);
+  } finally {
+    await runtime.close();
+  }
+});
