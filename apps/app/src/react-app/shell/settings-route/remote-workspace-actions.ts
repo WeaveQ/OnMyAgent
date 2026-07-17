@@ -1,11 +1,11 @@
-import type { WorkspaceConnectionState } from "../../app/types";
+import type { WorkspaceConnectionState } from "../../../app/types";
 import {
   getRemoteWorkspaceConnectionKey,
   testRemoteWorkspaceConnection,
   type RemoteWorkspaceConnectionResult,
-} from "../domains/workspace";
-import { t } from "../../i18n";
-import type { RouteWorkspace } from "./settings-route-model";
+} from "../../domains/workspace";
+import { t } from "../../../i18n";
+import type { RouteWorkspace } from "./model";
 
 export type RemoteWorkspaceConnectionCheck = {
   connectionKey: string;

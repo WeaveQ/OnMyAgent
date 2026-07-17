@@ -1,4 +1,4 @@
-import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import {
   engineStart,
   pickDirectory,
@@ -12,16 +12,16 @@ import {
   workspaceSetSelected,
   workspaceUpdateDisplayName,
   type WorkspaceList,
-} from "../../app/lib/desktop";
-import type { WorkspacePreset } from "../../app/types";
-import { isDesktopRuntime } from "../../app/utils";
-import { t } from "../../i18n";
+} from "../../../app/lib/desktop";
+import type { WorkspacePreset } from "../../../app/types";
+import { isDesktopRuntime } from "../../../app/utils";
+import { t } from "../../../i18n";
 import {
   folderNameFromPath,
   resolveCreatedSettingsWorkspaceId,
   resolveSettingsWorkspaceIdAfterRemoval,
   type RouteWorkspace,
-} from "./settings-route-model";
+} from "./model";
 
 export async function selectDesktopSettingsWorkspace(workspaceId: string) {
   if (!workspaceId) return;

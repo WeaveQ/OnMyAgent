@@ -13,7 +13,7 @@ Monorepo-level architecture, command surface, and package boundaries live in
 src/react-app/
 ├── shell/                     App bootstrap, providers, route frames (orchestration only)
 │   ├── session-route/         Session host facade folder (index + render + intent/composer/…)
-│   ├── settings-route*.tsx    Settings host (thin entry + render + action modules)
+│   ├── settings-route/        Settings host (render + model + actions facade)
 │   └── app-root / providers   Route tree composition
 ├── kernel/                    App-wide state + provider contracts
 ├── infra/                     React-only runtime infra (e.g. QueryClient)
@@ -250,7 +250,7 @@ tree when a domain-scoped import path is clearer:
   stays in `render.tsx` / `page-view.tsx` / sibling modules — do not reintroduce a
   root-level `session-route.tsx` god file.
 - **Settings host:** `shell/settings-route.tsx` stays a thin entry; implementation in
-  `settings-route-render.tsx` and `settings-route-*.ts` helpers.
+  `settings-route/` (render + model + actions facade).
 - Guard: `node scripts/checks/architecture-paths.mjs` (expects `session-route/index.ts`
   + `session-route/render.tsx` + thin settings entry).
 
