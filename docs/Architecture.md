@@ -202,12 +202,17 @@ pnpm check:boundaries
   `desktop-command-router.mjs` 按 `desktopCommandGroups` 路由；`main.mjs` 只做
   composition root。新 IPC 优先加 domain handler + types map，而不是堆进 main。
 - Renderer-facing HTTP client 方法以 `packages/types/src/server-client-methods.mjs`
-  分域登记；`app/lib/onmyagent-server.ts` 仅保留兼容 barrel。实现位于
-  `app/lib/onmyagent-server/`：`client.ts` 为 facade（`createOnMyAgentServerClient` +
-  公共类型 re-export），方法按域拆到 `client-system` / `client-workspace` /
+  分域登记；**方法 → args/result 映射**在
+  `packages/types/src/server-client-method-map.ts` 的 `ServerClientMethodMap`
+  （覆盖全部 `ServerClientMethodName`；system / workspace / sessions / extensions /
+  sessionArchive / artifacts / environment 等已有显式 contract，OpenCode router 等
+  少数 client-local 形状仍用 fallback）。`app/lib/onmyagent-server.ts` 仅保留兼容
+  barrel。实现位于 `app/lib/onmyagent-server/`：`client.ts` 为 facade
+  （`createOnMyAgentServerClient` + map 类型 re-export + 可选 `serverClientMethod`
+  动态访问），方法按域拆到 `client-system` / `client-workspace` /
   `client-sessions` / `client-extensions` / `client-session-archive`（共享 transport
   在 `client-shared`）；`domains.ts` 提供窄化 Pick 视图。跨端响应结构优先定义在
-  `@onmyagent/types/server`。
+  `@onmyagent/types/server` 与 `@onmyagent/types/session-archive`。
 - **Conversation capability（双运行时 UI）**：`react-app/capabilities/conversation/`
   提供中立 timeline / item VM / adapter 合同，把 **OpenCode 会话** 与
   **Personal Local Agent** 消息流映射到同一套 conversation items，供 `session` 与
@@ -219,10 +224,12 @@ pnpm check:boundaries
   `scripts/checks/domain-boundary-policy.mjs` 的 `allowedDomainDependencies`；
   `shared` 始终可读，其余跨域边必须登记。
 - **文件级深链过渡白名单** `allowedDomainImports`（`scripts/checks/check-boundaries.mjs`）
-  **尚未清零**：仍冻结一批历史 `file|importPath` 例外，**只减不增**；新增跨域 import
-  必须走目标域一级 barrel，不得扩白名单。`local-agents` / `messaging` / `workspace`
-  不再作为「可随意反向依赖 session」的例外；artifact、model selection、session identity、
-  conversation timeline 与复合 UI 分别由 `capabilities/` / `design-system/` 中立所有者承接。
+  **已清零**（Set 为空）：历史 `file|importPath` 例外已收完。该 Set 仍保留为文档 +
+  可选再启用位；**只减不增**（不得再写入新例外）。跨域 import 必须走目标域一级 barrel。
+  活跃边界由 `domain-boundary-policy.mjs` 与 public-barrel 规则强制。
+  `local-agents` / `messaging` / `workspace` 不再作为「可随意反向依赖 session」的例外；
+  artifact、model selection、session identity、conversation timeline 与复合 UI 分别由
+  `capabilities/` / `design-system/` 中立所有者承接。
 
 ### Feature → Domain → Transport
 
@@ -312,7 +319,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 ## Personal Local Agent Runtime
 
 - UI 实现主目录：`apps/app/src/react-app/domains/local-agents/`（management / cards / ACP hooks / messages）。
-- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级 `allowedDomainImports` 仍是可缩减过渡表（见上文 Package Boundaries），不是已清零。
+- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级 `allowedDomainImports` 已清零（见上文 Package Boundaries），新跨域边只走 public barrel。
 - Desktop harness / adapter 分层见上文 **Runtime Adapter (multi-agent harness)**；本段只记 UI 域边界。
 - 临时执行 ledger 只写本地 `.loop/plans/`；稳定架构事实写本文件与 `apps/app/src/react-app/ARCHITECTURE.md`。
 - 该路径不是 team workspace 或 global connector 的实现说明，除非用户明确扩展范围。

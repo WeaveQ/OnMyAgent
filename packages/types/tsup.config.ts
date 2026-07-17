@@ -7,6 +7,7 @@ export default defineConfig({
     "den/desktop-policies": "src/den/desktop-policies.ts",
     "den/inference": "src/den/inference.ts",
     server: "src/server.ts",
+    "server-client-method-map": "src/server-client-method-map.ts",
     "desktop-ipc": "src/desktop-ipc.ts",
     "session-archive": "src/session-archive.ts",
     browser: "src/browser.ts",
