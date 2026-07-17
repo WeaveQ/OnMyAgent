@@ -606,13 +606,17 @@ export function CodeWorkspaceSidePanel(props: {
     [props.hiddenKinds, props.workspacePath, tabs],
   );
 
+  // Always ensure the requested tool tab exists and is focused. Matching
+  // openTarget() for browser: whenever the side panel is switched to
+  // "browser", the BrowserPanel (and EmbeddedBrowserViewport) must mount so
+  // native WebContentsView bounds/show can run.
   useEffect(() => {
     const nextInitialKind = props.initialKind ?? null;
-    if (lastInitialKindRef.current === nextInitialKind) return;
-    lastInitialKindRef.current = nextInitialKind;
-    if (nextInitialKind && !props.hiddenKinds?.includes(nextInitialKind)) {
-      void addTab(nextInitialKind);
+    if (!nextInitialKind || props.hiddenKinds?.includes(nextInitialKind)) {
+      return;
     }
+    lastInitialKindRef.current = nextInitialKind;
+    void addTab(nextInitialKind);
   }, [addTab, props.hiddenKinds, props.initialKind]);
 
   const closeTab = async (tab: ToolTab) => {
