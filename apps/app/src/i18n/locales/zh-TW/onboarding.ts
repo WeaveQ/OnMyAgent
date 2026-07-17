@@ -7,5 +7,5 @@ export default {
   "onboarding.opencode_install": "安裝",
   "onboarding.opencode_install_failed": "安裝失敗，請重試",
   "onboarding.opencode_retry": "重試",
-  "onboarding.opencode_required": "請先安裝 OpenCode CLI 後再繼續",
+  "onboarding.opencode_required": "請先安裝 本地智能體運行時 後再繼續",
 } as const;

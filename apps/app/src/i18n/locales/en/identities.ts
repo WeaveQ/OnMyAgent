@@ -2,7 +2,7 @@ import { APP_NAME } from "../brand";
 
 export default {
   "identities.agent_behavior_desc":
-    "One file per workspace. Add optional first line @agent <id> to route via a specific OpenCode agent.",
+    "One file per workspace. Add optional first line @agent <id> to route via a specific agent.",
   "identities.agent_behavior_title": "Messaging agent behavior",
   "identities.agent_created": "Created default messaging agent file.",
   "identities.agent_file_changed":

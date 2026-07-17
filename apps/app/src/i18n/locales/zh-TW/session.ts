@@ -232,7 +232,7 @@ export default {
   "session.transcript_share": "分享訊息",
   "session.doom_loop_label": "死循環",
   "session.doom_loop_message":
-    "OpenCode檢測到使用相同輸入的重複工具調用，正在詢問是否在多次失敗後繼續。",
+    "智能體檢測到使用相同輸入的重複工具調用，正在詢問是否在多次失敗後繼續。",
   "session.doom_loop_note": "拒絕以停止循環，或允許以讓智能體繼續嘗試。",
   "session.doom_loop_repeated_call_label": "重複調用",
   "session.doom_loop_repeated_tool_call": "重複的工具調用",
@@ -273,10 +273,10 @@ export default {
   "session.permission_kind_skill": "技能",
   "session.permission_kind_task": "子任務",
   "session.permission_kind_todowrite": "Todo寫入",
-  "session.permission_message": "OpenCode正在請求權限以繼續。",
+  "session.permission_message": "智能體正在請求權限以繼續。",
   "session.permission_message_bash":
-    "允許OpenCode繼續前，請先檢查命令影響範圍。",
-  "session.permission_message_edit": "允許OpenCode修改前，請先檢查文件和差異。",
+    "允許智能體繼續前，請先檢查命令影響範圍。",
+  "session.permission_message_edit": "允許智能體修改前，請先檢查文件和差異。",
   "session.permission_message_external_directory":
     "允許訪問工作區外部前，請先檢查目標文件夾。",
   "session.permission_message_read": "允許訪問前，請先檢查請求的文件範圍。",
@@ -313,7 +313,7 @@ export default {
   "session.share_missing_token": `缺少${APP_NAME}令牌。`,
   "session.share_note_direct_runtime":
     "引擎運行時設置為直連模式。切換本地工作區可能會重啟主機並斷開客戶端連接。令牌可能在重啟後變更。",
-  "session.share_opencode_base_url": "OpenCode基礎URL",
+  "session.share_opencode_base_url": "運行時基礎 URL",
   "session.share_onmyagent_workers_only": `分享服務鏈接僅適用於${APP_NAME}工作區。`,
   "session.share_owner_permission_hint": "遠程客戶端需要回答權限提示時使用。",
   "session.share_password": "密碼",
@@ -343,7 +343,7 @@ export default {
   "session.control_delete_session_desc":
     "按 ID 刪除會話。破壞性操作：僅在使用者明確確認後執行。",
   "session.control_confirmed_desc": "使用者明確確認後必須為 true。",
-  "session.control_opencode_not_connected": "OpenCode 客戶端未連接",
+  "session.control_opencode_not_connected": "智能體運行時未連接",
   "session.control_delete_requires_confirmation":
     "刪除操作需要在使用者明確確認後傳入 confirmed: true",
   "session.control_session_not_found": "當前會話列表中未找到該會話",

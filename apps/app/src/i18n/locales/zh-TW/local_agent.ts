@@ -91,7 +91,7 @@ export default {
   "local_agent.memory_none_mode": "未選擇",
   "local_agent.memory_opencode_mode": "OpenCode 獨立會話",
   "local_agent.memory_opencode_summary": "使用 OpenCode ACP session，session 存在本地 Agent 專屬運行態工作區。",
-  "local_agent.memory_opencode_detail": "它不復用專家/助理的 OpenCode 會話；同一個本地 Agent 會盡量續用自己的 session 和工作區上下文。",
+  "local_agent.memory_opencode_detail": "它不復用專家/助理會話；同一個本地 Agent 會盡量續用自己的 session 和工作區上下文。",
   "local_agent.memory_codex_mode": "Codex 獨立線程",
   "local_agent.memory_codex_summary": "使用 Codex ACP bridge 連接 Codex harness，工作區和會話歸該本地 Agent 所有。",
   "local_agent.memory_codex_detail": "Codex 自己的上下文、工具狀態和會話歷史由 Codex harness 管理，不和其他 Agent 自動合併。",
