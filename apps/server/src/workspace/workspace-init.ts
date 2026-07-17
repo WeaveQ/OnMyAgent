@@ -1,8 +1,9 @@
 import { basename, join } from "node:path";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 
 import { ensureDir, exists } from "../core/utils.js";
 import { ApiError } from "../core/errors.js";
+import { isBrowserAutomationEnabled } from "../services/browser-plugin-enablement.js";
 import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
 import { onmyagentConfigPath, opencodeConfigPath } from "./workspace-files.js";
 import {
@@ -190,8 +191,10 @@ const ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE = `<!-- ${APP_NAME}_BROWSER_AUTOMATI
 
 ${APP_NAME} has a built-in in-app browser. For any web task (open a site, search, read or fill a page, scrape content), drive it directly instead of asking the user to browse manually.
 
-- Invoke the \`browser-automation\` skill for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
-- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\`.
+- Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
+- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
+- Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
+- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`.
 - The built-in browser needs no URL or port from you. Never invent localhost endpoints, CDP, the \`opencode-chrome-devtools\` plugin, or any external browser tool.
 - Finalize temporary tabs when the task is done; leave user-owned tabs open unless the user asks otherwise.
 <!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
@@ -374,17 +377,27 @@ function resolveAgentTemplate(): string {
   return ONMYAGENT_AGENT;
 }
 
-async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
+async function ensureOnMyAgentAgent(
+  workspaceRoot: string,
+  browserEnabled: boolean,
+): Promise<boolean> {
   const agentsDir = join(workspaceRoot, ".opencode", "agents");
   const agentPath = join(agentsDir, `${DEFAULT_OPENCODE_AGENT}.md`);
   const agentContent = resolveAgentTemplate();
   await ensureDir(agentsDir);
   if (!(await exists(agentPath))) {
-    await writeFile(
-      agentPath,
-      agentContent.endsWith("\n") ? agentContent : `${agentContent}\n`,
-      "utf8",
-    );
+    let initial = agentContent.endsWith("\n") ? agentContent : `${agentContent}\n`;
+    if (!browserEnabled) {
+      const start = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`;
+      const end = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
+      const startIdx = initial.indexOf(start);
+      const endIdx = initial.indexOf(end);
+      if (startIdx >= 0 && endIdx > startIdx) {
+        initial = `${initial.slice(0, startIdx).trimEnd()}\n\n${initial.slice(endIdx + end.length).trimStart()}`;
+        if (!initial.endsWith("\n")) initial = `${initial}\n`;
+      }
+    }
+    await writeFile(agentPath, initial, "utf8");
     return true;
   }
   let current = await readFile(agentPath, "utf8");
@@ -449,19 +462,25 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
   }
 
   // Patch browser automation section (uses a distinct marker so the legacy
-  // *_BROWSER_START retire pass leaves it in place).
+  // *_BROWSER_START retire pass leaves it in place). When the Browser
+  // artifact plugin is disabled, strip the block so agents stop using it.
   const browserAutoStart = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`;
   const browserAutoEnd = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
   const browserAutoStartIdx = current.indexOf(browserAutoStart);
   const browserAutoEndIdx = current.indexOf(browserAutoEnd);
-  if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
-    const patched = `${current.slice(0, browserAutoStartIdx)}${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}${current.slice(browserAutoEndIdx + browserAutoEnd.length)}`;
-    if (patched !== current) {
-      current = patched;
+  if (browserEnabled) {
+    if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
+      const patched = `${current.slice(0, browserAutoStartIdx)}${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}${current.slice(browserAutoEndIdx + browserAutoEnd.length)}`;
+      if (patched !== current) {
+        current = patched;
+        changed = true;
+      }
+    } else {
+      current = `${current.trimEnd()}\n\n${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}\n`;
       changed = true;
     }
-  } else {
-    current = `${current.trimEnd()}\n\n${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}\n`;
+  } else if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
+    current = `${current.slice(0, browserAutoStartIdx).trimEnd()}\n\n${current.slice(browserAutoEndIdx + browserAutoEnd.length).trimStart()}`;
     changed = true;
   }
 
@@ -542,14 +561,22 @@ async function retireLegacyBrowserPrompts(workspaceRoot: string): Promise<boolea
   return changed;
 }
 
-async function ensureVisualTools(workspaceRoot: string): Promise<boolean> {
+async function ensureVisualTools(
+  workspaceRoot: string,
+  browserEnabled: boolean,
+): Promise<boolean> {
   const toolsDir = join(workspaceRoot, ".opencode", "tools");
   await ensureDir(toolsDir);
-  const managedTools = [
+  const managedTools: Array<[string, string]> = [
     ["get_design_spec.ts", visualDesignSpecToolSource()],
     ["render_visual.ts", renderVisualToolSource()],
-    ["onmyagent_browser_node_repl.ts", opencodeBrowserNodeReplToolSource()],
-  ] as const;
+  ];
+  if (browserEnabled) {
+    managedTools.push([
+      "onmyagent_browser_node_repl.ts",
+      opencodeBrowserNodeReplToolSource(),
+    ]);
+  }
   let changed = false;
 
   for (const [name, source] of managedTools) {
@@ -559,6 +586,14 @@ async function ensureVisualTools(workspaceRoot: string): Promise<boolean> {
     if (current === content) continue;
     await writeFile(path, content, "utf8");
     changed = true;
+  }
+
+  if (!browserEnabled) {
+    const browserToolPath = join(toolsDir, "onmyagent_browser_node_repl.ts");
+    if (await exists(browserToolPath)) {
+      await rm(browserToolPath, { force: true });
+      changed = true;
+    }
   }
 
   return changed;
@@ -576,11 +611,16 @@ export async function ensureWorkspaceFiles(
     );
   }
   await ensureDir(workspaceRoot);
+  const browserEnabled = await isBrowserAutomationEnabled();
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureOnMyAgentAgent(workspaceRoot)) reloadReasons.add("agents");
+  if (await ensureOnMyAgentAgent(workspaceRoot, browserEnabled)) {
+    reloadReasons.add("agents");
+  }
   if (await retireLegacyBrowserPrompts(workspaceRoot)) reloadReasons.add("agents");
-  if (await ensureVisualTools(workspaceRoot)) reloadReasons.add("commands");
+  if (await ensureVisualTools(workspaceRoot, browserEnabled)) {
+    reloadReasons.add("commands");
+  }
   const onmyagentConfigChanged = await ensureWorkspaceOnMyAgentConfig(
     workspaceRoot,
     preset,
@@ -589,6 +629,57 @@ export async function ensureWorkspaceFiles(
     changed: onmyagentConfigChanged || reloadReasons.size > 0,
     reloadReasons: Array.from(reloadReasons),
   };
+}
+
+/**
+ * Re-apply managed `.opencode` agents/tools/config for every workspace.
+ * Used on desktop/server boot so product updates (browser tool, agent
+ * guidance, etc.) land without requiring the user to recreate the workspace.
+ * Failures are isolated per workspace so one bad path cannot block startup.
+ */
+export async function ensureAllWorkspaceFiles(
+  workspaces: Array<{ path: string; preset?: string | null; id?: string }>,
+  options?: {
+    log?: (level: "info" | "warn", message: string, meta?: Record<string, unknown>) => void;
+  },
+): Promise<{
+  ok: number;
+  failed: number;
+  changed: number;
+  errors: Array<{ path: string; message: string }>;
+}> {
+  let ok = 0;
+  let failed = 0;
+  let changed = 0;
+  const errors: Array<{ path: string; message: string }> = [];
+  for (const workspace of workspaces) {
+    const workspacePath = String(workspace.path ?? "").trim();
+    if (!workspacePath) continue;
+    try {
+      const result = await ensureWorkspaceFiles(
+        workspacePath,
+        workspace.preset ?? "starter",
+      );
+      ok += 1;
+      if (result.changed) changed += 1;
+      options?.log?.("info", "workspace .opencode refreshed", {
+        workspaceId: workspace.id,
+        path: workspacePath,
+        changed: result.changed,
+        reloadReasons: result.reloadReasons,
+      });
+    } catch (error) {
+      failed += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push({ path: workspacePath, message });
+      options?.log?.("warn", "workspace .opencode refresh failed", {
+        workspaceId: workspace.id,
+        path: workspacePath,
+        error: message,
+      });
+    }
+  }
+  return { ok, failed, changed, errors };
 }
 
 export async function readRawOpencodeConfig(

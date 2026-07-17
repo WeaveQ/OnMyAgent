@@ -9,7 +9,7 @@ import { mkdir } from "node:fs/promises";
 import { resolveServerConfig, type CliArgs } from "./config.js";
 import { createManagedOpencodeServer, type ManagedOpencodeServer } from "./managed-opencode.js";
 import { startServer } from "./server.js";
-import { ensureWorkspaceFiles } from "./workspace/workspace-init.js";
+import { ensureAllWorkspaceFiles } from "./workspace/workspace-init.js";
 import { onmyagentExtensionsPreviewPluginPath } from "./onmyagent-extensions-plugin-path.js";
 import type { ServeResult } from "./serve-node.js";
 import type { ServerConfig } from "@onmyagent/types/server";
@@ -44,10 +44,17 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
   // Spawn managed OpenCode if requested and no explicit base URL was provided.
   let managedOpencode: ManagedOpencodeServer | null = null;
 
+  // Desktop restart / server boot: re-sync managed `.opencode` agents + tools
+  // for every known workspace so product updates are not stuck on stale files.
   if (!config.readOnly) {
-    for (const workspace of config.workspaces) {
-      await ensureWorkspaceFiles(workspace.path, workspace.preset ?? "starter");
-    }
+    await ensureAllWorkspaceFiles(config.workspaces, {
+      log: (level, message, meta) => {
+        const detail = meta ? ` ${JSON.stringify(meta)}` : "";
+        console[level === "warn" ? "warn" : "log"](
+          `[onmyagent-server] ${message}${detail}`,
+        );
+      },
+    });
   }
 
   if (!config.opencodeBaseUrl && options.manageOpencode) {

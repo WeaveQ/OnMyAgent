@@ -1,10 +1,12 @@
 /** @jsxImportSource react */
-import { FileText, FileType2, Sheet } from "lucide-react";
+import { FileText, FileType2, Globe2, Sheet } from "lucide-react";
 
 import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+
+import { t } from "@/i18n";
 
 import type { ArtifactPluginDetail as ArtifactPluginDetailModel } from "./artifact-plugin-client";
 
@@ -36,6 +38,7 @@ export type ArtifactStarterPromptsProps = {
 };
 
 function pluginIcon(pluginId: string) {
+  if (pluginId === "browser") return Globe2;
   if (pluginId === "pdf") return FileType2;
   if (pluginId === "spreadsheets") return Sheet;
   return FileText;
@@ -94,11 +97,18 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
           <ArtifactPluginIcon pluginId={plugin.id} />
           <div className="min-w-0">
             <h2 className="text-lg font-medium leading-7 text-dls-text">
-              {plugin.manifest.interface.displayName}
+              {plugin.id === "browser"
+                ? t("plugins.artifact_plugin_browser_name")
+                : plugin.manifest.interface.displayName}
             </h2>
             <p className="mt-1 text-sm text-dls-secondary">
               {plugin.manifest.interface.longDescription}
             </p>
+            {plugin.id === "browser" ? (
+              <p className="mt-2 text-xs font-medium text-dls-secondary">
+                {t("plugins.artifact_plugin_browser_system")}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-3">

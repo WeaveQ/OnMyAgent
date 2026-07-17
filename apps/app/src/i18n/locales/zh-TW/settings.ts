@@ -745,4 +745,8 @@ export default {
   "settings.provider_delete_confirm_title": "刪除此模型服務商？",
   "settings.provider_delete_confirm_desc": "此操作將從 OpenCode 設定移除該服務商，無法復原，需重新載入引擎後生效。",
   "settings.provider_more_actions": "更多操作",
+  "settings.provider_reload_required_title": "需要重新載入引擎",
+  "settings.provider_reload_required_desc":
+    "新增或修改模型服務商需要重新載入引擎（不用重啟 App）以使修改立即生效，請點擊立即重新載入按鈕。",
+  "settings.provider_reload_now": "立即重新載入",
 } as const;
