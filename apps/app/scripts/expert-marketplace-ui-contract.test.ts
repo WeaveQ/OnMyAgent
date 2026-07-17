@@ -85,7 +85,9 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("props.query ??");
     expect(dialog).toContain("myExperts: ExpertMarketplaceEntry[]");
     expect(dialog).toContain("onOpen={setSelectedExpert}");
+    expect(dialog).toContain("onSummon={props.onSummonMarketplaceExpert}");
     expect(dialog).toContain('t("session.create_expert")');
+    expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
     expect(dialog).not.toContain("MyExpertCard");
     expect(dialog).not.toContain("AgentRecord");
