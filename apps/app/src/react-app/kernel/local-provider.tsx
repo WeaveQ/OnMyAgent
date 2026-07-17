@@ -39,6 +39,11 @@ export type LocalPreferences = {
   modelVariant: string | null;
   defaultModel: ModelRef | null;
   /**
+   * When true, fire a desktop notification when an agent turn becomes idle
+   * and the app is not focused. Default false — opt-in only.
+   */
+  desktopNotifyOnAgentReady: boolean;
+  /**
    * Release channel the desktop app is subscribed to. Defaults to
    * "stable". Alpha is only honored on macOS; the updater helper falls
    * back to stable elsewhere.
@@ -77,6 +82,7 @@ const INITIAL_PREFS: LocalPreferences = {
   customInstructions: "",
   modelVariant: null,
   defaultModel: null,
+  desktopNotifyOnAgentReady: false,
   releaseChannel: "stable",
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,

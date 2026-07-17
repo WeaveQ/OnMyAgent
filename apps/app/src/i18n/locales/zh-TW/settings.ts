@@ -461,6 +461,17 @@ export default {
   "settings.system_authorizations_go_configure": "去設置",
   "settings.preferences": "偏好",
   "settings.preferences_card_description": "管理默認模型與推理偏好",
+  "settings.notifications_section_title": "通知",
+  "settings.notifications_section_desc":
+    "管理系統桌面通知權限，以及會話完成後是否提醒你。",
+  "settings.desktop_notifications_label": "桌面通知",
+  "settings.desktop_notifications_desc":
+    "允許發送系統桌面通知，任務完成或有新消息時即時提醒。",
+  "settings.agent_ready_notifications_label": "任務完成通知",
+  "settings.agent_ready_notifications_desc":
+    "開啟後，助手完成一輪回覆且應用不在前台時會發送桌面通知。默認關閉；首次開啟時會請求系統通知權限。",
+  "settings.agent_ready_notification_title": "助手已就緒",
+  "settings.agent_ready_notification_body": "會話「{title}」可以繼續輸入。",
   "settings.ai_providers": "模型服務商",
   "settings.ai_providers_card_description": "連接 AI 模型服務商",
   "settings.shell_view_current_version_description": "當前版本號",

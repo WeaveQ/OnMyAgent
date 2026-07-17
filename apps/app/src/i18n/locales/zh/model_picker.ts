@@ -18,4 +18,8 @@ export default {
   "model_picker.session_model_desc": "为此会话选择模型。",
   "model_picker.model_count_one": "{count} 个模型",
   "model_picker.model_count_other": "{count} 个模型",
+  "model_picker.provider_default_available_title": "可用默认模型",
+  "model_picker.provider_default_available_desc":
+    "OpenCode 建议使用 {model}，可一键设为默认（不会自动覆盖当前选择）。",
+  "model_picker.provider_default_apply": "设为默认",
 } as const;

@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type Dispatch,
@@ -24,7 +25,10 @@ import type {
   ProviderListItem,
   SlashCommandOption,
 } from "../../app/types";
-import { resolveModelDisplayName } from "../../app/utils";
+import {
+  formatModelRef,
+  resolveModelDisplayName,
+} from "../../app/utils";
 import { filterProviderList } from "../../app/utils/providers";
 import type { DesktopAppRestrictionChecker } from "../../app/cloud/desktop-app-restrictions";
 import { currentLocale, subscribeToLocale, t } from "../../i18n";
@@ -34,6 +38,7 @@ import {
   ensureProviderListQuery,
 } from "../domains/connections";
 import { seedSessionState } from "../domains/session";
+import { useStatusToasts } from "../domains/shell-feedback";
 import { writeActiveWorkspaceId } from "./session-memory";
 import { buildSettingsNavigationTarget } from "./session-route-model";
 import {
@@ -42,6 +47,7 @@ import {
   filterAllowedModelOptions,
   resolveModelVariantState,
   resolveProviderDefaultModel,
+  shouldPromptProviderDefaultModel,
   type ProviderModelCatalog,
 } from "./session-route-model-options";
 import { emptyModelBehaviorOptions } from "./session-route-state";
@@ -97,6 +103,14 @@ export function useSessionRouteModelCatalog(input: Input) {
     sidebarActiveWorkspaceId,
   } = input;
 
+  const { showToast } = useStatusToasts();
+  const defaultModelRef = useRef(local.prefs.defaultModel);
+  defaultModelRef.current = local.prefs.defaultModel;
+  const setPrefsRef = useRef(local.setPrefs);
+  setPrefsRef.current = local.setPrefs;
+  /** Avoid re-toasting the same OpenCode suggestion on every provider refresh. */
+  const promptedProviderDefaultKeyRef = useRef<string | null>(null);
+
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<
     Record<string, string>
@@ -126,15 +140,39 @@ export function useSessionRouteModelCatalog(input: Input) {
       setProviderConnectedIds(value.connected ?? []);
       setProviderDefaults(value.default ?? {});
 
-      const providerDefaultModel = resolveProviderDefaultModel({
+      // Never auto-overwrite user prefs. Only surface a non-blocking hint when
+      // still on the app placeholder default and OpenCode has a suggestion.
+      const suggested = resolveProviderDefaultModel({
         defaults: value.default,
-        currentDefault: local.prefs.defaultModel,
       });
-      if (providerDefaultModel) {
-        local.setPrefs((previous) => ({
-          ...previous,
-          defaultModel: providerDefaultModel,
-        }));
+      if (
+        shouldPromptProviderDefaultModel({
+          suggested,
+          currentDefault: defaultModelRef.current,
+        }) &&
+        suggested
+      ) {
+        const key = formatModelRef(suggested);
+        if (promptedProviderDefaultKeyRef.current !== key) {
+          promptedProviderDefaultKeyRef.current = key;
+          const modelLabel =
+            resolveModelDisplayName(suggested.modelID) || key;
+          showToast({
+            tone: "info",
+            title: t("model_picker.provider_default_available_title"),
+            description: t("model_picker.provider_default_available_desc", {
+              model: modelLabel,
+            }),
+            actionLabel: t("model_picker.provider_default_apply"),
+            durationMs: 8000,
+            onAction: () => {
+              setPrefsRef.current((previous) => ({
+                ...previous,
+                defaultModel: suggested,
+              }));
+            },
+          });
+        }
       }
 
       // New-provider detection is handled globally by the provider auth
@@ -181,9 +219,11 @@ export function useSessionRouteModelCatalog(input: Input) {
     };
   }, [
     denSessionVersion,
+    engineReloadVersion,
     opencodeBaseUrl,
     opencodeClient,
     sessionWorkspaceRoot,
+    showToast,
   ]);
 
   const modelScopeSessionId =

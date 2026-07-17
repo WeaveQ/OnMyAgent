@@ -511,6 +511,17 @@ export default {
     "Stable gets fully tested releases. Alpha includes the very latest changes but may be less polished (macOS only)",
   "settings.shell_view_release_channel_stable": "Stable",
   "settings.shell_view_release_channel_alpha": "Alpha",
+  "settings.notifications_section_title": "Notifications",
+  "settings.notifications_section_desc":
+    "Manage system desktop notification permission and whether to alert you when a turn finishes.",
+  "settings.desktop_notifications_label": "Desktop notifications",
+  "settings.desktop_notifications_desc":
+    "Allow system desktop notifications so you can be alerted when a task finishes or new messages arrive.",
+  "settings.agent_ready_notifications_label": "Task completion alerts",
+  "settings.agent_ready_notifications_desc":
+    "When on, send a desktop notification after the assistant finishes a turn and the app is in the background. Off by default; the first time you enable it, the app will request system notification permission.",
+  "settings.agent_ready_notification_title": "Assistant is ready",
+  "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
   "settings.preferences": "Preferences",
   "settings.preferences_card_description": "Manage default model and reasoning preferences",
   "settings.tab_description_advanced":
