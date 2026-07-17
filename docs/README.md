@@ -16,6 +16,7 @@ docs/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
     preview.html / preview-dark.html / preview.css
+  windows-compat.md         ← platform-specific quirks and preflight for Windows
 ```
 
 Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, …
@@ -33,6 +34,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Local packaging | [`../BUILD.md`](../BUILD.md) |
 | Release / tags | [`release.md`](release.md) |
 | Heavy Loop work | [`loop/rules.md`](loop/rules.md) |
+| Windows support | [`windows-compat.md`](windows-compat.md) |
 
 ## Sources of truth
 
