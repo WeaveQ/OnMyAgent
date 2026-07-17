@@ -1,6 +1,6 @@
 {
   "name": "onmyagent-server",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Filesystem-backed API for OnMyAgent remote clients",
   "type": "module",
   "bin": {
