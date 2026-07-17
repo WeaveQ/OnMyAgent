@@ -61,6 +61,10 @@ export const serverClientMethodGroups = Object.freeze({
     "scanSessionArchiveSecrets", "listSessionArchiveSecrets",
     "searchSessionArchive", "syncSessionArchive", "getSessionArchiveSyncStatus",
   ]),
+  artifactPlugins: Object.freeze([
+    "listArtifactPlugins", "getArtifactPlugin", "setArtifactPluginEnabled",
+    "setArtifactPluginSkillEnabled", "getArtifactPluginConnection",
+  ]),
   artifacts: Object.freeze([
     "uploadInbox", "listInbox", "downloadInboxItem", "listArtifacts",
     "resolveArtifacts", "downloadArtifact",
