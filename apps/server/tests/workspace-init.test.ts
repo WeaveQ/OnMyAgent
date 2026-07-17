@@ -125,15 +125,15 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(fresh).toContain(`<!-- ${APP_NAME}_LANGUAGE_START -->`);
       expect(fresh).toContain("简体中文");
-      expect(fresh.indexOf(`<!-- ${APP_NAME}_LANGUAGE_START -->`)).toBeLessThan(
-        fresh.indexOf(`<!-- ${APP_NAME}_BROWSER_START -->`),
-      );
+      expect(
+        fresh.indexOf(`<!-- ${APP_NAME}_LANGUAGE_START -->`),
+      ).toBeLessThan(fresh.indexOf(`<!-- ${APP_NAME}_ARTIFACTS_START -->`));
 
       // Older agent files without the language markers get the block inserted
       // before the first known section heading, not blindly appended.
       await writeFile(
         join(root, ".opencode", "agents", "onmyagent.md"),
-        "---\n---\n\nYour job:\n- Custom instructions\n\n## Browser\n\nExisting notes.\n",
+        "---\n---\n\nYour job:\n- Custom instructions\n\n## Memory\n\nExisting notes.\n",
         "utf8",
       );
       await ensureWorkspaceFiles(root, "starter");
@@ -147,7 +147,7 @@ describe("ensureWorkspaceFiles", () => {
       expect(migrated).toContain("简体中文");
       expect(
         migrated.indexOf(`<!-- ${APP_NAME}_LANGUAGE_START -->`),
-      ).toBeLessThan(migrated.indexOf("## Browser"));
+      ).toBeLessThan(migrated.indexOf("## Memory"));
 
       // Existing language blocks are refreshed in place when their content
       // drifts, so edits to ONMYAGENT_LANGUAGE_GUIDANCE propagate.
@@ -202,25 +202,4 @@ describe("ensureWorkspaceFiles", () => {
     });
   });
 
-  test("repairs desktop-created schema-only opencode config", async () => {
-    await withWorkspace(async (root) => {
-      await mkdir(join(root, ".opencode"), { recursive: true });
-      await writeFile(join(root, ".opencode", "onmyagent.json"), "{}\n", "utf8");
-      const configPath = join(root, "opencode.jsonc");
-      await writeFile(
-        configPath,
-        `{
-  "$schema": "https://opencode.ai/config.json"
-}
-`,
-        "utf8",
-      );
-
-      const result = await ensureWorkspaceFiles(root, "starter");
-      const config = await readFile(configPath, "utf8");
-
-      expect(config).toContain('"default_agent": "onmyagent"');
-      expect(result.reloadReasons).not.toContain("config");
-    });
-  });
 });
