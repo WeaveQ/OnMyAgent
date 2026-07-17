@@ -76,7 +76,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
               disabled={disabled}
               className={cn(
                 "mac:titlebar-no-drag inline-flex items-center gap-1.5 rounded-lg border border-dls-border bg-dls-surface px-2.5 py-1 text-xs font-medium text-dls-text transition-colors",
-                "hover:border-dls-border-strong hover:bg-dls-hover",
+                "hover:bg-dls-hover",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-signal focus-visible:ring-offset-1",
                 disabled && "cursor-not-allowed opacity-60",
                 !trimmedRoot && "border-dashed",

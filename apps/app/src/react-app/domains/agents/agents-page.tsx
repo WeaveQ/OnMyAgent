@@ -159,7 +159,7 @@ const agentsLayoutClass = {
   promptTextarea: "min-h-[140px] rounded-xl px-4 py-3 text-sm",
   deleteButton: "absolute right-3 top-3 text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger",
   card: "relative flex min-h-[276px] flex-col rounded-xl border border-dls-border bg-dls-surface p-5",
-  cardInteractive: "cursor-pointer transition-colors hover:border-dls-border-strong",
+  cardInteractive: "cursor-pointer transition-colors hover:bg-dls-hover",
   primaryCardAction: "w-full gap-1.5 bg-dls-decision-soft text-dls-accent hover:bg-dls-accent hover:text-white",
   secondaryCardAction: "w-full gap-1.5 text-xs text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   emptyHint: "flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-dls-border bg-dls-surface px-6 text-center",
@@ -320,7 +320,7 @@ function AgentPreviewCard(props: {
           <div className={agentsTextClass.previewTitle}>
             {previewName}
           </div>
-          <StatusBadge className="mt-2" tone="neutral">
+          <StatusBadge className="mt-2" tone="neutral" shape="soft" size="tiny">
             {t("agents.identity_verified")}
           </StatusBadge>
           <div className={agentsTextClass.previewDescription}>
