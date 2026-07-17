@@ -150,10 +150,16 @@ export function createElectronBrowserController(options) {
   // The host owns security and lifecycle; this controller owns Electron layout.
   const host = runtime.host;
   const originalRegisterUserTab = host.registerUserTab.bind(host);
-  const originalDispatch = runtime.dispatch.bind(runtime);
+  const originalHostDispatch = host.dispatch.bind(host);
 
-  runtime.dispatch = async (method, params, context) => {
-    const result = await originalDispatch(method, params, context);
+  /**
+   * Agent tools call host.dispatch via node-kernel browserRequest
+   * (tabs.new → createTab), NOT runtime.dispatch (which only sees nodeReplWrite).
+   * Layout/UI side effects must hook host.dispatch or they never run — that is
+   * why localhost openTarget worked (renderer setCurrentSidePanel) while agent
+   * createTab did not open the rail.
+   */
+  const syncControllerAfterHostMethod = (method, params, result) => {
     let openedAgentSurface = false;
     if (method === "createTab") {
       const tabId = result?.tab?.tabId;
@@ -164,8 +170,6 @@ export function createElectronBrowserController(options) {
           records.set(tabId, { tab: result.tab, view });
           if (!order.includes(tabId)) order.push(tabId);
         }
-        // Agent-driven open: select the new tab and expand the UI panel so the
-        // user sees the in-app browser without a manual rail click.
         activeTabId = tabId;
         openedAgentSurface = true;
       }
@@ -177,6 +181,7 @@ export function createElectronBrowserController(options) {
         openedAgentSurface = true;
       }
     }
+
     for (const tabId of [...order]) {
       if (!host.listAllTabs().some((tab) => tab.tabId === tabId)) {
         detach(records.get(tabId)?.view);
@@ -185,9 +190,28 @@ export function createElectronBrowserController(options) {
         if (activeTabId === tabId) activeTabId = order[0] ?? null;
       }
     }
+
+    // Also pick up agent tabs created earlier that missed registration.
+    for (const tab of host.listAllTabs()) {
+      if (records.has(tab.tabId)) continue;
+      const view = host.getView?.(tab.tabId);
+      if (!view) continue;
+      records.set(tab.tabId, { tab, view });
+      if (!order.includes(tab.tabId)) order.push(tab.tabId);
+      if (tab.owner === "agent" || tab.owner === "claimed") {
+        activeTabId = tab.tabId;
+        openedAgentSurface = true;
+      }
+    }
+
     if (openedAgentSurface) requestOpenBrowserPanel();
     attachSelected();
     sendState();
+  };
+
+  host.dispatch = async (method, params, context) => {
+    const result = await originalHostDispatch(method, params, context);
+    syncControllerAfterHostMethod(method, params, result);
     return result;
   };
 

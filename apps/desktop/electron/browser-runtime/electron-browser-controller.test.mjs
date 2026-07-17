@@ -110,7 +110,8 @@ test("agent createTab selects the tab and asks the renderer to open the browser 
     agentId: "agent-1",
     backend: "in-app",
   };
-  const { tab: agentTab } = await controller.runtime.dispatch(
+  // Direct host path (what agent tabs.new uses via node-kernel browserRequest)
+  const { tab: agentTab } = await controller.runtime.host.dispatch(
     "createTab",
     { url: "https://agent.example" },
     context,
@@ -122,6 +123,47 @@ test("agent createTab selects the tab and asks the renderer to open the browser 
     true,
   );
   assert.equal(harness.windowChildren.length, 1);
+  await controller.close();
+});
+
+test("agent tabs.new via nodeReplWrite also opens the browser panel", async () => {
+  const harness = createHarness();
+  const sent = [];
+  harness.mainWindow.webContents.send = (channel) => {
+    sent.push(channel);
+  };
+  const controller = createElectronBrowserController({
+    WebContentsView: harness.WebContentsView,
+    dirname: "/tmp",
+    openExternal: async () => true,
+    isBrowserEnabled: async () => true,
+  });
+  controller.setMainWindow(harness.mainWindow);
+  const context = {
+    workspaceId: "workspace-1",
+    sessionId: "session-repl",
+    messageId: "message-1",
+    turnId: "turn-1",
+    agentId: "agent-1",
+    backend: "in-app",
+  };
+  const result = await controller.runtime.dispatch(
+    "nodeReplWrite",
+    {
+      code: `
+globalThis.browser ??= await agent.browsers.getDefault();
+globalThis.tab ??= await browser.tabs.new({ url: "https://agent-repl.example" });
+return { id: tab.id, url: await tab.url() };
+`,
+    },
+    context,
+  );
+  assert.equal(result.value?.id?.startsWith("tab-"), true);
+  assert.equal(sent.includes("onmyagent:browser:panel-opened"), true);
+  assert.equal(
+    controller.listBrowserTabs().some((tab) => tab.owner === "agent"),
+    true,
+  );
   await controller.close();
 });
 
