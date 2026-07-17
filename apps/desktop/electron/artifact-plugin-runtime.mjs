@@ -21,6 +21,7 @@ import {
 const PLUGIN_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const pluginIdSchema = z.string().regex(PLUGIN_ID);
 export const ARTIFACT_PLUGIN_SKILL_IDS = Object.freeze([
+  "browser-automation",
   "documents",
   "pdf",
   "spreadsheets",
