@@ -1,6 +1,6 @@
-import { onmyagentServerRestart } from "../../app/lib/desktop";
-import { isLoopbackOnMyAgentServerUrl, readOnMyAgentServerSettings } from "../../app/lib/onmyagent-server";
-import { isDesktopRuntime } from "../../app/utils";
+import { onmyagentServerRestart } from "../../../app/lib/desktop";
+import { isLoopbackOnMyAgentServerUrl, readOnMyAgentServerSettings } from "../../../app/lib/onmyagent-server";
+import { isDesktopRuntime } from "../../../app/utils";
 
 export function resolveOnMyAgentServerStartupPreference() {
   if (!isDesktopRuntime()) return "server";

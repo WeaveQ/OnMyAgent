@@ -1,6 +1,6 @@
 import { readSeenProviderIds } from "./model-options";
 import { reloadAfterOrgOnboardingKey } from "./state";
-import { SETTINGS_DEVELOPER_MODE_KEY, readStoredBoolean } from "../settings-route-storage";
+import { SETTINGS_DEVELOPER_MODE_KEY, readStoredBoolean } from "../settings-route";
 
 export function readOrgOnboardingReloadRequested() {
   if (typeof window === "undefined") return false;

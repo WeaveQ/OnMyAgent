@@ -1,10 +1,10 @@
 /** @jsxImportSource react */
 /**
  * Settings route entry — orchestration only.
- * Implementation: settings-route-render.tsx + settings-route-*.ts
+ * Implementation: settings-route/ (render + model + actions)
  */
 export {
   SettingsRoute,
   SettingsSurface,
   type SettingsSurfaceProps,
-} from "./settings-route-render";
+} from "./settings-route";

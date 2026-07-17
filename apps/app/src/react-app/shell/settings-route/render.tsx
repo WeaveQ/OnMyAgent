@@ -2,16 +2,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { SUGGESTED_PLUGINS } from "../../app/constants";
-import type { EnablementContext } from "../../app/enablement";
-import { createClient } from "../../app/lib/opencode";
+import { SUGGESTED_PLUGINS } from "../../../app/constants";
+import type { EnablementContext } from "../../../app/enablement";
+import { createClient } from "../../../app/lib/opencode";
 import {
   createOnMyAgentServerClient,
   type OnMyAgentServerCapabilities,
   type OnMyAgentServerClient,
-} from "../../app/lib/onmyagent-server";
-import { resolveWorkspaceEndpoint } from "../../app/lib/workspace-endpoint";
-import { buildOnMyAgentEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
+} from "../../../app/lib/onmyagent-server";
+import { resolveWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
+import { buildOnMyAgentEnvRuntimeKey } from "../../../app/lib/onmyagent-env-runtime";
 import type {
   Client,
   ProviderListItem,
@@ -19,23 +19,23 @@ import type {
   WorkspaceConnectionState,
   WorkspaceDisplay,
   WorkspacePreset,
-} from "../../app/types";
-import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../app/utils";
-import { t } from "../../i18n";
+} from "../../../app/types";
+import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../../app/utils";
+import { t } from "../../../i18n";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createConnectionsStore, useConnectionsStoreSnapshot } from "../domains/connections";
-import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../domains/shared";
-import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domains/connections";
-import { ProviderAuthModal } from "../domains/connections";
-import { ConnectionsModals } from "../domains/connections";
+import { createConnectionsStore, useConnectionsStoreSnapshot } from "../../domains/connections";
+import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../../domains/shared";
+import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../../domains/connections";
+import { ProviderAuthModal } from "../../domains/connections";
+import { ConnectionsModals } from "../../domains/connections";
 import {
   AiSettingsView,
   type AiSettingsConnectedProvider,
-} from "../domains/settings";
-import { OpenCodeProviderConfigDialog } from "../domains/session";
-import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../domains/settings";
-import { isOnMyAgentExtensionEnabled } from "../domains/shared";
+} from "../../domains/settings";
+import { OpenCodeProviderConfigDialog } from "../../domains/session";
+import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../../domains/settings";
+import { isOnMyAgentExtensionEnabled } from "../../domains/shared";
 import {
   AdvancedView,
   AuthorizedFoldersPanel,
@@ -61,16 +61,16 @@ import {
   useDenSession,
   useElectronUpdaterState,
   useMessagingViewProps,
-} from "../domains/settings";
-import { useBootState } from "./boot-state";
+} from "../../domains/settings";
+import { useBootState } from "../boot-state";
 import {
   SettingsShell,
   createExtensionsStore,
   useExtensionsStoreSnapshot,
-} from "../domains/settings";
-import { usePlatform } from "../kernel/platform";
-import { useLocal } from "../kernel/local-provider";
-import type { OnboardingProfile } from "../kernel/local-provider";
+} from "../../domains/settings";
+import { usePlatform } from "../../kernel/platform";
+import { useLocal } from "../../kernel/local-provider";
+import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
   agentManagementSnapshot,
   onmyagentServerInfo,
@@ -78,22 +78,22 @@ import {
   resolveWorkspaceListSelectedId,
   type AgentManagementManagedProvider,
   type WorkspaceList,
-} from "../../app/lib/desktop";
-import { isBlockedProvider } from "../../app/cloud/blocked-providers";
-import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
+} from "../../../app/lib/desktop";
+import { isBlockedProvider } from "../../../app/cloud/blocked-providers";
+import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import {
   useCheckDesktopRestriction,
   useDesktopConfig,
   useRestrictionNotice,
   useCloudProviderAutoSync,
-} from "../domains/cloud";
+} from "../../domains/cloud";
 import {
   isDesktopRuntime,
   isElectronRuntime,
   resolveModelDisplayName,
   resolveProviderDisplayName,
   safeStringify,
-} from "../../app/utils";
+} from "../../../app/utils";
 import {
   CreateRemoteWorkspaceModal,
   CreateWorkspaceModal,
@@ -101,11 +101,11 @@ import {
   diagnoseRemoteWorkspaceTaskLoadFailure,
   useRemoteWorkspaceConnectionEditor,
   useShareWorkspaceState,
-} from "../domains/workspace";
-import { ShareWorkspaceModal } from "../domains/workspace";
-import { ModelPickerModal, workspaceSwatchColor } from "../domains/session";
-import type { ModelOption, ModelRef } from "../../app/types";
-import { recordInspectorEvent } from "./app-inspector";
+} from "../../domains/workspace";
+import { ShareWorkspaceModal } from "../../domains/workspace";
+import { ModelPickerModal, workspaceSwatchColor } from "../../domains/session";
+import type { ModelOption, ModelRef } from "../../../app/types";
+import { recordInspectorEvent } from "../app-inspector";
 import { normalizeSettingsProviderSource,
   describeRouteError,
   describeWorkspaceCreateError,
@@ -129,8 +129,8 @@ import { normalizeSettingsProviderSource,
   updateSettingsWorkspaceConnectionOverrides,
   workspaceLabel,
   type RouteWorkspace,
-} from "./settings-route-model";
-import { loadSettingsWorkspaceSessionState } from "./settings-route-sessions";
+} from "./model";
+import { loadSettingsWorkspaceSessionState } from "./sessions";
 import {
   activateDesktopSettingsWorkspaceInBackground,
   applySettingsEnvironmentChangesAndRefresh,
@@ -141,31 +141,31 @@ import {
   pickAndExportSettingsWorkspaceConfig,
   renameSettingsWorkspaceAndRefresh,
   revealSettingsWorkspacePath,
-} from "./settings-route-workspace-actions";
-import { ensureDesktopLocalOnMyAgentConnection } from "./desktop-local-onmyagent";
-import { resolveOnMyAgentConnection } from "./onmyagent-connection";
+} from "./workspace-actions";
+import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagent";
+import { resolveOnMyAgentConnection } from "../onmyagent-connection";
 import {
   useSettingsEmbeddedRedirect,
   useSettingsPathNavigator,
-} from "./settings-route-embedded-path";
-import { useSettingsWorkspaceRefs } from "./settings-route-refs";
+} from "./embedded-path";
+import { useSettingsWorkspaceRefs } from "./refs";
 import {
   reconnectOnMyAgentServerAndRefresh,
   resolveOnMyAgentServerStartupPreference,
   restartLocalOnMyAgentServer,
   restartOnMyAgentServerAndRefresh,
-} from "./settings-route-server-actions";
+} from "./server-actions";
 import {
   buildRemoteWorkspaceConnectingState,
   remoteWorkspaceConnectionCheckIsCurrent,
   resolveRemoteWorkspaceConnectionCheckTarget,
   runRemoteWorkspaceConnectionCheckTarget,
-} from "./settings-route-remote-workspace-actions";
-import { abortSessionSafe } from "../../app/lib/opencode-session";
-import { useReloadCoordinator } from "./reload-coordinator";
-import { buildFeedbackUrl } from "../../app/lib/feedback";
-import { getDenInferenceUrl } from "../../app/lib/den";
-import { readActiveWorkspaceId, writeActiveWorkspaceId } from "./session-memory";
+} from "./remote-workspace-actions";
+import { abortSessionSafe } from "../../../app/lib/opencode-session";
+import { useReloadCoordinator } from "../reload-coordinator";
+import { buildFeedbackUrl } from "../../../app/lib/feedback";
+import { getDenInferenceUrl } from "../../../app/lib/den";
+import { readActiveWorkspaceId, writeActiveWorkspaceId } from "../session-memory";
 import {
   readStoredBoolean,
   SETTINGS_DEVELOPER_MODE_KEY,
@@ -173,11 +173,11 @@ import {
   SETTINGS_UPDATE_AUTO_CHECK_KEY,
   SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY,
   writeStoredBoolean,
-} from "./settings-route-storage";
-import { workspaceSessionRoute, workspaceSettingsRoute } from "./workspace-routes";
-import { getReactQueryClient } from "../infra/query-client";
-import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../domains/connections";
-import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "./new-providers-toast";
+} from "./storage";
+import { workspaceSessionRoute, workspaceSettingsRoute } from "../workspace-routes";
+import { getReactQueryClient } from "../../infra/query-client";
+import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../../domains/connections";
+import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "../new-providers-toast";
 import {
   OPENAI_API_KEY_ENV_KEY,
   OPENAI_IMAGE_EXTENSION_ID,
@@ -188,7 +188,7 @@ import {
   slugifyImageArtifactName,
   OLLAMA_PROVIDER_CONFIG,
   type LocalProviderInstallInput,
-} from "../domains/settings";
+} from "../../domains/settings";
 
 const ROUTE_ONMYAGENT_CAPABILITIES: OnMyAgentServerCapabilities = {
   skills: { read: true, write: true, source: "onmyagent" },

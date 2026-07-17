@@ -1,6 +1,6 @@
-import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
-import type { WorkspaceConnectionState } from "../../app/types";
-import { normalizeDirectoryPath } from "../../app/utils";
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import type { WorkspaceConnectionState } from "../../../app/types";
+import { normalizeDirectoryPath } from "../../../app/utils";
 import {
   buildSettingsFailedWorkspaceSessionEntry,
   buildSettingsLoadedWorkspaceSessionEntry,
@@ -8,7 +8,7 @@ import {
   type RouteWorkspace,
   type SettingsWorkspaceSessionEntry,
   mergeRouteWorkspaces,
-} from "./settings-route-model";
+} from "./model";
 
 export type SettingsWorkspaceSessionState = {
   serverList: Awaited<ReturnType<OnMyAgentServerClient["listWorkspaces"]>>;
