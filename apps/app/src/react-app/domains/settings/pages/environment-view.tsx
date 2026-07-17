@@ -33,7 +33,11 @@ import {
   useEnvironmentVariableRemove,
   useIsEnvironmentVariableChangesPending,
 } from "./environment-variable-provider";
-import { SettingsNotice, Spinner } from "../settings-section";
+import {
+  SettingsNotice,
+  SettingsPageSection,
+  Spinner,
+} from "../settings-section";
 import {
   EnvironmentVariableTableItem,
   EnvironmentVariableTable,
@@ -44,11 +48,7 @@ import {
   type EnvironmentVariableItem,
 } from "./environment-variable-table";
 import {
-  LayoutSection,
-  LayoutSectionDescription,
-  LayoutSectionHeader,
   LayoutSectionItemFootnote,
-  LayoutSectionTitle,
   LayoutStack,
 } from "../settings-layout";
 import { useStatusToasts } from "../../shell-feedback";
@@ -156,24 +156,18 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
   };
 
   return (
-    <LayoutSection>
-      <LayoutSectionHeader>
-        <div className={environmentLayoutClass.panelHeader}>
-          <div className="min-w-0">
-            <LayoutSectionTitle>{t("settings.environment.title")}</LayoutSectionTitle>
-            <LayoutSectionDescription className={environmentLayoutClass.description}>
-              {t("settings.environment.description")}
-            </LayoutSectionDescription>
-          </div>
-          {props.canEdit ? (
-            <Button onClick={openAdd}>
-              <Plus className="size-4" />
-              {t("settings.environment.add_button")}
-            </Button>
-          ) : null}
-        </div>
-      </LayoutSectionHeader>
-
+    <SettingsPageSection
+      title={t("settings.environment.title")}
+      description={t("settings.environment.description")}
+      actions={
+        props.canEdit ? (
+          <Button onClick={openAdd}>
+            <Plus className="size-4" />
+            {t("settings.environment.add_button")}
+          </Button>
+        ) : null
+      }
+    >
       {props.isRemoteWorkspace ? (
         <SettingsNotice>{t("settings.environment.remote_workspace_hint")}</SettingsNotice>
       ) : null}
@@ -211,7 +205,7 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
           onChange={props.onEditorChange}
         />
       ) : null}
-    </LayoutSection>
+    </SettingsPageSection>
   );
 }
 

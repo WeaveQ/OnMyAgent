@@ -10,18 +10,13 @@ import { desktopBridge } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
 
 import { t } from "@/i18n";
+import { FontSizeBlockRow } from "../appearance/font-size-section";
 import {
-  LayoutSection,
-  LayoutSectionDescription,
-  LayoutSectionHeader,
-  LayoutSectionItem,
-  LayoutSectionItemDescription,
-  LayoutSectionItemHeader,
-  LayoutSectionItemHeaderActions,
-  LayoutSectionItemTitle,
-  LayoutSectionTitle,
-  LayoutStack,
-} from "../settings-layout";
+  SettingsBlock,
+  SettingsBlockRow,
+  SettingsPageSection,
+} from "../settings-section";
+import { LayoutStack } from "../settings-layout";
 
 export type PreferencesViewProps = {
   busy: boolean;
@@ -89,24 +84,94 @@ export function PreferencesView(props: PreferencesViewProps) {
 
   return (
     <LayoutStack>
-      <LayoutSection>
-        <LayoutSectionHeader>
-          <LayoutSectionTitle>{t("settings.notifications_section_title")}</LayoutSectionTitle>
-          <LayoutSectionDescription>
-            {t("settings.notifications_section_desc")}
-          </LayoutSectionDescription>
-        </LayoutSectionHeader>
+      <SettingsPageSection title={t("settings.font_size_title")}>
+        <SettingsBlock>
+          <FontSizeBlockRow />
+        </SettingsBlock>
+      </SettingsPageSection>
 
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>
-              {t("settings.desktop_notifications_label")}
-            </LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>
-              {t("settings.desktop_notifications_desc")}
-            </LayoutSectionItemDescription>
-            <LayoutSectionItemHeaderActions>
-              {desktopNotificationsGranted ? (
+      <SettingsPageSection title={t("settings.personalization_title")}>
+        <SettingsBlock>
+          <SettingsBlockRow
+            title={t("settings.response_tone")}
+            description={t("settings.response_tone_desc")}
+            actions={
+              <SelectMenu
+                ariaLabel={t("settings.response_tone")}
+                options={[
+                  {
+                    value: "friendly",
+                    label: t("settings.response_tone_friendly"),
+                  },
+                  {
+                    value: "business",
+                    label: t("settings.response_tone_business"),
+                  },
+                ]}
+                value={props.responseTone}
+                disabled={props.busy}
+                onChange={(value) =>
+                  props.onResponseToneChange(
+                    value === "friendly" ? "friendly" : "business",
+                  )
+                }
+              />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.custom_instructions")}
+            description={t("settings.custom_instructions_desc")}
+            align="start"
+          >
+            <Textarea
+              className="mt-2 min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
+              value={props.customInstructions}
+              disabled={props.busy}
+              placeholder={t("settings.custom_instructions_placeholder")}
+              onChange={(event) =>
+                props.onCustomInstructionsChange(event.target.value)
+              }
+            />
+          </SettingsBlockRow>
+        </SettingsBlock>
+      </SettingsPageSection>
+
+      <SettingsPageSection title={t("settings.model_title")}>
+        <SettingsBlock>
+          <SettingsBlockRow
+            title={t("settings.show_model_reasoning")}
+            description={t("settings.show_model_reasoning_desc")}
+            actions={
+              <Switch
+                aria-label={t("settings.show_model_reasoning")}
+                checked={props.showThinking}
+                disabled={props.busy}
+                onCheckedChange={props.onToggleShowThinking}
+              />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.auto_compact")}
+            description={t("settings.auto_compact_desc")}
+            actions={
+              <Switch
+                aria-label={t("settings.auto_compact")}
+                checked={props.autoCompactContext}
+                disabled={props.busy || props.autoCompactContextBusy}
+                onCheckedChange={props.onToggleAutoCompactContext}
+              />
+            }
+          />
+        </SettingsBlock>
+      </SettingsPageSection>
+
+      <SettingsPageSection title={t("settings.notifications_section_title")}>
+        <SettingsBlock>
+          <SettingsBlockRow
+            title={t("settings.desktop_notifications_label")}
+            description={t("settings.desktop_notifications_desc")}
+            actions={
+              desktopNotificationsGranted ? (
                 <span className="text-sm text-dls-secondary">
                   {t("settings.permission_authorized")}
                 </span>
@@ -127,20 +192,13 @@ export function PreferencesView(props: PreferencesViewProps) {
                     : t("settings.permission_authorize")}
                   <ExternalLink className="size-3.5" />
                 </Button>
-              )}
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>
-              {t("settings.agent_ready_notifications_label")}
-            </LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>
-              {t("settings.agent_ready_notifications_desc")}
-            </LayoutSectionItemDescription>
-            <LayoutSectionItemHeaderActions>
+              )
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.agent_ready_notifications_label")}
+            description={t("settings.agent_ready_notifications_desc")}
+            actions={
               <Switch
                 aria-label={t("settings.agent_ready_notifications_label")}
                 checked={props.desktopNotifyOnAgentReady}
@@ -148,8 +206,6 @@ export function PreferencesView(props: PreferencesViewProps) {
                 onCheckedChange={(checked) => {
                   void (async () => {
                     if (checked) {
-                      // Turning on: ensure OS permission so the first real
-                      // alert is not silently dropped.
                       if (
                         typeof window !== "undefined" &&
                         "Notification" in window &&
@@ -165,89 +221,10 @@ export function PreferencesView(props: PreferencesViewProps) {
                   })();
                 }}
               />
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-      </LayoutSection>
-
-      <LayoutSection>
-        <LayoutSectionHeader>
-          <LayoutSectionTitle>{t("settings.personalization_title")}</LayoutSectionTitle>
-          <LayoutSectionDescription>{t("settings.personalization_desc")}</LayoutSectionDescription>
-        </LayoutSectionHeader>
-
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>{t("settings.response_tone")}</LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>{t("settings.response_tone_desc")}</LayoutSectionItemDescription>
-            <LayoutSectionItemHeaderActions>
-              <SelectMenu
-                ariaLabel={t("settings.response_tone")}
-                options={[
-                  { value: "friendly", label: t("settings.response_tone_friendly") },
-                  { value: "business", label: t("settings.response_tone_business") },
-                ]}
-                value={props.responseTone}
-                disabled={props.busy}
-                onChange={(value) => props.onResponseToneChange(value === "friendly" ? "friendly" : "business")}
-              />
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>{t("settings.custom_instructions")}</LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>{t("settings.custom_instructions_desc")}</LayoutSectionItemDescription>
-          </LayoutSectionItemHeader>
-          <Textarea
-            className="min-h-36 resize-y bg-dls-surface py-2.5 leading-6 placeholder:text-dls-secondary/70"
-            value={props.customInstructions}
-            disabled={props.busy}
-            placeholder={t("settings.custom_instructions_placeholder")}
-            onChange={(event) => props.onCustomInstructionsChange(event.target.value)}
+            }
           />
-        </LayoutSectionItem>
-      </LayoutSection>
-
-      <LayoutSection>
-        <LayoutSectionHeader>
-          <LayoutSectionTitle>{t("settings.model_title")}</LayoutSectionTitle>
-          <LayoutSectionDescription>{t("settings.model_section_desc")}</LayoutSectionDescription>
-        </LayoutSectionHeader>
-
-        {/* Show reasoning */}
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>{t("settings.show_model_reasoning")}</LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>{t("settings.show_model_reasoning_desc")}</LayoutSectionItemDescription>
-            <LayoutSectionItemHeaderActions>
-              <Switch
-                aria-label={t("settings.show_model_reasoning")}
-                checked={props.showThinking}
-                disabled={props.busy}
-                onCheckedChange={props.onToggleShowThinking}
-              />
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-
-        {/* Auto context compaction */}
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>{t("settings.auto_compact")}</LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>{t("settings.auto_compact_desc")}</LayoutSectionItemDescription>
-            <LayoutSectionItemHeaderActions>
-              <Switch
-                aria-label={t("settings.auto_compact")}
-                checked={props.autoCompactContext}
-                disabled={props.busy || props.autoCompactContextBusy}
-                onCheckedChange={props.onToggleAutoCompactContext}
-              />
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-      </LayoutSection>
+        </SettingsBlock>
+      </SettingsPageSection>
     </LayoutStack>
   );
 }

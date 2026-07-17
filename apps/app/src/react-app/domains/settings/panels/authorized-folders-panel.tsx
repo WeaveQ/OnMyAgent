@@ -35,16 +35,11 @@ import {
   type AuthorizedFoldersState,
 } from "./authorized-folders-panel-state";
 import {
-  SettingsActionRow,
+  SettingsBlock,
+  SettingsBlockRow,
   SettingsNotice,
+  SettingsPageSection,
 } from "../settings-section";
-import {
-  LayoutSectionItem,
-  LayoutSectionItemDescription,
-  LayoutSectionItemHeader,
-  LayoutSectionItemHeaderActions,
-  LayoutSectionItemTitle,
-} from "../settings-layout";
 
 export type AuthorizedFoldersPanelProps = {
   onmyagentServerClient: OnMyAgentServerClient | null;
@@ -75,48 +70,58 @@ function AuthorizedFolderItem(props: AuthorizedFolderItemProps) {
   const folderName = getFolderName(props.folder);
 
   return (
-    <SettingsActionRow as="li">
-      <div className="flex min-w-0 gap-3">
-        <div className="min-w-0 flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <Folder size={16} className="shrink-0 text-muted-foreground" />
-            <span className="truncate text-sm font-medium text-dls-text">{folderName}</span>
-            {isWorkspaceRoot ? (
-              <StatusBadge tone="neutral">
-                {t("context_panel.workspace_root_badge")}
-              </StatusBadge>
-            ) : null}
-          </div>
-          <span className="truncate font-mono text-xs text-muted-foreground ps-6">{props.folder}</span>
-        </div>
-      </div>
-      {!isWorkspaceRoot ? (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="shrink-0 text-muted-foreground hover:text-destructive"
-          onClick={() => void props.onRemove(props.folder)}
-          disabled={props.authorizedFoldersLoading || props.authorizedFoldersSaving || !props.canWriteConfig}
-          aria-label={t("context_panel.remove_folder", undefined, { name: folderName })}
-        >
-          <X size={14} />
-        </Button>
-      ) : (
-        <Tooltip>
-          <TooltipTrigger
-            render={(
-              <span
-                className="inline-flex shrink-0 items-center text-muted-foreground mr-2"
-                tabIndex={0}
-              >
-                <Info className="size-4" />
-              </span>
-            )}
-          />
-          <TooltipContent>{t("context_panel.always_available")}</TooltipContent>
-        </Tooltip>
-      )}
-    </SettingsActionRow>
+    <SettingsBlockRow
+      title={
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <Folder size={16} className="shrink-0 text-muted-foreground" />
+          <span className="truncate">{folderName}</span>
+          {isWorkspaceRoot ? (
+            <StatusBadge tone="neutral">
+              {t("context_panel.workspace_root_badge")}
+            </StatusBadge>
+          ) : null}
+        </span>
+      }
+      description={
+        <span className="font-mono text-xs">{props.folder}</span>
+      }
+      actions={
+        !isWorkspaceRoot ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => void props.onRemove(props.folder)}
+            disabled={
+              props.authorizedFoldersLoading ||
+              props.authorizedFoldersSaving ||
+              !props.canWriteConfig
+            }
+            aria-label={t("context_panel.remove_folder", undefined, {
+              name: folderName,
+            })}
+          >
+            <X size={14} />
+          </Button>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger
+              render={(
+                <span
+                  className="inline-flex items-center text-muted-foreground"
+                  tabIndex={0}
+                >
+                  <Info className="size-4" />
+                </span>
+              )}
+            />
+            <TooltipContent>
+              {t("context_panel.always_available")}
+            </TooltipContent>
+          </Tooltip>
+        )
+      }
+    />
   );
 }
 
@@ -290,34 +295,32 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
   }, [authorizedFolders, persistAuthorizedFolders, workspaceRootFolder]);
 
   return (
-    <LayoutSectionItem className="gap-4">
-      <LayoutSectionItemHeader>
-        <LayoutSectionItemTitle>
-          {t("context_panel.authorized_folders")}
-        </LayoutSectionItemTitle>
-        <LayoutSectionItemDescription>
-          {t("context_panel.authorized_folders_desc")}
-        </LayoutSectionItemDescription>
-        <LayoutSectionItemHeaderActions>
-          <Button
-            onClick={() => void pickAuthorizedFolder()}
-            disabled={authorizedFoldersLoading || authorizedFoldersSaving || !canPickAuthorizedFolder}
-          >
-            <Plus className="size-4" />
-            {t("context_panel.add_folder_button")}
-          </Button>
-        </LayoutSectionItemHeaderActions>
-      </LayoutSectionItemHeader>
-
+    <SettingsPageSection
+      title={t("context_panel.authorized_folders")}
+      description={t("context_panel.authorized_folders_desc")}
+      actions={
+        <Button
+          onClick={() => void pickAuthorizedFolder()}
+          disabled={
+            authorizedFoldersLoading ||
+            authorizedFoldersSaving ||
+            !canPickAuthorizedFolder
+          }
+        >
+          <Plus className="size-4" />
+          {t("context_panel.add_folder_button")}
+        </Button>
+      }
+    >
       {!canReadConfig ? (
         <SettingsNotice>
-          {authorizedFoldersHint ?? t("context_panel.authorized_folders_no_access")}
+          {authorizedFoldersHint ??
+            t("context_panel.authorized_folders_no_access")}
         </SettingsNotice>
       ) : (
         <>
-          {/* Folder list */}
           {visibleAuthorizedFolders.length > 0 ? (
-            <ul className="flex flex-col gap-2">
+            <SettingsBlock>
               {visibleAuthorizedFolders.map((folder) => (
                 <AuthorizedFolderItem
                   key={folder}
@@ -329,7 +332,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
                   onRemove={removeAuthorizedFolder}
                 />
               ))}
-            </ul>
+            </SettingsBlock>
           ) : (
             <Empty>
               <EmptyHeader>
@@ -343,27 +346,32 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
                   {t("context_panel.add_folder_hint")}
                 </EmptyDescription>
               </EmptyHeader>
-            <EmptyContent>
-              <Button
-                onClick={() => void pickAuthorizedFolder()}
-                disabled={authorizedFoldersLoading || authorizedFoldersSaving || !canPickAuthorizedFolder}
-              >
-                <Plus className="size-4" />
-                {t("context_panel.add_folder_button")}
-              </Button>
-            </EmptyContent>
+              <EmptyContent>
+                <Button
+                  onClick={() => void pickAuthorizedFolder()}
+                  disabled={
+                    authorizedFoldersLoading ||
+                    authorizedFoldersSaving ||
+                    !canPickAuthorizedFolder
+                  }
+                >
+                  <Plus className="size-4" />
+                  {t("context_panel.add_folder_button")}
+                </Button>
+              </EmptyContent>
             </Empty>
           )}
 
-          {/* Status / error */}
           {authorizedFoldersStatus ? (
             <SettingsNotice>{authorizedFoldersStatus}</SettingsNotice>
           ) : null}
           {authorizedFoldersError ? (
-            <SettingsNotice tone="error">{authorizedFoldersError}</SettingsNotice>
+            <SettingsNotice tone="error">
+              {authorizedFoldersError}
+            </SettingsNotice>
           ) : null}
         </>
       )}
-    </LayoutSectionItem>
+    </SettingsPageSection>
   );
 }

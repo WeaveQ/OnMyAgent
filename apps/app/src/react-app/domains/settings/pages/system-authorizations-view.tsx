@@ -1,24 +1,14 @@
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useState, useCallback } from "react";
 import {
   CheckCircle2,
   ExternalLink,
   HelpCircle,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +24,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { desktopBridge } from "../../../../app/lib/desktop";
-import { SettingsActionRow } from "../settings-section";
-import type { SystemPermissionResult, SystemPermissionType } from "../../../../app/lib/desktop-types";
+import {
+  SettingsBlock,
+  SettingsBlockRow,
+  SettingsPageSection,
+} from "../settings-section";
+import type {
+  SystemPermissionResult,
+  SystemPermissionType,
+} from "../../../../app/lib/desktop-types";
 import { t } from "../../../../i18n";
 
 type PermissionItem = {
@@ -47,23 +44,39 @@ type PermissionItem = {
 const PERMISSIONS: PermissionItem[] = [
   {
     id: "full-disk-access",
-    get label() { return t("settings.permission_full_disk_label"); },
-    get description() { return t("settings.permission_full_disk_desc"); },
+    get label() {
+      return t("settings.permission_full_disk_label");
+    },
+    get description() {
+      return t("settings.permission_full_disk_desc");
+    },
   },
   {
     id: "accessibility",
-    get label() { return t("settings.permission_accessibility_label"); },
-    get description() { return t("settings.permission_accessibility_desc"); },
+    get label() {
+      return t("settings.permission_accessibility_label");
+    },
+    get description() {
+      return t("settings.permission_accessibility_desc");
+    },
   },
   {
     id: "automation",
-    get label() { return t("settings.permission_automation_label"); },
-    get description() { return t("settings.permission_automation_desc"); },
+    get label() {
+      return t("settings.permission_automation_label");
+    },
+    get description() {
+      return t("settings.permission_automation_desc");
+    },
   },
   {
     id: "notifications",
-    get label() { return t("settings.permission_notifications_label"); },
-    get description() { return t("settings.permission_notifications_desc"); },
+    get label() {
+      return t("settings.permission_notifications_label");
+    },
+    get description() {
+      return t("settings.permission_notifications_desc");
+    },
   },
 ];
 
@@ -76,18 +89,22 @@ export function SystemAuthorizationsView() {
   const checkPermissions = useCallback(async () => {
     setLoading(true);
     try {
-      const data = (await desktopBridge.checkSystemPermissions()) as SystemPermissionResult;
+      const data =
+        (await desktopBridge.checkSystemPermissions()) as SystemPermissionResult;
       const permissions = { ...data.permissions };
 
-      // 在渲染进程中直接检测通知权限（Web Notification API）
-      if (data.platform === "macos" && typeof window !== "undefined" && "Notification" in window) {
+      // Detect notification permission in the renderer (Web Notification API).
+      if (
+        data.platform === "macos" &&
+        typeof window !== "undefined" &&
+        "Notification" in window
+      ) {
         const notifPerm = Notification.permission;
         if (notifPerm === "granted") {
           permissions.notifications = "granted";
         } else if (notifPerm === "denied") {
           permissions.notifications = "denied";
         } else {
-          // "default" 表示用户未做选择，视为未授权。
           permissions.notifications = "denied";
         }
       }
@@ -104,11 +121,6 @@ export function SystemAuthorizationsView() {
     void checkPermissions();
   }, [checkPermissions]);
 
-  // Auto-recheck when user returns to the app window.
-  // This handles the common flow: user clicks "去授权" → switches to System
-  // Settings → grants permission → switches back to OnMyAgent. Without this,
-  // the UI would show the stale "未授权" state until the user manually clicks
-  // the refresh button.
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleRefresh = () => {
@@ -141,11 +153,12 @@ export function SystemAuthorizationsView() {
       ) {
         await Notification.requestPermission().catch(() => undefined);
       }
-      const response = await desktopBridge.openSystemPermissionSettings(type) as { success: boolean; hint?: string | null; error?: string };
+      const response = (await desktopBridge.openSystemPermissionSettings(
+        type,
+      )) as { success: boolean; hint?: string | null; error?: string };
       if (response.hint) {
         setHintDialogHint(response.hint);
       }
-      // Refresh after opening settings UI (user may grant the permission)
       setTimeout(() => void checkPermissions(), 3000);
     } catch (e) {
       console.error("Failed to open system preferences:", e);
@@ -170,10 +183,9 @@ export function SystemAuthorizationsView() {
 
   return (
     <>
-      <Card variant="outline" size="sm" className="border-0 bg-transparent">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <CardTitle className="flex items-center gap-2">
+      <SettingsPageSection
+        title={
+          <span className="inline-flex items-center gap-2">
             {t("settings.system_authorizations")}
             <TooltipProvider>
               <Tooltip>
@@ -185,61 +197,51 @@ export function SystemAuthorizationsView() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </CardTitle>
-        </div>
-        <CardDescription>
-          {t("settings.system_authorizations_description")}
-        </CardDescription>
-        <CardAction>
+          </span>
+        }
+        description={t("settings.system_authorizations_description")}
+        actions={
           <Button
             variant="ghost"
             size="icon-sm"
+            className="text-muted-foreground"
             onClick={() => void checkPermissions()}
             disabled={loading}
+            aria-label={t("settings.permission_checking")}
           >
-            <RefreshCw className={loading ? "animate-spin" : ""} />
+            <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
           </Button>
-        </CardAction>
-      </CardHeader>
+        }
+      >
+        <SettingsBlock>
+          {PERMISSIONS.map((perm) => {
+            const status = result?.permissions[perm.id];
+            const isGranted = status === "granted";
+            const isOpening = opening === perm.id;
 
-      <CardContent className="space-y-2">
-        {PERMISSIONS.map((perm) => {
-          const status = result?.permissions[perm.id];
-          const isGranted = status === "granted";
-          const isOpening = opening === perm.id;
-
-          return (
-            <SettingsActionRow key={perm.id} className="px-4 hover:bg-dls-surface-muted">
-              <div className="flex w-full items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-card-foreground">
-                      {perm.label}
+            return (
+              <SettingsBlockRow
+                key={perm.id}
+                title={perm.label}
+                description={perm.description}
+                actions={
+                  isGranted ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-dls-accent">
+                      <CheckCircle2 className="size-4" />
+                      {getStatusLabel(perm.id)}
                     </span>
-                    {isGranted ? (
-                      <StatusBadge className="gap-1" tone="accent">
-                        <CheckCircle2 className="size-3" />
-                        {getStatusLabel(perm.id)}
-                      </StatusBadge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {perm.description}
-                  </p>
-                </div>
-                <div className="ml-auto flex shrink-0 items-center justify-end">
-                  {isGranted ? null : (
+                  ) : (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1.5 whitespace-nowrap text-dls-secondary hover:border-dls-accent/30 hover:text-dls-text"
+                      className="gap-1.5 whitespace-nowrap"
                       onClick={() => void handleAuthorize(perm.id)}
                       disabled={isOpening || !result}
                     >
                       {isOpening ? (
                         <LoadingSpinner size="sm" />
                       ) : (
-                        <ExternalLink className="size-3" />
+                        <ExternalLink className="size-3.5" />
                       )}
                       <span className="leading-none">
                         {isOpening
@@ -247,16 +249,18 @@ export function SystemAuthorizationsView() {
                           : getStatusLabel(perm.id)}
                       </span>
                     </Button>
-                  )}
-                </div>
-              </div>
-            </SettingsActionRow>
-          );
-        })}
-      </CardContent>
-    </Card>
+                  )
+                }
+              />
+            );
+          })}
+        </SettingsBlock>
+      </SettingsPageSection>
 
-      <Dialog open={Boolean(hintDialogHint)} onOpenChange={(open) => !open && setHintDialogHint(null)}>
+      <Dialog
+        open={Boolean(hintDialogHint)}
+        onOpenChange={(open) => !open && setHintDialogHint(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -270,15 +274,17 @@ export function SystemAuthorizationsView() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-sm text-foreground leading-relaxed">
+            <p className="text-sm leading-relaxed text-foreground">
               {hintDialogHint}
             </p>
           </div>
           <DialogFooter>
-            <Button onClick={() => {
-              setHintDialogHint(null);
-              void checkPermissions();
-            }}>
+            <Button
+              onClick={() => {
+                setHintDialogHint(null);
+                void checkPermissions();
+              }}
+            >
               {t("settings.permission_done")}
             </Button>
           </DialogFooter>

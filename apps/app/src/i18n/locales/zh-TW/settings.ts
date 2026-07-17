@@ -5,10 +5,24 @@ export default {
     "API 密鑰存儲在本機本地。環境變量型模型服務商需在工作區環境中修改後重新加載。",
   "settings.appearance_hint": "匹配系統或強制淺色/深色模式",
   "settings.appearance_title": "外觀",
+
+  "settings.font_size_title": "顯示大小",
+  "settings.font_size_desc": "縮放整個介面。也可使用 ⌘/Ctrl + 和 −，或 ⌘/Ctrl + 0 恢復預設。",
+  "settings.font_size_label": "字體大小",
+  "settings.font_size_hint": "作用於整個應用，包括會話與設定。",
+  "settings.font_size_small": "小",
+  "settings.font_size_default": "預設",
+  "settings.font_size_large": "大",
+  "settings.font_size_value": "第 {value} 檔",
+  "settings.font_size_option_default": "預設（{percent}%）",
+  "settings.font_size_option_smaller": "{percent}%",
+  "settings.font_size_option_larger": "{percent}%",
+
+
   "settings.audit_log_title": "審計日誌",
   "settings.auto_compact": "自動上下文壓縮",
   "settings.auto_compact_desc":
-    "控制此工作區的自動壓縮上下文。更改後請重載引擎",
+    "控制此工作區的自動上下文壓縮。更改後請重載引擎",
   "settings.auto_update_desc": "不支援應用內下載。發現新版本後請打開發佈頁手動安裝。",
   "settings.auto_update_title": "自動更新",
   "settings.auto_updates_packaged_only": "自動更新僅在打包版本中可用。",
@@ -527,8 +541,9 @@ export default {
     "基於 Chrome V8 引擎的 JavaScript 運行時，用於服務端開發",
   "settings.software_env.python_desc":
     "通用編程語言，適用於腳本編寫、自動化和數據處理",
+  "settings.software_env.runtime_name": "智能體運行時",
   "settings.software_env.opencode_desc":
-    "本地智能體運行時，用於運行和管理 AI Agent 的命令行工具",
+    "OnMyAgent 用於執行任務的本地智能體運行時",
   "settings.tab_extensions": "擴展",
   "settings.extensions_card_description": "MCP、技能、插件和連接器",
   "settings.tab_general": "總覽",

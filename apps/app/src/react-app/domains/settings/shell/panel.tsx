@@ -73,7 +73,7 @@ type SettingsPanelTitleProps = {
 
 export function SettingsPanelTitle(props: SettingsPanelTitleProps) {
   return (
-    <h2 className={cn("text-lg font-medium", props.className)}>
+    <h2 className={cn("text-lg font-medium leading-7 text-dls-text", props.className)}>
       {props.children}
     </h2>
   );
