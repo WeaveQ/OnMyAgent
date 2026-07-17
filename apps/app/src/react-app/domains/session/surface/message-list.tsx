@@ -993,6 +993,27 @@ const TRANSCRIPT_DISLIKE_REASONS = [
   "other",
 ] as const;
 
+type TranscriptDislikeReason = (typeof TRANSCRIPT_DISLIKE_REASONS)[number];
+
+function transcriptDislikeReasonLabel(reason: TranscriptDislikeReason): string {
+  switch (reason) {
+    case "misunderstanding":
+      return t("session.transcript_dislike_misunderstanding");
+    case "context_error":
+      return t("session.transcript_dislike_context_error");
+    case "answer_obscure":
+      return t("session.transcript_dislike_answer_obscure");
+    case "code_error":
+      return t("session.transcript_dislike_code_error");
+    case "unprofessional_answer":
+      return t("session.transcript_dislike_unprofessional_answer");
+    case "code_format_error":
+      return t("session.transcript_dislike_code_format_error");
+    case "other":
+      return t("session.transcript_dislike_other");
+  }
+}
+
 function isTranscriptFeedbackValue(value: unknown): value is TranscriptFeedbackValue {
   return value === "like" || value === "dislike";
 }
@@ -1100,7 +1121,7 @@ function TranscriptFeedbackControls(props: { messageId: string }) {
                   checked={selectedReasons.has(reason)}
                   onCheckedChange={(checked) => toggleReason(reason, checked === true)}
                 />
-                <span>{t(`session.transcript_dislike_${reason}`)}</span>
+                <span>{transcriptDislikeReasonLabel(reason)}</span>
               </label>
             ))}
           </div>
