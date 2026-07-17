@@ -1,6 +1,13 @@
 /** OnMyAgent server HTTP client facade — composes domain method modules. */
 export * from "./client-shared";
 
+import type {
+  ServerClientMethodArgsOf,
+  ServerClientMethodFn,
+  ServerClientMethodMap,
+  ServerClientMethodName,
+  ServerClientMethodResultOf,
+} from "@onmyagent/types/server-client-method-map";
 import {
   OnMyAgentServerError,
   requestJson,
@@ -13,6 +20,14 @@ import { createWorkspaceClientMethods } from "./client-workspace";
 import { createSessionsClientMethods } from "./client-sessions";
 import { createExtensionsClientMethods } from "./client-extensions";
 import { createSessionArchiveClientMethods } from "./client-session-archive";
+
+export type {
+  ServerClientMethodArgsOf,
+  ServerClientMethodFn,
+  ServerClientMethodMap,
+  ServerClientMethodName,
+  ServerClientMethodResultOf,
+} from "@onmyagent/types/server-client-method-map";
 
 export function createOnMyAgentServerClient(options: {
   baseUrl: string;
@@ -76,3 +91,22 @@ export function createOnMyAgentServerClient(options: {
 }
 
 export type OnMyAgentServerClient = ReturnType<typeof createOnMyAgentServerClient>;
+
+/**
+ * Typed method accessor: look up a client method by inventory name with
+ * `ServerClientMethodMap` args/result. Prefer direct property access for call
+ * sites; use this when the method name is dynamic.
+ */
+export function serverClientMethod<M extends ServerClientMethodName>(
+  client: OnMyAgentServerClient,
+  method: M,
+): ServerClientMethodFn<M> {
+  const fn = (client as Record<string, unknown>)[method];
+  if (typeof fn !== "function" && method !== "baseUrl" && method !== "token") {
+    throw new Error(`OnMyAgent server client method is not implemented: ${method}`);
+  }
+  if (method === "baseUrl" || method === "token") {
+    return (() => (client as Record<string, unknown>)[method]) as ServerClientMethodFn<M>;
+  }
+  return (fn as ServerClientMethodFn<M>).bind(client);
+}
