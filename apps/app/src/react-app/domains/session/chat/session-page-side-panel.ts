@@ -15,6 +15,7 @@ import {
   writeHiddenAccessibleTargetIds,
 } from "./session-page-accessible-targets";
 import { GLOBAL_VOICE_SIDE_PANEL_KEY } from "./session-page-model";
+import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 
 type UseSessionPageSidePanelInput = {
   selectedWorkspaceId: string;
@@ -98,23 +99,14 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     [selectedSessionId, setSidePanelState, toggleSidePanelState],
   );
 
-  useEffect(() => {
-    if (!isElectronRuntime()) return;
-    const browser = (window as Window).__ONMYAGENT_ELECTRON__?.browser;
-    if (!browser) return;
-    const unsubOpen = browser.onPanelOpened?.(() => {
-      if (preserveSidePanelOnPanelOpenRef.current) {
-        preserveSidePanelOnPanelOpenRef.current = false;
-        return;
-      }
-      setCurrentSidePanel("browser");
-    });
-    const unsubClose = browser.onPanelClosed?.(() => setCurrentSidePanel(null));
-    return () => {
-      unsubOpen?.();
-      unsubClose?.();
-    };
+  const openBrowserPanelFromAgent = useCallback(() => {
+    if (preserveSidePanelOnPanelOpenRef.current) {
+      preserveSidePanelOnPanelOpenRef.current = false;
+      return;
+    }
+    setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
 
   const {
     rightSidebarExpandedWidth: browserPanelWidth,

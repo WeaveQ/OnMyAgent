@@ -145,16 +145,17 @@ export function createElectronBrowserController(options) {
   const originalDispatch = runtime.dispatch.bind(runtime);
 
   runtime.dispatch = async (method, params, context) => {
-    const before = new Set(host.listAllTabs().map((tab) => tab.tabId));
     const result = await originalDispatch(method, params, context);
     let openedAgentSurface = false;
     if (method === "createTab") {
       const tabId = result?.tab?.tabId;
-      if (tabId && !before.has(tabId) && !records.has(tabId)) {
-        const view = host.getView?.(tabId);
-        if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
-        records.set(tabId, { tab: result.tab, view });
-        order.push(tabId);
+      if (tabId) {
+        if (!records.has(tabId)) {
+          const view = host.getView?.(tabId);
+          if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
+          records.set(tabId, { tab: result.tab, view });
+          if (!order.includes(tabId)) order.push(tabId);
+        }
         // Agent-driven open: select the new tab and expand the UI panel so the
         // user sees the in-app browser without a manual rail click.
         activeTabId = tabId;
