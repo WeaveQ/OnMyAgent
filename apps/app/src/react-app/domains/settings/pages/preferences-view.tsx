@@ -107,7 +107,7 @@ export function PreferencesView(props: PreferencesViewProps) {
             </LayoutSectionItemDescription>
             <LayoutSectionItemHeaderActions>
               {desktopNotificationsGranted ? (
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-dls-secondary">
                   {t("settings.permission_authorized")}
                 </span>
               ) : (

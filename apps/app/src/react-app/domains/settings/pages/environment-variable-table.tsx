@@ -117,7 +117,7 @@ export function EnvironmentVariableTableEditButton(props: EnvironmentVariableTab
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className="text-dls-secondary"
             onClick={props.onEdit}
             aria-label={t("common.edit")}
           >
@@ -143,7 +143,7 @@ export function EnvironmentVariableTableDeleteButton(props: EnvironmentVariableT
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground hover:text-destructive"
+            className="text-dls-secondary hover:text-dls-danger"
             onClick={props.onDelete}
             disabled={props.deleting}
             aria-label={t("settings.environment.delete")}
@@ -177,7 +177,7 @@ export function EnvironmentVariableTableItem(props: EnvironmentVariableTableItem
           {props.canEdit ? (
             <Button
               variant="link"
-              className="h-auto w-full justify-start truncate p-0 font-mono text-sm font-medium text-foreground"
+              className="h-auto w-full justify-start truncate p-0 font-mono text-sm font-medium text-dls-text"
               onClick={() => props.onEdit(props.item)}
             >
               {props.item.key}
@@ -186,7 +186,7 @@ export function EnvironmentVariableTableItem(props: EnvironmentVariableTableItem
             <span className="truncate font-mono text-sm font-medium">{props.item.key}</span>
           )}
           {updatedLabel ? (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-dls-secondary">
               {t("settings.environment.updated_at").replace("{date}", updatedLabel)}
             </span>
           ) : null}
@@ -205,9 +205,9 @@ export function EnvironmentVariableTableItem(props: EnvironmentVariableTableItem
               {props.item.value || t("settings.environment.empty_value")}
             </CodeToken>
           ) : props.item.value ? (
-            <span className="font-mono text-xs text-muted-foreground">{MASKED_VALUE_DISPLAY}</span>
+            <span className="font-mono text-xs text-dls-secondary">{MASKED_VALUE_DISPLAY}</span>
           ) : (
-            <span className="text-xs text-muted-foreground">{t("settings.environment.empty_value")}</span>
+            <span className="text-xs text-dls-secondary">{t("settings.environment.empty_value")}</span>
           )}
         </div>
       </TableCell>
@@ -256,7 +256,7 @@ export function EnvironmentVariableTableEmpty(props: EnvironmentVariableTableEmp
 
 export function EnvironmentVariableTableLoading() {
   return (
-    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+    <div className="flex items-center justify-center gap-2 py-8 text-sm text-dls-secondary">
       <Spinner />
       {t("settings.environment.loading")}
     </div>

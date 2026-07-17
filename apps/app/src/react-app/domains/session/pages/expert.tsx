@@ -1317,7 +1317,7 @@ export function ExpertPage(props: ExpertPageProps) {
   };
 
   const headerPanelControls = !sidePanelOpen ? (
-    <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
       <Button
         data-code-side-panel-toggle="true"
         type="button"

@@ -70,7 +70,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         variant="ghost"
         size="xs"
         className={cn(
-          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-[13px] leading-5 hover:bg-transparent",
+          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-sm leading-5 hover:bg-transparent",
           props.selected ? "font-medium" : "font-normal",
         )}
       >
