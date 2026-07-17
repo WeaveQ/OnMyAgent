@@ -1135,7 +1135,7 @@ function TranscriptFeedbackControls(props: { messageId: string }) {
                 placeholder={t("session.transcript_dislike_other_placeholder")}
                 onChange={(event) => setOtherReason(event.currentTarget.value)}
               />
-              <div className="text-right text-[11px] text-dls-secondary">
+              <div className="text-right text-xs text-dls-secondary">
                 {otherReason.length}/200
               </div>
             </div>

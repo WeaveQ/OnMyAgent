@@ -43,10 +43,10 @@ export const SKILL_AGENT_TONES: Record<string, { active: string; badge: string; 
     dot: "bg-jade-9",
   },
   gemini: {
-    active: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100",
-    badge: "bg-indigo-50 text-indigo-700",
-    iconActive: "bg-indigo-50 hover:bg-indigo-100",
-    dot: "bg-indigo-500",
+    active: "bg-indigo-3 text-indigo-11 ring-1 ring-indigo-6 hover:bg-indigo-4",
+    badge: "bg-indigo-3 text-indigo-11",
+    iconActive: "bg-indigo-3 hover:bg-indigo-4",
+    dot: "bg-indigo-9",
   },
   claude: {
     active: "bg-orange-3 text-orange-11 ring-1 ring-orange-6 hover:bg-orange-4",
