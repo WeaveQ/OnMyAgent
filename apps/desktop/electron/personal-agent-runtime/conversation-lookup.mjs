@@ -33,7 +33,7 @@ import {
  * channel-scoped agent ids by filename pattern and treat them as channel
  * conversations for the Studio "Channel sessions" group.
  */
-export const CHANNEL_AGENT_ID_RE = /-(weixin|feishu|wecom|lark|dingtalk|telegram)-[a-f0-9]+$/i;
+export const CHANNEL_AGENT_ID_RE = /-(weixin|feishu|wecom|lark|dingtalk|telegram|discord)-[a-f0-9]+$/i;
 
 /**
  * Enumerate every workspace's `conversations/*.json` file rather than just the

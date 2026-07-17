@@ -5,19 +5,10 @@ import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import {
-  BookOpenCheck,
-  Check,
   ChevronRight,
-  Clock3,
-  Code2,
   Folder,
   FolderOpen,
-  Goal,
-  Minimize2,
-  Pause,
-  Play,
   Settings2,
-  Trash2,
   X,
 } from "lucide-react";
 
@@ -28,8 +19,8 @@ import {
   writeSessionTranscriptNotices,
 } from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
+import { t, currentLocale } from "../../../../i18n";
 import { browserUseAgentHistory } from "../../../../app/lib/desktop";
-import { currentLocale, t } from "../../../../i18n";
 import {
   readWorkspaceCloudImports,
   type CloudImportedPlugin,
@@ -67,7 +58,6 @@ import {
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { ActionRowButton, DisclosureRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { ReactComposerNotice } from "./composer/notice";
@@ -194,6 +184,8 @@ import {
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
   buildPlanExecutionHiddenSystemPrompt,
+  formatGoalElapsed,
+  formatInterruptionElapsed,
   createSessionInterruptionNotice,
   goalCheckpointFromTodos,
   goalElapsedMs,
@@ -215,6 +207,7 @@ import {
 
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
+
 const ASSISTANT_STALL_NOTICE_MS = 15_000;
 const ASSISTANT_RECOVERY_HINT_MS = 120_000;
 const MAX_TRANSCRIPT_NOTICES_PER_SESSION = 16;
@@ -304,7 +297,6 @@ export type SessionSurfaceProps = {
   onPickDraftWorkspace?: () => void;
   onClearDraftWorkspace?: () => void;
 };
-
 
 export function SessionSurface(props: SessionSurfaceProps) {
   const local = useLocal();

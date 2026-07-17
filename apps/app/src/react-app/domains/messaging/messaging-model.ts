@@ -1,7 +1,7 @@
 import { t } from "@/i18n";
 
 export type MessagingChannel = {
-  id: "wechat" | "feishu";
+  id: "wechat" | "feishu" | "telegram" | "discord";
   name: string;
   subtitle: string;
   status: "connected" | "unlinked";
@@ -24,6 +24,28 @@ export const MESSAGING_CHANNELS: MessagingChannel[] = [
     id: "feishu",
     get name() { return t("messaging.feishu"); },
     get subtitle() { return t("messaging.feishu_bot"); },
+    status: "unlinked",
+    stats: [
+      { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
+      { get label() { return t("messaging.channel_reply_counts"); }, value: "0/0" },
+      { get label() { return t("messaging.weixin_last_message"); }, value: "--" },
+    ],
+  },
+  {
+    id: "telegram",
+    get name() { return t("messaging.telegram"); },
+    get subtitle() { return t("messaging.telegram_bot"); },
+    status: "unlinked",
+    stats: [
+      { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
+      { get label() { return t("messaging.channel_reply_counts"); }, value: "0/0" },
+      { get label() { return t("messaging.weixin_last_message"); }, value: "--" },
+    ],
+  },
+  {
+    id: "discord",
+    get name() { return t("messaging.discord"); },
+    get subtitle() { return t("messaging.discord_bot"); },
     status: "unlinked",
     stats: [
       { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },

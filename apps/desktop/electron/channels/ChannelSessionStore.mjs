@@ -113,7 +113,7 @@ export class ChannelSessionStore {
 
   /**
    * Bind a Studio conversation to this channel session (parity with
-   * AionCore assistant_sessions.conversation_id). Idempotent: rebinding the
+   * Upstream assistant_sessions.conversation_id). Idempotent: rebinding the
    * same conversationId is a no-op; binding a different id overwrites.
    * @param {string} sessionId - Channel session ID
    * @param {string} conversationId - Studio conversation ID

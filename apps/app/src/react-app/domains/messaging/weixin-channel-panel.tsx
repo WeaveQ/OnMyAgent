@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, FolderOpen, Loader2, Play, QrCode, RefreshCw, Save, Send, Square } from "lucide-react";
+import { ExternalLink, FolderOpen, Loader2, Play, Plug, QrCode, RefreshCw, Save, Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ import {
   weixinStart,
   weixinStatus,
   weixinStop,
+  testChannelConnection,
+  type ChannelProbeResult,
 } from "../../../app/lib/desktop";
 
 type WeixinPanelState = {
@@ -64,7 +66,7 @@ type WeixinAccountStatusPayload = {
   };
 };
 
-type BusyAction = "refresh" | "save" | "login" | "poll" | "start" | "stop" | "simulate" | null;
+type BusyAction = "refresh" | "save" | "login" | "poll" | "start" | "stop" | "simulate" | "test" | null;
 type WeixinPromptMode = "raw" | "debug";
 
 const APPROVAL_MODE_OPTIONS: Array<{ value: PersonalLocalAgentApprovalMode; label: string }> = [
@@ -139,6 +141,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
   const [serviceState, setServiceState] = useState<WeixinPanelState>({ status: "stopped" });
   const [busy, setBusy] = useState<BusyAction>(null);
   const [error, setError] = useState<string | null>(null);
+  const [probeResult, setProbeResult] = useState<ChannelProbeResult | null>(null);
   const [accountId, setAccountId] = useState("");
   const [token, setToken] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://ilinkai.weixin.qq.com");
@@ -539,6 +542,23 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
     }
   }, [agentPayload, agents, allowedUser, effectiveAccessibleRoots, effectiveAccountId, effectiveWorkspaceRoot, onStatusChange, promptMode, refresh, simulateText]);
 
+  const testConnection = useCallback(async () => {
+    setBusy("test");
+    setError(null);
+    setProbeResult(null);
+    try {
+      const result = await testChannelConnection("weixin", { accountId: effectiveAccountId });
+      if (!result.ok) throw new Error(result.error ?? "connection test failed");
+      setProbeResult(result);
+    } catch (probeError) {
+      const message = probeError instanceof Error ? probeError.message : String(probeError);
+      setProbeResult({ ok: false, error: message });
+      setError(message);
+    } finally {
+      setBusy(null);
+    }
+  }, [effectiveAccountId]);
+
   return (
     <div className="mt-4 space-y-4 rounded-lg border border-dls-border bg-dls-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -692,7 +712,31 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           {busy === "stop" ? busyIcon : <Square className="size-4" />}
           {t("messaging.weixin_stop")}
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={testConnection}
+          disabled={!effectiveAccountId || Boolean(busy)}
+          title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
+        >
+          {busy === "test" ? busyIcon : <Plug className="size-4" />}
+          {t("messaging.weixin_test_connection")}
+        </Button>
       </div>
+      {probeResult ? (
+        <div className="mt-2">
+          {probeResult.ok ? (
+            <NoticeBox tone="info" className="break-words leading-5">
+              {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
+            </NoticeBox>
+          ) : (
+            <NoticeBox tone="error" className="break-words leading-5">
+              {probeResult.error ?? t("messaging.weixin_test_failed")}
+            </NoticeBox>
+          )}
+        </div>
+      ) : null}
       </PanelSection>
 
       {serviceState.lastError || error ? (

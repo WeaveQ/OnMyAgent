@@ -38,7 +38,7 @@ export class ChannelAssistantBindingStore {
     await this._save().catch(() => undefined);
   }
 
-  /** Returns the AionUi-shaped platform settings blob. */
+  /** Returns the Upstream-shaped platform settings blob. */
   getPlatformSettings(platform) {
     const key = normalizePlatform(platform);
     const record = this._data.platforms[key] ?? null;
