@@ -11,7 +11,7 @@ import type {
 import { formatRelativeTime } from "../../../../app/utils";
 import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
-import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -267,35 +267,33 @@ export function SessionArchivePage(props: Props) {
 
       {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
 
-      {/* Agent filter bar — same SegmentedTab track as store / assistant switches */}
+      {/* Agent filter bar — free-float FilterChip (category-style, may wrap) */}
       {groups.length > 0 ? (
-        <SegmentedTabGroup density="panel">
-          <NavTabButton
+        <div className="flex flex-wrap items-center gap-0.5">
+          <FilterChip
             type="button"
+            selected={!agentFilter}
             onClick={() => setAgentFilter(null)}
-            active={!agentFilter}
-            size="filter"
-            shape="pill"
-          >
-            {t("session_archive.agent_filter_all")}
-          </NavTabButton>
+            label={t("session_archive.agent_filter_all")}
+          />
           {groups.map((g) => (
-            <NavTabButton
+            <FilterChip
               key={g.agent}
               type="button"
+              selected={g.agent === agentFilter}
               onClick={() => setAgentFilter(g.agent === agentFilter ? null : g.agent)}
-              active={g.agent === agentFilter}
-              size="filter"
-              shape="pill"
-            >
-              <AgentSkillIcon agent={g.agent as AgentManagementSkillAgent} />
-              {agentLabel(g.agent)}
-              <span className="tabular-nums opacity-70">
-                {(g as { totalCount?: number }).totalCount ?? g.sessions.length}
-              </span>
-            </NavTabButton>
+              label={
+                <>
+                  <AgentSkillIcon agent={g.agent as AgentManagementSkillAgent} />
+                  {agentLabel(g.agent)}
+                  <span className="tabular-nums opacity-70">
+                    {(g as { totalCount?: number }).totalCount ?? g.sessions.length}
+                  </span>
+                </>
+              }
+            />
           ))}
-        </SegmentedTabGroup>
+        </div>
       ) : null}
 
       <div className="flex min-h-0 flex-1 gap-3">

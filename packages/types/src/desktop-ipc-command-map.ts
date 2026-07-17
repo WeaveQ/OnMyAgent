@@ -30,8 +30,19 @@ import type {
   AgentManagementSkillActionResult,
   AgentManagementSnapshot,
   AppBuildInfo,
+  BuiltinSkillPackageInstallInput,
+  BuiltinSkillPackageInstallResult,
   CacheResetResult,
+  ChannelProbeResult,
+  ComputerUseAppshotResult,
+  ComputerUsePermissionResult,
+  ComputerUseSkysightExclusionOperation,
+  ComputerUseSkysightExclusionScope,
   DesktopBootstrapConfig,
+  DesktopChannelAuthorizedUser,
+  DesktopChannelEventHistoryEntry,
+  DesktopChannelPairingRequest,
+  DesktopChannelSession,
   DesktopFetchResult,
   DiscordAccountStatus,
   DiscordAccountStatusInput,
@@ -40,6 +51,12 @@ import type {
   DiscordSimulateInboundInput,
   EngineDoctorResult,
   EngineInfo,
+  ExpertMarketplaceName,
+  ExpertPackageInstallInput,
+  ExpertPackageInstallResult,
+  ExpertPackageListEntry,
+  ExpertRegistryListEntry,
+  ExecResult,
   FeishuAccountStatus,
   FeishuAccountStatusInput,
   FeishuSaveAccountInput,
@@ -49,11 +66,15 @@ import type {
   LocalSkillContent,
   MessagingAccessibleRootProbe,
   MessagingChannelStatus,
+  MyExpertPackageWriteInput,
   OnMyAgentDockerCleanupResult,
   OnMyAgentServerInfo,
   OpencodeCommandDraft,
   OpencodeConfigFile,
   OrchestratorDetachedHost,
+  OrchestratorStatus,
+  OrchestratorWorkspaceActivateInput,
+  OrchestratorWorkspaceActivateResult,
   PersonalLocalAgent,
   PersonalLocalAgentAcpConfigOptionInput,
   PersonalLocalAgentAcpConfigOptionResult,
@@ -110,8 +131,14 @@ import type {
   PersonalLocalAgentTestConnectionResult,
   PersonalLocalAgentTestCustomAgentResult,
   PersonalLocalAgentsListResult,
+  RuntimeBootstrapResult,
+  RuntimeStatus,
   SandboxDebugProbeResult,
   SandboxDoctorResult,
+  SandboxStopResult,
+  ShellCommandResult,
+  SoftwareEnvironmentInfo,
+  SoftwareEnvironmentInstallResult,
   SystemPermissionResult,
   SystemPermissionType,
   TelegramAccountStatus,
@@ -119,6 +146,7 @@ import type {
   TelegramSaveAccountInput,
   TelegramServiceStartInput,
   TelegramSimulateInboundInput,
+  UiControlBridgeInfo,
   UpdaterEnvironment,
   UserAgentRegistryFile,
   UserAgentRegistryWriteResult,
@@ -257,7 +285,48 @@ type TypedDesktopCommandMap = {
     [{ content: string }],
     UserAgentRegistryWriteResult
   >;
+  prepareFreshRuntime: DesktopCommandContract<[], void>;
   appBuildInfo: DesktopCommandContract<[], AppBuildInfo>;
+  getUiControlBridgeInfo: DesktopCommandContract<[], UiControlBridgeInfo | null>;
+  getComputerUseMcpCommand: DesktopCommandContract<[], string[]>;
+  checkComputerUsePermissions: DesktopCommandContract<
+    [],
+    ComputerUsePermissionResult
+  >;
+  setComputerUseSkysightEnabled: DesktopCommandContract<
+    [boolean],
+    ComputerUsePermissionResult
+  >;
+  setComputerUseSkysightPaused: DesktopCommandContract<
+    [boolean],
+    ComputerUsePermissionResult
+  >;
+  updateComputerUseSkysightExclusion: DesktopCommandContract<
+    [
+      ComputerUseSkysightExclusionOperation,
+      ComputerUseSkysightExclusionScope,
+      string?,
+    ],
+    ComputerUsePermissionResult
+  >;
+  clearComputerUseSkysightData: DesktopCommandContract<[], OkResult>;
+  captureComputerUseAppshot: DesktopCommandContract<[], ComputerUseAppshotResult>;
+  revokeComputerUseAppAuthorization: DesktopCommandContract<
+    [string],
+    ComputerUsePermissionResult
+  >;
+  clearComputerUseAppAuthorizations: DesktopCommandContract<
+    [],
+    ComputerUsePermissionResult
+  >;
+  openComputerUsePermissionSetup: DesktopCommandContract<
+    [],
+    ComputerUsePermissionResult
+  >;
+  openComputerUsePermissionSettings: DesktopCommandContract<
+    [],
+    ComputerUsePermissionResult
+  >;
   checkSystemPermissions: DesktopCommandContract<[], SystemPermissionResult>;
   openSystemPermissionSettings: DesktopCommandContract<
     [SystemPermissionType?],
@@ -294,22 +363,51 @@ type TypedDesktopCommandMap = {
   __setZoomFactor: DesktopCommandContract<[number], boolean>;
   __setNativeTheme: DesktopCommandContract<[string], void>;
   __setApplicationMenuVisible: DesktopCommandContract<[boolean], void>;
+  checkSoftwareEnv: DesktopCommandContract<[], SoftwareEnvironmentInfo>;
+  installSoftwareEnv: DesktopCommandContract<
+    [string, string?],
+    SoftwareEnvironmentInstallResult
+  >;
 
   // local agents
   personalLocalAgentsList: DesktopCommandContract<
-    [{ workspaceRoot?: string }?],
+    [
+      {
+        agents?: Array<Partial<PersonalLocalAgent>>;
+        workspaceRoot?: string;
+        includeModels?: boolean;
+      }?,
+    ],
     PersonalLocalAgentsListResult
   >;
   personalLocalAgentMetadataList: DesktopCommandContract<
-    [{ workspaceRoot?: string }?],
+    [
+      {
+        agents?: Array<Partial<PersonalLocalAgent>>;
+        workspaceRoot?: string;
+        includeModels?: boolean;
+      }?,
+    ],
     PersonalLocalAgentMetadataListResult
   >;
   personalLocalAgentAcpAgentsList: DesktopCommandContract<
-    [{ workspaceRoot?: string }?],
+    [
+      {
+        agents?: Array<Partial<PersonalLocalAgent>>;
+        workspaceRoot?: string;
+        includeModels?: boolean;
+      }?,
+    ],
     PersonalLocalAgentMetadataListResult
   >;
   personalLocalAgentAcpAgentsRefresh: DesktopCommandContract<
-    [{ workspaceRoot?: string }?],
+    [
+      {
+        agents?: Array<Partial<PersonalLocalAgent>>;
+        workspaceRoot?: string;
+        includeModels?: boolean;
+      }?,
+    ],
     PersonalLocalAgentMetadataListResult
   >;
   personalLocalAgentAcpHealth: DesktopCommandContract<
@@ -366,7 +464,7 @@ type TypedDesktopCommandMap = {
     PersonalLocalAgentExtensionSetEnabledResult
   >;
   personalLocalAgentAcpProcessesList: DesktopCommandContract<
-    [{ workspaceRoot?: string }?],
+    [{ workspaceRoot?: string; provider?: string; conversationId?: string }?],
     { processes: PersonalLocalAgentProcessRecord[] }
   >;
   personalLocalAgentTestConnection: DesktopCommandContract<
@@ -653,10 +751,23 @@ type TypedDesktopCommandMap = {
   >;
 
   // channel infrastructure (args shaped like desktop wrappers)
-  channelGetPendingPairingRequests: DesktopCommandContract<[], unknown[]>;
-  channelApprovePairing: DesktopCommandContract<[{ code: string }], OkResult & { user?: unknown }>;
+  channelTestPlugin: DesktopCommandContract<
+    [{ pluginId: string; accountId?: string }],
+    ChannelProbeResult
+  >;
+  channelGetPendingPairingRequests: DesktopCommandContract<
+    [],
+    DesktopChannelPairingRequest[]
+  >;
+  channelApprovePairing: DesktopCommandContract<
+    [{ code: string }],
+    OkResult & { user?: DesktopChannelAuthorizedUser }
+  >;
   channelDenyPairing: DesktopCommandContract<[{ code: string }], OkResult>;
-  channelGetAuthorizedUsers: DesktopCommandContract<[], unknown[]>;
+  channelGetAuthorizedUsers: DesktopCommandContract<
+    [],
+    DesktopChannelAuthorizedUser[]
+  >;
   channelIsUserAuthorized: DesktopCommandContract<
     [{ platformType: string; platformUserId: string }],
     boolean
@@ -675,24 +786,28 @@ type TypedDesktopCommandMap = {
         chatId?: string;
       },
     ],
-    OkResult & { session?: unknown }
+    OkResult & { session?: DesktopChannelSession }
   >;
   channelGetSession: DesktopCommandContract<
     [{ sessionId: string }],
-    OkResult & { session?: unknown }
+    OkResult & { session?: DesktopChannelSession }
   >;
   channelGetSessionsByPlatform: DesktopCommandContract<
     [{ platformType: string }],
-    unknown[]
+    DesktopChannelSession[]
   >;
   channelGetSessionsByUser: DesktopCommandContract<
     [{ platformType: string; platformUserId: string }],
-    unknown[]
+    DesktopChannelSession[]
   >;
   channelCloseSession: DesktopCommandContract<[{ sessionId: string }], OkResult>;
   channelUpdateSessionMetadata: DesktopCommandContract<
     [{ sessionId: string; metadata: Record<string, unknown> }],
     OkResult
+  >;
+  channelGetEventHistory: DesktopCommandContract<
+    [{ limit?: number; filterEvent?: string }?],
+    DesktopChannelEventHistoryEntry[]
   >;
 
   // agent management
@@ -725,11 +840,11 @@ type TypedDesktopCommandMap = {
   >;
   opencodeCommandWrite: DesktopCommandContract<
     [{ scope?: string; projectDir?: string; command: OpencodeCommandDraft }],
-    unknown
+    ExecResult
   >;
   opencodeCommandDelete: DesktopCommandContract<
     [{ scope?: string; projectDir?: string; name: string }],
-    unknown
+    ExecResult
   >;
   readOpencodeConfig: DesktopCommandContract<[string?], OpencodeConfigFile>;
   writeOpencodeConfig: DesktopCommandContract<
@@ -737,23 +852,44 @@ type TypedDesktopCommandMap = {
     OpencodeConfigFile
   >;
   resetOpencodeCache: DesktopCommandContract<[], CacheResetResult>;
+  opencodeMcpAuth: DesktopCommandContract<[string, string], ShellCommandResult>;
 
   // runtime / engine
   engineStart: DesktopCommandContract<
     [string, Record<string, unknown>?],
     EngineInfo
   >;
+  runtimeBootstrap: DesktopCommandContract<[], RuntimeBootstrapResult>;
+  runtimeStatus: DesktopCommandContract<[], RuntimeStatus>;
   engineStop: DesktopCommandContract<[], EngineInfo>;
   engineRestart: DesktopCommandContract<[string?, Record<string, unknown>?], EngineInfo>;
   engineInfo: DesktopCommandContract<[], EngineInfo>;
   engineDoctor: DesktopCommandContract<[Record<string, unknown>?], EngineDoctorResult>;
   engineInstall: DesktopCommandContract<[], EngineDoctorResult>;
+  orchestratorStatus: DesktopCommandContract<[], OrchestratorStatus>;
+  orchestratorWorkspaceActivate: DesktopCommandContract<
+    [OrchestratorWorkspaceActivateInput],
+    OrchestratorWorkspaceActivateResult
+  >;
+  orchestratorInstanceDispose: DesktopCommandContract<[string], boolean>;
+  getOpenworkUiMcpCommand: DesktopCommandContract<[], string[]>;
+  getOnMyAgentUiMcpCommand: DesktopCommandContract<[], string[]>;
+  getOpenworkUiMcpEnvironment: DesktopCommandContract<
+    [],
+    Record<string, string>
+  >;
+  getOnMyAgentUiMcpEnvironment: DesktopCommandContract<
+    [],
+    Record<string, string>
+  >;
+  nukeOpenworkAndOpencodeConfigAndExit: DesktopCommandContract<[], void>;
+  nukeOnMyAgentAndOpencodeConfigAndExit: DesktopCommandContract<[], void>;
   orchestratorStartDetached: DesktopCommandContract<
     [Record<string, unknown>?],
     OrchestratorDetachedHost
   >;
   sandboxDoctor: DesktopCommandContract<[], SandboxDoctorResult>;
-  sandboxStop: DesktopCommandContract<[string?], unknown>;
+  sandboxStop: DesktopCommandContract<[string?], SandboxStopResult>;
   sandboxCleanupOpenworkContainers: DesktopCommandContract<
     [],
     OnMyAgentDockerCleanupResult
@@ -769,11 +905,39 @@ type TypedDesktopCommandMap = {
   resetOnMyAgentState: DesktopCommandContract<[], CacheResetResult>;
 
   // skills
+  importSkill: DesktopCommandContract<
+    [string, string, { overwrite?: boolean }?],
+    ExecResult
+  >;
+  installSkillTemplate: DesktopCommandContract<
+    [string, string, string, { overwrite?: boolean }?],
+    ExecResult
+  >;
   listLocalSkills: DesktopCommandContract<[string?], LocalSkillCard[]>;
   onmyagentSkillsRoot: DesktopCommandContract<[], string>;
   onmyagentMarketplaceRoot: DesktopCommandContract<
-    ["experts" | "my-experts"],
+    [ExpertMarketplaceName],
     string
+  >;
+  listExpertPackages: DesktopCommandContract<
+    [ExpertMarketplaceName],
+    ExpertPackageListEntry[]
+  >;
+  listExpertRegistryRecords: DesktopCommandContract<
+    [ExpertMarketplaceName],
+    ExpertRegistryListEntry[]
+  >;
+  installExpertPackage: DesktopCommandContract<
+    [ExpertPackageInstallInput],
+    ExpertPackageInstallResult
+  >;
+  installBuiltinSkillPackage: DesktopCommandContract<
+    [BuiltinSkillPackageInstallInput],
+    BuiltinSkillPackageInstallResult
+  >;
+  writeMyExpertPackage: DesktopCommandContract<
+    [MyExpertPackageWriteInput],
+    ExpertPackageInstallResult
   >;
   readLocalSkill: DesktopCommandContract<[string], LocalSkillContent>;
   writeLocalSkill: DesktopCommandContract<

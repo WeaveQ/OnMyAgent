@@ -189,9 +189,12 @@ pnpm check:boundaries
      `desktop-ipc-commands.d.mts`（字面量联合）；parity test 要求每条命令恰好声明和实现一次。
   2. 载荷类型：`packages/types/src/desktop-ipc.ts`（及 `desktop-ipc-code-workspace.ts`）。
   3. **命令 → args/result 映射：`packages/types/src/desktop-ipc-command-map.ts` 的
-     `DesktopCommandMap` 已存在**，覆盖全部 `DesktopCommandName`；已绑定共享类型的命令用
-     显式 contract，其余仍为 `unknown[]`/`unknown` 占位，按域逐步收紧（workspace /
-     localAgents 已优先收紧）。preload / main dispatch 仍是运行时边界；handler 级
+     `DesktopCommandMap` 已存在**，覆盖全部 `DesktopCommandName`。Map density：
+     **全部命令均有显式 contract**（system / runtime / skills / messaging / opencode
+     在 workspace + localAgents 之后已收紧）；仅少量嵌套字段仍用
+     `Record<string, unknown>` 或 `unknown`（灵活 options、session metadata 等）。
+     Renderer 侧 `apps/app/src/app/lib/desktop-invoke.ts` 的 `invokeDesktopCommand`
+     按 Map 约束 args/result。preload / main dispatch 仍是运行时边界；handler 级
      parity 可继续加严，但不能把「命令名 parity」当成端到端 payload 已全部闭环。
 - **Desktop handlers 已域拆分**：实现在 `apps/desktop/electron/desktop-handlers/`
   （`workspace` / `system` / `local-agents` / `messaging` / `agent-management` /
