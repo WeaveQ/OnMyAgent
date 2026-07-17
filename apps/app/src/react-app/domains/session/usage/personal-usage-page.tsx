@@ -36,6 +36,17 @@ const activityLevelClass: Record<number, string> = {
   4: "bg-dls-accent",
 };
 
+function usageActivityModeLabel(mode: TokenActivityMode): string {
+  switch (mode) {
+    case "daily":
+      return t("session.usage_daily");
+    case "weekly":
+      return t("session.usage_weekly");
+    case "cumulative":
+      return t("session.usage_cumulative");
+  }
+}
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -199,7 +210,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                       className="px-2 py-0 text-base font-normal hover:bg-transparent"
                       onClick={() => setActivityMode(mode)}
                     >
-                      {t(`session.usage_${mode}`)}
+                      {usageActivityModeLabel(mode)}
                     </NavTabButton>
                   ))}
                 </SegmentedTabGroup>

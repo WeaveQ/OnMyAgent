@@ -134,13 +134,17 @@ export function filterAllowedModelOptions(input: {
 }
 
 export function isSelectedModelUnavailable(input: {
-  defaultModel: ModelRef | null | undefined;
+  /** The model the composer is actually using (session override / agent / default). */
+  model: ModelRef | null | undefined;
   checkRestriction: DesktopAppRestrictionChecker;
   connectedProviderIds: string[];
   providerListData: ProviderListResponse | null | undefined;
+  /** When true, do not mark unavailable — list is still loading. */
+  providerListLoading?: boolean;
 }) {
-  const model = input.defaultModel;
-  if (!model) return false;
+  const model = input.model;
+  if (!model?.providerID || !model.modelID) return false;
+  if (input.providerListLoading) return false;
   if (
     isDesktopProviderBlocked({
       providerId: model.providerID,
@@ -149,37 +153,67 @@ export function isSelectedModelUnavailable(input: {
   ) {
     return true;
   }
-  if (
-    input.checkRestriction({ restriction: "allowCustomProviders" }) &&
-    !input.connectedProviderIds.some(
-      (providerId) => providerId.trim() === model.providerID.trim(),
-    )
-  ) {
-    return true;
+  const providerId = model.providerID.trim();
+  if (input.checkRestriction({ restriction: "allowCustomProviders" })) {
+    const knownConnected = new Set(
+      [
+        ...input.connectedProviderIds,
+        ...(input.providerListData?.connected ?? []).map((id) => String(id)),
+      ]
+        .map((id) => id.trim())
+        .filter(Boolean),
+    );
+    // Only enforce once we know at least one connected provider; otherwise we
+    // would flag every model unavailable before provider discovery finishes.
+    if (knownConnected.size > 0 && !knownConnected.has(providerId)) {
+      return true;
+    }
   }
-  return Boolean(
-    input.providerListData &&
-      !isModelAvailableInConnectedProviders(input.providerListData, model),
-  );
+  // No list yet: don't flash "unavailable" before the first successful fetch.
+  if (!input.providerListData) return false;
+  return !isModelAvailableInConnectedProviders(input.providerListData, model);
 }
 
+/**
+ * Resolve OpenCode's suggested default model from provider.list().default.
+ * Does not mutate prefs — callers may prompt the user to adopt it.
+ */
 export function resolveProviderDefaultModel(input: {
   defaults: ProviderListResponse["default"] | null | undefined;
-  currentDefault: ModelRef | null | undefined;
+  /** @deprecated ignored; kept for call-site compatibility */
+  currentDefault?: ModelRef | null | undefined;
 }): ModelRef | null {
+  void input.currentDefault;
   const defaults = input.defaults ?? {};
+  // Prefer the first *connected* default when connected ids are provided via
+  // a later overload path; for now take Object key order from OpenCode.
   const firstProviderId = Object.keys(defaults)[0];
   const firstModelId = firstProviderId ? defaults[firstProviderId] : null;
   if (!firstProviderId || !firstModelId) return null;
-  const currentDefault = input.currentDefault;
-  if (
-    currentDefault &&
-    (currentDefault.providerID !== DEFAULT_MODEL.providerID || currentDefault.modelID !== DEFAULT_MODEL.modelID)
-  ) {
-    return null;
-  }
   return {
     providerID: firstProviderId,
     modelID: firstModelId,
   };
+}
+
+/** Whether we should surface a non-blocking hint to adopt the provider default. */
+export function shouldPromptProviderDefaultModel(input: {
+  suggested: ModelRef | null | undefined;
+  currentDefault: ModelRef | null | undefined;
+}): boolean {
+  const suggested = input.suggested;
+  if (!suggested?.providerID || !suggested.modelID) return false;
+  const current = input.currentDefault;
+  if (!current?.providerID || !current.modelID) return true;
+  if (
+    current.providerID === suggested.providerID &&
+    current.modelID === suggested.modelID
+  ) {
+    return false;
+  }
+  // Only nudge while the user is still on the app placeholder default.
+  return (
+    current.providerID === DEFAULT_MODEL.providerID &&
+    current.modelID === DEFAULT_MODEL.modelID
+  );
 }

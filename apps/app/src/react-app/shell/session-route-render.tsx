@@ -737,11 +737,19 @@ export function SessionRouteRender() {
     sidebarActiveWorkspaceId,
   });
 
+  // Use the same model the composer shows (session override / pending agent /
+  // global default). Checking only prefs.defaultModel false-positives
+  // "模型已不可用" when the session has a valid override.
   const selectedModelUnavailable = isSelectedModelUnavailable({
-    defaultModel: local.prefs.defaultModel,
+    model: effectiveModelRef,
     checkRestriction: checkDesktopRestriction,
     connectedProviderIds: providerConnectedIds,
     providerListData: providerListQuery.data,
+    // Only suppress while the first list has not arrived; background refetch
+    // should still re-evaluate against the last known list.
+    providerListLoading:
+      !providerListQuery.data &&
+      (providerListQuery.isPending || providerListQuery.isFetching),
   });
   const modelAvailabilityBlocksTask =
     selectedModelUnavailable && !localUserSignedIn;

@@ -1,7 +1,13 @@
 /** @jsxImportSource react */
+import { useCallback, useEffect, useState } from "react";
+import { ExternalLink } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectMenu } from "../../../design-system/select-menu";
+import { desktopBridge } from "../../../../app/lib/desktop";
+import { isDesktopRuntime } from "../../../../app/utils";
 
 import { t } from "@/i18n";
 import {
@@ -28,11 +34,142 @@ export type PreferencesViewProps = {
   autoCompactContext: boolean;
   autoCompactContextBusy: boolean;
   onToggleAutoCompactContext: () => void;
+  desktopNotifyOnAgentReady: boolean;
+  /** Called with the next enabled state; may request OS permission when turning on. */
+  onDesktopNotifyOnAgentReadyChange: (enabled: boolean) => void | Promise<void>;
 };
 
 export function PreferencesView(props: PreferencesViewProps) {
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("default");
+  const [openingNotificationSettings, setOpeningNotificationSettings] =
+    useState(false);
+
+  const refreshNotificationPermission = useCallback(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    setNotificationPermission(Notification.permission);
+  }, []);
+
+  useEffect(() => {
+    refreshNotificationPermission();
+    const onFocus = () => refreshNotificationPermission();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refreshNotificationPermission]);
+
+  const handleAuthorizeDesktopNotifications = async () => {
+    setOpeningNotificationSettings(true);
+    try {
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "default"
+      ) {
+        await Notification.requestPermission().catch(() => undefined);
+      }
+      if (isDesktopRuntime()) {
+        await desktopBridge.openSystemPermissionSettings("notifications");
+      }
+      refreshNotificationPermission();
+    } finally {
+      setOpeningNotificationSettings(false);
+    }
+  };
+
+  const desktopNotificationsGranted =
+    notificationPermission === "granted";
+
   return (
     <LayoutStack>
+      <LayoutSection>
+        <LayoutSectionHeader>
+          <LayoutSectionTitle>{t("settings.notifications_section_title")}</LayoutSectionTitle>
+          <LayoutSectionDescription>
+            {t("settings.notifications_section_desc")}
+          </LayoutSectionDescription>
+        </LayoutSectionHeader>
+
+        <LayoutSectionItem>
+          <LayoutSectionItemHeader>
+            <LayoutSectionItemTitle>
+              {t("settings.desktop_notifications_label")}
+            </LayoutSectionItemTitle>
+            <LayoutSectionItemDescription>
+              {t("settings.desktop_notifications_desc")}
+            </LayoutSectionItemDescription>
+            <LayoutSectionItemHeaderActions>
+              {desktopNotificationsGranted ? (
+                <span className="text-sm text-muted-foreground">
+                  {t("settings.permission_authorized")}
+                </span>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={
+                    props.busy ||
+                    openingNotificationSettings ||
+                    notificationPermission === "unsupported"
+                  }
+                  onClick={() => void handleAuthorizeDesktopNotifications()}
+                >
+                  {openingNotificationSettings
+                    ? t("settings.permission_opening")
+                    : t("settings.permission_authorize")}
+                  <ExternalLink className="size-3.5" />
+                </Button>
+              )}
+            </LayoutSectionItemHeaderActions>
+          </LayoutSectionItemHeader>
+        </LayoutSectionItem>
+
+        <LayoutSectionItem>
+          <LayoutSectionItemHeader>
+            <LayoutSectionItemTitle>
+              {t("settings.agent_ready_notifications_label")}
+            </LayoutSectionItemTitle>
+            <LayoutSectionItemDescription>
+              {t("settings.agent_ready_notifications_desc")}
+            </LayoutSectionItemDescription>
+            <LayoutSectionItemHeaderActions>
+              <Switch
+                aria-label={t("settings.agent_ready_notifications_label")}
+                checked={props.desktopNotifyOnAgentReady}
+                disabled={props.busy}
+                onCheckedChange={(checked) => {
+                  void (async () => {
+                    if (checked) {
+                      // Turning on: ensure OS permission so the first real
+                      // alert is not silently dropped.
+                      if (
+                        typeof window !== "undefined" &&
+                        "Notification" in window &&
+                        Notification.permission === "default"
+                      ) {
+                        await Notification.requestPermission().catch(
+                          () => undefined,
+                        );
+                        refreshNotificationPermission();
+                      }
+                    }
+                    await props.onDesktopNotifyOnAgentReadyChange(checked);
+                  })();
+                }}
+              />
+            </LayoutSectionItemHeaderActions>
+          </LayoutSectionItemHeader>
+        </LayoutSectionItem>
+      </LayoutSection>
+
       <LayoutSection>
         <LayoutSectionHeader>
           <LayoutSectionTitle>{t("settings.personalization_title")}</LayoutSectionTitle>

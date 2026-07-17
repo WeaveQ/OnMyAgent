@@ -7,37 +7,37 @@
     ".": {
       "types": "./src/index.ts",
       "development": "./src/index.ts",
-      "default": "./src/index.ts"
+      "default": "./dist/index.js"
     },
     "./den/desktop-app-restrictions": {
       "types": "./src/den/desktop-app-restrictions.ts",
       "development": "./src/den/desktop-app-restrictions.ts",
-      "default": "./src/den/desktop-app-restrictions.ts"
+      "default": "./dist/den/desktop-app-restrictions.js"
     },
     "./den/desktop-policies": {
       "types": "./src/den/desktop-policies.ts",
       "development": "./src/den/desktop-policies.ts",
-      "default": "./src/den/desktop-policies.ts"
+      "default": "./dist/den/desktop-policies.js"
     },
     "./den/inference": {
       "types": "./src/den/inference.ts",
       "development": "./src/den/inference.ts",
-      "default": "./src/den/inference.ts"
+      "default": "./dist/den/inference.js"
     },
     "./session-archive": {
       "types": "./src/session-archive.ts",
       "development": "./src/session-archive.ts",
-      "default": "./src/session-archive.ts"
+      "default": "./dist/session-archive.js"
     },
     "./browser": {
       "types": "./src/browser.ts",
       "development": "./src/browser.ts",
-      "default": "./src/browser.ts"
+      "default": "./dist/browser.js"
     },
     "./server": {
       "types": "./src/server.ts",
       "development": "./src/server.ts",
-      "default": "./src/server.ts"
+      "default": "./dist/server.js"
     },
     "./server-client-methods": {
       "types": "./src/server-client-methods.mjs",
@@ -47,12 +47,12 @@
     "./channel": {
       "types": "./src/channel.ts",
       "development": "./src/channel.ts",
-      "default": "./src/channel.ts"
+      "default": "./dist/channel.js"
     },
     "./desktop-ipc": {
       "types": "./src/desktop-ipc.ts",
       "development": "./src/desktop-ipc.ts",
-      "default": "./src/desktop-ipc.ts"
+      "default": "./dist/desktop-ipc.js"
     },
     "./desktop-ipc-commands": {
       "types": "./src/desktop-ipc-commands.mjs",
@@ -62,7 +62,7 @@
     "./artifact-plugin": {
       "types": "./src/artifact-plugin.ts",
       "development": "./src/artifact-plugin.ts",
-      "default": "./src/artifact-plugin.ts"
+      "default": "./dist/artifact-plugin.js"
     }
   },
   "files": [
