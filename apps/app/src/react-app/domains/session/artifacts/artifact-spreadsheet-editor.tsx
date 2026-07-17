@@ -90,7 +90,7 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-dls-secondary">
         <LoadingSpinner size="default" />
       </div>
     );
@@ -98,7 +98,7 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
 
   if (error) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
+      <div className="p-4 text-sm text-dls-secondary">
         {error instanceof Error ? error.message : "Failed to parse spreadsheet"}
       </div>
     );
@@ -106,7 +106,7 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", props.className)}>
-      <div className="flex shrink-0 items-center gap-2 px-3 py-2 border-b border-border">
+      <div className="flex shrink-0 items-center gap-2 px-3 py-2 border-b border-dls-border">
         <Button variant="ghost" size="xs" onClick={addRow}>
           <Plus data-icon="inline-start" className="size-3" />
           Row
@@ -125,9 +125,9 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
             {rows.map((row, rowIndex) => (
               <tr key={rowIndex}>
                 {row.map((cell, columnIndex) => (
-                  <td key={columnIndex} className="border-b not-first:border-l border-border p-0 align-top">
+                  <td key={columnIndex} className="border-b not-first:border-l border-dls-border p-0 align-top">
                     <input
-                      className="h-8 w-full min-w-[120px] bg-transparent px-2 text-foreground outline-none focus:bg-muted/50"
+                      className="h-8 w-full min-w-[120px] bg-transparent px-2 text-dls-text outline-none focus:bg-dls-surface-muted/50"
                       value={cell}
                       onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)}
                     />

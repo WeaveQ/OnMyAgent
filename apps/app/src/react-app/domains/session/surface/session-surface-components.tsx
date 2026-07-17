@@ -55,8 +55,8 @@ const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
   agentEmptyTitle: "mt-4 text-base font-medium text-dls-text",
   agentEmptyDescription: "mt-1.5 max-w-md text-center text-sm leading-6 text-dls-secondary",
-  draftHomeTitle: "inline-flex items-center justify-center gap-2 text-2xl font-medium tracking-tight text-dls-text",
-  draftHomeSubtitle: "mt-3 max-w-xl text-sm leading-6 text-dls-secondary",
+  draftHomeTitle: "inline-flex items-center justify-center gap-2 text-xl font-medium tracking-tight text-dls-text",
+  draftHomeSubtitle: "mt-1.5 max-w-md text-xs leading-5 text-dls-secondary",
   noVisibleOutput: "font-mono text-sm leading-6 text-dls-secondary whitespace-pre-wrap",
   headerAgentName: "min-w-0 truncate text-sm font-medium text-dls-text",
   openingSession: "text-sm text-dls-secondary",
@@ -185,7 +185,7 @@ export function AssistantWaitingCard({
           />
         </div>
         <span>{label}</span>
-        {detail ? <span className="text-dls-tertiary">{detail}</span> : null}
+        {detail ? <span className="text-dls-text-tertiary">{detail}</span> : null}
       </div>
     </div>
   );

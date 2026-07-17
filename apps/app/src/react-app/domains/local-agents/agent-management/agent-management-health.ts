@@ -60,13 +60,33 @@ export function formatAgentManagerDuration(value: number) {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-export function agentManagerHealthLabel(agent: AgentManagementAgent, health?: AgentManagementHealthResult) {
-  if (health?.status === "running") return "检查中";
-  if (health?.status === "passed") return `已连接 · ${formatAgentManagerTime(health.at)}`;
-  if (health?.status === "needs_auth") return `需要登录 · ${formatAgentManagerTime(health.at)}`;
-  if (health?.status === "missing") return `未安装 · ${formatAgentManagerTime(health.at)}`;
-  if (health?.status === "failed") return `未连接 · ${formatAgentManagerTime(health.at)}`;
-  return "可测试";
+export function agentManagerHealthLabel(
+  _agent: AgentManagementAgent,
+  health?: AgentManagementHealthResult,
+): string {
+  if (health?.status === "running") return t("agent_manager.health_checking");
+  if (health?.status === "passed") {
+    return t("agent_manager.health_connected", {
+      time: formatAgentManagerTime(health.at),
+    });
+  }
+  if (health?.status === "needs_auth") {
+    return t("agent_manager.health_needs_login", {
+      time: formatAgentManagerTime(health.at),
+    });
+  }
+  if (health?.status === "missing") {
+    return t("agent_manager.health_not_installed", {
+      time: formatAgentManagerTime(health.at),
+    });
+  }
+  if (health?.status === "failed") {
+    return t("agent_manager.health_disconnected", {
+      time: formatAgentManagerTime(health.at),
+    });
+  }
+  // Idle: no secondary badge — status already shows online/offline/missing.
+  return "";
 }
 
 export function agentManagerHealthTone(agent: AgentManagementAgent, health?: AgentManagementHealthResult): StatusBadgeTone {

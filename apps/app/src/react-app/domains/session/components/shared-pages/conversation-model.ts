@@ -58,6 +58,8 @@ export type AgentConversationGroup = {
   agentId: string | null;
   name: string;
   description: string;
+  /** Last-message snippet for list scannability; optional. */
+  preview?: string;
   avatarUrl: string | null;
   avatarBackground: string;
   sessions: WorkspaceSessionGroup["sessions"];
@@ -259,22 +261,35 @@ function assistantTaskTitle(
 export function buildAssistantConversationGroups(
   sessions: WorkspaceSessionGroup["sessions"],
   generatedTitleFallbacks?: Map<string, string>,
+  previewBySessionId?: Map<string, string>,
 ): AgentConversationGroup[] {
   return sessions
     .filter((session) => isAssistantSession(session.id))
-    .map((session) => ({
-      key: `assistant:${session.id}`,
-      agentId: null,
-      name: onmyagentAssistantName(),
-      description: assistantTaskTitle(
+    .map((session) => {
+      const preview = previewBySessionId?.get(session.id)?.trim() || undefined;
+      const title = assistantTaskTitle(
         session,
         generatedTitleFallbacks?.get(session.id),
-      ),
-      avatarUrl: resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR),
-      avatarBackground: "#eef7f2",
-      sessions: [session],
-      latestSession: session,
-    }))
+      );
+      // Avoid duplicating the same text on title + preview rows.
+      const showPreview =
+        preview &&
+        preview !== title &&
+        preview !== t("session.default_title")
+          ? preview
+          : undefined;
+      return {
+        key: `assistant:${session.id}`,
+        agentId: null,
+        name: onmyagentAssistantName(),
+        description: title,
+        preview: showPreview,
+        avatarUrl: resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR),
+        avatarBackground: "#eef7f2",
+        sessions: [session],
+        latestSession: session,
+      };
+    })
     .sort(
       (a, b) =>
         (b.latestSession.time?.updated ?? b.latestSession.time?.created ?? 0) -

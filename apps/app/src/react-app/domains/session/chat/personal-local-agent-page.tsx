@@ -1308,10 +1308,10 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
 return (
   <div
     data-onmyagent-view="personal-assistant"
-    className="relative flex h-full min-h-0 overflow-hidden bg-dls-surface text-dls-text"
+    className="relative flex h-full min-h-0 overflow-hidden bg-dls-background text-dls-text"
   >
     <aside
-      className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5"
+      className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5 mac:bg-dls-sidebar"
       style={{
         width: agentListCollapsed ? 0 : agentListWidth,
       }}
@@ -1477,7 +1477,7 @@ return (
                             localAgentLayoutClass.agentStatusDot,
                             selectedAgentId === agent.id
                               ? "border-dls-list-selected"
-                              : "border-dls-surface",
+                              : "border-dls-sidebar",
                             agent.status === "online"
                               ? "bg-dls-online"
                               : "bg-dls-secondary",
@@ -1576,7 +1576,7 @@ return (
       }}
     />
 
-    <main className="flex min-w-0 flex-1 flex-col bg-dls-surface">
+    <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
    <header className={localAgentLayoutClass.header}>
   <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
     <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">

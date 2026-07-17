@@ -371,7 +371,7 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
 
   if (!isElectronRuntime() || !browser) {
     return (
-      <div className="flex h-full items-center justify-center p-4 text-center text-muted-foreground">
+      <div className="flex h-full items-center justify-center p-4 text-center text-dls-secondary">
         <p className="text-sm">{t("session.browser_desktop_only")}</p>
       </div>
     );
@@ -382,9 +382,9 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
       <div className="flex h-full flex-col">
         <div
           data-panel-titlebar="true"
-          className="shrink-0 border-b border-border bg-background mac:bg-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
+          className="shrink-0 border-b border-dls-border bg-dls-background mac:bg-dls-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
         >
-          <div className="flex h-10 items-center gap-1 border-b border-border/60 px-2">
+          <div className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2">
             <div
               data-panel-titlebar-controls="true"
               className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"

@@ -39,7 +39,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "group/select flex w-fit items-center justify-between gap-1.5 rounded-xl border border-border bg-input/50 px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group/select flex w-fit items-center justify-between gap-1.5 rounded-xl border border-dls-border bg-input/50 px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-dls-status-danger-border aria-invalid:ring-3 aria-invalid:ring-dls-danger/20 data-placeholder:text-dls-secondary data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:aria-invalid:border-dls-status-danger-border dark:aria-invalid:ring-dls-danger/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -47,7 +47,7 @@ function SelectTrigger({
       {children}
       <SelectPrimitive.Icon
         render={
-          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground group-data-[size=sm]/select:size-3" />
+          <ChevronDownIcon className="pointer-events-none size-4 text-dls-secondary group-data-[size=sm]/select:size-3" />
         }
       />
     </SelectPrimitive.Trigger>
@@ -103,7 +103,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn("px-3 py-2.5 text-xs text-muted-foreground", className)}
+      className={cn("px-3 py-2.5 text-xs text-dls-secondary", className)}
       {...props}
     />
   )

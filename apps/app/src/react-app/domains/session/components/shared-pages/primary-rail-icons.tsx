@@ -44,3 +44,74 @@ export function ExpertRailIcon(props: PrimaryRailIconProps) {
     </svg>
   );
 }
+
+/** Local agent / desktop — monitor, same fill language as assistant/expert. */
+export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M1.75 2C1.336 2 1 2.336 1 2.75v7c0 .414.336.75.75.75H6.5v1.25H5.25a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5H9.5V10.5h4.75c.414 0 .75-.336.75-.75v-7C15 2.336 14.664 2 14.25 2H1.75ZM2.5 3.5h11v5.5h-11V3.5Z"
+      />
+    </svg>
+  );
+}
+
+/** Files / workspace — folder. */
+export function FilesRailIcon(props: PrimaryRailIconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M1.5 3.25C1.5 2.56 2.06 2 2.75 2h3.19c.35 0 .68.15.9.41L7.7 3.5h5.55c.69 0 1.25.56 1.25 1.25v7.5c0 .69-.56 1.25-1.25 1.25H2.75c-.69 0-1.25-.56-1.25-1.25v-9Zm1.5.75v8.5h10V5H7.35a1.25 1.25 0 0 1-.9-.41L5.6 3.5H3Z"
+      />
+    </svg>
+  );
+}
+
+/** Marketplace / store — shop front. */
+export function StoreRailIcon(props: PrimaryRailIconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M2.2 2.6A1.25 1.25 0 0 1 3.4 1.75h9.2c.57 0 1.07.38 1.22.93l.9 3.4c.2.76-.2 1.55-.92 1.9V13c0 .69-.56 1.25-1.25 1.25H3.45c-.69 0-1.25-.56-1.25-1.25V8.98c-.72-.35-1.12-1.14-.92-1.9l.9-3.4Zm1.2.65L2.65 6.5h2.1c.14-.52.55-.93 1.06-1.08L5.6 3.25H3.4Zm3.45 0 .2 2.17c.51.15.92.56 1.06 1.08h2.1c.14-.52.55-.93 1.06-1.08l.2-2.17H6.85Zm5.1 0-.2 2.17c.51.15.92.56 1.06 1.08h1.55l-.85-3.25h-1.56ZM3.45 8v5h3.3V10c0-.41.34-.75.75-.75h.9c.41 0 .75.34.75.75v3h3.4V8H3.45Zm4.55 2.75V13h.9v-2.25h-.9Z"
+      />
+    </svg>
+  );
+}
+
+/** Management — three equalizer sliders. */
+export function ManageRailIcon(props: PrimaryRailIconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path d="M3.25 1.75a.75.75 0 0 1 .75.75v2.85a1.75 1.75 0 1 1-1.5 0V2.5a.75.75 0 0 1 .75-.75Zm-.75 7.1v4.65a.75.75 0 0 0 1.5 0V8.85a1.76 1.76 0 0 1-1.5 0Z" />
+      <path d="M8 1.75a.75.75 0 0 1 .75.75v5.85a1.75 1.75 0 1 1-1.5 0V2.5A.75.75 0 0 1 8 1.75Zm-.75 10.1v1.65a.75.75 0 0 0 1.5 0v-1.65a1.76 1.76 0 0 1-1.5 0Z" />
+      <path d="M12.75 1.75a.75.75 0 0 1 .75.75v.85a1.75 1.75 0 1 1-1.5 0V2.5a.75.75 0 0 1 .75-.75Zm-.75 5.1v6.65a.75.75 0 0 0 1.5 0V6.85a1.76 1.76 0 0 1-1.5 0Z" />
+    </svg>
+  );
+}

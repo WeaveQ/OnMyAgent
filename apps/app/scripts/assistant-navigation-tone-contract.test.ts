@@ -21,9 +21,12 @@ describe("assistant navigation tone contract", () => {
       "utf8",
     );
 
-    expect(controls).toContain("bg-dls-list-selected");
-    expect(controls).toContain("hover:bg-dls-list-hover");
-    expect(panel).toContain('"flex shrink-0 flex-col bg-dls-sidebar pb-5"');
+    // Office/code switch uses shared SegmentedTabGroup + NavTabButton (market style).
+    expect(controls).toContain("SegmentedTabGroup");
+    expect(controls).toContain('size="tab"');
+    expect(controls).toContain('shape="tab"');
+    expect(controls).toContain("NavListButton");
+    expect(panel).toContain("bg-dls-sidebar");
     expect(panel).toContain('mode === "assistant" && "px-2.5"');
   });
 
@@ -104,9 +107,8 @@ describe("assistant navigation tone contract", () => {
       "utf8",
     );
 
-    expect(localAgents).toContain(
-      'className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5"',
-    );
+    expect(localAgents).toContain("bg-dls-sidebar");
+    expect(localAgents).toContain("overflow-hidden");
   });
 
   test("keeps draft prompt templates inside the composer add menu", () => {

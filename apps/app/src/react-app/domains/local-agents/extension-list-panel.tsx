@@ -51,7 +51,7 @@ export function ExtensionListPanel() {
   return (
     <section className="space-y-3" data-testid="local-agent-extensions-panel">
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-medium text-dls-primary">{t("local_agent.extensions_title")}</h3>
+        <h3 className="text-sm font-medium text-dls-text">{t("local_agent.extensions_title")}</h3>
         <span className="text-xs text-dls-secondary">{t("local_agent.extensions_count", { count: extensions.length })}</span>
         <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => void load()} disabled={busy}>
           <RefreshCw className={"mr-1.5 size-3.5" + (busy ? " animate-spin" : "")} />
@@ -69,7 +69,7 @@ export function ExtensionListPanel() {
             <li key={ext.name} className="rounded-lg border border-dls-border bg-dls-surface p-3">
               <div className="flex items-start gap-3">
                 <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-medium text-dls-primary">
+                  <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
                     <span>{ext.displayName || ext.name}</span>
                     <StatusBadge tone="neutral" shape="soft" size="tiny" className="uppercase">
                       {ext.source}

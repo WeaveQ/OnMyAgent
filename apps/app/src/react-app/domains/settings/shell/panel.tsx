@@ -84,7 +84,7 @@ type SettingsPanelDescriptionProps = {
 };
 
 export function SettingsPanelDescription(props: SettingsPanelDescriptionProps) {
-  return <p className="text-sm text-muted-foreground">{props.children}</p>;
+  return <p className="text-sm text-dls-secondary">{props.children}</p>;
 }
 
 type SettingsPanelToolbarProps = {
@@ -126,7 +126,7 @@ export function SettingsPanelToolbarStatus(
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
+        "flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs",
         props.tone ?? "bg-dls-active text-dls-secondary border-dls-mist",
       )}
       title={props.title}

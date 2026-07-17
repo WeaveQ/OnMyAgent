@@ -140,9 +140,20 @@ export function AgentManagementAgentCard(props: {
                       ? t("agent_manager.agent_card.status_missing")
                       : t("agent_manager.agent_card.status_error")}
             </StatusBadge>
-            <StatusBadge tone={agentManagerHealthTone(props.agent, props.health)}>
-              {agentManagerHealthLabel(props.agent, props.health)}
-            </StatusBadge>
+            {(() => {
+              const healthLabel = agentManagerHealthLabel(
+                props.agent,
+                props.health,
+              );
+              if (!healthLabel) return null;
+              return (
+                <StatusBadge
+                  tone={agentManagerHealthTone(props.agent, props.health)}
+                >
+                  {healthLabel}
+                </StatusBadge>
+              );
+            })()}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dls-secondary">
             <span className="truncate">{localAgentTypeLabel(props.agent)}</span>
@@ -177,7 +188,7 @@ export function AgentManagementAgentCard(props: {
                 disabled={props.checking}
                 onClick={() => props.onTestConnection(props.agent)}
               >
-                {props.checking ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <HeartPulse className="mr-1.5 size-3.5" />}
+                {props.checking ? <LoadingSpinner size="sm" className="mr-1.5" /> : <HeartPulse className="mr-1.5 size-3.5" />}
                 {t("agent_manager.agent_card.health_check")}
               </Button>
             </div>

@@ -287,7 +287,7 @@ function MarketplacePluginListItem({
           {row.plugin.description || "No description provided."}
         </SettingsListItemDescription>
         {row.imported?.files.length ? (
-          <div className="mt-1 truncate text-xs text-muted-foreground">
+          <div className="mt-1 truncate text-xs text-dls-secondary">
             Installed files: {row.imported.files.map((file) => file.path).join(", ")}
           </div>
         ) : null}

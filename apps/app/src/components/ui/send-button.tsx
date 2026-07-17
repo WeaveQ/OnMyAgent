@@ -1,41 +1,61 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { ComponentProps } from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { Navigation } from "lucide-react";
 
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
-type SendButtonProps = Omit<ComponentProps<typeof Button>, "size" | "variant"> & {
+type SendButtonProps = Omit<
+  ComponentProps<typeof Button>,
+  "size" | "variant"
+> & {
   loading?: boolean;
   label?: string;
 };
 
-export function SendButton({ className, disabled, label, loading = false, ...props }: SendButtonProps) {
+/**
+ * Circular send control: muted disk when idle/disabled, solid disk when ready.
+ * No Tooltip — nested TooltipTrigger wrappers were producing empty white bubbles.
+ */
+export function SendButton({
+  className,
+  disabled,
+  label,
+  loading = false,
+  title,
+  ...props
+}: SendButtonProps) {
   const accessibleLabel = label ?? t("session.send_message");
-  const tooltipLabel = t("session.send_message");
+  const ready = !disabled && !loading;
 
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span className="inline-flex" />}>
-        <Button
-          variant="default"
-          size="icon-lg"
-          disabled={disabled}
-          className={cn(
-            "rounded-full",
-            disabled ? "bg-dls-active text-dls-secondary" : "bg-dls-accent text-white hover:bg-dls-decision-hover",
-            className,
-          )}
-          {...props}
-        >
-          {loading ? <LoadingSpinner size="default" /> : <ArrowUp className="size-4" />}
-          <span className="sr-only">{accessibleLabel}</span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{tooltipLabel}</TooltipContent>
-    </Tooltip>
+    <Button
+      variant="ghost"
+      size="icon-lg"
+      disabled={disabled}
+      title={title ?? accessibleLabel}
+      aria-label={accessibleLabel}
+      className={cn(
+        "rounded-full border-0 shadow-none",
+        ready
+          ? "bg-dls-text text-white hover:bg-dls-text/90 hover:text-white"
+          : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-secondary",
+        className,
+      )}
+      {...props}
+    >
+      {loading ? (
+        <LoadingSpinner size="default" />
+      ) : (
+        <Navigation
+          className="size-4 -translate-y-px rotate-45 fill-current"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      )}
+      <span className="sr-only">{accessibleLabel}</span>
+    </Button>
   );
 }

@@ -89,7 +89,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
               }
             >
               {trimmedRoot ? <Folder className="h-3.5 w-3.5" /> : <FolderPlus className="h-3.5 w-3.5" />}
-              <span className="max-w-[168px] truncate">{chipLabel}</span>
+              <span className="max-w-40 truncate">{chipLabel}</span>
             </button>
           }
         />

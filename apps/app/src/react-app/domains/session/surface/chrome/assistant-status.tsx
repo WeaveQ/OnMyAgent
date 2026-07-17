@@ -63,7 +63,7 @@ export function AssistantWaitingCard({
     >
       <div className="session-transcript-loading-line">
         <span className="session-transcript-loading-shimmer">{label}</span>
-        {detail ? <span className="text-dls-tertiary">{detail}</span> : null}
+        {detail ? <span className="text-dls-text-tertiary">{detail}</span> : null}
         {tipsVisible && tipIndex !== null ? (
           <span
             className="session-transcript-loading-tip"

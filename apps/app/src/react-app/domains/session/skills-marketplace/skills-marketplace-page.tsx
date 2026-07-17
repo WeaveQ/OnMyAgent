@@ -632,19 +632,28 @@ export function SkillsMarketplacePage(props: {
         }}
         onImportFiles={handleImportFiles}
       />
-      <div className="flex shrink-0 gap-3 overflow-x-auto px-6 py-4">
-        {SKILL_MARKETPLACE_CATEGORIES.map((category) => (
-          <Button
-            key={category.id}
-            type="button"
-            size="xs"
-            variant={categoryId === category.id ? "default" : "ghost"}
-            onClick={() => setCategoryId(category.id)}
-            className="shrink-0 mac:titlebar-no-drag"
-          >
-            {t(category.labelKey)}
-          </Button>
-        ))}
+      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto px-6 py-2.5">
+        {SKILL_MARKETPLACE_CATEGORIES.map((category) => {
+          const active = categoryId === category.id;
+          return (
+            <Button
+              key={category.id}
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setCategoryId(category.id)}
+              aria-pressed={active}
+              className={cn(
+                "h-7 shrink-0 rounded-full border px-2.5 text-xs font-medium mac:titlebar-no-drag",
+                active
+                  ? "border-dls-accent/55 bg-dls-accent/12 text-dls-accent hover:bg-dls-accent/12 hover:text-dls-accent"
+                  : "border-dls-border bg-dls-surface-muted/70 text-dls-secondary hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text",
+              )}
+            >
+              {t(category.labelKey)}
+            </Button>
+          );
+        })}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

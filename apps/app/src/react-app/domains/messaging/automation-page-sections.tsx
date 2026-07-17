@@ -80,7 +80,7 @@ export function AutomationTemplateCard(props: {
     <button
       type="button"
       onClick={() => props.onSelect(props.template)}
-      className="group flex min-h-16 items-center gap-3 rounded-lg border border-dls-border bg-dls-surface px-3 py-2.5 text-left transition-colors hover:border-dls-border-strong hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+      className="group flex min-h-16 items-center gap-3 rounded-lg border border-dls-border bg-dls-surface px-3 py-2.5 text-left transition-colors hover:border-dls-border-strong hover:bg-dls-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
     >
       <Icon className="size-5 shrink-0 text-dls-secondary group-hover:text-dls-text" />
       <span className="min-w-0 flex-1">

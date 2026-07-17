@@ -58,7 +58,7 @@ const commandPaletteClass = {
   itemIcon: "mr-2 shrink-0",
   itemBody: "min-w-0 flex-1",
   itemTitle: "truncate font-medium",
-  itemDetail: "truncate text-muted-foreground text-xs",
+  itemDetail: "truncate text-dls-secondary text-xs",
 };
 
 export type SessionOption = {

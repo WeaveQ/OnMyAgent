@@ -601,7 +601,7 @@ function MarketplacePackageDetailModal(props: {
             ))}
           </div>
           <SettingsNotice>
-            <div className="text-xs font-medium text-muted-foreground">
+            <div className="text-xs font-medium text-dls-secondary">
               Composition
             </div>
             <div className="mt-2 grid gap-2">
@@ -610,10 +610,10 @@ function MarketplacePackageDetailModal(props: {
                   key={entry.type}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="capitalize text-card-foreground">
+                  <span className="capitalize text-dls-text">
                     {entry.label}
                   </span>
-                  <CountBadge size="compact" className="bg-dls-surface text-muted-foreground">
+                  <CountBadge size="compact" className="bg-dls-surface text-dls-secondary">
                     {entry.count}
                   </CountBadge>
                 </div>
@@ -628,7 +628,7 @@ function MarketplacePackageDetailModal(props: {
           ) : null}
           {resolved ? (
             <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground">
+              <div className="text-xs font-medium text-dls-secondary">
                 Extension contents
               </div>
               {resolved.memberships.length > 0 ? (
@@ -643,13 +643,13 @@ function MarketplacePackageDetailModal(props: {
                       key={membership.id}
                       className="rounded-xl border border-dls-border bg-dls-surface px-3 py-2"
                     >
-                      <summary className="cursor-pointer text-sm font-medium text-card-foreground">
-                        <span className="text-xs text-muted-foreground">
+                      <summary className="cursor-pointer text-sm font-medium text-dls-text">
+                        <span className="text-xs text-dls-secondary">
                           {object.objectType}
                         </span>{" "}
                         {object.title}
                       </summary>
-                      <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+                      <div className="mt-2 space-y-2 text-xs text-dls-secondary">
                         {object.description ? (
                           <div>{object.description}</div>
                         ) : null}
@@ -659,7 +659,7 @@ function MarketplacePackageDetailModal(props: {
                           </div>
                         ) : null}
                         {preview ? (
-                          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-dls-hover p-2 font-mono text-xs text-card-foreground">
+                          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-dls-hover p-2 font-mono text-xs text-dls-text">
                             {preview}
                           </pre>
                         ) : null}

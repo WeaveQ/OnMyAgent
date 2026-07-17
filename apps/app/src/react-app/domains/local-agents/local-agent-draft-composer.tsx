@@ -443,7 +443,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     <div
       className={cn(
         "relative overflow-visible rounded-xl border bg-dls-surface transition-colors",
-        focused ? "border-dls-accent/60 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]" : "border-dls-border",
+        focused ? "border-dls-accent/60 ring-2 ring-dls-accent/15" : "border-dls-border",
         dragActive && "border-dls-accent/80",
       )}
       data-local-agent-composer-root="true"

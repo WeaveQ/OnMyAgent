@@ -443,7 +443,7 @@ function AutomationTemplateCard(props: {
     <button
       type="button"
       onClick={() => props.onSelect(props.template)}
-      className="group flex min-h-20 items-center gap-4 rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-left transition-colors hover:border-dls-border-strong hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      className="group flex min-h-20 items-center gap-4 rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-left transition-colors hover:border-dls-border-strong hover:bg-dls-surface-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
     >
       <Icon className="size-5 shrink-0 text-dls-secondary group-hover:text-dls-text" />
       <span className="min-w-0 flex-1">
@@ -1134,11 +1134,11 @@ export function AutomationPage(props: {
   const showTemplates = !hasAutomations || templateViewOpen;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-dls-surface text-dls-text">
+    <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className="flex shrink-0 items-start justify-between gap-4 px-8 pb-6 pt-8">
         <div>
-          <h1 className="text-lg font-semibold">{t("automation.title")}</h1>
-          <p className="mt-2 text-xs text-dls-secondary">{t("automation.subtitle")}</p>
+          <h1 className="text-lg font-semibold text-dls-text">{t("automation.title")}</h1>
+          <p className="mt-2 text-sm text-dls-secondary">{t("automation.subtitle")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={openBlankDialog}>
@@ -1173,7 +1173,7 @@ export function AutomationPage(props: {
               </Button>
             ) : null}
             <section>
-              <h2 className="text-sm font-medium text-dls-secondary">{t("automation.start_from_template")}</h2>
+              <h2 className="text-sm font-medium text-dls-text">{t("automation.start_from_template")}</h2>
               <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
                 {visibleTemplates.map((template) => (
                   <AutomationTemplateCard key={template.id} template={template} onSelect={openTemplateDialog} />

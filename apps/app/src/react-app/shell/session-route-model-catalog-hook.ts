@@ -46,6 +46,7 @@ import {
   buildConnectedModelOptions,
   buildProviderModelCatalog,
   filterAllowedModelOptions,
+  isSelectedModelUnavailable,
   resolveModelVariantState,
   resolveProviderDefaultModel,
   resolveUsableDefaultModel,
@@ -77,6 +78,7 @@ type Input = {
   selectedWorkspaceEndpoint: ResolvedWorkspaceEndpoint | null;
   selectedWorkspaceId: string;
   sessionModelOverrideById: Record<string, ModelRef>;
+  setSessionModelOverrideById: Dispatch<SetStateAction<Record<string, ModelRef>>>;
   sessionWorkspaceRoot: string;
   setModelOptions: Dispatch<SetStateAction<ModelOption[]>>;
   sidebarActiveWorkspaceId: string;
@@ -88,6 +90,7 @@ export function useSessionRouteModelCatalog(input: Input) {
     denSessionVersion,
     engineReloadVersion,
     local,
+    setSessionModelOverrideById,
     modelOptions,
     modelPickerOpen,
     navigate,
@@ -268,6 +271,84 @@ export function useSessionRouteModelCatalog(input: Input) {
     currentLocale,
     currentLocale,
   );
+
+  // Heal ghost selections (e.g. OpenCode-suggested gpt-5-nano) that are not
+  // in the connected catalog so the composer never sticks on "模型已不可用".
+  const effectiveModelKey = effectiveModelRef
+    ? `${effectiveModelRef.providerID}:${effectiveModelRef.modelID}`
+    : "";
+  const connectedProviderKey = providerConnectedIds.join(",");
+  const defaultModelKey = local.prefs.defaultModel
+    ? `${local.prefs.defaultModel.providerID}:${local.prefs.defaultModel.modelID}`
+    : "";
+  useEffect(() => {
+    if (!providerListData) return;
+    const restriction = checkRestrictionRef.current;
+    const resolvedFromEffective = resolveUsableDefaultModel({
+      currentDefault: effectiveModelRef,
+      checkRestriction: restriction,
+      connectedProviderIds: providerConnectedIds,
+      providerListData,
+    });
+    const healed = resolvedFromEffective.model;
+    if (!healed?.providerID || !healed.modelID) return;
+
+    const effectiveUnavailable = isSelectedModelUnavailable({
+      model: effectiveModelRef,
+      checkRestriction: restriction,
+      connectedProviderIds: providerConnectedIds,
+      providerListData,
+    });
+    const defaultUnavailable = isSelectedModelUnavailable({
+      model: local.prefs.defaultModel,
+      checkRestriction: restriction,
+      connectedProviderIds: providerConnectedIds,
+      providerListData,
+    });
+
+    // Scope the active composer model when the effective selection is a ghost.
+    if (effectiveUnavailable && resolvedFromEffective.changed) {
+      setSessionModelOverrideById((current) => {
+        const existing = current[modelScopeSessionId];
+        if (
+          existing?.providerID === healed.providerID &&
+          existing?.modelID === healed.modelID
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          [modelScopeSessionId]: healed,
+        };
+      });
+    }
+
+    // Always repair a ghost global default so new drafts don't re-flash red.
+    if (defaultUnavailable) {
+      const prefsDefault = local.prefs.defaultModel;
+      if (
+        !prefsDefault ||
+        prefsDefault.providerID !== healed.providerID ||
+        prefsDefault.modelID !== healed.modelID
+      ) {
+        writeStoredDefaultModel(healed);
+        setPrefsRef.current((previous) => ({
+          ...previous,
+          defaultModel: healed,
+        }));
+      }
+    }
+    // Keys intentionally stabilize object-identity churn for model/provider sets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    connectedProviderKey,
+    defaultModelKey,
+    effectiveModelKey,
+    modelScopeSessionId,
+    pendingAgentModel,
+    providerListData,
+    setSessionModelOverrideById,
+  ]);
 
   // Prefetch the full provider catalog once so `getModelBehaviorSummary` has
   // everything it needs to expose the reasoning/thinking variants the active

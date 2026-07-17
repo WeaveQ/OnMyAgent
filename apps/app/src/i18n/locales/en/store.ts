@@ -4,6 +4,7 @@ export default {
   "store.add_skill": "Add skill",
   "store.all_experts": "All experts",
   "store.experts_marketplace": "Expert marketplace",
+  "store.experts_tab": "Experts",
   "store.my_skills": "My skills",
   "store.no_connectors_hint":
     "Configure connectors in Settings to use them here.",
@@ -20,6 +21,7 @@ export default {
   "store.scope_onmyagent_desc":
     "Installed or created through OnMyAgent and stored in ~/.onmyagent/skills",
   "store.skills_marketplace": "Skill marketplace",
+  "store.skills_tab": "Skills",
   "store.upload": "Upload",
   "skills_marketplace.category_all": "All",
   "skills_marketplace.category_opc": "OPC solo company",

@@ -20,8 +20,10 @@ are driven by semantic CSS tokens.
   containers. Reserve pills for compact status chips and filters.
 - **Signal cyan is a status.** Electric cyan is reserved for activity,
   online, running, and subtle signal marks — never primary actions.
-- **Three-tier surface hierarchy.** Rail → background → surface. Rail is
-  cold and quiet, background is neutral, surface is where content lives.
+- **Shell lane hierarchy (WeChat three-column).** Rail → background →
+  sidebar → surface. Rail is cold and deepest, background is the main
+  canvas, sidebar is the list lane lifted above the canvas, surface is
+  cards/composer. Keep ≥1 perceptual step between adjacent shell lanes.
 
 ## Component Contracts
 

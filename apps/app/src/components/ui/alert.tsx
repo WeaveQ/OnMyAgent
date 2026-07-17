@@ -8,11 +8,11 @@ const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-card text-card-foreground",
+        default: "bg-dls-surface text-dls-text",
         destructive:
-          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+          "bg-dls-surface text-dls-danger *:data-[slot=alert-description]:text-dls-danger-fg *:[svg]:text-current",
         warning:
-          "bg-card text-warning *:data-[slot=alert-description]:text-warning/90 *:[svg]:text-current",
+          "bg-dls-surface text-warning *:data-[slot=alert-description]:text-warning/90 *:[svg]:text-current",
       },
     },
     defaultVariants: {
@@ -41,7 +41,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="alert-title"
       className={cn(
-        "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
+        "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-dls-text",
         className
       )}
       {...props}
@@ -57,7 +57,7 @@ function AlertDescription({
     <div
       data-slot="alert-description"
       className={cn(
-        "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
+        "text-sm text-balance text-dls-secondary md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-dls-text [&_p:not(:last-child)]:mb-4",
         className
       )}
       {...props}
