@@ -119,10 +119,14 @@ export function SettingsCard({ children, className, size = "default", tone = "mu
  * Use with SettingsBlockRow; section title stays outside the card.
  */
 export function SettingsBlock({ children, className }: SettingsLayoutProps) {
+  // overflow-visible so SelectMenu / popovers in rows are not clipped.
+  // Corner radius is applied on first/last rows instead of clipping the card.
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-dls-border bg-dls-surface divide-y divide-dls-border",
+        "rounded-xl border border-dls-border bg-dls-surface divide-y divide-dls-border",
+        "[&>[data-slot=settings-block-row]:first-child]:rounded-t-[inherit]",
+        "[&>[data-slot=settings-block-row]:last-child]:rounded-b-[inherit]",
         className,
       )}
     >
@@ -152,6 +156,7 @@ export function SettingsBlockRow({
 }: SettingsBlockRowProps) {
   return (
     <div
+      data-slot="settings-block-row"
       className={cn(
         "flex gap-4 px-4 py-3.5",
         align === "center" ? "items-center" : "items-start",
@@ -168,7 +173,9 @@ export function SettingsBlockRow({
       {actions ? (
         <div
           className={cn(
-            "shrink-0",
+            "relative z-20 shrink-0",
+            // Give selects room so labels like "默认 (100%)" and the menu don't clip.
+            "min-w-[9.5rem]",
             align === "start" ? "pt-0.5" : "self-center",
           )}
         >
