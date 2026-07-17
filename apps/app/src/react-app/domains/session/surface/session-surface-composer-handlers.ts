@@ -6,7 +6,8 @@
 import { useCallback, useEffect } from "react";
 import type { CloudImportedPlugin } from "../../../../app/cloud/import-state";
 import { readWorkspaceCloudImports } from "../../../../app/cloud/import-state";
-import { unwrap } from "../../../../app/lib/opencode";
+import { createClient, unwrap } from "../../../../app/lib/opencode";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import type {
   ComposerAttachment,
   ComposerDraft,
@@ -20,6 +21,8 @@ import { encodeComposerMentionValue } from "./composer/mention-encoding";
 import type { ReactComposerNotice } from "./composer/notice";
 import { createComposerAttachments } from "./session-surface-support";
 import { waitForControl } from "./session-surface-hooks";
+
+type OpencodeClient = ReturnType<typeof createClient>;
 
 export type SessionSurfaceComposerHandlersInput = {
   sessionId: string;
@@ -54,9 +57,8 @@ export type SessionSurfaceComposerHandlersInput = {
   setToolImportedPlugins: (plugins: CloudImportedPlugin[]) => void;
   buildDraft: (text: string, attachments: ComposerAttachment[]) => ComposerDraft;
   onDraftChange: (draft: ComposerDraft) => void;
-  // Keep client/opencodeClient structural but permissive — SessionSurface owns the real client types.
-  client: any;
-  opencodeClient: any;
+  client: OnMyAgentServerClient;
+  opencodeClient: OpencodeClient;
 };
 
 /** Mechanical extract of SessionSurface composer side-handlers. */
@@ -241,7 +243,7 @@ export function useSessionSurfaceComposerHandlers(
       includeGlobal: true,
     });
     const next = (response.items ?? []).map(
-      (skill: any) =>
+      (skill) =>
         ({
           name: skill.name,
           path: skill.path,
@@ -260,7 +262,7 @@ export function useSessionSurfaceComposerHandlers(
   }> => {
     const response = await client.listMcp(workspaceId);
     const servers = (response.items ?? []).map(
-      (entry: any) =>
+      (entry) =>
         ({
           name: entry.name,
           config: entry.config as McpServerEntry["config"],
@@ -271,9 +273,9 @@ export function useSessionSurfaceComposerHandlers(
     try {
       if (workspaceRoot.trim()) {
         statuses = unwrap(
-          (await opencodeClient.mcp.status({
+          await opencodeClient.mcp.status({
             directory: workspaceRoot.trim(),
-          })) as any,
+          }),
         ) as McpStatusMap;
       }
     } catch {

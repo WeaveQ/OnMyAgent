@@ -5,6 +5,9 @@
  */
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
+import type { ReloadReason, ReloadTrigger } from "../../../app/types";
 import { t } from "../../../i18n";
 import { getReactQueryClient } from "../../infra/query-client";
 import { refreshProviderListQueries } from "../../domains/connections";
@@ -18,17 +21,18 @@ import {
   slugifyImageArtifactName,
   type LocalProviderInstallInput,
 } from "../../domains/settings";
+import type { LocalPreferences } from "../../kernel/local-provider";
 import { describeRouteError } from "./model";
 
 export type SettingsExtensionActionsInput = {
-  onmyagentClient: any;
-  selectedWorkspaceEndpoint: any;
+  onmyagentClient: OnMyAgentServerClient | null;
+  selectedWorkspaceEndpoint: ResolvedWorkspaceEndpoint | null;
   runtimeWorkspaceId: string | null | undefined;
   reloadCoordinator: {
-    markReloadRequired: (kind: any, detail?: any) => void;
+    markReloadRequired: (reason: ReloadReason, trigger?: ReloadTrigger) => void;
   };
   local: {
-    setPrefs: (updater: (previous: any) => any) => void;
+    setPrefs: (updater: (previous: LocalPreferences) => LocalPreferences) => void;
   };
   setImageExtensionBusy: Dispatch<SetStateAction<boolean>>;
   setImageExtensionStatus: Dispatch<SetStateAction<string | null>>;
