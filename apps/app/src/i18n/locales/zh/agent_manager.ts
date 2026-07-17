@@ -6,7 +6,6 @@ export default {
   "agent_manager.agents_desc": "本机编程 Agent 的状态、连接检查与运行信息",
   "agent_manager.config_preview": "配置预览",
   "agent_manager.current": "当前",
-  "agent_manager.description": "管理本机 Agent、模型服务商、技能与 MCP",
   "agent_manager.import_current": "导入当前配置",
   "agent_manager.local_runs": "本地运行",
   "agent_manager.managed_providers": "模型服务商",

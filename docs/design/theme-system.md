@@ -41,7 +41,8 @@ Cross-cutting rules that surface most often in review:
 - **`rounded-full` is a whitelist.** Only avatars, pill filter chips (`FilterChip` / `NavTabButton shape="pill"`), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11. Ordinary CTAs stay `rounded-lg` / `rounded-xl`.
 - **Radius scale is flat.** `xs=3 sm=6 md=8 lg=10 xl=14 pill=999`. `2xl/3xl/4xl` are legacy aliases mapped to `xl=14` in Tailwind config so migration is safe, but new code must pick a named tier — not a legacy alias.
 - **Composer host policy.** Global `SessionSurface` composer only on chat host views; never under manage / files / market / local-agent (local has its own ACP composer). See `DESIGN.md` § 11.
-- **Marketplace dialect.** Expert/skill store cards are avatar-forward: no default border (border on hover), hover-reveal **召唤** CTA, soft pill tags. Do not import that density into workbench panels.
+- **Marketplace dialect.** Expert/skill/plugin store cards are avatar-forward: no default border (`border-transparent`, border on hover), soft surface hover wash, soft pill tags. Expert cards also hover-reveal a **召唤** CTA. Do not import that density into workbench panels.
+- **Tool chrome headers.** Full-height side pages use `shellChrome.pageHeader` + title only (`typeScale.pageTitle`). Do not stack a page-level subtitle under the title; put contextual copy in empty states or section headers instead.
 
 ## Canonical primitive table
 

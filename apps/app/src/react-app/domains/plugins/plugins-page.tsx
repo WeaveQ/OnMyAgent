@@ -121,11 +121,11 @@ const pluginsLayoutClass = {
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
   pageContainer: "mx-auto w-full max-w-5xl px-6 pb-10 pt-5",
   pluginPageContainer: "mx-auto w-full max-w-5xl space-y-8 px-6 pb-10 pt-5",
-  card: "rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3 transition-colors",
+  card: "rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
   cardDisabled: "opacity-70",
-  cardInteractive: "hover:border-dls-border-strong hover:bg-dls-list-hover/30",
+  cardInteractive: "hover:border-dls-border hover:bg-dls-hover",
   cardMd: "min-h-[72px]",
   cardLg: "min-h-[80px]",
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
@@ -1255,7 +1255,7 @@ function ScannedSkillCard(props: { skill: ScannedSkill }) {
             {display.description || display.name}
           </div>
         </div>
-        <StatusBadge tone="neutral">
+        <StatusBadge tone="neutral" shape="soft" size="tiny">
           {scopeLabel}
         </StatusBadge>
       </div>
