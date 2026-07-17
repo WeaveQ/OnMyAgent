@@ -121,7 +121,7 @@ function CollapsibleChannelHeader(props: {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-dls-text truncate">{channel.name}</span>
-            <StatusBadge size="sm" tone={connected ? "accent" : "neutral"}>
+            <StatusBadge size="tiny" shape="pill" tone={connected ? "accent" : "neutral"}>
               {connected ? t("messaging.connected") : t("messaging.not_linked")}
             </StatusBadge>
           </div>
@@ -393,8 +393,8 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <StatusBadge tone="neutral">{t("messaging.channels_tab")} {channels.length}</StatusBadge>
-              <StatusBadge tone={connectedCount > 0 ? "accent" : "neutral"}>{t("messaging.connected")} {connectedCount}</StatusBadge>
+              <StatusBadge tone="neutral" shape="soft" size="tiny">{t("messaging.channels_tab")} {channels.length}</StatusBadge>
+              <StatusBadge tone={connectedCount > 0 ? "accent" : "neutral"} shape="soft" size="tiny">{t("messaging.connected")} {connectedCount}</StatusBadge>
             </div>
           </div>
 

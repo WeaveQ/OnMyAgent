@@ -935,7 +935,7 @@ function StoreSubTabs(props: {
           type="button"
           onClick={() => props.onChange(value)}
           active={props.value === value}
-          size="chip"
+          size="compact"
           width="hug"
           className="items-center gap-1.5"
         >

@@ -401,7 +401,7 @@ export function MessagingView(props: MessagingViewProps) {
                           : t("identities.worker_offline")}
                     </span>
                   </div>
-                  <StatusBadge tone={workerStatusTone}>
+                  <StatusBadge tone={workerStatusTone} shape="pill" size="tiny">
                     {statusLabel}
                   </StatusBadge>
                 </div>

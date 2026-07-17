@@ -361,7 +361,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
             <div className="text-xs text-dls-secondary">{tool.description}</div>
           ) : null}
         </div>
-        <StatusBadge tone={tone}>{tool.status}</StatusBadge>
+        <StatusBadge tone={tone} shape="pill" size="tiny">{tool.status}</StatusBadge>
       </button>
       {expanded && hasDetail ? (
         <div className="mt-2 space-y-3">
