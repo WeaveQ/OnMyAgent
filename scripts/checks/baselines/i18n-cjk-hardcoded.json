@@ -1,14 +1,8 @@
 {
   "$schema": "./i18n-cjk-hardcoded.schema.json",
   "description": "Frozen CJK hard-coded string occurrences keyed by file+excerpt with a count. Only shrink (delete entries or lower counts); never bump counts by hand. Regenerate with `node scripts/checks/check-i18n-cjk.mjs --write` after genuine reduction.",
-  "generatedAt": "2026-07-14T02:36:40.952Z",
+  "generatedAt": "2026-07-17T15:03:32.778Z",
   "entries": {
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-health.ts::if (health?.status === \"failed\") return `未连接 · ${formatAgentManagerTime(health.at)}`;": 1,
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-health.ts::if (health?.status === \"missing\") return `未安装 · ${formatAgentManagerTime(health.at)}`;": 1,
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-health.ts::if (health?.status === \"needs_auth\") return `需要登录 · ${formatAgentManagerTime(health.at)}`;": 1,
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-health.ts::if (health?.status === \"passed\") return `已连接 · ${formatAgentManagerTime(health.at)}`;": 1,
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-health.ts::if (health?.status === \"running\") return \"检查中\";": 1,
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-health.ts::return \"可测试\";": 1,
     "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-page.tsx::if (result.status === \"missing\") return `未安装${result.error ? `：${result.error}` : \"\"}`;": 1,
     "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-page.tsx::if (result.status === \"needs_auth\") return `需要登录认证${result.error ? `：${result.error}` : \"\"}`;": 1,
     "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-page.tsx::return `连接失败${result.error ? `：${result.error}` : `（${result.step}）`}`;": 1,
