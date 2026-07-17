@@ -23,10 +23,9 @@ import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { summarizeStep } from "../../../../../app/utils";
 import {
+  ConversationItemView,
   mapOpenCodeReasoningPartToItem,
   mapOpenCodeToolPartToItem,
-  ThinkingBlock,
-  ToolItemRow,
 } from "../../../../capabilities/conversation";
 import { usePlatform } from "../../../../kernel/platform";
 import { MarkdownBlock } from "../markdown";
@@ -248,13 +247,18 @@ export function StepRow(props: {
   if (props.part.type === "reasoning") {
     if (!props.part.text.trim()) return null;
     // Streaming reasoning keeps the auto-scrolling TranscriptReasoning surface.
-    // Completed reasoning uses the shared Conversation ThinkingBlock.
+    // Completed reasoning uses the shared ConversationItemView (ThinkingBlock).
     if (!props.isStreamingReasoning) {
       const thinkingItem = mapOpenCodeReasoningPartToItem(
         { type: "reasoning", text: props.part.text },
         { id: props.id, complete: true },
       );
-      return <ThinkingBlock item={thinkingItem} defaultExpanded={false} />;
+      return (
+        <ConversationItemView
+          item={thinkingItem}
+          className="max-w-[760px]"
+        />
+      );
     }
     return (
       <TranscriptReasoning
@@ -264,20 +268,19 @@ export function StepRow(props: {
     );
   }
 
-  // Compact shared tool row for simple, non-expandable tools without specialized UI.
-  if (
+  const toolStateStatus =
     props.part.type === "tool"
-    && !specializedDetails
-    && !expandable
-    && questionAnswers.length === 0
-  ) {
-    const toolStateStatus =
-      typeof toolState.status === "string"
-        ? toolState.status
-        : typeof summary.status === "string"
-          ? summary.status
-          : null;
-    const toolItem = mapOpenCodeToolPartToItem(
+      ? (
+        typeof toolState.status === "string"
+          ? toolState.status
+          : typeof summary.status === "string"
+            ? summary.status
+            : null
+      )
+      : null;
+
+  const sharedToolItem = props.part.type === "tool"
+    ? mapOpenCodeToolPartToItem(
       {
         type: "tool",
         toolName: props.part.tool,
@@ -288,16 +291,38 @@ export function StepRow(props: {
         output: toolOutput,
       },
       { id: props.id },
+    )
+    : null;
+
+  // Compact shared tool row for simple tools (no specialized expand UI).
+  // Includes non-expandable specialized compact tools except preview-url /
+  // open-result which keep host-specific affordances. image-gen returns earlier.
+  const specializedBlocksSharedRow =
+    specializedDetails != null
+    && specializedDetails.kind !== "open-result"
+    && !(specializedDetails.kind === "compact-tool" && specializedDetails.variant === "preview-url")
+    && !specializedToolCanExpand(specializedDetails)
+    && !expandable;
+
+  const useSharedSimpleToolRow =
+    props.part.type === "tool"
+    && sharedToolItem != null
+    && questionAnswers.length === 0
+    && (
+      (!specializedDetails && !expandable)
+      || specializedBlocksSharedRow
     );
+
+  if (useSharedSimpleToolRow && sharedToolItem) {
     return (
       <div className={messageTextClass.body}>
-        <ToolItemRow
+        <ConversationItemView
           item={{
-            ...toolItem,
+            ...sharedToolItem,
             text: headline,
-            toolName: toolItem.toolName,
+            toolName: sharedToolItem.toolName,
             meta: {
-              ...toolItem.meta,
+              ...sharedToolItem.meta,
               description: toolPresentation?.secondary ?? undefined,
             },
           }}
@@ -625,15 +650,23 @@ export function WorkBuddyProcessFold(props: {
             const key = `${item.messageId}:${item.partIndex}`;
             if (item.part.type === "reasoning") {
               if (!item.part.text.trim()) return null;
-              return (
-                <MarkdownBlock
-                  key={key}
-                  text={item.part.text}
-                  streaming={props.running}
-                  showStreamingCursor={false}
-                  locale={currentLocale()}
-                />
+              // Streaming keeps markdown stream; completed folds use shared thinking VM.
+              if (props.running) {
+                return (
+                  <MarkdownBlock
+                    key={key}
+                    text={item.part.text}
+                    streaming
+                    showStreamingCursor={false}
+                    locale={currentLocale()}
+                  />
+                );
+              }
+              const thinkingItem = mapOpenCodeReasoningPartToItem(
+                { type: "reasoning", text: item.part.text },
+                { id: key, complete: true },
               );
+              return <ConversationItemView key={key} item={thinkingItem} />;
             }
             const legacyPart = processItemToLegacyPart(item);
             if (!legacyPart) return null;
