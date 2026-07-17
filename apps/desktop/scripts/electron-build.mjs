@@ -51,6 +51,9 @@ if (existsSync(bundledSkillsDir)) {
 } else {
   process.stderr.write(`[bundled-skills] ${bundledSkillsDir} does not exist; no built-in skills will be packaged\n`);
 }
+// Compile shared types to JS so the packaged Electron main process can load
+// @onmyagent/types/* from node_modules (Node refuses type-stripping under node_modules).
+run(pnpmCmd, ["--filter", "@onmyagent/types", "build"], repoRoot);
 // Build the server TS → JS so Electron can import it in-process
 run(pnpmCmd, ["--filter", "onmyagent-server", "build"], repoRoot);
 // ONMYAGENT_ELECTRON_BUILD tells Vite to emit relative asset paths so
