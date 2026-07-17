@@ -1,8 +1,24 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { isBrowserAutomationSkillEnabled } from "../artifact-plugin-runtime.mjs";
 import { createBrowserCapabilityAuthority } from "./browser-capability-authority.mjs";
 import { createBrowserRpcServer, resolveBrowserRpcEndpoint } from "./browser-rpc-server.mjs";
 import { createBrowserRuntime } from "./index.mjs";
+
+function defaultBundledPluginsRoot(dirname) {
+  const candidates = [
+    typeof process.resourcesPath === "string"
+      ? path.resolve(process.resourcesPath, "bundled-plugins")
+      : null,
+    path.resolve(dirname, "..", "resources", "bundled-plugins"),
+    path.resolve(dirname, "..", "..", "resources", "bundled-plugins"),
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
+}
 
 const DEFAULT_URL = "https://www.google.com";
 
@@ -82,6 +98,11 @@ export function createElectronBrowserController(options) {
     if (bounds && bounds.width > 0 && bounds.height > 0) selected.setBounds(bounds);
   };
 
+  const pluginRoot =
+    options.bundledPluginsRoot ??
+    defaultBundledPluginsRoot(
+      options.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
+    );
   const runtime = createBrowserRuntime({
     createView,
     requestApproval: options.requestApproval,
@@ -90,6 +111,15 @@ export function createElectronBrowserController(options) {
     history: options.history,
     nameSession: options.nameSession,
     consoleLogs: options.consoleLogs,
+    isBrowserEnabled:
+      options.isBrowserEnabled ??
+      (async () => {
+        if (!pluginRoot) return true;
+        return isBrowserAutomationSkillEnabled({
+          pluginRoot,
+          enablementPath: options.artifactPluginEnablementPath,
+        });
+      }),
   });
 
   // The host owns security and lifecycle; this controller owns Electron layout.

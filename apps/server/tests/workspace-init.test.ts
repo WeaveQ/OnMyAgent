@@ -178,6 +178,75 @@ describe("ensureWorkspaceFiles", () => {
     });
   });
 
+  test("strips browser automation when the Browser plugin is disabled", async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), "onmyagent-browser-disabled-"));
+    try {
+      const pluginsRoot = join(fixtureRoot, "bundled-plugins-disabled");
+      const pluginDir = join(pluginsRoot, "browser");
+      await mkdir(join(pluginDir, ".codex-plugin"), { recursive: true });
+      await mkdir(join(pluginDir, ".onmyagent"), { recursive: true });
+      await mkdir(join(pluginDir, "skills", "browser-automation"), { recursive: true });
+      await writeFile(
+        join(pluginDir, ".codex-plugin", "plugin.json"),
+        JSON.stringify({
+          name: "browser",
+          version: "1.0.0",
+          description: "Browser",
+          author: { name: "OnMyAgent" },
+          skills: "./skills/",
+          interface: {
+            displayName: "Browser",
+            shortDescription: "Browser",
+            longDescription: "Browser",
+            developerName: "OnMyAgent",
+            category: "Engineering",
+            capabilities: ["Interactive"],
+            defaultPrompt: ["Open a page"],
+            screenshots: [],
+          },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(pluginDir, ".onmyagent", "artifact.json"),
+        JSON.stringify({
+          skills: [{ id: "browser-automation", defaultEnabled: true }],
+          routing: { extensions: [], mimeTypes: [] },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(pluginDir, "skills", "browser-automation", "SKILL.md"),
+        "---\nname: browser-automation\ndescription: Browser skill\n---\n\n# Browser\n",
+        "utf8",
+      );
+      const configDir = join(fixtureRoot, "config-disabled");
+      await mkdir(configDir, { recursive: true });
+      await writeFile(
+        join(configDir, "artifact-plugins.json"),
+        JSON.stringify({ plugins: { browser: { enabled: false, skills: {} } } }),
+        "utf8",
+      );
+      process.env.ONMYAGENT_BUNDLED_PLUGINS_DIR = pluginsRoot;
+      process.env.ONMYAGENT_SERVER_CONFIG = join(configDir, "server.json");
+      await withWorkspace(async (root) => {
+        await ensureWorkspaceFiles(root, "starter");
+        const agent = await readFile(
+          join(root, ".opencode", "agents", "onmyagent.md"),
+          "utf8",
+        );
+        expect(agent).not.toContain(`<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`);
+        await expect(
+          stat(join(root, ".opencode", "tools", "onmyagent_browser_node_repl.ts")),
+        ).rejects.toThrow();
+      });
+    } finally {
+      delete process.env.ONMYAGENT_BUNDLED_PLUGINS_DIR;
+      delete process.env.ONMYAGENT_SERVER_CONFIG;
+      await rm(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
   test("injects browser automation guidance into new and existing agents", async () => {
     await withWorkspace(async (root) => {
       // New workspace: the in-app browser guidance is present and points at
