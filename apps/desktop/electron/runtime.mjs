@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { chmod, copyFile, mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -46,6 +46,51 @@ function bundledExtensionRootPaths() {
 function truncateOutput(value, limit = 8000) {
   const text = String(value ?? "");
   return text.length <= limit ? text : text.slice(text.length - limit);
+}
+
+/**
+ * Create a directory link (symlink on POSIX, junction on Windows). If the
+ * link cannot be created (typically Windows without symlink privilege, or a
+ * cross-volume junction target), fall back to recursively copying the
+ * directory so the destination is usable.
+ */
+async function linkOrCopyDir(sourceDir, targetPath) {
+  const type = process.platform === "win32" ? "junction" : "dir";
+  try {
+    await symlink(sourceDir, targetPath, type);
+    return { mode: "symlink" };
+  } catch (linkError) {
+    if (linkError && linkError.code === "EEXIST") {
+      return { mode: "existing" };
+    }
+    try {
+      await copyDirRecursive(sourceDir, targetPath);
+      return { mode: "copy" };
+    } catch (copyError) {
+      const detail = linkError?.message ?? String(linkError);
+      const nested = copyError?.message ?? String(copyError);
+      throw new Error(
+        `Failed to mirror ${sourceDir} to ${targetPath}: link=${detail} copy=${nested}`,
+      );
+    }
+  }
+}
+
+async function copyDirRecursive(sourceDir, targetPath) {
+  await mkdir(targetPath, { recursive: true });
+  const entries = await readdir(sourceDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const src = path.join(sourceDir, entry.name);
+    const dst = path.join(targetPath, entry.name);
+    if (entry.isDirectory()) {
+      await copyDirRecursive(src, dst);
+    } else if (entry.isSymbolicLink()) {
+      const linkTarget = await stat(src).then(() => src).catch(() => null);
+      if (linkTarget) await copyFile(src, dst);
+    } else if (entry.isFile()) {
+      await copyFile(src, dst);
+    }
+  }
 }
 
 function appendOutput(state, key, chunk) {
@@ -389,6 +434,15 @@ function extraPathEntries() {
       path.join(home, ".cargo", "bin"),
       process.env.APPDATA ? path.join(process.env.APPDATA, "npm") : null,
       process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "pnpm") : null,
+      process.env.ProgramFiles
+        ? path.join(process.env.ProgramFiles, "Docker", "Docker", "resources", "bin")
+        : null,
+      process.env["ProgramFiles(x86)"]
+        ? path.join(process.env["ProgramFiles(x86)"], "Docker", "Docker", "resources", "bin")
+        : null,
+      process.env.LOCALAPPDATA
+        ? path.join(process.env.LOCALAPPDATA, "Programs", "Docker", "Docker", "resources", "bin")
+        : null,
     );
   }
 
@@ -650,11 +704,9 @@ export function createRuntimeManager({
         const name = path.basename(skillDir);
         if (linked.has(name)) continue;
         linked.add(name);
-        await symlink(
-          skillDir,
-          path.join(skillsDir, name),
-          process.platform === "win32" ? "junction" : "dir",
-        ).catch(() => undefined);
+        await linkOrCopyDir(skillDir, path.join(skillsDir, name)).catch(
+          () => undefined,
+        );
       }
     }
     return configDir;
@@ -888,6 +940,14 @@ export function createRuntimeManager({
         "/usr/local/bin/opencode",
         "/usr/bin/opencode",
       );
+    } else {
+      if (process.env.LOCALAPPDATA) {
+        candidates.push(
+          path.join(process.env.LOCALAPPDATA, "opencode", "bin", "opencode.exe"),
+          path.join(process.env.LOCALAPPDATA, "Programs", "opencode", "opencode.exe"),
+        );
+      }
+      candidates.push(path.join(app.getPath("home"), ".opencode", "bin", "opencode.exe"));
     }
 
     return [...new Set(candidates.filter(Boolean))];
@@ -988,11 +1048,32 @@ export function createRuntimeManager({
       }
     }
 
-    for (const candidate of [
-      "/opt/homebrew/bin/docker",
-      "/usr/local/bin/docker",
-      "/Applications/Docker.app/Contents/Resources/bin/docker",
-    ]) {
+    const platformDefaults =
+      process.platform === "win32"
+        ? [
+            process.env.ProgramFiles
+              ? path.join(process.env.ProgramFiles, "Docker", "Docker", "resources", "bin", "docker.exe")
+              : null,
+            process.env["ProgramFiles(x86)"]
+              ? path.join(
+                  process.env["ProgramFiles(x86)"],
+                  "Docker",
+                  "Docker",
+                  "resources",
+                  "bin",
+                  "docker.exe",
+                )
+              : null,
+            process.env.LOCALAPPDATA
+              ? path.join(process.env.LOCALAPPDATA, "Programs", "Docker", "Docker", "resources", "bin", "docker.exe")
+              : null,
+          ].filter(Boolean)
+        : [
+            "/opt/homebrew/bin/docker",
+            "/usr/local/bin/docker",
+            "/Applications/Docker.app/Contents/Resources/bin/docker",
+          ];
+    for (const candidate of platformDefaults) {
       if (!seen.has(candidate)) {
         seen.add(candidate);
         candidates.push(candidate);
