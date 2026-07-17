@@ -129,7 +129,7 @@ export function AgentManagementAgentCard(props: {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-base font-medium text-dls-text">{props.agent.name}</span>
-            <StatusBadge tone={agentManagerStatusTone(props.agent.status)}>
+            <StatusBadge tone={agentManagerStatusTone(props.agent.status)} shape="pill" size="tiny">
               {props.agent.status === "online"
                 ? t("agent_manager.agent_card.status_online")
                 : props.agent.status === "needs_auth"
@@ -149,6 +149,8 @@ export function AgentManagementAgentCard(props: {
               return (
                 <StatusBadge
                   tone={agentManagerHealthTone(props.agent, props.health)}
+                  shape="pill"
+                  size="tiny"
                 >
                   {healthLabel}
                 </StatusBadge>

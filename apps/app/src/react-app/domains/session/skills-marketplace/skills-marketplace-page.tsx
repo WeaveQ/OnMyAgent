@@ -238,7 +238,7 @@ function SkillCard(props: {
   onInstall: (skill: SkillMarketplaceEntry) => void;
 }) {
   return (
-    <div className="flex min-h-24 items-center gap-3 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
+    <div className="flex min-h-24 items-center gap-3 rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors hover:border-dls-border hover:bg-dls-hover">
       <SkillIcon skill={props.skill} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold leading-5 text-dls-text">
@@ -296,7 +296,7 @@ function InstalledSkillCard(props: {
 }) {
   const description = skillDescription(props.skill);
   return (
-    <div className="flex min-h-24 items-start gap-3 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:border-dls-border-strong">
+    <div className="flex min-h-24 items-start gap-3 rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors hover:border-dls-border hover:bg-dls-hover">
       {props.marketplaceSkill ? (
         <SkillIcon skill={props.marketplaceSkill} />
       ) : (
