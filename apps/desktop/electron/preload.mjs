@@ -148,7 +148,9 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     setBounds(bounds) { return ipcRenderer.invoke("onmyagent:browser:bounds", bounds); },
     getState() { return ipcRenderer.invoke("onmyagent:browser:state"); },
     diagnostics() { return ipcRenderer.invoke("onmyagent:browser:diagnostics"); },
-    createTab(url) { return ipcRenderer.invoke("onmyagent:browser:createTab", url); },
+    createTab(url, options) {
+      return ipcRenderer.invoke("onmyagent:browser:createTab", url, options ?? null);
+    },
     closeTab(tabId) { return ipcRenderer.invoke("onmyagent:browser:closeTab", tabId); },
     closeAllTabs() { return ipcRenderer.invoke("onmyagent:browser:closeAllTabs"); },
     selectTab(tabId) { return ipcRenderer.invoke("onmyagent:browser:selectTab", tabId); },

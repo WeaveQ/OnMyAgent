@@ -530,6 +530,7 @@ export function AssistantPage(props: AssistantPageProps) {
         await openInAppBrowser({
           openSidePanel: () => setCurrentSidePanel("browser"),
           url,
+          sessionId: props.selectedSessionId,
         });
         return;
       }
@@ -538,7 +539,12 @@ export function AssistantPage(props: AssistantPageProps) {
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
-    [artifactTarget?.id, browserUrlForTarget, setCurrentSidePanel],
+    [
+      artifactTarget?.id,
+      browserUrlForTarget,
+      props.selectedSessionId,
+      setCurrentSidePanel,
+    ],
   );
   const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {
     setOpenTargets(targets);

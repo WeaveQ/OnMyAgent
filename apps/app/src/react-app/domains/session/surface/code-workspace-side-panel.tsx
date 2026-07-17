@@ -676,7 +676,14 @@ export function CodeWorkspaceSidePanel(props: {
     if (activeTab.kind === "terminal" && activeTab.terminal) {
       return <TerminalPanel terminal={activeTab.terminal} />;
     }
-    if (activeTab.kind === "browser") return <BrowserPanel onClose={() => void closeTab(activeTab)} />;
+    if (activeTab.kind === "browser") {
+      return (
+        <BrowserPanel
+          sessionId={props.sessionId}
+          onClose={() => void closeTab(activeTab)}
+        />
+      );
+    }
     if (activeTab.kind === "files") {
       return (
         <WorkspaceFilesPanel

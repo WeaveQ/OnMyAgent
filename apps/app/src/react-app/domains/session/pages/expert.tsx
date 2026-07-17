@@ -1032,6 +1032,7 @@ export function ExpertPage(props: ExpertPageProps) {
         await openInAppBrowser({
           openSidePanel: () => setCurrentSidePanel("browser"),
           url,
+          sessionId: props.selectedSessionId,
         });
         return;
       }
@@ -1040,7 +1041,12 @@ export function ExpertPage(props: ExpertPageProps) {
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
-    [artifactTarget?.id, browserUrlForTarget, setCurrentSidePanel],
+    [
+      artifactTarget?.id,
+      browserUrlForTarget,
+      props.selectedSessionId,
+      setCurrentSidePanel,
+    ],
   );
   const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {
     setOpenTargets(targets);

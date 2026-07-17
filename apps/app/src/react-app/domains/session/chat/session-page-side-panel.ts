@@ -177,6 +177,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
         await openInAppBrowser({
           openSidePanel: () => setCurrentSidePanel("browser"),
           url,
+          sessionId: selectedSessionId,
         });
         return;
       }
@@ -185,7 +186,12 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
-    [artifactTarget?.id, browserUrlForTarget, setCurrentSidePanel],
+    [
+      artifactTarget?.id,
+      browserUrlForTarget,
+      selectedSessionId,
+      setCurrentSidePanel,
+    ],
   );
 
   const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {

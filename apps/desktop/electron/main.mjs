@@ -3299,11 +3299,16 @@ ipcMain.handle("onmyagent:browser:state", () =>
 ipcMain.handle("onmyagent:browser:diagnostics", () =>
   browserController.diagnostics(),
 );
-ipcMain.handle("onmyagent:browser:createTab", (_event, url) => {
+ipcMain.handle("onmyagent:browser:createTab", (_event, url, options) => {
+  const sessionId =
+    options && typeof options === "object" && typeof options.sessionId === "string"
+      ? options.sessionId
+      : null;
   const tab = browserController.createBrowserTab(url ?? "about:blank", {
     select: true,
+    sessionId,
   });
-  return { tabId: tab.tabId };
+  return { tabId: tab.tabId, sessionId: tab.sessionId ?? sessionId };
 });
 ipcMain.handle("onmyagent:browser:closeTab", (_event, tabId) =>
   browserController.closeBrowserTab(tabId == null ? undefined : String(tabId)),

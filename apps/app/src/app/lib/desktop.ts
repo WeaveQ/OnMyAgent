@@ -300,7 +300,10 @@ declare global {
             isActive: boolean;
           }>;
         } | null>;
-        createTab?: (url?: string) => Promise<{ tabId: string }>;
+        createTab?: (
+          url?: string,
+          options?: { sessionId?: string },
+        ) => Promise<{ tabId: string; sessionId?: string | null }>;
         closeTab?: (tabId: string) => Promise<string | null>;
         closeAllTabs?: () => Promise<string[]>;
         selectTab?: (tabId: string) => Promise<string>;

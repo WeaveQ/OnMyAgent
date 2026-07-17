@@ -244,10 +244,12 @@ export function createElectronBrowserController(options) {
     };
   }
 
-  function createBrowserTab(url = "about:blank", { select = true } = {}) {
+  function createBrowserTab(url = "about:blank", { select = true, sessionId = null } = {}) {
     const tabId = `tab-${randomUUID()}`;
     const view = createView();
-    const tab = originalRegisterUserTab(tabId, view);
+    const tab = originalRegisterUserTab(tabId, view, {
+      sessionId: typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : null,
+    });
     records.set(tabId, { tab, view, favicon: null });
     order.push(tabId);
     void view.webContents.loadURL(normalizeUrl(url, "about:blank"));
