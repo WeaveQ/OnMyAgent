@@ -378,6 +378,7 @@ test("reserves Artifact identities when packages are missing or malformed", asyn
   const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-artifact-reserved-"));
   try {
     assert.deepEqual(ARTIFACT_PLUGIN_SKILL_IDS, [
+      "browser-automation",
       "documents",
       "pdf",
       "spreadsheets",
