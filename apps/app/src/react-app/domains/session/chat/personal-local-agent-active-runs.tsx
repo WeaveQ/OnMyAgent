@@ -7,7 +7,7 @@ import { StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgent, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import { elapsedSeconds, shortTime, lastEventTime } from "../../local-agents";
+import { elapsedSeconds, shortTime, lastEventTime, toConversationItems } from "../../local-agents";
 import { activeRunClass, localAgentTextClass } from "./personal-local-agent-page-helpers";
 
 export function ActiveRunsOverview(props: {
@@ -59,6 +59,13 @@ export function ActiveRunsOverview(props: {
                   <span>{t("local_agent.latest_event", { time: shortTime(lastEventTime(run)) })}</span>
                   <span>{t("local_agent.connection", { value: run.connectionMode || "--" })}</span>
                 </div>
+                {(() => {
+                  const items = toConversationItems(run);
+                  const last = items.at(-1);
+                  return last?.text ? (
+                    <div className="mt-1 line-clamp-2 text-xs text-dls-secondary">{last.text}</div>
+                  ) : null;
+                })()}
               </ActionRowButton>
               {props.onCancelRun ? (
                 <Button
