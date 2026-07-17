@@ -32,7 +32,7 @@ const triggerClasses = {
 };
 
 const panelClass =
-  "absolute left-0 right-0 z-[100] max-h-56 overflow-auto rounded-xl border border-dls-border bg-dls-surface py-1";
+  "absolute left-auto right-0 z-[200] min-w-full max-h-72 w-max max-w-[min(18rem,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border bg-dls-surface py-1 shadow-lg";
 
 const panelPlacementClasses = {
   bottom: "top-[calc(100%+6px)]",
@@ -86,7 +86,7 @@ export function SelectMenu(props: SelectMenuProps) {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative w-full">
+    <div ref={rootRef} className="relative inline-flex w-full min-w-0">
       <Button
         type="button"
         id={props.id}
@@ -107,7 +107,7 @@ export function SelectMenu(props: SelectMenuProps) {
           });
         }}
       >
-        <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{displayLabel}</span>
         <ChevronDown
           size={16}
           className={`shrink-0 text-dls-secondary transition-transform duration-200 ${
