@@ -143,7 +143,17 @@ function createTab(request, metadata) {
     forward: () => request("navigateHistory", { tabId, direction: "forward" }),
     reload: () => request("reload", { tabId }),
     close: () => request("finalizeTabs", { tabIds: [tabId] }),
-    screenshot: (options = {}) => request("screenshot", { tabId, ...options }),
+    screenshot: async (options = {}) => {
+      // Defaults keep tool output under typical transcript limits.
+      const result = await request("screenshot", {
+        tabId,
+        format: options.format ?? "jpeg",
+        maxWidth: options.maxWidth ?? 960,
+        quality: options.quality ?? 55,
+        ...options,
+      });
+      return result;
+    },
     evaluate: (expression) =>
       request("evaluateReadonly", { tabId, expression }),
     markDeliverable: () => request("markTab", { tabId, deliverable: true }),

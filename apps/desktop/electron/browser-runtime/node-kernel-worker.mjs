@@ -53,12 +53,29 @@ function summarizeBrowserHandle(value) {
   return null;
 }
 
+const MAX_INLINE_IMAGE_CHARS = 80_000;
+
+function summarizeDataUrl(value) {
+  if (typeof value !== "string" || !value.startsWith("data:image/")) return null;
+  if (value.length <= MAX_INLINE_IMAGE_CHARS) return value;
+  return {
+    __type: "ImageDataUrl",
+    bytesApprox: value.length,
+    truncated: true,
+    note: "Screenshot payload too large for tool text. Prefer tab.screenshot({ maxWidth: 800, format: 'jpeg', quality: 50 }) then nodeRepl.emitImage(result.image), or inspect with tab.dom_cua.observe().",
+    preview: `${value.slice(0, 64)}…`,
+  };
+}
+
 function serialize(value) {
   if (value === undefined) return null;
   if (typeof value === "bigint") return value.toString();
   if (typeof value === "function") {
     return { __type: "Function", name: value.name || "anonymous" };
   }
+  const dataUrl = summarizeDataUrl(value);
+  if (dataUrl !== null && typeof dataUrl === "object") return dataUrl;
+  if (typeof dataUrl === "string") return dataUrl;
   const handle = summarizeBrowserHandle(value);
   if (handle) return handle;
   try {
@@ -66,6 +83,8 @@ function serialize(value) {
       JSON.stringify(value, (_key, current) => {
         if (typeof current === "function") return undefined;
         if (typeof current === "bigint") return current.toString();
+        const nestedImage = summarizeDataUrl(current);
+        if (nestedImage !== null && typeof nestedImage === "object") return nestedImage;
         const nested = summarizeBrowserHandle(current);
         if (nested) return nested;
         return current;

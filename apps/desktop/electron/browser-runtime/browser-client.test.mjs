@@ -40,7 +40,15 @@ test("browser client exposes tab lifecycle and interaction namespaces", async ()
       calls.push({ method, params });
       if (method === "getInfo") return { backend: "in-app", browserId: "in-app", capabilities: ["tabs"] };
       if (method === "listTabs") return { tabs: [{ tabId: "tab-1", url: "https://example.com", title: "Example" }] };
-      if (method === "screenshot") return { image: "data:image/png;base64,AA==" };
+      if (method === "screenshot") {
+        return {
+          image: "data:image/jpeg;base64,AA==",
+          width: 960,
+          height: 540,
+          bytes: 2,
+          format: "jpeg",
+        };
+      }
       if (method === "describeTab") return { tab: { tabId: "tab-1", url: "https://example.com", title: "Example" } };
       return {};
     },
@@ -52,7 +60,7 @@ test("browser client exposes tab lifecycle and interaction namespaces", async ()
 
   assert.equal(tab.id, "tab-1");
   assert.equal(await tab.url(), "https://example.com");
-  assert.equal((await tab.screenshot()).image.startsWith("data:image/png"), true);
+  assert.equal((await tab.screenshot()).image.startsWith("data:image/jpeg"), true);
   await tab.cua.click({ x: 12, y: 18 });
   await tab.dom_cua.observe();
   await tab.playwright.getByRole("button", { name: "Submit" }).click();

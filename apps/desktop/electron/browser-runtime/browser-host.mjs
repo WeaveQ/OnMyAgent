@@ -270,12 +270,56 @@ export function createBrowserHost(options) {
       if (method === "screenshot") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
+        // Prefer native capture + downscale so tool transcripts stay small.
+        // Full-page PNG data URLs routinely exceed model/tool output limits.
+        const maxWidthRaw = Number(params?.maxWidth);
+        const maxWidth =
+          Number.isFinite(maxWidthRaw) && maxWidthRaw > 0
+            ? Math.min(Math.floor(maxWidthRaw), 1920)
+            : 960;
+        const qualityRaw = Number(params?.quality);
+        const quality =
+          Number.isFinite(qualityRaw) && qualityRaw > 0
+            ? Math.min(Math.max(Math.floor(qualityRaw), 1), 100)
+            : 55;
+        const preferPng = params?.format === "png";
+        if (typeof view.webContents.capturePage === "function") {
+          let image = await view.webContents.capturePage();
+          const size = image.getSize?.() ?? { width: 0, height: 0 };
+          if (size.width > maxWidth && typeof image.resize === "function") {
+            image = image.resize({
+              width: maxWidth,
+              quality: "better",
+            });
+          }
+          const outSize = image.getSize?.() ?? size;
+          if (preferPng && typeof image.toPNG === "function") {
+            const buffer = image.toPNG();
+            return {
+              image: `data:image/png;base64,${buffer.toString("base64")}`,
+              width: outSize.width,
+              height: outSize.height,
+              bytes: buffer.length,
+              format: "png",
+            };
+          }
+          const buffer = image.toJPEG(quality);
+          return {
+            image: `data:image/jpeg;base64,${buffer.toString("base64")}`,
+            width: outSize.width,
+            height: outSize.height,
+            bytes: buffer.length,
+            format: "jpeg",
+            quality,
+          };
+        }
         const result = await sendCdp(view, "Page.captureScreenshot", {
-          format: params?.format === "jpeg" ? "jpeg" : "png",
+          format: preferPng ? "png" : "jpeg",
+          ...(preferPng ? {} : { quality }),
         });
         return {
           image: typeof result?.data === "string"
-            ? `data:image/${params?.format === "jpeg" ? "jpeg" : "png"};base64,${result.data}`
+            ? `data:image/${preferPng ? "png" : "jpeg"};base64,${result.data}`
             : null,
         };
       }
