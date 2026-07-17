@@ -102,7 +102,7 @@ describe("assistant navigation tone contract", () => {
     const localAgents = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx",
+        "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
       ),
       "utf8",
     );

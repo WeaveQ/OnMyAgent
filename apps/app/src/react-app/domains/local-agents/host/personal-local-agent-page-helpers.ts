@@ -5,11 +5,8 @@ import {
   type PersonalLocalAgentProvider,
   type PersonalLocalAgentRunResult,
 } from "../../../../app/lib/desktop";
-import {
-  isPersonalLocalAgentProvider,
-  PROVIDER_LABELS,
-  type ChatMessage,
-} from "../../local-agents";
+import { isPersonalLocalAgentProvider, PROVIDER_LABELS } from "../local-agent-page-model";
+import type { ChatMessage } from "../messages/message-types";
 
 export const localAgentTextClass = {
   panelTitle: "text-sm font-medium leading-5 text-dls-text",

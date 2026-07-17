@@ -20,6 +20,10 @@ test("rejects reverse utility dependencies moved to neutral owners", () => {
   assert.equal(domainDependencyIsAllowed("shared", "agents"), false);
 });
 
+test("allows local-agents host toasts via shell-feedback", () => {
+  assert.equal(domainDependencyIsAllowed("local-agents", "shell-feedback"), true);
+});
+
 test("rejects undeclared domain dependencies", () => {
   assert.equal(domainDependencyIsAllowed("plugins", "session"), false);
   assert.equal(domainDependencyIsAllowed("connections", "workspace"), false);

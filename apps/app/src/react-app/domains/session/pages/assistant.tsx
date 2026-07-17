@@ -43,7 +43,7 @@ import {
 } from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
+import { PersonalLocalAgentPage } from "../../local-agents";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";

@@ -24,7 +24,7 @@ src/react-app/
 ├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
 └── domains/                   Feature-scoped code, one folder per product domain
     ├── session/               Live conversation runtime (transcript, composer, sync, goal)
-    │   ├── chat/              Host pages + light panels (incl. personal-local-agent host)
+    │   ├── chat/              Session host pages + light panels (personal host re-exports)
     │   ├── surface/           Transcript, composer, plan-goal helpers, markdown
     │   ├── sync/              Session state plumbing
     │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)
@@ -32,7 +32,7 @@ src/react-app/
     │   │                        main rail bottom: channels + devices icons
     │   ├── voice/ browser/ infinite-canvas/ skills-marketplace/ expert-marketplace/
     │   └── modals/
-    ├── local-agents/          ACP / local agent editors, cards, agent-management
+    ├── local-agents/          ACP / local agent editors, cards, agent-management, personal host
     ├── messaging/             Automations + Feishu/Weixin channel panels
     ├── agents/                Agent registry UI + personal agent pages
     ├── plugins/               Skills catalog / plugins / connectors pages
@@ -59,8 +59,8 @@ Domain ownership gives every feature one obvious home.
 
 - `session/` owns the **live conversation runtime** (surface, sync, composer, voice, goal
   lifecycle). It must not re-absorb agent management or messaging channels.
-- `local-agents/` owns local/ACP agent edit, cards, messages UI, and
-  `agent-management/` pages.
+- `local-agents/` owns local/ACP agent edit, cards, messages UI,
+  `agent-management/` pages, and the personal local-agent host under `host/`.
 - `messaging/` owns automation pages and messaging channel panels (Feishu, Weixin, pairing).
 - `agents/` owns registry-facing agent pages and selection UX.
 - `plugins/` owns skills catalog and plugins/connectors pages.
@@ -74,9 +74,9 @@ Domain ownership gives every feature one obvious home.
 
 Cross-domain imports must be declared by `scripts/checks/domain-boundary-policy.mjs`
 and go through the target public entrypoint (`domains/<name>/index.ts`). Undeclared
-dependency directions fail `pnpm check:boundaries`. A separate **file-level**
-transition table `allowedDomainImports` in `scripts/checks/check-boundaries.mjs`
-still freezes some historical deep-import paths (shrink-only; never grow). New code
+dependency directions fail `pnpm check:boundaries`. The file-level
+`allowedDomainImports` table in `scripts/checks/check-boundaries.mjs` is **empty**
+(cleared residual whitelist; reserved/docs-only, shrink-only — never grow). New code
 must not add to it. Reusable application behavior belongs in `capabilities/`, while
 reusable product composites belong in `design-system/`.
 

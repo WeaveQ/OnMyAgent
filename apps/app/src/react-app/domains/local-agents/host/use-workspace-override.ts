@@ -6,13 +6,9 @@ import {
   type PersonalLocalAgent,
   type PersonalLocalAgentConversation,
 } from "../../../../app/lib/desktop";
-import {
-  addRecentWorkspace,
-  writeWorkspaceOverride,
-  localAgentChatKey,
-  welcomeMessageForAgent,
-  type ChatMessage,
-} from "../../local-agents";
+import { localAgentChatKey, welcomeMessageForAgent } from "../local-agent-page-model";
+import type { ChatMessage } from "../messages/message-types";
+import { addRecentWorkspace, writeWorkspaceOverride } from "../workspace-picker/recent-workspaces";
 
 type UseWorkspaceOverrideArgs = {
   selectedConversation: PersonalLocalAgentConversation | null;
