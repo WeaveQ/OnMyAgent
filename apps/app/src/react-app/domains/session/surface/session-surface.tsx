@@ -3,15 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
-import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
-import {
-  ChevronDown,
-  Folder,
-  FolderOpen,
-  Settings2,
-  X,
-} from "lucide-react";
-
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import {
@@ -44,20 +35,18 @@ import type {
   SkillCard,
   TodoItem,
 } from "../../../../app/types";
-import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OnMyAgentControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
+import { DevProfiler, publishInspectorSlice, recordInspectorEvent, type OnMyAgentControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
 import { ReactSessionComposer } from "./composer/composer";
 import {
   deriveAssistantActivity,
   getAssistantActivityPhaseLabel,
 } from "./chrome/assistant-activity";
-import { AccessPermissionSelect } from "./composer/access-permission-select";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import {
   decodeComposerMentionValue,
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
@@ -84,8 +73,6 @@ import {
   readCustomAgentIdForSession,
   useAgentRegistryStore,
 } from "../../agents";
-import { PermissionApprovalPanel } from "../components/permission-modal";
-import { QuestionPanel } from "../modals/question-modal";
 import {
   deriveOpenTargets,
   selectAutoOpenTarget,
@@ -108,8 +95,6 @@ import {
   resolveSessionRunPolicy,
   shouldShowSessionActivity,
   settleGoalRuntimeAfterRun,
-  shouldShowGoalPreview,
-  shouldShowGoalRuntime,
   summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
@@ -146,11 +131,7 @@ import {
   type SessionError,
 } from "./session-surface-support";
 import {
-  extractPlanDetailSections,
   planTextFromMessages,
-  resolvePlanStepItems,
-  type PlanDetailSection,
-  type PlanStepItem,
 } from "./plan-goal/plan-parse";
 import {
   filterCompactionMessages,
@@ -161,10 +142,7 @@ import {
   sessionSurfaceStateClass,
   sessionSurfaceTextClass,
 } from "./surface-styles";
-import {
-  AssistantDraftHomeMark,
-  PendingAgentAvatar,
-} from "./chrome/avatars";
+import { PendingAgentAvatar } from "./chrome/avatars";
 import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
@@ -174,21 +152,11 @@ import {
 } from "./chrome/assistant-status";
 import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
 import {
-  PlanApprovalPanel,
-  TodoPanel,
-} from "./plan-goal/panels";
-import {
-  appendGoalProgressLog,
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
   buildPlanExecutionHiddenSystemPrompt,
-  formatGoalElapsed,
-  formatInterruptionElapsed,
   createSessionInterruptionNotice,
-  goalCheckpointFromTodos,
   goalElapsedMs,
-  GoalPreviewPanel,
-  GoalRuntimePanel,
   isGoalIntentRuntime,
   normalizedTodoItems,
   removeRecordKey,
@@ -199,16 +167,27 @@ import {
 import {
   assistantScenarioDraftToken,
   isUserCancelledError,
-  PersonalAssistantHero,
   SessionErrorCard,
 } from "./chrome/personal-assistant";
 
-const EMPTY_TRANSCRIPT: UIMessage[] = [];
-const IDLE_STATUS: SessionStatus = { type: "idle" };
+import {
+  ASSISTANT_RECOVERY_HINT_MS,
+  ASSISTANT_STALL_NOTICE_MS,
+  EMPTY_TRANSCRIPT,
+  IDLE_STATUS,
+  MAX_TRANSCRIPT_NOTICES_PER_SESSION,
+} from "./session-surface-constants";
+import {
+  SessionDraftWorkspaceAccessory,
+  SessionSurfaceDraftHome,
+  SessionSurfaceHeader,
+} from "./session-surface-chrome";
+import {
+  renderSessionComposerAccessories,
+  applyGoalWaitingReason,
+  resolveVisibleGoalRuntime,
+} from "./session-surface-goal";
 
-const ASSISTANT_STALL_NOTICE_MS = 15_000;
-const ASSISTANT_RECOVERY_HINT_MS = 120_000;
-const MAX_TRANSCRIPT_NOTICES_PER_SESSION = 16;
 
 export type SessionSurfaceProps = {
   client: OnMyAgentServerClient;
@@ -2266,14 +2245,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const visiblePlanRuntime = planDismissedForSession
     ? null
     : props.planRuntime ?? null;
-  const visibleGoalRuntime = shouldShowGoalRuntime({
+  const visibleGoalRuntime = resolveVisibleGoalRuntime({
     mode: effectiveCollaborationMode,
     categoryId: assistantFeatureCategoryId,
-    goalRuntime: props.goalRuntime ?? null,
+    goalRuntime: props.goalRuntime,
     dismissed: goalDismissedForSession,
-  }) && isGoalIntentRuntime(props.goalRuntime)
-    ? props.goalRuntime
-    : null;
+  });
   const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
     activePermissionNeedsApproval
       ? "permission"
@@ -2282,17 +2259,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
         : effectiveActivityStatus === "compacting"
           ? "compacting"
           : null;
-  const visibleGoalRuntimeForUi =
-    visibleGoalRuntime &&
-    activeGoalWaitingReason &&
-    visibleGoalRuntime.status !== "paused" &&
-    visibleGoalRuntime.status !== "completed"
-      ? {
-          ...visibleGoalRuntime,
-          status: "waiting" as const,
-          waitingReason: activeGoalWaitingReason,
-        }
-      : visibleGoalRuntime;
+  const visibleGoalRuntimeForUi = applyGoalWaitingReason(
+    visibleGoalRuntime,
+    activeGoalWaitingReason,
+  );
   const visibleTodos = incomingHasTodos
     ? incomingTodos
     : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
@@ -2347,109 +2317,41 @@ export function SessionSurface(props: SessionSurfaceProps) {
     }
     props.respondPermission?.(requestID, reply);
   };
-  const planOrTodoAccessory = visiblePlanRuntime ? (
-    <PlanApprovalPanel
-      runtime={visiblePlanRuntime}
-      todos={visibleTodos}
-      busy={sending || chatStreaming}
-      onExecute={executeApprovedPlan}
-      onCancel={() => {
-        setDismissedPlanBySessionId((current) => ({
-          ...current,
-          [props.sessionId]: true,
-        }));
-        props.onPlanRuntimeChange?.(null);
-      }}
-      onConfirm={() => {
-        setDismissedPlanBySessionId((current) => ({
-          ...current,
-          [props.sessionId]: true,
-        }));
-        props.onPlanRuntimeChange?.(null);
-      }}
-    />
-  ) : hasVisibleTodos ? (
-    <TodoPanel todos={visibleTodos} />
-  ) : null;
-  const goalAccessory = visibleGoalRuntimeForUi ? (
-    <GoalRuntimePanel
-      runtime={visibleGoalRuntimeForUi}
-      busy={sending || chatStreaming}
-      canPause={runPolicy.canPauseGoal}
-      canResume={runPolicy.canResumeGoal}
-      onPause={() => {
-        if (visibleGoalRuntimeForUi.status === "paused") return;
-        void pauseGoalRuntime();
-      }}
-      onResume={resumeGoalRuntime}
-      onClear={() => {
-        setDismissedGoalBySessionId((current) => ({
-          ...current,
-          [props.sessionId]: true,
-        }));
-        setDismissedPlanBySessionId((current) => ({
-          ...current,
-          [props.sessionId]: true,
-        }));
-        setLastTodosBySessionId((current) =>
-          removeRecordKey(current, props.sessionId),
-        );
-        props.onClearSessionProgress?.();
-        props.onGoalRuntimeChange?.(null);
-        props.onPlanRuntimeChange?.(null);
-        void stopActiveRun();
-      }}
-    />
-  ) : null;
-  const goalPreviewAccessory = shouldShowGoalPreview({
-    mode: effectiveCollaborationMode,
-    goalRuntime: props.goalRuntime ?? null,
-    planRuntime: visiblePlanRuntime,
-    dismissed: goalDismissedForSession,
-    hasCreatedSession: !props.draftOnly,
-  }) ? (
-    <GoalPreviewPanel
-      onClear={() => {
-        updateCollaborationMode({ planning: false, pursueGoal: false });
-      }}
-    />
-  ) : null;
-  const questionAccessory = props.activeQuestion ? (
-    <QuestionPanel
-      questions={props.activeQuestion.questions}
-      busy={props.questionReplyBusy ?? false}
-      onReply={(answers) => {
-        if (props.activeQuestion) {
-          props.respondQuestion?.(props.activeQuestion.id, answers);
-        }
-      }}
-    />
-  ) : null;
-  const permissionAccessory =
-    props.activePermission && activePermissionNeedsApproval ? (
-      <PermissionApprovalPanel
-        permission={props.activePermission}
-        busy={props.permissionReplyBusy}
-        respondPermission={respondPermissionWithTranscriptNotice}
-        safeStringify={props.safeStringify}
-      />
-    ) : null;
-  const sessionComposerAccessory =
-    planOrTodoAccessory ||
-    goalAccessory ||
-    goalPreviewAccessory ||
-    questionAccessory ||
-    permissionAccessory ? (
-      <div>
-        {permissionAccessory}
-        {questionAccessory}
-        {planOrTodoAccessory}
-        {goalAccessory}
-        {goalPreviewAccessory}
-      </div>
-    ) : null;
-
-  const composerAccessory = sessionComposerAccessory;
+  const composerAccessory = renderSessionComposerAccessories({
+    sessionId: props.sessionId,
+    draftOnly: props.draftOnly,
+    visiblePlanRuntime,
+    goalRuntime: props.goalRuntime,
+    visibleGoalRuntimeForUi,
+    visibleTodos,
+    hasVisibleTodos,
+    busy: sending || chatStreaming,
+    canPauseGoal: runPolicy.canPauseGoal,
+    canResumeGoal: runPolicy.canResumeGoal,
+    collaborationMode: effectiveCollaborationMode,
+    goalDismissed: goalDismissedForSession,
+    activeQuestion: props.activeQuestion,
+    questionReplyBusy: props.questionReplyBusy,
+    respondQuestion: props.respondQuestion,
+    activePermission: props.activePermission,
+    activePermissionNeedsApproval,
+    permissionReplyBusy: props.permissionReplyBusy,
+    respondPermission: respondPermissionWithTranscriptNotice,
+    safeStringify: props.safeStringify,
+    onExecutePlan: () => void executeApprovedPlan(),
+    onPauseGoal: () => void pauseGoalRuntime(),
+    onResumeGoal: () => void resumeGoalRuntime(),
+    onClearGoalPreview: () => {
+      updateCollaborationMode({ planning: false, pursueGoal: false });
+    },
+    onGoalRuntimeChange: props.onGoalRuntimeChange,
+    onPlanRuntimeChange: props.onPlanRuntimeChange,
+    setDismissedPlanBySessionId,
+    setDismissedGoalBySessionId,
+    setLastTodosBySessionId,
+    onClearSessionProgress: props.onClearSessionProgress,
+    stopActiveRun,
+  });
 
   const chatHeaderAgent = effectiveAgent
     ? {
@@ -2489,34 +2391,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
         )}
       >
         {!personalAssistantDraftHome ? (
-          <header className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <PendingAgentAvatar
-                name={chatHeaderAgent.name}
-                avatarUrl={chatHeaderAgent.avatarUrl}
-                avatarBackground={chatHeaderAgent.avatarBackground ?? undefined}
-                className="size-7 text-xs"
-              />
-              <div className={sessionSurfaceTextClass.headerAgentName}>
-                {chatHeaderAgent.name}
-              </div>
-            </div>
-            <div className="relative flex items-center gap-1.5 mac:titlebar-no-drag">
-              {codeSceneToolbar}
-              {!props.personalAssistantHome && props.onOpenAgentSettings ? (
-                <Button variant="ghost" size="icon-sm"
-                  type="button"
-                  className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                  title={t("session.configure_current_agent")}
-                  aria-label={t("session.configure_current_agent")}
-                  onClick={props.onOpenAgentSettings}
-                >
-                  <Settings2 className="size-4" />
-                </Button>
-              ) : null}
-              {props.headerActions}
-            </div>
-          </header>
+          <SessionSurfaceHeader
+            agent={chatHeaderAgent}
+            codeSceneToolbar={codeSceneToolbar}
+            personalAssistantHome={props.personalAssistantHome}
+            onOpenAgentSettings={props.onOpenAgentSettings}
+            headerActions={props.headerActions}
+          />
         ) : null}
         {props.conversationTabs}
         {model.transitionState === "switching" && showDelayedLoading ? (
@@ -2664,21 +2545,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
           </div>
         ) : null}
         {personalAssistantDraftHome ? (
-          <div className="mb-4 flex flex-col items-center text-center">
-            <img
-              src={resolvePublicAssetUrl("/onmyagent-logo.png")}
-              alt=""
-              aria-hidden="true"
-              className="mb-2 size-12 object-contain opacity-10"
-              draggable={false}
-            />
-            <div className="flex items-center gap-2 text-dls-text">
-              <AssistantDraftHomeMark categoryId={assistantCategoryId} />
-              <h2 className={sessionSurfaceTextClass.draftHomeTitle}>
-                {assistantDraftHomeTitle}
-              </h2>
-            </div>
-          </div>
+          <SessionSurfaceDraftHome
+            categoryId={assistantCategoryId}
+            title={assistantDraftHomeTitle}
+          />
         ) : null}
         <div
           ref={composerShellRef}
@@ -2766,80 +2636,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
               bottomAccessory={
                 draftWorkspaceAccessoryActive ? (
-                  <div className="inline-flex items-center gap-0.5 text-xs font-normal leading-none text-dls-secondary">
-                    <div className="relative inline-flex items-center">
-                      {showFolderRequiredBubble ? (
-                        <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
-                          <div className="font-medium text-dls-accent">
-                            {t("session.choose_folder_required_title")}
-                          </div>
-                          <div className="mt-0.5 text-dls-secondary">
-                            {t("session.choose_folder_required_desc")}
-                          </div>
-                          <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/30 bg-dls-surface" />
-                        </div>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowFolderRequiredBubble(false);
-                          props.onPickDraftWorkspace?.();
-                        }}
-                        className={cn(
-                          "h-7 justify-start gap-1.5 rounded-md px-1.5 text-left text-xs font-normal leading-none hover:text-dls-text [&_svg]:size-3.5",
-                          props.draftWorkspaceDirectory
-                            ? "text-dls-secondary"
-                            : assistantFeatureCategoryId === "code"
-                              ? "animate-pulse bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
-                              : "text-dls-secondary",
-                        )}
-                      >
-                        {props.draftWorkspaceDirectory ? (
-                          <>
-                            <FolderOpen className="size-3.5 shrink-0" />
-                            <span className="max-w-56 truncate text-dls-text">
-                              {props.draftWorkspaceDirectory
-                                .replace(/\\/g, "/")
-                                .replace(/\/+$/, "")
-                                .split("/")
-                                .filter(Boolean)
-                                .pop()}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Folder className="size-3.5 shrink-0" />
-                            <span>
-                              {assistantFeatureCategoryId === "office"
-                                ? t("session.choose_workspace")
-                                : t("session.choose_folder")}
-                            </span>
-                          </>
-                        )}
-                        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
-                      </Button>
-                      {props.draftWorkspaceDirectory ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={props.onClearDraftWorkspace}
-                          className="size-5 rounded-full text-dls-secondary hover:bg-dls-surface hover:text-dls-text"
-                          title={t("session.clear_workspace_selection")}
-                          aria-label={t("session.clear_workspace_selection")}
-                        >
-                          <X className="size-3" />
-                        </Button>
-                      ) : null}
-                    </div>
-                    <AccessPermissionSelect
-                      value={effectiveAccessMode}
-                      onChange={updateAccessMode}
-                      density="compact"
-                    />
-                  </div>
+                  <SessionDraftWorkspaceAccessory
+                    draftWorkspaceDirectory={props.draftWorkspaceDirectory}
+                    assistantFeatureCategoryId={assistantFeatureCategoryId}
+                    showFolderRequiredBubble={showFolderRequiredBubble}
+                    onDismissFolderRequiredBubble={() => setShowFolderRequiredBubble(false)}
+                    onPickDraftWorkspace={props.onPickDraftWorkspace}
+                    onClearDraftWorkspace={props.onClearDraftWorkspace}
+                    accessMode={effectiveAccessMode}
+                    onAccessModeChange={updateAccessMode}
+                  />
                 ) : undefined
               }
             />
