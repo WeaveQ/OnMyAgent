@@ -404,7 +404,7 @@ function ImportSkillDialog(props: {
           }}
           className={cn(
             "flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-dls-border bg-dls-background text-center transition-colors mac:titlebar-no-drag",
-            dragActive ? "border-dls-accent bg-dls-hover" : "hover:border-dls-border-strong hover:bg-dls-hover",
+            dragActive ? "border-dls-accent bg-dls-hover" : "hover:border-dls-border hover:bg-dls-hover",
             props.importing && "cursor-wait opacity-70",
           )}
         >

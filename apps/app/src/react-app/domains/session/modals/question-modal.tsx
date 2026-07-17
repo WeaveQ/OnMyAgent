@@ -181,7 +181,7 @@ export function QuestionPanel(props: QuestionPanelProps) {
                         ${
                           isSelected
                             ? "border-dls-accent/30 bg-dls-decision-soft text-dls-text"
-                            : "text-dls-secondary hover:border-dls-border-strong hover:text-dls-text"
+                            : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                         }
                         ${isFocused ? "border-dls-accent/30 bg-dls-hover ring-2 ring-dls-accent/30" : ""}
                       `}
