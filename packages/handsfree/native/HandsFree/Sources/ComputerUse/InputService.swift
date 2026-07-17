@@ -12,20 +12,24 @@ final class InputService: @unchecked Sendable {
         event.post(tap: .cghidEventTap)
     }
 
-    func click(point: CGPoint, doubleClick: Bool = false) async throws {
+    func click(
+        point: CGPoint,
+        button: ComputerMouseButton = .left,
+        clickCount requestedClickCount: Int = 1
+    ) async throws {
         guard let source = CGEventSource(stateID: .combinedSessionState) else {
             throw ComputerUseError.eventSourceFailed
         }
 
-        if let move = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left) {
+        if let move = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: button.cgButton) {
             move.post(tap: .cghidEventTap)
         }
         try await Task.sleep(nanoseconds: 50_000_000)
 
-        let count = doubleClick ? 2 : 1
+        let count = MouseInputGeometry.clickCount(requestedClickCount)
         for clickState in 1...count {
-            guard let down = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
-                  let up = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
+            guard let down = CGEvent(mouseEventSource: source, mouseType: button.downEventType, mouseCursorPosition: point, mouseButton: button.cgButton),
+                  let up = CGEvent(mouseEventSource: source, mouseType: button.upEventType, mouseCursorPosition: point, mouseButton: button.cgButton) else {
                 throw ComputerUseError.eventCreationFailed
             }
             down.setIntegerValueField(.mouseEventClickState, value: Int64(clickState))
@@ -78,23 +82,23 @@ final class InputService: @unchecked Sendable {
         event.post(tap: .cgSessionEventTap)
     }
 
-    func drag(path: [CGPoint]) async throws {
+    func drag(path: [CGPoint], button: ComputerMouseButton = .left) async throws {
         guard path.count >= 2 else { return }
         guard let source = CGEventSource(stateID: .combinedSessionState) else {
             throw ComputerUseError.eventSourceFailed
         }
-        guard let down = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: path[0], mouseButton: .left) else {
+        guard let down = CGEvent(mouseEventSource: source, mouseType: button.downEventType, mouseCursorPosition: path[0], mouseButton: button.cgButton) else {
             throw ComputerUseError.eventCreationFailed
         }
         down.post(tap: .cghidEventTap)
         for point in path.dropFirst().dropLast() {
-            if let drag = CGEvent(mouseEventSource: source, mouseType: .leftMouseDragged, mouseCursorPosition: point, mouseButton: .left) {
+            if let drag = CGEvent(mouseEventSource: source, mouseType: button.dragEventType, mouseCursorPosition: point, mouseButton: button.cgButton) {
                 drag.post(tap: .cghidEventTap)
             }
             try await Task.sleep(nanoseconds: 12_000_000)
         }
         guard let last = path.last,
-              let up = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: last, mouseButton: .left) else {
+              let up = CGEvent(mouseEventSource: source, mouseType: button.upEventType, mouseCursorPosition: last, mouseButton: button.cgButton) else {
             throw ComputerUseError.eventCreationFailed
         }
         up.post(tap: .cghidEventTap)

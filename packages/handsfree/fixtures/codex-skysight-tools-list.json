@@ -1,0 +1,44 @@
+{
+  "tools": [
+    {
+      "name": "skysight_start",
+      "description": "Start Skysight so ChatGPT can answer questions about recent activity.",
+      "required": [],
+      "properties": [],
+      "readOnly": false,
+      "idempotent": false
+    },
+    {
+      "name": "skysight_stop",
+      "description": "Stop Skysight and return the current status.",
+      "required": [],
+      "properties": [],
+      "readOnly": false,
+      "idempotent": true
+    },
+    {
+      "name": "skysight_status",
+      "description": "Get Skysight status and paths to recent activity files.",
+      "required": [],
+      "properties": [],
+      "readOnly": true,
+      "idempotent": true
+    },
+    {
+      "name": "skysight_update_exclusion",
+      "description": "Add or remove an app, website, or private browsing from Skysight recording.",
+      "required": ["operation", "scope"],
+      "properties": ["operation", "scope", "value"],
+      "readOnly": false,
+      "idempotent": true
+    },
+    {
+      "name": "skysight_list_exclusions",
+      "description": "List apps, websites, and private browsing excluded from Skysight.",
+      "required": [],
+      "properties": [],
+      "readOnly": true,
+      "idempotent": true
+    }
+  ]
+}

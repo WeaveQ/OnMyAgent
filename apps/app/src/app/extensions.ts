@@ -125,6 +125,7 @@ export type OnMyAgentExtensionManifest = {
   };
   composer?: {
     prompt: string;
+    suggestions?: string[];
   };
   setup?: OnMyAgentExtensionSetup;
   resources: OnMyAgentExtensionResource[];
@@ -163,71 +164,24 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
   [
     {
       schemaVersion: 1,
-      id: "onmyagent-browser",
-      name: `${APP_NAME} Browser`,
-      description: `Automate the built-in browser panel that stays visible inside ${APP_NAME}.`,
-      source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
-      icon: { src: "/on-my-agent-logo.png" },
-      composer: { prompt: "Use the OnMyAgent Browser extension to " },
-      setup: {
-        instructions:
-          "OnMyAgent Browser is ready by default in desktop workspaces.",
-        primaryCta: t("extensions.browser_primary_cta"),
-      },
-      resources: [
-        {
-          type: "opencode-plugin",
-          id: "opencode-chrome-devtools",
-          packageName: "opencode-chrome-devtools",
-          required: true,
-        },
-      ],
-      contributions: [
-        {
-          type: "settings-panel",
-          ref: "onmyagent.browser.settings",
-          location: "settings-detail",
-        },
-        {
-          type: "session-side-panel",
-          ref: "onmyagent.browser.panel",
-          location: "session-right-pane",
-        },
-        {
-          type: "composer-prompt",
-          prompt: "Use the OnMyAgent Browser extension to ",
-          location: "composer",
-        },
-      ],
-      enablement: [
-        { type: "toggle-enabled", ref: "onmyagent-browser", label: t("common.enabled") },
-        {
-          type: "plugin-loaded",
-          ref: "opencode-chrome-devtools",
-          label: t("extensions.browser_plugin_loaded"),
-        },
-      ],
-      lifecycle: {
-        reload: ["plugins", "agents"],
-        detection: ["plugin:opencode-chrome-devtools"],
-      },
-      defaultEnabled: true,
-    },
-    {
-      schemaVersion: 1,
       id: "computer-use",
-      name: "Computer Use",
-      description:
-        "Control macOS apps through semantic accessibility refs, screenshots, background-safe clicks, keyboard input, and strict mode.",
+      name: t("extensions.computer_use_name"),
+      description: t("extensions.computer_use_description"),
       preview: true,
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/on-my-agent-logo.png" },
-      composer: { prompt: "Use Computer Use to " },
+      composer: {
+        prompt: t("extensions.computer_use_prompt"),
+        suggestions: [
+          t("extensions.computer_use_suggestion_playlist"),
+          t("extensions.computer_use_suggestion_xcode"),
+          t("extensions.computer_use_suggestion_chess"),
+        ],
+      },
       setup: {
-        instructions:
-          "Computer Use runs as a local MCP server backed by a macOS accessibility runtime. Grant Accessibility and Screen Recording permissions when macOS asks, then connect the MCP server in this workspace.",
+        instructions: t("extensions.computer_use_builtin_setup"),
         primaryCta: t("extensions.computer_use_connect_mcp"),
-        secondaryCta: "Check macOS permissions",
+        secondaryCta: t("extensions.computer_use_check_permissions"),
         testActionRef: "onmyagent.computerUse.healthCheck",
       },
       resources: [
@@ -243,7 +197,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         {
           type: "native-binary",
           id: "computer-use-native",
-          label: "macOS accessibility runtime",
+          label: t("extensions.computer_use_native_runtime"),
           packageName: "@onmyagent/handsfree",
           required: true,
         },
@@ -266,7 +220,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         },
         {
           type: "composer-prompt",
-          prompt: "Use Computer Use to ",
+          prompt: t("extensions.computer_use_prompt"),
           location: "composer",
         },
       ],

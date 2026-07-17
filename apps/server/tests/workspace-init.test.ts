@@ -32,10 +32,43 @@ describe("ensureWorkspaceFiles", () => {
         join(root, ".opencode", "agents", "onmyagent.md"),
         "utf8",
       );
+      const designSpecTool = await readFile(
+        join(root, ".opencode", "tools", "get_design_spec.ts"),
+        "utf8",
+      );
+      const renderVisualTool = await readFile(
+        join(root, ".opencode", "tools", "render_visual.ts"),
+        "utf8",
+      );
       expect(config).toContain('"default_agent": "onmyagent"');
       expect(agent).toContain(`${APP_NAME} Artifacts`);
       expect(agent).toContain("reports/artifact-eval.xlsx");
-      expect(result.reloadReasons.sort()).toEqual(["agents", "config"]);
+      expect(agent).toContain("Keep each file-mutation tool call bounded");
+      expect(agent).toContain("write a small skeleton first");
+      expect(agent).toContain("edit or append in multiple calls");
+      expect(agent).toContain(`${APP_NAME} can render safe SVG/HTML fragments`);
+      expect(agent).toContain('request `modules: ["chart"]`');
+      expect(agent).toContain("pass its workspace-relative path as `file_path`");
+      expect(agent).toContain("use responsive Chart.js HTML");
+      expect(agent).toContain("Do not read the file back into the tool call");
+      expect(designSpecTool).toContain("inline visual design spec");
+      expect(designSpecTool).toContain("var(--dls-text-primary)");
+      expect(designSpecTool).toContain("Chart module (Chart.js)");
+      expect(designSpecTool).toContain("Do not hand-calculate a large chart as SVG");
+      expect(designSpecTool).toContain("repeat(N,minmax(0,1fr))");
+      expect(designSpecTool).toContain("min-width:0");
+      expect(designSpecTool).toContain("white-space:nowrap");
+      expect(designSpecTool).toContain("text-overflow:ellipsis");
+      expect(designSpecTool).not.toContain("repeat(auto-fit,minmax(150px,1fr))");
+      expect(designSpecTool).toContain('tool.schema.enum(["diagram", "mockup", "interactive", "chart", "art"])');
+      expect(renderVisualTool).toContain('widget_code: tool.schema.string()');
+      expect(renderVisualTool).toContain('file_path: tool.schema.string()');
+      expect(renderVisualTool).toContain("Provide exactly one of widget_code or file_path");
+      expect(renderVisualTool).toContain("file_path must stay inside the current workspace");
+      expect(renderVisualTool).toContain("await realpath(resolve(workspaceRoot, filePath))");
+      expect(renderVisualTool).toContain("ALLOWED_SCRIPT_HOSTS");
+      expect(renderVisualTool).toContain("script outside the widget CDN allowlist");
+      expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
 
       const secondResult = await ensureWorkspaceFiles(root, "starter");
       expect(secondResult).toEqual({ changed: false, reloadReasons: [] });
@@ -77,7 +110,7 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(agent).toContain("Old instructions");
       expect(agent).toContain(`${APP_NAME} Artifacts`);
-      expect(result.reloadReasons.sort()).toEqual(["agents", "config"]);
+      expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
     });
   });
 
@@ -187,8 +220,7 @@ describe("ensureWorkspaceFiles", () => {
       const config = await readFile(configPath, "utf8");
 
       expect(config).toContain('"default_agent": "onmyagent"');
-      expect(config).toContain('"opencode-chrome-devtools"');
-      expect(result.reloadReasons).toContain("config");
+      expect(result.reloadReasons).not.toContain("config");
     });
   });
 });

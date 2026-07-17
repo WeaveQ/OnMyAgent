@@ -5,15 +5,21 @@ enum BackgroundInputDispatcher {
     private static let privateWindowField = CGEventField(rawValue: 51)
     private static let privateRouteField = CGEventField(rawValue: 58)
 
-    static func click(pid: pid_t, windowNumber: Int, point: CGPoint, doubleClick: Bool = false) async throws {
+    static func click(
+        pid: pid_t,
+        windowNumber: Int,
+        point: CGPoint,
+        button: ComputerMouseButton = .left,
+        clickCount requestedClickCount: Int = 1
+    ) async throws {
         guard let source = CGEventSource(stateID: .combinedSessionState) else {
             throw ComputerUseError.eventSourceFailed
         }
 
-        let clickCount = doubleClick ? 2 : 1
+        let clickCount = MouseInputGeometry.clickCount(requestedClickCount)
         for clickState in 1...clickCount {
-            guard let down = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
-                  let up = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
+            guard let down = CGEvent(mouseEventSource: source, mouseType: button.downEventType, mouseCursorPosition: point, mouseButton: button.cgButton),
+                  let up = CGEvent(mouseEventSource: source, mouseType: button.upEventType, mouseCursorPosition: point, mouseButton: button.cgButton) else {
                 throw ComputerUseError.eventCreationFailed
             }
 
@@ -33,6 +39,34 @@ enum BackgroundInputDispatcher {
                 try await Task.sleep(nanoseconds: 50_000_000)
             }
         }
+    }
+
+    static func drag(
+        pid: pid_t,
+        windowNumber: Int,
+        path: [CGPoint],
+        button: ComputerMouseButton = .left
+    ) async throws {
+        guard path.count >= 2,
+              let first = path.first,
+              let last = path.last,
+              let source = CGEventSource(stateID: .combinedSessionState),
+              let down = CGEvent(mouseEventSource: source, mouseType: button.downEventType, mouseCursorPosition: first, mouseButton: button.cgButton),
+              let up = CGEvent(mouseEventSource: source, mouseType: button.upEventType, mouseCursorPosition: last, mouseButton: button.cgButton) else {
+            throw ComputerUseError.eventCreationFailed
+        }
+        address(down, pid: pid, windowNumber: windowNumber)
+        down.postToPid(pid)
+        for point in path.dropFirst().dropLast() {
+            guard let drag = CGEvent(mouseEventSource: source, mouseType: button.dragEventType, mouseCursorPosition: point, mouseButton: button.cgButton) else {
+                throw ComputerUseError.eventCreationFailed
+            }
+            address(drag, pid: pid, windowNumber: windowNumber)
+            drag.postToPid(pid)
+            try await Task.sleep(nanoseconds: 12_000_000)
+        }
+        address(up, pid: pid, windowNumber: windowNumber)
+        up.postToPid(pid)
     }
 
     static func scroll(pid: pid_t, windowNumber: Int, point: CGPoint, deltaX: Int32, deltaY: Int32) throws {
@@ -104,7 +138,7 @@ enum BackgroundInputDispatcher {
 
         for part in parts {
             switch part {
-            case "command", "cmd", "meta": flags.insert(.maskCommand)
+            case "command", "cmd", "meta", "super": flags.insert(.maskCommand)
             case "shift": flags.insert(.maskShift)
             case "control", "ctrl": flags.insert(.maskControl)
             case "option", "alt": flags.insert(.maskAlternate)
@@ -130,6 +164,8 @@ enum BackgroundInputDispatcher {
         "u": 0x20, "v": 0x09, "w": 0x0D, "x": 0x07, "y": 0x10, "z": 0x06,
         "0": 0x1D, "1": 0x12, "2": 0x13, "3": 0x14, "4": 0x15,
         "5": 0x17, "6": 0x16, "7": 0x1A, "8": 0x1C, "9": 0x19,
+        "kp_0": 0x52, "kp_1": 0x53, "kp_2": 0x54, "kp_3": 0x55, "kp_4": 0x56,
+        "kp_5": 0x57, "kp_6": 0x58, "kp_7": 0x59, "kp_8": 0x5B, "kp_9": 0x5C,
         "f1": 0x7A, "f2": 0x78, "f3": 0x63, "f4": 0x76,
         "f5": 0x60, "f6": 0x61, "f7": 0x62, "f8": 0x64,
         "f9": 0x65, "f10": 0x6D, "f11": 0x67, "f12": 0x6F,

@@ -4,16 +4,9 @@ import type { PendingAgentContext } from "../domains/agents";
 export function resolvePendingAgentForPrompt(input: {
   currentAgent: PendingAgentContext | null;
   createdSession: boolean;
-  draftRuntime?: PendingAgentContext["runtime"];
-  persistedRuntime?: PendingAgentContext["runtime"];
   sessionId: string;
 }) {
   const pendingAgentSnapshot = input.createdSession ? input.currentAgent : null;
-  const sessionAgent =
-    input.currentAgent &&
-    (input.createdSession || input.currentAgent.boundSessionId === input.sessionId)
-      ? input.currentAgent
-      : null;
   const agentToolAccess =
     input.currentAgent &&
     (!input.currentAgent.boundSessionId || input.currentAgent.boundSessionId === input.sessionId)
@@ -22,8 +15,6 @@ export function resolvePendingAgentForPrompt(input: {
   return {
     pendingAgentSnapshot,
     agentToolAccess,
-    agentRuntime:
-      input.draftRuntime ?? sessionAgent?.runtime ?? input.persistedRuntime,
   };
 }
 

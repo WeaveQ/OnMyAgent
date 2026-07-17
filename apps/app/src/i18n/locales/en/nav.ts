@@ -11,6 +11,7 @@ export default {
   "nav.connectors": "MCP Connectors",
   "nav.connectors_desc": "Connect external tools and services",
   "nav.devices": "Devices",
+  "nav.usage": "Usage",
   "nav.no_team": "No team yet",
   "nav.personal_assistant": "Local Work Entry",
   "nav.personal_assistant_desc": "Cloud mobile companion",

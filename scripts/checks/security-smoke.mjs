@@ -8,8 +8,8 @@ const { default: markedShiki } = await import(appRequire.resolve("marked-shiki")
 const { codeToHtml } = await import(appRequire.resolve("shiki"));
 
 const desktopMain = await readFile(new URL("../../apps/desktop/electron/main.mjs", import.meta.url), "utf8");
-const desktopEmbeddedBrowserPanel = await readFile(
-  new URL("../../apps/desktop/electron/embedded-browser-panel.mjs", import.meta.url),
+const desktopBrowserController = await readFile(
+  new URL("../../apps/desktop/electron/browser-runtime/electron-browser-controller.mjs", import.meta.url),
   "utf8",
 );
 const desktopApplicationMenu = await readFile(
@@ -18,8 +18,8 @@ const desktopApplicationMenu = await readFile(
 );
 const markdownSource = await readFile(new URL("../../apps/app/src/react-app/capabilities/artifacts/markdown.tsx", import.meta.url), "utf8");
 
-assert.match(desktopEmbeddedBrowserPanel, /function isExternalOpenUrlAllowed\(url\)/);
-assert.match(desktopEmbeddedBrowserPanel, /return \["http:", "https:", "mailto:"\]\.includes\(parsed\.protocol\);/);
+assert.match(desktopBrowserController, /function openAllowedExternalUrl\(url\)/);
+assert.match(desktopBrowserController, /if \(!\["http:", "https:", "mailto:"\]\.includes\(parsed\.protocol\)\) return Promise\.resolve\(false\);/);
 assert.doesNotMatch(desktopMain, /ipcMain\.handle\("onmyagent:shell:openExternal", async \(_event, url\) => \{\s*if \(typeof url === "string" && url\.trim\(\)\.length > 0\) \{\s*await shell\.openExternal\(url\);/s);
 assert.match(desktopMain, /const MAIN_WINDOW_MIN_WIDTH = 1120;/);
 assert.match(desktopMain, /const MAIN_WINDOW_MIN_HEIGHT = 720;/);

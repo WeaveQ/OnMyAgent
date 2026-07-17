@@ -1,6 +1,15 @@
 /** @jsxImportSource react */
-import type { ReactNode } from "react";
-import { Folder, FolderOpen, Settings2, Trash2, X } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  Check,
+  Copy,
+  Folder,
+  FolderOpen,
+  Settings2,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
@@ -126,6 +135,25 @@ export function SessionErrorCard({
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
   onOpenModelPicker?: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const formattedTime = useMemo(
+    () => error.createdAt ? new Date(error.createdAt).toLocaleString() : null,
+    [error.createdAt],
+  );
+  const errorDetails = useMemo(() => {
+    const lines = [
+      error.messageId
+        ? `${t("session.error_message_id")}: ${error.messageId}${error.traceId ? ` / ${error.traceId}` : ""}`
+        : error.traceId
+          ? `${t("session.error_trace_id")}: ${error.traceId}`
+          : null,
+      formattedTime ? `${t("session.error_date")}: ${formattedTime}` : null,
+      error.code ? `${t("session.error_code_label")}: ${error.code}` : null,
+      `${t("session.error_message_label")}: ${error.message}`,
+    ];
+    return lines.filter((line) => line !== null).join("\n");
+  }, [error.code, error.message, error.messageId, error.traceId, formattedTime]);
+
   if (isUserCancelledError(error)) {
     return (
       <div className="mx-auto max-w-3xl px-3 py-2 sm:px-5">
@@ -138,14 +166,57 @@ export function SessionErrorCard({
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-3 sm:px-5">
-      <div className={sessionSurfaceStateClass.errorPanel}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className={sessionSurfaceStateClass.errorText}>
-              {error.message}
+      <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-[13px] leading-[18px]">
+        <div className="flex items-start gap-2">
+          <TriangleAlert className="mt-px size-4 shrink-0 text-dls-status-danger" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 break-words font-medium text-dls-status-danger">
+                {error.message}
+                {error.code ? ` (${t("session.error_code", { code: error.code })})` : ""}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                type="button"
+                className={sessionSurfaceStateClass.errorDismiss}
+                onClick={onDismiss}
+                aria-label={t("session.dismiss_error")}
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
+            <div className="space-y-1 border-t border-dls-border pt-2 text-[11px] leading-4 text-dls-secondary">
+              {error.messageId || error.traceId ? (
+                <div className="flex items-center gap-1.5 break-all text-dls-text">
+                  <span className="min-w-0 flex-1">
+                    {error.messageId
+                      ? `${t("session.error_message_id")}: ${error.messageId}${error.traceId ? ` / ${error.traceId}` : ""}`
+                      : `${t("session.error_trace_id")}: ${error.traceId}`}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    title={copied ? t("common.copied") : t("session.error_copy_details")}
+                    aria-label={copied ? t("common.copied") : t("session.error_copy_details")}
+                    onClick={() => {
+                      void navigator.clipboard.writeText(errorDetails).then(() => {
+                        setCopied(true);
+                        window.setTimeout(() => setCopied(false), 2_000);
+                      });
+                    }}
+                  >
+                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  </Button>
+                </div>
+              ) : null}
+              {formattedTime ? (
+                <div>{t("session.error_date")}: {formattedTime}</div>
+              ) : null}
             </div>
             {error.kind === "model-not-found" ? (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 {error.suggestions && error.suggestions.length > 0
                   ? error.suggestions.map((s) => (
                       <Button
@@ -153,13 +224,15 @@ export function SessionErrorCard({
                         type="button"
                         variant="outline"
                         size="xs"
-                        className="rounded-full text-dls-text hover:bg-dls-hover"
+                        className="text-dls-text hover:bg-dls-hover"
                         onClick={() => {
                           onChangeModel?.(s);
                           onDismiss();
                         }}
                       >
-                        Use {s.providerID}/{s.modelID}
+                        {t("session.error_use_model", {
+                          model: `${s.providerID}/${s.modelID}`,
+                        })}
                       </Button>
                     ))
                   : null}
@@ -167,35 +240,19 @@ export function SessionErrorCard({
                   type="button"
                   variant="outline"
                   size="xs"
-                  className="rounded-full text-dls-text hover:bg-dls-hover"
+                  className="text-dls-text hover:bg-dls-hover"
                   onClick={() => {
                     onOpenModelPicker?.();
                     onDismiss();
                   }}
                 >
-                  Change model
+                  {t("session.error_change_model")}
                 </Button>
               </div>
             ) : null}
           </div>
-          <Button variant="ghost" size="icon-xs"
-            type="button"
-            className={sessionSurfaceStateClass.errorDismiss}
-            onClick={onDismiss}
-            aria-label={t("session.dismiss_error")}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Button>
         </div>
       </div>
     </div>
   );
 }
-

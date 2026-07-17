@@ -81,6 +81,7 @@ private final class PermissionSetupWindow: NSWindow {
 
 @MainActor
 final class PermissionSetupViewController: NSViewController {
+    private let copy = ComputerUsePermissionCopy.current
     private var axBadge = StatusBadge()
     private var srBadge = StatusBadge()
     private var axGrantButton: NSButton?
@@ -121,11 +122,11 @@ final class PermissionSetupViewController: NSViewController {
         iconView.widthAnchor.constraint(equalToConstant: 52).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: 52).isActive = true
 
-        let titleField = textField("Computer Use Setup", size: 20, weight: .semibold)
+        let titleField = textField(copy.setupTitle, size: 20, weight: .semibold)
         titleField.alignment = .center
 
         let subtitleField = wrappingField(
-            "Grant two permissions so agents can see and control apps in the background.",
+            copy.setupSubtitle,
             size: 13
         )
         subtitleField.textColor = .secondaryLabelColor
@@ -136,7 +137,7 @@ final class PermissionSetupViewController: NSViewController {
         let axCard = makeAccessibilityCard()
         let srCard = makeScreenRecordingCard()
 
-        let doneBtn = NSButton(title: "Done — Return to OnMyAgent", target: self, action: #selector(done))
+        let doneBtn = NSButton(title: copy.done, target: self, action: #selector(done))
         doneBtn.bezelStyle = .rounded
         doneBtn.controlSize = .large
         doneBtn.keyEquivalent = "\r"
@@ -161,14 +162,14 @@ final class PermissionSetupViewController: NSViewController {
 
     private func makeAccessibilityCard() -> NSView {
         let step = StepCircle(number: "1")
-        let title = textField("Accessibility", size: 15, weight: .semibold)
+        let title = textField(copy.accessibility, size: 15, weight: .semibold)
         let body = wrappingField(
-            "Allows agents to interact with UI controls, click buttons, and type text entirely in the background.",
+            copy.accessibilityDescription,
             size: 13
         )
         body.textColor = .secondaryLabelColor
 
-        let btn = NSButton(title: "Grant Accessibility", target: self, action: #selector(grantAccessibility))
+        let btn = NSButton(title: copy.grantAccessibility, target: self, action: #selector(grantAccessibility))
         btn.bezelStyle = .rounded
         btn.controlSize = .regular
         axGrantButton = btn
@@ -184,21 +185,21 @@ final class PermissionSetupViewController: NSViewController {
 
     private func makeScreenRecordingCard() -> NSView {
         let step = StepCircle(number: "2")
-        let title = textField("Screen Recording", size: 15, weight: .semibold)
+        let title = textField(copy.screenRecording, size: 15, weight: .semibold)
         let body = wrappingField(
-            "Lets agents see what is on screen. If macOS does not prompt automatically, drag the app icon below into the Screen Recording list.",
+            copy.screenRecordingDescription,
             size: 13
         )
         body.textColor = .secondaryLabelColor
 
         let dragFlow = makeDragFlowView()
 
-        let reqBtn = NSButton(title: "Request Screen Recording", target: self, action: #selector(requestScreenRecording))
+        let reqBtn = NSButton(title: copy.requestScreenRecording, target: self, action: #selector(requestScreenRecording))
         reqBtn.bezelStyle = .rounded
         reqBtn.controlSize = .regular
         srGrantButton = reqBtn
 
-        let openBtn = NSButton(title: "Open Privacy & Security", target: self, action: #selector(openPrivacySecurity))
+        let openBtn = NSButton(title: copy.openPrivacy, target: self, action: #selector(openPrivacySecurity))
         openBtn.bezelStyle = .rounded
         openBtn.controlSize = .small
 
@@ -222,7 +223,7 @@ final class PermissionSetupViewController: NSViewController {
         iconView.widthAnchor.constraint(equalToConstant: 56).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: 56).isActive = true
 
-        let dragHint = textField("Drag me", size: 10)
+        let dragHint = textField(copy.dragMe, size: 10)
         dragHint.textColor = .tertiaryLabelColor
         dragHint.alignment = .center
 
@@ -241,7 +242,7 @@ final class PermissionSetupViewController: NSViewController {
         row.distribution = NSStackView.Distribution.fill
 
         let hint = wrappingField(
-            "Drag this icon into the Screen Recording list in Privacy & Security, then enable it.",
+            copy.dragHint,
             size: 11
         )
         hint.textColor = .secondaryLabelColor
@@ -430,7 +431,8 @@ final class StatusBadge: NSView {
     func update(granted: Bool) {
         isGranted = granted
         applyColors()
-        label.stringValue = granted ? "Granted" : "Needed"
+        let copy = ComputerUsePermissionCopy.current
+        label.stringValue = granted ? copy.granted : copy.needed
         label.textColor = granted ? .systemGreen : .systemOrange
     }
 
@@ -508,7 +510,7 @@ final class PrivacyDropZoneView: NSView {
     private let label: NSTextField
 
     override init(frame: NSRect) {
-        label = NSTextField(labelWithString: "Screen Recording\nlist")
+        label = NSTextField(labelWithString: ComputerUsePermissionCopy.current.screenRecordingList)
         super.init(frame: frame)
         label.font = .systemFont(ofSize: 11)
         label.textColor = .tertiaryLabelColor
@@ -589,5 +591,3 @@ final class DraggableAppIconView: NSImageView, NSDraggingSource {
         .copy
     }
 }
-
-

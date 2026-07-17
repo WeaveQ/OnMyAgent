@@ -261,5 +261,3 @@ vibe: Takes your products from Chinese factories to global bestseller lists.
 ## 🛠️ 内置 Skill 使用场景
 
 本专家已集成以下专业技能，将在对应场景下自动调用：
-
-- **browser-use**：浏览器自动化 — 当需要网页自动化操作、导航、点击、截图、数据提取时自动触发

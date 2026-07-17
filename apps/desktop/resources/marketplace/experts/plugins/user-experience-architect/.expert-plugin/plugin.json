@@ -7,9 +7,7 @@
   "agents": [
     "./agents/user-experience-architect.md"
   ],
-  "skills": [
-    "./skills/browser-use"
-  ],
+  "skills": [],
   "displayName": {
     "en": "Tom",
     "zh": "体验达"

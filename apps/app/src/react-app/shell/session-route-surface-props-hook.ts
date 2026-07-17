@@ -6,7 +6,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import { browserUseAgentStart, pickDirectory } from "../../app/lib/desktop";
+import { pickDirectory } from "../../app/lib/desktop";
 import type { OnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import { buildOnMyAgentEnvRuntimeKey } from "../../app/lib/onmyagent-env-runtime";
 import {
@@ -687,12 +687,10 @@ export function useSessionRouteSurfaceProps(
         // `system` field. Only applied on the first prompt for a new session
         // — the store is kept intact for subsequent turns so the transcript
         // still renders the agent avatar next to assistant messages.
-        const { pendingAgentSnapshot, agentToolAccess, agentRuntime } =
+        const { pendingAgentSnapshot, agentToolAccess } =
           resolvePendingAgentForPrompt({
             currentAgent: usePendingAgentStore.getState().getAgent(),
             createdSession: Boolean(createdSession),
-            draftRuntime: draft.agentRuntime,
-            persistedRuntime: readSessionAgentSnapshot(sessionId)?.runtime,
             sessionId,
           });
         const runtimeToolAccess = resolveComposerRuntimeTools(
@@ -746,43 +744,6 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
-        if (agentRuntime === "browser-use-agent") {
-          if (!selectedPromptModel) {
-            throw new Error(t("session.browser_use_agent_model_required"));
-          }
-          const browserUseUserMessageId =
-            draft.messageID ?? `msg_${crypto.randomUUID()}`;
-          const recorded = await runWithCreatedSessionRuntimeSync(() =>
-            opencodeClient.session.promptAsync({
-              sessionID: sessionId,
-              parts,
-              messageID: browserUseUserMessageId,
-              model: selectedPromptModel,
-              noReply: true,
-              directory: taskWorkspaceRoot || undefined,
-            }),
-          );
-          if (recorded.error) {
-            throw new Error(serializeSDKError(recorded.error));
-          }
-          await browserUseAgentStart({
-            task: text,
-            ownerId: `expert:${sessionId}`,
-            sessionId,
-            userMessageId: browserUseUserMessageId,
-            model: selectedPromptModel,
-            language: localeSnapshot,
-            retainTabs: true,
-            useVision: "auto",
-          });
-          await getReactQueryClient().invalidateQueries({
-            queryKey: ["browser-use-agent-history", sessionId],
-          });
-          if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
-          }
-          return;
-        }
         const result = await runWithCreatedSessionRuntimeSync(() =>
           opencodeClient.session.promptAsync({
             sessionID: sessionId,

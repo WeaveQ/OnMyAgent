@@ -1,7 +1,0 @@
-{
-  "display_name": "浏览器自动化",
-  "display_name_en": "Browser Use",
-  "description_zh": "通过 OnMyAgent 内置浏览器完成网页导航、交互、截图和数据提取",
-  "description_en": "Automate navigation, interaction, screenshots, and extraction in the OnMyAgent embedded browser.",
-  "icon": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/browser-use.svg"
-}

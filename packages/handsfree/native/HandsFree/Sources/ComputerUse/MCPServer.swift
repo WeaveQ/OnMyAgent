@@ -6,10 +6,18 @@ import ScreenCaptureKit
 actor MCPServer {
     private let runtime = ComputerUseRuntime()
     private let input = InputService()
+    private let appCatalog = AppCatalog()
+    private let accessibility = AccessibilityService()
+    private let appAuthorization = AppAuthorizationController()
+    private let recordAndReplay = RecordAndReplayController()
+    private let skysight = SkysightController()
+    private let activityStore = ComputerUseActivityStore()
     private var cuaSnapshotFrontmostPID: pid_t?
+    private var deliveredInstructionBundleIdentifiers: Set<String> = []
 
     func run() async {
         log("Computer Use server starting")
+        try? activityStore.update(phase: .ready, app: nil, reason: nil)
         while let line = readLine(strippingNewline: true) {
             guard !line.isEmpty else { continue }
             guard let data = line.data(using: .utf8),
@@ -27,7 +35,10 @@ actor MCPServer {
                 respond(id: id, result: [
                     "protocolVersion": "2025-03-26",
                     "capabilities": ["tools": [:]],
-                    "serverInfo": ["name": "onmyagent-computer-use", "version": "0.1.0"],
+                    "serverInfo": [
+                        "name": "onmyagent-computer-use",
+                        "version": ComputerUseInstallStatus.detect().helperVersion,
+                    ],
                 ])
             case "notifications/initialized":
                 break
@@ -44,129 +55,48 @@ actor MCPServer {
                 }
             }
         }
+        _ = try? recordAndReplay.stop(reason: "mcp_ended")
+        await MainActor.run { ComputerUsePIPOverlay.shared.hide() }
+        try? activityStore.update(phase: .inactive, app: nil, reason: nil)
     }
 
     private func toolSchemas() -> [[String: Any]] {
-        [
-            toolSchema(
-                name: "snapshot",
-                description: "Return target-window screenshot plus compact semantic AX state. Uses strict background activation by default.",
-                properties: [
-                    "app": ["type": "string", "description": "Optional running app name. Omit for frontmost app."],
-                    "strict": ["type": "boolean", "description": "Keep actions on background-safe AX/postToPid paths. Default true."],
-                ]
-            ),
-            toolSchema(
-                name: "click",
-                description: "Click a semantic ref like {e1}, an index, or screenshot x/y. AX is tried first; strict mode only falls back to background postToPid.",
-                properties: [
-                    "ref": ["type": "string", "description": "Semantic ref from snapshot, e.g. {e1}."],
-                    "snapshot_id": ["type": "string", "description": "Optional snapshot id from the latest snapshot response."],
-                    "index": ["type": "number", "description": "Element id or zero-based compatibility index."],
-                    "x": ["type": "number", "description": "Screenshot x coordinate."],
-                    "y": ["type": "number", "description": "Screenshot y coordinate."],
-                    "click_count": ["type": "number", "description": "1 or 2. Default 1."],
-                    "strict": ["type": "boolean", "description": "Override strict mode for this action."],
-                ]
-            ),
-            toolSchema(
-                name: "type_text",
-                description: "Type text into the target process. In strict mode this uses CGEvent.postToPid and does not move the real cursor.",
-                properties: [
-                    "text": ["type": "string", "description": "Text to type."],
-                    "snapshot_id": ["type": "string", "description": "Optional snapshot id from the latest snapshot response."],
-                    "strict": ["type": "boolean", "description": "Override strict mode for this action."],
-                ]
-            ),
-            toolSchema(
-                name: "press_key",
-                description: "Press a key combo such as command+k, return, tab, or escape.",
-                properties: [
-                    "combo": ["type": "string", "description": "Key combo."],
-                    "snapshot_id": ["type": "string", "description": "Optional snapshot id from the latest snapshot response."],
-                    "strict": ["type": "boolean", "description": "Override strict mode for this action."],
-                ]
-            ),
-            toolSchema(
-                name: "scroll",
-                description: "Scroll the target window without foregrounding it in strict mode.",
-                properties: [
-                    "direction": ["type": "string", "description": "up, down, left, or right."],
-                    "snapshot_id": ["type": "string", "description": "Optional snapshot id from the latest snapshot response."],
-                    "pages": ["type": "number", "description": "Approximate page count. Default 1."],
-                    "x": ["type": "number", "description": "Optional screenshot x coordinate."],
-                    "y": ["type": "number", "description": "Optional screenshot y coordinate."],
-                    "strict": ["type": "boolean", "description": "Override strict mode for this action."],
-                ]
-            ),
-            toolSchema(
-                name: "set_value",
-                description: "Set a semantic AX element value directly. This stays background-safe.",
-                properties: [
-                    "ref": ["type": "string", "description": "Semantic ref from snapshot."],
-                    "snapshot_id": ["type": "string", "description": "Optional snapshot id from the latest snapshot response."],
-                    "index": ["type": "number", "description": "Element id or zero-based compatibility index."],
-                    "value": ["type": "string", "description": "Value to set."],
-                ]
-            ),
-            toolSchema(
-                name: "perform_action",
-                description: "Perform a named AX action such as AXPress, AXShowMenu, AXIncrement, or AXDecrement.",
-                properties: [
-                    "ref": ["type": "string", "description": "Semantic ref from snapshot."],
-                    "snapshot_id": ["type": "string", "description": "Optional snapshot id from the latest snapshot response."],
-                    "index": ["type": "number", "description": "Element id or zero-based compatibility index."],
-                    "action": ["type": "string", "description": "AX action name. Default AXPress."],
-                ]
-            ),
-            toolSchema(
-                name: "wait",
-                description: "Wait for UI to settle.",
-                properties: ["milliseconds": ["type": "number", "description": "Wait time. Default 1000."]]
-            ),
-            toolSchema(
-                name: "set_strict_mode",
-                description: "Enable or disable strict background mode. Strict mode rejects foreground fallbacks.",
-                properties: ["enabled": ["type": "boolean", "description": "Whether strict background mode is enabled."]]
-            ),
-            toolSchema(name: "check_permissions", description: "Check Accessibility and Screen Recording permission status.", properties: [:]),
-            toolSchema(name: "get_app_state", description: "Compatibility alias for snapshot.", properties: ["app": ["type": "string"], "strict": ["type": "boolean"]]),
-            toolSchema(name: "launch_app", description: "Launch a macOS app by name.", properties: ["name": ["type": "string"]]),
-            toolSchema(name: "activate_app", description: "Bring a running macOS app to the foreground.", properties: ["name": ["type": "string"]]),
-            toolSchema(name: "list_apps", description: "List running regular macOS apps.", properties: [:]),
-            toolSchema(name: "open_url", description: "Open a URL in the default browser or a specific browser app.", properties: ["url": ["type": "string"], "app": ["type": "string"]]),
-            toolSchema(name: "clipboard_read", description: "Read text from the macOS clipboard.", properties: [:]),
-            toolSchema(name: "clipboard_write", description: "Write text to the macOS clipboard.", properties: ["text": ["type": "string"]]),
-            toolSchema(name: "display_info", description: "Return main display logical dimensions and scale factor.", properties: [:]),
-            toolSchema(name: "cua_screenshot", description: "Compatibility full-screen screenshot for CUA loops. Returns logical-size PNG.", properties: [:]),
-            toolSchema(name: "cua_click", description: "Compatibility click at absolute screen coordinates.", properties: ["x": ["type": "number"], "y": ["type": "number"]]),
-            toolSchema(name: "cua_double_click", description: "Compatibility double-click at absolute screen coordinates.", properties: ["x": ["type": "number"], "y": ["type": "number"]]),
-            toolSchema(name: "cua_move", description: "Compatibility mouse move to absolute screen coordinates.", properties: ["x": ["type": "number"], "y": ["type": "number"]]),
-            toolSchema(name: "cua_type", description: "Compatibility text typing into focused input.", properties: ["text": ["type": "string"]]),
-            toolSchema(name: "cua_keypress", description: "Compatibility keypress using CUA key names.", properties: ["keys": ["type": "array", "items": ["type": "string"]]]),
-            toolSchema(name: "cua_scroll", description: "Compatibility scroll at absolute screen coordinates.", properties: ["x": ["type": "number"], "y": ["type": "number"], "scroll_x": ["type": "number"], "scroll_y": ["type": "number"]]),
-            toolSchema(name: "cua_drag", description: "Compatibility drag over an array of [x,y] points.", properties: ["path": ["type": "array"]]),
-            toolSchema(name: "cua_wait", description: "Compatibility wait for UI to settle.", properties: [:]),
-        ]
-    }
-
-    private func toolSchema(name: String, description: String, properties: [String: Any]) -> [String: Any] {
-        ["name": name, "description": description, "inputSchema": ["type": "object", "properties": properties]]
+        MCPToolCatalog.schemas()
     }
 
     private func executeTool(name: String, args: [String: Any]) async -> [[String: Any]] {
         do {
+            let skyActionNames: Set<String> = [
+                "click", "perform_secondary_action", "set_value", "select_text",
+                "scroll", "drag", "press_key", "type_text",
+            ]
+            if skyActionNames.contains(name) {
+                try await runtime.validateAppSession(appName: args["app"] as? String)
+                try? activityStore.update(phase: .running, app: args["app"] as? String, reason: nil)
+            }
             switch name {
             case "snapshot", "get_app_state":
                 return try await snapshotResult(args: args)
             case "click":
+                let target = SkyCompatibility.elementTarget(args["element_index"] as? String)
                 let metadata = try await runtime.click(
                     snapshotID: snapshotIDArg(args),
-                    ref: args["ref"] as? String,
-                    index: intArg(args, "index"),
+                    ref: args["ref"] as? String ?? target.ref,
+                    index: intArg(args, "index") ?? target.index,
                     imageX: doubleArg(args, "x"),
                     imageY: doubleArg(args, "y"),
                     clickCount: intArg(args, "click_count") ?? 1,
+                    mouseButton: SkyCompatibility.mouseButton(args["mouse_button"] as? String) ?? .left,
+                    strict: boolArg(args, "strict")
+                )
+                return jsonResult(metadata.dictionary)
+            case "drag":
+                let metadata = try await runtime.drag(
+                    snapshotID: snapshotIDArg(args),
+                    fromImageX: doubleArg(args, "from_x") ?? 0,
+                    fromImageY: doubleArg(args, "from_y") ?? 0,
+                    toImageX: doubleArg(args, "to_x") ?? 0,
+                    toImageY: doubleArg(args, "to_y") ?? 0,
                     strict: boolArg(args, "strict")
                 )
                 return jsonResult(metadata.dictionary)
@@ -174,11 +104,15 @@ actor MCPServer {
                 let metadata = try await runtime.typeText(snapshotID: snapshotIDArg(args), text: args["text"] as? String ?? "", strict: boolArg(args, "strict"))
                 return jsonResult(metadata.dictionary)
             case "press_key":
-                let metadata = try await runtime.pressKey(snapshotID: snapshotIDArg(args), combo: args["combo"] as? String ?? "", strict: boolArg(args, "strict"))
+                let rawKey = args["key"] as? String ?? args["combo"] as? String ?? ""
+                let metadata = try await runtime.pressKey(snapshotID: snapshotIDArg(args), combo: SkyCompatibility.keyCombo(rawKey), strict: boolArg(args, "strict"))
                 return jsonResult(metadata.dictionary)
             case "scroll":
+                let target = SkyCompatibility.elementTarget(args["element_index"] as? String)
                 let metadata = try await runtime.scroll(
                     snapshotID: snapshotIDArg(args),
+                    ref: args["ref"] as? String ?? target.ref,
+                    index: intArg(args, "index") ?? target.index,
                     direction: args["direction"] as? String,
                     pages: doubleArg(args, "pages") ?? 1,
                     imageX: doubleArg(args, "x"),
@@ -187,10 +121,35 @@ actor MCPServer {
                 )
                 return jsonResult(metadata.dictionary)
             case "set_value":
-                let metadata = try await runtime.setValue(snapshotID: snapshotIDArg(args), ref: args["ref"] as? String, index: intArg(args, "index"), value: args["value"] as? String ?? "")
+                let target = SkyCompatibility.elementTarget(args["element_index"] as? String)
+                let metadata = try await runtime.setValue(
+                    snapshotID: snapshotIDArg(args),
+                    ref: args["ref"] as? String ?? target.ref,
+                    index: intArg(args, "index") ?? target.index,
+                    value: args["value"] as? String ?? ""
+                )
                 return jsonResult(metadata.dictionary)
-            case "perform_action":
-                let metadata = try await runtime.performAction(snapshotID: snapshotIDArg(args), ref: args["ref"] as? String, index: intArg(args, "index"), action: args["action"] as? String ?? kAXPressAction)
+            case "select_text":
+                let target = SkyCompatibility.elementTarget(args["element_index"] as? String)
+                let selectionValue = args["selection"] as? String ?? args["selection_type"] as? String
+                let metadata = try await runtime.selectText(
+                    snapshotID: snapshotIDArg(args),
+                    ref: args["ref"] as? String ?? target.ref,
+                    index: intArg(args, "index") ?? target.index,
+                    text: args["text"] as? String ?? "",
+                    prefix: args["prefix"] as? String,
+                    suffix: args["suffix"] as? String,
+                    selection: TextSelectionMode(skyValue: selectionValue)
+                )
+                return jsonResult(metadata.dictionary)
+            case "perform_action", "perform_secondary_action":
+                let target = SkyCompatibility.elementTarget(args["element_index"] as? String)
+                let metadata = try await runtime.performAction(
+                    snapshotID: snapshotIDArg(args),
+                    ref: args["ref"] as? String ?? target.ref,
+                    index: intArg(args, "index") ?? target.index,
+                    action: args["action"] as? String ?? kAXPressAction
+                )
                 return jsonResult(metadata.dictionary)
             case "wait":
                 let metadata = await runtime.wait(milliseconds: intArg(args, "milliseconds") ?? 1000)
@@ -200,12 +159,43 @@ actor MCPServer {
                 return jsonResult(metadata.dictionary)
             case "check_permissions":
                 return jsonResult(checkPermissions())
+            case "get_recent_activity":
+                let settings = (try? SkysightSettingsStore().read()) ?? .defaults
+                guard settings.enabled else {
+                    return jsonResult(["ok": false, "enabled": false, "summaries": []])
+                }
+                let summaries = try SkysightStore().recentSummaries(
+                    limit: min(max(intArg(args, "limit") ?? 6, 1), 24)
+                )
+                return jsonResult(["ok": true, "enabled": true, "summaries": summaries])
+            case "event_stream_start":
+                return try await jsonResult(recordAndReplay.start().dictionary)
+            case "event_stream_status":
+                return jsonResult(
+                    try recordAndReplay.status()?.dictionary
+                        ?? ["ok": true, "state": "none"]
+                )
+            case "event_stream_stop":
+                return jsonResult(
+                    try recordAndReplay.stop()?.dictionary
+                        ?? ["ok": true, "state": "none"]
+                )
+            case "skysight_start":
+                return try await jsonResult(skysight.start())
+            case "skysight_stop":
+                return try jsonResult(skysight.stop())
+            case "skysight_status":
+                return try jsonResult(skysight.status())
+            case "skysight_update_exclusion":
+                return try jsonResult(skysight.updateExclusion(args: args))
+            case "skysight_list_exclusions":
+                return try jsonResult(skysight.listExclusions())
             case "launch_app":
                 return try await jsonResult(handleLaunchApp(args: args))
             case "activate_app":
                 return jsonResult(handleActivateApp(args: args))
             case "list_apps":
-                return jsonResult(["ok": true, "apps": runningApps().compactMap(\.localizedName).sorted()])
+                return jsonResult(["apps": appCatalog.descriptors().map(\.dictionary)])
             case "open_url":
                 return try await jsonResult(handleOpenURL(args: args))
             case "clipboard_read":
@@ -227,7 +217,7 @@ actor MCPServer {
             case "cua_double_click":
                 try validateCuaSnapshotFresh()
                 AgentCursorOverlay.shared.show(at: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
-                try await input.click(point: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0), doubleClick: true)
+                try await input.click(point: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0), clickCount: 2)
                 return jsonResult(["ok": true])
             case "cua_move":
                 try validateCuaSnapshotFresh()
@@ -266,13 +256,33 @@ actor MCPServer {
                 return jsonResult(["ok": false, "error": "Unknown tool: \(name)"])
             }
         } catch {
+            if case ComputerUseError.physicalInputPaused = error {
+                try? activityStore.update(
+                    phase: .paused,
+                    app: args["app"] as? String,
+                    reason: "physical_input"
+                )
+            }
             return jsonResult(errorPayload(error))
         }
     }
 
     private func snapshotResult(args: [String: Any]) async throws -> [[String: Any]] {
+        let application = try await applicationForAuthorization(appName: args["app"] as? String)
+        try await appAuthorization.authorize(application)
         let snapshot = try await runtime.snapshot(appName: args["app"] as? String, strict: boolArg(args, "strict"))
-        let payload = snapshotPayload(snapshot)
+        await MainActor.run {
+            ComputerUsePIPOverlay.shared.update(
+                appName: snapshot.appName,
+                processID: snapshot.pid,
+                imageData: snapshot.screenshotData
+            )
+        }
+        try? activityStore.update(phase: .running, app: snapshot.appName, reason: nil)
+        var payload = snapshotPayload(snapshot)
+        if let settle = await runtime.uiSettleMetadata() {
+            payload["settle"] = settle
+        }
         guard let text = jsonString(payload) else {
             return textResult("Failed to serialize semantic AX snapshot.")
         }
@@ -322,6 +332,18 @@ actor MCPServer {
         if let windowNumber = snapshot.windowNumber {
             result["windowNumber"] = windowNumber
         }
+        let application = NSRunningApplication(processIdentifier: snapshot.pid)
+        let bundleIdentifier = application?.bundleIdentifier
+        let instructionKey = bundleIdentifier?.lowercased()
+            ?? snapshot.appName.lowercased()
+        if !deliveredInstructionBundleIdentifiers.contains(instructionKey),
+           let guidance = AppGuidance.instructions(
+               bundleIdentifier: bundleIdentifier,
+               appName: snapshot.appName
+           ) {
+            result["appSpecificInstructions"] = guidance
+            deliveredInstructionBundleIdentifiers.insert(instructionKey)
+        }
         return result
     }
 
@@ -331,7 +353,7 @@ actor MCPServer {
 
     private func handleActivateApp(args: [String: Any]) -> [String: Any] {
         let name = args["name"] as? String ?? ""
-        guard let app = runningApp(named: name) else {
+        guard let app = try? appCatalog.runningApplication(named: name) else {
             return ["ok": false, "error": "App '\(name)' is not running."]
         }
         app.activate()
@@ -341,22 +363,17 @@ actor MCPServer {
     private func handleLaunchApp(args: [String: Any]) async throws -> [String: Any] {
         let name = (args["name"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return ["ok": false, "error": "App name is required."] }
-        if let app = runningApp(named: name) {
-            app.activate()
-            return ["ok": true, "app": app.localizedName ?? name, "alreadyRunning": true]
-        }
-        guard let appURL = applicationURL(named: name) else {
-            return ["ok": false, "error": "App '\(name)' was not found."]
-        }
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = true
-        let app = try await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
-        return ["ok": true, "app": app.localizedName ?? name]
+        let wasRunning = (try? appCatalog.runningApplication(named: name)) != nil
+        let app = try await appCatalog.ensureRunning(named: name, activates: true)
+        return ["ok": true, "app": app.localizedName ?? name, "alreadyRunning": wasRunning]
     }
 
     private func handleOpenURL(args: [String: Any]) async throws -> [String: Any] {
         guard let rawURL = args["url"] as? String, let url = URL(string: rawURL) else {
             return ["ok": false, "error": "Invalid URL."]
+        }
+        if ComputerUseTargetPolicy.isBlockedBrowserURL(rawURL) {
+            throw ComputerUseError.blockedBrowserURL
         }
         if let appName = args["app"] as? String, !appName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             guard let appURL = applicationURL(named: appName) else {
@@ -380,7 +397,16 @@ actor MCPServer {
 
     private func cuaScreenshotResult() async throws -> [[String: Any]] {
         guard let screen = NSScreen.main else { throw ComputerUseError.screenshotFailed }
-        cuaSnapshotFrontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        guard let frontmostApplication = NSWorkspace.shared.frontmostApplication else {
+            throw ComputerUseError.noFrontmostApplication
+        }
+        try await appAuthorization.authorize(frontmostApplication)
+        if let url = accessibility.currentBrowserURL(application: frontmostApplication),
+           ComputerUseTargetPolicy.isBlockedBrowserURL(url) {
+            cuaSnapshotFrontmostPID = nil
+            throw ComputerUseError.blockedBrowserURL
+        }
+        cuaSnapshotFrontmostPID = frontmostApplication.processIdentifier
         let cgImage = await screenCaptureKitDisplayImage() ?? CGWindowListCreateImage(CGRect.null, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution])
         guard let cgImage else {
             throw ComputerUseError.screenshotFailed
@@ -436,6 +462,17 @@ actor MCPServer {
 
     private func runningApps() -> [NSRunningApplication] {
         NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+    }
+
+    private func applicationForAuthorization(appName: String?) async throws -> NSRunningApplication {
+        guard let appName = appName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !appName.isEmpty else {
+            guard let frontmostApplication = NSWorkspace.shared.frontmostApplication else {
+                throw ComputerUseError.noFrontmostApplication
+            }
+            return frontmostApplication
+        }
+        return try await appCatalog.ensureRunning(named: appName, activates: false)
     }
 
     private func runningApp(named name: String) -> NSRunningApplication? {
@@ -560,6 +597,22 @@ actor MCPServer {
             payload["retryable"] = false
             payload["requiredNextAction"] = "snapshot"
             payload["hint"] = "Take a fresh snapshot before retrying. Do not repeat the same action against stale UI state."
+        }
+        if case ComputerUseError.appAuthorizationDenied = error {
+            payload["authorizationDenied"] = true
+            payload["retryable"] = false
+        }
+        if case ComputerUseError.protectedApplication = error {
+            payload["protectedTarget"] = true
+            payload["retryable"] = false
+        }
+        if case ComputerUseError.blockedBrowserURL = error {
+            payload["disallowedURL"] = true
+            payload["retryable"] = false
+        }
+        if case ComputerUseError.recordingStartDeclined = error {
+            payload["recordingStartDeclined"] = true
+            payload["retryable"] = false
         }
         if message.localizedCaseInsensitiveContains("accessibility") {
             payload["permissionNeeded"] = "accessibility"

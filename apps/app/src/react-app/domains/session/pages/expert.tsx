@@ -39,6 +39,7 @@ import {
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
+import { PersonalUsagePage } from "../usage";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
@@ -433,7 +434,6 @@ export function ExpertPage(props: ExpertPageProps) {
           avatarBackground: "var(--ow-primary-light)",
         },
         systemPrompt: marketplaceExpert.systemPrompt,
-        runtime: marketplaceExpert.runtime ?? undefined,
         quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
         marketplaceExpert: {
           source: "builtin",
@@ -917,14 +917,12 @@ export function ExpertPage(props: ExpertPageProps) {
       }
       return props.surface?.onSendDraft({
         ...draft,
-        agentRuntime: activeAgentContext?.runtime,
         sessionStartIntent: props.selectedSessionId
           ? undefined
           : { mode: "expert" },
       });
     },
     [
-      activeAgentContext?.runtime,
       draftSessionActive,
       props.onCreateSessionForAgent,
       props.surface,
@@ -1247,6 +1245,7 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "files" ||
     activeSidebarView === "store" ||
     activeSidebarView === "projects" ||
+    activeSidebarView === "usage" ||
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
     activeSidebarView === "skills" ||
@@ -1376,6 +1375,7 @@ export function ExpertPage(props: ExpertPageProps) {
             onOpenAccountSettings={props.onOpenAccountSettings}
             onSignOut={props.onSignOut}
             onOpenDevices={() => setActiveSidebarView("devices")}
+            onOpenUsage={() => setActiveSidebarView("usage")}
             onOpenBilling={() => setActiveSidebarView("billing")}
           />
           <div className="relative flex min-h-0 flex-1 overflow-hidden">
@@ -1527,6 +1527,18 @@ export function ExpertPage(props: ExpertPageProps) {
 
                       {activeSidebarView === "devices" ? <DevicesPage /> : null}
 
+                      {activeSidebarView === "usage" ? (
+                        <PersonalUsagePage
+                          client={props.onmyagentServerClient}
+                          workspaces={props.workspaces}
+                          onEdit={props.onOpenAccountSettings}
+                          identity={{
+                            name: localAuthUser?.username || props.account?.name || props.account?.email || t("session.current_user"),
+                            email: localAuthUser?.email || props.account?.email,
+                          }}
+                        />
+                      ) : null}
+
                       {activeSidebarView === "channels" ? (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
                       ) : null}
@@ -1541,6 +1553,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&
+                      activeSidebarView !== "usage" &&
                       activeSidebarView !== "channels" &&
                       activeSidebarView !== "billing" ? (
                         <SidebarFeaturePlaceholder

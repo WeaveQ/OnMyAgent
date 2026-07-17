@@ -121,6 +121,7 @@ import {
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "./personal-local-agent-page";
+import { PersonalUsagePage } from "../usage";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 const messagingTextClass = {
@@ -698,6 +699,7 @@ export function SessionPage(props: SessionPageProps) {
             onOpenAccountSettings={props.onOpenAccountSettings}
             onSignOut={props.onSignOut}
             onOpenDevices={agentPanel.openDevicesView}
+            onOpenUsage={agentPanel.openUsageView}
             onOpenBilling={agentPanel.openBillingView}
           />
           <div className="relative flex min-h-0 flex-1 overflow-hidden mac:titlebar-no-drag">
@@ -819,6 +821,18 @@ export function SessionPage(props: SessionPageProps) {
 
                       {agentPanel.activeSidebarView === "devices" ? <DevicesPage /> : null}
 
+                      {agentPanel.activeSidebarView === "usage" ? (
+                        <PersonalUsagePage
+                          client={props.onmyagentServerClient}
+                          workspaces={props.workspaces}
+                          onEdit={props.onOpenAccountSettings}
+                          identity={{
+                            name: localAuthUser?.username || props.account?.name || props.account?.email || t("session.user_initial"),
+                            email: localAuthUser?.email || props.account?.email,
+                          }}
+                        />
+                      ) : null}
+
                       {agentPanel.activeSidebarView === "channels" ? (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
                       ) : null}
@@ -832,6 +846,7 @@ export function SessionPage(props: SessionPageProps) {
                       agentPanel.activeSidebarView !== "projects" &&
                       agentPanel.activeSidebarView !== "localAgent" &&
                       agentPanel.activeSidebarView !== "devices" &&
+                      agentPanel.activeSidebarView !== "usage" &&
                       agentPanel.activeSidebarView !== "channels" &&
                       agentPanel.activeSidebarView !== "billing" ? (
                         <SidebarFeaturePlaceholder

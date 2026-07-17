@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type UIEvent } from "react";
 import { isToolUIPart, type DynamicToolUIPart, type UIMessage } from "ai";
 import type { Part } from "@opencode-ai/sdk/v2/client";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -11,18 +11,50 @@ import {
   Copy,
   File as FileIcon,
   Folder,
+  GitFork,
   Globe,
+  HelpCircle,
+  MessageSquareWarning,
+  MoreHorizontal,
+  RotateCcw,
   Search,
+  Share2,
+  Square,
   Terminal,
+  ThumbsDown,
+  ThumbsUp,
+  Volume2,
 } from "lucide-react";
 
-import { openDesktopPath, revealDesktopItemInDir } from "../../../../app/lib/desktop";
+import {
+  openDesktopPath,
+  revealDesktopItemInDir,
+} from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DisclosureRowButton, MenuRowButton } from "@/components/ui/action-row";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NoticeBox } from "@/components/ui/notice-box";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { t } from "@/i18n";
+import { Textarea } from "@/components/ui/textarea";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { MessageRolePrefix, MessageRoleRow } from "@/components/ui/message-role";
+import {
+  ToolApprovalCard,
+  ToolApprovalCardBody,
+  ToolApprovalCardFooter,
+  ToolApprovalCardHeader,
+} from "@/components/ui/tool-approval-card";
+import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { buildFeedbackUrl } from "../../../../app/lib/feedback";
 import {
   SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX,
   type MessageGroup,
@@ -30,8 +62,47 @@ import {
 } from "../../../../app/types";
 import { groupMessageParts, isDesktopRuntime, summarizeStep } from "../../../../app/utils";
 import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
-import { MarkdownBlock } from "./markdown";
+import { usePlatform } from "../../../kernel/platform";
+import { readTranscriptMessageMetadata } from "../sync/message-metadata";
+import { isOutputLimitContinuationMessageId } from "../sync/output-limit-recovery";
+import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
+import {
+  ImageGenerationToolCard,
+  SpecializedToolDetails,
+  specializedToolCanExpand,
+  specializedToolHeadline,
+} from "./specialized-tool-details";
+import { TranscriptResourceChip } from "./transcript-resource-chip";
 import { applyTextHighlights } from "./text-highlights";
+import {
+  computeTranscriptMaxContentWidth,
+  DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
+  formatTranscriptDuration,
+  formatTranscriptMessageTime,
+} from "./transcript-presentation";
+import { buildTranscriptTurns } from "./transcript/turn-model";
+import { normalizeTranscriptQuestionAnswers } from "./transcript/question-answer";
+import {
+  buildTranscriptToolPresentation,
+  type TranscriptTodoItem,
+} from "./transcript/tool-presentation";
+import {
+  groupTranscriptRenderItems,
+  type TranscriptRenderItem,
+} from "./transcript/render-items";
+import {
+  formatCompactTokenCount,
+  summarizeTranscriptTurn,
+  type TranscriptTurnPresentation,
+} from "./transcript/turn-presentation";
+import {
+  buildTurnContentPresentation,
+  type TurnContentSegment,
+  type TurnContentPresentation,
+  type TurnFoldSegment,
+  type TurnProcessItem,
+} from "./transcript/turn-content";
+import { InlineVisual } from "./transcript/inline-visual";
 import {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
@@ -60,15 +131,15 @@ const messageTextClass = {
   bodyMuted: "font-sans text-sm leading-6 text-muted-foreground antialiased",
   toolStatus: "ml-7 mt-2 text-sm leading-6 text-muted-foreground",
   toolLabel: "mb-1 text-xs font-medium text-muted-foreground",
-  assistantBubble: "w-full relative max-w-[760px] text-sm leading-6 text-foreground group",
+  assistantBubble: "w-full relative text-foreground group",
   nestedAssistantBubble: "w-full relative text-sm leading-6 text-foreground group",
   avatarLabel: "max-w-[120px] truncate text-sm font-medium leading-tight text-dls-text",
   baseMessageBubble: "text-sm text-foreground leading-relaxed",
   userMessageBubble: "bg-dls-chat-user-bg text-dls-text",
   nestedUserMessageBubble: "max-w-[92%] rounded-xl px-3.5 py-2",
-  rootUserMessageBubble: "max-w-[82%] rounded-xl px-4 py-2.5",
+  rootUserMessageBubble: "session-transcript-user-bubble",
   assistantMessageBubble: "w-full antialiased group",
-  rootAssistantMessageBubble: "max-w-[720px]",
+  rootAssistantMessageBubble: "session-transcript-assistant-copy",
 };
 
 const messageStateClass = {
@@ -90,7 +161,7 @@ function AssistantAvatar(props: { name: string; avatarUrl: string | null; avatar
   if (props.avatarUrl) {
     return (
       <div
-        className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full"
+        className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full"
         style={props.avatarBackground ? { background: props.avatarBackground } : undefined}
       >
         <img
@@ -111,18 +182,10 @@ function AssistantAvatar(props: { name: string; avatarUrl: string | null; avatar
   const palette = AVATAR_PALETTES[index]!;
   return (
     <div
-      className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
       style={{ background: palette.background, color: palette.foreground }}
     >
       {props.name.slice(0, 1) || t("session.agent_initial")}
-    </div>
-  );
-}
-
-function UserAvatar(props: { name: string }) {
-  return (
-    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-dls-accent text-sm font-medium text-white">
-      {props.name.slice(0, 1) || t("session.user_initial")}
     </div>
   );
 }
@@ -152,6 +215,7 @@ type DividerBlock = {
   kind: "divider";
   id: string;
   label: string;
+  variant?: SessionTranscriptDividerVariant;
   afterMessageCount: number;
   isUser: false;
 };
@@ -174,12 +238,63 @@ type MessageBlock = {
 
 type MessageBlockItem = MessageBlock | StepClusterBlock | DividerBlock;
 type ConversationBlockItem = MessageBlock | StepClusterBlock;
+type TranscriptBlockTurnPresentation = TranscriptTurnPresentation & {
+  isFirstAssistantBlock: boolean;
+  isActionBlock: boolean;
+  hasExecutionDetails: boolean;
+  turnContent: TurnContentPresentation | null;
+  isTurnContentAnchor: boolean;
+  isHiddenByTurnContent: boolean;
+};
 
 export type SessionTranscriptDivider = {
   id: string;
   label: string;
+  variant?: SessionTranscriptDividerVariant;
   afterMessageCount: number;
 };
+
+export type SessionTranscriptDividerVariant =
+  | "cancelled"
+  | "stopped"
+  | "compacting"
+  | "compacted"
+  | "stalled"
+  | "permission-rejected"
+  | "permission-auto-approved";
+
+export function isTranscriptDividerReady(
+  divider: SessionTranscriptDivider | undefined,
+  messageCount: number,
+): boolean {
+  return Boolean(divider && divider.afterMessageCount <= messageCount);
+}
+
+function cancelledAssistantMessageIds(
+  messages: UIMessage[],
+  dividers: SessionTranscriptDivider[] | undefined,
+) {
+  const ids = new Set<string>();
+  for (const divider of dividers ?? []) {
+    if (divider.variant !== "cancelled") continue;
+    const precedingMessages = messages.slice(
+      0,
+      Math.min(messages.length, divider.afterMessageCount),
+    );
+    const assistantMessage = precedingMessages.findLast(
+      (message) => message.role === "assistant",
+    );
+    if (assistantMessage) ids.add(assistantMessage.id);
+  }
+  return ids;
+}
+
+export function isInternalAssistantNarration(text: string): boolean {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  return /^(?:the user(?: wants|['’]s| is| said| has| just| seems)|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will| need to)|now,? i(?:'ll| will| need to)|next,? i(?:'ll| will| need to))/i.test(
+    normalized,
+  );
+}
 
 /**
  * Stable-key used to match a block across renders. For message blocks the
@@ -190,6 +305,12 @@ function blockIdentityKey(block: MessageBlockItem): string {
   if (block.kind === "divider") return `divider:${block.id}`;
   if (block.kind === "steps-cluster") return `cluster:${block.id}`;
   return `msg:${block.messageId}`;
+}
+
+function messageIdsForBlock(block: MessageBlockItem) {
+  if (block.kind === "divider") return [];
+  if (block.kind === "steps-cluster") return block.messageIds;
+  return [...(block.leadingStepMessageIds ?? []), block.messageId];
 }
 
 /**
@@ -221,6 +342,7 @@ function blocksAreEquivalent(
     return (
       previous.id === next.id &&
       previous.label === next.label &&
+      previous.variant === next.variant &&
       previous.afterMessageCount === next.afterMessageCount
     );
   }
@@ -307,13 +429,10 @@ type SessionTranscriptProps = {
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
   /**
-   * When set, renders this identity (avatar + name) on the leading edge of
-   * every assistant message block. Used when the session was started from a
-   * custom agent card so the user can see the agent identity in the chat.
+   * When set, renders this identity once at the start of each visible
+   * assistant turn. The root transcript always supplies the active identity.
    */
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
-  userIdentity?: { name: string };
-
 };
 
 // 500 was too high for real-world OnMyAgent sessions: a handful of giant
@@ -377,6 +496,12 @@ function estimateBlockSize(block: MessageBlockItem | undefined) {
   );
 }
 
+function estimateRenderItemSize(item: TranscriptRenderItem<MessageBlockItem> | undefined) {
+  if (!item) return 360;
+  if (item.kind === "divider") return estimateBlockSize(item.block);
+  return item.blocks.reduce((total, block) => total + estimateBlockSize(block), 0);
+}
+
 function partIdFromUiPart(part: UIMessage["parts"][number], fallbackId: string) {
   const metadata = (part as { providerMetadata?: { opencode?: { partId?: unknown } } })
     .providerMetadata?.opencode;
@@ -428,8 +553,15 @@ function toLegacyPart(
 
   const toolPart = toDynamicToolPart(part);
   if (toolPart) {
+    const opencodeMetadata = isRecordValue(toolPart.callProviderMetadata?.opencode)
+      ? toolPart.callProviderMetadata.opencode
+      : null;
+    const toolMetadata = isRecordValue(opencodeMetadata?.toolMetadata)
+      ? opencodeMetadata.toolMetadata
+      : null;
     const state: Record<string, unknown> = {
       input: toolPart.input,
+      ...(toolMetadata ? { metadata: toolMetadata } : {}),
     };
 
     if (toolPart.state === "output-available") {
@@ -533,32 +665,6 @@ function humanMediaType(raw: string) {
   return short.toUpperCase();
 }
 
-function cleanReasoningPreview(value: string) {
-  const cleaned = value
-    .replace(/\[REDACTED\]/g, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\s+\n/g, "\n")
-    .trim();
-
-  return cleaned
-    .replace(/^(?:thinking|reasoning)\s*(?::|-|–|—)\s*/i, "")
-    .replace(/^(?:thinking|reasoning)\s*\r?\n+/i, "")
-    .trim();
-}
-
-function splitReasoningPreview(value: string) {
-  const clean = cleanReasoningPreview(value);
-  if (!clean) return { headline: "", body: "" };
-  const lines = clean.split(/\r?\n/).flatMap((line) => {
-    const trimmed = line.trim();
-    return trimmed ? [trimmed] : [];
-  });
-  if (lines.length <= 1) return { headline: "", body: clean };
-  return { headline: lines[0] ?? "", body: lines.slice(1).join("\n") };
-}
-
 function formatStructuredValue(value: unknown) {
   if (value === undefined || value === null) return "";
   if (typeof value === "string") return value.trim();
@@ -569,15 +675,15 @@ function formatStructuredValue(value: unknown) {
   }
 }
 
-function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function hasStructuredValue(value: unknown) {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;
-  if (isRecordStringUnknown(value)) {
+  if (isRecordValue(value)) {
     return Object.keys(value).length > 0;
   }
   return true;
@@ -605,7 +711,7 @@ function toolStatusText(status?: string) {
   if (!status) return null;
   const normalized = status.toLowerCase();
   if (normalized.includes("approval") || normalized.includes("pending")) return t("session.status_awaiting_approval");
-  if (normalized.includes("running") || normalized.includes("progress")) return "In progress";
+  if (normalized.includes("running") || normalized.includes("progress")) return t("session.status_in_progress");
   if (normalized.includes("error") || normalized.includes("failed")) return t("session.status_failed");
   return null;
 }
@@ -622,6 +728,38 @@ function isRunningStepStatus(status?: string) {
 }
 
 export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClusterSummary {
+  const toolParts = stepGroups.flatMap((group) =>
+    group.parts.filter((part) => part.type === "tool"),
+  );
+  if (toolParts.length === 1) {
+    const toolPart = toolParts[0];
+    const summary = summarizeStep(toolPart);
+    const toolState = recordValue(toolPart.state);
+    const presentation = buildTranscriptToolPresentation({
+      toolName: toolPart.tool,
+      toolInput: recordValue(toolState?.input) ?? undefined,
+      toolOutput: toolState?.output,
+      toolMetadata: recordValue(toolState?.metadata) ?? undefined,
+    });
+    const category = summary.toolCategory === "terminal"
+      ? "terminal"
+      : summary.toolCategory === "search"
+        ? "search"
+        : summary.toolCategory === "edit" || summary.toolCategory === "write"
+          ? "edit"
+          : summary.toolCategory === "read" || summary.toolCategory === "glob"
+            ? "read"
+            : "tool";
+    return {
+      category,
+      label: presentation.details
+        ? specializedToolHeadline(
+            presentation.details,
+            isRunningStepStatus(summary.status),
+          )
+        : summary.title,
+    };
+  }
   const counts = {
     read: 0,
     edit: 0,
@@ -631,10 +769,12 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
   };
   let editing = false;
   let processing = false;
+  let running = false;
 
   for (const group of stepGroups) {
     for (const part of group.parts) {
       const summary = summarizeStep(part);
+      running = running || isRunningStepStatus(summary.status);
       if (summary.toolCategory === "edit" || summary.toolCategory === "write") {
         counts.edit += 1;
         editing = editing || isRunningStepStatus(summary.status);
@@ -649,6 +789,27 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
         processing = processing || isRunningStepStatus(summary.status);
       }
     }
+  }
+
+  const populatedCategoryCount = [
+    counts.read,
+    counts.edit,
+    counts.terminal,
+    counts.search,
+    counts.other,
+  ].filter((count) => count > 0).length;
+  const totalCount =
+    counts.read + counts.edit + counts.terminal + counts.search + counts.other;
+  if (populatedCategoryCount > 1) {
+    return {
+      category: "tool",
+      label: t(
+        running
+          ? "session.process_summary_processing_items"
+          : "session.process_summary_processed_items",
+        { count: totalCount },
+      ),
+    };
   }
 
   if (counts.edit > 0) {
@@ -684,7 +845,11 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
 export function canMergeStepClusters(previous: MessageBlockItem | undefined, next: StepClusterBlock) {
   if (!previous || previous.kind !== "steps-cluster") return false;
   if (previous.isUser !== next.isUser) return false;
-  return summarizeStepCluster(previous.stepGroups).category === summarizeStepCluster(next.stepGroups).category;
+  return true;
+}
+
+export function shouldFoldStepGroups(stepGroups: StepTimelineGroup[]) {
+  return stepGroups.some((group) => group.parts.length > 0);
 }
 
 export function mergeLeadingAssistantStepClusters(blocks: MessageBlockItem[]) {
@@ -732,17 +897,504 @@ function CopyButton(props: { getText: () => string }) {
   return (
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon-xs"
       title={t("session.copy_message")}
       aria-label={t("session.copy_message")}
       onClick={async () => {
         await navigator.clipboard.writeText(props.getText());
         setCopied(true);
-        window.setTimeout(() => setCopied(false), 1200);
+        window.setTimeout(() => setCopied(false), 2_000);
       }}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </Button>
+  );
+}
+
+function TranscriptSpeechButton(props: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  const speechAvailable = typeof window !== "undefined" && "speechSynthesis" in window;
+  if (!speechAvailable || !props.text.trim()) return null;
+
+  const toggleSpeech = () => {
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(props.text);
+    utterance.lang = currentLocale();
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      title={speaking
+        ? t("session.transcript_stop_reading")
+        : t("session.transcript_read_aloud")}
+      aria-label={speaking
+        ? t("session.transcript_stop_reading")
+        : t("session.transcript_read_aloud")}
+      aria-pressed={speaking}
+      onClick={toggleSpeech}
+    >
+      {speaking ? <Square size={16} /> : <Volume2 size={16} />}
+    </Button>
+  );
+}
+
+function TranscriptShareButton(props: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!props.text.trim()) return null;
+
+  const share = async () => {
+    if (navigator.share) {
+      await navigator.share({ text: props.text }).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard.writeText(props.text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2_000);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      title={t("session.transcript_share")}
+      aria-label={t("session.transcript_share")}
+      onClick={() => void share()}
+    >
+      {copied ? <Check size={16} /> : <Share2 size={16} />}
+    </Button>
+  );
+}
+
+export type TranscriptFeedbackValue = "like" | "dislike";
+
+const TRANSCRIPT_FEEDBACK_STORAGE_KEY = "onmyagent.transcriptFeedbackState.v1";
+
+const TRANSCRIPT_DISLIKE_REASONS = [
+  "misunderstanding",
+  "context_error",
+  "answer_obscure",
+  "code_error",
+  "unprofessional_answer",
+  "code_format_error",
+  "other",
+] as const;
+
+function isTranscriptFeedbackValue(value: unknown): value is TranscriptFeedbackValue {
+  return value === "like" || value === "dislike";
+}
+
+function readTranscriptFeedbackState(): Record<string, TranscriptFeedbackValue> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(TRANSCRIPT_FEEDBACK_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, TranscriptFeedbackValue] =>
+        isTranscriptFeedbackValue(entry[1]),
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function persistTranscriptFeedbackState(state: Record<string, TranscriptFeedbackValue>) {
+  try {
+    window.localStorage.setItem(TRANSCRIPT_FEEDBACK_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Feedback remains usable for this render when storage is unavailable.
+  }
+}
+
+export function toggleTranscriptFeedback(
+  state: Record<string, TranscriptFeedbackValue>,
+  messageId: string,
+  value: TranscriptFeedbackValue,
+) {
+  if (state[messageId] === value) {
+    const next = { ...state };
+    delete next[messageId];
+    return next;
+  }
+  return { ...state, [messageId]: value };
+}
+
+function TranscriptFeedbackControls(props: { messageId: string }) {
+  const [feedback, setFeedback] = useState(readTranscriptFeedbackState);
+  const [dislikeOpen, setDislikeOpen] = useState(false);
+  const [selectedReasons, setSelectedReasons] = useState<Set<string>>(() => new Set());
+  const [otherReason, setOtherReason] = useState("");
+  const current = feedback[props.messageId];
+
+  const commit = (value: TranscriptFeedbackValue) => {
+    setFeedback((state) => {
+      const next = toggleTranscriptFeedback(state, props.messageId, value);
+      persistTranscriptFeedbackState(next);
+      return next;
+    });
+  };
+
+  const toggleReason = (reason: string, checked: boolean) => {
+    setSelectedReasons((currentReasons) => {
+      const next = new Set(currentReasons);
+      if (checked) next.add(reason);
+      else next.delete(reason);
+      return next;
+    });
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className={cn(current === "like" && "bg-dls-accent/10 text-dls-accent")}
+        aria-pressed={current === "like"}
+        title={t("session.transcript_like")}
+        aria-label={t("session.transcript_like")}
+        onClick={() => commit("like")}
+      >
+        <ThumbsUp size={14} />
+      </Button>
+      <Popover open={dislikeOpen} onOpenChange={setDislikeOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className={cn(current === "dislike" && "bg-dls-accent/10 text-dls-accent")}
+              aria-pressed={current === "dislike"}
+              title={t("session.transcript_dislike")}
+              aria-label={t("session.transcript_dislike")}
+            >
+              <ThumbsDown size={14} />
+            </Button>
+          }
+        />
+        <PopoverContent align="start" side="bottom" className="w-80 gap-3 p-3">
+          <div className="text-sm font-medium text-dls-text">
+            {t("session.transcript_dislike_title")}
+          </div>
+          <div className="grid gap-2">
+            {TRANSCRIPT_DISLIKE_REASONS.map((reason) => (
+              <label key={reason} className="flex cursor-pointer items-center gap-2 text-xs text-dls-text">
+                <Checkbox
+                  checked={selectedReasons.has(reason)}
+                  onCheckedChange={(checked) => toggleReason(reason, checked === true)}
+                />
+                <span>{t(`session.transcript_dislike_${reason}`)}</span>
+              </label>
+            ))}
+          </div>
+          {selectedReasons.has("other") ? (
+            <div className="space-y-1">
+              <Textarea
+                value={otherReason}
+                maxLength={200}
+                rows={3}
+                className="min-h-20 text-sm"
+                placeholder={t("session.transcript_dislike_other_placeholder")}
+                onChange={(event) => setOtherReason(event.currentTarget.value)}
+              />
+              <div className="text-right text-[11px] text-dls-secondary">
+                {otherReason.length}/200
+              </div>
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="xs" onClick={() => setDislikeOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="xs"
+              disabled={selectedReasons.size === 0}
+              onClick={() => {
+                commit("dislike");
+                setDislikeOpen(false);
+              }}
+            >
+              {t("session.transcript_feedback_submit")}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
+
+function TranscriptMoreMenu(props: {
+  requestId: string;
+  actionMessageId: string | null;
+  onForkAtMessage?: (messageId: string) => void;
+}) {
+  const platform = usePlatform();
+  const onForkAtMessage = props.onForkAtMessage;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            title={t("session.transcript_more")}
+            aria-label={t("session.transcript_more")}
+          >
+            <MoreHorizontal size={14} />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="start" className="w-52">
+        {props.actionMessageId && onForkAtMessage ? (
+          <DropdownMenuItem onClick={() => onForkAtMessage(props.actionMessageId ?? "")}>
+            <GitFork />
+            {t("session.fork_message")}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          onClick={() => platform.openLink(buildFeedbackUrl({ entrypoint: "transcript-message" }))}
+        >
+          <MessageSquareWarning />
+          {t("session.support_feedback")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(props.requestId)}>
+          <Copy />
+          {t("session.transcript_copy_request_id")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function transcriptTurnStatusLabel(state: TranscriptTurnPresentation["state"]) {
+  switch (state) {
+    case "pending":
+      return null;
+    case "streaming":
+      return t("session.status_running");
+    case "awaiting-approval":
+      return t("session.status_awaiting_approval");
+    case "completed":
+      return t("session.status_completed");
+    case "cancelled":
+      return t("session.user_cancelled");
+    case "failed":
+      return t("session.status_failed");
+  }
+}
+
+function TranscriptTurnStatus(props: {
+  presentation: TranscriptBlockTurnPresentation;
+  detailsExpanded: boolean;
+  onDetailsExpandedChange: (expanded: boolean) => void;
+}) {
+  if (
+    props.presentation.state !== "completed" ||
+    !props.presentation.hasExecutionDetails
+  ) return null;
+  const status = transcriptTurnStatusLabel(props.presentation.state);
+  if (!status) return null;
+  const duration = props.presentation.durationMs === null
+    ? null
+    : formatTranscriptDuration(props.presentation.durationMs);
+  const content = (
+    <>
+      <span>
+        {status}{duration ? ` ${duration}` : ""}
+      </span>
+      <ChevronDown
+        size={12}
+        className={cn(
+          "transition-transform",
+          !props.detailsExpanded && "-rotate-90",
+        )}
+      />
+    </>
+  );
+
+  return (
+    <button
+      type="button"
+      className="session-transcript-turn-status session-transcript-turn-status-button"
+      aria-expanded={props.detailsExpanded}
+      onClick={() => props.onDetailsExpandedChange(!props.detailsExpanded)}
+    >
+      {content}
+    </button>
+  );
+}
+
+function TranscriptAssistantHeader(props: {
+  assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
+  showAssistantAvatar: boolean;
+  presentation?: TranscriptBlockTurnPresentation;
+  detailsExpanded: boolean;
+  onDetailsExpandedChange: (expanded: boolean) => void;
+}) {
+  const showStatus =
+    props.presentation?.isFirstAssistantBlock === true &&
+    props.presentation.state === "completed" &&
+    props.presentation.hasExecutionDetails &&
+    props.presentation.copyText.trim().length > 0;
+  if (!props.showAssistantAvatar && !showStatus) return null;
+
+  return (
+    <div className="session-transcript-assistant-header">
+      {props.showAssistantAvatar && props.assistantAvatar ? (
+        <div className="session-transcript-assistant-identity">
+          <AssistantAvatar
+            name={props.assistantAvatar.name}
+            avatarUrl={props.assistantAvatar.avatarUrl}
+            avatarBackground={props.assistantAvatar.avatarBackground}
+          />
+          <span className={messageTextClass.avatarLabel}>
+            {props.assistantAvatar.name}
+          </span>
+        </div>
+      ) : null}
+      {showStatus && props.presentation ? (
+        <TranscriptTurnStatus
+          presentation={props.presentation}
+          detailsExpanded={props.detailsExpanded}
+          onDetailsExpandedChange={props.onDetailsExpandedChange}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function TranscriptCancelledIndicator(props: {
+  presentation?: TranscriptBlockTurnPresentation;
+}) {
+  if (
+    props.presentation?.state !== "cancelled" ||
+    !props.presentation.isActionBlock
+  ) {
+    return null;
+  }
+  return (
+    <div
+      data-cancelled-indicator="true"
+      className="max-w-[760px] text-sm leading-6 text-dls-secondary"
+    >
+      {t("session.user_cancelled")}
+    </div>
+  );
+}
+
+function TranscriptTurnActions(props: {
+  presentation: TranscriptBlockTurnPresentation;
+  onForkAtMessage?: (messageId: string) => void;
+}) {
+  if (
+    !props.presentation.isActionBlock ||
+    props.presentation.state === "pending" ||
+    props.presentation.state === "streaming" ||
+    props.presentation.state === "awaiting-approval"
+  ) {
+    return null;
+  }
+
+  const actionMessageId = props.presentation.actionMessageId;
+  const inputTokens = formatCompactTokenCount(props.presentation.inputTokens);
+  const cacheTokens = formatCompactTokenCount(props.presentation.cacheTokens);
+  const outputTokens = formatCompactTokenCount(props.presentation.outputTokens);
+  const timestamp = formatTranscriptMessageTime(props.presentation.timestamp, {
+    locale: currentLocale(),
+    now: new Date(),
+    yesterdayLabel: t("session.transcript_yesterday"),
+  });
+  const model = props.presentation.modelId;
+
+  return (
+    <div className="session-transcript-turn-actions">
+      {props.presentation.copyText ? (
+        <CopyButton getText={() => props.presentation.copyText} />
+      ) : null}
+      {actionMessageId ? <TranscriptFeedbackControls messageId={actionMessageId} /> : null}
+      {props.presentation.copyText ? (
+        <TranscriptSpeechButton text={props.presentation.copyText} />
+      ) : null}
+      {props.presentation.copyText ? (
+        <TranscriptShareButton text={props.presentation.copyText} />
+      ) : null}
+      <TranscriptMoreMenu
+        requestId={props.presentation.requestId}
+        actionMessageId={actionMessageId}
+        onForkAtMessage={props.onForkAtMessage}
+      />
+      {inputTokens && cacheTokens && outputTokens ? (
+        <span
+          aria-label={t("session.transcript_token_usage_label", {
+            input: inputTokens,
+            cache: cacheTokens,
+            output: outputTokens,
+          })}
+        >
+          {t("session.transcript_token_usage", {
+            input: inputTokens,
+            cache: cacheTokens,
+            output: outputTokens,
+          })}
+        </span>
+      ) : null}
+      {model ? <span>{model}</span> : null}
+      {timestamp ? <span>{timestamp}</span> : null}
+    </div>
+  );
+}
+
+function TranscriptUserToolbar(props: {
+  message: UIMessage;
+  onRevertToMessage?: (messageId: string) => void;
+}) {
+  const metadata = readTranscriptMessageMetadata(props.message.metadata);
+  const timestamp = formatTranscriptMessageTime(metadata.created, {
+    locale: currentLocale(),
+    now: new Date(),
+    yesterdayLabel: t("session.transcript_yesterday"),
+  });
+  const onRevertToMessage = props.onRevertToMessage;
+
+  return (
+    <div className="session-transcript-user-toolbar">
+      <CopyButton getText={() => messageToText(props.message)} />
+      {onRevertToMessage ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title={t("session.transcript_revert_here")}
+          aria-label={t("session.transcript_revert_here")}
+          onClick={() => onRevertToMessage(props.message.id)}
+        >
+          <RotateCcw size={14} />
+        </Button>
+      ) : null}
+      {timestamp ? <span>{timestamp}</span> : null}
+    </div>
   );
 }
 
@@ -874,7 +1526,10 @@ function FileCard(props: {
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isDataUrl = props.part.url?.startsWith("data:");
-  const title = props.part.filename || (isDataUrl ? "Attached file" : props.part.url) || "File";
+  const title =
+    props.part.filename ||
+    (isDataUrl ? t("session.attached_file") : props.part.url) ||
+    t("session.file");
   const ext = props.part.filename?.split(".").pop()?.toLowerCase();
   const badge = humanMediaType(props.part.mediaType) ?? (ext ? ext.toUpperCase() : null);
   const isImage = isImageAttachment(props.part.mediaType ?? "");
@@ -968,41 +1623,230 @@ function FileCard(props: {
   );
 }
 
+function TranscriptReasoning(props: {
+  text: string;
+  complete: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef(true);
+  const trustedScrollRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || collapsed || props.complete || !autoScrollRef.current) return;
+    const nextScrollTop = Math.max(0, content.scrollHeight - content.clientHeight);
+    if (Math.abs(content.scrollTop - nextScrollTop) <= 1) {
+      trustedScrollRef.current = false;
+      lastScrollTopRef.current = content.scrollTop;
+      return;
+    }
+    trustedScrollRef.current = true;
+    content.scrollTo({ top: nextScrollTop, behavior: "auto" });
+  }, [collapsed, props.complete, props.text]);
+
+  const handleScroll = (event: UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const currentScrollTop = target.scrollTop;
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (trustedScrollRef.current) {
+      trustedScrollRef.current = false;
+      lastScrollTopRef.current = currentScrollTop;
+      return;
+    }
+    const scrollingUp = currentScrollTop < lastScrollTopRef.current;
+    if (!scrollingUp && Math.abs(distanceFromBottom) < 10) {
+      autoScrollRef.current = true;
+    } else if (scrollingUp && distanceFromBottom > 20) {
+      autoScrollRef.current = false;
+    }
+    lastScrollTopRef.current = currentScrollTop;
+  };
+
+  return (
+    <section
+      data-reasoning="true"
+      data-reasoning-state={props.complete ? "complete" : "streaming"}
+      className="flex max-w-[760px] flex-col gap-0.5 py-0.5 text-dls-secondary"
+    >
+      <DisclosureRowButton
+        type="button"
+        density="flush"
+        aria-expanded={!collapsed}
+        className="gap-1 text-sm leading-6 text-dls-secondary hover:bg-transparent hover:text-dls-text"
+        onClick={() => setCollapsed((current) => !current)}
+      >
+        <MessageRolePrefix role="thinking" />
+        <span className={cn(!props.complete && "session-transcript-loading-shimmer")}>
+          {t("session.reasoning")}
+        </span>
+        {props.complete ? (
+          <ChevronDown
+            size={12}
+            className={cn(
+              "transition-transform",
+              collapsed && "-rotate-90 opacity-0 group-hover:opacity-100",
+            )}
+          />
+        ) : null}
+      </DisclosureRowButton>
+      <MessageRoleRow
+        role="thinking"
+        ref={contentRef}
+        hidden={collapsed}
+        data-scrollable="true"
+        onScroll={handleScroll}
+        className="max-h-[200px] overflow-x-hidden overflow-y-auto rounded-none bg-transparent py-0.5 pl-3 pr-1 text-dls-text not-italic"
+      >
+        <MarkdownBlock
+          text={props.text}
+          streaming={!props.complete}
+          showStreamingCursor={false}
+          locale={currentLocale()}
+        />
+      </MessageRoleRow>
+    </section>
+  );
+}
+
 function StepRow(props: {
   id: string;
   part: TranscriptPart;
   expanded: boolean;
   onToggle: () => void;
+  onOpenCodePath?: (path: string) => void;
+  isStreamingReasoning: boolean;
 }) {
+  const platform = usePlatform();
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
   const toolState = useMemo<Record<string, unknown>>(() => {
-    if (props.part.type !== "tool") return {};
-    if (!isRecordStringUnknown(props.part)) return {};
-    const state = props.part.state;
-    return isRecordStringUnknown(state) ? state : {};
+    if (props.part.type !== "tool" || !("state" in props.part)) return {};
+    return isRecordValue(props.part.state) ? props.part.state : {};
   }, [props.part]);
-  const toolInput = isRecordStringUnknown(toolState.input) ? toolState.input : undefined;
+  const toolInput = isRecordValue(toolState.input) ? toolState.input : undefined;
   const toolOutput = toolState.output;
+  const toolMetadata = isRecordValue(toolState.metadata) ? toolState.metadata : undefined;
   const toolError = typeof toolState.error === "string" ? toolState.error : null;
+  const toolPresentation = props.part.type === "tool"
+    ? buildTranscriptToolPresentation({
+        toolName: props.part.tool,
+        toolInput,
+        toolOutput,
+        toolMetadata,
+      })
+    : null;
+  const specializedDetails = toolPresentation?.details ?? null;
   const expandable =
     props.part.type === "tool" &&
-    (hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
-  const headline = summary.title?.trim() || "Step updates progress";
+    toolPresentation?.family !== "read" &&
+    (specializedDetails
+      ? specializedToolCanExpand(specializedDetails) || Boolean(toolError)
+      : hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
+  const headline = specializedDetails
+    ? specializedToolHeadline(specializedDetails, isRunningStepStatus(summary.status))
+    : summary.title?.trim() || t("session.step_progress");
   const statusText = toolStatusText(summary.status);
+  const questionAnswers =
+    props.part.type === "tool" && props.part.tool.toLowerCase() === "question"
+      ? normalizeTranscriptQuestionAnswers(toolInput, toolOutput)
+      : [];
 
-  if (props.part.type === "reasoning" && isRecordStringUnknown(props.part)) {
-    const raw = typeof props.part.text === "string" ? props.part.text : "";
-    const preview = splitReasoningPreview(raw);
-    if (!preview.headline && !preview.body) return null;
-
+  if (questionAnswers.length > 0) {
     return (
-      <div
-        data-reasoning="true"
-        className={`whitespace-pre-wrap ${messageTextClass.bodyMuted}`}
-      >
-        <div className="max-w-[760px]">
-          {preview.headline ? <div className="mb-2 text-muted-foreground">{preview.headline}</div> : null}
-          <div>{preview.body || headline}</div>
+      <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-sm">
+        <div className="mb-3 flex items-center gap-2 font-medium text-dls-text">
+          <HelpCircle className="size-4 text-dls-accent" />
+          <span>{t("session.question_answered")}</span>
+        </div>
+        <div className="space-y-3">
+          {questionAnswers.map((item, index) => (
+            <div key={`${item.question}:${index}`} className="space-y-1">
+              <div className="text-xs text-dls-secondary">
+                {item.header || t("common.question")}
+              </div>
+              <div className="leading-5 text-dls-text">{item.question}</div>
+              <div className="flex flex-wrap items-center gap-1.5 text-sm leading-5">
+                <span className="text-dls-secondary">{t("session.question_answer")}</span>
+                {item.answers.map((answer) => (
+                  <StatusBadge key={answer} size="tiny" shape="soft">
+                    {answer}
+                  </StatusBadge>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (specializedDetails?.kind === "image-gen") {
+    return (
+      <ImageGenerationToolCard
+        details={specializedDetails}
+        running={isRunningStepStatus(summary.status)}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+      />
+    );
+  }
+
+  if (props.part.type === "reasoning") {
+    if (!props.part.text.trim()) return null;
+    return (
+      <TranscriptReasoning
+        text={props.part.text}
+        complete={!props.isStreamingReasoning}
+      />
+    );
+  }
+
+  if (
+    specializedDetails?.kind === "compact-tool" &&
+    specializedDetails.variant === "preview-url" &&
+    specializedDetails.summary
+  ) {
+    return (
+      <div className={messageTextClass.body}>
+        <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
+          <ToolActivityIcon category={summary.toolCategory} />
+          <span>{headline}</span>
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            className="h-auto min-w-0 justify-start p-0 font-normal"
+            title={specializedDetails.summary}
+            onClick={() => platform.openLink(specializedDetails.summary ?? "")}
+          >
+            <span className="truncate">{specializedDetails.summary}</span>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (specializedDetails?.kind === "open-result" && specializedDetails.target) {
+    return (
+      <div className={messageTextClass.body}>
+        <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
+          <ToolActivityIcon category={summary.toolCategory} />
+          <span>{headline}</span>
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            className="h-auto min-w-0 justify-start p-0 font-mono font-normal"
+            title={specializedDetails.target}
+            onClick={() => {
+              if (props.onOpenCodePath) props.onOpenCodePath(specializedDetails.target);
+              else void openDesktopPath(specializedDetails.target);
+            }}
+          >
+            <span className="truncate">{specializedDetails.target}</span>
+          </Button>
+          <StatusBadge size="tiny" shape="soft">{specializedDetails.viewType}</StatusBadge>
         </div>
       </div>
     );
@@ -1021,9 +1865,34 @@ function StepRow(props: {
           props.onToggle();
         }}
       >
-        <span className="inline-flex max-w-[760px] items-center gap-3">
+        <span className="inline-flex min-w-0 max-w-[760px] items-center gap-3">
           <ToolActivityIcon category={summary.toolCategory} />
-          <span className="min-w-0 wrap-break-word">{headline}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block wrap-break-word">{headline}</span>
+            {toolPresentation?.secondary ? (
+              <span
+                className="mt-0.5 block truncate font-mono text-xs text-dls-secondary"
+                title={toolPresentation.secondary}
+              >
+                {toolPresentation.secondary}
+              </span>
+            ) : null}
+          </span>
+          {toolPresentation?.lineRange ? (
+            <StatusBadge size="tiny" shape="soft">
+              {toolPresentation.lineRange}
+            </StatusBadge>
+          ) : null}
+          {toolPresentation && toolPresentation.addedLines > 0 ? (
+            <span className="text-xs text-dls-status-success-fg">
+              +{toolPresentation.addedLines}
+            </span>
+          ) : null}
+          {toolPresentation && toolPresentation.removedLines > 0 ? (
+            <span className="text-xs text-dls-status-danger-fg">
+              -{toolPresentation.removedLines}
+            </span>
+          ) : null}
           {expandable ? (
             <ChevronDown
               size={14}
@@ -1038,17 +1907,26 @@ function StepRow(props: {
       {statusText ? <div className={messageTextClass.toolStatus}>{statusText}</div> : null}
       {props.expanded ? (
         <div className="mt-3 ml-7 space-y-3">
-          {hasStructuredValue(toolInput) ? (
+          {specializedDetails ? (
+            <SpecializedToolDetails
+              details={specializedDetails}
+              onOpenCodePath={props.onOpenCodePath}
+            />
+          ) : null}
+          {!specializedDetails && hasStructuredValue(toolInput) && (
+            toolPresentation?.family === "generic" ||
+            toolPresentation?.family === "write"
+          ) ? (
             <div>
-              <div className={messageTextClass.toolLabel}>Request</div>
+              <div className={messageTextClass.toolLabel}>{t("session.tool_request")}</div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
                 {formatStructuredValue(toolInput)}
               </pre>
             </div>
           ) : null}
-          {hasStructuredValue(toolOutput) ? (
+          {!specializedDetails && hasStructuredValue(toolOutput) ? (
             <div>
-              <div className={messageTextClass.toolLabel}>Result</div>
+              <div className={messageTextClass.toolLabel}>{t("session.tool_result")}</div>
               <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
                 {formatStructuredValue(toolOutput)}
               </pre>
@@ -1056,7 +1934,7 @@ function StepRow(props: {
           ) : null}
           {toolError ? (
             <div>
-              <div className={messageTextClass.toolLabel}>Error</div>
+              <div className={messageTextClass.toolLabel}>{t("session.tool_error")}</div>
               <pre className={messageStateClass.toolError}>
                 {toolError}
               </pre>
@@ -1068,6 +1946,222 @@ function StepRow(props: {
   );
 }
 
+function processItemToLegacyPart(item: TurnProcessItem) {
+  return toLegacyPart(item.part, `${item.messageId}:${item.partIndex}`);
+}
+
+function processPlanDetails(items: TurnProcessItem[]) {
+  for (const item of items) {
+    const part = processItemToLegacyPart(item);
+    if (!part || part.type !== "tool") continue;
+    const state = recordValue(part.state);
+    const presentation = buildTranscriptToolPresentation({
+      toolName: part.tool,
+      toolInput: recordValue(state?.input) ?? undefined,
+      toolOutput: state?.output,
+      toolMetadata: recordValue(state?.metadata) ?? undefined,
+    });
+    if (presentation.details?.kind === "plan") return presentation.details;
+  }
+  return null;
+}
+
+function processFoldLabel(items: TurnProcessItem[]) {
+  if (processPlanDetails(items)) return t("session.workbuddy_task_list");
+  const legacyParts = items.flatMap((item) => {
+    const part = processItemToLegacyPart(item);
+    return part ? [part] : [];
+  });
+  if (legacyParts.length > 0 && legacyParts.every((part) => part.type === "reasoning")) {
+    return t("session.process_summary_deep_thinking");
+  }
+  const toolNames = legacyParts.flatMap((part) => (
+    part.type === "tool" ? [part.tool.toLowerCase()] : []
+  ));
+  if (toolNames.some((name) => (
+    name.includes("search") || name.includes("fetch") || name.includes("browser") || name.includes("web")
+  ))) {
+    return t("session.process_summary_collecting_sources");
+  }
+  const terminalCount = toolNames.filter((name) => (
+    name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
+  )).length;
+  if (terminalCount > 0) {
+    return t("session.process_summary_ran_commands", { count: terminalCount });
+  }
+  const editCount = toolNames.filter((name) => (
+    name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
+  )).length;
+  if (editCount > 0) return t("session.process_summary_edited", { count: editCount });
+  const readCount = toolNames.filter((name) => (
+    name.includes("read") || name.includes("glob") || name.includes("list")
+  )).length;
+  if (readCount > 0) return t("session.process_summary_reviewed_files", { count: readCount });
+  if (legacyParts.length > 0) {
+    const summary = summarizeStepCluster([{
+      id: `turn-process:${items[0]?.messageId ?? "unknown"}`,
+      parts: legacyParts,
+      mode: "standalone",
+    }]);
+    if (summary.category !== "tool") return summary.label;
+  }
+  return t("session.process_summary_continue_processing");
+}
+
+function WorkBuddyTaskList(props: {
+  todos: TranscriptTodoItem[];
+  running: boolean;
+}) {
+  const [displayRunning, setDisplayRunning] = useState(() => props.running);
+  const [expanded, setExpanded] = useState(() => props.running);
+  const previousRunningRef = useRef(props.running);
+  const taskHistoryRef = useRef<Map<number, string>>(new Map());
+  useEffect(() => {
+    if (props.running) {
+      setDisplayRunning(true);
+      return;
+    }
+    const timeout = window.setTimeout(() => setDisplayRunning(false), 1_000);
+    return () => window.clearTimeout(timeout);
+  }, [props.running]);
+  useEffect(() => {
+    const wasRunning = previousRunningRef.current;
+    previousRunningRef.current = displayRunning;
+    if (!wasRunning && displayRunning) setExpanded(true);
+    if (wasRunning && !displayRunning) setExpanded(false);
+  }, [displayRunning]);
+
+  const todos = props.todos.map((todo, index) => {
+    const content = (
+      todo.status === "in_progress" && todo.activeForm
+        ? todo.activeForm
+        : todo.content
+    ).trim();
+    if (content) taskHistoryRef.current.set(index, content);
+    return { ...todo, content: content || taskHistoryRef.current.get(index) || `Task ${index + 1}` };
+  });
+
+  return (
+    <div className="session-workbuddy-task-list" data-workbuddy-task-list="true">
+      <button
+        type="button"
+        className="session-workbuddy-task-header"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <Terminal aria-hidden="true" />
+        <span>{t("session.workbuddy_task_list")}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("session-workbuddy-task-chevron", expanded && "is-expanded")}
+        />
+      </button>
+      {expanded && todos.length > 0 ? (
+        <div className="session-workbuddy-task-detail">
+          {todos.map((todo, index) => (
+            <div
+              key={`task-${index}`}
+              className={cn(
+                "session-workbuddy-task-item",
+                todo.status === "in_progress" && "is-running",
+                todo.status === "completed" && "is-completed",
+              )}
+            >
+              <span className="session-workbuddy-task-icon" aria-hidden="true">
+                {todo.status === "completed" ? <Check /> : null}
+                {todo.status === "in_progress" ? <LoadingSpinner /> : null}
+                {todo.status === "cancelled" ? <CircleAlert /> : null}
+                {todo.status === "pending" ? <span className="session-workbuddy-task-pending" /> : null}
+              </span>
+              <span className="session-workbuddy-task-text">{todo.content}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkBuddyProcessFold(props: {
+  id: string;
+  items: TurnProcessItem[];
+  running: boolean;
+  expandedStepIds: Set<string>;
+  onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
+  onOpenCodePath?: (path: string) => void;
+}) {
+  const plan = processPlanDetails(props.items);
+  const [expanded, setExpanded] = useState(false);
+  if (plan) return <WorkBuddyTaskList todos={plan.todos} running={props.running} />;
+
+  const toggleStep = (id: string) => {
+    props.onExpandedStepIdsChange((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <section className={cn("session-workbuddy-process-fold", expanded && "is-expanded")}>
+      <button
+        type="button"
+        className="session-workbuddy-process-head"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span>{processFoldLabel(props.items)}</span>
+        <ChevronDown aria-hidden="true" className="session-workbuddy-process-arrow" />
+      </button>
+      {expanded ? (
+        <div className="session-workbuddy-process-body" data-scrollable="true">
+          {props.items.map((item) => {
+            const key = `${item.messageId}:${item.partIndex}`;
+            if (item.part.type === "reasoning") {
+              if (!item.part.text.trim()) return null;
+              return (
+                <MarkdownBlock
+                  key={key}
+                  text={item.part.text}
+                  streaming={props.running}
+                  showStreamingCursor={false}
+                  locale={currentLocale()}
+                />
+              );
+            }
+            const legacyPart = processItemToLegacyPart(item);
+            if (!legacyPart) return null;
+            return (
+              <StepRow
+                key={key}
+                id={key}
+                part={legacyPart}
+                expanded={props.expandedStepIds.has(key)}
+                onToggle={() => toggleStep(key)}
+                onOpenCodePath={props.onOpenCodePath}
+                isStreamingReasoning={props.running}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) record[key] = item;
+  return record;
+}
+
+function recordText(record: Record<string, unknown> | null, key: string): string {
+  const value = record?.[key];
+  return typeof value === "string" ? value : "";
+}
+
 function StepsContainer(props: {
   stepGroups: StepTimelineGroup[];
   isUser: boolean;
@@ -1076,6 +2170,10 @@ function StepsContainer(props: {
   isActive: boolean;
   expandedStepIds: Set<string>;
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
+  turnDetailsExpanded?: boolean;
+  onTurnDetailsExpandedChange?: (expanded: boolean) => void;
+  onOpenCodePath?: (path: string) => void;
+  isTrailingMessageContent?: boolean;
 }) {
   const toggleSteps = (id: string) => {
     props.onExpandedStepIdsChange((current) => {
@@ -1088,7 +2186,17 @@ function StepsContainer(props: {
       return next;
     });
   };
-  const [containerExpanded, setContainerExpanded] = useState(props.isActive);
+  const shouldFold = shouldFoldStepGroups(props.stepGroups);
+  const active = props.isActive;
+  const [containerExpanded, setContainerExpanded] = useState(active);
+  const detailsExpanded = props.turnDetailsExpanded === true || containerExpanded;
+  const toggleContainer = () => {
+    if (props.onTurnDetailsExpandedChange) {
+      props.onTurnDetailsExpandedChange(!detailsExpanded);
+      return;
+    }
+    setContainerExpanded((value) => !value);
+  };
   const stepSummaries = useMemo(
     () =>
       props.stepGroups.flatMap((group) =>
@@ -1102,30 +2210,64 @@ function StepsContainer(props: {
   );
   const previewItems = stepSummaries.slice(0, 2);
 
+  if (!shouldFold) {
+    return (
+      <div className="max-w-[760px]">
+        <div className="flex flex-col gap-5">
+          {props.stepGroups.map((group, groupIndex) => (
+            <div key={group.id} className="flex flex-col gap-5">
+              {group.parts.map((part, index) => {
+                const rowId = `${group.id}:${index}`;
+                const isLastPartInGroup = index === group.parts.length - 1;
+                const isLastStepGroup = groupIndex === props.stepGroups.length - 1;
+                return (
+                  <StepRow
+                    key={rowId}
+                    id={rowId}
+                    part={part}
+                    expanded={props.expandedStepIds.has(rowId)}
+                    onToggle={() => toggleSteps(rowId)}
+                    onOpenCodePath={props.onOpenCodePath}
+                    isStreamingReasoning={
+                      props.isActive &&
+                      props.isTrailingMessageContent !== false &&
+                      isLastStepGroup &&
+                      isLastPartInGroup
+                    }
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[760px] rounded-xl border border-dls-mist bg-dls-surface-muted">
       <button
         type="button"
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-dls-secondary transition-colors hover:bg-dls-surface-muted hover:text-dls-text"
-        aria-expanded={containerExpanded}
-        onClick={() => setContainerExpanded((value) => !value)}
+        aria-expanded={detailsExpanded}
+        onClick={toggleContainer}
       >
         <ChevronDown
           size={14}
           className={cn(
             "shrink-0 text-muted-foreground transition-transform",
-            !containerExpanded && "-rotate-90",
+            !detailsExpanded && "-rotate-90",
           )}
         />
         <ToolActivityIcon category={clusterSummary.category} />
         <span className="font-medium text-dls-text">{clusterSummary.label}</span>
-        {props.isActive ? (
+        {active ? (
           <StatusBadge tone="accent" size="tiny">
             {t("session.status_running")}
           </StatusBadge>
         ) : null}
       </button>
-      {!containerExpanded && previewItems.length > 0 ? (
+      {!detailsExpanded && previewItems.length > 0 ? (
         <div className="border-t border-dls-mist px-3 py-2 text-xs leading-5 text-dls-secondary">
           {previewItems.map((item) => (
             <div key={item} className="truncate">
@@ -1134,7 +2276,7 @@ function StepsContainer(props: {
           ))}
         </div>
       ) : null}
-      {containerExpanded ? (
+      {detailsExpanded ? (
         <div
           data-scrollable={!props.isNestedVariant ? "true" : undefined}
           className={cn(
@@ -1143,10 +2285,12 @@ function StepsContainer(props: {
           )}
         >
           <div className="flex flex-col gap-5">
-            {props.stepGroups.map((group) => (
+            {props.stepGroups.map((group, groupIndex) => (
               <div key={group.id} className="flex flex-col gap-5">
                 {group.parts.map((part, index) => {
                   const rowId = `${group.id}:${index}`;
+                  const isLastPartInGroup = index === group.parts.length - 1;
+                  const isLastStepGroup = groupIndex === props.stepGroups.length - 1;
                   return (
                     <StepRow
                       key={rowId}
@@ -1154,6 +2298,13 @@ function StepsContainer(props: {
                       part={part}
                       expanded={props.expandedStepIds.has(rowId)}
                       onToggle={() => toggleSteps(rowId)}
+                      onOpenCodePath={props.onOpenCodePath}
+                      isStreamingReasoning={
+                        props.isActive &&
+                        props.isTrailingMessageContent !== false &&
+                        isLastStepGroup &&
+                        isLastPartInGroup
+                      }
                     />
                   );
                 })}
@@ -1172,10 +2323,13 @@ function messageGroupKey(messageId: string, group: MessageGroup) {
   return `${messageId}:text:${group.segment}:${partId}`;
 }
 
-function inlineOpenTargetsForMessage(message: UIMessage, verifiedTargets: OpenTarget[] | undefined) {
+export function selectTurnOpenTargets(
+  messages: UIMessage[],
+  verifiedTargets: OpenTarget[] | undefined,
+) {
   const verifiedById = new Map((verifiedTargets ?? []).map((target) => [target.id, target] as const));
   const inlineTargets = new Map<string, OpenTarget>();
-  for (const candidate of deriveOpenTargets([message], { includeFileMentions: true })) {
+  for (const candidate of deriveOpenTargets(messages, { includeFileMentions: true })) {
     const verified = verifiedById.get(candidate.id);
     if (candidate.kind === "url" && isLocalhostBrowserTarget(candidate)) {
       inlineTargets.set(candidate.id, verified ?? candidate);
@@ -1202,45 +2356,149 @@ function OpenTargetIcon(props: { target: OpenTarget }) {
   }
   if (props.target.preview === "markdown") {
     return (
-      <StatusBadge size="fileType" className="border border-primary/25 bg-primary/10 text-primary">
+      <StatusBadge size="fileType" className="border border-dls-border bg-dls-surface-muted text-dls-text">
         MD
       </StatusBadge>
     );
   }
 
-  return <FileIcon size={12} className="shrink-0 text-primary" />;
+  return <FileIcon size={12} className="shrink-0 text-dls-secondary" />;
 }
 
 function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (target: OpenTarget) => void }) {
   if (!props.targets.length) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs leading-none">
-      <span className="mr-0.5 text-muted-foreground">Openable items</span>
+      <span className="mr-0.5 text-muted-foreground">{t("session.openable_items")}</span>
       {props.targets.map((target) => (
           <Button
             key={target.id}
             type="button"
             variant="outline"
             size="xs"
-            className="max-w-[220px] rounded-lg text-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+            className="session-generated-artifact-card max-w-[220px] rounded-lg text-dls-text hover:text-dls-text"
             title={target.value}
             onClick={() => props.onOpenTarget(target)}
           >
             <OpenTargetIcon target={target} />
             <span className="truncate">{target.name || target.value}</span>
-            <span className="text-muted-foreground">{target.kind === "url" ? "Open browser" : "Open artifact"}</span>
+            <span className="text-muted-foreground">
+              {target.kind === "url"
+                ? t("session.open_browser")
+                : t("session.open_artifact")}
+            </span>
           </Button>
         ))}
     </div>
   );
 }
 
-function TranscriptDividerRow(props: { label: string }) {
+function TranscriptDividerRow(props: {
+  label: string;
+  variant?: SessionTranscriptDividerVariant;
+}) {
   return (
-    <div className="mx-auto flex max-w-[760px] items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5">
-      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
-      <span className="shrink-0">{props.label}</span>
-      <div className="h-px min-w-10 flex-1 bg-dls-mist" />
+    <div
+      className={cn(
+        "session-transcript-divider mx-auto flex items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5",
+        props.variant && `session-transcript-divider-${props.variant}`,
+      )}
+      data-divider-variant={props.variant}
+    >
+      <div className="session-transcript-divider-line min-w-10 flex-1" />
+      <span className="session-transcript-divider-label shrink-0">{props.label}</span>
+      <div className="session-transcript-divider-line min-w-10 flex-1" />
+    </div>
+  );
+}
+
+function WorkBuddyTurnContent(props: {
+  presentation: TurnContentPresentation;
+  detailsExpanded: boolean;
+  expandedStepIds: Set<string>;
+  onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
+  onOpenCodePath?: (path: string) => void;
+  highlightQuery?: string;
+  verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
+}) {
+  const running = props.presentation.state === "streaming" ||
+    props.presentation.state === "awaiting-approval";
+  const showExpandedProcess = running || props.detailsExpanded ||
+    props.presentation.state === "cancelled" || props.presentation.state === "failed";
+  const lastBodyId = props.presentation.segments.findLast(
+    (segment) => segment.kind === "body",
+  )?.id;
+
+  const renderProcess = (id: string, items: TurnProcessItem[]) => (
+    <WorkBuddyProcessFold
+      key={id}
+      id={id}
+      items={items}
+      running={running}
+      expandedStepIds={props.expandedStepIds}
+      onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+      onOpenCodePath={props.onOpenCodePath}
+    />
+  );
+
+  const renderExpandedSegment = (segment: TurnContentSegment) => {
+    if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.kind === "file" && segment.item.part.type === "file") {
+      return (
+        <FileCard
+          key={segment.id}
+          part={{
+            filename: segment.item.part.filename,
+            url: segment.item.part.url,
+            mediaType: segment.item.part.mediaType,
+          }}
+          tone="assistant"
+        />
+      );
+    }
+    if (segment.kind !== "body") return null;
+    return (
+      <div key={segment.id} className="session-workbuddy-turn-body">
+        <MarkdownBlock
+          text={segment.text}
+          streaming={running && segment.id === lastBodyId}
+          showStreamingCursor={false}
+          highlightQuery={props.highlightQuery}
+          locale={currentLocale()}
+          onOpenCodePath={props.onOpenCodePath}
+          verifiedCodePaths={props.verifiedCodePaths}
+        />
+      </div>
+    );
+  };
+
+  const renderCollapsedSegment = (segment: TurnFoldSegment) => {
+    if (segment.kind === "hidden") return null;
+    if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    return (
+      <div key={segment.id} className="session-workbuddy-turn-body">
+        <MarkdownBlock
+          text={segment.text}
+          highlightQuery={props.highlightQuery}
+          locale={currentLocale()}
+          onOpenCodePath={props.onOpenCodePath}
+          verifiedCodePaths={props.verifiedCodePaths}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="session-workbuddy-turn-content" data-workbuddy-turn-content="true">
+      {showExpandedProcess
+        ? props.presentation.segments.map(renderExpandedSegment)
+        : props.presentation.collapsedSegments.map(renderCollapsedSegment)}
+      {props.presentation.hoistedItems.map((visual) => (
+        <InlineVisual
+          key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
+          visual={visual}
+        />
+      ))}
     </div>
   );
 }
@@ -1260,13 +2518,27 @@ function MessageBlockRow(props: {
   latestAssistantMessageId: string;
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
-  openTargets?: OpenTarget[];
+  turnOpenTargets?: OpenTarget[];
+  verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
+  onOpenCodePath?: (path: string) => void;
   onOpenTarget?: (target: OpenTarget) => void;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
-  userIdentity?: { name: string };
+  showAssistantIdentity: boolean;
+  turnPresentation?: TranscriptBlockTurnPresentation;
+  turnDetailsExpanded: boolean;
+  onTurnDetailsExpandedChange: (turnId: string, expanded: boolean) => void;
 
 }) {
   const block = props.block;
+  const turnPresentation = props.turnPresentation;
+  const onTurnDetailsExpandedChange = (expanded: boolean) => {
+    if (turnPresentation) {
+      props.onTurnDetailsExpandedChange(turnPresentation.turnId, expanded);
+    }
+  };
+  const controlledTurnDetailsChange = turnPresentation
+    ? onTurnDetailsExpandedChange
+    : undefined;
   const blockMessageIds = block.kind === "steps-cluster"
     ? block.messageIds
     : [...(block.leadingStepMessageIds ?? []), block.messageId];
@@ -1281,34 +2553,90 @@ function MessageBlockRow(props: {
     ? { contentVisibility: "auto", containIntrinsicSize: "180px" } satisfies CSSProperties
     : undefined;
   const blockStyle = messageBlockStyle(perfStyle);
+  const assistantAvatar = props.assistantAvatar;
+  const showAssistantAvatar =
+    props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
+  const turnOpenTargets =
+    !block.isUser && turnPresentation?.isActionBlock && props.onOpenTarget
+      ? props.turnOpenTargets ?? []
+      : [];
+
+  if (
+    !block.isUser &&
+    !props.isNestedVariant &&
+    turnPresentation?.turnContent &&
+    turnPresentation.isTurnContentAnchor
+  ) {
+    const turnContent = turnPresentation.turnContent;
+    return (
+      <div
+        className="session-transcript-assistant-row session-transcript-assistant-turn group relative flex flex-col items-start"
+        data-message-role="assistant"
+        data-message-id={turnContent.anchorMessageId}
+        data-workbuddy-turn-anchor="true"
+        style={blockStyle}
+      >
+        <TranscriptAssistantHeader
+          assistantAvatar={assistantAvatar}
+          showAssistantAvatar={Boolean(showAssistantAvatar)}
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
+        <div
+          className={cn(
+            messageTextClass.baseMessageBubble,
+            messageTextClass.assistantMessageBubble,
+            messageTextClass.rootAssistantMessageBubble,
+            searchOutlineClass,
+          )}
+        >
+          <WorkBuddyTurnContent
+            presentation={turnContent}
+            detailsExpanded={props.turnDetailsExpanded}
+            expandedStepIds={props.expandedStepIds}
+            onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+            onOpenCodePath={props.onOpenCodePath}
+            highlightQuery={hasSearchMatch ? props.searchHighlightQuery : undefined}
+            verifiedCodePaths={props.verifiedCodePaths}
+          />
+          {props.onOpenTarget ? (
+            <OpenableTargetsStrip
+              targets={turnOpenTargets}
+              onOpenTarget={props.onOpenTarget}
+            />
+          ) : null}
+        </div>
+        <TranscriptCancelledIndicator presentation={turnPresentation} />
+        <TranscriptTurnActions
+          presentation={turnPresentation}
+          onForkAtMessage={props.onForkAtMessage}
+        />
+      </div>
+    );
+  }
 
   if (block.kind === "steps-cluster") {
-    const assistantAvatar = props.assistantAvatar;
-    const showAssistantAvatar =
-      !block.isUser && assistantAvatar && !props.isNestedVariant;
     return (
       <div
         className={cn(
           "flex group justify-start pb-4",
           block.isUser && "justify-end",
-          showAssistantAvatar && "flex-col items-start gap-2",
+          !props.isNestedVariant && block.isUser && "session-transcript-user-row",
+          !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
+          !props.isNestedVariant && !block.isUser && "flex-col items-start",
         )}
         data-message-role={block.isUser ? "user" : "assistant"}
         data-message-id={block.messageIds[0] ?? ""}
         style={blockStyle}
       >
-        {showAssistantAvatar && assistantAvatar ? (
-          <div className="flex items-center gap-2">
-            <AssistantAvatar
-              name={assistantAvatar.name}
-              avatarUrl={assistantAvatar.avatarUrl}
-              avatarBackground={assistantAvatar.avatarBackground}
-            />
-            <span className={messageTextClass.avatarLabel}>
-              {assistantAvatar.name}
-            </span>
-          </div>
-        ) : null}
+        <TranscriptAssistantHeader
+          assistantAvatar={assistantAvatar}
+          showAssistantAvatar={Boolean(showAssistantAvatar)}
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
         <div
           className={cn(
             block.isUser
@@ -1331,10 +2659,21 @@ function MessageBlockRow(props: {
             isUser={block.isUser}
             isNestedVariant={props.isNestedVariant}
             isActive={props.isStreaming && block.messageIds.includes(props.latestAssistantMessageId)}
+            isTrailingMessageContent={true}
             expandedStepIds={props.expandedStepIds}
             onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+            turnDetailsExpanded={props.turnDetailsExpanded}
+            onTurnDetailsExpandedChange={controlledTurnDetailsChange}
+            onOpenCodePath={props.onOpenCodePath}
           />
         </div>
+        <TranscriptCancelledIndicator presentation={turnPresentation} />
+        {turnPresentation ? (
+          <TranscriptTurnActions
+            presentation={turnPresentation}
+            onForkAtMessage={props.onForkAtMessage}
+          />
+        ) : null}
       </div>
     );
   }
@@ -1342,9 +2681,32 @@ function MessageBlockRow(props: {
   const groupSpacing = block.isUser ? "mb-3" : "mb-4";
   const isSyntheticSessionError =
     !block.isUser && block.messageId.startsWith(SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX);
-  const inlineOpenTargets = block.kind === "message" && !block.isUser && props.onOpenTarget
-    ? inlineOpenTargetsForMessage(block.message, props.openTargets)
-    : [];
+  const isOutputLimitContinuation =
+    block.isUser &&
+    !props.isNestedVariant &&
+    isOutputLimitContinuationMessageId(block.messageId);
+
+  if (isOutputLimitContinuation) {
+    const continuationText = block.renderableParts
+      .map((part) => partToText(part))
+      .join(" ")
+      .trim();
+    return (
+      <div
+        className="pb-4"
+        data-message-role="user"
+        data-message-id={block.messageId}
+        data-output-limit-continuation="true"
+        style={blockStyle}
+      >
+        <div className="flex items-center gap-3 text-xs text-dls-secondary">
+          <span className="h-px flex-1 bg-dls-border" aria-hidden="true" />
+          <span>{continuationText}</span>
+          <span className="h-px flex-1 bg-dls-border" aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
 
   if (isSyntheticSessionError) {
     const messageText = block.renderableParts
@@ -1356,60 +2718,60 @@ function MessageBlockRow(props: {
 
     return (
       <div
-        className="flex group justify-start pb-4"
+        className={cn(
+          "flex group justify-start pb-4",
+          !props.isNestedVariant && "session-transcript-assistant-row",
+          !props.isNestedVariant && "flex-col items-start",
+        )}
         data-message-role="assistant"
         data-message-id={block.messageId}
         style={blockStyle}
       >
+        <TranscriptAssistantHeader
+          assistantAvatar={assistantAvatar}
+          showAssistantAvatar={Boolean(showAssistantAvatar)}
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
         <div className={cn("w-full relative", !props.isNestedVariant && "max-w-[650px]", searchOutlineClass)}>
           <NoticeBox className="inline-flex max-w-full items-start gap-2 text-sm leading-5" role="alert" tone="error">
             <CircleAlert size={14} className="mt-0.5 shrink-0" />
             <div className="min-w-0 wrap-break-word">{messageText}</div>
           </NoticeBox>
         </div>
+        <TranscriptCancelledIndicator presentation={turnPresentation} />
+        {turnPresentation ? (
+          <TranscriptTurnActions
+            presentation={turnPresentation}
+            onForkAtMessage={props.onForkAtMessage}
+          />
+        ) : null}
       </div>
     );
   }
-
-  const assistantAvatar = props.assistantAvatar;
-  const showAssistantAvatar =
-    !block.isUser && assistantAvatar && !props.isNestedVariant;
-  const showUserIdentity =
-    block.isUser && props.userIdentity && !props.isNestedVariant;
 
   return (
     <div
       className={cn(
         "flex group justify-start relative pb-4",
         block.isUser && "justify-end",
-        !props.isNestedVariant && "pb-8",
-        showAssistantAvatar && "flex-col items-start gap-2",
-        showUserIdentity && "flex-col items-end gap-2",
+        !props.isNestedVariant && !block.isUser && "session-transcript-assistant-message-row",
+        !props.isNestedVariant && block.isUser && "session-transcript-user-row",
+        !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
+        !props.isNestedVariant && !block.isUser && "flex-col items-start",
       )}
       data-message-role={block.isUser ? "user" : "assistant"}
       data-message-id={block.messageId}
       style={blockStyle}
     >
-      {showAssistantAvatar && assistantAvatar ? (
-        <div className="flex items-center gap-2">
-          <AssistantAvatar
-            name={assistantAvatar.name}
-            avatarUrl={assistantAvatar.avatarUrl}
-            avatarBackground={assistantAvatar.avatarBackground}
-          />
-          <span className={messageTextClass.avatarLabel}>
-            {assistantAvatar.name}
-          </span>
-        </div>
-      ) : null}
-      {showUserIdentity && props.userIdentity ? (
-        <div className="flex max-w-[52%] items-center justify-end gap-2">
-          <span className={messageTextClass.avatarLabel}>
-            {props.userIdentity.name}
-          </span>
-          <UserAvatar name={props.userIdentity.name} />
-        </div>
-      ) : null}
+      <TranscriptAssistantHeader
+        assistantAvatar={assistantAvatar}
+        showAssistantAvatar={Boolean(showAssistantAvatar)}
+        presentation={turnPresentation}
+        detailsExpanded={props.turnDetailsExpanded}
+        onDetailsExpandedChange={onTurnDetailsExpandedChange}
+      />
       <div
         className={cn(
           messageTextClass.baseMessageBubble,
@@ -1428,15 +2790,26 @@ function MessageBlockRow(props: {
               isUser={block.isUser}
               isNestedVariant={props.isNestedVariant}
               isActive={props.isStreaming && (block.leadingStepMessageIds ?? []).includes(props.latestAssistantMessageId)}
+              isTrailingMessageContent={false}
               expandedStepIds={props.expandedStepIds}
               onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+              turnDetailsExpanded={props.turnDetailsExpanded}
+              onTurnDetailsExpandedChange={controlledTurnDetailsChange}
+              onOpenCodePath={props.onOpenCodePath}
             />
           </div>
         ) : null}
 
         {block.attachments.length > 0 ? (
           <div className={cn("flex flex-wrap gap-2", block.isUser ? "mb-3" : "mb-4")}>
-            {block.attachments.map((attachment) => (
+            {block.attachments.map((attachment) => block.isUser ? (
+              <TranscriptResourceChip
+                key={`${block.messageId}:${attachment.url}`}
+                filename={attachment.filename}
+                url={attachment.url}
+                mediaType={attachment.mime}
+              />
+            ) : (
               <FileCard
                 key={`${block.messageId}:${attachment.url}`}
                 part={{
@@ -1444,13 +2817,13 @@ function MessageBlockRow(props: {
                   url: attachment.url,
                   mediaType: attachment.mime,
                 }}
-                tone={block.isUser ? "user" : "assistant"}
+                tone="assistant"
               />
             ))}
           </div>
         ) : null}
 
-        {block.groups.map((group) => {
+        {block.groups.map((group, groupIndex) => {
           const highlightQuery = hasSearchMatch ? props.searchHighlightQuery : undefined;
           const isStreamingLatestAssistant =
             !block.isUser && props.isStreaming && block.messageId === props.latestAssistantMessageId;
@@ -1464,14 +2837,20 @@ function MessageBlockRow(props: {
                     url?: string;
                     mime?: string;
                   };
-                  return (
+                  return block.isUser ? (
+                    <TranscriptResourceChip
+                      filename={filePart.filename}
+                      url={filePart.url ?? ""}
+                      mediaType={filePart.mime ?? "application/octet-stream"}
+                    />
+                  ) : (
                     <FileCard
                       part={{
                         filename: filePart.filename,
                         url: filePart.url ?? "",
                         mediaType: filePart.mime ?? "application/octet-stream",
                       }}
-                      tone={block.isUser ? "user" : "assistant"}
+                      tone="assistant"
                     />
                   );
                 }
@@ -1490,7 +2869,11 @@ function MessageBlockRow(props: {
                   <MarkdownBlock
                     text={text}
                     streaming={isStreamingLatestAssistant}
+                    showStreamingCursor={false}
                     highlightQuery={highlightQuery}
+                    locale={currentLocale()}
+                    onOpenCodePath={props.onOpenCodePath}
+                    verifiedCodePaths={props.verifiedCodePaths}
                   />
                 );
               })() : null}
@@ -1506,27 +2889,38 @@ function MessageBlockRow(props: {
                   isInline={true}
                   isNestedVariant={props.isNestedVariant}
                   isActive={isStreamingLatestAssistant}
+                  isTrailingMessageContent={groupIndex === block.groups.length - 1}
                   expandedStepIds={props.expandedStepIds}
                   onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+                  turnDetailsExpanded={props.turnDetailsExpanded}
+                  onTurnDetailsExpandedChange={controlledTurnDetailsChange}
+                  onOpenCodePath={props.onOpenCodePath}
                 />
               ) : null}
             </div>
           );
         })}
 
-        {props.onOpenTarget ? <OpenableTargetsStrip targets={inlineOpenTargets} onOpenTarget={props.onOpenTarget} /> : null}
-
-        {!props.isNestedVariant ? (
-          <div
-            className={cn(
-              "absolute bottom-2 flex items-center gap-0.5 opacity-100 pointer-events-auto md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto md:group-focus-within:opacity-100 md:group-focus-within:pointer-events-auto transition-opacity select-none",
-              block.isUser ? "right-0" : "left-0",
-            )}
-          >
-            <CopyButton getText={() => messageToText(block.message)} />
-          </div>
+        {props.onOpenTarget ? (
+          <OpenableTargetsStrip
+            targets={turnOpenTargets}
+            onOpenTarget={props.onOpenTarget}
+          />
         ) : null}
       </div>
+      {!props.isNestedVariant && block.isUser ? (
+        <TranscriptUserToolbar
+          message={block.message}
+          onRevertToMessage={props.onRevertToMessage}
+        />
+      ) : null}
+      <TranscriptCancelledIndicator presentation={turnPresentation} />
+      {turnPresentation ? (
+        <TranscriptTurnActions
+          presentation={turnPresentation}
+          onForkAtMessage={props.onForkAtMessage}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1534,7 +2928,14 @@ function MessageBlockRow(props: {
 function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? DEFAULT_SHOW_THINKING;
   const isNestedVariant = props.variant === "nested";
+  const [rootContentWidth, setRootContentWidth] = useState(
+    DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
+  );
+  const [rootViewportHeight, setRootViewportHeight] = useState(0);
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [expandedTurnIds, setExpandedTurnIds] = useState<Set<string>>(
     () => new Set(),
   );
   const expandedStepIds = props.expandedStepIds ?? internalExpandedStepIds;
@@ -1543,6 +2944,15 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     ((updater: (current: Set<string>) => Set<string>) => {
       setInternalExpandedStepIds((current) => updater(current));
     });
+  const onTurnDetailsExpandedChange = useCallback((turnId: string, expanded: boolean) => {
+    if (!turnId) return;
+    setExpandedTurnIds((current) => {
+      const next = new Set(current);
+      if (expanded) next.add(turnId);
+      else next.delete(turnId);
+      return next;
+    });
+  }, []);
 
   const transcriptMessages = useMemo<TranscriptMessage[]>(() => {
     return props.messages.map((message) => ({
@@ -1555,6 +2965,25 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       }),
     }));
   }, [props.messages]);
+
+  useEffect(() => {
+    if (isNestedVariant) return;
+    const scrollContainer = props.scrollElement?.();
+    if (!scrollContainer) return;
+
+    const updateViewport = () => {
+      // Use the same box metric for both the initial read and ResizeObserver
+      // delivery. clientHeight/clientWidth include the scroll container's
+      // padding; contentRect does not. Mixing them made the active turn's
+      // reserved height alternate by exactly 40px on every streaming render.
+      setRootContentWidth(computeTranscriptMaxContentWidth(scrollContainer.clientWidth));
+      setRootViewportHeight(scrollContainer.clientHeight);
+    };
+    updateViewport();
+    const observer = new ResizeObserver(updateViewport);
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, [isNestedVariant, props.scrollElement]);
 
   // Cache of the previous messageBlocks array, indexed by identity key.
   // Used by useStableBlocks below so structurally-equivalent blocks keep
@@ -1575,7 +3004,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const pushReadyDividers = (afterMessageCount: number) => {
       while (
         nextDividerIndex < dividers.length &&
-        dividers[nextDividerIndex]?.afterMessageCount === afterMessageCount
+        isTranscriptDividerReady(dividers[nextDividerIndex], afterMessageCount)
       ) {
         const divider = dividers[nextDividerIndex];
         if (divider) {
@@ -1583,6 +3012,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             kind: "divider",
             id: divider.id,
             label: divider.label,
+            variant: divider.variant,
             afterMessageCount: divider.afterMessageCount,
             isUser: false,
           });
@@ -1594,6 +3024,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     pushReadyDividers(0);
     transcriptMessages.forEach((message, messageIndex) => {
       const renderableParts = message.parts.filter((part) => {
+        if (
+          message.role === "assistant" &&
+          (part.type === "text" || part.type === "reasoning") &&
+          isInternalAssistantNarration(part.text)
+        ) {
+          return false;
+        }
         if (part.type === "reasoning") {
           return showThinking;
         }
@@ -1633,7 +3070,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       const groups = groupMessageParts(nonAttachmentParts, message.id);
       const isStepsOnly = groups.length > 0 && groups.every((group) => group.kind === "steps");
       const stepGroups = isStepsOnly
-        ? groups.filter((group): group is { kind: "steps"; id: string; parts: TranscriptPart[]; segment: "execution"; mode: StepGroupMode } => group.kind === "steps").map((group) => ({
+        ? (groups as Array<{
+            kind: "steps";
+            id: string;
+            parts: TranscriptPart[];
+            segment: "execution";
+            mode: StepGroupMode;
+          }>).map((group) => ({
             id: group.id,
             parts: group.parts,
             mode: group.mode,
@@ -1677,6 +3120,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
           kind: "divider",
           id: divider.id,
           label: divider.label,
+          variant: divider.variant,
           afterMessageCount: divider.afterMessageCount,
           isUser: false,
         });
@@ -1708,6 +3152,146 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return stable;
   }, [rawMessageBlocks]);
 
+  const cancelledMessageIds = useMemo(
+    () => cancelledAssistantMessageIds(props.messages, props.dividers),
+    [props.dividers, props.messages],
+  );
+  const transcriptTurns = useMemo(
+    () => buildTranscriptTurns(props.messages, {
+      isStreaming: props.isStreaming,
+      cancelledMessageIds,
+    }),
+    [cancelledMessageIds, props.isStreaming, props.messages],
+  );
+  const turnIdByMessageId = useMemo(() => {
+    const turnIds = new Map<string, string>();
+    transcriptTurns.forEach((turn) => {
+      turn.messages.forEach((message) => turnIds.set(message.id, turn.id));
+    });
+    return turnIds;
+  }, [transcriptTurns]);
+  const renderItems = useMemo(() => {
+    if (isNestedVariant) {
+      return messageBlocks.map<TranscriptRenderItem<MessageBlockItem>>((block) => {
+        const blockKey = blockIdentityKey(block);
+        return block.kind === "divider"
+          ? { kind: "divider", id: blockKey, block }
+          : { kind: "turn", id: `block:${blockKey}`, turnId: null, blocks: [block] };
+      });
+    }
+    return groupTranscriptRenderItems(
+      messageBlocks.map((block) => ({
+        key: blockIdentityKey(block),
+        block,
+        messageIds: messageIdsForBlock(block),
+        dividerId: block.kind === "divider" ? block.id : null,
+      })),
+      turnIdByMessageId,
+    );
+  }, [isNestedVariant, messageBlocks, turnIdByMessageId]);
+  const firstAssistantRenderItemId = useMemo(() => (
+    renderItems.find((item) => (
+      item.kind === "turn" && item.blocks.some((block) => (
+        block.kind !== "divider" && !block.isUser
+      ))
+    ))?.id ?? null
+  ), [renderItems]);
+
+  const turnContentByTurnId = useMemo(() => {
+    const presentations = new Map<string, TurnContentPresentation>();
+    if (isNestedVariant || props.searchHighlightQuery?.trim()) return presentations;
+    transcriptTurns.forEach((turn) => {
+      const presentation = buildTurnContentPresentation(turn);
+      if (presentation) presentations.set(turn.id, presentation);
+    });
+    return presentations;
+  }, [isNestedVariant, props.searchHighlightQuery, transcriptTurns]);
+
+  const turnPresentationByBlockKey = useMemo(() => {
+    const presentations = new Map<string, TranscriptBlockTurnPresentation>();
+    if (isNestedVariant) return presentations;
+    const turnIdByAssistantMessageId = new Map<string, string>();
+    transcriptTurns.forEach((turn) => {
+      turn.assistantMessages.forEach((message) => {
+        turnIdByAssistantMessageId.set(message.id, turn.id);
+      });
+    });
+    const firstAssistantBlockKeys = new Set<string>();
+    renderItems.forEach((item) => {
+      if (item.kind === "divider") return;
+      const firstAssistantBlock = item.blocks.find((block) =>
+        messageIdsForBlock(block).some((messageId) =>
+          turnIdByAssistantMessageId.has(messageId),
+        ),
+      );
+      if (firstAssistantBlock) {
+        firstAssistantBlockKeys.add(blockIdentityKey(firstAssistantBlock));
+      }
+    });
+    const blockKeysByTurnId = new Map<string, string[]>();
+    const turnsWithExecutionDetails = new Set<string>();
+    messageBlocks.forEach((block) => {
+      if (block.kind === "divider" || block.isUser) return;
+      const messageIds = block.kind === "steps-cluster"
+        ? block.messageIds
+        : [...(block.leadingStepMessageIds ?? []), block.messageId];
+      const turnId = messageIds
+        .map((messageId) => turnIdByAssistantMessageId.get(messageId))
+        .find((candidate) => candidate !== undefined);
+      if (!turnId) return;
+      const blockKeys = blockKeysByTurnId.get(turnId) ?? [];
+      blockKeys.push(blockIdentityKey(block));
+      blockKeysByTurnId.set(turnId, blockKeys);
+      const hasExecutionDetails = block.kind === "steps-cluster"
+        ? shouldFoldStepGroups(block.stepGroups)
+        : shouldFoldStepGroups([
+            ...(block.leadingStepGroups ?? []),
+            ...block.groups.flatMap((group) =>
+              group.kind === "steps"
+                ? [{ id: group.id, parts: group.parts, mode: group.mode }]
+                : [],
+            ),
+          ]);
+      if (hasExecutionDetails) turnsWithExecutionDetails.add(turnId);
+    });
+
+    transcriptTurns.forEach((turn) => {
+      const blockKeys = blockKeysByTurnId.get(turn.id);
+      const turnContent = turnContentByTurnId.get(turn.id) ?? null;
+      const turnContentAnchorBlockKey = turnContent
+        ? blockKeys?.find((blockKey) => {
+            const block = messageBlocks.find(
+              (candidate) => blockIdentityKey(candidate) === blockKey,
+            );
+            if (!block || block.kind === "divider") return false;
+            return messageIdsForBlock(block).includes(turnContent.anchorMessageId);
+          })
+        : undefined;
+      const actionBlockKey = turnContentAnchorBlockKey ?? blockKeys?.at(-1);
+      if (!blockKeys || !actionBlockKey) return;
+      const presentation = summarizeTranscriptTurn(turn, messageToText);
+      blockKeys.forEach((blockKey) => {
+        presentations.set(blockKey, {
+          ...presentation,
+          copyText: turnContent?.finalText ?? presentation.copyText,
+          isFirstAssistantBlock: turnContentAnchorBlockKey
+            ? blockKey === turnContentAnchorBlockKey
+            : firstAssistantBlockKeys.has(blockKey),
+          isActionBlock: blockKey === actionBlockKey,
+          hasExecutionDetails: turnContent
+            ? turnContent.processItems.length > 0
+            : turnsWithExecutionDetails.has(turn.id),
+          turnContent,
+          isTurnContentAnchor: turnContentAnchorBlockKey === blockKey,
+          isHiddenByTurnContent: Boolean(
+            turnContentAnchorBlockKey && blockKey !== turnContentAnchorBlockKey,
+          ),
+        });
+      });
+    });
+    return presentations;
+  }, [isNestedVariant, messageBlocks, renderItems, transcriptTurns, turnContentByTurnId]);
+
   const latestAssistantMessageId = useMemo(() => {
     for (let index = props.messages.length - 1; index >= 0; index -= 1) {
       const message = props.messages[index];
@@ -1718,50 +3302,111 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return "";
   }, [props.messages]);
 
+  const turnOpenTargetsByTurnId = useMemo(() => {
+    const targets = new Map<string, OpenTarget[]>();
+    transcriptTurns.forEach((turn) => {
+      targets.set(
+        turn.id,
+        selectTurnOpenTargets(turn.assistantMessages, props.openTargets),
+      );
+    });
+    return targets;
+  }, [props.openTargets, transcriptTurns]);
+  const verifiedMarkdownCodePaths = useMemo<MarkdownVerifiedCodePath[]>(() => (
+    (props.openTargets ?? [])
+      .filter((target) => target.kind === "file" && target.exists === true)
+      .map((target) => ({
+        path: target.value.replace(/[\\]+/g, "/").replace(/^\.\//, ""),
+        resolvedPath: target.value,
+      }))
+  ), [props.openTargets]);
+  const verifiedOpenTargetByPath = useMemo(() => new Map(
+    (props.openTargets ?? [])
+      .filter((target) => target.kind === "file" && target.exists === true)
+      .map((target) => [target.value, target]),
+  ), [props.openTargets]);
+  const onOpenMarkdownCodePath = useCallback((path: string) => {
+    const target = verifiedOpenTargetByPath.get(path);
+    if (target) props.onOpenTarget?.(target);
+  }, [props.onOpenTarget, verifiedOpenTargetByPath]);
+
   const blockIndexByMessageId = useMemo(() => {
     const next = new Map<string, number>();
-    messageBlocks.forEach((block, index) => {
-      if (block.kind === "steps-cluster") {
-        block.messageIds.forEach((id) => {
-          if (id) next.set(id, index);
+    renderItems.forEach((item, index) => {
+      if (item.kind === "divider") return;
+      item.blocks.forEach((block) => {
+        messageIdsForBlock(block).forEach((messageId) => {
+          if (messageId) next.set(messageId, index);
         });
-        return;
-      }
-      if (block.kind === "divider") return;
-
-      if (block.messageId) {
-        next.set(block.messageId, index);
-      }
+      });
     });
     return next;
+  }, [renderItems]);
+  const blockIndexByKey = useMemo(() => {
+    const next = new Map<string, number>();
+    messageBlocks.forEach((block, index) => next.set(blockIdentityKey(block), index));
+    return next;
   }, [messageBlocks]);
+  const activeTurn = transcriptTurns.at(-1);
+  const activeTurnHasAssistantBlock = Boolean(
+    activeTurn && renderItems.some((item) => (
+      item.kind === "turn" &&
+      item.turnId === activeTurn.id &&
+      item.blocks.some((block) => block.kind !== "divider" && !block.isUser)
+    )),
+  );
+  const footerNeedsAssistantIdentity = Boolean(
+    props.footer &&
+    props.assistantAvatar &&
+    activeTurn &&
+    !activeTurnHasAssistantBlock,
+  );
+  const activeTurnId = activeTurn && (
+    activeTurn.state === "streaming" || activeTurn.state === "awaiting-approval"
+  ) ? activeTurn.id : null;
+  const activeRenderItemId = activeTurnId
+    ? renderItems.findLast((item) => item.kind === "turn" && item.turnId === activeTurnId)?.id ?? null
+    : null;
+  const footerRenderItemId = activeRenderItemId ?? renderItems.at(-1)?.id ?? null;
+  const activeTurnMinHeight = Math.max(0, rootViewportHeight - 40);
 
-  // Decide to virtualize based only on block count. Do NOT gate on whether
+  // Virtualize by turn once either the turn count or the underlying block
+  // count is large. Do NOT gate on whether
   // the scrollElement ref has already attached — that's false on the first
   // render of a session, which used to make us render every message
   // eagerly (freezing the UI on large sessions) for one tick before
   // switching to virtualization.
-  const shouldVirtualize = messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
+  const shouldVirtualize =
+    renderItems.length >= VIRTUALIZATION_THRESHOLD ||
+    messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
+  // Keep the newest turn in normal document flow even after streaming ends.
+  // Re-inserting a just-grown row into the virtualizer on completion causes a
+  // visible measurement correction before sticky-bottom catches up.
+  const detachedTailRenderItemIndex = shouldVirtualize ? renderItems.length - 1 : -1;
+  const detachedTailRenderItem = detachedTailRenderItemIndex >= 0
+    ? renderItems[detachedTailRenderItemIndex]
+    : null;
+  const virtualRenderItems = detachedTailRenderItem
+    ? renderItems.slice(0, detachedTailRenderItemIndex)
+    : renderItems;
 
   const estimateVirtualItemSize = useCallback(
-    (index: number) => estimateBlockSize(messageBlocks[index]),
-    [messageBlocks],
+    (index: number) => {
+      const item = virtualRenderItems[index];
+      const estimate = estimateRenderItemSize(item);
+      return item?.id === activeRenderItemId
+        ? Math.max(estimate, activeTurnMinHeight)
+        : estimate;
+    },
+    [activeRenderItemId, activeTurnMinHeight, virtualRenderItems],
   );
 
   const getVirtualItemKey = useCallback((index: number) => {
-    const block = messageBlocks[index];
-    if (!block) return `block-${index}`;
-    if (block.kind === "steps-cluster") {
-      return `steps-${block.messageIds.join(",")}`;
-    }
-    if (block.kind === "divider") {
-      return `divider-${block.id}`;
-    }
-    return `message-${block.messageId}`;
-  }, [messageBlocks]);
+    return virtualRenderItems[index]?.id ?? `item-${index}`;
+  }, [virtualRenderItems]);
 
   const virtualizer = useVirtualizer({
-    count: messageBlocks.length,
+    count: virtualRenderItems.length,
     getScrollElement: () => props.scrollElement?.() ?? null,
     // TanStack recommends estimating the largest comfortable dynamic size.
     // Content-aware estimates reduce the measurement corrections that cause
@@ -1770,7 +3415,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     overscan: VIRTUAL_OVERSCAN,
     getItemKey: getVirtualItemKey,
   });
-
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
   const firstVirtualRow = virtualRows[0];
 
@@ -1783,7 +3427,22 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       if (index === undefined) return false;
 
       if (shouldVirtualize) {
-        virtualizer.scrollToIndex(index, { align: "center" });
+        if (index < virtualRenderItems.length) {
+          virtualizer.scrollToIndex(index, { align: "center" });
+        }
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            const container = props.scrollElement?.();
+            if (!container) return;
+            const escapedId = messageId.replace(/"/g, '\\"');
+            const target = container.querySelector(
+              `[data-message-id="${escapedId}"]`,
+            );
+            if (target instanceof HTMLElement) {
+              target.scrollIntoView({ behavior, block: "center" });
+            }
+          });
+        });
         return true;
       }
 
@@ -1799,7 +3458,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return () => {
       register(null);
     };
-  }, [blockIndexByMessageId, props.scrollElement, props.setScrollToMessageById, shouldVirtualize, virtualizer]);
+  }, [blockIndexByMessageId, props.scrollElement, props.setScrollToMessageById, shouldVirtualize, virtualizer, virtualRenderItems.length]);
 
   // NOTE: we intentionally do NOT call virtualizer.measure() on every
   // messageBlocks change. react-virtual already invalidates and
@@ -1813,17 +3472,119 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // work reduces the chance that one large session makes the UI feel frozen.
   const shouldUseContentVisibility = !shouldVirtualize && messageBlocks.length > 24;
 
+  const transcriptStyle = isNestedVariant
+    ? MESSAGE_LIST_CONTAIN_STYLE
+    : {
+        ...MESSAGE_LIST_CONTAIN_STYLE,
+        maxWidth: `${rootContentWidth}px`,
+      } satisfies CSSProperties;
+  const renderConversationBlock = (block: MessageBlockItem) => {
+    const blockKey = blockIdentityKey(block);
+    if (block.kind === "divider") {
+      return (
+        <TranscriptDividerRow
+          key={blockKey}
+          label={block.label}
+          variant={block.variant}
+        />
+      );
+    }
+    const blockIndex = blockIndexByKey.get(blockKey);
+    if (blockIndex === undefined) return null;
+    const turnPresentation = turnPresentationByBlockKey.get(blockKey);
+    if (turnPresentation?.isHiddenByTurnContent) return null;
+    return (
+      <MessageBlockRow
+        key={blockKey}
+        block={block}
+        blockIndex={blockIndex}
+        totalBlocks={messageBlocks.length}
+        isNestedVariant={isNestedVariant}
+        shouldUseContentVisibility={shouldUseContentVisibility}
+        expandedStepIds={expandedStepIds}
+        onExpandedStepIdsChange={onExpandedStepIdsChange}
+        searchMatchMessageIds={props.searchMatchMessageIds}
+        activeSearchMessageId={props.activeSearchMessageId}
+        searchHighlightQuery={props.searchHighlightQuery}
+        isStreaming={props.isStreaming}
+        latestAssistantMessageId={latestAssistantMessageId}
+        onRevertToMessage={props.onRevertToMessage}
+        onForkAtMessage={props.onForkAtMessage}
+        turnOpenTargets={turnPresentation
+          ? turnOpenTargetsByTurnId.get(turnPresentation.turnId)
+          : undefined}
+        verifiedCodePaths={verifiedMarkdownCodePaths}
+        onOpenCodePath={onOpenMarkdownCodePath}
+        onOpenTarget={props.onOpenTarget}
+        assistantAvatar={props.assistantAvatar}
+        showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
+        turnPresentation={turnPresentation}
+        turnDetailsExpanded={turnPresentation ? expandedTurnIds.has(turnPresentation.turnId) : false}
+        onTurnDetailsExpandedChange={onTurnDetailsExpandedChange}
+      />
+    );
+  };
+  const renderTranscriptItem = (item: TranscriptRenderItem<MessageBlockItem>) => {
+    if (item.kind === "divider") {
+      return item.block.kind === "divider"
+        ? (
+            <TranscriptDividerRow
+              label={item.block.label}
+              variant={item.block.variant}
+            />
+          )
+        : null;
+    }
+    const isActiveTurn = item.id === activeRenderItemId;
+    const isInitialAssistantOnly = item.id === firstAssistantRenderItemId && !item.blocks.some(
+      (block) => block.kind !== "divider" && block.isUser,
+    );
+    return (
+      <div
+        className={cn(
+          "session-transcript-turn",
+          isInitialAssistantOnly && "session-transcript-turn-assistant-only",
+        )}
+        data-transcript-turn-id={item.turnId ?? undefined}
+        data-transcript-turn-active={isActiveTurn ? "true" : undefined}
+        data-transcript-turn-assistant-only={isInitialAssistantOnly ? "true" : undefined}
+        style={isActiveTurn && !isNestedVariant
+          ? { minHeight: `${activeTurnMinHeight}px` }
+          : undefined}
+      >
+        {item.blocks.map(renderConversationBlock)}
+        {!isNestedVariant && props.footer && item.id === footerRenderItemId ? (
+          <div className="session-transcript-assistant-row">
+            {footerNeedsAssistantIdentity ? (
+              <TranscriptAssistantHeader
+                assistantAvatar={props.assistantAvatar}
+                showAssistantAvatar
+                detailsExpanded={false}
+                onDetailsExpandedChange={() => undefined}
+              />
+            ) : null}
+            {props.footer}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
-    <div className="pb-0" style={MESSAGE_LIST_CONTAIN_STYLE}>
+    <div
+      className={cn("pb-0", !isNestedVariant && "session-transcript-root mx-auto w-full")}
+      style={transcriptStyle}
+    >
       {shouldVirtualize ? (
         // Always render the virtualized container once we've decided to
         // virtualize — even if virtualRows is empty on the very first tick
         // (e.g. scrollElement ref hasn't attached yet). A fallback to
         // rendering every message would re-introduce the eager-render
         // freeze on huge sessions.
-        <div
-          className="relative"
-          style={{
+        <>
+          <div
+            className="relative"
+            style={{
             height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
             width: "100%",
           }}
@@ -1836,8 +3597,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
               }}
             >
               {virtualRows.map((virtualRow) => {
-                const block = messageBlocks[virtualRow.index];
-                if (!block) return null;
+                const item = virtualRenderItems[virtualRow.index];
+                if (!item) return null;
                 return (
                   <div
                     key={virtualRow.key}
@@ -1845,69 +3606,24 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                     ref={virtualizer.measureElement}
                     className="w-full"
                   >
-                    {block.kind === "divider" ? (
-                      <TranscriptDividerRow label={block.label} />
-                    ) : (
-                      <MessageBlockRow
-                        block={block}
-                        blockIndex={virtualRow.index}
-                        totalBlocks={messageBlocks.length}
-                        isNestedVariant={isNestedVariant}
-                        shouldUseContentVisibility={shouldUseContentVisibility}
-                        expandedStepIds={expandedStepIds}
-                        onExpandedStepIdsChange={onExpandedStepIdsChange}
-                        searchMatchMessageIds={props.searchMatchMessageIds}
-                        activeSearchMessageId={props.activeSearchMessageId}
-                        searchHighlightQuery={props.searchHighlightQuery}
-                        isStreaming={props.isStreaming}
-                        latestAssistantMessageId={latestAssistantMessageId}
-                        onRevertToMessage={props.onRevertToMessage}
-                        onForkAtMessage={props.onForkAtMessage}
-                        openTargets={props.openTargets}
-                        onOpenTarget={props.onOpenTarget}
-                        assistantAvatar={props.assistantAvatar}
-                        userIdentity={props.userIdentity}
-                      />
-                    )}
+                    {renderTranscriptItem(item)}
                   </div>
                 );
               })}
             </div>
           ) : null}
-        </div>
+          </div>
+          {detachedTailRenderItem
+            ? renderTranscriptItem(detachedTailRenderItem)
+            : null}
+        </>
       ) : (
         <div>
-          {messageBlocks.map((block, index) => (
-            block.kind === "divider" ? (
-              <TranscriptDividerRow key={blockIdentityKey(block)} label={block.label} />
-            ) : (
-              <MessageBlockRow
-                key={blockIdentityKey(block)}
-                block={block}
-                blockIndex={index}
-                totalBlocks={messageBlocks.length}
-                isNestedVariant={isNestedVariant}
-                shouldUseContentVisibility={shouldUseContentVisibility}
-                expandedStepIds={expandedStepIds}
-                onExpandedStepIdsChange={onExpandedStepIdsChange}
-                searchMatchMessageIds={props.searchMatchMessageIds}
-                activeSearchMessageId={props.activeSearchMessageId}
-                searchHighlightQuery={props.searchHighlightQuery}
-                isStreaming={props.isStreaming}
-                latestAssistantMessageId={latestAssistantMessageId}
-                onRevertToMessage={props.onRevertToMessage}
-                onForkAtMessage={props.onForkAtMessage}
-                openTargets={props.openTargets}
-                onOpenTarget={props.onOpenTarget}
-                assistantAvatar={props.assistantAvatar}
-                userIdentity={props.userIdentity}
-              />
-            )
+          {renderItems.map((item) => (
+            <div key={item.id}>{renderTranscriptItem(item)}</div>
           ))}
         </div>
       )}
-
-      {!isNestedVariant && props.footer ? props.footer : null}
     </div>
   );
 }

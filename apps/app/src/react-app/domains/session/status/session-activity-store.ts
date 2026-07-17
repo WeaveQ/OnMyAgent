@@ -3,7 +3,14 @@ import { create } from "zustand";
 
 import { t } from "../../../../i18n";
 
-export type SessionActivityStatus = "idle" | "thinking" | "responding" | "error" | "compacting" | "waiting";
+export type SessionActivityStatus =
+  | "idle"
+  | "thinking"
+  | "responding"
+  | "retrying"
+  | "error"
+  | "compacting"
+  | "waiting";
 
 export type SessionRunIdentity = {
   runKey: string;
@@ -19,6 +26,7 @@ type SessionActivityRecord = {
   runKey: string | null;
   runStartedAt: number | null;
   assistantOutput: boolean;
+  retrying: boolean;
   errorActive: boolean;
   errorMessage: string | null;
   compacting: boolean;
@@ -68,6 +76,7 @@ const createRecord = (): SessionActivityRecord => ({
   runKey: null,
   runStartedAt: null,
   assistantOutput: false,
+  retrying: false,
   errorActive: false,
   errorMessage: null,
   compacting: false,
@@ -122,6 +131,7 @@ function applyRuntimeStatus(
         : record.runStartedAt,
     stopRequested: false,
     assistantOutput: runActive && assistantOutput,
+    retrying: normalized === "retry",
     errorActive: runActive ? false : record.errorActive,
     errorMessage: runActive ? null : record.errorMessage,
     compacting: runActive ? record.compacting : false,
@@ -135,6 +145,7 @@ function statusForRecord(record: SessionActivityRecord): SessionActivityStatus {
   if (record.waitingPermissionIds.length > 0 || record.waitingQuestionIds.length > 0) return "waiting";
   if (record.compacting) return "compacting";
   if (!record.runActive) return "idle";
+  if (record.retrying) return "retrying";
   return record.assistantOutput ? "responding" : "thinking";
 }
 
@@ -255,6 +266,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
       runKey: runIdentity.runKey,
       runStartedAt: runIdentity.runStartedAt,
       assistantOutput: false,
+      retrying: false,
       errorActive: false,
       errorMessage: null,
       compacting: false,
@@ -271,6 +283,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
       runActive: false,
       stopRequested: true,
       assistantOutput: false,
+      retrying: false,
       compacting: false,
       waitingPermissionIds: [],
       waitingQuestionIds: [],
@@ -348,6 +361,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
       errorMessage,
       runActive: false,
       assistantOutput: false,
+      retrying: false,
       compacting: false,
     })));
   },
@@ -401,6 +415,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
 export function getSessionActivityStatusLabel(status: SessionActivityStatus) {
   if (status === "thinking") return t("session.assistant_thinking");
   if (status === "responding") return t("session.assistant_responding");
+  if (status === "retrying") return t("session.assistant_retrying");
   if (status === "waiting") return t("session.assistant_waiting");
   if (status === "compacting") return t("session.assistant_compacting");
   if (status === "error") return t("session.assistant_error");

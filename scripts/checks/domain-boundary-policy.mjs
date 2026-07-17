@@ -7,6 +7,7 @@ const allowedDomainDependencies = new Set([
   "session>connections",
   "session>local-agents",
   "session>messaging",
+  "session>plugins",
   "session>shell-feedback",
   "session>workspace",
   "settings>connections",

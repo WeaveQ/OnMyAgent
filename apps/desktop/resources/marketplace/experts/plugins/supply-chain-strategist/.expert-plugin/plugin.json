@@ -54,7 +54,6 @@
     }
   ],
   "skills": [
-    "./skills/browser-use",
     "./skills/market-researcher",
     "./skills/tencentmap-lbs-skill"
   ],

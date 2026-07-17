@@ -1,6 +1,8 @@
 export * from "./den/desktop-policies"
 export * from "./den/inference"
 export * from "./session-archive"
+export * from "./browser"
 export type * from "./server"
 export * from "./channel"
 export type * from "./desktop-ipc-code-workspace"
+export * from "./artifact-plugin"

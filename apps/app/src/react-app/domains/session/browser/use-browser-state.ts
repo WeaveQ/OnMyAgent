@@ -2,6 +2,11 @@ import { useReducer } from "react";
 
 export type BrowserTabInfo = {
   tabId: string;
+  owner?: "user" | "agent" | "claimed";
+  sessionId?: string | null;
+  temporary?: boolean;
+  deliverable?: boolean;
+  handoff?: boolean;
   url: string;
   title: string;
   favicon?: string | null;
@@ -34,6 +39,7 @@ export type BrowserPanelAction =
 
 const EMPTY_TAB_STATE: BrowserTabInfo = {
   tabId: "",
+  owner: "user",
   url: "",
   title: "",
   favicon: null,
