@@ -24,6 +24,8 @@ export function createBrowserRuntime(options = {}) {
     history: options.history,
     nameSession: options.nameSession,
     consoleLogs: options.consoleLogs,
+    docsRoot: options.docsRoot,
+    loadDocumentation: options.loadDocumentation,
   });
 
   const assertEnabled = async () => {

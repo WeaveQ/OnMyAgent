@@ -1,75 +1,255 @@
-function createLocator(request, tabId, selector) {
-  const act = (action, params = {}) => request("locatorAction", {
-    tabId,
-    selector,
-    action,
-    ...params,
-  });
+const IN_APP_BROWSER_IDS = new Set(["in-app", "iab", "browser", "default"]);
+
+function createCapabilityCollection(ids) {
+  const list = async () =>
+    ids.map((id) => ({
+      id,
+      description: id,
+    }));
   return Object.freeze({
+    list,
+    get: async (id) => {
+      if (!ids.includes(id)) return null;
+      return Object.freeze({
+        id,
+        documentation: async () => `Capability: ${id}`,
+      });
+    },
+  });
+}
+
+function createLocator(request, tabId, selector) {
+  const act = async (action, params = {}) => {
+    const result = await request("locatorAction", {
+      tabId,
+      selector,
+      action,
+      ...params,
+    });
+    if (result && typeof result === "object" && "value" in result) {
+      return result.value;
+    }
+    return result;
+  };
+  const self = Object.freeze({
     click: (options = {}) => act("click", options),
-    fill: (value) => act("fill", { value }),
+    fill: (value, options = {}) => act("fill", { value, ...options }),
     type: (value, options = {}) => act("type", { value, ...options }),
-    press: (key) => act("press", { key }),
-    hover: () => act("hover"),
-    check: () => act("check"),
-    uncheck: () => act("uncheck"),
-    selectOption: (value) => act("selectOption", { value }),
-    textContent: () => act("textContent"),
+    press: (key, options = {}) => act("press", { key, ...options }),
+    hover: (options = {}) => act("hover", options),
+    check: (options = {}) => act("check", options),
+    uncheck: (options = {}) => act("uncheck", options),
+    setChecked: (checked, options = {}) =>
+      act(checked ? "check" : "uncheck", options),
+    selectOption: (value, options = {}) => act("selectOption", { value, ...options }),
+    textContent: (options = {}) => act("textContent", options),
+    innerText: (options = {}) => act("innerText", options),
     count: () => act("count"),
+    isVisible: () => act("isVisible"),
+    isEnabled: () => act("isEnabled"),
+    waitFor: async (options = {}) => {
+      const deadline = Date.now() + Math.min(Number(options.timeoutMs) || 10_000, 60_000);
+      while (Date.now() < deadline) {
+        if (await act("waitFor", options)) return;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      throw new Error("locator waitFor timed out");
+    },
+    all: async () => {
+      const total = Number(await act("count")) || 0;
+      return Array.from({ length: total }, (_, index) =>
+        createLocator(request, tabId, { ...selector, nth: index }),
+      );
+    },
     first: () => createLocator(request, tabId, { ...selector, nth: 0 }),
+    last: () => createLocator(request, tabId, { ...selector, nth: -1 }),
     nth: (index) => createLocator(request, tabId, { ...selector, nth: index }),
-    locator: (css) => createLocator(request, tabId, { parent: selector, css }),
+    locator: (css, options = {}) =>
+      createLocator(request, tabId, { parent: selector, css, ...options }),
+    getByRole: (role, options = {}) =>
+      createLocator(request, tabId, { parent: selector, role, ...options }),
+    getByLabel: (label, options = {}) =>
+      createLocator(request, tabId, { parent: selector, label, ...options }),
+    getByText: (text, options = {}) =>
+      createLocator(request, tabId, { parent: selector, text, ...options }),
+    getByPlaceholder: (placeholder, options = {}) =>
+      createLocator(request, tabId, {
+        parent: selector,
+        placeholder,
+        ...options,
+      }),
+    getByTestId: (testId) =>
+      createLocator(request, tabId, { parent: selector, testId }),
+  });
+  return self;
+}
+
+function createFrameLocator(request, tabId, frameSelector) {
+  return Object.freeze({
+    locator: (css, options = {}) =>
+      createLocator(request, tabId, { frameSelector, css, ...options }),
+    getByRole: (role, options = {}) =>
+      createLocator(request, tabId, { frameSelector, role, ...options }),
+    getByLabel: (label, options = {}) =>
+      createLocator(request, tabId, { frameSelector, label, ...options }),
+    getByText: (text, options = {}) =>
+      createLocator(request, tabId, { frameSelector, text, ...options }),
+    getByPlaceholder: (placeholder, options = {}) =>
+      createLocator(request, tabId, {
+        frameSelector,
+        placeholder,
+        ...options,
+      }),
+    getByTestId: (testId) =>
+      createLocator(request, tabId, { frameSelector, testId }),
+    frameLocator: (nested) =>
+      createFrameLocator(request, tabId, `${frameSelector} >> ${nested}`),
   });
 }
 
 function createTab(request, metadata) {
   const tabId = metadata.tabId;
-  const coordinateAction = (action, params = {}) => request("coordinateAction", {
-    tabId,
-    action,
-    ...params,
-  });
+  const coordinateAction = (action, params = {}) =>
+    request("coordinateAction", {
+      tabId,
+      action,
+      ...params,
+    });
+  let meta = { ...metadata };
+
+  const refreshMeta = async () => {
+    const result = await request("describeTab", { tabId });
+    if (result?.tab) meta = result.tab;
+    return meta;
+  };
+
   return Object.freeze({
     id: tabId,
-    get url() { return metadata.url ?? ""; },
-    get title() { return metadata.title ?? ""; },
-    goto: (url, options = {}) => request("navigate", { tabId, url, ...options }),
+    url: async () => (await refreshMeta()).url ?? meta.url ?? "",
+    title: async () => (await refreshMeta()).title ?? meta.title ?? "",
+    capabilities: createCapabilityCollection([
+      "playwright",
+      "dom_cua",
+      "cua",
+      "clipboard",
+      "screenshot",
+    ]),
+    goto: async (url, options = {}) => {
+      const result = await request("navigate", { tabId, url, ...options });
+      if (result?.tab) meta = result.tab;
+      return result;
+    },
     back: () => request("navigateHistory", { tabId, direction: "back" }),
     forward: () => request("navigateHistory", { tabId, direction: "forward" }),
     reload: () => request("reload", { tabId }),
     close: () => request("finalizeTabs", { tabIds: [tabId] }),
     screenshot: (options = {}) => request("screenshot", { tabId, ...options }),
-    evaluate: (expression) => request("evaluateReadonly", { tabId, expression }),
+    evaluate: (expression) =>
+      request("evaluateReadonly", { tabId, expression }),
+    markDeliverable: () => request("markTab", { tabId, deliverable: true }),
+    markHandoff: () => request("markTab", { tabId, handoff: true }),
+    getJsDialog: () => request("getJsDialog", { tabId }),
     playwright: Object.freeze({
       locator: (css) => createLocator(request, tabId, { css }),
-      getByRole: (role, options = {}) => createLocator(request, tabId, { role, ...options }),
-      getByLabel: (label, options = {}) => createLocator(request, tabId, { label, ...options }),
-      getByText: (text, options = {}) => createLocator(request, tabId, { text, ...options }),
-      getByPlaceholder: (placeholder, options = {}) => createLocator(request, tabId, { placeholder, ...options }),
+      getByRole: (role, options = {}) =>
+        createLocator(request, tabId, { role, ...options }),
+      getByLabel: (label, options = {}) =>
+        createLocator(request, tabId, { label, ...options }),
+      getByText: (text, options = {}) =>
+        createLocator(request, tabId, { text, ...options }),
+      getByPlaceholder: (placeholder, options = {}) =>
+        createLocator(request, tabId, { placeholder, ...options }),
       getByTestId: (testId) => createLocator(request, tabId, { testId }),
+      frameLocator: (frameSelector) =>
+        createFrameLocator(request, tabId, frameSelector),
+      evaluate: (pageFunction, arg, options = {}) =>
+        request("playwrightEvaluate", {
+          tabId,
+          pageFunction:
+            typeof pageFunction === "function"
+              ? pageFunction.toString()
+              : String(pageFunction),
+          arg,
+          ...options,
+        }),
+      waitForTimeout: (timeoutMs) =>
+        request("waitForTimeout", { tabId, timeoutMs }),
+      waitForURL: (url, options = {}) =>
+        request("waitForURL", { tabId, url, ...options }),
+      waitForLoadState: (options = {}) =>
+        request("waitForLoadState", { tabId, ...options }),
+      waitForEvent: (event, options = {}) =>
+        request("waitForEvent", { tabId, event, ...options }),
+      expectNavigation: async (action, options = {}) => {
+        const pending = request("waitForNavigation", { tabId, ...options });
+        const value = await action();
+        await pending;
+        return value;
+      },
+      domSnapshot: () => request("domSnapshot", { tabId }),
+      elementInfo: (options = {}) =>
+        request("elementInfo", { tabId, ...options }),
+      elementScreenshot: (options = {}) =>
+        request("elementScreenshot", { tabId, ...options }),
     }),
     dom_cua: Object.freeze({
       observe: (options = {}) => request("domObserve", { tabId, ...options }),
+      get_visible_dom: (options = {}) =>
+        request("domObserve", { tabId, ...options }),
       click: (ref) => request("domAction", { tabId, action: "click", ref }),
-      type: (ref, value) => request("domAction", { tabId, action: "type", ref, value }),
-      scroll: (ref, deltaY) => request("domAction", { tabId, action: "scroll", ref, deltaY }),
+      double_click: (ref) =>
+        request("domAction", { tabId, action: "doubleClick", ref }),
+      type: (ref, value) =>
+        request("domAction", { tabId, action: "type", ref, value }),
+      scroll: (ref, deltaY) =>
+        request("domAction", { tabId, action: "scroll", ref, deltaY }),
+      keypress: (options = {}) =>
+        request("domAction", { tabId, action: "keypress", ...options }),
+      downloadMedia: (options = {}) =>
+        request("domAction", { tabId, action: "downloadMedia", ...options }),
     }),
     cua: Object.freeze({
       click: (point) => coordinateAction("click", point),
       doubleClick: (point) => coordinateAction("doubleClick", point),
+      double_click: (point) => coordinateAction("doubleClick", point),
       drag: (input) => coordinateAction("drag", input),
       scroll: (input) => coordinateAction("scroll", input),
-      type: (text) => coordinateAction("type", { text }),
-      keypress: (key) => coordinateAction("keypress", { key }),
+      type: (text) =>
+        coordinateAction("type", typeof text === "string" ? { text } : text),
+      keypress: (key) =>
+        coordinateAction(
+          "keypress",
+          typeof key === "string" ? { key } : key,
+        ),
       move: (point) => coordinateAction("move", point),
+      downloadMedia: (options = {}) =>
+        coordinateAction("downloadMedia", options),
     }),
     dialog: Object.freeze({
-      accept: (promptText) => request("dialogAction", { tabId, action: "accept", promptText }),
+      accept: (promptText) =>
+        request("dialogAction", { tabId, action: "accept", promptText }),
       dismiss: () => request("dialogAction", { tabId, action: "dismiss" }),
     }),
     clipboard: Object.freeze({
-      read: () => request("clipboardRead", { tabId }),
-      write: (text) => request("clipboardWrite", { tabId, text }),
+      read: async () => {
+        const result = await request("clipboardRead", { tabId });
+        if (Array.isArray(result?.items)) return result.items;
+        const text = result?.text ?? "";
+        return text
+          ? [{ entries: [{ mime_type: "text/plain", text }], presentation_style: "unspecified" }]
+          : [];
+      },
+      readText: async () => {
+        const result = await request("clipboardRead", { tabId });
+        return result?.text ?? "";
+      },
+      write: (items) => request("clipboardWrite", { tabId, items }),
+      writeText: (text) => request("clipboardWrite", { tabId, text }),
+    }),
+    content: Object.freeze({
+      export: (options = {}) => request("exportContent", { tabId, ...options }),
+      exportGsuite: (type, options = {}) =>
+        request("exportContent", { tabId, type, ...options }),
     }),
     dev: Object.freeze({
       logs: (options = {}) => request("consoleLogs", { tabId, ...options }),
@@ -82,9 +262,17 @@ function createBrowser(request, info) {
     const result = await request("listTabs", {});
     return (result.tabs ?? []).map((tab) => createTab(request, tab));
   };
+  const browserId = info.browserId ?? info.backend ?? "in-app";
+  const capabilityIds = Array.isArray(info.capabilities)
+    ? info.capabilities.map((item) =>
+        typeof item === "string" ? item : String(item?.id ?? item),
+      )
+    : ["tabs", "screenshot", "input", "dialog", "clipboard"];
+
   return Object.freeze({
-    name: info.backend ?? "in-app",
-    capabilities: Object.freeze([...(info.capabilities ?? [])]),
+    browserId,
+    name: browserId,
+    capabilities: createCapabilityCollection(capabilityIds),
     tabs: Object.freeze({
       new: async (options = {}) => {
         const result = await request("createTab", options);
@@ -99,40 +287,108 @@ function createBrowser(request, info) {
         const result = await request("selectedTab", {});
         return result.tab ? createTab(request, result.tab) : null;
       },
-      finalize: (tabs) => request("finalizeTabs", {
-        tabIds: tabs.map((tab) => typeof tab === "string" ? tab : tab.id),
-      }),
-      content: (tabId, options = {}) => request("tabContent", { tabId, ...options }),
+      finalize: (input) => {
+        const tabs = Array.isArray(input)
+          ? input
+          : Array.isArray(input?.tabs)
+            ? input.tabs
+            : [];
+        return request("finalizeTabs", {
+          tabIds: tabs.map((tab) => (typeof tab === "string" ? tab : tab.id)),
+        });
+      },
+      content: (input, options = {}) => {
+        if (typeof input === "string") {
+          return request("tabContent", { tabId: input, ...options });
+        }
+        return request("tabContent", { ...(input ?? {}), ...options });
+      },
     }),
     user: Object.freeze({
-      openTabs: () => request("listUserTabs", {}),
-      claimTab: async (tabId) => {
+      openTabs: async () => {
+        const result = await request("listUserTabs", {});
+        return result.tabs ?? [];
+      },
+      claimTab: async (tabIdOrInfo) => {
+        const tabId =
+          typeof tabIdOrInfo === "string"
+            ? tabIdOrInfo
+            : tabIdOrInfo?.tabId ?? tabIdOrInfo?.id;
         const result = await request("claimTab", { tabId });
         return createTab(request, result.tab);
       },
       history: (options = {}) => request("history", options),
     }),
-    documentation: (topic) => request("documentation", { topic }),
+    documentation: async (topic) => {
+      const result = await request("documentation", {
+        topic: topic ?? "api",
+      });
+      return result?.markdown ?? result?.content ?? JSON.stringify(result ?? {});
+    },
     nameSession: (name) => request("nameSession", { name }),
   });
 }
 
 export function setupBrowserRuntime(options) {
-  if (typeof options?.request !== "function") throw new TypeError("browser request transport is required");
-  if (!options.context || typeof options.context !== "object") throw new TypeError("browser execution context is required");
-  const request = (method, params) => options.request(method, params, options.context);
-  const getDefault = async () => createBrowser(request, await request("getInfo", {}));
+  if (typeof options?.request !== "function") {
+    throw new TypeError("browser request transport is required");
+  }
+  if (!options.context || typeof options.context !== "object") {
+    throw new TypeError("browser execution context is required");
+  }
+  const request = (method, params) =>
+    options.request(method, params, options.context);
+  const getDefault = async () =>
+    createBrowser(request, await request("getInfo", {}));
 
-  return Object.freeze({
-    browsers: Object.freeze({
-      list: async () => [await getDefault()],
-      get: async (name) => {
-        const browser = await getDefault();
-        return browser.name === name ? browser : null;
-      },
-      getDefault,
-      getForUrl: async () => getDefault(),
-    }),
-    documentation: (topic) => request("documentation", { topic }),
+  const browsers = Object.freeze({
+    list: async () => {
+      const browser = await getDefault();
+      return [
+        {
+          id: browser.browserId,
+          name: browser.name,
+          type: "iab",
+          capabilities: {
+            browser: (await browser.capabilities.list()).map((item) => ({
+              id: item.id,
+              description: item.description,
+            })),
+            tab: [],
+          },
+        },
+      ];
+    },
+    get: async (name) => {
+      const key = String(name ?? "").trim().toLowerCase();
+      if (!IN_APP_BROWSER_IDS.has(key) && key !== "") {
+        return null;
+      }
+      return getDefault();
+    },
+    getDefault,
+    getForUrl: async () => getDefault(),
   });
+
+  const documentation = Object.freeze({
+    get: async (name) => {
+      const result = await request("documentation", { topic: name });
+      return result?.markdown ?? result?.content ?? "";
+    },
+  });
+
+  const agent = Object.freeze({
+    browsers,
+    documentation,
+  });
+
+  if (options.globals && typeof options.globals === "object") {
+    options.globals.agent = {
+      ...(options.globals.agent ?? {}),
+      browsers,
+      documentation,
+    };
+  }
+
+  return agent;
 }

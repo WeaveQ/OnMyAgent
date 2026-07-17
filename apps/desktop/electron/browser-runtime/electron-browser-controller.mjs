@@ -103,6 +103,8 @@ export function createElectronBrowserController(options) {
     defaultBundledPluginsRoot(
       options.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
     );
+  const docsRoot = options.docsRoot
+    ?? (pluginRoot ? path.join(pluginRoot, "browser", "docs") : null);
   const runtime = createBrowserRuntime({
     createView,
     requestApproval: options.requestApproval,
@@ -111,6 +113,7 @@ export function createElectronBrowserController(options) {
     history: options.history,
     nameSession: options.nameSession,
     consoleLogs: options.consoleLogs,
+    docsRoot,
     isBrowserEnabled:
       options.isBrowserEnabled ??
       (async () => {
