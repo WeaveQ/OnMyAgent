@@ -17,6 +17,40 @@ Packaged desktop builds use a **lightweight checker** (`apps/desktop/electron/up
 
 Release packaging and code signing still follow the flows below; the checker only needs a normal GitHub Release with a semver tag.
 
+## Developer preview (unsigned, no Apple Developer cert)
+
+When you **do not** have Developer ID + notarization yet, ship GitHub builds as **developer preview** only:
+
+```text
+draft: false
+prerelease: true
+notarize: false
+build_electron: true
+```
+
+### Who it is for
+
+- Developers and internal testers who can run one Terminal command
+- **Not** for end users who expect “download and double-click”
+
+### macOS “damaged / can’t be opened”
+
+Unsigned preview builds are **not corrupt**. Gatekeeper blocks apps downloaded from the internet without notarization. Local `pnpm dev` / local package often works because those paths usually have no `com.apple.quarantine` flag.
+
+After installing the `.app` (e.g. into Applications):
+
+```bash
+xattr -cr /Applications/OnMyAgent.app
+```
+
+Then open the app again. Alternatively: **System Settings → Privacy & Security → Open Anyway**.
+
+Put the same instructions in the GitHub Release notes for every preview tag.
+
+### Updater / latest
+
+`releases/latest` ignores prereleases. Preview tags will not drive the desktop “check for updates → latest” path until you publish a **non-prerelease** release (preferably notarized).
+
 ## Daily PR Flow
 
 1. Start from the latest `main`.
