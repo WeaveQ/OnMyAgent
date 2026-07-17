@@ -11,7 +11,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { MenuRowButton } from "@/components/ui/action-row";
+import { cn } from "@/lib/utils";
 
 export type SelectMenuOption = {
   value: string;
@@ -165,38 +165,56 @@ export function SelectMenu(props: SelectMenuProps) {
           <div
             ref={panelRef}
             role="listbox"
-            className="fixed z-[500] overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border bg-dls-surface py-1 shadow-lg"
+            // Solid opaque surface + isolation so glass/backdrop parents never
+            // show through option rows (avoids "穿透" of underlying controls).
+            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1 shadow-lg"
             style={{
               top: panelRect.top,
               left: panelRect.left,
-              width: panelRect.width,
+              width: Math.max(panelRect.width, 160),
               maxHeight: panelRect.maxHeight,
+              backgroundColor: "var(--dls-surface)",
+              color: "var(--dls-text-primary)",
             }}
           >
-            {props.options.map((opt) => (
-              <MenuRowButton
-                key={opt.value}
-                type="button"
-                role="option"
-                aria-selected={opt.value === props.value}
-                active={opt.value === props.value}
-                align="center"
-                className={optionRowClasses[size]}
-                onClick={() => {
-                  props.onChange(opt.value);
-                  close();
-                }}
-              >
-                <span className="min-w-0 flex-1 truncate">{opt.label}</span>
-                {opt.value === props.value ? (
-                  <Check
-                    size={16}
-                    className="shrink-0 text-dls-accent"
-                    aria-hidden
-                  />
-                ) : null}
-              </MenuRowButton>
-            ))}
+            {props.options.map((opt) => {
+              const selected = opt.value === props.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={cn(
+                    optionRowClasses[size],
+                    "w-full border-0 outline-none focus-visible:bg-dls-hover",
+                    selected
+                      ? "bg-dls-list-selected text-dls-text"
+                      : "bg-transparent text-dls-text hover:bg-dls-hover",
+                  )}
+                  style={
+                    selected
+                      ? { backgroundColor: "var(--dls-list-selected)" }
+                      : undefined
+                  }
+                  onClick={() => {
+                    props.onChange(opt.value);
+                    close();
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {opt.label}
+                  </span>
+                  {selected ? (
+                    <Check
+                      size={16}
+                      className="shrink-0 text-dls-accent"
+                      aria-hidden
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
           </div>,
           document.body,
         )
