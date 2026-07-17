@@ -9,7 +9,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { FilterChip, IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { shellChrome, typeScale } from "@/react-app/design-system/type-scale";
+import { typeScale } from "@/react-app/design-system/type-scale";
 import { cn } from "@/lib/utils";
 import {
   agentManagementFetchModels,
@@ -588,20 +588,63 @@ export function AgentManagementPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <header className={shellChrome.pageHeader}>
-        <h2 className={cn("min-w-0 truncate", typeScale.pageTitle)}>
-          {t("agent_manager.title")}
-        </h2>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void refresh({ force: true })}
-          title={t("common.refresh")}
-          aria-label={t("common.refresh")}
-          className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
-        >
-          {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
-        </Button>
+      {/* Store-style top chrome: primary segmented switch lives in header (not body). */}
+      <header className="flex shrink-0 flex-col gap-2.5 border-b border-dls-border bg-dls-background px-6 py-3">
+        <div className="flex min-h-8 items-center justify-between gap-3">
+          <h2 className={cn("min-w-0 truncate", typeScale.pageTitle)}>
+            {t("agent_manager.title")}
+          </h2>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => void refresh({ force: true })}
+            title={t("common.refresh")}
+            aria-label={t("common.refresh")}
+            className="shrink-0 text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+          >
+            {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SegmentedTabGroup density="filter">
+            {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
+              (tab) => {
+                const Icon = tab.icon;
+                const active = activePanel === tab.id;
+                return (
+                  <NavTabButton
+                    key={tab.id}
+                    type="button"
+                    active={active}
+                    onClick={() => setActivePanel(tab.id)}
+                    size="tab"
+                    shape="tab"
+                  >
+                    <Icon className="size-3.5 shrink-0" />
+                    {t(tab.labelKey)}
+                  </NavTabButton>
+                );
+              },
+            )}
+          </SegmentedTabGroup>
+          {activePanel === "agents" ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <AgentManagementMetric
+                label={t("agent_manager.online_agents")}
+                value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`}
+              />
+              <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
+              <AgentManagementMetric
+                label={t("agent_manager.recognized_skills")}
+                value={snapshot?.skills.length ?? 0}
+              />
+              <AgentManagementMetric
+                label={t("agent_manager.managed_providers")}
+                value={managedProviderTotal}
+              />
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <div
@@ -617,48 +660,6 @@ export function AgentManagementPage(props: {
           )}
         >
           {error ? <NoticeBox size="comfortable" tone="error">{error}</NoticeBox> : null}
-
-          <div className="flex flex-col gap-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <SegmentedTabGroup density="filter">
-                {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
-                  (tab) => {
-                    const Icon = tab.icon;
-                    const active = activePanel === tab.id;
-                    return (
-                      <NavTabButton
-                        key={tab.id}
-                        active={active}
-                        onClick={() => setActivePanel(tab.id)}
-                        size="tab"
-                        shape="tab"
-                      >
-                        <Icon className="size-3.5 shrink-0" />
-                        {t(tab.labelKey)}
-                      </NavTabButton>
-                    );
-                  },
-                )}
-              </SegmentedTabGroup>
-              {activePanel === "agents" ? (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <AgentManagementMetric
-                    label={t("agent_manager.online_agents")}
-                    value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`}
-                  />
-                  <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
-                  <AgentManagementMetric
-                    label={t("agent_manager.recognized_skills")}
-                    value={snapshot?.skills.length ?? 0}
-                  />
-                  <AgentManagementMetric
-                    label={t("agent_manager.managed_providers")}
-                    value={managedProviderTotal}
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
 
           {activePanel === "archive" && props.sessionArchiveSlot ? (
             <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
