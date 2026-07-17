@@ -1,57 +1,44 @@
 /** @jsxImportSource react */
-import { useEffect } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import {
+  FONT_ZOOM_MAX,
+  FONT_ZOOM_MIN,
+  FONT_ZOOM_PRESETS,
   FONT_ZOOM_STEP,
-  applyFontZoom,
-  normalizeFontZoom,
+  fontZoomFromPresetIndex,
+  fontZoomPresetIndex,
   parseFontZoomShortcut,
-  persistFontZoom,
-  readStoredFontZoom,
 } from "../../app/lib/font-zoom";
-import { setDesktopZoomFactor } from "../../app/lib/desktop";
-import { isDesktopRuntime } from "../../app/utils";
+import {
+  bumpFontZoomIn,
+  bumpFontZoomOut,
+  ensureFontZoomInitialized,
+  getFontZoom,
+  resetFontZoom,
+  setFontZoom,
+  subscribeFontZoom,
+} from "./font-zoom-controller";
 
-export function useDesktopFontZoomBehavior() {
+/**
+ * Boot + keyboard shortcuts. Call once near app root (desktop and web).
+ */
+export function useFontZoomBehavior() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!isDesktopRuntime()) return;
 
-    const applyAndPersistFontZoom = (value: number) => {
-      const next = normalizeFontZoom(value);
-      persistFontZoom(window.localStorage, next);
-
-      // Keep the current desktop zoom available so native WebContentsView bounds
-      // can be converted from renderer CSS pixels to contentView coordinates.
-      window.__ONMYAGENT_ZOOM_FACTOR__ = next;
-
-      void setDesktopZoomFactor(next)
-        .then((applied) => {
-          if (applied) {
-            document.documentElement.style.removeProperty("--onmyagent-font-size");
-            return;
-          }
-          applyFontZoom(document.documentElement.style, next);
-        })
-        .catch(() => {
-          applyFontZoom(document.documentElement.style, next);
-        });
-
-      return next;
-    };
-
-    let fontZoom = applyAndPersistFontZoom(readStoredFontZoom(window.localStorage) ?? 1);
+    ensureFontZoomInitialized();
 
     const handleZoomShortcut = (event: KeyboardEvent) => {
       const action = parseFontZoomShortcut(event);
       if (!action) return;
 
       if (action === "in") {
-        fontZoom = applyAndPersistFontZoom(fontZoom + FONT_ZOOM_STEP);
+        bumpFontZoomIn();
       } else if (action === "out") {
-        fontZoom = applyAndPersistFontZoom(fontZoom - FONT_ZOOM_STEP);
+        bumpFontZoomOut();
       } else {
-        fontZoom = applyAndPersistFontZoom(1);
+        resetFontZoom();
       }
 
       event.preventDefault();
@@ -63,4 +50,39 @@ export function useDesktopFontZoomBehavior() {
       window.removeEventListener("keydown", handleZoomShortcut, true);
     };
   }, []);
+}
+
+/** @deprecated Use useFontZoomBehavior — works on desktop and web. */
+export const useDesktopFontZoomBehavior = useFontZoomBehavior;
+
+/**
+ * Reactive font zoom for settings UI and any surface that needs the current factor.
+ */
+export function useFontZoom() {
+  const value = useSyncExternalStore(
+    subscribeFontZoom,
+    getFontZoom,
+    () => 1,
+  );
+
+  const setValue = useCallback((next: number) => setFontZoom(next), []);
+  const setPresetIndex = useCallback((index: number) => {
+    setFontZoom(fontZoomFromPresetIndex(index));
+  }, []);
+  const reset = useCallback(() => resetFontZoom(), []);
+
+  return {
+    value,
+    min: FONT_ZOOM_MIN,
+    max: FONT_ZOOM_MAX,
+    step: FONT_ZOOM_STEP,
+    presets: FONT_ZOOM_PRESETS,
+    presetIndex: fontZoomPresetIndex(value),
+    presetCount: FONT_ZOOM_PRESETS.length,
+    setValue,
+    setPresetIndex,
+    reset,
+    zoomIn: bumpFontZoomIn,
+    zoomOut: bumpFontZoomOut,
+  };
 }

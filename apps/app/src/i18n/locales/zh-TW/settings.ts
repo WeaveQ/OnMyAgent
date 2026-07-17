@@ -5,6 +5,16 @@ export default {
     "API 密鑰存儲在本機本地。環境變量型模型服務商需在工作區環境中修改後重新加載。",
   "settings.appearance_hint": "匹配系統或強制淺色/深色模式",
   "settings.appearance_title": "外觀",
+
+  "settings.font_size_title": "顯示大小",
+  "settings.font_size_desc": "縮放整個介面。也可使用 ⌘/Ctrl + 和 −，或 ⌘/Ctrl + 0 恢復預設。",
+  "settings.font_size_label": "字體大小",
+  "settings.font_size_hint": "作用於整個應用，包括會話與設定。",
+  "settings.font_size_small": "小",
+  "settings.font_size_default": "預設",
+  "settings.font_size_large": "大",
+  "settings.font_size_value": "第 {value} 檔",
+
   "settings.audit_log_title": "審計日誌",
   "settings.auto_compact": "自動上下文壓縮",
   "settings.auto_compact_desc":

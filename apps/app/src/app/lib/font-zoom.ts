@@ -4,6 +4,14 @@ export const FONT_ZOOM_STEP = 0.1;
 export const FONT_ZOOM_MIN = 0.8;
 export const FONT_ZOOM_MAX = 1.6;
 
+/**
+ * Discrete stops for the settings slider (小 → 默认 → 大).
+ * Keyboard shortcuts still step by FONT_ZOOM_STEP and snap to the nearest
+ * legal value via normalizeFontZoom.
+ */
+export const FONT_ZOOM_PRESETS = [0.85, 0.9, 1.0, 1.15, 1.3] as const;
+export type FontZoomPreset = (typeof FONT_ZOOM_PRESETS)[number];
+
 export type FontZoomShortcutAction = "in" | "out" | "reset";
 export type FontZoomTarget = { setZoom: (scaleFactor: number) => Promise<void> };
 
@@ -13,6 +21,28 @@ export function clampFontZoom(value: number): number {
 
 export function normalizeFontZoom(value: number): number {
   return Math.round(clampFontZoom(value) * 100) / 100;
+}
+
+export function fontZoomPresetIndex(value: number): number {
+  const normalized = normalizeFontZoom(value);
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < FONT_ZOOM_PRESETS.length; index += 1) {
+    const distance = Math.abs(FONT_ZOOM_PRESETS[index] - normalized);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+}
+
+export function fontZoomFromPresetIndex(index: number): number {
+  const clamped = Math.min(
+    FONT_ZOOM_PRESETS.length - 1,
+    Math.max(0, Math.round(index)),
+  );
+  return FONT_ZOOM_PRESETS[clamped];
 }
 
 export function parseFontZoomShortcut(event: {
@@ -68,10 +98,21 @@ export function persistFontZoom(storage: Pick<Storage, "setItem">, value: number
   }
 }
 
-export function applyFontZoom(rootStyle: Pick<CSSStyleDeclaration, "setProperty">, value: number): number {
+/**
+ * CSS fallback when Electron zoom is unavailable (web, or setZoomFactor failed).
+ * Root rem is the scaling unit; DESIGN type tokens use rem so they follow along.
+ */
+export function applyFontZoom(
+  rootStyle: Pick<CSSStyleDeclaration, "setProperty" | "removeProperty">,
+  value: number,
+): number {
   const normalized = normalizeFontZoom(value);
-  const px = FONT_ZOOM_BASE_PX * normalized;
-  rootStyle.setProperty("--onmyagent-font-size", `${px}px`);
+  if (normalized === 1) {
+    rootStyle.removeProperty("--onmyagent-font-size");
+  } else {
+    const px = FONT_ZOOM_BASE_PX * normalized;
+    rootStyle.setProperty("--onmyagent-font-size", `${px}px`);
+  }
   return normalized;
 }
 
