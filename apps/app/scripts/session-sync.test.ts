@@ -89,7 +89,33 @@ describe("session sync tracking", () => {
         cacheWrite: 5,
       },
       errorName: null,
+      finishReason: null,
     });
+
+    release();
+  });
+
+  test("preserves output-limit finish reasons from live message updates", () => {
+    __createWorkspaceSessionSyncForTest(syncInput);
+    const release = trackWorkspaceSessionSync(syncInput, "ses_new");
+
+    __applySessionSyncEventForTest(syncInput, {
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "msg_assistant",
+          sessionID: "ses_new",
+          role: "assistant",
+          finish: "length",
+          time: { created: 1_000, completed: 2_000 },
+        },
+      },
+    });
+
+    const synced = getReactQueryClient()
+      .getQueryData<UIMessage[]>(transcriptKey("runtime_ws", "ses_new"))
+      ?.find((item) => item.id === "msg_assistant");
+    expect(readTranscriptMessageMetadata(synced?.metadata).finishReason).toBe("length");
 
     release();
   });

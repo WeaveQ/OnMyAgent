@@ -93,6 +93,8 @@ type ProviderModelDraftRow = {
   rowId: string;
   id: string;
   name: string;
+  contextWindow: string;
+  outputTokenLimit: string;
 };
 
 export type ProviderDraft = {
@@ -140,6 +142,8 @@ function createProviderModelDraftRow(seed?: Partial<ProviderModelDraftRow>): Pro
     rowId: seed?.rowId || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : fallbackId),
     id: seed?.id ?? "",
     name: seed?.name ?? seed?.id ?? "",
+    contextWindow: seed?.contextWindow ?? "",
+    outputTokenLimit: seed?.outputTokenLimit ?? "",
   };
 }
 
@@ -153,6 +157,21 @@ function providerModelRowsFromText(value: string) {
 
 export function serializeProviderModelRows(rows: ProviderModelDraftRow[]) {
   return rows.map((row) => row.id.trim()).filter(Boolean).join("\n");
+}
+
+export function serializeProviderModelCapabilities(rows: ProviderModelDraftRow[]) {
+  return rows.flatMap((row) => {
+    const id = row.id.trim();
+    if (!id) return [];
+    const contextWindow = Number.parseInt(row.contextWindow, 10);
+    const outputTokenLimit = Number.parseInt(row.outputTokenLimit, 10);
+    return [{
+      id,
+      name: row.name.trim() || id,
+      ...(Number.isFinite(contextWindow) && contextWindow > 0 ? { contextWindow } : {}),
+      ...(Number.isFinite(outputTokenLimit) && outputTokenLimit > 0 ? { outputTokenLimit } : {}),
+    }];
+  });
 }
 
 export function serializeCodexCatalogRows(rows: CodexCatalogDraftRow[]) {
@@ -268,7 +287,12 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
     apiKey,
     models: provider.models.map((model) => model.id).join("\n"),
     modelRows: provider.models.length
-      ? provider.models.map((model) => createProviderModelDraftRow({ id: model.id, name: model.name || model.id }))
+      ? provider.models.map((model) => createProviderModelDraftRow({
+        id: model.id,
+        name: model.name || model.id,
+        contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
+        outputTokenLimit: model.outputTokenLimit == null ? "" : String(model.outputTokenLimit),
+      }))
       : provider.appType === "opencode" || provider.appType === "openclaw" || provider.appType === "hermes"
         ? [createProviderModelDraftRow()]
         : [],
@@ -714,7 +738,11 @@ export function AgentManagementProviderModal(props: {
                       <div key={row.rowId} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_36px_32px] md:items-center">
                         <Input
                           value={row.id}
-                          onChange={(event) => updateModelRow(row.rowId, { id: event.currentTarget.value })}
+                          onChange={(event) => updateModelRow(row.rowId, {
+                            id: event.currentTarget.value,
+                            contextWindow: "",
+                            outputTokenLimit: "",
+                          })}
                           list={fetchedModels.length ? `agent-provider-models-${props.appType}` : undefined}
                           placeholder="qwen3.6-plus"
                           className={fieldClass}
@@ -728,6 +756,8 @@ export function AgentManagementProviderModal(props: {
                         {renderFetchedModelSelect((model) => updateModelRow(row.rowId, {
                           id: model.id,
                           name: row.name.trim() ? row.name : model.name || model.id,
+                          contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
+                          outputTokenLimit: model.outputTokenLimit == null ? "" : String(model.outputTokenLimit),
                         }))}
                         <Tooltip>
                           <TooltipTrigger
@@ -839,6 +869,7 @@ export function OpenCodeProviderConfigDialog(props: {
             baseUrl: draft.baseUrl,
             apiKey: draft.apiKey,
             models: serializeProviderModelRows(draft.modelRows),
+            modelCapabilities: serializeProviderModelCapabilities(draft.modelRows),
             claudeHaikuModel: draft.claudeHaikuModel,
             claudeHaikuName: draft.claudeHaikuName,
             claudeSonnetModel: draft.claudeSonnetModel,

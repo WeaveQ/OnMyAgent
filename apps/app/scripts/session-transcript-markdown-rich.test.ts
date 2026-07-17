@@ -36,6 +36,27 @@ describe("session transcript rich markdown", () => {
     expect(truncated).toContain(`${"x".repeat(200)}…[7 chars omitted]`);
   });
 
+  test("uses WorkBuddy table surface hierarchy", () => {
+    const html = renderSessionMarkdownHtml([
+      "| Dimension | Score |",
+      "| --- | --- |",
+      "| Fundamentals | 8/10 |",
+    ].join("\n"));
+
+    expect(html).toContain("session-markdown-table");
+    expect(html).toContain("session-markdown-table-header");
+    expect(html).toContain("session-markdown-table-cell");
+    expect(html).not.toContain("bg-dls-surface-muted px-4 py-2 text-left");
+    expect(html).not.toContain("bg-dls-surface-muted p-2 align-top");
+  });
+
+  test("uses the neutral WorkBuddy surface for transcript quotes", () => {
+    const html = renderSessionMarkdownHtml("> Data source: annual report");
+
+    expect(html).toContain("session-markdown-muted-surface");
+    expect(html).not.toContain("bg-dls-surface-muted");
+  });
+
   test("normalizes WorkBuddy math delimiters", () => {
     expect(normalizeMarkdownMathDelimiters("Inline \\(x + y\\) and block \\[x^2\\]"))
       .toBe("Inline $x + y$ and block $$x^2$$");

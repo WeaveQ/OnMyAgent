@@ -13,6 +13,10 @@ import { createPersonalAgentHeartbeatScheduler } from "./personal-agent-runtime/
 import { createPersonalAgentRuntime } from "./personal-agent-runtime/index.mjs";
 import { createPersonalAgentLegacyHarness } from "./personal-agent-runtime/legacy-harness.mjs";
 import { createPersonalAgentNativeSessionBridge } from "./personal-agent-runtime/native-sessions.mjs";
+import {
+  resolveComputerUseRuntimeCommand,
+  writeComputerUseRuntimeConfig,
+} from "./computer-use-runtime-config.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -861,6 +865,21 @@ export function createRuntimeManager({
         ? env.OPENCODE_CONFIG_DIR
         : onmyagentOpencodeConfigDir();
     env.OPENCODE_CONFIG_DIR = await prepareOnMyAgentOpencodeConfigDir(configDir);
+    if (!env.OPENCODE_CONFIG?.trim()) {
+      const computerUseCommand = resolveComputerUseRuntimeCommand({
+        platform: process.platform,
+        desktopRoot,
+        resourcesPath: process.resourcesPath,
+        explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+        devMode: process.env.ONMYAGENT_DEV_MODE === "1",
+      });
+      if (computerUseCommand) {
+        env.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig(
+          env.OPENCODE_CONFIG_DIR,
+          computerUseCommand,
+        );
+      }
+    }
     return env;
   }
 

@@ -548,16 +548,35 @@ components:
       scope: "root session transcript only; nested transcripts retain their compact contract"
       max-content-width-default: 832
       max-content-width-rules: "<=1200:832; <=1600:65%; <=2000:60%; >2000:min(55%,1400)"
+      content-inline-padding: 8
+      initial-assistant-only-padding-top: 24
       assistant-avatar-size: 24
       assistant-name: "{typography.scale.sm}/600"
       assistant-body: "13px/19px"                    # § 11 WorkBuddy parity exception
+      assistant-markdown-body: "14px/25px"           # § 11 WorkBuddy loose Markdown parity exception
+      streaming-indicator: "separate activity row; no inline cursor" # § 11 WorkBuddy parity exception
       assistant-surface: transparent
       user-padding: "8px 12px"
       user-radius: "16px 16px 0 16px"                # § 11 WorkBuddy parity exception
       user-max-height: 310
       action-height: "{spacing.button-heights.xs}"   # 24
       action-gap: "{spacing.scale.xs}"               # 8
+      action-radius: "{rounded.md}"                   # 8
+      action-icon-size: "{iconography.sizes.md}"      # 16
+      scroll-to-latest-size: "{spacing.button-heights.sm}" # 32
+      scroll-to-latest-radius: "{rounded.pill}"        # § 11 WorkBuddy parity exception
+      scroll-to-latest-icon-size: "{iconography.sizes.md}" # 16
+      scroll-to-latest-bottom-offset: "{spacing.scale.lg}" # 24
+      scroll-to-latest-elevation: "WorkBuddy 4% dual shadow" # § 11 scoped exception
       composer-coupling: "none; transcript refactors must not alter composer geometry"
+    transcript-inline-visual:
+      scope: "root session transcript only"
+      radius: 16                                      # § 11 WorkBuddy parity exception
+      border: "{colors.border}"
+      header-padding: "6px 8px 6px 16px"
+      body-padding: "12px 16px"
+      body-min-height: 360
+      body-max-height: "80vh"
     artifact-card:
       radius: "{rounded.md}"                          # 8 (signature — see § 4)
       surface: "{colors.surface}"
@@ -1150,6 +1169,11 @@ Streaming state is a `data-streaming="true"` attribute on the message
 row; the cursor + fallback logic is a shared primitive
 (`StreamingCursor`, out of v5 scope but pre-declared here so agents
 consume the primitive instead of drawing their own indicator).
+
+The root session transcript is the scoped WorkBuddy-parity exception:
+it keeps the independent activity row beneath the live answer and does
+not append `StreamingCursor` inside Markdown. Nested/local-agent
+transcripts retain the shared cursor contract above.
 
 ## 4e. Presence & Activity
 
@@ -1926,10 +1950,27 @@ in dedicated registry files, not in ordinary JSX:
 - **WorkBuddy root-transcript parity geometry** — the root session
   `ChatMessage row` may use the measured 13px/19px assistant body and the
   asymmetric `16px 16px 0 16px` user-bubble radius declared in
-  `components.contracts.chat-message-row`. These two values are scoped to
+  `components.contracts.chat-message-row`. Its final loose Markdown may use
+  the measured 14px/25px body rhythm. The root transcript's inline visual may
+  use WorkBuddy's measured 16px radius and renderer geometry declared in
+  `components.contracts.transcript-inline-visual`. These values are scoped to
   root transcripts and are not additions to the global typography or radius
-  scales. Implement them through named transcript styles or CSS variables,
+  scales. Its live state is rendered as a separate activity row below content,
+  so root Markdown suppresses the shared inline streaming cursor while nested
+  transcript surfaces keep it. Implement these exceptions through named transcript styles or CSS variables,
   never page-level `text-[13px]` / arbitrary-radius Tailwind classes.
+  Generated-content surfaces in this scope also use WorkBuddy's neutral light
+  hierarchy: `#F7F7F7` table/header/quote surfaces, `#FFFFFF` table cells,
+  `#EBEBEB` borders, and `#F2F2F2` artifact cards. These values must remain
+  transcript-scoped CSS variables; they must not replace the global
+  `surface-muted` token or leak into settings and navigation surfaces.
+- **WorkBuddy root-transcript scroll-to-latest affordance** — the root
+  session may render one 32 px circular surface button, 24 px above the
+  transcript bottom, with the measured 16 px chevron and WorkBuddy's subtle
+  4% dual shadow. It appears only after the user leaves follow-latest mode and
+  restores follow-latest immediately on activation. This named transcript-only
+  control is the sole workbench exception to both the circular-CTA and
+  no-component-shadow rules; it must not become a generic `Button` variant.
 - **Pre-app boot / gate screens** — `architecture-mismatch-gate.tsx`.
   Full-screen dark hero shown before the app can launch. Its CTAs
   intentionally use `rounded-full` and a self-contained palette because

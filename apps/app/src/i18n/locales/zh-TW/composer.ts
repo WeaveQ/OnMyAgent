@@ -39,6 +39,8 @@ export default {
   "composer.access_full_desc": "可不受限制地訪問網際網路和您電腦上的任何檔案",
   "composer.access_high_risk": "高風險",
   "composer.add_file": "添加文件",
+  "composer.capture_appshot": "擷取 Appshot",
+  "composer.appshot_failed": "無法擷取 Appshot",
   "composer.collaboration_choose_mode": "選擇協作模式",
   "composer.collaboration_mode": "協作模式",
   "composer.collaboration_mode_info": "{mode} 說明",

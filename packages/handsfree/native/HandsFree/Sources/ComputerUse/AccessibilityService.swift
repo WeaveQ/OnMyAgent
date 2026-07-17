@@ -3,6 +3,7 @@ import ApplicationServices
 import ScreenCaptureKit
 
 final class AccessibilityService: @unchecked Sendable {
+    private let appCatalog = AppCatalog()
     private let screenshotImageWidth: CGFloat = 768
     private let maxElements = 250
     private let maxDepth = 22
@@ -17,6 +18,12 @@ final class AccessibilityService: @unchecked Sendable {
 
     func resolveTarget(appName: String?) throws -> WindowTarget {
         try resolveTarget(appName: appName, windowTitle: nil)
+    }
+
+    func ensureAppRunning(appName: String?) async throws {
+        guard let appName = appName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !appName.isEmpty else { return }
+        _ = try await appCatalog.ensureRunning(named: appName, activates: false)
     }
 
     func resolveTarget(appName: String?, windowTitle: String?) throws -> WindowTarget {
@@ -72,6 +79,25 @@ final class AccessibilityService: @unchecked Sendable {
         target.axWindow.map(semanticRecords(window:)) ?? []
     }
 
+    func uiSettleObservation(target: WindowTarget) -> UISettleObservation {
+        let currentRecords = records(target: target)
+        var hasher = Hasher()
+        for record in currentRecords {
+            let semantic = record.semantic
+            hasher.combine(semantic.role)
+            hasher.combine(semantic.label)
+            hasher.combine(semantic.value)
+            hasher.combine(semantic.frame.x)
+            hasher.combine(semantic.frame.y)
+            hasher.combine(semantic.frame.width)
+            hasher.combine(semantic.frame.height)
+        }
+        let isLoading = target.axWindow.map {
+            containsLoadingState(element: $0, depth: 0, visited: 0).loading
+        } ?? false
+        return UISettleObservation(fingerprint: hasher.finalize(), isLoading: isLoading)
+    }
+
     func press(record: AXElementRecord) -> Bool {
         AXUIElementPerformAction(record.element, kAXPressAction as CFString) == .success
     }
@@ -89,8 +115,64 @@ final class AccessibilityService: @unchecked Sendable {
         return AXUIElementSetAttributeValue(record.element, kAXValueAttribute as CFString, value as CFString) == .success
     }
 
+    func selectText(
+        record: AXElementRecord,
+        text: String,
+        prefix: String?,
+        suffix: String?,
+        selection: TextSelectionMode
+    ) -> Bool {
+        guard let value = axString(record.element, kAXValueAttribute),
+              var range = TextSelectionResolver.range(
+                  value: value,
+                  text: text,
+                  prefix: prefix,
+                  suffix: suffix,
+                  selection: selection
+              ),
+              let rangeValue = AXValueCreate(.cfRange, &range) else {
+            return false
+        }
+        var settable = DarwinBoolean(false)
+        guard AXUIElementIsAttributeSettable(
+            record.element,
+            kAXSelectedTextRangeAttribute as CFString,
+            &settable
+        ) == .success, settable.boolValue else {
+            return false
+        }
+        return AXUIElementSetAttributeValue(
+            record.element,
+            kAXSelectedTextRangeAttribute as CFString,
+            rangeValue
+        ) == .success
+    }
+
     func performAction(record: AXElementRecord, action: String) -> Bool {
         AXUIElementPerformAction(record.element, action as CFString) == .success
+    }
+
+    func currentBrowserURL(application: NSRunningApplication) -> String? {
+        guard let bundleIdentifier = application.bundleIdentifier,
+              ComputerUseTargetPolicy.isBrowserBundleIdentifier(bundleIdentifier) else {
+            return nil
+        }
+        let appElement = AXUIElementCreateApplication(application.processIdentifier)
+        let rootElement = focusedWindow(axApp: appElement) ?? appElement
+        var visited = 0
+        return browserURL(element: rootElement, depth: 0, visited: &visited)
+    }
+
+    func currentBrowserURL(target: WindowTarget) -> String? {
+        guard let application = NSRunningApplication(processIdentifier: target.pid),
+              let bundleIdentifier = application.bundleIdentifier,
+              ComputerUseTargetPolicy.isBrowserBundleIdentifier(bundleIdentifier) else {
+            return nil
+        }
+        let rootElement = target.axWindow
+            ?? AXUIElementCreateApplication(application.processIdentifier)
+        var visited = 0
+        return browserURL(element: rootElement, depth: 0, visited: &visited)
     }
 
     private func resolveApp(appName: String?) throws -> NSRunningApplication {
@@ -101,15 +183,7 @@ final class AccessibilityService: @unchecked Sendable {
             return frontmost
         }
 
-        let needle = rawName.lowercased()
-        let regularApps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
-        if let exact = regularApps.first(where: { $0.localizedName?.lowercased() == needle }) {
-            return exact
-        }
-        if let contains = regularApps.first(where: { $0.localizedName?.lowercased().contains(needle) == true }) {
-            return contains
-        }
-        throw ComputerUseError.appNotFound(rawName)
+        return try appCatalog.runningApplication(named: rawName)
     }
 
     private func firstAXWindow(axApp: AXUIElement, title preferredTitle: String?) -> AXUIElement? {
@@ -126,6 +200,19 @@ final class AccessibilityService: @unchecked Sendable {
             return match
         }
         return usable.first
+    }
+
+    private func focusedWindow(axApp: AXUIElement) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            axApp,
+            kAXFocusedWindowAttribute as CFString,
+            &value
+        ) == .success, let value,
+        CFGetTypeID(value) == AXUIElementGetTypeID() else {
+            return firstAXWindow(axApp: axApp, title: nil)
+        }
+        return unsafeBitCast(value, to: AXUIElement.self)
     }
 
     private func semanticRecords(window: AXUIElement) -> [AXElementRecord] {
@@ -236,6 +323,59 @@ final class AccessibilityService: @unchecked Sendable {
             return []
         }
         return children
+    }
+
+    private func browserURL(
+        element: AXUIElement,
+        depth: Int,
+        visited: inout Int
+    ) -> String? {
+        guard depth <= 12, visited < 500 else { return nil }
+        visited += 1
+        for attribute in ["AXURL", kAXDocumentAttribute] {
+            if let value = axString(element, attribute), looksLikeBrowserURL(value) {
+                return value
+            }
+        }
+        for child in axChildren(element) {
+            if let value = browserURL(element: child, depth: depth + 1, visited: &visited) {
+                return value
+            }
+            if visited >= 500 { break }
+        }
+        return nil
+    }
+
+    private func looksLikeBrowserURL(_ value: String) -> Bool {
+        let lowercased = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return lowercased.hasPrefix("http://")
+            || lowercased.hasPrefix("https://")
+            || lowercased.hasPrefix("chrome://")
+            || lowercased.hasPrefix("edge://")
+            || lowercased.hasPrefix("brave://")
+            || lowercased.hasPrefix("about:")
+    }
+
+    private func containsLoadingState(
+        element: AXUIElement,
+        depth: Int,
+        visited: Int
+    ) -> (loading: Bool, visited: Int) {
+        guard depth <= maxDepth, visited < maxElements else { return (false, visited) }
+        let nextVisited = visited + 1
+        if axBool(element, "AXBusy") == true { return (true, nextVisited) }
+        let role = axString(element, kAXRoleAttribute)
+        if role == "AXProgressIndicator" || role == "AXBusyIndicator" {
+            return (true, nextVisited)
+        }
+        var totalVisited = nextVisited
+        for child in axChildren(element) {
+            let result = containsLoadingState(element: child, depth: depth + 1, visited: totalVisited)
+            if result.loading { return result }
+            totalVisited = result.visited
+            if totalVisited >= maxElements { break }
+        }
+        return (false, totalVisited)
     }
 
     private func axActions(_ element: AXUIElement) -> [String] {

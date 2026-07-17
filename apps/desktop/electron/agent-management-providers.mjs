@@ -173,6 +173,13 @@ export function createAgentManagementProviders(options = {}) {
       .slice(0, 80);
   }
 
+  function positiveInteger(value) {
+    const parsed = typeof value === "number"
+      ? value
+      : Number.parseInt(String(value ?? "").replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+  }
+
   function inferProviderIcon(name, appType) {
     const lower = `${name} ${appType}`.toLowerCase();
     if (lower.includes("claude") || lower.includes("anthropic")) return { icon: "anthropic", iconColor: "#D4915D" };
@@ -312,6 +319,14 @@ export function createAgentManagementProviders(options = {}) {
       .map((item) => item.trim())
       .filter(Boolean);
     const model = modelList[0] ?? "model";
+    const modelCapabilities = Array.isArray(simple.modelCapabilities)
+      ? simple.modelCapabilities
+      : [];
+    const capabilityByModel = new Map(modelCapabilities.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const modelId = String(item.id ?? "").trim();
+      return modelId ? [[modelId, item]] : [];
+    }));
     if (appType !== "codex" && !baseUrl) throw new Error("Base URL is required");
     if (!["codex", "claude"].includes(appType) && !modelList.length) throw new Error("At least one model is required");
     if (appType === "opencode") {
@@ -319,7 +334,15 @@ export function createAgentManagementProviders(options = {}) {
         npm: "@ai-sdk/openai-compatible",
         name,
         options: { baseURL: baseUrl, ...(apiKey ? { apiKey } : {}), timeout: 600000 },
-        models: Object.fromEntries(modelList.map((item) => [item, { name: item }])),
+        models: Object.fromEntries(modelList.map((item) => {
+          const capability = capabilityByModel.get(item);
+          const context = positiveInteger(capability?.contextWindow);
+          const output = positiveInteger(capability?.outputTokenLimit);
+          return [item, {
+            name: String(capability?.name ?? item).trim() || item,
+            ...(context && output ? { limit: { context, output } } : {}),
+          }];
+        })),
       };
     }
     if (appType === "openclaw") {
@@ -477,7 +500,13 @@ export function createAgentManagementProviders(options = {}) {
     if (!id) return null;
     const name = String(item.name ?? item.display_name ?? item.displayName ?? id).trim() || id;
     const contextWindow = item.contextWindow ?? item.context_window ?? item.max_context_length ?? item.maxContextLength ?? null;
-    return { id, name, ...(contextWindow != null ? { contextWindow } : {}) };
+    const outputTokenLimit = item.outputTokenLimit ?? item.output_token_limit ?? item.max_output_tokens ?? item.maxOutputTokens ?? item.max_tokens ?? item.maxTokens ?? null;
+    return {
+      id,
+      name,
+      ...(contextWindow != null ? { contextWindow } : {}),
+      ...(outputTokenLimit != null ? { outputTokenLimit } : {}),
+    };
   }
 
   async function agentManagementFetchModels(input = {}) {
@@ -537,7 +566,12 @@ export function createAgentManagementProviders(options = {}) {
   function extractAgentManagementProviderModels(appType, settingsConfig) {
     if (!settingsConfig || typeof settingsConfig !== "object") return [];
     if (appType === "opencode" && settingsConfig.models && typeof settingsConfig.models === "object") {
-      return Object.entries(settingsConfig.models).map(([id, value]) => ({ id, name: String(value?.name ?? id) }));
+      return Object.entries(settingsConfig.models).map(([id, value]) => ({
+        id,
+        name: String(value?.name ?? id),
+        ...(value?.limit?.context != null ? { contextWindow: value.limit.context } : {}),
+        ...(value?.limit?.output != null ? { outputTokenLimit: value.limit.output } : {}),
+      }));
     }
     if (appType === "openclaw" && Array.isArray(settingsConfig.models)) {
       return settingsConfig.models.map((model) => ({ id: String(model?.id ?? model?.name ?? "").trim(), name: String(model?.name ?? model?.id ?? "").trim() })).filter((model) => model.id);

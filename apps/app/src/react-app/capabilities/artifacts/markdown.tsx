@@ -258,7 +258,7 @@ const baseMarkedOptions = {
       return `<li class="my-1">${checkbox}${this.parser.parse(item.tokens)}</li>`;
     },
     blockquote({ tokens }) {
-      return `<blockquote class="my-4 rounded-r-lg border-l border-dls-border bg-dls-surface-muted px-4 py-2 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
+      return `<blockquote class="session-markdown-muted-surface my-4 rounded-r-lg border-l px-4 py-2 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
     },
     code({ text, lang }) {
       const info = parseMarkdownCodeFenceInfo(lang);
@@ -286,7 +286,7 @@ const baseMarkedOptions = {
     table(token) {
       const header = token.header.map((cell) => this.tablecell({ ...cell, header: true })).join("");
       const body = token.rows.map((row) => this.tablerow({ text: row.map((cell) => this.tablecell(cell)).join("") })).join("");
-      return `<div class="my-4 overflow-x-auto rounded-xl border border-dls-mist"><table class="w-full min-w-max border-collapse"><thead>${this.tablerow({ text: header })}</thead><tbody>${body}</tbody></table></div>`;
+      return `<div class="session-markdown-table my-4 overflow-x-auto rounded-xl border"><table class="w-full min-w-max border-collapse"><thead>${this.tablerow({ text: header })}</thead><tbody>${body}</tbody></table></div>`;
     },
     tablerow({ text }) {
       return `<tr>${text}</tr>`;
@@ -294,8 +294,8 @@ const baseMarkedOptions = {
     tablecell({ tokens, header, align }) {
       const tag = header ? "th" : "td";
       const className = header
-        ? "border border-dls-border bg-dls-surface-muted p-2 text-left"
-        : "border border-dls-border bg-dls-surface-muted p-2 align-top";
+        ? "session-markdown-table-header border px-4 py-2 text-left font-semibold"
+        : "session-markdown-table-cell border px-4 py-2 align-top";
       return `<${tag}${alignAttribute(align)} class="${className}">${this.parser.parseInline(tokens)}</${tag}>`;
     },
     hr() {
@@ -335,6 +335,7 @@ export function highlightSessionMarkdownCode(code: string, language: string, dar
 function MarkdownBlockInner(props: {
   text: string;
   streaming?: boolean;
+  showStreamingCursor?: boolean;
   highlightQuery?: string;
   locale?: string;
   onOpenCodePath?: (path: string) => void;
@@ -548,7 +549,9 @@ function MarkdownBlockInner(props: {
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : null}
-      {props.streaming ? <StreamingCursor className="ml-0.5" /> : null}
+      {props.streaming && props.showStreamingCursor !== false
+        ? <StreamingCursor className="ml-0.5" />
+        : null}
     </div>
   );
 }

@@ -18,9 +18,12 @@ import {
   MoreHorizontal,
   RotateCcw,
   Search,
+  Share2,
+  Square,
   Terminal,
   ThumbsDown,
   ThumbsUp,
+  Volume2,
 } from "lucide-react";
 
 import {
@@ -63,6 +66,7 @@ import { groupMessageParts, isDesktopRuntime, summarizeStep } from "../../../../
 import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
 import { usePlatform } from "../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../sync/message-metadata";
+import { isOutputLimitContinuationMessageId } from "../sync/output-limit-recovery";
 import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
 import {
   ImageGenerationToolCard,
@@ -80,16 +84,27 @@ import {
 } from "./transcript-presentation";
 import { buildTranscriptTurns } from "./transcript/turn-model";
 import { normalizeTranscriptQuestionAnswers } from "./transcript/question-answer";
-import { buildTranscriptToolPresentation } from "./transcript/tool-presentation";
+import {
+  buildTranscriptToolPresentation,
+  type TranscriptTodoItem,
+} from "./transcript/tool-presentation";
 import {
   groupTranscriptRenderItems,
   type TranscriptRenderItem,
 } from "./transcript/render-items";
 import {
-  formatTranscriptCost,
+  formatCompactTokenCount,
   summarizeTranscriptTurn,
   type TranscriptTurnPresentation,
 } from "./transcript/turn-presentation";
+import {
+  buildTurnContentPresentation,
+  type TurnContentSegment,
+  type TurnContentPresentation,
+  type TurnFoldSegment,
+  type TurnProcessItem,
+} from "./transcript/turn-content";
+import { InlineVisual } from "./transcript/inline-visual";
 import {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
@@ -118,7 +133,7 @@ const messageTextClass = {
   bodyMuted: "font-sans text-sm leading-6 text-muted-foreground antialiased",
   toolStatus: "ml-7 mt-2 text-sm leading-6 text-muted-foreground",
   toolLabel: "mb-1 text-xs font-medium text-muted-foreground",
-  assistantBubble: "w-full relative max-w-[760px] text-sm leading-6 text-foreground group",
+  assistantBubble: "w-full relative text-foreground group",
   nestedAssistantBubble: "w-full relative text-sm leading-6 text-foreground group",
   avatarLabel: "max-w-[120px] truncate text-sm font-medium leading-tight text-dls-text",
   baseMessageBubble: "text-sm text-foreground leading-relaxed",
@@ -229,6 +244,9 @@ type TranscriptBlockTurnPresentation = TranscriptTurnPresentation & {
   isFirstAssistantBlock: boolean;
   isActionBlock: boolean;
   hasExecutionDetails: boolean;
+  turnContent: TurnContentPresentation | null;
+  isTurnContentAnchor: boolean;
+  isHiddenByTurnContent: boolean;
 };
 
 export type SessionTranscriptDivider = {
@@ -537,8 +555,15 @@ function toLegacyPart(
 
   const toolPart = toDynamicToolPart(part);
   if (toolPart) {
+    const opencodeMetadata = isRecordValue(toolPart.callProviderMetadata?.opencode)
+      ? toolPart.callProviderMetadata.opencode
+      : null;
+    const toolMetadata = isRecordValue(opencodeMetadata?.toolMetadata)
+      ? opencodeMetadata.toolMetadata
+      : null;
     const state: Record<string, unknown> = {
       input: toolPart.input,
+      ...(toolMetadata ? { metadata: toolMetadata } : {}),
     };
 
     if (toolPart.state === "output-available") {
@@ -716,6 +741,38 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
       label: summarizeStep(browserUseParts[0]).title,
     };
   }
+  const toolParts = stepGroups.flatMap((group) =>
+    group.parts.filter((part) => part.type === "tool"),
+  );
+  if (toolParts.length === 1) {
+    const toolPart = toolParts[0];
+    const summary = summarizeStep(toolPart);
+    const toolState = recordValue(toolPart.state);
+    const presentation = buildTranscriptToolPresentation({
+      toolName: toolPart.tool,
+      toolInput: recordValue(toolState?.input) ?? undefined,
+      toolOutput: toolState?.output,
+      toolMetadata: recordValue(toolState?.metadata) ?? undefined,
+    });
+    const category = summary.toolCategory === "terminal"
+      ? "terminal"
+      : summary.toolCategory === "search"
+        ? "search"
+        : summary.toolCategory === "edit" || summary.toolCategory === "write"
+          ? "edit"
+          : summary.toolCategory === "read" || summary.toolCategory === "glob"
+            ? "read"
+            : "tool";
+    return {
+      category,
+      label: presentation.details
+        ? specializedToolHeadline(
+            presentation.details,
+            isRunningStepStatus(summary.status),
+          )
+        : summary.title,
+    };
+  }
   const counts = {
     read: 0,
     edit: 0,
@@ -813,7 +870,7 @@ export function canMergeStepClusters(previous: MessageBlockItem | undefined, nex
 }
 
 export function shouldFoldStepGroups(stepGroups: StepTimelineGroup[]) {
-  return stepGroups.reduce((count, group) => count + group.parts.length, 0) >= 2;
+  return stepGroups.some((group) => group.parts.length > 0);
 }
 
 export function mergeLeadingAssistantStepClusters(blocks: MessageBlockItem[]) {
@@ -871,6 +928,74 @@ function CopyButton(props: { getText: () => string }) {
       }}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
+    </Button>
+  );
+}
+
+function TranscriptSpeechButton(props: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  const speechAvailable = typeof window !== "undefined" && "speechSynthesis" in window;
+  if (!speechAvailable || !props.text.trim()) return null;
+
+  const toggleSpeech = () => {
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(props.text);
+    utterance.lang = currentLocale();
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      title={speaking
+        ? t("session.transcript_stop_reading")
+        : t("session.transcript_read_aloud")}
+      aria-label={speaking
+        ? t("session.transcript_stop_reading")
+        : t("session.transcript_read_aloud")}
+      aria-pressed={speaking}
+      onClick={toggleSpeech}
+    >
+      {speaking ? <Square size={16} /> : <Volume2 size={16} />}
+    </Button>
+  );
+}
+
+function TranscriptShareButton(props: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!props.text.trim()) return null;
+
+  const share = async () => {
+    if (navigator.share) {
+      await navigator.share({ text: props.text }).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard.writeText(props.text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2_000);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      title={t("session.transcript_share")}
+      aria-label={t("session.transcript_share")}
+      onClick={() => void share()}
+    >
+      {copied ? <Check size={16} /> : <Share2 size={16} />}
     </Button>
   );
 }
@@ -1106,7 +1231,10 @@ function TranscriptTurnStatus(props: {
   detailsExpanded: boolean;
   onDetailsExpandedChange: (expanded: boolean) => void;
 }) {
-  if (props.presentation.state === "cancelled") return null;
+  if (
+    props.presentation.state !== "completed" ||
+    !props.presentation.hasExecutionDetails
+  ) return null;
   const status = transcriptTurnStatusLabel(props.presentation.state);
   if (!status) return null;
   const duration = props.presentation.durationMs === null
@@ -1114,36 +1242,67 @@ function TranscriptTurnStatus(props: {
     : formatTranscriptDuration(props.presentation.durationMs);
   const content = (
     <>
-      <span>{status}{duration ? ` ${duration}` : ""}</span>
-      {props.presentation.hasExecutionDetails ? (
-        <ChevronDown
-          size={12}
-          className={cn(
-            "transition-transform",
-            !props.detailsExpanded && "-rotate-90",
-          )}
-        />
-      ) : null}
+      <span>
+        {status}{duration ? ` ${duration}` : ""}
+      </span>
+      <ChevronDown
+        size={12}
+        className={cn(
+          "transition-transform",
+          !props.detailsExpanded && "-rotate-90",
+        )}
+      />
     </>
   );
 
-  if (!props.presentation.hasExecutionDetails) {
-    return <div className="session-transcript-turn-status">{content}</div>;
-  }
-
-  const isLockedOpen =
-    props.presentation.state === "streaming" ||
-    props.presentation.state === "awaiting-approval";
   return (
     <button
       type="button"
       className="session-transcript-turn-status session-transcript-turn-status-button"
-      aria-expanded={isLockedOpen || props.detailsExpanded}
-      disabled={isLockedOpen}
+      aria-expanded={props.detailsExpanded}
       onClick={() => props.onDetailsExpandedChange(!props.detailsExpanded)}
     >
       {content}
     </button>
+  );
+}
+
+function TranscriptAssistantHeader(props: {
+  assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
+  showAssistantAvatar: boolean;
+  presentation?: TranscriptBlockTurnPresentation;
+  detailsExpanded: boolean;
+  onDetailsExpandedChange: (expanded: boolean) => void;
+}) {
+  const showStatus =
+    props.presentation?.isFirstAssistantBlock === true &&
+    props.presentation.state === "completed" &&
+    props.presentation.hasExecutionDetails &&
+    props.presentation.copyText.trim().length > 0;
+  if (!props.showAssistantAvatar && !showStatus) return null;
+
+  return (
+    <div className="session-transcript-assistant-header">
+      {props.showAssistantAvatar && props.assistantAvatar ? (
+        <div className="session-transcript-assistant-identity">
+          <AssistantAvatar
+            name={props.assistantAvatar.name}
+            avatarUrl={props.assistantAvatar.avatarUrl}
+            avatarBackground={props.assistantAvatar.avatarBackground}
+          />
+          <span className={messageTextClass.avatarLabel}>
+            {props.assistantAvatar.name}
+          </span>
+        </div>
+      ) : null}
+      {showStatus && props.presentation ? (
+        <TranscriptTurnStatus
+          presentation={props.presentation}
+          detailsExpanded={props.detailsExpanded}
+          onDetailsExpandedChange={props.onDetailsExpandedChange}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -1180,7 +1339,9 @@ function TranscriptTurnActions(props: {
   }
 
   const actionMessageId = props.presentation.actionMessageId;
-  const cost = formatTranscriptCost(props.presentation.cost);
+  const inputTokens = formatCompactTokenCount(props.presentation.inputTokens);
+  const cacheTokens = formatCompactTokenCount(props.presentation.cacheTokens);
+  const outputTokens = formatCompactTokenCount(props.presentation.outputTokens);
   const timestamp = formatTranscriptMessageTime(props.presentation.timestamp, {
     locale: currentLocale(),
     now: new Date(),
@@ -1194,13 +1355,31 @@ function TranscriptTurnActions(props: {
         <CopyButton getText={() => props.presentation.copyText} />
       ) : null}
       {actionMessageId ? <TranscriptFeedbackControls messageId={actionMessageId} /> : null}
+      {props.presentation.copyText ? (
+        <TranscriptSpeechButton text={props.presentation.copyText} />
+      ) : null}
+      {props.presentation.copyText ? (
+        <TranscriptShareButton text={props.presentation.copyText} />
+      ) : null}
       <TranscriptMoreMenu
         requestId={props.presentation.requestId}
         actionMessageId={actionMessageId}
         onForkAtMessage={props.onForkAtMessage}
       />
-      {cost ? (
-        <span>{t("session.transcript_cost", { cost })}</span>
+      {inputTokens && cacheTokens && outputTokens ? (
+        <span
+          aria-label={t("session.transcript_token_usage_label", {
+            input: inputTokens,
+            cache: cacheTokens,
+            output: outputTokens,
+          })}
+        >
+          {t("session.transcript_token_usage", {
+            input: inputTokens,
+            cache: cacheTokens,
+            output: outputTokens,
+          })}
+        </span>
       ) : null}
       {model ? <span>{model}</span> : null}
       {timestamp ? <span>{timestamp}</span> : null}
@@ -1544,6 +1723,7 @@ function TranscriptReasoning(props: {
         <MarkdownBlock
           text={props.text}
           streaming={!props.complete}
+          showStreamingCursor={false}
           locale={currentLocale()}
         />
       </MessageRoleRow>
@@ -1567,12 +1747,14 @@ function StepRow(props: {
   }, [props.part]);
   const toolInput = isRecordValue(toolState.input) ? toolState.input : undefined;
   const toolOutput = toolState.output;
+  const toolMetadata = isRecordValue(toolState.metadata) ? toolState.metadata : undefined;
   const toolError = typeof toolState.error === "string" ? toolState.error : null;
   const toolPresentation = props.part.type === "tool"
     ? buildTranscriptToolPresentation({
         toolName: props.part.tool,
         toolInput,
         toolOutput,
+        toolMetadata,
       })
     : null;
   const specializedDetails = toolPresentation?.details ?? null;
@@ -1679,6 +1861,31 @@ function StepRow(props: {
     );
   }
 
+  if (specializedDetails?.kind === "open-result" && specializedDetails.target) {
+    return (
+      <div className={messageTextClass.body}>
+        <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
+          <ToolActivityIcon category={summary.toolCategory} />
+          <span>{headline}</span>
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            className="h-auto min-w-0 justify-start p-0 font-mono font-normal"
+            title={specializedDetails.target}
+            onClick={() => {
+              if (props.onOpenCodePath) props.onOpenCodePath(specializedDetails.target);
+              else void openDesktopPath(specializedDetails.target);
+            }}
+          >
+            <span className="truncate">{specializedDetails.target}</span>
+          </Button>
+          <StatusBadge size="tiny" shape="soft">{specializedDetails.viewType}</StatusBadge>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={messageTextClass.body}>
       <DisclosureRowButton
@@ -1770,6 +1977,210 @@ function StepRow(props: {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function processItemToLegacyPart(item: TurnProcessItem) {
+  return toLegacyPart(item.part, `${item.messageId}:${item.partIndex}`);
+}
+
+function processPlanDetails(items: TurnProcessItem[]) {
+  for (const item of items) {
+    const part = processItemToLegacyPart(item);
+    if (!part || part.type !== "tool") continue;
+    const state = recordValue(part.state);
+    const presentation = buildTranscriptToolPresentation({
+      toolName: part.tool,
+      toolInput: recordValue(state?.input) ?? undefined,
+      toolOutput: state?.output,
+      toolMetadata: recordValue(state?.metadata) ?? undefined,
+    });
+    if (presentation.details?.kind === "plan") return presentation.details;
+  }
+  return null;
+}
+
+function processFoldLabel(items: TurnProcessItem[]) {
+  if (processPlanDetails(items)) return t("session.workbuddy_task_list");
+  const legacyParts = items.flatMap((item) => {
+    const part = processItemToLegacyPart(item);
+    return part ? [part] : [];
+  });
+  if (legacyParts.length > 0 && legacyParts.every((part) => part.type === "reasoning")) {
+    return t("session.process_summary_deep_thinking");
+  }
+  const toolNames = legacyParts.flatMap((part) => (
+    part.type === "tool" ? [part.tool.toLowerCase()] : []
+  ));
+  if (toolNames.some((name) => (
+    name.includes("search") || name.includes("fetch") || name.includes("browser") || name.includes("web")
+  ))) {
+    return t("session.process_summary_collecting_sources");
+  }
+  const terminalCount = toolNames.filter((name) => (
+    name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
+  )).length;
+  if (terminalCount > 0) {
+    return t("session.process_summary_ran_commands", { count: terminalCount });
+  }
+  const editCount = toolNames.filter((name) => (
+    name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
+  )).length;
+  if (editCount > 0) return t("session.process_summary_edited", { count: editCount });
+  const readCount = toolNames.filter((name) => (
+    name.includes("read") || name.includes("glob") || name.includes("list")
+  )).length;
+  if (readCount > 0) return t("session.process_summary_reviewed_files", { count: readCount });
+  if (legacyParts.length > 0) {
+    const summary = summarizeStepCluster([{
+      id: `turn-process:${items[0]?.messageId ?? "unknown"}`,
+      parts: legacyParts,
+      mode: "standalone",
+    }]);
+    if (summary.category !== "tool") return summary.label;
+  }
+  return t("session.process_summary_continue_processing");
+}
+
+function WorkBuddyTaskList(props: {
+  todos: TranscriptTodoItem[];
+  running: boolean;
+}) {
+  const [displayRunning, setDisplayRunning] = useState(() => props.running);
+  const [expanded, setExpanded] = useState(() => props.running);
+  const previousRunningRef = useRef(props.running);
+  const taskHistoryRef = useRef<Map<number, string>>(new Map());
+  useEffect(() => {
+    if (props.running) {
+      setDisplayRunning(true);
+      return;
+    }
+    const timeout = window.setTimeout(() => setDisplayRunning(false), 1_000);
+    return () => window.clearTimeout(timeout);
+  }, [props.running]);
+  useEffect(() => {
+    const wasRunning = previousRunningRef.current;
+    previousRunningRef.current = displayRunning;
+    if (!wasRunning && displayRunning) setExpanded(true);
+    if (wasRunning && !displayRunning) setExpanded(false);
+  }, [displayRunning]);
+
+  const todos = props.todos.map((todo, index) => {
+    const content = (
+      todo.status === "in_progress" && todo.activeForm
+        ? todo.activeForm
+        : todo.content
+    ).trim();
+    if (content) taskHistoryRef.current.set(index, content);
+    return { ...todo, content: content || taskHistoryRef.current.get(index) || `Task ${index + 1}` };
+  });
+
+  return (
+    <div className="session-workbuddy-task-list" data-workbuddy-task-list="true">
+      <button
+        type="button"
+        className="session-workbuddy-task-header"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <Terminal aria-hidden="true" />
+        <span>{t("session.workbuddy_task_list")}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("session-workbuddy-task-chevron", expanded && "is-expanded")}
+        />
+      </button>
+      {expanded && todos.length > 0 ? (
+        <div className="session-workbuddy-task-detail">
+          {todos.map((todo, index) => (
+            <div
+              key={`task-${index}`}
+              className={cn(
+                "session-workbuddy-task-item",
+                todo.status === "in_progress" && "is-running",
+                todo.status === "completed" && "is-completed",
+              )}
+            >
+              <span className="session-workbuddy-task-icon" aria-hidden="true">
+                {todo.status === "completed" ? <Check /> : null}
+                {todo.status === "in_progress" ? <LoadingSpinner /> : null}
+                {todo.status === "cancelled" ? <CircleAlert /> : null}
+                {todo.status === "pending" ? <span className="session-workbuddy-task-pending" /> : null}
+              </span>
+              <span className="session-workbuddy-task-text">{todo.content}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkBuddyProcessFold(props: {
+  id: string;
+  items: TurnProcessItem[];
+  running: boolean;
+  expandedStepIds: Set<string>;
+  onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
+  onOpenCodePath?: (path: string) => void;
+}) {
+  const plan = processPlanDetails(props.items);
+  const [expanded, setExpanded] = useState(false);
+  if (plan) return <WorkBuddyTaskList todos={plan.todos} running={props.running} />;
+
+  const toggleStep = (id: string) => {
+    props.onExpandedStepIdsChange((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <section className={cn("session-workbuddy-process-fold", expanded && "is-expanded")}>
+      <button
+        type="button"
+        className="session-workbuddy-process-head"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span>{processFoldLabel(props.items)}</span>
+        <ChevronDown aria-hidden="true" className="session-workbuddy-process-arrow" />
+      </button>
+      {expanded ? (
+        <div className="session-workbuddy-process-body" data-scrollable="true">
+          {props.items.map((item) => {
+            const key = `${item.messageId}:${item.partIndex}`;
+            if (item.part.type === "reasoning") {
+              if (!item.part.text.trim()) return null;
+              return (
+                <MarkdownBlock
+                  key={key}
+                  text={item.part.text}
+                  streaming={props.running}
+                  showStreamingCursor={false}
+                  locale={currentLocale()}
+                />
+              );
+            }
+            const legacyPart = processItemToLegacyPart(item);
+            if (!legacyPart) return null;
+            return (
+              <StepRow
+                key={key}
+                id={key}
+                part={legacyPart}
+                expanded={props.expandedStepIds.has(key)}
+                onToggle={() => toggleStep(key)}
+                onOpenCodePath={props.onOpenCodePath}
+                isStreamingReasoning={props.running}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -2104,7 +2515,7 @@ function StepsContainer(props: {
     group.parts.some((part) => browserOperationAutoExpanded(part)),
   );
   const active = props.isActive;
-  const autoExpanded = active || hasPinnedBrowserUseOperation;
+  const autoExpanded = hasPinnedBrowserUseOperation;
   const wasAutoExpandedRef = useRef(autoExpanded);
   const [containerExpanded, setContainerExpanded] = useState(autoExpanded);
   useEffect(() => {
@@ -2335,7 +2746,7 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
             type="button"
             variant="outline"
             size="xs"
-            className="max-w-[220px] rounded-lg border-dls-border bg-dls-surface-muted text-dls-text hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text"
+            className="session-generated-artifact-card max-w-[220px] rounded-lg text-dls-text hover:text-dls-text"
             title={target.value}
             onClick={() => props.onOpenTarget(target)}
           >
@@ -2367,6 +2778,97 @@ function TranscriptDividerRow(props: {
       <div className="session-transcript-divider-line min-w-10 flex-1" />
       <span className="session-transcript-divider-label shrink-0">{props.label}</span>
       <div className="session-transcript-divider-line min-w-10 flex-1" />
+    </div>
+  );
+}
+
+function WorkBuddyTurnContent(props: {
+  presentation: TurnContentPresentation;
+  detailsExpanded: boolean;
+  expandedStepIds: Set<string>;
+  onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
+  onOpenCodePath?: (path: string) => void;
+  highlightQuery?: string;
+  verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
+}) {
+  const running = props.presentation.state === "streaming" ||
+    props.presentation.state === "awaiting-approval";
+  const showExpandedProcess = running || props.detailsExpanded ||
+    props.presentation.state === "cancelled" || props.presentation.state === "failed";
+  const lastBodyId = props.presentation.segments.findLast(
+    (segment) => segment.kind === "body",
+  )?.id;
+
+  const renderProcess = (id: string, items: TurnProcessItem[]) => (
+    <WorkBuddyProcessFold
+      key={id}
+      id={id}
+      items={items}
+      running={running}
+      expandedStepIds={props.expandedStepIds}
+      onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+      onOpenCodePath={props.onOpenCodePath}
+    />
+  );
+
+  const renderExpandedSegment = (segment: TurnContentSegment) => {
+    if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.kind === "file" && segment.item.part.type === "file") {
+      return (
+        <FileCard
+          key={segment.id}
+          part={{
+            filename: segment.item.part.filename,
+            url: segment.item.part.url,
+            mediaType: segment.item.part.mediaType,
+          }}
+          tone="assistant"
+        />
+      );
+    }
+    if (segment.kind !== "body") return null;
+    return (
+      <div key={segment.id} className="session-workbuddy-turn-body">
+        <MarkdownBlock
+          text={segment.text}
+          streaming={running && segment.id === lastBodyId}
+          showStreamingCursor={false}
+          highlightQuery={props.highlightQuery}
+          locale={currentLocale()}
+          onOpenCodePath={props.onOpenCodePath}
+          verifiedCodePaths={props.verifiedCodePaths}
+        />
+      </div>
+    );
+  };
+
+  const renderCollapsedSegment = (segment: TurnFoldSegment) => {
+    if (segment.kind === "hidden") return null;
+    if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    return (
+      <div key={segment.id} className="session-workbuddy-turn-body">
+        <MarkdownBlock
+          text={segment.text}
+          highlightQuery={props.highlightQuery}
+          locale={currentLocale()}
+          onOpenCodePath={props.onOpenCodePath}
+          verifiedCodePaths={props.verifiedCodePaths}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="session-workbuddy-turn-content" data-workbuddy-turn-content="true">
+      {showExpandedProcess
+        ? props.presentation.segments.map(renderExpandedSegment)
+        : props.presentation.collapsedSegments.map(renderCollapsedSegment)}
+      {props.presentation.hoistedItems.map((visual) => (
+        <InlineVisual
+          key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
+          visual={visual}
+        />
+      ))}
     </div>
   );
 }
@@ -2421,11 +2923,70 @@ function MessageBlockRow(props: {
     ? { contentVisibility: "auto", containIntrinsicSize: "180px" } satisfies CSSProperties
     : undefined;
   const blockStyle = messageBlockStyle(perfStyle);
+  const assistantAvatar = props.assistantAvatar;
+  const showAssistantAvatar =
+    props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
+  const turnOpenTargets =
+    !block.isUser && turnPresentation?.isActionBlock && props.onOpenTarget
+      ? props.turnOpenTargets ?? []
+      : [];
+
+  if (
+    !block.isUser &&
+    !props.isNestedVariant &&
+    turnPresentation?.turnContent &&
+    turnPresentation.isTurnContentAnchor
+  ) {
+    const turnContent = turnPresentation.turnContent;
+    return (
+      <div
+        className="session-transcript-assistant-row session-transcript-assistant-turn group relative flex flex-col items-start"
+        data-message-role="assistant"
+        data-message-id={turnContent.anchorMessageId}
+        data-workbuddy-turn-anchor="true"
+        style={blockStyle}
+      >
+        <TranscriptAssistantHeader
+          assistantAvatar={assistantAvatar}
+          showAssistantAvatar={Boolean(showAssistantAvatar)}
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
+        <div
+          className={cn(
+            messageTextClass.baseMessageBubble,
+            messageTextClass.assistantMessageBubble,
+            messageTextClass.rootAssistantMessageBubble,
+            searchOutlineClass,
+          )}
+        >
+          <WorkBuddyTurnContent
+            presentation={turnContent}
+            detailsExpanded={props.turnDetailsExpanded}
+            expandedStepIds={props.expandedStepIds}
+            onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+            onOpenCodePath={props.onOpenCodePath}
+            highlightQuery={hasSearchMatch ? props.searchHighlightQuery : undefined}
+            verifiedCodePaths={props.verifiedCodePaths}
+          />
+          {props.onOpenTarget ? (
+            <OpenableTargetsStrip
+              targets={turnOpenTargets}
+              onOpenTarget={props.onOpenTarget}
+            />
+          ) : null}
+        </div>
+        <TranscriptCancelledIndicator presentation={turnPresentation} />
+        <TranscriptTurnActions
+          presentation={turnPresentation}
+          onForkAtMessage={props.onForkAtMessage}
+        />
+      </div>
+    );
+  }
 
   if (block.kind === "steps-cluster") {
-    const assistantAvatar = props.assistantAvatar;
-    const showAssistantAvatar =
-      props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
     return (
       <div
         className={cn(
@@ -2439,25 +3000,13 @@ function MessageBlockRow(props: {
         data-message-id={block.messageIds[0] ?? ""}
         style={blockStyle}
       >
-        {showAssistantAvatar && assistantAvatar ? (
-          <div className="session-transcript-assistant-identity">
-            <AssistantAvatar
-              name={assistantAvatar.name}
-              avatarUrl={assistantAvatar.avatarUrl}
-              avatarBackground={assistantAvatar.avatarBackground}
-            />
-            <span className={messageTextClass.avatarLabel}>
-              {assistantAvatar.name}
-            </span>
-          </div>
-        ) : null}
-        {turnPresentation?.isFirstAssistantBlock ? (
-          <TranscriptTurnStatus
-            presentation={turnPresentation}
-            detailsExpanded={props.turnDetailsExpanded}
-            onDetailsExpandedChange={onTurnDetailsExpandedChange}
-          />
-        ) : null}
+        <TranscriptAssistantHeader
+          assistantAvatar={assistantAvatar}
+          showAssistantAvatar={Boolean(showAssistantAvatar)}
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
         <div
           className={cn(
             block.isUser
@@ -2502,13 +3051,32 @@ function MessageBlockRow(props: {
   const groupSpacing = block.isUser ? "mb-3" : "mb-4";
   const isSyntheticSessionError =
     !block.isUser && block.messageId.startsWith(SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX);
-  const turnOpenTargets =
-    !block.isUser && turnPresentation?.isActionBlock && props.onOpenTarget
-      ? props.turnOpenTargets ?? []
-      : [];
-  const assistantAvatar = props.assistantAvatar;
-  const showAssistantAvatar =
-    props.showAssistantIdentity && !block.isUser && assistantAvatar && !props.isNestedVariant;
+  const isOutputLimitContinuation =
+    block.isUser &&
+    !props.isNestedVariant &&
+    isOutputLimitContinuationMessageId(block.messageId);
+
+  if (isOutputLimitContinuation) {
+    const continuationText = block.renderableParts
+      .map((part) => partToText(part))
+      .join(" ")
+      .trim();
+    return (
+      <div
+        className="pb-4"
+        data-message-role="user"
+        data-message-id={block.messageId}
+        data-output-limit-continuation="true"
+        style={blockStyle}
+      >
+        <div className="flex items-center gap-3 text-xs text-dls-secondary">
+          <span className="h-px flex-1 bg-dls-border" aria-hidden="true" />
+          <span>{continuationText}</span>
+          <span className="h-px flex-1 bg-dls-border" aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
 
   if (isSyntheticSessionError) {
     const messageText = block.renderableParts
@@ -2529,25 +3097,13 @@ function MessageBlockRow(props: {
         data-message-id={block.messageId}
         style={blockStyle}
       >
-        {showAssistantAvatar && assistantAvatar ? (
-          <div className="session-transcript-assistant-identity">
-            <AssistantAvatar
-              name={assistantAvatar.name}
-              avatarUrl={assistantAvatar.avatarUrl}
-              avatarBackground={assistantAvatar.avatarBackground}
-            />
-            <span className={messageTextClass.avatarLabel}>
-              {assistantAvatar.name}
-            </span>
-          </div>
-        ) : null}
-        {turnPresentation?.isFirstAssistantBlock ? (
-          <TranscriptTurnStatus
-            presentation={turnPresentation}
-            detailsExpanded={props.turnDetailsExpanded}
-            onDetailsExpandedChange={onTurnDetailsExpandedChange}
-          />
-        ) : null}
+        <TranscriptAssistantHeader
+          assistantAvatar={assistantAvatar}
+          showAssistantAvatar={Boolean(showAssistantAvatar)}
+          presentation={turnPresentation}
+          detailsExpanded={props.turnDetailsExpanded}
+          onDetailsExpandedChange={onTurnDetailsExpandedChange}
+        />
         <div className={cn("w-full relative", !props.isNestedVariant && "max-w-[650px]", searchOutlineClass)}>
           <NoticeBox className="inline-flex max-w-full items-start gap-2 text-sm leading-5" role="alert" tone="error">
             <CircleAlert size={14} className="mt-0.5 shrink-0" />
@@ -2570,7 +3126,7 @@ function MessageBlockRow(props: {
       className={cn(
         "flex group justify-start relative pb-4",
         block.isUser && "justify-end",
-        !props.isNestedVariant && "pb-8",
+        !props.isNestedVariant && !block.isUser && "session-transcript-assistant-message-row",
         !props.isNestedVariant && block.isUser && "session-transcript-user-row",
         !props.isNestedVariant && !block.isUser && "session-transcript-assistant-row",
         !props.isNestedVariant && !block.isUser && "flex-col items-start",
@@ -2579,25 +3135,13 @@ function MessageBlockRow(props: {
       data-message-id={block.messageId}
       style={blockStyle}
     >
-      {showAssistantAvatar && assistantAvatar ? (
-        <div className="session-transcript-assistant-identity">
-          <AssistantAvatar
-            name={assistantAvatar.name}
-            avatarUrl={assistantAvatar.avatarUrl}
-            avatarBackground={assistantAvatar.avatarBackground}
-          />
-          <span className={messageTextClass.avatarLabel}>
-            {assistantAvatar.name}
-          </span>
-        </div>
-      ) : null}
-      {turnPresentation?.isFirstAssistantBlock ? (
-        <TranscriptTurnStatus
-          presentation={turnPresentation}
-          detailsExpanded={props.turnDetailsExpanded}
-          onDetailsExpandedChange={onTurnDetailsExpandedChange}
-        />
-      ) : null}
+      <TranscriptAssistantHeader
+        assistantAvatar={assistantAvatar}
+        showAssistantAvatar={Boolean(showAssistantAvatar)}
+        presentation={turnPresentation}
+        detailsExpanded={props.turnDetailsExpanded}
+        onDetailsExpandedChange={onTurnDetailsExpandedChange}
+      />
       <div
         className={cn(
           messageTextClass.baseMessageBubble,
@@ -2695,6 +3239,7 @@ function MessageBlockRow(props: {
                   <MarkdownBlock
                     text={text}
                     streaming={isStreamingLatestAssistant}
+                    showStreamingCursor={false}
                     highlightQuery={highlightQuery}
                     locale={currentLocale()}
                     onOpenCodePath={props.onOpenCodePath}
@@ -2732,14 +3277,13 @@ function MessageBlockRow(props: {
             onOpenTarget={props.onOpenTarget}
           />
         ) : null}
-
-        {!props.isNestedVariant && block.isUser ? (
-          <TranscriptUserToolbar
-            message={block.message}
-            onRevertToMessage={props.onRevertToMessage}
-          />
-        ) : null}
       </div>
+      {!props.isNestedVariant && block.isUser ? (
+        <TranscriptUserToolbar
+          message={block.message}
+          onRevertToMessage={props.onRevertToMessage}
+        />
+      ) : null}
       <TranscriptCancelledIndicator presentation={turnPresentation} />
       {turnPresentation ? (
         <TranscriptTurnActions
@@ -2797,15 +3341,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const scrollContainer = props.scrollElement?.();
     if (!scrollContainer) return;
 
-    const updateViewport = (width: number, height: number) => {
-      setRootContentWidth(computeTranscriptMaxContentWidth(width));
-      setRootViewportHeight(height);
+    const updateViewport = () => {
+      // Use the same box metric for both the initial read and ResizeObserver
+      // delivery. clientHeight/clientWidth include the scroll container's
+      // padding; contentRect does not. Mixing them made the active turn's
+      // reserved height alternate by exactly 40px on every streaming render.
+      setRootContentWidth(computeTranscriptMaxContentWidth(scrollContainer.clientWidth));
+      setRootViewportHeight(scrollContainer.clientHeight);
     };
-    updateViewport(scrollContainer.clientWidth, scrollContainer.clientHeight);
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) updateViewport(entry.contentRect.width, entry.contentRect.height);
-    });
+    updateViewport();
+    const observer = new ResizeObserver(updateViewport);
     observer.observe(scrollContainer);
     return () => observer.disconnect();
   }, [isNestedVariant, props.scrollElement]);
@@ -3014,6 +3559,23 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       turnIdByMessageId,
     );
   }, [isNestedVariant, messageBlocks, turnIdByMessageId]);
+  const firstAssistantRenderItemId = useMemo(() => (
+    renderItems.find((item) => (
+      item.kind === "turn" && item.blocks.some((block) => (
+        block.kind !== "divider" && !block.isUser
+      ))
+    ))?.id ?? null
+  ), [renderItems]);
+
+  const turnContentByTurnId = useMemo(() => {
+    const presentations = new Map<string, TurnContentPresentation>();
+    if (isNestedVariant || props.searchHighlightQuery?.trim()) return presentations;
+    transcriptTurns.forEach((turn) => {
+      const presentation = buildTurnContentPresentation(turn);
+      if (presentation) presentations.set(turn.id, presentation);
+    });
+    return presentations;
+  }, [isNestedVariant, props.searchHighlightQuery, transcriptTurns]);
 
   const turnPresentationByBlockKey = useMemo(() => {
     const presentations = new Map<string, TranscriptBlockTurnPresentation>();
@@ -3065,20 +3627,40 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
     transcriptTurns.forEach((turn) => {
       const blockKeys = blockKeysByTurnId.get(turn.id);
-      const actionBlockKey = blockKeys?.at(-1);
+      const turnContent = turnContentByTurnId.get(turn.id) ?? null;
+      const turnContentAnchorBlockKey = turnContent
+        ? blockKeys?.find((blockKey) => {
+            const block = messageBlocks.find(
+              (candidate) => blockIdentityKey(candidate) === blockKey,
+            );
+            if (!block || block.kind === "divider") return false;
+            return messageIdsForBlock(block).includes(turnContent.anchorMessageId);
+          })
+        : undefined;
+      const actionBlockKey = turnContentAnchorBlockKey ?? blockKeys?.at(-1);
       if (!blockKeys || !actionBlockKey) return;
       const presentation = summarizeTranscriptTurn(turn, messageToText);
       blockKeys.forEach((blockKey) => {
         presentations.set(blockKey, {
           ...presentation,
-          isFirstAssistantBlock: firstAssistantBlockKeys.has(blockKey),
+          copyText: turnContent?.finalText ?? presentation.copyText,
+          isFirstAssistantBlock: turnContentAnchorBlockKey
+            ? blockKey === turnContentAnchorBlockKey
+            : firstAssistantBlockKeys.has(blockKey),
           isActionBlock: blockKey === actionBlockKey,
-          hasExecutionDetails: turnsWithExecutionDetails.has(turn.id),
+          hasExecutionDetails: turnContent
+            ? turnContent.processItems.length > 0
+            : turnsWithExecutionDetails.has(turn.id),
+          turnContent,
+          isTurnContentAnchor: turnContentAnchorBlockKey === blockKey,
+          isHiddenByTurnContent: Boolean(
+            turnContentAnchorBlockKey && blockKey !== turnContentAnchorBlockKey,
+          ),
         });
       });
     });
     return presentations;
-  }, [isNestedVariant, messageBlocks, renderItems, transcriptTurns]);
+  }, [isNestedVariant, messageBlocks, renderItems, transcriptTurns, turnContentByTurnId]);
 
   const latestAssistantMessageId = useMemo(() => {
     for (let index = props.messages.length - 1; index >= 0; index -= 1) {
@@ -3136,12 +3718,26 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return next;
   }, [messageBlocks]);
   const activeTurn = transcriptTurns.at(-1);
+  const activeTurnHasAssistantBlock = Boolean(
+    activeTurn && renderItems.some((item) => (
+      item.kind === "turn" &&
+      item.turnId === activeTurn.id &&
+      item.blocks.some((block) => block.kind !== "divider" && !block.isUser)
+    )),
+  );
+  const footerNeedsAssistantIdentity = Boolean(
+    props.footer &&
+    props.assistantAvatar &&
+    activeTurn &&
+    !activeTurnHasAssistantBlock,
+  );
   const activeTurnId = activeTurn && (
     activeTurn.state === "streaming" || activeTurn.state === "awaiting-approval"
   ) ? activeTurn.id : null;
   const activeRenderItemId = activeTurnId
     ? renderItems.findLast((item) => item.kind === "turn" && item.turnId === activeTurnId)?.id ?? null
     : null;
+  const footerRenderItemId = activeRenderItemId ?? renderItems.at(-1)?.id ?? null;
   const activeTurnMinHeight = Math.max(0, rootViewportHeight - 40);
 
   // Virtualize by turn once either the turn count or the underlying block
@@ -3153,24 +3749,34 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const shouldVirtualize =
     renderItems.length >= VIRTUALIZATION_THRESHOLD ||
     messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
+  // Keep the newest turn in normal document flow even after streaming ends.
+  // Re-inserting a just-grown row into the virtualizer on completion causes a
+  // visible measurement correction before sticky-bottom catches up.
+  const detachedTailRenderItemIndex = shouldVirtualize ? renderItems.length - 1 : -1;
+  const detachedTailRenderItem = detachedTailRenderItemIndex >= 0
+    ? renderItems[detachedTailRenderItemIndex]
+    : null;
+  const virtualRenderItems = detachedTailRenderItem
+    ? renderItems.slice(0, detachedTailRenderItemIndex)
+    : renderItems;
 
   const estimateVirtualItemSize = useCallback(
     (index: number) => {
-      const item = renderItems[index];
+      const item = virtualRenderItems[index];
       const estimate = estimateRenderItemSize(item);
       return item?.id === activeRenderItemId
         ? Math.max(estimate, activeTurnMinHeight)
         : estimate;
     },
-    [activeRenderItemId, activeTurnMinHeight, renderItems],
+    [activeRenderItemId, activeTurnMinHeight, virtualRenderItems],
   );
 
   const getVirtualItemKey = useCallback((index: number) => {
-    return renderItems[index]?.id ?? `item-${index}`;
-  }, [renderItems]);
+    return virtualRenderItems[index]?.id ?? `item-${index}`;
+  }, [virtualRenderItems]);
 
   const virtualizer = useVirtualizer({
-    count: renderItems.length,
+    count: virtualRenderItems.length,
     getScrollElement: () => props.scrollElement?.() ?? null,
     // TanStack recommends estimating the largest comfortable dynamic size.
     // Content-aware estimates reduce the measurement corrections that cause
@@ -3179,7 +3785,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     overscan: VIRTUAL_OVERSCAN,
     getItemKey: getVirtualItemKey,
   });
-
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
   const firstVirtualRow = virtualRows[0];
 
@@ -3192,7 +3797,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       if (index === undefined) return false;
 
       if (shouldVirtualize) {
-        virtualizer.scrollToIndex(index, { align: "center" });
+        if (index < virtualRenderItems.length) {
+          virtualizer.scrollToIndex(index, { align: "center" });
+        }
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
             const container = props.scrollElement?.();
@@ -3221,7 +3828,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return () => {
       register(null);
     };
-  }, [blockIndexByMessageId, props.scrollElement, props.setScrollToMessageById, shouldVirtualize, virtualizer]);
+  }, [blockIndexByMessageId, props.scrollElement, props.setScrollToMessageById, shouldVirtualize, virtualizer, virtualRenderItems.length]);
 
   // NOTE: we intentionally do NOT call virtualizer.measure() on every
   // messageBlocks change. react-virtual already invalidates and
@@ -3255,6 +3862,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const blockIndex = blockIndexByKey.get(blockKey);
     if (blockIndex === undefined) return null;
     const turnPresentation = turnPresentationByBlockKey.get(blockKey);
+    if (turnPresentation?.isHiddenByTurnContent) return null;
     return (
       <MessageBlockRow
         key={blockKey}
@@ -3298,16 +3906,36 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         : null;
     }
     const isActiveTurn = item.id === activeRenderItemId;
+    const isInitialAssistantOnly = item.id === firstAssistantRenderItemId && !item.blocks.some(
+      (block) => block.kind !== "divider" && block.isUser,
+    );
     return (
       <div
-        className="session-transcript-turn"
+        className={cn(
+          "session-transcript-turn",
+          isInitialAssistantOnly && "session-transcript-turn-assistant-only",
+        )}
         data-transcript-turn-id={item.turnId ?? undefined}
         data-transcript-turn-active={isActiveTurn ? "true" : undefined}
+        data-transcript-turn-assistant-only={isInitialAssistantOnly ? "true" : undefined}
         style={isActiveTurn && !isNestedVariant
           ? { minHeight: `${activeTurnMinHeight}px` }
           : undefined}
       >
         {item.blocks.map(renderConversationBlock)}
+        {!isNestedVariant && props.footer && item.id === footerRenderItemId ? (
+          <div className="session-transcript-assistant-row">
+            {footerNeedsAssistantIdentity ? (
+              <TranscriptAssistantHeader
+                assistantAvatar={props.assistantAvatar}
+                showAssistantAvatar
+                detailsExpanded={false}
+                onDetailsExpandedChange={() => undefined}
+              />
+            ) : null}
+            {props.footer}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -3323,9 +3951,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         // (e.g. scrollElement ref hasn't attached yet). A fallback to
         // rendering every message would re-introduce the eager-render
         // freeze on huge sessions.
-        <div
-          className="relative"
-          style={{
+        <>
+          <div
+            className="relative"
+            style={{
             height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
             width: "100%",
           }}
@@ -3338,7 +3967,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
               }}
             >
               {virtualRows.map((virtualRow) => {
-                const item = renderItems[virtualRow.index];
+                const item = virtualRenderItems[virtualRow.index];
                 if (!item) return null;
                 return (
                   <div
@@ -3353,7 +3982,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
               })}
             </div>
           ) : null}
-        </div>
+          </div>
+          {detachedTailRenderItem
+            ? renderTranscriptItem(detachedTailRenderItem)
+            : null}
+        </>
       ) : (
         <div>
           {renderItems.map((item) => (
@@ -3361,8 +3994,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
           ))}
         </div>
       )}
-
-      {!isNestedVariant && props.footer ? props.footer : null}
     </div>
   );
 }

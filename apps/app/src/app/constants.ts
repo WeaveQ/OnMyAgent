@@ -44,6 +44,8 @@ export type McpDirectoryInfo = {
   iconSrc?: string;
   /** Prompt inserted from the composer extension picker. */
   composerPrompt?: string;
+  /** Ready-to-run prompts shown in the composer extension picker. */
+  suggestedPrompts?: string[];
   /** Whether OnMyAgent should show this extension as enabled before user setup. */
   defaultEnabled?: boolean;
   /** Whether OnMyAgent should hide this extension from the default catalog view. */
@@ -68,6 +70,7 @@ function extensionManifestToDirectoryInfo(manifest: OnMyAgentExtensionManifest):
     iconSlug: manifest.icon?.simpleIconSlug,
     iconSrc: manifest.icon?.src,
     composerPrompt: extensionContribution(manifest, "composer-prompt")?.prompt ?? manifest.composer?.prompt,
+    suggestedPrompts: manifest.composer?.suggestions,
     defaultEnabled: manifest.defaultEnabled,
     defaultHidden: manifest.defaultHidden,
     preview: manifest.preview,

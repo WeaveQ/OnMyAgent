@@ -85,6 +85,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
 const NATIVE_MENU_OPEN_SETTINGS_EVENT = "onmyagent:native-menu:open-settings";
 const NATIVE_MENU_TOGGLE_SIDEBAR_EVENT = "onmyagent:native-menu:toggle-sidebar";
+const COMPUTER_USE_ACTIVITY_EVENT = "onmyagent:computer-use:activity";
+const COMPUTER_USE_APPSHOT_EVENT = "onmyagent:computer-use:appshot";
 const TAURI_APP_IDENTIFIER = "com.differentai.onmyagent";
 const DEV_APP_IDENTIFIER = "com.differentai.onmyagent.dev";
 const DESKTOP_PROTOCOL_SCHEME = "onmyagent";
@@ -207,6 +209,17 @@ const computerUseDesktopHelpers = createComputerUseDesktopHelpers({
 const {
   getComputerUseMcpCommand,
   checkComputerUsePermissions,
+  setComputerUseSkysightEnabled,
+  setComputerUseSkysightPaused,
+  updateComputerUseSkysightExclusion,
+  clearComputerUseSkysightData,
+  captureComputerUseAppshot,
+  revokeComputerUseAppAuthorization,
+  clearComputerUseAppAuthorizations,
+  restoreComputerUseServices,
+  disposeComputerUseServices,
+  watchComputerUseActivity,
+  watchComputerUseAppshots,
   checkSystemPermissions,
   openSystemPermissionSettings,
   openComputerUseSetupApp,
@@ -2675,6 +2688,27 @@ async function dispatchDesktopCommand(event, command, ...args) {
       // Spawn --check → fresh TCC read → always accurate.
       return checkComputerUsePermissions();
     }
+    case "setComputerUseSkysightEnabled": {
+      return setComputerUseSkysightEnabled(args[0]);
+    }
+    case "setComputerUseSkysightPaused": {
+      return setComputerUseSkysightPaused(args[0]);
+    }
+    case "updateComputerUseSkysightExclusion": {
+      return updateComputerUseSkysightExclusion(args[0], args[1], args[2]);
+    }
+    case "clearComputerUseSkysightData": {
+      return clearComputerUseSkysightData();
+    }
+    case "captureComputerUseAppshot": {
+      return captureComputerUseAppshot();
+    }
+    case "revokeComputerUseAppAuthorization": {
+      return revokeComputerUseAppAuthorization(args[0]);
+    }
+    case "clearComputerUseAppAuthorizations": {
+      return clearComputerUseAppAuthorizations();
+    }
     case "openComputerUsePermissionSetup": {
       // Open the GUI app. Returns immediately — React shows "verify" CTA.
       await openComputerUseSetupApp();
@@ -3354,6 +3388,7 @@ if (!app.requestSingleInstanceLock()) {
       browserUseAgentRuntime.dispose(),
       browserUseModelGateway.stop(),
       browserUseBroker.stop(),
+      Promise.resolve(disposeComputerUseServices()),
     ]).finally(() => app.quit());
   });
 
@@ -3378,6 +3413,9 @@ if (!app.requestSingleInstanceLock()) {
     installApplicationMenu();
 
     await ensureOnMyAgentUserDataDirs();
+    await restoreComputerUseServices().catch((error) => {
+      console.warn("[ComputerUse] failed to restore services", error);
+    });
     await browserUseBroker.start().catch((error) => {
       console.warn("[browser-use] broker failed to start", error);
     });
@@ -3398,6 +3436,16 @@ if (!app.requestSingleInstanceLock()) {
 
     queueDeepLinks(forwardedDeepLinks(process.argv));
     const win = await createMainWindow();
+    watchComputerUseActivity((activity) => {
+      if (!mainWindow?.isDestroyed()) {
+        mainWindow.webContents.send(COMPUTER_USE_ACTIVITY_EVENT, activity);
+      }
+    });
+    watchComputerUseAppshots((appshot) => {
+      if (!mainWindow?.isDestroyed()) {
+        mainWindow.webContents.send(COMPUTER_USE_APPSHOT_EVENT, appshot);
+      }
+    });
     win.webContents.on("did-finish-load", () => {
       flushPendingDeepLinks();
     });

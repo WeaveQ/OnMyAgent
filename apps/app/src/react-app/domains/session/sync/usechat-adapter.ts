@@ -40,6 +40,7 @@ type InternalPartState = {
   pendingRoleEvents: Map<string, OpencodeEvent[]>;
   tools: Map<string, ToolStreamState>;
   assistantMessageId: string | null;
+  finishReason: string | null;
   streamFinished: boolean;
 };
 
@@ -276,8 +277,21 @@ function createPartState(): InternalPartState {
     pendingRoleEvents: new Map<string, OpencodeEvent[]>(),
     tools: new Map<string, ToolStreamState>(),
     assistantMessageId: null,
+    finishReason: null,
     streamFinished: false,
   };
+}
+
+export function normalizeUiFinishReason(reason: string | null): "stop" | "length" | "content-filter" | "tool-calls" | "error" | "other" {
+  const normalized = reason?.trim().toLowerCase();
+  if (normalized === "length" || normalized === "max_tokens" || normalized === "max-tokens" || normalized === "max_output_tokens" || normalized === "token_limit") {
+    return "length";
+  }
+  if (normalized === "content-filter" || normalized === "content_filter") return "content-filter";
+  if (normalized === "tool-calls" || normalized === "tool_calls") return "tool-calls";
+  if (normalized === "error" || normalized === "failed") return "error";
+  if (!normalized || normalized === "stop" || normalized === "end_turn") return "stop";
+  return "other";
 }
 
 function ensureAssistantStart(
@@ -473,7 +487,7 @@ function handleEventChunk(
     const record = (event.properties ?? {}) as Record<string, unknown>;
     if (record.sessionID !== sessionId) return;
     finalizeOpenParts(controller, state);
-    controller.enqueue({ type: "finish", finishReason: "stop" });
+    controller.enqueue({ type: "finish", finishReason: normalizeUiFinishReason(state.finishReason) });
     state.streamFinished = true;
     controller.close();
     return;
@@ -481,7 +495,7 @@ function handleEventChunk(
 
   if (event.type === "message.updated") {
     const record = (event.properties ?? {}) as Record<string, unknown>;
-    const info = record.info as { id?: string; role?: string; sessionID?: string } | undefined;
+    const info = record.info as { id?: string; role?: string; sessionID?: string; finish?: string } | undefined;
     if (!info || info.sessionID !== sessionId || typeof info.id !== "string" || typeof info.role !== "string") {
       return;
     }
@@ -492,6 +506,9 @@ function handleEventChunk(
       return;
     }
     ensureAssistantStart(controller, state, info.id);
+    if (typeof info.finish === "string" && info.finish.trim()) {
+      state.finishReason = info.finish;
+    }
     if (pending) {
       state.pendingRoleEvents.delete(info.id);
       for (const pendingEvent of pending) handleEventChunk(controller, state, pendingEvent, sessionId);
@@ -559,6 +576,9 @@ function handleEventChunk(
     }
 
     if (part.type === "step-finish") {
+      if (typeof part.reason === "string" && part.reason.trim()) {
+        state.finishReason = part.reason;
+      }
       finalizeOpenParts(controller, state);
       controller.enqueue({ type: "finish-step" });
     }
@@ -665,7 +685,7 @@ export function createOnMyAgentChatTransport(options: TransportOptions): ChatTra
             await consume;
             if (!state.streamFinished && !closed) {
               finalizeOpenParts(controller, state);
-              controller.enqueue({ type: "finish", finishReason: "stop" });
+              controller.enqueue({ type: "finish", finishReason: normalizeUiFinishReason(state.finishReason) });
               close();
             }
           } catch (error) {
