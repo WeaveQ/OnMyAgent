@@ -1048,8 +1048,8 @@ export function SkillsView(props: SkillsViewProps) {
                 <NavTabButton
                   key={view}
                   active={active}
-                  size="filter"
-                  shape="pill"
+                  size="tab"
+                  shape="tab"
                   onClick={() => setInstalledSkillFilter(view)}
                 >
                   {view === "builtin"
