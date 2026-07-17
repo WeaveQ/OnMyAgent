@@ -5,7 +5,7 @@ import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import {
-  ChevronRight,
+  ChevronDown,
   Folder,
   FolderOpen,
   Settings2,
@@ -429,10 +429,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     id: scenario.id,
     label: scenario.label,
   }));
-  const composerPlaceholder =
-    assistantFeatureCategoryId === "code"
-      ? t("session.assistant_code_composer_placeholder")
-      : t("session.assistant_office_composer_placeholder");
   const pendingAgent = usePendingAgentStore((state) => state.agent);
 
   useEffect(() => {
@@ -2250,10 +2246,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     assistantCategoryId === "code"
       ? t("session.assistant_code_title")
       : t("session.assistant_work_title");
-  const assistantDraftHomeSubtitle =
-    assistantCategoryId === "code"
-      ? t("session.assistant_code_subtitle")
-      : t("session.assistant_work_subtitle");
 
   const draftWorkspaceAccessoryActive =
     Boolean(props.personalAssistantHome || props.assistantFeatureCategoryId) &&
@@ -2493,7 +2485,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       <div
         className={cn(
           "flex h-full min-h-0 flex-col",
-          personalAssistantDraftHome && "items-center justify-center px-8 pb-8 pt-16",
+          personalAssistantDraftHome && "items-center justify-center px-6 pb-6 pt-8",
         )}
       >
         {!personalAssistantDraftHome ? (
@@ -2672,12 +2664,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
           </div>
         ) : null}
         {personalAssistantDraftHome ? (
-          <div className="mb-7 flex flex-col items-center text-center">
+          <div className="mb-4 flex flex-col items-center text-center">
             <img
               src={resolvePublicAssetUrl("/onmyagent-logo.png")}
               alt=""
               aria-hidden="true"
-              className="mb-3 size-20 object-contain opacity-10"
+              className="mb-2 size-12 object-contain opacity-10"
               draggable={false}
             />
             <div className="flex items-center gap-2 text-dls-text">
@@ -2686,16 +2678,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 {assistantDraftHomeTitle}
               </h2>
             </div>
-            <p className={sessionSurfaceTextClass.draftHomeSubtitle}>
-              {assistantDraftHomeSubtitle}
-            </p>
           </div>
         ) : null}
         <div
           ref={composerShellRef}
           className={cn(
             "shrink-0 px-0 pb-2 pt-2",
-            personalAssistantDraftHome && "w-full max-w-5xl pb-0 pt-0",
+            personalAssistantDraftHome && "w-full max-w-3xl pb-0 pt-0",
           )}
         >
           <DevProfiler id="SessionComposer">
@@ -2709,15 +2698,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
                   : undefined
               }
               onSelectPromptTemplate={selectAssistantPromptTemplate}
-              placeholder={assistantOfficeFeaturesActive || assistantCodeFeaturesActive ? composerPlaceholder : undefined}
               onDraftChange={handleComposerDraftChange}
               onSend={handleSend}
               onStop={handleAbort}
               busy={chatStreaming}
               disabled={
-                (model.transitionState !== "idle" &&
-                  model.transitionState !== "failed") ||
-                Boolean(props.modelUnavailable)
+                model.transitionState !== "idle" &&
+                model.transitionState !== "failed"
               }
               modelUnavailable={Boolean(props.modelUnavailable)}
               accessMode={effectiveAccessMode}
@@ -2779,8 +2766,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
               bottomAccessory={
                 draftWorkspaceAccessoryActive ? (
-                  <div className="inline-flex min-h-8 items-center gap-1 text-xs font-medium">
-                    <div className="relative inline-flex h-6 items-center gap-1">
+                  <div className="inline-flex items-center gap-0.5 text-xs font-normal leading-none text-dls-secondary">
+                    <div className="relative inline-flex items-center">
                       {showFolderRequiredBubble ? (
                         <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
                           <div className="font-medium text-dls-accent">
@@ -2801,7 +2788,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                           props.onPickDraftWorkspace?.();
                         }}
                         className={cn(
-                          "group h-6 justify-start gap-2 rounded-md px-1 text-left text-xs hover:text-dls-text",
+                          "h-7 justify-start gap-1.5 rounded-md px-1.5 text-left text-xs font-normal leading-none hover:text-dls-text [&_svg]:size-3.5",
                           props.draftWorkspaceDirectory
                             ? "text-dls-secondary"
                             : assistantFeatureCategoryId === "code"
@@ -2826,12 +2813,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
                             <Folder className="size-3.5 shrink-0" />
                             <span>
                               {assistantFeatureCategoryId === "office"
-                                ? t("session.choose_folder_optional")
+                                ? t("session.choose_workspace")
                                 : t("session.choose_folder")}
                             </span>
                           </>
                         )}
-                        <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+                        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
                       </Button>
                       {props.draftWorkspaceDirectory ? (
                         <Button
@@ -2850,6 +2837,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     <AccessPermissionSelect
                       value={effectiveAccessMode}
                       onChange={updateAccessMode}
+                      density="compact"
                     />
                   </div>
                 ) : undefined

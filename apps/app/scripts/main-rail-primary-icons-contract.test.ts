@@ -19,7 +19,7 @@ describe("main rail primary icon contract", () => {
     expect(railSource).not.toContain("w-[72px]");
   });
 
-  test("assistant and expert entries use the dedicated reference icons", () => {
+  test("top rail entries use dedicated fill icons (not mixed Lucide strokes)", () => {
     const railSource = readFileSync(
       resolve(
         root,
@@ -35,11 +35,23 @@ describe("main rail primary icon contract", () => {
       "utf8",
     );
 
-    expect(railSource).toContain('icon: AssistantRailIcon');
-    expect(railSource).toContain('icon: ExpertRailIcon');
-    expect(railSource).not.toContain('BotMessageSquare');
-    expect(railSource).not.toContain('UserStar');
+    expect(railSource).toContain("icon: AssistantRailIcon");
+    expect(railSource).toContain("icon: ExpertRailIcon");
+    expect(railSource).toContain("icon: LocalAgentRailIcon");
+    expect(railSource).toContain("icon: FilesRailIcon");
+    expect(railSource).toContain("icon: StoreRailIcon");
+    expect(railSource).toContain("icon: ManageRailIcon");
+    expect(railSource).not.toContain("BotMessageSquare");
+    expect(railSource).not.toContain("UserStar");
+    expect(railSource).not.toContain("MonitorCog");
+    expect(railSource).not.toContain("FolderOpen");
+    expect(railSource).not.toContain("SlidersHorizontal");
+    expect(railSource).not.toMatch(/\bStore\b/);
     expect(iconSource).toContain('viewBox="0 0 16 16"');
     expect(iconSource).toContain('fill="currentColor"');
+    expect(iconSource).toContain("export function LocalAgentRailIcon");
+    expect(iconSource).toContain("export function FilesRailIcon");
+    expect(iconSource).toContain("export function StoreRailIcon");
+    expect(iconSource).toContain("export function ManageRailIcon");
   });
 });

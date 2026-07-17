@@ -25,7 +25,7 @@ export function ProjectsComingSoonPage() {
 
 export function EmptyArtifactsPanel(props: { onClose: () => void }) {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-dls-surface">
+    <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <header className="flex h-11 shrink-0 items-center justify-between border-b border-dls-border px-4 mac:titlebar-no-drag">
         <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
           <FileText className="size-4 text-dls-secondary" />

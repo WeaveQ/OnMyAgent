@@ -25,6 +25,7 @@ export default {
   "plugins.suggested_heading": "Suggested plugins",
   "plugins.title": "Plugins",
   "plugins.artifact_title": "Artifact plugins",
+  "plugins.artifact_tab": "Plugins",
   "plugins.artifact_description": "Create, edit, and analyze documents, PDFs, and spreadsheets with built-in skills.",
   "plugins.artifact_loading": "Loading artifact plugins",
   "plugins.artifact_detail_loading": "Loading plugin details",

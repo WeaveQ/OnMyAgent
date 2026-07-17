@@ -47,6 +47,7 @@ safelist: [
       ...radixColors,
       dls: {
         surface: "var(--dls-surface)",
+        "surface-solid": "var(--dls-surface-solid, var(--dls-surface))",
         background: "var(--dls-background)",
         canvas: "var(--dls-canvas)",
         "surface-muted": "var(--dls-surface-muted)",

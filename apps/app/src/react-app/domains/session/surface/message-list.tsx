@@ -128,13 +128,13 @@ const AVATAR_PALETTES = [
 
 const messageTextClass = {
   body: "font-sans text-sm leading-6 antialiased",
-  bodyMuted: "font-sans text-sm leading-6 text-muted-foreground antialiased",
-  toolStatus: "ml-7 mt-2 text-sm leading-6 text-muted-foreground",
-  toolLabel: "mb-1 text-xs font-medium text-muted-foreground",
-  assistantBubble: "w-full relative text-foreground group",
-  nestedAssistantBubble: "w-full relative text-sm leading-6 text-foreground group",
+  bodyMuted: "font-sans text-sm leading-6 text-dls-secondary antialiased",
+  toolStatus: "ml-7 mt-2 text-sm leading-6 text-dls-secondary",
+  toolLabel: "mb-1 text-xs font-medium text-dls-secondary",
+  assistantBubble: "w-full relative text-dls-text group",
+  nestedAssistantBubble: "w-full relative text-sm leading-6 text-dls-text group",
   avatarLabel: "max-w-[120px] truncate text-sm font-medium leading-tight text-dls-text",
-  baseMessageBubble: "text-sm text-foreground leading-relaxed",
+  baseMessageBubble: "text-sm text-dls-text leading-relaxed",
   userMessageBubble: "bg-dls-chat-user-bg text-dls-text",
   nestedUserMessageBubble: "max-w-[92%] rounded-xl px-3.5 py-2",
   rootUserMessageBubble: "session-transcript-user-bubble",
@@ -143,7 +143,7 @@ const messageTextClass = {
 };
 
 const messageStateClass = {
-  skillReferenceChip: "inline-flex items-center gap-1 rounded-full border border-dls-accent/30 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
+  skillReferenceChip: "inline-flex items-center gap-1 rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
   toolError: "overflow-x-auto rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-4 py-3 text-xs leading-6 text-dls-status-danger",
   sheetBadge: "min-w-5 border border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
   activeSearchOutline: "outline outline-2 outline-amber-8/70 outline-offset-2 rounded-xl",
@@ -690,7 +690,7 @@ function hasStructuredValue(value: unknown) {
 }
 
 function ToolActivityIcon(props: { category?: string }) {
-  const className = "size-4 shrink-0 text-muted-foreground";
+  const className = "size-4 shrink-0 text-dls-secondary";
   switch (props.category) {
     case "terminal":
       return <Terminal className={className} strokeWidth={1.9} />;
@@ -1520,14 +1520,14 @@ function SkillReferenceText(props: { text: string; highlightQuery?: string }) {
     return (
       <HighlightedPlainText
         text={props.text}
-        className="whitespace-pre-wrap wrap-break-word text-foreground"
+        className="whitespace-pre-wrap wrap-break-word text-dls-text"
         highlightQuery={props.highlightQuery}
       />
     );
   }
 
   return (
-    <div className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 whitespace-pre-wrap wrap-break-word text-foreground">
+    <div className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 whitespace-pre-wrap wrap-break-word text-dls-text">
       <span className={messageStateClass.skillReferenceChip}>
         <Terminal size={12} aria-hidden="true" />
         /{skillReference.name}
@@ -1574,14 +1574,14 @@ function FileCard(props: {
         <div
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-xl",
-            props.tone === "user" ? "bg-dls-surface-muted text-foreground" : "bg-dls-surface-muted text-muted-foreground",
+            props.tone === "user" ? "bg-dls-surface-muted text-dls-text" : "bg-dls-surface-muted text-dls-secondary",
           )}
         >
           <FileIcon size={20} />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium leading-snug text-foreground">{title}</div>
+        <div className="truncate text-sm font-medium leading-snug text-dls-text">{title}</div>
         {badge ? (
           <StatusBadge className="mt-1" shape="soft" size="tiny">
             {badge}
@@ -1595,7 +1595,7 @@ function FileCard(props: {
             variant="ghost"
             size="icon-sm"
             type="button"
-            className="text-muted-foreground opacity-0 hover:bg-dls-surface-muted hover:text-foreground group-hover:opacity-100"
+            className="text-dls-secondary opacity-0 hover:bg-dls-surface-muted hover:text-dls-text group-hover:opacity-100"
             onClick={() => setMenuOpen((value) => !value)}
             title={t("message.file_actions")}
           >
@@ -1607,7 +1607,7 @@ function FileCard(props: {
               <div className="absolute right-0 top-full z-40 mt-1 w-48 rounded-xl border border-dls-border bg-dls-surface p-1.5">
                 <MenuRowButton align="center"
                   type="button"
-                  className="gap-2.5 py-2 text-foreground hover:bg-dls-surface-muted"
+                  className="gap-2.5 py-2 text-dls-text hover:bg-dls-surface-muted"
                   onClick={() => {
                     void openFileWithOS(props.part.url);
                     setMenuOpen(false);
@@ -1617,7 +1617,7 @@ function FileCard(props: {
                 </MenuRowButton>
                 <MenuRowButton align="center"
                   type="button"
-                  className="gap-2.5 py-2 text-foreground hover:bg-dls-surface-muted"
+                  className="gap-2.5 py-2 text-dls-text hover:bg-dls-surface-muted"
                   onClick={() => {
                     void revealFileInFinder(props.part.url);
                     setMenuOpen(false);
@@ -1627,7 +1627,7 @@ function FileCard(props: {
                 </MenuRowButton>
                 <MenuRowButton align="center"
                   type="button"
-                  className="gap-2.5 py-2 text-foreground hover:bg-dls-surface-muted"
+                  className="gap-2.5 py-2 text-dls-text hover:bg-dls-surface-muted"
                   onClick={() => {
                     void navigator.clipboard.writeText(props.part.url);
                     setMenuOpen(false);
@@ -1878,7 +1878,7 @@ function StepRow(props: {
       <DisclosureRowButton
         type="button"
         density="flush"
-        className="text-muted-foreground hover:bg-transparent hover:text-foreground disabled:cursor-default"
+        className="text-dls-secondary hover:bg-transparent hover:text-dls-text disabled:cursor-default"
         aria-expanded={expandable ? props.expanded : undefined}
         disabled={!expandable}
         onClick={() => {
@@ -1918,7 +1918,7 @@ function StepRow(props: {
             <ChevronDown
               size={14}
               className={cn(
-                "shrink-0 text-muted-foreground transition-transform",
+                "shrink-0 text-dls-secondary transition-transform",
                 !props.expanded && "-rotate-90",
               )}
             />
@@ -1940,7 +1940,7 @@ function StepRow(props: {
           ) ? (
             <div>
               <div className={messageTextClass.toolLabel}>{t("session.tool_request")}</div>
-              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
+              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
                 {formatStructuredValue(toolInput)}
               </pre>
             </div>
@@ -1948,7 +1948,7 @@ function StepRow(props: {
           {!specializedDetails && hasStructuredValue(toolOutput) ? (
             <div>
               <div className={messageTextClass.toolLabel}>{t("session.tool_result")}</div>
-              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-muted-foreground">
+              <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">
                 {formatStructuredValue(toolOutput)}
               </pre>
             </div>
@@ -2276,7 +2276,7 @@ function StepsContainer(props: {
         <ChevronDown
           size={14}
           className={cn(
-            "shrink-0 text-muted-foreground transition-transform",
+            "shrink-0 text-dls-secondary transition-transform",
             !detailsExpanded && "-rotate-90",
           )}
         />
@@ -2365,7 +2365,7 @@ export function selectTurnOpenTargets(
 
 function OpenTargetIcon(props: { target: OpenTarget }) {
   if (props.target.kind === "url") {
-    return <Globe size={12} className="shrink-0 text-muted-foreground" />;
+    return <Globe size={12} className="shrink-0 text-dls-secondary" />;
   }
 
   if (props.target.preview === "sheet") {
@@ -2390,7 +2390,7 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
   if (!props.targets.length) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs leading-none">
-      <span className="mr-0.5 text-muted-foreground">{t("session.openable_items")}</span>
+      <span className="mr-0.5 text-dls-secondary">{t("session.openable_items")}</span>
       {props.targets.map((target) => (
           <Button
             key={target.id}
@@ -2403,7 +2403,7 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
           >
             <OpenTargetIcon target={target} />
             <span className="truncate">{target.name || target.value}</span>
-            <span className="text-muted-foreground">
+            <span className="text-dls-secondary">
               {target.kind === "url"
                 ? t("session.open_browser")
                 : t("session.open_artifact")}

@@ -83,7 +83,7 @@ export function PendingAgentAvatar(props: {
   return (
     <div
       className={cn(
-        "flex items-center justify-center overflow-hidden rounded-full",
+        "flex items-center justify-center overflow-hidden rounded-full bg-dls-surface",
         props.className,
       )}
       style={
@@ -95,7 +95,10 @@ export function PendingAgentAvatar(props: {
       <img
         src={props.avatarUrl}
         alt={props.name}
-        className="size-full rounded-full object-cover"
+        // Brand marks ship as full-bleed circular assets; contain avoids
+        // re-cropping a pre-framed squircle into an ugly double disc.
+        className="size-full rounded-full object-cover object-center"
+        draggable={false}
       />
     </div>
   );

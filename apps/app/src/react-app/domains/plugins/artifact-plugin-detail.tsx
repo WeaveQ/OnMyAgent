@@ -41,11 +41,22 @@ function pluginIcon(pluginId: string) {
   return FileText;
 }
 
-export function ArtifactPluginIcon({ pluginId }: { pluginId: string }) {
+export function ArtifactPluginIcon({
+  pluginId,
+  size = "md",
+}: {
+  pluginId: string;
+  size?: "sm" | "md";
+}) {
   const Icon = pluginIcon(pluginId);
   return (
-    <IconTile size="md" tone="accent" shape="xl">
-      <Icon className="size-5" aria-hidden="true" />
+    <IconTile
+      size={size === "sm" ? "sm" : "md"}
+      tone="accent"
+      shape={size === "sm" ? "lg" : "xl"}
+      className="shrink-0"
+    >
+      <Icon className={size === "sm" ? "size-4" : "size-5"} aria-hidden="true" />
     </IconTile>
   );
 }

@@ -167,13 +167,13 @@ export function SelectMenu(props: SelectMenuProps) {
             role="listbox"
             // Solid opaque surface + isolation so glass/backdrop parents never
             // show through option rows (avoids "穿透" of underlying controls).
-            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1 shadow-lg"
+            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1"
             style={{
               top: panelRect.top,
               left: panelRect.left,
               width: Math.max(panelRect.width, 160),
               maxHeight: panelRect.maxHeight,
-              backgroundColor: "var(--dls-surface)",
+              backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
               color: "var(--dls-text-primary)",
             }}
           >

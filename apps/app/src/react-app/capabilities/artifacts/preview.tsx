@@ -11,7 +11,7 @@ interface PreviewLoadingProps extends React.ComponentProps<"div"> {}
 
 export function PreviewLoading({ className, ...props }: PreviewLoadingProps) {
   return (
-    <div className={cn("flex h-full items-center justify-center text-muted-foreground", className)} {...props}>
+    <div className={cn("flex h-full items-center justify-center text-dls-secondary", className)} {...props}>
       <LoadingSpinner size="default" />
     </div>
   );
@@ -22,7 +22,7 @@ interface PreviewErrorProps extends React.ComponentProps<"div"> {
 }
 
 export function PreviewError({ message, className, ...props }: PreviewErrorProps) {
-  return <div className={cn("p-4 text-sm text-muted-foreground", className)} {...props}>{message}</div>;
+  return <div className={cn("p-4 text-sm text-dls-secondary", className)} {...props}>{message}</div>;
 }
 
 interface PlainTextProps extends React.ComponentProps<"pre"> {
@@ -30,7 +30,7 @@ interface PlainTextProps extends React.ComponentProps<"pre"> {
 }
 
 export function PlainText({ content, className, ...props }: PlainTextProps) {
-  return <pre className={cn("h-full overflow-auto p-4 text-xs leading-5 text-foreground whitespace-pre-wrap", className)} {...props}>{content}</pre>;
+  return <pre className={cn("h-full overflow-auto p-4 text-xs leading-5 text-dls-text whitespace-pre-wrap", className)} {...props}>{content}</pre>;
 }
 
 interface MarkdownPreviewProps extends React.ComponentProps<"div"> {
@@ -74,7 +74,7 @@ interface ImagePreviewProps extends React.ComponentProps<"div"> {
 
 export function ImagePreview({ src, alt, className, ...props }: ImagePreviewProps) {
   return (
-    <div className={cn("flex h-full items-center justify-center overflow-auto bg-muted/30 p-3", className)} {...props}>
+    <div className={cn("flex h-full items-center justify-center overflow-auto bg-dls-surface-muted/30 p-3", className)} {...props}>
       <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
     </div>
   );
@@ -83,5 +83,5 @@ export function ImagePreview({ src, alt, className, ...props }: ImagePreviewProp
 interface PreviewUnavailableProps extends React.ComponentProps<"div"> {}
 
 export function PreviewUnavailable({ className, ...props }: PreviewUnavailableProps) {
-  return <div className={cn("p-4 text-sm text-muted-foreground", className)} {...props}>{t("session.artifact_preview_unavailable")}</div>;
+  return <div className={cn("p-4 text-sm text-dls-secondary", className)} {...props}>{t("session.artifact_preview_unavailable")}</div>;
 }

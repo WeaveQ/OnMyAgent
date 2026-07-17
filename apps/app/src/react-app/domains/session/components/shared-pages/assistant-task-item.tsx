@@ -52,7 +52,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
   return (
     <div
       className={cn(
-        "group flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors",
+        "group flex w-full items-start gap-2 rounded-md px-2 py-1.5 transition-colors",
         props.selected ? "bg-dls-list-selected text-dls-text" : "text-dls-text hover:bg-dls-list-hover",
       )}
       onPointerEnter={() =>
@@ -70,13 +70,20 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         variant="ghost"
         size="xs"
         className={cn(
-          "h-auto min-w-0 flex-1 justify-start truncate px-0 text-left text-sm leading-5 hover:bg-transparent",
+          "h-auto min-w-0 flex-1 flex-col items-start justify-center gap-0.5 truncate px-0 text-left hover:bg-transparent",
           props.selected ? "font-medium" : "font-normal",
         )}
       >
-        {props.group.description}
+        <span className="w-full truncate text-sm leading-5 text-dls-text">
+          {props.group.description}
+        </span>
+        {props.group.preview ? (
+          <span className="w-full truncate text-xs font-normal leading-4 text-dls-secondary">
+            {props.group.preview}
+          </span>
+        ) : null}
       </Button>
-      <div className="shrink-0 text-xs leading-5 text-dls-text/30 group-hover:hidden">
+      <div className="shrink-0 self-start pt-0.5 text-xs leading-5 text-dls-text/30 group-hover:hidden">
         {summaryTime}
       </div>
       <Button

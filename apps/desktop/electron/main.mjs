@@ -1862,6 +1862,8 @@ function activeWindowFromEvent(event) {
 }
 
 function macosVibrancyForCurrentTheme() {
+  // under-window: blur desktop behind the frame (WeChat-like translucent shell).
+  // sidebar: slightly denser material for light mode so light chrome stays readable.
   return nativeTheme.shouldUseDarkColors ? "under-window" : "sidebar";
 }
 

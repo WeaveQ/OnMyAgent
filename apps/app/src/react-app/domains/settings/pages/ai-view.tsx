@@ -129,7 +129,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 <div className="truncate text-sm font-medium text-dls-text">
                   {APP_NAME} Models
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-dls-secondary">
                   Frontier intelligence, hand picked for your team&apos;s most
                   ambitious work.
                 </div>
@@ -177,7 +177,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                         </StatusBadge>
                       ) : null}
                     </div>
-                    <div className="truncate font-mono text-xs text-muted-foreground">
+                    <div className="truncate font-mono text-xs text-dls-secondary">
                       {provider.id}
                     </div>
                   </div>

@@ -170,7 +170,7 @@ export function OrgOnboardingPage() {
         <PageContainer>
           <PageHeader>
             <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-              <BuildingOffice2Icon className="size-7 text-foreground" />
+              <BuildingOffice2Icon className="size-7 text-dls-text" />
             </IconTile>
             <PageTitle>{t("den.your_organization")}</PageTitle>
           </PageHeader>
@@ -195,7 +195,7 @@ export function OrgOnboardingPage() {
         <PageContainer>
           <PageHeader>
             <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-              <BuildingOffice2Icon className="size-7 text-foreground" />
+              <BuildingOffice2Icon className="size-7 text-dls-text" />
             </IconTile>
             <PageTitle>{t("den.choose_your_organization")}</PageTitle>
             <Alert variant="destructive">
@@ -337,7 +337,7 @@ export function ResourceSelectionPage() {
         {/* Header */}
         <PageHeader>
           <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-            <BuildingOffice2Icon className="size-7 text-foreground" />
+            <BuildingOffice2Icon className="size-7 text-dls-text" />
           </IconTile>
           <PageTitle>{orgName || "Your organization"}</PageTitle>
           {loading ? null : error ? (
@@ -393,12 +393,12 @@ export function ResourceSelectionPage() {
             <ScrollArea className="px-2.5">
               <Accordion
                 multiple
-                className="rounded-xl border border-border bg-transparent before:hidden"
+                className="rounded-xl border border-dls-border bg-transparent before:hidden"
               >
                 {/* AI Providers */}
                 {providers.length > 0 ? (
                   <Section
-                    icon={<CloudIcon className="size-5 text-foreground/60" />}
+                    icon={<CloudIcon className="size-5 text-dls-text/60" />}
                     title={t("den.ai_providers_title")}
                     description={t("den.ai_providers_desc")}
                     count={t("den.models_count", { count: totalModels })}
@@ -418,7 +418,7 @@ export function ResourceSelectionPage() {
                 {marketplaces.length > 0 ? (
                   <Section
                     icon={
-                      <Square3Stack3DIcon className="size-5 text-foreground/60" />
+                      <Square3Stack3DIcon className="size-5 text-dls-text/60" />
                     }
                     title={t("den.marketplaces_title")}
                     description={t("den.marketplaces_desc")}
@@ -434,7 +434,7 @@ export function ResourceSelectionPage() {
                 {workers.length > 0 ? (
                   <Section
                     icon={
-                      <ServerStackIcon className="size-5 text-foreground/60" />
+                      <ServerStackIcon className="size-5 text-dls-text/60" />
                     }
                     title={t("den.cloud_workers_section_title")}
                     description={t("den.cloud_workers_section_desc")}
@@ -460,7 +460,7 @@ export function ResourceSelectionPage() {
         <PageFooter>
           {/* Footer hint */}
           {!loading && hasResources ? (
-            <p className="text-center text-xs text-muted-foreground text-balance leading-relaxed">
+            <p className="text-center text-xs text-dls-secondary text-balance leading-relaxed">
               Providers are added to your workspace automatically. Marketplaces
               and workers are available from Cloud settings.
             </p>
@@ -487,13 +487,13 @@ interface MarketplaceCardProps {
 
 function MarketplaceCard({ marketplace }: MarketplaceCardProps) {
   return (
-    <MenuRowSurface align="center" className="-mx-2 border border-border bg-transparent" density="compact">
+    <MenuRowSurface align="center" className="-mx-2 border border-dls-border bg-transparent" density="compact">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-foreground">
+        <div className="text-sm font-medium text-dls-text">
           {marketplace.name}
         </div>
         {marketplace.description ? (
-          <div className="mt-0.5 truncate text-xs text-muted-foreground">
+          <div className="mt-0.5 truncate text-xs text-dls-secondary">
             {marketplace.description}
           </div>
         ) : null}
@@ -512,12 +512,12 @@ interface WorkerCardProps {
 
 function WorkerCard({ worker }: WorkerCardProps) {
   return (
-    <MenuRowSurface align="center" className="-mx-2 border border-border bg-transparent" density="compact">
+    <MenuRowSurface align="center" className="-mx-2 border border-dls-border bg-transparent" density="compact">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-foreground">
+        <div className="text-sm font-medium text-dls-text">
           {worker.workerName}
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 text-xs text-dls-secondary">
           {worker.status}
           {worker.provider ? ` · ${worker.provider}` : ""}
         </div>
@@ -547,11 +547,11 @@ function Section({ icon, title, description, count, children }: SectionProps) {
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <h3 className="flex items-center gap-2 font-medium">
             {title}
-            <span className="text-muted-foreground text-xs">
+            <span className="text-dls-secondary text-xs">
               {count}
             </span>
           </h3>
-          <p className="text-sm font-normal normal-case tracking-normal text-muted-foreground">
+          <p className="text-sm font-normal normal-case tracking-normal text-dls-secondary">
             {description}
           </p>
         </div>
@@ -604,7 +604,7 @@ function ProviderCard({
     <div
       className={cn(
         "rounded-xl border px-3 py-3 transition-colors -mx-2",
-        isSelected ? "border-dls-accent" : "border-border",
+        isSelected ? "border-dls-accent" : "border-dls-border",
       )}
     >
       <div className="flex items-center gap-4.5">
@@ -612,13 +612,13 @@ function ProviderCard({
           providerId={provider.providerId}
           providerName={provider.name}
           size={20}
-          className="text-foreground"
+          className="text-dls-text"
         />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-foreground">
+          <div className="text-sm font-medium text-dls-text">
             {resolveProviderDisplayName(provider.name || provider.providerId)}
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
+          <div className="mt-0.5 text-xs text-dls-secondary">
             {provider.models.length === 1
               ? "1 model"
               : `${provider.models.length} models`}
@@ -633,7 +633,7 @@ function ProviderCard({
               "shrink-0",
               isSelected
                 ? "bg-dls-decision-soft text-dls-accent"
-                : "border border-border text-muted-foreground hover:bg-hover hover:text-foreground",
+                : "border border-dls-border text-dls-secondary hover:bg-hover hover:text-dls-text",
             )}
             onClick={handleUseAsDefault}
           >
@@ -650,13 +650,13 @@ function ProviderCard({
               key={model.id}
               tone="surface"
               size="sm"
-              className="border-border bg-hover text-muted-foreground"
+              className="border-dls-border bg-hover text-dls-secondary"
             >
               {model.name || resolveModelDisplayName(model.id)}
             </CodeToken>
           ))}
           {provider.models.length > 5 ? (
-            <CountBadge size="label" className="text-muted-foreground">
+            <CountBadge size="label" className="text-dls-secondary">
               +{provider.models.length - 5} more
             </CountBadge>
           ) : null}
@@ -704,7 +704,7 @@ function OrganizationSelectionPage({
       <PageContainer>
         <PageHeader>
           <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-            <BuildingOffice2Icon className="size-7 text-foreground" />
+            <BuildingOffice2Icon className="size-7 text-dls-text" />
           </IconTile>
           <PageTitle>{t("den.choose_your_organization")}</PageTitle>
           {error ? (
@@ -779,12 +779,12 @@ export function OrganizationList({
           >
             <Field orientation="horizontal">
               <FieldTitle className="flex min-w-0 items-center gap-4">
-                <BuildingOffice2Icon className="size-6 shrink-0 text-muted-foreground" />
+                <BuildingOffice2Icon className="size-6 shrink-0 text-dls-secondary" />
                 <div className="flex min-w-0 flex-col items-start">
                   <span className="max-w-full truncate text-sm font-medium">
                     {org.name}
                   </span>
-                  <span className="max-w-full truncate text-muted-foreground text-xs">
+                  <span className="max-w-full truncate text-dls-secondary text-xs">
                     {org.slug}
                   </span>
                 </div>

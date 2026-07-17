@@ -241,7 +241,7 @@ export function CodeWorkspaceReviewPanel(props: {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-dls-surface"
+      className="flex h-full min-h-0 flex-col bg-dls-background"
       data-code-review-panel="true"
     >
       {!props.embedded ? <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-dls-border px-4">

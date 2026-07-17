@@ -15,7 +15,6 @@ import { t } from "@/i18n";
 import type { AgentManagementSkill, AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import {
   skillAgentLabel,
-  SKILL_AGENT_TONES,
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
 import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
@@ -35,9 +34,21 @@ function SkillStateGlyph(props: { state: Exclude<SkillCellState, "busy">; toneDo
     );
   }
   if (props.state === "managed") {
+    // Outline check in the same green family as native — no agent-hue cell fill.
     return (
-      <span className={cn("relative flex items-center justify-center rounded-full border-2 border-dls-accent bg-dls-surface font-medium leading-none text-dls-accent", sizeClass)}>
-        <span className={cn("absolute -right-0.5 -top-0.5 rounded-full bg-dls-accent", markerSizeClass)} />✓
+      <span
+        className={cn(
+          "relative flex items-center justify-center rounded-full border-2 border-dls-online bg-transparent font-medium leading-none text-dls-online",
+          sizeClass,
+        )}
+      >
+        <span
+          className={cn(
+            "absolute -right-0.5 -top-0.5 rounded-md bg-dls-online",
+            markerSizeClass,
+          )}
+        />
+        ✓
       </span>
     );
   }
@@ -57,16 +68,17 @@ function SkillMatrixCell(props: {
   tooltip: string;
   onClick?: () => void;
 }) {
-  const tone = SKILL_AGENT_TONES[props.agent] ?? SKILL_AGENT_TONES.unknown;
-  const interactive = props.state === "native" || props.state === "managed" || props.state === "available";
-  const borderColor = tone.dot.replace("bg-", "border-");
+  const interactive =
+    props.state === "native" ||
+    props.state === "managed" ||
+    props.state === "available";
   let glyph: React.ReactNode;
   if (props.state === "busy") {
     glyph = <LoadingSpinner size="sm" className="text-dls-secondary" />;
   } else if (props.state === "native") {
-    glyph = <SkillStateGlyph state="native" toneDot={tone.dot} />;
+    glyph = <SkillStateGlyph state="native" />;
   } else if (props.state === "managed") {
-    glyph = <SkillStateGlyph state="managed" toneDot={tone.dot} borderColor={borderColor} />;
+    glyph = <SkillStateGlyph state="managed" />;
   } else if (props.state === "available") {
     glyph = <SkillStateGlyph state="available" />;
   } else {
@@ -81,7 +93,10 @@ function SkillMatrixCell(props: {
             disabled={!interactive}
             onClick={interactive ? props.onClick : undefined}
             interactive={interactive}
-            className={cn(props.state === "managed" && tone.iconActive, props.state === "native" && "hover:brightness-95")}
+            className={cn(
+              interactive && "hover:bg-dls-hover",
+              props.state === "native" && "hover:brightness-95",
+            )}
             aria-label={props.tooltip}
           >
             {glyph}
@@ -99,7 +114,6 @@ function SkillMatrixColumnHeader(props: {
   count: number;
   onToggle: (event: React.MouseEvent) => void;
 }) {
-  const tone = SKILL_AGENT_TONES[props.agent] ?? SKILL_AGENT_TONES.unknown;
   const label = skillAgentLabel(props.agent);
   return (
     <Tooltip>
@@ -110,7 +124,11 @@ function SkillMatrixColumnHeader(props: {
             kind="header"
             onClick={props.onToggle}
             active={props.active}
-            className={cn(props.active && tone.iconActive)}
+            className={cn(
+              props.active
+                ? "bg-dls-surface-muted text-dls-text"
+                : "hover:bg-dls-hover",
+            )}
             aria-pressed={props.active}
             aria-label={t("skills.matrix_column_label", {
               label,

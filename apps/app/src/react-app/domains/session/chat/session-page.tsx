@@ -155,7 +155,7 @@ function CodeSidePanelMenu(props: {
   onSelect: (id: CodeRailPanelId) => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-dls-surface" data-code-side-panel-menu="true">
+    <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-side-panel-menu="true">
       <header
         data-panel-titlebar="true"
         className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary mac:titlebar-drag"
@@ -192,7 +192,7 @@ function CodeSidePanelMenu(props: {
                 <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
                 {shortcut ? (
                   <kbd
-                    className="inline-flex items-center rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs leading-none text-dls-text-secondary"
+                    className="inline-flex items-center rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs leading-none text-dls-secondary"
                   >
                     {shortcut}
                   </kbd>
@@ -214,20 +214,20 @@ function CodeSidePanelPlaceholder(props: {
 }) {
   const Icon = props.icon;
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <header
         data-panel-titlebar="true"
         className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4 mac:titlebar-drag"
       >
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Icon className="size-4 text-muted-foreground" />
+        <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
+          <Icon className="size-4 text-dls-secondary" />
           {props.title}
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="text-muted-foreground hover:text-foreground"
+          className="text-dls-secondary hover:text-dls-text"
           onClick={props.onClose}
           aria-label={t("session.code_side_panel_close")}
           title={t("common.close")}
@@ -236,9 +236,9 @@ function CodeSidePanelPlaceholder(props: {
         </Button>
       </header>
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
-        <div className="max-w-xs space-y-3 text-muted-foreground">
+        <div className="max-w-xs space-y-3 text-dls-secondary">
           <Icon className="mx-auto size-8 opacity-45" />
-          <div className="text-sm font-medium text-foreground">{props.title}</div>
+          <div className="text-sm font-medium text-dls-text">{props.title}</div>
           <p className="text-sm leading-6">{props.description}</p>
         </div>
       </div>
@@ -614,7 +614,7 @@ export function SessionPage(props: SessionPageProps) {
   }, [openCodeMenuRailPane]);
 
   const headerPanelControls = (
-    <div className="flex items-center gap-1 text-muted-foreground mac:titlebar-no-drag">
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
       {showCodeSideRail ? (
         !sidePanelOpen ? (
             <Button
@@ -642,7 +642,7 @@ export function SessionPage(props: SessionPageProps) {
                   variant="ghost"
                   size="icon-sm"
                   className={cn(
-                    "transition-colors hover:bg-muted hover:text-foreground",
+                    "transition-colors hover:bg-dls-surface-muted hover:text-dls-text",
                     browserRailActive &&
                       "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
                   )}
@@ -660,7 +660,7 @@ export function SessionPage(props: SessionPageProps) {
                 variant="ghost"
                 size="icon-sm"
                 className={cn(
-                  "relative transition-colors hover:bg-muted hover:text-foreground",
+                  "relative transition-colors hover:bg-dls-surface-muted hover:text-dls-text",
                   artifactRailActive &&
                     "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
                 )}
@@ -690,7 +690,7 @@ export function SessionPage(props: SessionPageProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-surface mac:bg-dls-surface">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <OnMyAgentRail
             activeView={railActiveView}
@@ -1200,7 +1200,7 @@ export function SessionPage(props: SessionPageProps) {
                         }}
                       />
                     ) : activeSidePanel === "extensions" && props.settingsSlot ? (
-                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
                         {props.settingsSlot}
                       </div>
                     ) : activeSidePanel === "voice" ? (

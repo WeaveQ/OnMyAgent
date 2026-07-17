@@ -59,7 +59,7 @@ export function RecoveryView(props: RecoveryViewProps) {
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
 
-        <SettingsInset className="break-all font-mono text-xs text-muted-foreground">
+        <SettingsInset className="break-all font-mono text-xs text-dls-secondary">
           {props.workspaceConfigPath || t("settings.no_active_workspace")}
         </SettingsInset>
 

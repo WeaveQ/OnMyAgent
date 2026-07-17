@@ -4,12 +4,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const cardVariants = cva(
-  "group/card flex flex-col overflow-hidden rounded-xl text-sm text-card-foreground has-[>img:first-child]:pt-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+  "group/card flex flex-col overflow-hidden rounded-xl text-sm text-dls-text has-[>img:first-child]:pt-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
   {
     variants: {
       variant: {
-        default: "bg-card ring-1 ring-foreground/5 dark:ring-foreground/10",
-        outline: "border border-border bg-transparent",
+        default: "bg-dls-surface ring-1 ring-foreground/5 dark:ring-foreground/10",
+        outline: "border border-dls-border bg-transparent",
       },
       size: {
         default: "gap-6 py-6",
@@ -66,7 +66,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm text-dls-secondary", className)}
       {...props}
     />
   )

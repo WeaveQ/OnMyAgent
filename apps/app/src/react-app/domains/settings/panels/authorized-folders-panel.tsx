@@ -73,7 +73,7 @@ function AuthorizedFolderItem(props: AuthorizedFolderItemProps) {
     <SettingsBlockRow
       title={
         <span className="inline-flex min-w-0 items-center gap-2">
-          <Folder size={16} className="shrink-0 text-muted-foreground" />
+          <Folder size={16} className="shrink-0 text-dls-secondary" />
           <span className="truncate">{folderName}</span>
           {isWorkspaceRoot ? (
             <StatusBadge tone="neutral">
@@ -90,7 +90,7 @@ function AuthorizedFolderItem(props: AuthorizedFolderItemProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground hover:text-destructive"
+            className="text-dls-secondary hover:text-dls-danger"
             onClick={() => void props.onRemove(props.folder)}
             disabled={
               props.authorizedFoldersLoading ||
@@ -108,7 +108,7 @@ function AuthorizedFolderItem(props: AuthorizedFolderItemProps) {
             <TooltipTrigger
               render={(
                 <span
-                  className="inline-flex items-center text-muted-foreground"
+                  className="inline-flex items-center text-dls-secondary"
                   tabIndex={0}
                 >
                   <Info className="size-4" />
@@ -337,7 +337,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
             <Empty>
               <EmptyHeader>
                 <EmptyMedia>
-                  <Folder className="text-muted-foreground" />
+                  <Folder className="text-dls-secondary" />
                 </EmptyMedia>
                 <EmptyTitle>
                   {t("context_panel.no_external_folders")}

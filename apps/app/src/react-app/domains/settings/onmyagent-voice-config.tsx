@@ -105,7 +105,7 @@ export function OnMyAgentVoiceConfig(props: OnMyAgentVoiceConfigProps) {
           </Alert>
         ) : null}
       </CardContent>
-      <CardFooter className="flex-wrap gap-2 border-t border-border justify-between">
+      <CardFooter className="flex-wrap gap-2 border-t border-dls-border justify-between">
         <Button
           onClick={() => void props.onSaveApiKey(apiKey)}
           disabled={props.busy || !canSave}

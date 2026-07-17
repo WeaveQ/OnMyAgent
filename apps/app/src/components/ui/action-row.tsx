@@ -9,7 +9,8 @@ const menuRowButtonVariants = cva(
   {
     variants: {
       active: {
-        true: "bg-dls-hover text-dls-text",
+        // Neutral wash — avoid light-theme blue hover (#EEF4FF) looking like a selected chip.
+        true: "bg-dls-surface-muted text-dls-text",
         false: "text-dls-secondary hover:bg-dls-surface-muted/70",
       },
       align: {
@@ -34,26 +35,27 @@ const navTabButtonVariants = cva(
   {
     variants: {
       active: {
-        true: "bg-dls-surface text-dls-text",
-        false: "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+        // Light: solid white elevated pill (WorkBuddy-style). Dark: solid surface.
+        true: "bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
+        false: "bg-transparent text-dls-secondary hover:text-dls-text",
       },
       size: {
         default: "px-3.5 py-1 text-xs",
-        tab: "px-4 py-1 text-sm",
+        tab: "h-8 px-3.5 text-sm",
         messaging: "h-10 px-4 text-base font-semibold",
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
       },
       shape: {
         pill: "rounded-full",
-        tab: "rounded-lg",
-        underline: "rounded-none border-b-2 border-transparent bg-transparent",
+        tab: "rounded-full",
+        underline: "rounded-none border-b-2 border-transparent bg-transparent shadow-none",
       },
     },
     compoundVariants: [
       {
         active: true,
         shape: "underline",
-        className: "border-dls-accent bg-transparent",
+        className: "border-dls-accent bg-transparent shadow-none",
       },
       {
         active: false,
@@ -85,7 +87,8 @@ const segmentedTabButtonVariants = cva(
         default: "px-3 py-2 text-xs",
         compact: "px-3 py-1.5 text-xs",
         comfortable: "px-3.5 py-1.5 text-sm font-medium",
-        chip: "min-h-8 px-3 text-xs",
+        // Compact hug pill for settings multi-select (memory profile, etc.)
+        chip: "min-h-7 px-2.5 text-xs font-medium",
       },
       width: {
         fill: "flex-1",
@@ -94,24 +97,29 @@ const segmentedTabButtonVariants = cva(
     },
     compoundVariants: [
       {
+        // Soft elevated selected — same light-theme language as NavTab.
         tone: "default",
         active: true,
-        className: "bg-dls-decision text-white",
+        className:
+          "bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
       },
       {
         tone: "default",
         active: false,
-        className: "text-dls-secondary hover:bg-dls-surface-muted",
+        className: "bg-transparent text-dls-secondary hover:text-dls-text",
       },
       {
+        // Soft accent wash (not solid decision fill) — stays readable in dark.
         tone: "chip",
         active: true,
-        className: "border-dls-accent bg-dls-decision-soft text-dls-accent",
+        className:
+          "border-dls-border bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
       },
       {
         tone: "chip",
         active: false,
-        className: "border-dls-border bg-dls-surface text-dls-secondary hover:border-dls-accent/30 hover:text-dls-text",
+        className:
+          "border-transparent bg-transparent text-dls-secondary hover:text-dls-text",
       },
     ],
     defaultVariants: {
@@ -169,13 +177,14 @@ const navListButtonVariants = cva(
   {
     variants: {
       active: {
-        true: "bg-dls-list-selected text-dls-text",
-        false: "text-dls-text hover:bg-dls-list-hover",
+        // Soft gray wash (light reference) rather than heavy selection blue.
+        true: "bg-dls-surface-muted text-dls-text",
+        false: "text-dls-text hover:bg-dls-hover",
       },
       size: {
-        default: "h-10 gap-2.5 rounded-lg px-2.5 text-base font-medium",
-        sidebar: "h-8 gap-2 rounded-lg px-2 text-sm font-normal",
-        compact: "h-7 gap-2 rounded-md px-2 text-xs font-medium",
+        default: "h-10 gap-2.5 rounded-xl px-2.5 text-base font-medium",
+        sidebar: "h-9 gap-2 rounded-xl px-2.5 text-sm font-normal",
+        compact: "h-7 gap-2 rounded-lg px-2 text-xs font-medium",
       },
     },
     compoundVariants: [
@@ -373,7 +382,16 @@ function SegmentedTabButton({
 }
 
 function SegmentedTabGroup({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("inline-flex rounded-xl border border-dls-border bg-dls-surface-muted p-1", className)} {...props} />
+  // Soft track: light gray capsule in light theme, muted surface in dark.
+  return (
+    <div
+      className={cn(
+        "inline-flex rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+        className,
+      )}
+      {...props}
+    />
+  )
 }
 
 function ActionRowButton({

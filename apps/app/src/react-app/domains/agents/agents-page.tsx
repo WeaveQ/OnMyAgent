@@ -917,7 +917,7 @@ export function CreateAgentWizard(props: {
                     }))
                   }
                   className={cn(
-                    "relative rounded-full p-1 transition-transform hover:scale-[1.02]",
+                    "relative rounded-md p-1 transition-transform hover:scale-[1.02]",
                     checked ? "ring-4 ring-dls-accent" : "",
                   )}
                 >

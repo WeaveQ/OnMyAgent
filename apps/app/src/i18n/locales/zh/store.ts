@@ -4,6 +4,7 @@ export default {
   "store.add_skill": "添加技能",
   "store.all_experts": "全部专家",
   "store.experts_marketplace": "专家市场",
+  "store.experts_tab": "专家",
   "store.my_skills": "我的技能",
   "store.no_connectors_hint":
     "在设置中配置连接器后即可在此处使用。",
@@ -19,6 +20,7 @@ export default {
   "store.scope_onmyagent_desc":
     "通过 OnMyAgent 安装或创建，存放在 ~/.onmyagent/skills",
   "store.skills_marketplace": "技能市场",
+  "store.skills_tab": "技能",
   "store.upload": "上传",
   "skills_marketplace.category_all": "全部",
   "skills_marketplace.category_opc": "OPC-一人公司",

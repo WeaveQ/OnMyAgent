@@ -10,11 +10,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Command,
   CommandCollection,
   CommandEmpty,
@@ -132,27 +127,20 @@ export function ModelSelectView({
         }
       }}
     >
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <PopoverTrigger
-              type="button"
-              disabled={disabled}
-              aria-label={t("settings.model_change")}
-              aria-keyshortcuts="Meta+Alt+/"
-              className="flex h-9 max-w-44 shrink min-w-0 items-center gap-1 rounded-md px-2 text-sm font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
-            />
-          }
-        >
-          <span className="min-w-0 truncate">
-            {selectedOption?.title ?? value.modelID ?? t("session.default_model")}
-          </span>
-          <ChevronDown className="size-3.5 shrink-0" />
-        </TooltipTrigger>
-        <TooltipContent>
-          {t("settings.model_change")}
-        </TooltipContent>
-      </Tooltip>
+      {/* No Tooltip here: nesting Tooltip + Popover often leaves an empty
+          speech bubble above the model chip; the visible label is enough. */}
+      <PopoverTrigger
+        type="button"
+        disabled={disabled}
+        aria-label={t("settings.model_change")}
+        aria-keyshortcuts="Meta+Alt+/"
+        className="flex h-7 max-w-44 shrink min-w-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+      >
+        <span className="min-w-0 truncate">
+          {selectedOption?.title ?? value.modelID ?? t("session.default_model")}
+        </span>
+        <ChevronDown className="size-3.5 shrink-0" />
+      </PopoverTrigger>
       <PopoverContent
         className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
         align="start"
@@ -194,10 +182,10 @@ export function ModelSelectView({
                       >
                         {renderProviderIcon?.(option)}
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-foreground">
+                          <span className="block truncate text-dls-text">
                             {option.title}
                           </span>
-                          <span className="block truncate text-xs text-muted-foreground">
+                          <span className="block truncate text-xs text-dls-secondary">
                             {option.description ??
                               getProviderDisplayName(option.providerID)}
                           </span>
@@ -213,12 +201,12 @@ export function ModelSelectView({
             )}
           </CommandList>
           {/* Link to full model picker */}
-          <div className="border-t border-border px-2 py-1.5">
+          <div className="border-t border-dls-border px-2 py-1.5">
             <MenuRowButton
               type="button"
               align="center"
               density="compact"
-              className="text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="text-dls-secondary hover:bg-accent hover:text-accent-foreground"
               onClick={() => {
                 onOpenChange(false);
                 setSearch("");

@@ -531,8 +531,8 @@ function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationM
       >
         {hasActive ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
         <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{t("local_agent.plan_title", { defaultValue: "Plan" })}</span>
-        <span className="shrink-0 text-xs text-dls-tertiary" data-testid="local-agent-plan-count">{completedCount}/{entries.length}</span>
-        <ChevronRight className={cn("size-3 shrink-0 text-dls-tertiary transition-transform", expanded && "rotate-90")} />
+        <span className="shrink-0 text-xs text-dls-text-tertiary" data-testid="local-agent-plan-count">{completedCount}/{entries.length}</span>
+        <ChevronRight className={cn("size-3 shrink-0 text-dls-text-tertiary transition-transform", expanded && "rotate-90")} />
       </button>
       {expanded ? (
         <div className="space-y-1.5 border-t border-dls-border/50 px-3 py-2 text-sm leading-5" data-testid="local-agent-plan-body">
@@ -542,7 +542,7 @@ function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationM
             const label = entry.title || entry.content || props.message.text || t("local_agent.plan_title", { defaultValue: "Plan" });
             return (
               <div key={entry.id} className="flex min-w-0 items-center gap-2">
-                {completed ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : running ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <Clock3 className="size-3.5 shrink-0 text-dls-tertiary" />}
+                {completed ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : running ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <Clock3 className="size-3.5 shrink-0 text-dls-text-tertiary" />}
                 <span className="min-w-0 flex-1 truncate text-dls-text">{label}</span>
                 {entry.priority ? <StatusBadge tone="neutral" size="tiny">{entry.priority}</StatusBadge> : null}
               </div>
@@ -583,7 +583,7 @@ function LocalAgentThinkingMessage(props: { message: PersonalLocalAgentConversat
       >
         {done ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" />}
         <span className="min-w-0 flex-1 truncate" data-testid="local-agent-thinking-status">{summary}</span>
-        <ChevronRight className={cn("size-3 shrink-0 text-dls-tertiary transition-transform", expanded && "rotate-90")} />
+        <ChevronRight className={cn("size-3 shrink-0 text-dls-text-tertiary transition-transform", expanded && "rotate-90")} />
       </button>
       {expanded ? (
         <div className="border-t border-dls-border/50 px-3 py-2" data-testid="local-agent-thinking-body">

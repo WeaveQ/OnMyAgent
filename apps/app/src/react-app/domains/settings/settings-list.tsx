@@ -32,7 +32,7 @@ interface SettingsListEmptyStateProps {
 
 export function SettingsListEmptyState({ children, className, size = "default" }: SettingsListEmptyStateProps) {
   return (
-    <SettingsInset className={cn("border-dashed text-sm text-muted-foreground", size === "default" ? "py-6" : "py-8", className)}>
+    <SettingsInset className={cn("border-dashed text-sm text-dls-secondary", size === "default" ? "py-6" : "py-8", className)}>
       {children}
     </SettingsInset>
   );
@@ -64,7 +64,7 @@ export function SettingsListItem({ children, className }: SettingsListItemProps)
   return (
     <div
       className={cn(
-        "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-dls-hover hover:border-border border border-transparent",
+        "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-dls-hover hover:border-dls-border border border-transparent",
         className,
       )}
     >
@@ -97,7 +97,7 @@ interface SettingsListItemDescriptionProps {
 }
 
 export function SettingsListItemDescription({ children, className }: SettingsListItemDescriptionProps) {
-  return <div className={cn("mt-0.5 text-muted-foreground text-xs truncate", className)}>{children}</div>;
+  return <div className={cn("mt-0.5 text-dls-secondary text-xs truncate", className)}>{children}</div>;
 }
 
 export function SettingsListSearchInput({
@@ -108,7 +108,7 @@ export function SettingsListSearchInput({
     <InputGroup>
       <InputGroupInput placeholder={placeholder} {...props} />
       <InputGroupAddon align="inline-start">
-        <SearchIcon className="text-muted-foreground" />
+        <SearchIcon className="text-dls-secondary" />
       </InputGroupAddon>
     </InputGroup>
   )
