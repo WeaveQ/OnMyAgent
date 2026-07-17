@@ -209,6 +209,9 @@ export function artifactPluginEnablementPath(serverConfigPath) {
   return path.join(configDirectory, "artifact-plugins.json");
 }
 
+/**
+ * @param {{ pluginRoot?: string, enablementPath?: string }} [options]
+ */
 export async function isBrowserAutomationSkillEnabled({
   pluginRoot,
   enablementPath,

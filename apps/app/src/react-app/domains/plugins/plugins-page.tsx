@@ -121,11 +121,11 @@ const pluginsLayoutClass = {
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
   pageContainer: "mx-auto w-full max-w-5xl px-6 pb-10 pt-5",
   pluginPageContainer: "mx-auto w-full max-w-5xl space-y-8 px-6 pb-10 pt-5",
-  card: "rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3 transition-colors",
+  card: "rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
   cardDisabled: "opacity-70",
-  cardInteractive: "hover:border-dls-border-strong hover:bg-dls-list-hover/30",
+  cardInteractive: "hover:border-dls-border hover:bg-dls-hover",
   cardMd: "min-h-[72px]",
   cardLg: "min-h-[80px]",
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
@@ -648,16 +648,13 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
 
   return (
     <section className="space-y-4" aria-labelledby="artifact-plugins-heading">
-      <div className="space-y-1">
+      <div>
         <h2
           id="artifact-plugins-heading"
           className="text-base font-medium leading-6 text-dls-text"
         >
           {t("plugins.artifact_title")}
         </h2>
-        <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
-          {t("plugins.artifact_description")}
-        </p>
       </div>
 
       {mutationError ? (
@@ -748,13 +745,10 @@ export function PluginsPage(props: PluginsPageProps) {
         <div className={pluginsLayoutClass.pluginPageContainer}>
           <ArtifactPluginsCatalog {...props} />
           <section className="space-y-4 border-t border-dls-border pt-6">
-            <div className="space-y-1">
+            <div>
               <h2 className="text-base font-medium leading-6 text-dls-text">
                 {t("plugins.sample_section_title")}
               </h2>
-              <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
-                {t("plugins.sample_section_hint")}
-              </p>
             </div>
             {categories.map((category) => {
               const items = filteredByCategory.get(category.id) ?? [];
@@ -935,7 +929,7 @@ function StoreSubTabs(props: {
           type="button"
           onClick={() => props.onChange(value)}
           active={props.value === value}
-          size="chip"
+          size="compact"
           width="hug"
           className="items-center gap-1.5"
         >
@@ -1255,7 +1249,7 @@ function ScannedSkillCard(props: { skill: ScannedSkill }) {
             {display.description || display.name}
           </div>
         </div>
-        <StatusBadge tone="neutral">
+        <StatusBadge tone="neutral" shape="soft" size="tiny">
           {scopeLabel}
         </StatusBadge>
       </div>

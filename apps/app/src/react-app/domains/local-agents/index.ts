@@ -76,7 +76,7 @@ export {
 export { ChatBubble } from "./messages/chat-bubble";
 export type { ChatMessage } from "./messages/message-types";
 export { collectRunOpenTargets, isRunFinal } from "./messages/message-utils";
-export { lastEventTime } from "./messages/timeline-messages";
+export { lastEventTime, toConversationItems, visibleRunTimelineMessages } from "./messages/timeline-messages";
 
 // ACP hooks
 export { useAcpInitialMessage } from "./hooks/use-acp-initial-message";
@@ -93,3 +93,24 @@ export {
 } from "./workspace-picker/recent-workspaces";
 
 export { resolveAgentIconUrlFor, resolveAgentIconUrl } from "./agent-icon-map";
+
+// Personal local-agent host page (owned by this domain)
+export { PersonalLocalAgentPage } from "./host/personal-local-agent-page";
+export type {
+  PersonalLocalAgentArchiveResumeRequest,
+  SessionArchiveResumeRequest as PersonalLocalAgentSessionArchiveResumeRequest,
+} from "./host/archive-resume-types";
+export { ActiveRunsOverview } from "./host/personal-local-agent-active-runs";
+export { PersonalLocalAgentModelSelector } from "./host/personal-local-agent-model-selector";
+export {
+  activeRunClass,
+  agentSubtitle,
+  lastRunForAgent,
+  localAgentLayoutClass,
+  localAgentTextClass,
+  messageTextForRun,
+  nowId,
+  placeholderRunFromProcess,
+} from "./host/personal-local-agent-page-helpers";
+export { useWorkspaceOverride } from "./host/use-workspace-override";
+export { useArchiveResume } from "./host/use-archive-resume";

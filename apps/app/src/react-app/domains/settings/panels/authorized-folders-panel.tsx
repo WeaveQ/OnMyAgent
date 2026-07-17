@@ -76,7 +76,7 @@ function AuthorizedFolderItem(props: AuthorizedFolderItemProps) {
           <Folder size={16} className="shrink-0 text-dls-secondary" />
           <span className="truncate">{folderName}</span>
           {isWorkspaceRoot ? (
-            <StatusBadge tone="neutral">
+            <StatusBadge tone="neutral" shape="soft" size="tiny">
               {t("context_panel.workspace_root_badge")}
             </StatusBadge>
           ) : null}

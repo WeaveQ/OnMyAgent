@@ -91,7 +91,7 @@ const skillTextClass = {
   intro: "text-sm leading-relaxed text-dls-secondary",
 };
 const panelCardClass =
-  "rounded-xl border border-dls-border bg-dls-surface p-5 transition-all hover:border-dls-border";
+  "rounded-xl border border-dls-border bg-dls-surface p-5 transition-colors hover:bg-dls-hover";
 
 const skillLayoutClass = {
   page: "space-y-8 max-w-3xl w-full",
@@ -1048,8 +1048,8 @@ export function SkillsView(props: SkillsViewProps) {
                 <NavTabButton
                   key={view}
                   active={active}
-                  size="filter"
-                  shape="pill"
+                  size="tab"
+                  shape="tab"
                   onClick={() => setInstalledSkillFilter(view)}
                 >
                   {view === "builtin"

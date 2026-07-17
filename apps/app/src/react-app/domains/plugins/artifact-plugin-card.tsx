@@ -60,8 +60,8 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   return (
     <article
       className={cn(
-        "group flex flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-3.5 transition-colors",
-        "hover:border-dls-border-strong hover:bg-dls-surface",
+        "group flex flex-col gap-3 rounded-2xl border border-transparent bg-dls-surface p-3.5 transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover",
         !enabled && "opacity-80",
       )}
     >

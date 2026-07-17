@@ -74,10 +74,10 @@ export function ExtensionsView(props: ExtensionsViewProps) {
       </div>
 
       <SegmentedTabGroup density="filter">
-        <NavTabButton active={view === "my"} size="filter" shape="pill" onClick={() => setView("my")}>
+        <NavTabButton active={view === "my"} size="tab" shape="tab" onClick={() => setView("my")}>
           My Extensions
         </NavTabButton>
-        <NavTabButton active={view === "marketplace"} size="filter" shape="pill" onClick={() => setView("marketplace")}>
+        <NavTabButton active={view === "marketplace"} size="tab" shape="tab" onClick={() => setView("marketplace")}>
           Marketplace
         </NavTabButton>
       </SegmentedTabGroup>

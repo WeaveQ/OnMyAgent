@@ -1,11 +1,10 @@
-import { NavTabButton } from "@/components/ui/action-row";
+import { FilterChip } from "@/components/ui/action-row";
 import { t } from "@/i18n";
 
 import { STEP_PERCENT, type WizardStep } from "./agents-page-model";
 
 const wizardControlClass = {
   compactFieldStack: "space-y-2.5",
-  pickerChip: "border border-dls-border px-3.5 py-1.5 text-xs data-[active=true]:border-dls-accent data-[active=true]:bg-dls-accent data-[active=true]:text-white",
 };
 
 export function PickerChip(props: {
@@ -14,15 +13,13 @@ export function PickerChip(props: {
   onClick: () => void;
 }) {
   return (
-    <NavTabButton
+    <FilterChip
       type="button"
+      selected={props.active}
       onClick={props.onClick}
-      active={props.active}
-      className={wizardControlClass.pickerChip}
+      label={props.label}
       data-active={props.active}
-    >
-      {props.label}
-    </NavTabButton>
+    />
   );
 }
 

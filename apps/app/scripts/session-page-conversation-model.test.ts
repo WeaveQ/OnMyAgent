@@ -12,7 +12,7 @@ import {
 } from "../src/react-app/domains/session/chat/session-page-conversation-model";
 import {
   formatConversationTime as formatAssistantConversationTime,
-} from "../src/react-app/domains/session/components/shared-pages/conversation-model";
+} from "../src/react-app/domains/session/sidebar/conversation-model";
 
 beforeEach(() => {
   setLocale("zh");

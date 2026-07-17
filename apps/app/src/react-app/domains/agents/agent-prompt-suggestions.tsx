@@ -249,7 +249,7 @@ export function AgentPromptSuggestions(props: {
               density="card"
               type="button"
               onClick={() => props.onSelect(p.prompt)}
-              className="group relative overflow-hidden rounded-xl border-dls-mist transition-all duration-200 hover:-translate-y-0.5 hover:border-dls-border-strong"
+              className="group relative overflow-hidden rounded-xl border-dls-mist transition-colors duration-200 hover:bg-dls-hover"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-dls-brand-faint-blue via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               <div className="relative flex items-start gap-3">

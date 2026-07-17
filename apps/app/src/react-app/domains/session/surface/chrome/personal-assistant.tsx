@@ -57,7 +57,7 @@ export function AssistantScenarioPill(props: {
         "h-8 shrink-0 rounded-lg text-xs",
         props.active
           ? "text-dls-accent-foreground"
-          : "text-dls-secondary hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text",
+          : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
       )}
     >
       <Icon className="size-3.5" />

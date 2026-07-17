@@ -19,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { t } from "../../i18n";
 import type { ExtensionKind } from "@/app/constants";
-import { MarkdownBlock } from "../domains/session/surface/markdown";
+import { MarkdownBlock } from "../capabilities/artifacts/markdown";
 import { modalBodyClass } from "./modal-styles";
 import { resolveExtensionIconSrc } from "./extension-icon-src";
 import { ExtensionMeshAvatar } from "./extension-mesh-avatar";
@@ -363,7 +363,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {resourceLabels.map((label) => (
-                            <StatusBadge key={label} tone="surface">
+                            <StatusBadge key={label} tone="surface" shape="soft" size="tiny">
                               {label}
                             </StatusBadge>
                           ))}
@@ -377,7 +377,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {contributionLabels.map((label) => (
-                            <StatusBadge key={label} tone="surface">
+                            <StatusBadge key={label} tone="surface" shape="soft" size="tiny">
                               {label}
                             </StatusBadge>
                           ))}

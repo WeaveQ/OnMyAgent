@@ -44,6 +44,11 @@
       "development": "./src/server-client-methods.mjs",
       "default": "./src/server-client-methods.mjs"
     },
+    "./server-client-method-map": {
+      "types": "./src/server-client-method-map.ts",
+      "development": "./src/server-client-method-map.ts",
+      "default": "./dist/server-client-method-map.js"
+    },
     "./channel": {
       "types": "./src/channel.ts",
       "development": "./src/channel.ts",

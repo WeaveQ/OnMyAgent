@@ -84,7 +84,7 @@ function ExpertCard(props: {
               variant="default"
               size="pill-xs"
               tabIndex={-1}
-              className="pointer-events-none shrink-0 border-transparent bg-dls-text text-dls-background opacity-0 shadow-none transition-opacity hover:bg-dls-text/90 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+              className="pointer-events-none shrink-0 border-transparent bg-dls-decision text-white opacity-0 shadow-none transition-opacity hover:bg-dls-decision-hover hover:text-white group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
               onClick={(event) => {
                 event.stopPropagation();
                 props.onSummon(props.expert);
@@ -101,7 +101,7 @@ function ExpertCard(props: {
       {props.expert.tags.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {props.expert.tags.slice(0, 3).map((tag) => (
-            <StatusBadge key={tag} tone="surface" shape="pill" size="tiny">
+            <StatusBadge key={tag} tone="surface" shape="soft" size="tiny">
               {tag}
             </StatusBadge>
           ))}

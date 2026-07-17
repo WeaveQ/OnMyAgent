@@ -27,7 +27,8 @@ OnMyAgent UI work should improve consistency without turning pages into one-off 
 | Text input | `Input`, `Textarea`, `InputGroup` |
 | Action tab/list row | `ActionRowButton`, `SessionRowButton`, related row primitives |
 | Multi-tab / segmented panel | `SegmentedTabGroup` + `NavTabButton size="tab" shape="tab"` — never hand-write `inline-flex rounded-lg border p-1` around default (pill) `NavTabButton` |
-| Composer send affordance | `SendButton` — the only `rounded-full` CTA allowed inside workbench chrome |
+| Free-float category filter | `FilterChip` — selected `bg-dls-list-selected` (no white elevated pill); idle plain label |
+| Composer send affordance | `SendButton` — the only `rounded-full` **primary send** CTA allowed inside workbench chrome (pill filters may also use `rounded-full`) |
 | Icon/avatar tile | `IconTile` |
 | Status/count badge | `StatusBadge`, `CountBadge`, `StepMarker` |
 | Status dot/ping/loading | `StatusDot`, `StatusPing`, `LoadingSpinner` |

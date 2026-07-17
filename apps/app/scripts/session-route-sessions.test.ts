@@ -18,9 +18,9 @@ import {
   toSidebarSessionItem,
   toSidebarSessionItems,
   type PendingCreatedSessionMap,
-} from "../src/react-app/shell/session-route-sessions";
+} from "../src/react-app/shell/session-route/sessions";
 import type { SidebarSessionItem } from "../src/app/types";
-import type { RouteWorkspace } from "../src/react-app/shell/session-route-model";
+import type { RouteWorkspace } from "../src/react-app/shell/session-route/model";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();

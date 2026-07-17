@@ -466,3 +466,92 @@ export interface InboxUploadResponse {
   path: string;
   bytes: number;
 }
+
+/** GET /health */
+export interface ServerHealthResponse {
+  ok: boolean;
+  version: string;
+  uptimeMs: number;
+}
+
+/** Renderer-facing capabilities slice (subset of Capabilities used by the HTTP client). */
+export interface ServerClientCapabilities {
+  skills: { read: boolean; write: boolean; source: "onmyagent" | "opencode" };
+  hub?: {
+    skills?: {
+      read: boolean;
+      install: boolean;
+      repo?: { owner: string; name: string; ref: string };
+    };
+  };
+  plugins: { read: boolean; write: boolean };
+  mcp: { read: boolean; write: boolean };
+  commands: { read: boolean; write: boolean };
+  config: { read: boolean; write: boolean };
+  sandbox?: { enabled: boolean; backend: SandboxBackend };
+  proxy?: { opencode: boolean };
+  toolProviders?: {
+    browser?: {
+      enabled: boolean;
+      placement: ProviderPlacement;
+      mode: "none" | "headless" | "interactive";
+    };
+    files?: {
+      injection: boolean;
+      outbox: boolean;
+      inboxPath: string;
+      outboxPath: string;
+      maxBytes: number;
+    };
+  };
+}
+
+/** GET /status diagnostics payload. */
+export interface ServerStatusResponse {
+  ok: boolean;
+  version: string;
+  uptimeMs: number;
+  readOnly: boolean;
+  approval: { mode: ApprovalMode; timeoutMs: number };
+  corsOrigins: string[];
+  workspaceCount: number;
+  activeWorkspaceId?: string | null;
+  selectedWorkspaceId?: string | null;
+  workspace: WorkspaceInfo | null;
+  authorizedRoots: string[];
+  server: { host: string; port: number; configPath?: string | null };
+  tokenSource: { client: string; host: string };
+}
+
+export type RuntimeServiceName = "onmyagent-server" | "opencode";
+
+export interface RuntimeServiceSnapshot {
+  name: RuntimeServiceName;
+  enabled: boolean;
+  running: boolean;
+  targetVersion: string | null;
+  actualVersion: string | null;
+  upgradeAvailable: boolean;
+}
+
+/** GET /runtime/versions */
+export interface RuntimeVersionsResponse {
+  ok: boolean;
+  orchestrator?: {
+    version: string;
+    startedAt: number;
+  };
+  worker?: {
+    workspace: string;
+    sandboxMode: string;
+  };
+  upgrade?: {
+    status: "idle" | "running" | "failed";
+    startedAt: number | null;
+    finishedAt: number | null;
+    error: string | null;
+    operationId: string | null;
+    services: RuntimeServiceName[];
+  };
+  services: RuntimeServiceSnapshot[];
+}

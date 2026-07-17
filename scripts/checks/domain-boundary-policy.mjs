@@ -2,6 +2,7 @@ const allowedDomainDependencies = new Set([
   "agents>connections",
   "agents>plugins",
   "agents>shell-feedback",
+  "local-agents>shell-feedback",
   "messaging>agents",
   "session>agents",
   "session>connections",

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { activateCreatedSessionRoute } from "../src/react-app/shell/session-route-created-session-actions";
+import { activateCreatedSessionRoute } from "../src/react-app/shell/session-route/created-session-actions";
 
 describe("session route created-session actions", () => {
   test("activates a newly created workspace session and suppresses restore", () => {

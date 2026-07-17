@@ -11,7 +11,7 @@ function readWorkspaceFile(path: string): string {
 describe("assistant code icons", () => {
   test("the two confirmed entry points use their dedicated SVG artwork", () => {
     const sidebarControls = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/assistant-sidebar-controls.tsx",
+      "apps/app/src/react-app/domains/session/sidebar/assistant-sidebar-controls.tsx",
     );
     const avatars = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/chrome/avatars.tsx",

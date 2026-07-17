@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { groupAssistantAutomationItems } from "../src/react-app/domains/session/components/shared-pages/assistant-automation-groups";
+import { groupAssistantAutomationItems } from "../src/react-app/domains/session/sidebar/assistant-automation-groups";
 
 describe("assistant automation groups", () => {
   test("groups runs from the same automation under one stable task", () => {

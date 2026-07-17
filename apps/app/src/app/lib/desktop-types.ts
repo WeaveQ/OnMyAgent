@@ -1303,8 +1303,8 @@ export type DiscordAccountStatus = {
 export type AgentManagementManagedProviderModel = {
   id: string;
   name: string;
-  contextWindow?: number | null;
-  outputTokenLimit?: number | null;
+  contextWindow?: number | string | null;
+  outputTokenLimit?: number | string | null;
 };
 
 export type AgentManagementManagedProvider = {

@@ -13,7 +13,7 @@ const server = await spawnOpencodeServe({
 
 try {
   const client = makeClient({ baseUrl: server.baseUrl, directory: server.cwd });
-  const health = await waitForHealthy(client);
+  const health = await waitForHealthy(client, { server });
   console.log(JSON.stringify({ ok: true, baseUrl: server.baseUrl, directory: server.cwd, health }));
 } catch (e) {
   const message = e instanceof Error ? e.message : String(e);

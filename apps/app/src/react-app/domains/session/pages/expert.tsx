@@ -49,7 +49,7 @@ import {
 } from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { PersonalLocalAgentPage } from "../chat/personal-local-agent-page";
+import { PersonalLocalAgentPage } from "../../local-agents";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
@@ -65,10 +65,10 @@ import { installSummonedMarketplaceExpert } from "../expert-marketplace/install"
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
-import { writeAssistantSelectionMemory } from "../components/shared-pages/assistant-selection-memory";
+import { writeAssistantSelectionMemory } from "../sidebar/session-chrome";
 
 import type { SessionPageProps } from "./index";
-import type { AgentConversationGroup } from "../components/shared-pages/conversation-model";
+import type { AgentConversationGroup } from "../sidebar/session-chrome";
 
 import type { AgentCardItem } from "../../agents";
 import {
@@ -101,17 +101,8 @@ import {
   ensureSelectedAgentSessionVisible,
   AgentConversationPanel,
   AgentSessionTabs,
-  BillingPage,
-  DevicesPage,
-  EmptyArtifactsPanel,
-  ProjectsComingSoonPage,
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
   SidebarPaneCollapseToggle,
-  SidebarFeaturePlaceholder,
   STARTUP_SKELETON_ROWS,
-  StorePage,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
@@ -123,8 +114,21 @@ import {
   writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
   type OnMyAgentPrimaryView,
+} from "../sidebar/session-chrome";
+import {
+  BillingPage,
+  DevicesPage,
+  ProjectsComingSoonPage,
+  SidebarFeaturePlaceholder,
+  StorePage,
   type StorePrimaryTab,
-} from "../components/shared-pages";
+} from "../components/side-panel-pages";
+import { EmptyArtifactsPanel } from "../surface/chrome/empty-artifacts-panel";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 
 import {
   isVisibleExpertPackageEntry,

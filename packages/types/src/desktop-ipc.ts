@@ -79,6 +79,41 @@ export type WorkspaceList = {
   workspaces: WorkspaceInfo[];
 };
 
+/** Args for desktop `workspaceCreateRemote` (remote onmyagent / opencode mount). */
+export type WorkspaceCreateRemoteInput = {
+  baseUrl: string;
+  remoteType?: "onmyagent" | "opencode" | null;
+  directory?: string | null;
+  displayName?: string | null;
+  onmyagentHostUrl?: string | null;
+  onmyagentToken?: string | null;
+  onmyagentClientToken?: string | null;
+  onmyagentHostToken?: string | null;
+  onmyagentWorkspaceId?: string | null;
+  onmyagentWorkspaceName?: string | null;
+  sandboxBackend?: "docker" | "microsandbox" | null;
+  sandboxRunId?: string | null;
+  sandboxContainerName?: string | null;
+};
+
+/** Args for desktop `workspaceUpdateRemote` — patch remote connection fields by id. */
+export type WorkspaceUpdateRemoteInput = {
+  workspaceId: string;
+  baseUrl?: string | null;
+  remoteType?: "onmyagent" | "opencode" | null;
+  directory?: string | null;
+  displayName?: string | null;
+  onmyagentHostUrl?: string | null;
+  onmyagentToken?: string | null;
+  onmyagentClientToken?: string | null;
+  onmyagentHostToken?: string | null;
+  onmyagentWorkspaceId?: string | null;
+  onmyagentWorkspaceName?: string | null;
+  sandboxBackend?: "docker" | "microsandbox" | null;
+  sandboxRunId?: string | null;
+  sandboxContainerName?: string | null;
+};
+
 export type WorkspaceExportSummary = {
   outputPath: string;
   included: number;
@@ -676,6 +711,78 @@ export type PersonalLocalAgentAcpConfigOptionInput = {
     provider?: PersonalLocalAgentProvider;
     customArgs?: string[];
   };
+};
+
+/** Input for ACP agent health probe (`personalLocalAgentAcpHealth`). */
+export type PersonalLocalAgentAcpHealthInput = {
+  agents?: Array<Partial<PersonalLocalAgent>>;
+  workspaceRoot?: string;
+};
+
+export type PersonalLocalAgentAcpHealthAgent = {
+  id?: string;
+  backend?: string;
+  agent_type?: string;
+  available?: boolean;
+  connectionMode?: string | null;
+  error?: string | null;
+  [key: string]: unknown;
+};
+
+export type PersonalLocalAgentAcpHealthResult = {
+  ok: boolean;
+  agents: PersonalLocalAgentAcpHealthAgent[];
+};
+
+/** Input for listing ACP session config options / models / commands. */
+export type PersonalLocalAgentAcpConfigOptionsInput = {
+  agent?: Partial<PersonalLocalAgent>;
+  agentId?: string;
+  provider?: string;
+  workspaceRoot?: string;
+};
+
+export type PersonalLocalAgentAcpConfigOptionsResult = {
+  configOptions: unknown[];
+  availableModels: unknown[];
+  availableCommands: unknown[];
+  capabilities?: {
+    supportsConfigOptions?: boolean;
+    supportsModelOverride?: boolean;
+    supportsModeOverride?: boolean;
+    [key: string]: boolean | undefined;
+  };
+  unsupportedReason?: string | null;
+};
+
+export type LocalAgentComposerFileEntry = {
+  path: string;
+  relativePath: string;
+  name: string;
+  isDirectory: boolean;
+};
+
+export type LocalAgentComposerListFilesInput = {
+  workspaceRoot: string;
+  query?: string;
+  limit?: number;
+};
+
+export type LocalAgentComposerListFilesResult = {
+  files: LocalAgentComposerFileEntry[];
+};
+
+export type LocalAgentComposerSaveAttachmentInput = {
+  workspaceRoot: string;
+  name: string;
+  dataUrl: string;
+};
+
+export type LocalAgentComposerSaveAttachmentResult = {
+  path: string;
+  relativePath: string;
+  name: string;
+  size: number;
 };
 
 export type PersonalLocalAgentAcpConfigOptionResult = {
@@ -1472,3 +1579,438 @@ export type PersonalLocalAgentHostStatusResult = {
     items: PersonalLocalAgentHostStatusPermissionItem[];
   };
 };
+
+export type TelegramSaveAccountInput = { accountId: string; token: string };
+export type TelegramAccountStatusInput = { accountId?: string };
+export type TelegramServiceStartInput = {
+  accountId?: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  allowedUserIds?: string[];
+  autoStart?: boolean;
+};
+export type TelegramSimulateInboundInput = {
+  accountId?: string;
+  fromUserId?: string;
+  chatId?: string;
+  text: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  textBatchDelayMs?: number;
+};
+export type TelegramAccountStatus = {
+  ok: boolean;
+  account?: {
+    accountId: string;
+    botUsername?: string;
+    hasToken?: boolean;
+    [key: string]: unknown;
+  } | null;
+  status?: MessagingChannelStatus;
+  config?: MessagingChannelStatus;
+  error?: string;
+};
+
+export type DiscordSaveAccountInput = {
+  accountId: string;
+  token: string;
+  allowedUserIds?: string[];
+};
+export type DiscordAccountStatusInput = { accountId?: string };
+export type DiscordServiceStartInput = {
+  accountId?: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  allowedUserIds?: string[];
+  autoStart?: boolean;
+};
+export type DiscordSimulateInboundInput = {
+  accountId?: string;
+  fromUserId?: string;
+  chatId?: string;
+  text: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  textBatchDelayMs?: number;
+};
+export type DiscordAccountStatus = {
+  ok: boolean;
+  account?: {
+    accountId: string;
+    botUsername?: string;
+    hasToken?: boolean;
+    allowedUserIds?: string[];
+    [key: string]: unknown;
+  } | null;
+  status?: MessagingChannelStatus;
+  config?: MessagingChannelStatus;
+  error?: string;
+};
+
+export type PersonalLocalAgentTestConnectionResult = {
+  ok: boolean;
+  status: PersonalLocalAgentStatus;
+  step: "fail_cli" | "fail_acp" | "needs_auth" | "online" | string;
+  error: string | null;
+  capabilities: Record<string, unknown> | null;
+  models: Array<{ id: string; label: string }>;
+  configOptions: unknown[];
+  checkedAt: number;
+};
+
+export type PersonalLocalAgentProviderHealthResult =
+  PersonalLocalAgentTestConnectionResult & {
+    healthy: boolean;
+    reason: string | null;
+  };
+
+export type PersonalLocalAgentTestCustomAgentResult = {
+  step: "success" | "fail_cli" | "fail_acp";
+  error: string | null;
+  durationMs: number;
+};
+
+export type UserAgentRegistryFile = {
+  path: string;
+  content: string;
+  bytes: number;
+  updatedAt: number;
+};
+
+export type UserAgentRegistryWriteResult = {
+  ok: boolean;
+  path: string;
+  bytes: number;
+  updatedAt: number;
+};
+
+export type DesktopFetchResult = {
+  status: number;
+  statusText: string;
+  headers: [string, string][];
+  body: string;
+};
+
+// ---------------------------------------------------------------------------
+// System — computer use / software env / UI control bridge
+// ---------------------------------------------------------------------------
+
+export type ComputerUseActivityPhase =
+  | "inactive"
+  | "ready"
+  | "running"
+  | "paused"
+  | "errored";
+
+export type ComputerUseActivity = {
+  phase: ComputerUseActivityPhase;
+  app?: string;
+  reason?: string;
+};
+
+export type ComputerUseSkysightStatus = {
+  enabled?: boolean;
+  paused?: boolean;
+  recording?: boolean;
+  [key: string]: unknown;
+};
+
+export type ComputerUseAppAuthorizations = {
+  allowedBundleIdentifiers: string[];
+  [key: string]: unknown;
+};
+
+/** Result of `checkComputerUsePermissions` and related permission helpers. */
+export type ComputerUsePermissionResult = {
+  ok: boolean;
+  accessibility: boolean;
+  screenRecording: boolean;
+  error?: string;
+  helperVersion?: string;
+  protocolVersion?: number;
+  desktopVersion?: string;
+  activity?: ComputerUseActivity;
+  skysight?: ComputerUseSkysightStatus;
+  appAuthorizations?: ComputerUseAppAuthorizations;
+};
+
+export type ComputerUseAppshotResult = {
+  name: string;
+  mimeType: string;
+  data: string;
+  appName?: string;
+};
+
+export type ComputerUseSkysightExclusionOperation = "add" | "remove";
+export type ComputerUseSkysightExclusionScope =
+  | "app"
+  | "website"
+  | "private_browsing";
+
+export type UiControlBridgeInfo = {
+  version: number;
+  app: string;
+  identifier: string;
+  platform: string;
+  baseUrl: string;
+  token: string;
+};
+
+export type SoftwareEnvironmentToolDetail = {
+  installed: boolean;
+  bundled?: boolean;
+  path?: string | null;
+  version?: string | null;
+};
+
+export type SoftwareEnvironmentInfo = {
+  node: boolean;
+  python: boolean;
+  opencode: boolean;
+  details: {
+    node: SoftwareEnvironmentToolDetail;
+    python: SoftwareEnvironmentToolDetail;
+    opencode: SoftwareEnvironmentToolDetail;
+  };
+};
+
+export type SoftwareEnvironmentInstallResult = {
+  ok: boolean;
+  message?: string;
+  version?: string | null;
+  path?: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Runtime — bootstrap / status / orchestrator / sandbox stop
+// ---------------------------------------------------------------------------
+
+export type RuntimeLifecycleState =
+  | "idle"
+  | "cleaning"
+  | "starting"
+  | "healthy"
+  | "error"
+  | (string & {});
+
+export type RuntimeStatus = {
+  lifecycleState: RuntimeLifecycleState;
+  engine: EngineInfo;
+  onmyagentServer: OnMyAgentServerInfo;
+};
+
+export type RuntimeBootstrapResult =
+  | { ok: true; skipped: true; reason: string }
+  | {
+      ok: true;
+      skipped: false;
+      engine: EngineInfo;
+      onmyagentServer: OnMyAgentServerInfo;
+      workspaceId: string | null;
+    }
+  | { ok: false; error: string };
+
+export type OrchestratorDaemonSnapshot = {
+  baseUrl: string | null;
+  port: number | null;
+  pid: number | null;
+  runtime: string;
+};
+
+export type OrchestratorOpencodeSnapshot = {
+  baseUrl: string | null;
+  port: number | null;
+  pid: number | null;
+  projectDir: string | null;
+  runtime: string;
+};
+
+export type OrchestratorStatus = {
+  running: boolean;
+  dataDir: string | null;
+  daemon: OrchestratorDaemonSnapshot | null;
+  opencode: OrchestratorOpencodeSnapshot | null;
+  cliVersion: string | null;
+  sidecar: unknown;
+  binaries: unknown;
+  activeId: string | null;
+  workspaceCount: number;
+  workspaces: Array<{ id: string; path: string; name: string }>;
+  lastError: string | null;
+};
+
+export type OrchestratorWorkspaceActivateInput = {
+  workspacePath: string;
+  name?: string | null;
+};
+
+export type OrchestratorWorkspaceActivateResult = {
+  id: string;
+  path: string;
+  name: string;
+};
+
+/** Docker `stop` / shell-style result used by sandbox + opencode helpers. */
+export type ShellCommandResult = {
+  ok: boolean;
+  status: number;
+  stdout: string;
+  stderr: string;
+};
+
+export type SandboxStopResult = ShellCommandResult;
+
+// ---------------------------------------------------------------------------
+// Skills / expert marketplace
+// ---------------------------------------------------------------------------
+
+export type ExpertMarketplaceName = "experts" | "my-experts";
+
+export type ExpertPackageInstallInput = {
+  source: "builtin";
+  marketplace: ExpertMarketplaceName;
+  packageName: string;
+};
+
+export type ExpertPackageInstallResult = {
+  ok: true;
+  path: string;
+  packageName: string;
+  marketplace: ExpertMarketplaceName;
+};
+
+export type BuiltinSkillPackageInstallInput = {
+  source: "builtin";
+  packageName: string;
+  skillName: string;
+};
+
+export type BuiltinSkillPackageInstallResult = {
+  ok: true;
+  path: string;
+  packageName: string;
+  skillName: string;
+};
+
+export type ExpertPackageListEntry = {
+  id: string;
+  packageName: string;
+  source: "installed" | "mine";
+  packagePath: string;
+  displayName: string;
+  profession: string;
+  description: string;
+  categoryId: string;
+  tags: string[];
+  quickPrompts: string[];
+  avatarUrl: string | null;
+  expertType: "agent" | "team";
+  leadAgentName: string;
+  systemPrompt: string;
+  version: string | null;
+};
+
+export type ExpertRegistryListEntry = {
+  id: string;
+  name: string;
+  source: "installed" | "mine";
+  packageName: string;
+  packagePath: string;
+};
+
+export type MyExpertPackageWriteInput = {
+  id: string;
+  packageName: string;
+  name: string;
+  description: string;
+  quote: string;
+};
+
+// ---------------------------------------------------------------------------
+// Messaging channel infrastructure (desktop IPC wire shapes)
+// ---------------------------------------------------------------------------
+
+export type ChannelProbeResult = {
+  ok: boolean;
+  botUsername?: string;
+  hasToken?: boolean;
+  error?: string;
+};
+
+export type DesktopChannelPairingRequest = {
+  code: string;
+  platformType: string;
+  platformUserId: string;
+  displayName?: string;
+  requestedAt: number;
+  expiresAt: number;
+  status: string;
+};
+
+export type DesktopChannelAuthorizedUser = {
+  id: string;
+  platformType: string;
+  platformUserId: string;
+  displayName?: string;
+  authorizedAt: number;
+  lastActive?: number;
+};
+
+export type DesktopChannelSession = {
+  id: string;
+  platformType: string;
+  platformUserId: string;
+  agentType: string;
+  workspace?: string;
+  chatId?: string;
+  createdAt: number;
+  lastActivity: number;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: number;
+  }>;
+  metadata: Record<string, unknown>;
+  closedAt?: number;
+};
+
+export type DesktopChannelEventHistoryEntry = {
+  id: string;
+  name: string;
+  payload: unknown;
+  timestamp: number;
+};
+
+/** End-to-end desktop IPC command → { args; result } map. */
+export type {
+  DesktopCommandContract,
+  DesktopCommandMap,
+  DesktopCommandArgsOf,
+  DesktopCommandResultOf,
+  DesktopInvoke,
+} from "./desktop-ipc-command-map";

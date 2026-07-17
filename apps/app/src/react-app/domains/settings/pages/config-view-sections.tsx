@@ -194,7 +194,7 @@ export function ConfigServerConnectionSection(props: {
           <div className={configTextClass.sectionTitle}>{t("config.server_section_title")}</div>
           <div className={configTextClass.description}>{t("config.server_section_desc")}</div>
         </div>
-        <StatusBadge tone={props.onmyagentStatusTone}>{props.onmyagentStatusLabel}</StatusBadge>
+        <StatusBadge tone={props.onmyagentStatusTone} shape="pill" size="tiny">{props.onmyagentStatusLabel}</StatusBadge>
       </div>
       <div className="grid gap-3">
         <LabeledInput label={t("config.server_url_input_label")} value={props.onmyagentUrl} onChange={(event) => props.onUrlChange(event.currentTarget.value)} placeholder="http://127.0.0.1:<port>" hint={t("config.server_url_hint")} disabled={props.busy} />

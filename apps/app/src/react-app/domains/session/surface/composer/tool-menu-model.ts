@@ -40,3 +40,9 @@ export function pluginSkillFileSearchText(file: {
 }): string {
   return `${file.title} ${formatPluginObjectType(file.objectType)}`;
 }
+
+/** Strip noisy skill source prefixes like "(opencode - Skill)" for menu secondary lines. */
+export function skillMenuDescription(description?: string | null): string {
+  if (!description) return "";
+  return description.replace(/^\([^)]*\)\s*/u, "").trim();
+}

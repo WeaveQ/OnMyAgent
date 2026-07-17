@@ -55,7 +55,7 @@ function ScheduleMetric(props: { label: string; value: string; tone?: StatusBadg
     <div className="rounded-lg border border-dls-border bg-dls-surface px-3 py-2">
       <div className="text-xs text-dls-secondary">{props.label}</div>
       <div className="mt-1 flex items-center gap-2">
-        {props.tone ? <StatusBadge tone={props.tone}>{props.value}</StatusBadge> : <span className="truncate text-sm font-medium text-dls-text">{props.value}</span>}
+        {props.tone ? <StatusBadge tone={props.tone} shape="pill" size="tiny">{props.value}</StatusBadge> : <span className="truncate text-sm font-medium text-dls-text">{props.value}</span>}
       </div>
     </div>
   );
@@ -272,8 +272,8 @@ export function HeartbeatPanel(props: {
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="truncate font-medium">{job.title}</span>
-                    <StatusBadge tone={job.enabled ? "accent" : "neutral"}>{job.enabled ? t("common.on") : t("common.off")}</StatusBadge>
-                    {lastStatus ? <StatusBadge tone={heartbeatStatusTone(lastStatus)}>{heartbeatStatusLabel(lastStatus)}</StatusBadge> : null}
+                    <StatusBadge tone={job.enabled ? "accent" : "neutral"} shape="pill" size="tiny">{job.enabled ? t("common.on") : t("common.off")}</StatusBadge>
+                    {lastStatus ? <StatusBadge tone={heartbeatStatusTone(lastStatus)} shape="pill" size="tiny">{heartbeatStatusLabel(lastStatus)}</StatusBadge> : null}
                   </div>
                   <div className={heartbeatClass.meta}>
                     <span>{t("local_agent.heartbeat_every", { minutes: job.schedule.intervalMinutes })}</span>
@@ -301,9 +301,9 @@ export function HeartbeatPanel(props: {
             </div>
           );
         }) : (
-          <div className="rounded-lg border border-dashed border-dls-border px-3 py-3 text-center text-xs text-dls-secondary">
+          <EmptyStateBox size="compact" className="text-center text-xs">
             {t("local_agent.heartbeat_empty")}
-          </div>
+          </EmptyStateBox>
         )}
       </div>
       </ScheduleSection>
@@ -365,7 +365,7 @@ export function ScheduledTaskRunHistory(props: { job: PersonalLocalAgentHeartbea
           {visibleRuns.map((run) => (
             <div key={run.id} className={heartbeatClass.runItem}>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge tone={heartbeatStatusTone(run.status)}>{heartbeatStatusLabel(run.status)}</StatusBadge>
+                <StatusBadge tone={heartbeatStatusTone(run.status)} shape="pill" size="tiny">{heartbeatStatusLabel(run.status)}</StatusBadge>
                 <span className="text-dls-secondary">{t("local_agent.heartbeat_run_started", { time: shortDateTime(run.startedAt) })}</span>
                 <span className="text-dls-secondary">{t("local_agent.heartbeat_run_finished", { time: shortDateTime(run.finishedAt) })}</span>
                 {run.runId ? <span className="font-mono text-dls-secondary">{t("local_agent.heartbeat_run_id", { id: run.runId })}</span> : null}

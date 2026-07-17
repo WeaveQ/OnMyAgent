@@ -1,23 +1,28 @@
-/** Canonical renderer-facing HTTP client method inventory, grouped by domain. */
-export const serverClientMethodGroups = Object.freeze({
-  system: Object.freeze([
+/**
+ * Canonical renderer-facing HTTP client method inventory, grouped by domain.
+ *
+ * Keep method names here so app client modules, parity tests, and
+ * `ServerClientMethodMap` share one domain-grouped source of truth.
+ */
+const methodGroups = /** @type {const} */ ({
+  system: [
     "baseUrl", "token", "health", "runtimeVersions", "status", "capabilities",
     "getConfig", "patchConfig", "listReloadEvents", "reloadEngine", "listAudit",
     "createVoiceRealtimeSession",
-  ]),
-  workspace: Object.freeze([
+  ],
+  workspace: [
     "listWorkspaces", "createLocalWorkspace", "updateWorkspaceDisplayName",
     "activateWorkspace", "deleteWorkspace", "exportWorkspace", "importWorkspace",
     "previewWorkspaceImport", "materializeBlueprintSessions",
     "readOpencodeConfigFile", "writeOpencodeConfigFile", "readWorkspaceFile",
     "statWorkspaceFile", "writeWorkspaceFile", "writeWorkspaceBinaryFile",
     "downloadWorkspaceFile", "listWorkspaceFiles",
-  ]),
-  sessions: Object.freeze([
+  ],
+  sessions: [
     "deleteSession", "listSessions", "getSession", "getSessionMessages",
     "getSessionSnapshot",
-  ]),
-  extensions: Object.freeze([
+  ],
+  extensions: [
     "listPlugins", "addPlugin", "removePlugin", "listSkills", "listHubSkills",
     "installHubSkill", "getSkill", "upsertSkill", "deleteSkill",
     "getOpenCodeRouterHealth", "getOpenCodeRouterTelegram",
@@ -28,8 +33,8 @@ export const serverClientMethodGroups = Object.freeze({
     "setMcpEnabled", "logoutMcpAuth", "listCommands", "upsertCommand",
     "deleteCommand", "listAutomations", "listAutomationRuns", "createAutomation",
     "updateAutomation", "runAutomation", "deleteAutomation",
-  ]),
-  sessionArchive: Object.freeze([
+  ],
+  sessionArchive: [
     "listSessionArchiveSessions", "getSessionArchiveSession",
     "openSessionArchiveEventsStream", "openSessionArchiveSessionWatchStream",
     "getSessionArchiveMessages", "searchSessionArchiveSession",
@@ -60,20 +65,23 @@ export const serverClientMethodGroups = Object.freeze({
     "deleteSessionArchiveWorktreeMapping", "applySessionArchiveWorktreeMappings",
     "scanSessionArchiveSecrets", "listSessionArchiveSecrets",
     "searchSessionArchive", "syncSessionArchive", "getSessionArchiveSyncStatus",
-  ]),
-  artifactPlugins: Object.freeze([
+  ],
+  artifactPlugins: [
     "listArtifactPlugins", "getArtifactPlugin", "setArtifactPluginEnabled",
     "setArtifactPluginSkillEnabled", "getArtifactPluginConnection",
-  ]),
-  artifacts: Object.freeze([
+  ],
+  artifacts: [
     "uploadInbox", "listInbox", "downloadInboxItem", "listArtifacts",
     "resolveArtifacts", "downloadArtifact",
-  ]),
-  environment: Object.freeze([
+  ],
+  environment: [
     "listUserEnvKeys", "listUserEnv", "upsertUserEnv", "deleteUserEnv",
-  ]),
+  ],
 });
 
+export const serverClientMethodGroups = Object.freeze(methodGroups);
+
 export const serverClientMethodNames = Object.freeze(
-  Object.values(serverClientMethodGroups).flat(),
+  /** @type {readonly (typeof methodGroups)[keyof typeof methodGroups][number][]} */
+  (Object.values(methodGroups).flat()),
 );

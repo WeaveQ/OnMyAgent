@@ -7,9 +7,12 @@ const ignoredDirectories = new Set([
   "node_modules",
   "graphify-out",
   "dist",
+  "dist-electron",
   "out",
   "build",
   ".turbo",
+  ".loop",
+  ".grok",
 ]);
 const ignoredFiles = new Set([
   "apps/app/public/openwork-logo-square.svg",
