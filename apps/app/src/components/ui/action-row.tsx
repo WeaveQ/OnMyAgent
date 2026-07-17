@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -41,6 +41,8 @@ const navTabButtonVariants = cva(
       },
       size: {
         default: "px-3.5 py-1 text-xs",
+        // Compact filter chip (store/assistant/management primary filters)
+        filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
         tab: "h-8 px-3.5 text-sm",
         messaging: "h-10 px-4 text-base font-semibold",
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
@@ -81,14 +83,15 @@ const segmentedTabButtonVariants = cva(
       },
       tone: {
         default: "",
-        chip: "border",
+        // Soft filter chip: selected elevated solid pill; idle is plain text (no border).
+        chip: "rounded-full",
       },
       size: {
         default: "px-3 py-2 text-xs",
         compact: "px-3 py-1.5 text-xs",
         comfortable: "px-3.5 py-1.5 text-sm font-medium",
-        // Compact hug pill for settings multi-select (memory profile, etc.)
-        chip: "min-h-7 px-2.5 text-xs font-medium",
+        // Compact hug pill for category filters / memory multi-select.
+        chip: "h-7 min-h-7 px-2.5 text-xs font-medium",
       },
       width: {
         fill: "flex-1",
@@ -109,17 +112,17 @@ const segmentedTabButtonVariants = cva(
         className: "bg-transparent text-dls-secondary hover:text-dls-text",
       },
       {
-        // Soft accent wash (not solid decision fill) — stays readable in dark.
+        // Light free-float filters: soft gray solid pill (not elevated white).
+        // Dark: same list-selected wash. Idle stays plain label.
         tone: "chip",
         active: true,
-        className:
-          "border-dls-border bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
+        className: "bg-dls-list-selected text-dls-text shadow-none",
       },
       {
         tone: "chip",
         active: false,
         className:
-          "border-transparent bg-transparent text-dls-secondary hover:text-dls-text",
+          "bg-transparent text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
       },
     ],
     defaultVariants: {
@@ -381,14 +384,57 @@ function SegmentedTabButton({
   return <ButtonPrimitive className={cn(segmentedTabButtonVariants({ active, tone, size, width }), className)} {...props} />
 }
 
-function SegmentedTabGroup({ className, ...props }: ComponentProps<"div">) {
-  // Soft track: light gray capsule in light theme, muted surface in dark.
+/** Soft free-floating filter chip: solid pill when active, plain label when idle. */
+function FilterChip({
+  className,
+  selected = false,
+  label,
+  ...props
+}: Omit<ButtonPrimitive.Props, "children"> & {
+  selected?: boolean
+  label: ReactNode
+}) {
+  return (
+    <SegmentedTabButton
+      type="button"
+      active={selected}
+      tone="chip"
+      size="chip"
+      width="hug"
+      aria-pressed={selected}
+      className={className}
+      {...props}
+    >
+      {label}
+    </SegmentedTabButton>
+  )
+}
+
+const segmentedTabGroupVariants = cva(
+  "inline-flex border border-dls-border/50 bg-dls-surface-muted p-0.5",
+  {
+    variants: {
+      density: {
+        // Compact filter strip (store tabs, assistant office/code, management)
+        filter: "h-8 w-fit shrink-0 gap-0.5 rounded-full",
+        // In-page multi-tab (may wrap; slightly taller track)
+        panel: "h-9 max-w-full flex-wrap items-center gap-0.5 rounded-full",
+      },
+    },
+    defaultVariants: {
+      density: "filter",
+    },
+  },
+)
+
+function SegmentedTabGroup({
+  className,
+  density = "filter",
+  ...props
+}: ComponentProps<"div"> & VariantProps<typeof segmentedTabGroupVariants>) {
   return (
     <div
-      className={cn(
-        "inline-flex rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
-        className,
-      )}
+      className={cn(segmentedTabGroupVariants({ density }), className)}
       {...props}
     />
   )
@@ -467,4 +513,4 @@ function IconTile({
   return <div className={cn(iconTileVariants({ size, tone, shape, border }), className)} {...props} />
 }
 
-export { ActionRowButton, DisclosureRowButton, IconTile, MatrixButton, MenuRowButton, MenuRowSurface, NavListButton, NavTabButton, RailButton, SegmentedTabButton, SegmentedTabGroup, SessionRowButton, TreeRowButton }
+export { ActionRowButton, DisclosureRowButton, FilterChip, IconTile, MatrixButton, MenuRowButton, MenuRowSurface, NavListButton, NavTabButton, RailButton, SegmentedTabButton, SegmentedTabGroup, SessionRowButton, TreeRowButton }

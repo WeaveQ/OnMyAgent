@@ -85,7 +85,9 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("props.query ??");
     expect(dialog).toContain("myExperts: ExpertMarketplaceEntry[]");
     expect(dialog).toContain("onOpen={setSelectedExpert}");
+    expect(dialog).toContain("onSummon={props.onSummonMarketplaceExpert}");
     expect(dialog).toContain('t("session.create_expert")');
+    expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
     expect(dialog).not.toContain("MyExpertCard");
     expect(dialog).not.toContain("AgentRecord");
@@ -307,7 +309,7 @@ describe("expert marketplace UI contract", () => {
     );
 
     expect(tabs).toContain(
-      '? "h-11 border-b border-dls-mist px-3 shadow-sm"',
+      '? "h-11 border-b border-dls-mist px-3"',
     );
     expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
     expect(tabs).toContain(

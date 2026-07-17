@@ -41,6 +41,7 @@ export default {
   "session.expert_self_intro_prompt_title": "自我介绍",
   "session.expert_self_intro_prompt": "请告诉我你是谁? 能做什么?",
   "session.try_ask_expert": "试试这样问我",
+  "session.summon": "召唤",
   "session.summon_expert": "召唤 {name}",
   "session.expert_marketplace_category_all": "全部",
   "session.expert_marketplace_category_opc": "OPC-一人公司",

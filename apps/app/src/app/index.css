@@ -412,6 +412,8 @@ select:disabled {
   /* DESIGN.md § 11 WorkBuddy parity — assistant body / dense workbench chrome */
   --dls-text-assistant: 0.8125rem; /* 13px @ 16 */
   --dls-leading-assistant: 1.1875rem; /* 19px @ 16 */
+  --dls-text-composer: 0.9375rem; /* 15px @ 16 — chat compose body */
+  --dls-leading-composer: 1.375rem; /* 22px @ 16 */
   --dls-text-sm: 0.875rem;   /* 14px */
   --dls-text-base: 1rem;     /* 16px */
   --dls-text-lg: 1.125rem;   /* 18px */

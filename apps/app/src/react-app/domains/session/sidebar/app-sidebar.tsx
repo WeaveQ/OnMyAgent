@@ -767,7 +767,6 @@ export function AppSidebar(props: AppSidebarProps) {
               <div className="min-w-0 flex-1">
                 <SidebarAccountButton
                   account={props.account || undefined}
-                  onOpenDevices={() => props.onOpenPrimaryView("devices")}
                   onOpenUsage={() => props.onOpenPrimaryView("usage")}
                   onOpenSettings={props.onOpenAccountSettings}
                   onSignOut={props.onSignOut}
@@ -928,16 +927,6 @@ export function SidebarAccountButton(props: {
           selectedValue={themeMode}
           onSelect={(value) => setThemeMode(value as ThemeMode)}
         />
-        {props.onOpenDevices ? (
-          <SidebarAccountMenuItem
-            icon={MonitorSmartphone}
-            label={t("nav.devices")}
-            onSelect={() => {
-              setOpen(false);
-              props.onOpenDevices?.();
-            }}
-          />
-        ) : null}
         {props.onOpenUsage ? (
           <SidebarAccountMenuItem
             icon={ChartNoAxesCombined}

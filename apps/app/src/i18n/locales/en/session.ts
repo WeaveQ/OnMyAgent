@@ -44,6 +44,7 @@ export default {
   "session.expert_self_intro_prompt_title": "Self intro",
   "session.expert_self_intro_prompt": "Please tell me who you are and what you can do.",
   "session.try_ask_expert": "Try asking",
+  "session.summon": "Summon",
   "session.summon_expert": "Summon {name}",
   "session.expert_marketplace_category_all": "All",
   "session.expert_marketplace_category_opc": "OPC Solo Company",

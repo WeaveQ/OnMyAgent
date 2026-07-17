@@ -22,9 +22,8 @@ describe("personal usage UI contract", () => {
     expect(page).toContain("max-w-4xl");
     expect(page).toContain("usage_profile_title");
     expect(page).toContain("usage_profile_plan");
-    expect(page).toContain("usage_share");
-    expect(page).toContain("usage_private");
-    expect(page).toContain("usage_edit");
+    expect(page).toContain("StatusBadge");
+    expect(page).toContain('density="filter"');
     expect(page).toContain("SegmentedTabGroup");
     expect(page).toContain("LoadingSpinner");
     expect(page).toContain("NoticeBox");

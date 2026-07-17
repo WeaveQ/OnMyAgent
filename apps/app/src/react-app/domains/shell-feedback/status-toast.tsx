@@ -29,10 +29,10 @@ const statusToastLayoutClass = {
   header: "flex items-start justify-between gap-3",
   title: "text-sm font-medium text-dls-text",
   description: "mt-1 text-sm leading-relaxed text-dls-secondary",
-  dismissButton: "rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+  dismissButton: "rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   actionRow: "mt-3 flex items-center gap-2",
-  primaryAction: "rounded-full bg-dls-accent text-dls-accent-fg hover:bg-dls-accent-hover",
-  secondaryAction: "rounded-full text-dls-text hover:bg-dls-hover",
+  primaryAction: "rounded-lg bg-dls-accent text-dls-accent-fg hover:bg-dls-accent-hover",
+  secondaryAction: "rounded-lg text-dls-text hover:bg-dls-hover",
 };
 
 export function StatusToast(props: StatusToastProps) {

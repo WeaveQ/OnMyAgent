@@ -657,15 +657,14 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6">
-        <SegmentedTabGroup className="rounded-md border-0 p-0.5">
+      <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-background px-6">
+        <SegmentedTabGroup density="filter">
           <NavTabButton
             active={activeTab === "task"}
             type="button"
             onClick={() => setActiveTab("task")}
-            size="tab"
-            shape="tab"
-            className="h-7 min-w-24 rounded-md px-3 py-0"
+            size="filter"
+            shape="pill"
           >
             {t("files.task_results")}
           </NavTabButton>
@@ -673,9 +672,8 @@ export function WorkspaceFilesPage(props: {
             active={activeTab === "cloud"}
             type="button"
             onClick={() => setActiveTab("cloud")}
-            size="tab"
-            shape="tab"
-            className="h-7 min-w-24 rounded-md px-3 py-0"
+            size="filter"
+            shape="pill"
           >
             {t("files.cloud_drive")}
           </NavTabButton>

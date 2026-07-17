@@ -93,7 +93,7 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
         <div className="flex min-w-0 items-start gap-3">
           <ArtifactPluginIcon pluginId={plugin.id} />
           <div className="min-w-0">
-            <h2 className="font-heading text-xl font-semibold text-dls-text">
+            <h2 className="text-lg font-medium leading-7 text-dls-text">
               {plugin.manifest.interface.displayName}
             </h2>
             <p className="mt-1 text-sm text-dls-secondary">

@@ -26,20 +26,15 @@ export function StorePage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-background px-6">
-        <SegmentedTabGroup className="h-8 w-fit shrink-0 gap-0.5 rounded-full p-0.5">
+        <SegmentedTabGroup density="filter">
           {tabs.map(([tab, label]) => (
             <NavTabButton
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
               active={activeTab === tab}
-              size="default"
+              size="filter"
               shape="pill"
-              className={
-                activeTab === tab
-                  ? "h-7 w-auto shrink-0 px-3 text-xs font-medium bg-dls-surface text-dls-text shadow-sm"
-                  : "h-7 w-auto shrink-0 px-3 text-xs font-medium text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text"
-              }
             >
               {label}
             </NavTabButton>
