@@ -41,6 +41,8 @@ const navTabButtonVariants = cva(
       },
       size: {
         default: "px-3.5 py-1 text-xs",
+        // Compact filter chip (store/assistant/management primary filters)
+        filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
         tab: "h-8 px-3.5 text-sm",
         messaging: "h-10 px-4 text-base font-semibold",
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
@@ -381,14 +383,31 @@ function SegmentedTabButton({
   return <ButtonPrimitive className={cn(segmentedTabButtonVariants({ active, tone, size, width }), className)} {...props} />
 }
 
-function SegmentedTabGroup({ className, ...props }: ComponentProps<"div">) {
-  // Soft track: light gray capsule in light theme, muted surface in dark.
+const segmentedTabGroupVariants = cva(
+  "inline-flex border border-dls-border/50 bg-dls-surface-muted p-0.5",
+  {
+    variants: {
+      density: {
+        // Compact filter strip (store tabs, assistant office/code, management)
+        filter: "h-8 w-fit shrink-0 gap-0.5 rounded-full",
+        // In-page multi-tab (may wrap; slightly taller track)
+        panel: "h-9 max-w-full flex-wrap items-center gap-0.5 rounded-full",
+      },
+    },
+    defaultVariants: {
+      density: "filter",
+    },
+  },
+)
+
+function SegmentedTabGroup({
+  className,
+  density = "filter",
+  ...props
+}: ComponentProps<"div"> & VariantProps<typeof segmentedTabGroupVariants>) {
   return (
     <div
-      className={cn(
-        "inline-flex rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
-        className,
-      )}
+      className={cn(segmentedTabGroupVariants({ density }), className)}
       {...props}
     />
   )

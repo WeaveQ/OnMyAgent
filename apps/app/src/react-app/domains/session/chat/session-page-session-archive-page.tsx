@@ -269,14 +269,13 @@ export function SessionArchivePage(props: Props) {
 
       {/* Agent filter bar — same SegmentedTab track as store / assistant switches */}
       {groups.length > 0 ? (
-        <SegmentedTabGroup className="flex max-w-full flex-wrap items-center gap-0.5">
+        <SegmentedTabGroup density="panel">
           <NavTabButton
             type="button"
             onClick={() => setAgentFilter(null)}
             active={!agentFilter}
-            size="default"
-            shape="tab"
-            className="gap-1"
+            size="filter"
+            shape="pill"
           >
             {t("session_archive.agent_filter_all")}
           </NavTabButton>
@@ -286,9 +285,8 @@ export function SessionArchivePage(props: Props) {
               type="button"
               onClick={() => setAgentFilter(g.agent === agentFilter ? null : g.agent)}
               active={g.agent === agentFilter}
-              size="default"
-              shape="tab"
-              className="gap-1"
+              size="filter"
+              shape="pill"
             >
               <AgentSkillIcon agent={g.agent as AgentManagementSkillAgent} />
               {agentLabel(g.agent)}

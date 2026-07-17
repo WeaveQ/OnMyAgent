@@ -307,7 +307,7 @@ describe("expert marketplace UI contract", () => {
     );
 
     expect(tabs).toContain(
-      '? "h-11 border-b border-dls-mist px-3 shadow-sm"',
+      '? "h-11 border-b border-dls-mist px-3"',
     );
     expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
     expect(tabs).toContain(

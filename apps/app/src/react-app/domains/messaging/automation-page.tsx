@@ -591,13 +591,13 @@ function FrequencyFields(props: {
   return (
     <div className="space-y-3">
       <div className="text-sm font-medium text-dls-secondary">{t("automation.field_frequency")}</div>
-      <SegmentedTabGroup>
+      <SegmentedTabGroup density="filter">
         {frequencyModes.map((mode) => (
           <SegmentedTabButton
             key={mode}
             type="button"
             active={props.form.frequencyMode === mode}
-            size="comfortable"
+            size="chip"
             width="hug"
             className="whitespace-nowrap"
             onClick={() => setForm({ frequencyMode: mode })}
@@ -755,7 +755,7 @@ function AutomationDialog(props: {
         className="flex max-h-[calc(100vh-2rem)] w-full max-w-[880px] flex-col gap-4 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-7 text-dls-text sm:max-w-[880px]"
       >
         <DialogHeader className="flex-row items-center justify-between gap-4">
-          <DialogTitle className="text-xl font-semibold text-dls-text">
+          <DialogTitle className="text-base font-medium leading-6 text-dls-text">
             {props.mode === "edit" ? t("automation.edit_task_title") : t("automation.add_task_title")}
           </DialogTitle>
           {props.mode === "edit" && props.item ? (
@@ -1137,7 +1137,7 @@ export function AutomationPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className="flex shrink-0 items-start justify-between gap-4 px-8 pb-6 pt-8">
         <div>
-          <h1 className="text-lg font-semibold text-dls-text">{t("automation.title")}</h1>
+          <h1 className="text-lg font-medium leading-7 text-dls-text">{t("automation.title")}</h1>
           <p className="mt-2 text-sm text-dls-secondary">{t("automation.subtitle")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

@@ -40,4 +40,12 @@ export default {
   "plugins.artifact_starter_prompts": "推荐提示词",
   "plugins.artifact_skills": "技能",
   "plugins.artifact_excel_unavailable": "Excel实时控制暂不可用，需要先注册实时服务提供方。",
+  "plugins.artifact_plugin_documents_name": "文档",
+  "plugins.artifact_plugin_documents_desc": "创建与修订 Word 文档。",
+  "plugins.artifact_plugin_pdf_name": "PDF",
+  "plugins.artifact_plugin_pdf_desc": "检查与生成 PDF 文件。",
+  "plugins.artifact_plugin_spreadsheets_name": "表格",
+  "plugins.artifact_plugin_spreadsheets_desc": "分析与编辑电子表格数据。",
+  "plugins.sample_section_title": "连接器预览",
+  "plugins.sample_section_hint": "以下为即将接入的第三方服务示意，暂不可安装。",
 } as const;

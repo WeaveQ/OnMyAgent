@@ -749,20 +749,30 @@ export function PluginsPage(props: PluginsPageProps) {
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
           <ArtifactPluginsCatalog {...props} />
-          {categories.map((category) => {
-            const items = filteredByCategory.get(category.id) ?? [];
-            if (items.length === 0) return null;
-            return (
-              <section key={category.id} className="space-y-0">
-                <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
-                <div className={pluginsLayoutClass.cardGrid}>
-                  {items.map((item) => (
-                    <PluginCard key={item.id} item={item} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+          <section className="space-y-4 border-t border-dls-border pt-6">
+            <div className="space-y-1">
+              <h2 className="text-base font-medium leading-6 text-dls-text">
+                {t("plugins.sample_section_title")}
+              </h2>
+              <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
+                {t("plugins.sample_section_hint")}
+              </p>
+            </div>
+            {categories.map((category) => {
+              const items = filteredByCategory.get(category.id) ?? [];
+              if (items.length === 0) return null;
+              return (
+                <section key={category.id} className="space-y-0 opacity-90">
+                  <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
+                  <div className={pluginsLayoutClass.cardGrid}>
+                    {items.map((item) => (
+                      <PluginCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </section>
         </div>
       </div>
     </div>
@@ -920,21 +930,21 @@ function StoreSubTabs(props: {
   items: Array<{ value: StoreSubTab; label: string; count?: number }>;
 }) {
   return (
-    <SegmentedTabGroup>
+    <SegmentedTabGroup density="filter">
       {props.items.map(({ value, label, count }) => (
         <SegmentedTabButton
           key={value}
           type="button"
           onClick={() => props.onChange(value)}
           active={props.value === value}
-          size="comfortable"
+          size="chip"
           width="hug"
           className="items-center gap-1.5"
         >
           <span>{label}</span>
-          <span className="text-xs text-dls-secondary">
-            {count !== undefined ? count : ""}
-          </span>
+          {count !== undefined ? (
+            <span className="text-xs text-dls-secondary">{count}</span>
+          ) : null}
         </SegmentedTabButton>
       ))}
     </SegmentedTabGroup>

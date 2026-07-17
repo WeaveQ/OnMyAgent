@@ -1040,7 +1040,7 @@ export function SkillsView(props: SkillsViewProps) {
             </div>
           </div>
 
-          <SegmentedTabGroup className="w-fit">
+          <SegmentedTabGroup density="filter">
             {(["builtin", "mine"] as InstalledSkillFilter[]).map((view) => {
               const active = installedSkillFilter === view;
               const count = view === "builtin" ? builtInSkillCount : mySkillCount;
@@ -1048,10 +1048,9 @@ export function SkillsView(props: SkillsViewProps) {
                 <NavTabButton
                   key={view}
                   active={active}
-                  size="tab"
-                  shape="tab"
+                  size="filter"
+                  shape="pill"
                   onClick={() => setInstalledSkillFilter(view)}
-                  className="px-4 py-2 text-sm font-medium"
                 >
                   {view === "builtin"
                     ? t("skills.builtin_tab")

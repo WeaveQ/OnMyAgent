@@ -53,10 +53,10 @@ const kindLabel: Record<ExtensionKind, string> = {
 
 const kindStyle: Record<ExtensionKind, string> = {
   mcp: "bg-dls-hover text-dls-secondary",
-  plugin: "bg-violet-3 text-violet-11",
-  skill: "bg-amber-3 text-amber-11",
-  "ui-control": "bg-blue-3 text-blue-11",
-  extension: "bg-teal-3 text-teal-11",
+  plugin: "bg-dls-brand-lovable-soft text-dls-brand-lovable-fg",
+  skill: "bg-dls-status-warning-soft text-dls-status-warning-fg",
+  "ui-control": "bg-dls-decision-soft text-dls-accent",
+  extension: "bg-dls-status-success-soft text-dls-status-success-fg",
 };
 
 const extensionCardClass = {
