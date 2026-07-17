@@ -631,6 +631,57 @@ export async function ensureWorkspaceFiles(
   };
 }
 
+/**
+ * Re-apply managed `.opencode` agents/tools/config for every workspace.
+ * Used on desktop/server boot so product updates (browser tool, agent
+ * guidance, etc.) land without requiring the user to recreate the workspace.
+ * Failures are isolated per workspace so one bad path cannot block startup.
+ */
+export async function ensureAllWorkspaceFiles(
+  workspaces: Array<{ path: string; preset?: string | null; id?: string }>,
+  options?: {
+    log?: (level: "info" | "warn", message: string, meta?: Record<string, unknown>) => void;
+  },
+): Promise<{
+  ok: number;
+  failed: number;
+  changed: number;
+  errors: Array<{ path: string; message: string }>;
+}> {
+  let ok = 0;
+  let failed = 0;
+  let changed = 0;
+  const errors: Array<{ path: string; message: string }> = [];
+  for (const workspace of workspaces) {
+    const workspacePath = String(workspace.path ?? "").trim();
+    if (!workspacePath) continue;
+    try {
+      const result = await ensureWorkspaceFiles(
+        workspacePath,
+        workspace.preset ?? "starter",
+      );
+      ok += 1;
+      if (result.changed) changed += 1;
+      options?.log?.("info", "workspace .opencode refreshed", {
+        workspaceId: workspace.id,
+        path: workspacePath,
+        changed: result.changed,
+        reloadReasons: result.reloadReasons,
+      });
+    } catch (error) {
+      failed += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push({ path: workspacePath, message });
+      options?.log?.("warn", "workspace .opencode refresh failed", {
+        workspaceId: workspace.id,
+        path: workspacePath,
+        error: message,
+      });
+    }
+  }
+  return { ok, failed, changed, errors };
+}
+
 export async function readRawOpencodeConfig(
   path: string,
 ): Promise<{ exists: boolean; content: string | null }> {
