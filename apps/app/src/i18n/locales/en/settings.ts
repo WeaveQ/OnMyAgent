@@ -27,6 +27,16 @@ export default {
   "settings.update_install_title": "How updates install",
   "settings.update_install_desc":
     "OnMyAgent opens the GitHub release page so you can download the installer for your platform. There is no in-app download or silent install.",
+  "settings.update_check_timeout":
+    "Timed out while contacting the update server. Check your network or open the release page in a browser.",
+  "settings.update_check_network":
+    "Could not reach the update server. Check your network or proxy, or open the release page in a browser.",
+  "settings.update_check_http":
+    "The update server returned an unexpected response. Try again later or open the release page.",
+  "settings.update_check_no_releases":
+    "No releases have been published yet. You can still open the releases page.",
+  "settings.update_check_unavailable":
+    "Could not check for updates right now. You can open the release page in a browser instead.",
   "settings.cache_repair_requires_desktop": "Only available in the desktop app",
   "settings.cap_browser_tools": "Browser tools: {value}",
   "settings.cap_commands": "Commands: {value}",
