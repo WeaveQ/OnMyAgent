@@ -22,7 +22,7 @@ export default {
   "settings.audit_log_title": "审计日志",
   "settings.auto_compact": "自动上下文压缩",
   "settings.auto_compact_desc":
-    "控制此工作区的自动压缩上下文。更改后请重载引擎",
+    "控制此工作区的自动上下文压缩。更改后请重载引擎",
   "settings.auto_update_desc": "不支持应用内下载。发现新版本后请打开发布页手动安装。",
   "settings.auto_update_title": "自动更新",
   "settings.auto_updates_packaged_only": "自动更新仅在打包版本中可用。",
@@ -541,8 +541,9 @@ export default {
     "基于 Chrome V8 引擎的 JavaScript 运行时，用于服务端开发",
   "settings.software_env.python_desc":
     "通用编程语言，适用于脚本编写、自动化和数据处理",
+  "settings.software_env.runtime_name": "智能体运行时",
   "settings.software_env.opencode_desc":
-    "OnMyAgent 使用的本地智能体运行时",
+    "OnMyAgent 用于执行任务的本地智能体运行时",
   "settings.tab_extensions": "扩展",
   "settings.extensions_card_description": "MCP、技能、插件和连接器",
   "settings.tab_general": "总览",

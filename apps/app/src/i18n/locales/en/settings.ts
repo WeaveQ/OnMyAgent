@@ -651,8 +651,9 @@ export default {
     "JavaScript runtime built on Chrome V8, for server-side development",
   "settings.software_env.python_desc":
     "General-purpose language for scripting, automation, and data processing",
+  "settings.software_env.runtime_name": "Agent runtime",
   "settings.software_env.opencode_desc":
-    "Local agent runtime used by OnMyAgent",
+    "Local agent runtime used by OnMyAgent to run tasks",
   "settings.tab_extensions": "Extensions",
   "settings.extensions_card_description":
     "MCPs, skills, plugins, and integrations",

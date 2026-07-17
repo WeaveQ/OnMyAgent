@@ -44,11 +44,7 @@ import {
   type EnvironmentVariableItem,
 } from "./environment-variable-table";
 import {
-  LayoutSection,
-  LayoutSectionDescription,
-  LayoutSectionHeader,
   LayoutSectionItemFootnote,
-  LayoutSectionTitle,
   LayoutStack,
 } from "../settings-layout";
 import { useStatusToasts } from "../../shell-feedback";
@@ -156,23 +152,25 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
   };
 
   return (
-    <LayoutSection>
-      <LayoutSectionHeader>
-        <div className={environmentLayoutClass.panelHeader}>
-          <div className="min-w-0">
-            <LayoutSectionTitle>{t("settings.environment.title")}</LayoutSectionTitle>
-            <LayoutSectionDescription className={environmentLayoutClass.description}>
-              {t("settings.environment.description")}
-            </LayoutSectionDescription>
-          </div>
-          {props.canEdit ? (
-            <Button onClick={openAdd}>
-              <Plus className="size-4" />
-              {t("settings.environment.add_button")}
-            </Button>
-          ) : null}
+    <section className="flex flex-col gap-3">
+      <div className={environmentLayoutClass.panelHeader}>
+        <div className="min-w-0 space-y-1">
+          <h3 className="text-lg font-medium text-foreground">
+            {t("settings.environment.title")}
+          </h3>
+          <p
+            className={`text-sm text-muted-foreground ${environmentLayoutClass.description}`}
+          >
+            {t("settings.environment.description")}
+          </p>
         </div>
-      </LayoutSectionHeader>
+        {props.canEdit ? (
+          <Button className="shrink-0" onClick={openAdd}>
+            <Plus className="size-4" />
+            {t("settings.environment.add_button")}
+          </Button>
+        ) : null}
+      </div>
 
       {props.isRemoteWorkspace ? (
         <SettingsNotice>{t("settings.environment.remote_workspace_hint")}</SettingsNotice>
@@ -211,7 +209,7 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
           onChange={props.onEditorChange}
         />
       ) : null}
-    </LayoutSection>
+    </section>
   );
 }
 
