@@ -290,11 +290,28 @@ function personalMessageKind(message: PersonalAdapterMessage): ConversationItemK
   }
 }
 
+function personalToolName(message: PersonalAdapterMessage): string | null {
+  const tool = message.toolCall;
+  const update = message.update;
+  if (typeof tool?.name === "string" && tool.name.trim()) return tool.name.trim();
+  if (typeof update?.title === "string" && update.title.trim()) return update.title.trim();
+  if (typeof tool?.kind === "string" && tool.kind.trim()) return tool.kind.trim();
+  if (typeof update?.kind === "string" && update.kind.trim()) return update.kind.trim();
+  const text = message.text?.trim();
+  return text || null;
+}
+
+function personalApprovalId(message: PersonalAdapterMessage): string | null {
+  const id = message.approval?.id;
+  return typeof id === "string" && id.trim() ? id : null;
+}
+
 /** Map intermediate personal messages to runtime-agnostic item VMs. */
 export function personalMessagesToConversationItems(
   messages: PersonalAdapterMessage[],
 ): ConversationItemVM[] {
   return messages.map((message) => {
+    const kind = personalMessageKind(message);
     const meta: Record<string, unknown> = {
       personalType: message.type,
       sourceEventType: message.sourceEventType,
@@ -311,13 +328,28 @@ export function personalMessagesToConversationItems(
     if (message.resolution != null) meta.resolution = message.resolution;
     if (message.toolCalls != null) meta.toolCalls = message.toolCalls;
 
+    const toolName = kind === "tool" ? personalToolName(message) : null;
+    const toolStatus =
+      kind === "tool"
+        ? (message.status
+          ?? (typeof message.update?.status === "string" ? message.update.status : null)
+          ?? (typeof message.toolCall?.status === "string" ? message.toolCall.status : null)
+          ?? null)
+        : null;
+    const thinkingStatus = kind === "thinking" ? (message.status ?? null) : null;
+    const approvalId = kind === "approval" ? personalApprovalId(message) : null;
+
     return {
       id: message.id,
-      kind: personalMessageKind(message),
+      kind,
       role: message.role,
       text: message.text,
       createdAt: message.createdAt,
       status: message.status ?? null,
+      toolName,
+      toolStatus,
+      thinkingStatus,
+      approvalId,
       meta,
     };
   });

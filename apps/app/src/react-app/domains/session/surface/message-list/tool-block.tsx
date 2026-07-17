@@ -22,6 +22,12 @@ import { MessageRolePrefix, MessageRoleRow } from "@/components/ui/message-role"
 import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { summarizeStep } from "../../../../../app/utils";
+import {
+  mapOpenCodeReasoningPartToItem,
+  mapOpenCodeToolPartToItem,
+  ThinkingBlock,
+  ToolItemRow,
+} from "../../../../capabilities/conversation";
 import { usePlatform } from "../../../../kernel/platform";
 import { MarkdownBlock } from "../markdown";
 import {
@@ -241,11 +247,62 @@ export function StepRow(props: {
 
   if (props.part.type === "reasoning") {
     if (!props.part.text.trim()) return null;
+    // Streaming reasoning keeps the auto-scrolling TranscriptReasoning surface.
+    // Completed reasoning uses the shared Conversation ThinkingBlock.
+    if (!props.isStreamingReasoning) {
+      const thinkingItem = mapOpenCodeReasoningPartToItem(
+        { type: "reasoning", text: props.part.text },
+        { id: props.id, complete: true },
+      );
+      return <ThinkingBlock item={thinkingItem} defaultExpanded={false} />;
+    }
     return (
       <TranscriptReasoning
         text={props.part.text}
         complete={!props.isStreamingReasoning}
       />
+    );
+  }
+
+  // Compact shared tool row for simple, non-expandable tools without specialized UI.
+  if (
+    props.part.type === "tool"
+    && !specializedDetails
+    && !expandable
+    && questionAnswers.length === 0
+  ) {
+    const toolStateStatus =
+      typeof toolState.status === "string"
+        ? toolState.status
+        : typeof summary.status === "string"
+          ? summary.status
+          : null;
+    const toolItem = mapOpenCodeToolPartToItem(
+      {
+        type: "tool",
+        toolName: props.part.tool,
+        tool: props.part.tool,
+        toolCallId: props.id,
+        state: toolStateStatus ?? undefined,
+        input: toolInput,
+        output: toolOutput,
+      },
+      { id: props.id },
+    );
+    return (
+      <div className={messageTextClass.body}>
+        <ToolItemRow
+          item={{
+            ...toolItem,
+            text: headline,
+            toolName: toolItem.toolName,
+            meta: {
+              ...toolItem.meta,
+              description: toolPresentation?.secondary ?? undefined,
+            },
+          }}
+        />
+      </div>
     );
   }
 

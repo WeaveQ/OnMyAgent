@@ -15,6 +15,8 @@ export {
 
 export {
   mapOpenCodeMessageToItems,
+  mapOpenCodeReasoningPartToItem,
+  mapOpenCodeToolPartToItem,
   toConversationItems as toOpenCodeConversationItems,
   type OpenCodeMessageLike,
   type OpenCodeMessagePartLike,
