@@ -27,12 +27,14 @@ describe("main rail channel icon contract", () => {
       'props.active\n    ? "fill-dls-rail"\n    : "fill-current transition-colors"',
     );
     expect(railSource).toContain("strokeWidth={props.active ? 0 : 1.5}");
-    expect(railSource).toContain('className="group/channel"');
+    expect(railSource).toContain('props.item.id === "channels" ? "group/channel"');
     expect(railSource).toContain(
       '<Icon active={props.active} className="size-5" />',
     );
     expect(railSource).not.toContain("MessagesSquare");
     expect(railSource).toContain('get label() { return t("nav.channels"); }');
+    expect(railSource).toContain('id: "devices"');
+    expect(railSource).toContain("icon: DevicesRailIcon");
     expect(railSource).not.toContain("wechat.png");
     expect(primitiveSource).toContain('true: "text-dls-accent"');
     expect(primitiveSource).not.toContain('true: "bg-dls-rail-active text-dls-text"');

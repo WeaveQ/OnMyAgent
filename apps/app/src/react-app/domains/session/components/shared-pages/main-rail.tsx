@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
+import { MonitorSmartphone } from "lucide-react";
 
 import { RailButton } from "@/components/ui/action-row";
 import { t } from "../../../../../i18n";
@@ -33,8 +34,12 @@ type RailItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
-type BottomRailItem = Omit<RailItem, "icon"> & {
-  icon: ComponentType<{ active: boolean; className?: string }>;
+type BottomRailIcon = ComponentType<{ active?: boolean; className?: string }>;
+
+type BottomRailItem = {
+  id: OnMyAgentPrimaryView;
+  label: string;
+  icon: BottomRailIcon;
 };
 
 function WeChatBubblesIcon(props: { active: boolean; className?: string }) {
@@ -83,12 +88,20 @@ const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
 ];
 
+function DevicesRailIcon(props: { active?: boolean; className?: string }) {
+  return <MonitorSmartphone className={props.className} aria-hidden="true" />;
+}
+
 const BOTTOM_RAIL_ITEMS: BottomRailItem[] = [
   {
     id: "channels",
     get label() { return t("nav.channels"); },
-    shortLabel: "",
     icon: WeChatBubblesIcon,
+  },
+  {
+    id: "devices",
+    get label() { return t("nav.devices"); },
+    icon: DevicesRailIcon,
   },
 ];
 
@@ -127,7 +140,7 @@ function BottomRailButton(props: {
       data-view-id={props.item.id}
       size="bottom"
       active={props.active}
-      className="group/channel"
+      className={props.item.id === "channels" ? "group/channel" : undefined}
       title={props.item.label}
       aria-label={props.item.label}
       aria-pressed={props.active}
@@ -173,7 +186,6 @@ export function OnMyAgentRail(props: {
         <SidebarAccountButton
           compact
           account={props.account || undefined}
-          onOpenDevices={props.onOpenDevices}
           onOpenUsage={props.onOpenUsage}
           onOpenSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
