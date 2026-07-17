@@ -88,14 +88,17 @@ describe("personal usage model", () => {
     ];
 
     const dailySeries = buildTokenActivitySeries(daily, "daily", "2026-07-16");
-    expect(dailySeries).toHaveLength(365);
-    expect(dailySeries.at(-1)).toMatchObject({ date: "2026-07-16", value: 30, level: 4 });
+    expect(dailySeries.length).toBeGreaterThan(0);
+    const totalCells = dailySeries.reduce((sum, column) => sum + column.cells.length, 0);
+    expect(totalCells).toBe(371);
+    const lastColumn = dailySeries.at(-1);
+    expect(lastColumn?.cells.at(4)).toMatchObject({ date: "2026-07-16", value: 30, level: 4 });
 
     const weeklySeries = buildTokenActivitySeries(daily, "weekly", "2026-07-16");
-    expect(weeklySeries.at(-1)).toMatchObject({ value: 60 });
+    expect(weeklySeries.at(-1)).toMatchObject({ weekStart: "2026-07-12", weeklyValue: 60 });
 
     const cumulativeSeries = buildTokenActivitySeries(daily, "cumulative", "2026-07-16");
-    expect(cumulativeSeries.at(-1)).toMatchObject({ date: "2026-07-16", value: 60 });
+    expect(cumulativeSeries.at(-1)).toMatchObject({ weekStart: "2026-07-12", cumulativeValue: 60 });
   });
 
   test("formats compact totals and human task duration", () => {

@@ -14,7 +14,10 @@ import {
   buildTokenActivitySeries,
   formatPersonalTokenCount,
   formatTaskDuration,
+  monthLabelColumns,
   type PersonalUsageClient,
+  type TokenActivityCell,
+  type TokenActivityColumn,
   type TokenActivityMode,
 } from "./personal-usage-model";
 import { usePersonalUsage } from "./use-personal-usage";
@@ -28,14 +31,23 @@ type PersonalUsagePageProps = {
   };
   /** @deprecated Header edit action removed; kept for call-site compatibility. */
   onEdit?: () => void;
+  defaultActivityMode?: TokenActivityMode;
 };
 
 const activityLevelClass: Record<number, string> = {
   0: "bg-dls-surface-muted",
-  1: "bg-dls-accent/15",
-  2: "bg-dls-accent/30",
-  3: "bg-dls-accent/55",
+  1: "bg-dls-accent/20",
+  2: "bg-dls-accent/40",
+  3: "bg-dls-accent/70",
   4: "bg-dls-accent",
+};
+
+const columnHoverLevelClass: Record<number, string> = {
+  0: "group-hover:bg-dls-accent/15",
+  1: "group-hover:bg-dls-accent/40",
+  2: "group-hover:bg-dls-accent/60",
+  3: "group-hover:bg-dls-accent/85",
+  4: "group-hover:bg-dls-accent-hover",
 };
 
 function usageActivityModeLabel(mode: TokenActivityMode): string {
@@ -72,6 +84,67 @@ function formatDays(count: number) {
     : t("session.usage_days", { count });
 }
 
+function formatLocalizedTokenCount(tokens: number) {
+  const locale = currentLocale();
+  if (locale === "zh" || locale === "zh-TW") {
+    const roundedTokens = Math.max(0, Math.round(tokens));
+    if (roundedTokens >= 100_000_000) {
+      return t("session.usage_token_count_yi", {
+        value: Number((roundedTokens / 100_000_000).toFixed(1)),
+      });
+    }
+    if (roundedTokens >= 10_000) {
+      return t("session.usage_token_count_wan", {
+        value: Number((roundedTokens / 10_000).toFixed(1)),
+      });
+    }
+    return t("session.usage_token_count", { value: roundedTokens });
+  }
+  return formatPersonalTokenCount(tokens);
+}
+
+function formatActivityDate(date: string, mode: TokenActivityMode) {
+  const locale = currentLocale();
+  const value = new Date(`${date}T00:00:00Z`);
+  if (mode === "daily") {
+    return new Intl.DateTimeFormat(locale, {
+      month: "long",
+      day: "numeric",
+    }).format(value);
+  }
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(value);
+}
+
+function activityTooltip(props: {
+  mode: TokenActivityMode;
+  column: TokenActivityColumn;
+  cell: TokenActivityCell;
+}) {
+  if (props.mode === "daily") {
+    const date = formatActivityDate(props.cell.date, "daily");
+    return t("session.usage_daily_tooltip", {
+      date,
+      tokens: formatLocalizedTokenCount(props.cell.value),
+    });
+  }
+  if (props.mode === "weekly") {
+    const date = formatActivityDate(props.column.weekStart, "weekly");
+    return t("session.usage_weekly_tooltip", {
+      date,
+      tokens: formatLocalizedTokenCount(props.column.weeklyValue),
+    });
+  }
+  const date = formatActivityDate(props.column.weekStart, "weekly");
+  return t("session.usage_cumulative_tooltip", {
+    date,
+    tokens: formatLocalizedTokenCount(props.column.cumulativeValue),
+  });
+}
+
 function Metric(props: { label: string; value: string }) {
   return (
     <div className="min-w-0 px-3 py-3 text-center">
@@ -83,20 +156,82 @@ function Metric(props: { label: string; value: string }) {
   );
 }
 
-function monthLabels(today: string) {
-  const locale = currentLocale();
-  const formatter = new Intl.DateTimeFormat(locale, { month: "short" });
-  const end = new Date(`${today}T00:00:00Z`);
-  return Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(
-      Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 11 + index, 1),
-    );
-    return formatter.format(date);
-  });
+function ActivityGrid(props: {
+  columns: TokenActivityColumn[];
+  mode: TokenActivityMode;
+}) {
+  const [hovered, setHovered] = useState<{
+    column: TokenActivityColumn;
+    cell: TokenActivityCell;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  return (
+    <div
+      className="relative"
+      role="grid"
+      aria-label={t("session.usage_activity_grid_label")}
+      onMouseLeave={() => setHovered(null)}
+    >
+      <div className="flex justify-end gap-1 overflow-hidden">
+        {props.columns.map((column) => (
+          <div
+            key={column.weekStart}
+            className="group flex shrink-0 flex-col gap-1"
+          >
+            {column.cells.map((cell, index) => (
+              <div
+                key={index}
+                role="gridcell"
+                tabIndex={0}
+                className={cn(
+                  "size-3 shrink-0 rounded-xs",
+                  "transition-colors outline-none",
+                  "focus-visible:ring-2 focus-visible:ring-dls-accent",
+                  activityLevelClass[cell.level],
+                  props.mode === "daily"
+                    ? "hover:ring-1 hover:ring-dls-text/40"
+                    : columnHoverLevelClass[cell.level],
+                )}
+                aria-label={activityTooltip({
+                  mode: props.mode,
+                  column,
+                  cell,
+                })}
+                onMouseEnter={(event) =>
+                  setHovered({
+                    column,
+                    cell,
+                    x: event.clientX,
+                    y: event.clientY,
+                  })
+                }
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      {hovered ? (
+        <div
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-dls-border bg-dls-surface px-3 py-1.5 text-xs text-dls-text shadow-md"
+          style={{ left: hovered.x, top: hovered.y - 8 }}
+        >
+          {activityTooltip({
+            mode: props.mode,
+            column: hovered.column,
+            cell: hovered.cell,
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function PersonalUsagePage(props: PersonalUsagePageProps) {
-  const [activityMode, setActivityMode] = useState<TokenActivityMode>("daily");
+  const [activityMode, setActivityMode] = useState<TokenActivityMode>(
+    props.defaultActivityMode ?? "daily",
+  );
   const today = new Date().toISOString().slice(0, 10);
   const usage = usePersonalUsage({
     client: props.client,
@@ -107,18 +242,21 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
     () => buildTokenActivitySeries(usage.summary.daily, activityMode, today),
     [activityMode, today, usage.summary.daily],
   );
-  const months = useMemo(() => monthLabels(today), [today]);
+  const monthLabels = useMemo(
+    () => monthLabelColumns(activity, today, currentLocale()),
+    [activity, today],
+  );
   const failureNames = usage.failures
     .map((failure) => failure.workspaceName)
     .join(", ");
   const metrics = [
     {
       label: t("session.usage_total_tokens"),
-      value: formatPersonalTokenCount(usage.summary.totalTokens),
+      value: formatLocalizedTokenCount(usage.summary.totalTokens),
     },
     {
       label: t("session.usage_peak_tokens"),
-      value: formatPersonalTokenCount(usage.summary.peakSessionTokens),
+      value: formatLocalizedTokenCount(usage.summary.peakSessionTokens),
     },
     {
       label: t("session.usage_longest_task"),
@@ -247,45 +385,20 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   {t("session.usage_empty")}
                 </EmptyStateBox>
               ) : (
-                <div className="mt-4 overflow-x-auto pb-2">
-                  <div className="min-w-3xl">
-                    <div
-                      className={cn(
-                        "grid w-full justify-between gap-y-1",
-                        activityMode === "weekly"
-                          ? "grid-flow-col grid-rows-1"
-                          : "grid-flow-col grid-rows-7",
-                      )}
-                      role="grid"
-                      aria-label={t("session.usage_activity_grid_label")}
-                    >
-                      {activity.map((point) => (
-                        <div
-                          key={point.date}
-                          role="gridcell"
-                          className={cn(
-                            "size-3 rounded-xs",
-                            activityLevelClass[point.level],
-                          )}
-                          aria-label={t("session.usage_cell_label", {
-                            date: point.date,
-                            tokens: formatPersonalTokenCount(point.value),
-                          })}
-                          title={t("session.usage_cell_label", {
-                            date: point.date,
-                            tokens: formatPersonalTokenCount(point.value),
-                          })}
-                        />
-                      ))}
-                    </div>
-                    <div
-                      className="mt-2 grid grid-cols-12 text-xs text-dls-secondary"
-                      aria-hidden="true"
-                    >
-                      {months.map((month, index) => (
-                        <span key={`${month}-${index}`}>{month}</span>
-                      ))}
-                    </div>
+                <div className="mt-4 overflow-hidden pb-2">
+                  <ActivityGrid columns={activity} mode={activityMode} />
+                  <div className="relative mt-2 h-5" aria-hidden="true">
+                    {monthLabels.map(({ label, columnIndex }) => (
+                      <span
+                        key={`${label}-${columnIndex}`}
+                        className="absolute top-0 text-sm text-dls-secondary"
+                        style={{
+                          right: `${(1 - (columnIndex + 1) / activity.length) * 100}%`,
+                        }}
+                      >
+                        {label}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}

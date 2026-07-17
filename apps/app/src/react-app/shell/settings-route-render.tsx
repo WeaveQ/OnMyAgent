@@ -34,6 +34,15 @@ import {
   type AiSettingsConnectedProvider,
 } from "../domains/settings";
 import { OpenCodeProviderConfigDialog } from "../domains/session";
+import {
+  AgentManagementProviderModal,
+  defaultProviderDraft,
+  providerDraftFromProvider,
+  serializeProviderModelRows,
+  serializeProviderModelCapabilities,
+  type ProviderDraft,
+} from "../domains/local-agents";
+import { ConfirmModal } from "../design-system/modals/confirm-modal";
 import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../domains/settings";
 import { isOnMyAgentExtensionEnabled } from "../domains/shared";
 import {
@@ -72,6 +81,7 @@ import { usePlatform } from "../kernel/platform";
 import { useLocal } from "../kernel/local-provider";
 import type { OnboardingProfile } from "../kernel/local-provider";
 import {
+  agentManagementProviderAction,
   agentManagementSnapshot,
   onmyagentServerInfo,
   pickDirectory,
@@ -264,6 +274,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providerConnectedIds, setProviderConnectedIds] = useState<string[]>([]);
   const [opencodeManagedProviders, setOpenCodeManagedProviders] = useState<AgentManagementManagedProvider[]>([]);
   const [openCodeProviderConfigOpen, setOpenCodeProviderConfigOpen] = useState(false);
+  const [providerEditOpen, setProviderEditOpen] = useState(false);
+  const [providerEditDraft, setProviderEditDraft] = useState<ProviderDraft>(
+    () => defaultProviderDraft("opencode"),
+  );
+  const [providerEditBusy, setProviderEditBusy] = useState(false);
+  const [providerEditConfirmOpen, setProviderEditConfirmOpen] = useState(false);
+  const [providerDeleteTarget, setProviderDeleteTarget] = useState<AiSettingsConnectedProvider | null>(null);
+  const [providerDeleteBusy, setProviderDeleteBusy] = useState(false);
+  const [providerEditError, setProviderEditError] = useState<string | null>(null);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [developerMode, setDeveloperMode] = useState(() => readStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, false));
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
@@ -1371,6 +1390,137 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     };
   }, [loadOpenCodeManagedProviders, route.tab, selectedWorkspaceRoot]);
 
+  const managedProviderById = useCallback(
+    (providerId: string) =>
+      opencodeManagedProviders.find((provider) => provider.id === providerId) ?? null,
+    [opencodeManagedProviders],
+  );
+
+  const handleEditProvider = useCallback(
+    (provider: AiSettingsConnectedProvider) => {
+      const managed = managedProviderById(provider.id);
+      if (!managed) return;
+      setProviderEditError(null);
+      setProviderEditDraft(providerDraftFromProvider(managed));
+      setProviderEditOpen(true);
+    },
+    [managedProviderById],
+  );
+
+  // Edit modal "save": open a confirmation dialog instead of saving directly.
+  const handleEditSubmit = useCallback(() => {
+    setProviderEditConfirmOpen(true);
+  }, []);
+
+  const confirmEditProviderSave = useCallback(async () => {
+    const draft = providerEditDraft;
+    setProviderEditBusy(true);
+    setProviderEditError(null);
+    try {
+      await agentManagementProviderAction({
+        action: "save",
+        appType: "opencode",
+        syncLive: true,
+        workspaceRoot: selectedWorkspaceRoot,
+        provider: {
+          id: draft.id,
+          name: draft.name,
+          settingsConfig: draft.settingsJson.trim() ? draft.settingsJson : undefined,
+          simple: {
+            id: draft.id,
+            name: draft.name,
+            baseUrl: draft.baseUrl,
+            apiKey: draft.apiKey,
+            models: serializeProviderModelRows(draft.modelRows),
+            modelCapabilities: serializeProviderModelCapabilities(draft.modelRows),
+            claudeHaikuModel: draft.claudeHaikuModel,
+            claudeHaikuName: draft.claudeHaikuName,
+            claudeSonnetModel: draft.claudeSonnetModel,
+            claudeSonnetName: draft.claudeSonnetName,
+            claudeOpusModel: draft.claudeOpusModel,
+            claudeOpusName: draft.claudeOpusName,
+            claudeFableModel: draft.claudeFableModel,
+            claudeFableName: draft.claudeFableName,
+          },
+        },
+      });
+      setProviderEditConfirmOpen(false);
+      setProviderEditOpen(false);
+      setConfigActionStatus(t("settings.config_updated"));
+      reloadCoordinator.markReloadRequired("config", {
+        type: "config",
+        name: "opencode.json",
+        action: "updated",
+      });
+      const managedProviders = await loadOpenCodeManagedProviders();
+      setOpenCodeManagedProviders(managedProviders);
+      await providerAuthStore.refreshProviders();
+    } catch (saveError) {
+      setProviderEditConfirmOpen(false);
+      setProviderEditError(saveError instanceof Error ? saveError.message : String(saveError));
+    } finally {
+      setProviderEditBusy(false);
+    }
+  }, [
+    providerEditDraft,
+    selectedWorkspaceRoot,
+    loadOpenCodeManagedProviders,
+    providerAuthStore,
+    reloadCoordinator.markReloadRequired,
+  ]);
+
+  const handleDeleteProvider = useCallback((provider: AiSettingsConnectedProvider) => {
+    setProviderDeleteTarget(provider);
+  }, []);
+
+  const confirmDeleteProvider = useCallback(async () => {
+    const target = providerDeleteTarget;
+    if (!target) return;
+    setProviderDeleteBusy(true);
+    try {
+      await agentManagementProviderAction({
+        action: "delete",
+        appType: "opencode",
+        workspaceRoot: selectedWorkspaceRoot,
+        providerId: target.id,
+      });
+      setProviderDeleteTarget(null);
+      setConfigActionStatus(t("settings.config_updated"));
+      reloadCoordinator.markReloadRequired("config", {
+        type: "config",
+        name: "opencode.json",
+        action: "updated",
+      });
+      const managedProviders = await loadOpenCodeManagedProviders();
+      setOpenCodeManagedProviders(managedProviders);
+      await providerAuthStore.refreshProviders();
+    } catch (deleteError) {
+      setProviderDeleteTarget(null);
+      setConfigActionStatus(deleteError instanceof Error ? deleteError.message : String(deleteError));
+    } finally {
+      setProviderDeleteBusy(false);
+    }
+  }, [
+    providerDeleteTarget,
+    selectedWorkspaceRoot,
+    loadOpenCodeManagedProviders,
+    providerAuthStore,
+    reloadCoordinator.markReloadRequired,
+  ]);
+
+  const canEditConnectedProvider = useCallback(
+    (provider: AiSettingsConnectedProvider) => managedProviderById(provider.id) !== null,
+    [managedProviderById],
+  );
+
+  const canDeleteConnectedProvider = useCallback(
+    (provider: AiSettingsConnectedProvider) => {
+      const managed = managedProviderById(provider.id);
+      return managed !== null && !managed.isCurrent;
+    },
+    [managedProviderById],
+  );
+
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
   const workspaceOptions = workspaces.map((workspace) => ({
     id: workspace.id,
@@ -1693,6 +1843,17 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               await providerAuthStore.disconnectProvider(providerId);
             }}
             canDisconnectProvider={(provider) => provider.managedBy !== "opencode"}
+            onEditProvider={handleEditProvider}
+            onDeleteProvider={handleDeleteProvider}
+            canEditProvider={canEditConnectedProvider}
+            canDeleteProvider={canDeleteConnectedProvider}
+            providerActionBusyId={
+              providerEditBusy
+                ? providerEditDraft.id
+                : providerDeleteBusy && providerDeleteTarget
+                  ? providerDeleteTarget.id
+                  : null
+            }
             cloudProviderIds={new Set(
               Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
             )}
@@ -2052,10 +2213,50 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onOpenChange={setOpenCodeProviderConfigOpen}
         onSaved={async () => {
           setConfigActionStatus(t("settings.config_updated"));
+          reloadCoordinator.markReloadRequired("config", {
+            type: "config",
+            name: "opencode.json",
+            action: "updated",
+          });
           const managedProviders = await loadOpenCodeManagedProviders();
           setOpenCodeManagedProviders(managedProviders);
           await providerAuthStore.refreshProviders();
         }}
+      />
+
+      <AgentManagementProviderModal
+        open={providerEditOpen}
+        appType="opencode"
+        draft={providerEditDraft}
+        busy={providerEditBusy}
+        error={providerEditError}
+        onOpenChange={(open) => {
+          if (!open) setProviderEditOpen(false);
+        }}
+        onDraftChange={setProviderEditDraft}
+        onSubmit={handleEditSubmit}
+      />
+
+      <ConfirmModal
+        open={providerEditConfirmOpen}
+        title={t("settings.provider_edit_confirm_title")}
+        message={t("settings.provider_edit_confirm_desc")}
+        confirmLabel={t("settings.provider_edit_confirm_button")}
+        cancelLabel={t("common.cancel")}
+        variant="warning"
+        onConfirm={() => void confirmEditProviderSave()}
+        onCancel={() => setProviderEditConfirmOpen(false)}
+      />
+
+      <ConfirmModal
+        open={providerDeleteTarget !== null}
+        title={t("settings.provider_delete_confirm_title")}
+        message={t("settings.provider_delete_confirm_desc")}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void confirmDeleteProvider()}
+        onCancel={() => setProviderDeleteTarget(null)}
       />
 
       <ProviderAuthModal
