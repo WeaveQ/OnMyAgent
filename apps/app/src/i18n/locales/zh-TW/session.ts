@@ -974,7 +974,6 @@ export default {
   "session.compact_heading_key_decisions": "關鍵決策",
   "session.compact_heading_next_steps": "下一步",
   "session.compact_heading_progress": "進度",
-  "session.tool_request": "工具請求",
   "session.diff": "差異",
   "session.copy": "複製",
 } as const;
