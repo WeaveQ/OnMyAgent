@@ -1472,3 +1472,147 @@ export type PersonalLocalAgentHostStatusResult = {
     items: PersonalLocalAgentHostStatusPermissionItem[];
   };
 };
+
+export type TelegramSaveAccountInput = { accountId: string; token: string };
+export type TelegramAccountStatusInput = { accountId?: string };
+export type TelegramServiceStartInput = {
+  accountId?: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  allowedUserIds?: string[];
+  autoStart?: boolean;
+};
+export type TelegramSimulateInboundInput = {
+  accountId?: string;
+  fromUserId?: string;
+  chatId?: string;
+  text: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  textBatchDelayMs?: number;
+};
+export type TelegramAccountStatus = {
+  ok: boolean;
+  account?: {
+    accountId: string;
+    botUsername?: string;
+    hasToken?: boolean;
+    [key: string]: unknown;
+  } | null;
+  status?: MessagingChannelStatus;
+  config?: MessagingChannelStatus;
+  error?: string;
+};
+
+export type DiscordSaveAccountInput = {
+  accountId: string;
+  token: string;
+  allowedUserIds?: string[];
+};
+export type DiscordAccountStatusInput = { accountId?: string };
+export type DiscordServiceStartInput = {
+  accountId?: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  allowedUserIds?: string[];
+  autoStart?: boolean;
+};
+export type DiscordSimulateInboundInput = {
+  accountId?: string;
+  fromUserId?: string;
+  chatId?: string;
+  text: string;
+  workspaceRoot?: string;
+  accessibleWorkspaceRoots?: string[];
+  agent?: Partial<PersonalLocalAgent>;
+  availableAgents?: Array<Partial<PersonalLocalAgent>>;
+  approvalMode?: PersonalLocalAgentApprovalMode;
+  promptMode?: "raw" | "debug";
+  dmPolicy?: string;
+  allowedUsers?: string[];
+  textBatchDelayMs?: number;
+};
+export type DiscordAccountStatus = {
+  ok: boolean;
+  account?: {
+    accountId: string;
+    botUsername?: string;
+    hasToken?: boolean;
+    allowedUserIds?: string[];
+    [key: string]: unknown;
+  } | null;
+  status?: MessagingChannelStatus;
+  config?: MessagingChannelStatus;
+  error?: string;
+};
+
+export type PersonalLocalAgentTestConnectionResult = {
+  ok: boolean;
+  status: PersonalLocalAgentStatus;
+  step: "fail_cli" | "fail_acp" | "needs_auth" | "online" | string;
+  error: string | null;
+  capabilities: Record<string, unknown> | null;
+  models: Array<{ id: string; label: string }>;
+  configOptions: unknown[];
+  checkedAt: number;
+};
+
+export type PersonalLocalAgentProviderHealthResult =
+  PersonalLocalAgentTestConnectionResult & {
+    healthy: boolean;
+    reason: string | null;
+  };
+
+export type PersonalLocalAgentTestCustomAgentResult = {
+  step: "success" | "fail_cli" | "fail_acp";
+  error: string | null;
+  durationMs: number;
+};
+
+export type UserAgentRegistryFile = {
+  path: string;
+  content: string;
+  bytes: number;
+  updatedAt: number;
+};
+
+export type UserAgentRegistryWriteResult = {
+  ok: boolean;
+  path: string;
+  bytes: number;
+  updatedAt: number;
+};
+
+export type DesktopFetchResult = {
+  status: number;
+  statusText: string;
+  headers: [string, string][];
+  body: string;
+};
+
+/** End-to-end desktop IPC command → { args; result } map. */
+export type {
+  DesktopCommandContract,
+  DesktopCommandMap,
+  DesktopCommandArgsOf,
+  DesktopCommandResultOf,
+  DesktopInvoke,
+} from "./desktop-ipc-command-map";

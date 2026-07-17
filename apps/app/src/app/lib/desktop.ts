@@ -1,6 +1,10 @@
 import { nativeDeepLinkEvent } from "./deep-link-bridge";
 import { desktopCommandNames } from "@onmyagent/types/desktop-ipc-commands";
-import type { DesktopCommandName } from "@onmyagent/types/desktop-ipc";
+import type {
+  DesktopCommandMap,
+  DesktopCommandName,
+  DesktopInvoke,
+} from "@onmyagent/types/desktop-ipc";
 
 export type * from "./desktop-types";
 export type {
@@ -151,7 +155,7 @@ declare global {
   interface Window {
     __ONMYAGENT_ZOOM_FACTOR__?: number;
     __ONMYAGENT_ELECTRON__?: {
-      invokeDesktop?: (command: DesktopCommandName, ...args: unknown[]) => Promise<unknown>;
+      invokeDesktop?: DesktopInvoke;
       computerUse?: {
         onActivity?: (callback: (activity: {
           phase: "inactive" | "ready" | "running" | "paused" | "errored";
@@ -389,12 +393,24 @@ export type SoftwareEnvironmentProgress = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function invokeElectronHelper<T>(command: DesktopCommandName, ...args: unknown[]): Promise<T> {
+/** Untyped-compatible helper; prefer `invokeDesktopCommand` for map-backed typing. */
+async function invokeElectronHelper<T>(
+  command: DesktopCommandName,
+  ...args: unknown[]
+): Promise<T> {
   const invokeDesktop = window.__ONMYAGENT_ELECTRON__?.invokeDesktop;
   if (!invokeDesktop) {
     throw new Error(`Electron desktop helper is unavailable: ${command}`);
   }
-  return (await invokeDesktop(command, ...args)) as T;
+  return (await invokeDesktop(command, ...(args as never[]))) as T;
+}
+
+/** Map-backed typed invoke for a low-risk subset of call sites. */
+export async function invokeDesktopCommand<C extends DesktopCommandName>(
+  command: C,
+  ...args: DesktopCommandMap[C]["args"]
+): Promise<DesktopCommandMap[C]["result"]> {
+  return invokeElectronHelper(command, ...args);
 }
 
 // Pure utility — resolves the selected workspace ID from a workspace list
