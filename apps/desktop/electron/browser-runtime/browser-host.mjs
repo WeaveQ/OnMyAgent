@@ -8,8 +8,14 @@ import { createDomCuaRefStore } from "./dom-cua-ref-store.mjs";
 import {
   domActionExpression,
   domObservationExpression,
+  domSnapshotExpression,
+  elementBoundsExpression,
+  elementInfoExpression,
+  exportContentExpression,
   locatorActionExpression,
   locatorObservationExpression,
+  mediaUrlExpression,
+  playwrightEvaluateExpression,
 } from "./browser-page-runtime.mjs";
 
 const BLOCKED_RAW_CDP_METHODS = new Set([
@@ -21,6 +27,10 @@ const BLOCKED_RAW_CDP_METHODS = new Set([
 
 const READONLY_FORBIDDEN_EXPRESSION = /(?:\b(?:process|require|import|eval|Function|WebSocket|fetch|XMLHttpRequest)\b|\b(?:append|appendChild|remove|removeChild|replaceWith|setAttribute|insertAdjacent\w*)\s*\(|(?:^|[^=!<>])=(?!=|>))/;
 
+// Playwright page/locator.evaluate allows local assignments for projection, but still
+// blocks host capability access and common DOM mutation helpers.
+const PLAYWRIGHT_EVAL_FORBIDDEN = /\b(?:process|require|WebSocket|XMLHttpRequest)\b|\b(?:import|eval|Function|fetch)\s*\(|\b(?:appendChild|removeChild|replaceWith|insertAdjacent(?:HTML|Text|Element))\s*\(/;
+
 function assertReadonlyExpression(expression) {
   if (typeof expression !== "string" || !expression.trim()) {
     throw new TypeError("read-only evaluation expression is required");
@@ -29,6 +39,16 @@ function assertReadonlyExpression(expression) {
     throw new Error("read-only evaluation cannot mutate the page or access host capabilities");
   }
   return expression;
+}
+
+function assertPlaywrightEvaluateFunction(pageFunction) {
+  if (typeof pageFunction !== "string" || !pageFunction.trim()) {
+    throw new TypeError("playwrightEvaluate pageFunction is required");
+  }
+  if (PLAYWRIGHT_EVAL_FORBIDDEN.test(pageFunction)) {
+    throw new Error("playwrightEvaluate cannot mutate the page or access host capabilities");
+  }
+  return pageFunction;
 }
 
 function requireContext(context) {
@@ -51,6 +71,7 @@ export function createBrowserHost(options) {
   const registry = createBrowserTabRegistry();
   const domRefs = createDomCuaRefStore();
   const views = new Map();
+  const pendingDialogs = new Map();
   const authorize = options.authorize ?? (async () => undefined);
 
   const describe = (tab) => {
@@ -63,9 +84,35 @@ export function createBrowserHost(options) {
     };
   };
 
+  const trackDialogs = (tabId, view) => {
+    const debuggerApi = view?.webContents?.debugger;
+    if (!debuggerApi || typeof debuggerApi.on !== "function") return;
+    if (debuggerApi.__onmyagentDialogTracked) return;
+    debuggerApi.__onmyagentDialogTracked = true;
+    try {
+      if (!debuggerApi.isAttached()) debuggerApi.attach("1.3");
+      debuggerApi.sendCommand?.("Page.enable", {}).catch?.(() => undefined);
+    } catch {
+      // optional
+    }
+    debuggerApi.on("message", (_event, method, params) => {
+      if (method === "Page.javascriptDialogOpening") {
+        pendingDialogs.set(tabId, {
+          type: params?.type ?? "alert",
+          message: params?.message ?? "",
+          defaultPrompt: params?.defaultPrompt ?? "",
+          url: params?.url ?? "",
+        });
+      } else if (method === "Page.javascriptDialogClosed") {
+        pendingDialogs.delete(tabId);
+      }
+    });
+  };
+
   const destroyTab = (tabId) => {
     const view = views.get(tabId);
     if (!view) return;
+    pendingDialogs.delete(tabId);
     if (!view.webContents.isDestroyed()) {
       if (view.webContents.debugger.isAttached()) {
         view.webContents.debugger.detach();
@@ -141,12 +188,29 @@ export function createBrowserHost(options) {
       deliverable: params?.deliverable === true,
       handoff: params?.handoff === true,
     });
+    trackDialogs(tabId, view);
     options.onTabCreated?.(tab, view);
     if (url !== "about:blank") {
       const navigation = await loadUrlBestEffort(view, url);
       return { tab: describe(tab), navigation };
     }
     return { tab: describe(tab) };
+  };
+
+  const resolveElementSelector = (params) => {
+    if (params?.selector && typeof params.selector === "object") return params.selector;
+    if (typeof params?.css === "string") return { css: params.css };
+    if (typeof params?.role === "string") {
+      return {
+        role: params.role,
+        ...(typeof params.name === "string" ? { name: params.name } : {}),
+      };
+    }
+    if (typeof params?.testId === "string") return { testId: params.testId };
+    if (typeof params?.text === "string") return { text: params.text };
+    if (typeof params?.label === "string") return { label: params.label };
+    if (typeof params?.placeholder === "string") return { placeholder: params.placeholder };
+    return null;
   };
 
   return {
@@ -435,6 +499,13 @@ export function createBrowserHost(options) {
           await sendCdp(view, "Input.dispatchKeyEvent", { type: "keyUp", key });
           return { ok: true };
         }
+        if (params?.action === "downloadMedia") {
+          const media = await evaluateValue(view, mediaUrlExpression(params));
+          if (typeof options.downloadMedia === "function") {
+            return { ...(await options.downloadMedia({ ...media, tabId, context })) };
+          }
+          return { ok: true, ...media };
+        }
         throw new Error(`unsupported coordinate action: ${params?.action}`);
       }
       if (method === "evaluateReadonly") {
@@ -442,6 +513,85 @@ export function createBrowserHost(options) {
         const view = controllableView(tabId, context.sessionId);
         const expression = assertReadonlyExpression(params?.expression);
         return { value: await evaluateValue(view, `(() => { const value = (${expression}); return value; })()`) };
+      }
+      if (method === "playwrightEvaluate") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const pageFunction = assertPlaywrightEvaluateFunction(
+          typeof params?.pageFunction === "string"
+            ? params.pageFunction
+            : String(params?.pageFunction ?? ""),
+        );
+        const selector =
+          params?.selector && typeof params.selector === "object"
+            ? params.selector
+            : null;
+        const value = await evaluateValue(
+          view,
+          playwrightEvaluateExpression(pageFunction, params?.arg, selector),
+        );
+        return { value };
+      }
+      if (method === "domSnapshot") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const snapshot = await evaluateValue(view, domSnapshotExpression());
+        return snapshot && typeof snapshot === "object" ? snapshot : { snapshot: "", count: 0 };
+      }
+      if (method === "elementInfo") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const selector = resolveElementSelector(params);
+        if (!selector) throw new TypeError("elementInfo requires a selector");
+        return evaluateValue(view, elementInfoExpression(selector));
+      }
+      if (method === "elementScreenshot") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const selector = resolveElementSelector(params);
+        if (!selector) throw new TypeError("elementScreenshot requires a selector");
+        const bounds = await evaluateValue(view, elementBoundsExpression(selector));
+        const qualityRaw = Number(params?.quality);
+        const quality =
+          Number.isFinite(qualityRaw) && qualityRaw > 0
+            ? Math.min(Math.max(Math.floor(qualityRaw), 1), 100)
+            : 70;
+        const preferPng = params?.format === "png";
+        const clip = {
+          x: Number(bounds?.x) || 0,
+          y: Number(bounds?.y) || 0,
+          width: Math.max(1, Number(bounds?.width) || 1),
+          height: Math.max(1, Number(bounds?.height) || 1),
+          scale: 1,
+        };
+        const result = await sendCdp(view, "Page.captureScreenshot", {
+          format: preferPng ? "png" : "jpeg",
+          ...(preferPng ? {} : { quality }),
+          clip,
+          captureBeyondViewport: true,
+        });
+        return {
+          image: typeof result?.data === "string"
+            ? `data:image/${preferPng ? "png" : "jpeg"};base64,${result.data}`
+            : null,
+          bounds: clip,
+          format: preferPng ? "png" : "jpeg",
+        };
+      }
+      if (method === "getJsDialog") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        controllableView(tabId, context.sessionId);
+        const dialog = pendingDialogs.get(tabId) ?? null;
+        return { dialog, open: Boolean(dialog) };
+      }
+      if (method === "exportContent") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const type = typeof params?.type === "string" ? params.type : "text";
+        const exported = await evaluateValue(view, exportContentExpression(type));
+        return exported && typeof exported === "object"
+          ? exported
+          : { type: "text", text: String(exported ?? "") };
       }
       if (method === "locatorAction") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
@@ -453,6 +603,7 @@ export function createBrowserHost(options) {
           "isEnabled",
           "textContent",
           "innerText",
+          "getAttribute",
           "waitFor",
         ]);
         if (readOnlyActions.has(action)) {
@@ -491,16 +642,37 @@ export function createBrowserHost(options) {
       if (method === "domAction") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
+        if (params?.action === "downloadMedia" && !params?.ref) {
+          const media = await evaluateValue(view, mediaUrlExpression(params));
+          if (typeof options.downloadMedia === "function") {
+            return { ...(await options.downloadMedia({ ...media, tabId, context })) };
+          }
+          return { ok: true, ...media };
+        }
         const node = domRefs.resolve(tabId, params?.ref);
         await authorize({
-          kind: params?.action === "click" ? "click" : "page-action",
+          kind: params?.action === "click" || params?.action === "doubleClick"
+            ? "click"
+            : "page-action",
           engine: "dom-cua",
           label: node.label ?? "",
           context,
         });
-        await evaluateValue(view, domActionExpression(node, params?.action, params));
-        domRefs.invalidate(tabId);
-        return { ok: true };
+        const value = await evaluateValue(view, domActionExpression(node, params?.action, params));
+        if (params?.action === "downloadMedia") {
+          if (typeof options.downloadMedia === "function") {
+            return {
+              ...(await options.downloadMedia({
+                ...(value && typeof value === "object" ? value : {}),
+                tabId,
+                context,
+              })),
+            };
+          }
+          return { ok: true, ...(value && typeof value === "object" ? value : {}) };
+        }
+        if (params?.action !== "keypress") domRefs.invalidate(tabId);
+        return { ok: true, value };
       }
       if (method === "tabContent") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
@@ -514,6 +686,7 @@ export function createBrowserHost(options) {
           accept: params?.action === "accept",
           promptText: params?.promptText,
         });
+        pendingDialogs.delete(tabId);
         return { ok: true };
       }
       if (method === "clipboardRead") {
@@ -609,6 +782,7 @@ export function createBrowserHost(options) {
         sessionId,
         temporary: false,
       });
+      trackDialogs(tabId, view);
       options.onTabCreated?.(tab, view);
       return tab;
     },
