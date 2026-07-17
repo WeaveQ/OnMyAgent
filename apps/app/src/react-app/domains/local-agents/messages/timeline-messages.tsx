@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
+import {
+  mapPersonalRunToMessages,
+  toPersonalConversationItems,
+} from "../../../capabilities/conversation";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
@@ -17,112 +21,18 @@ export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefine
   return event?.at ?? run?.finishedAt ?? run?.startedAt ?? null;
 }
 
-function runEventString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function runEventPlanEntries(event: PersonalLocalAgentRunResult["events"][number]) {
-  if (Array.isArray(event.plan?.entries)) return event.plan.entries;
-  const entries = event.data?.entries;
-  return Array.isArray(entries) ? entries : [];
-}
-
-function runEventResolution(value: unknown) {
-  return value && typeof value === "object" ? value as { target?: string; kind?: string; message?: string } : null;
-}
-
-function shouldJoinAssistantChunkTightly(current: string, next: string) {
-  if (!current || /^\s/.test(next) || /\s$/.test(current)) return true;
-  if (/^[,.;:!?，。！？、；：）)\]}]/.test(next)) return true;
-  if (/[（([{]$/.test(current)) return true;
-  if (/[\u4e00-\u9fff]$/.test(current) || /^[\u4e00-\u9fff]/.test(next)) return true;
-  return false;
-}
-
+/**
+ * Visible timeline rows for a personal run.
+ * Event → message mapping lives in capabilities/conversation personal adapter;
+ * this keeps the rich PersonalLocalAgentConversationMessage shape for UI cards.
+ */
 export function visibleRunTimelineMessages(run: PersonalLocalAgentRunResult | null | undefined) {
-  const sourceMessages = run?.conversationMessages?.length
-    ? run.conversationMessages
-    : (run?.events ?? []).flatMap((event, index): PersonalLocalAgentConversationMessage[] => {
-      const text = event.text.trim();
-      if (!text) return [];
-      const createdAt = event.at || Date.now();
-      if (event.type === "assistant_chunk") return [{ id: `event-${index}`, type: "text", role: "assistant", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "assistant" || event.type === "finish") return [{ id: `event-${index}`, type: "finish", role: "assistant", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "tool") return [{ id: `event-${index}`, type: "tool", role: "tool", text, createdAt, sourceEventType: event.type, status: /failed|error/i.test(text) ? "failed" : "running", toolCall: event.toolCall ?? null }];
-      if (event.type === "acp_tool_call") return [{ id: `event-${index}`, type: "acp_tool_call", role: "tool", text, createdAt, sourceEventType: event.type, status: event.update?.status ?? "running", update: event.update ?? null, msgId: event.msgId ?? null }];
-      if (event.type === "plan") return [{ id: `event-${index}`, type: "plan", role: "assistant", text, createdAt, sourceEventType: event.type, entries: runEventPlanEntries(event) }];
-      if (event.type === "thinking") return [{ id: `event-${index}`, type: "thinking", role: "assistant", text, createdAt, sourceEventType: event.type, status: event.status ?? runEventString(event.data?.status) ?? "thinking", msgId: event.msgId ?? null, durationMs: event.durationMs ?? null, startedAt: event.startedAt ?? null }];
-      if (event.type === "tips") return [{ id: `event-${index}`, type: "tips", role: "system", text, createdAt, sourceEventType: event.type, category: event.category ?? runEventString(event.data?.category) ?? "info", ownership: event.ownership ?? runEventString(event.data?.ownership), resolution: event.resolution ?? runEventResolution(event.data?.resolution) }];
-      if (event.type === "approval_request") return [{ id: `event-${index}`, type: "permission", role: "system", text, createdAt, sourceEventType: event.type, approval: event.approval ?? null }];
-      if (event.type === "error") return [{ id: `event-${index}`, type: "error", role: "system", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "status") return [{ id: `event-${index}`, type: "agent_status", role: "system", text, createdAt, sourceEventType: event.type }];
-      return [];
-    });
-  const messages = sourceMessages.filter((message) => {
-    if (message.type === "thought") return false;
-    if (!message.text.trim() && !(message.type === "thinking" && (message.status === "done" || message.status === "completed"))) return false;
-    if (message.type === "finish") return false;
-    if (message.role === "assistant" && message.type === "text") {
-      return false;
-    }
-    if (message.type === "agent_status") return false;
-    if (message.type === "agent_status" && /^.+ ACP flow started$/.test(message.text.trim())) return false;
-    if (message.type === "available_commands" || message.type === "context_usage") return false;
-    if (message.type === "tool" && !message.toolCall?.id) return false;
-    if (message.type === "acp_tool_call" && !message.update?.toolCallId) return false;
-    return true;
-  });
-  const grouped: PersonalLocalAgentConversationMessage[] = [];
-  const thinkingIndexByKey = new Map<string, number>();
-  let planIndex = -1;
-  for (const message of messages) {
-    if (message.type === "plan") {
-      if (planIndex >= 0) {
-        grouped[planIndex] = { ...message, id: grouped[planIndex].id };
-      } else {
-        planIndex = grouped.length;
-        grouped.push({ ...message, id: `plan-card` });
-      }
-      continue;
-    }
-    if (message.type === "thinking") {
-      const key = message.msgId ?? "__default__";
-      const existingIndex = thinkingIndexByKey.get(key);
-      if (existingIndex !== undefined) {
-        const existing = grouped[existingIndex];
-        const isDone = message.status === "done" || message.status === "completed";
-        grouped[existingIndex] = {
-          ...existing,
-          text: message.text ? `${existing.text}${existing.text ? "" : ""}${message.text}` : existing.text,
-          status: isDone ? "done" : existing.status ?? "thinking",
-          durationMs: message.durationMs ?? existing.durationMs ?? null,
-          startedAt: existing.startedAt ?? message.startedAt ?? null,
-          createdAt: message.createdAt || existing.createdAt,
-        };
-        continue;
-      }
-      const idx = grouped.length;
-      grouped.push({ ...message, id: `thinking-${key}` });
-      thinkingIndexByKey.set(key, idx);
-      continue;
-    }
-    const previous = grouped[grouped.length - 1];
-    const isAssistantChunk = message.role === "assistant" && message.type === "text";
-    const previousIsAssistantChunk = previous?.role === "assistant" && previous.type === "text";
-    if (isAssistantChunk && previous && previousIsAssistantChunk) {
-      grouped[grouped.length - 1] = {
-        ...previous,
-        id: `${previous.id}-${message.id}`,
-        text: shouldJoinAssistantChunkTightly(previous.text, message.text)
-          ? `${previous.text}${message.text}`
-          : `${previous.text}\n${message.text}`,
-        createdAt: message.createdAt,
-      };
-      continue;
-    }
-    grouped.push(message);
-  }
-  return grouped;
+  return mapPersonalRunToMessages(run) as PersonalLocalAgentConversationMessage[];
+}
+
+/** Runtime-agnostic ConversationItemVM[] for the same personal run. */
+export function toConversationItems(run: PersonalLocalAgentRunResult | null | undefined) {
+  return toPersonalConversationItems(run);
 }
 
 type LocalAgentToolStatus = "running" | "completed" | "failed" | "pending";

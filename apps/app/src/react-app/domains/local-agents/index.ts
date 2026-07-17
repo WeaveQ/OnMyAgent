@@ -67,7 +67,7 @@ export {
 export { ChatBubble } from "./messages/chat-bubble";
 export type { ChatMessage } from "./messages/message-types";
 export { collectRunOpenTargets, isRunFinal } from "./messages/message-utils";
-export { lastEventTime } from "./messages/timeline-messages";
+export { lastEventTime, toConversationItems, visibleRunTimelineMessages } from "./messages/timeline-messages";
 
 // ACP hooks
 export { useAcpInitialMessage } from "./hooks/use-acp-initial-message";
