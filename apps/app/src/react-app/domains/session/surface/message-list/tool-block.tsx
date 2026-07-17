@@ -246,24 +246,18 @@ export function StepRow(props: {
 
   if (props.part.type === "reasoning") {
     if (!props.part.text.trim()) return null;
-    // Streaming reasoning keeps the auto-scrolling TranscriptReasoning surface.
-    // Completed reasoning uses the shared ConversationItemView (ThinkingBlock).
-    if (!props.isStreamingReasoning) {
-      const thinkingItem = mapOpenCodeReasoningPartToItem(
-        { type: "reasoning", text: props.part.text },
-        { id: props.id, complete: true },
-      );
-      return (
-        <ConversationItemView
-          item={thinkingItem}
-          className="max-w-[760px]"
-        />
-      );
-    }
+    // Primary path: shared ConversationItemView (ThinkingBlock) for both
+    // completed and streaming reasoning. Host-only TranscriptReasoning remains
+    // available for specialized auto-scroll chrome when explicitly needed.
+    const thinkingItem = mapOpenCodeReasoningPartToItem(
+      { type: "reasoning", text: props.part.text },
+      { id: props.id, complete: !props.isStreamingReasoning },
+    );
     return (
-      <TranscriptReasoning
-        text={props.part.text}
-        complete={!props.isStreamingReasoning}
+      <ConversationItemView
+        item={thinkingItem}
+        streaming={Boolean(props.isStreamingReasoning)}
+        className="max-w-[760px]"
       />
     );
   }
