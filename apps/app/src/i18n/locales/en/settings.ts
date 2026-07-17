@@ -16,6 +16,10 @@ export default {
   "settings.font_size_default": "Default",
   "settings.font_size_large": "Large",
   "settings.font_size_value": "Level {value}",
+  "settings.font_size_option_default": "Default ({percent}%)",
+  "settings.font_size_option_smaller": "{percent}%",
+  "settings.font_size_option_larger": "{percent}%",
+
 
   "settings.audit_log_title": "Audit log",
   "settings.auto_compact": "Auto context compaction",

@@ -5,11 +5,12 @@ export const FONT_ZOOM_MIN = 0.8;
 export const FONT_ZOOM_MAX = 1.6;
 
 /**
- * Discrete stops for the settings slider (小 → 默认 → 大).
- * Keyboard shortcuts still step by FONT_ZOOM_STEP and snap to the nearest
- * legal value via normalizeFontZoom.
+ * Discrete stops for the settings dropdown (and nearest-snap for shortcuts).
+ * Aligns with FONT_ZOOM_STEP (0.1) between MIN and a practical max for UI.
  */
-export const FONT_ZOOM_PRESETS = [0.85, 0.9, 1.0, 1.15, 1.3] as const;
+export const FONT_ZOOM_PRESETS = [
+  0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6,
+] as const;
 export type FontZoomPreset = (typeof FONT_ZOOM_PRESETS)[number];
 
 export type FontZoomShortcutAction = "in" | "out" | "reset";

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { t } from "@/i18n";
 import { SelectMenu } from "../../../design-system/select-menu";
 import {
+  FONT_ZOOM_PRESETS,
   fontZoomFromPresetIndex,
   fontZoomPresetIndex,
 } from "../../../../app/lib/font-zoom";
@@ -20,50 +21,34 @@ import {
   LayoutSectionTitle,
 } from "../settings-layout";
 
-/** Settings dropdown levels: 小 / 默认 / 大 (maps onto zoom presets). */
-const FONT_SIZE_LEVELS = [
-  { value: "small", presetIndex: 1 }, // 0.9
-  { value: "default", presetIndex: 2 }, // 1.0
-  { value: "large", presetIndex: 4 }, // 1.3
-] as const;
-
-type FontSizeLevel = (typeof FONT_SIZE_LEVELS)[number]["value"];
-
-function levelFromZoom(value: number): FontSizeLevel {
-  const index = fontZoomPresetIndex(value);
-  // Nearest of the three UI levels.
-  let best: FontSizeLevel = "default";
-  let bestDistance = Number.POSITIVE_INFINITY;
-  for (const level of FONT_SIZE_LEVELS) {
-    const distance = Math.abs(level.presetIndex - index);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = level.value;
-    }
+function labelForPresetIndex(index: number): string {
+  const zoom = FONT_ZOOM_PRESETS[index] ?? 1;
+  const percent = Math.round(zoom * 100);
+  if (zoom === 1) {
+    return t("settings.font_size_option_default", { percent: String(percent) });
   }
-  return best;
-}
-
-function zoomFromLevel(level: string): number {
-  const match = FONT_SIZE_LEVELS.find((item) => item.value === level);
-  return fontZoomFromPresetIndex(match?.presetIndex ?? 2);
+  if (zoom < 1) {
+    return t("settings.font_size_option_smaller", { percent: String(percent) });
+  }
+  return t("settings.font_size_option_larger", { percent: String(percent) });
 }
 
 /**
- * Settings row matching personalization SelectMenu pattern (语气-style dropdown).
+ * Settings row: SelectMenu with full zoom preset list (80%–160%).
  * Shares state with ⌘/Ctrl +/- /0 via the font-zoom controller.
  */
 export function FontSizeSection() {
   const { value, setValue } = useFontZoom();
-  const selected = levelFromZoom(value);
+  const selectedIndex = fontZoomPresetIndex(value);
+  const selectedValue = String(selectedIndex);
 
   const options = useMemo(
-    () => [
-      { value: "small", label: t("settings.font_size_small") },
-      { value: "default", label: t("settings.font_size_default") },
-      { value: "large", label: t("settings.font_size_large") },
-    ],
-    // Locale changes re-render via app locale subscription higher up.
+    () =>
+      FONT_ZOOM_PRESETS.map((_, index) => ({
+        value: String(index),
+        label: labelForPresetIndex(index),
+      })),
+    // Labels depend on locale; parent re-renders on locale change.
     [],
   );
 
@@ -88,8 +73,12 @@ export function FontSizeSection() {
             <SelectMenu
               ariaLabel={t("settings.font_size_label")}
               options={options}
-              value={selected}
-              onChange={(next) => setValue(zoomFromLevel(next))}
+              value={selectedValue}
+              onChange={(next) => {
+                const index = Number(next);
+                if (!Number.isFinite(index)) return;
+                setValue(fontZoomFromPresetIndex(index));
+              }}
             />
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
