@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { ComponentProps } from "react";
-import { Navigation } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -17,8 +17,8 @@ type SendButtonProps = Omit<
 
 /**
  * Circular send control (DESIGN.md §11): brand-blue solid disk when ready,
- * muted disk when idle/disabled. Avoid bg-dls-text + white icon — in dark
- * mode both are light and the glyph vanishes.
+ * muted disk when idle/disabled. Arrow points up and is sized larger than
+ * default button svg so it stays readable on the 40px disk.
  * No Tooltip — nested TooltipTrigger wrappers were producing empty white bubbles.
  */
 export function SendButton({
@@ -51,9 +51,9 @@ export function SendButton({
       {loading ? (
         <LoadingSpinner size="default" className={ready ? "text-white" : "text-dls-secondary"} />
       ) : (
-        <Navigation
-          className="size-4 -translate-y-px rotate-45 fill-current"
-          strokeWidth={2}
+        <ArrowUp
+          className="size-5"
+          strokeWidth={2.5}
           aria-hidden
         />
       )}
