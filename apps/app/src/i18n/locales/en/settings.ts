@@ -14,11 +14,19 @@ export default {
   "settings.auto_compact_unavailable":
     "Auto context compaction is not yet available.",
   "settings.auto_update_desc":
-    "Download new versions as soon as they're found. You'll choose when to restart",
+    "In-app download is not available. When an update is found, open the release page to install.",
   "settings.auto_update_title": "Download automatically",
   "settings.auto_updates_packaged_only": "Auto-updates are available in packaged builds only.",
+  "settings.check_for_updates": "Check for updates",
+  "settings.checking_for_updates": "Checking…",
+  "settings.open_release_page": "Open release page",
   "settings.background_checks_desc": "Look for new versions in the background",
+  "settings.background_checks_desc_notify":
+    "Also refresh this page when the desktop app finds a new version in the background. System notifications are always handled by the desktop process.",
   "settings.background_checks_title": "Check automatically",
+  "settings.update_install_title": "How updates install",
+  "settings.update_install_desc":
+    "OnMyAgent opens the GitHub release page so you can download the installer for your platform. There is no in-app download or silent install.",
   "settings.cache_repair_requires_desktop": "Only available in the desktop app",
   "settings.cap_browser_tools": "Browser tools: {value}",
   "settings.cap_commands": "Commands: {value}",

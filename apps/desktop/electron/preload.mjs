@@ -117,12 +117,24 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     installAndRestart() {
       return ipcRenderer.invoke("onmyagent:updater:installAndRestart");
     },
-    /** Subscribe to incremental download progress from electron-updater. */
+    /** Subscribe to incremental download progress. Retained for legacy renderer paths; the lightweight update flow never emits progress. */
     onDownloadProgress(callback) {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on("onmyagent:updater:download-progress", handler);
       return () => {
         ipcRenderer.removeListener("onmyagent:updater:download-progress", handler);
+      };
+    },
+    /** Fetch the last cached update-availability payload from main. */
+    getLastKnown() {
+      return ipcRenderer.invoke("onmyagent:updater:getLastKnown");
+    },
+    /** Fired when the background checker detects a newer release. */
+    onAvailable(callback) {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on("onmyagent:updater:available", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:updater:available", handler);
       };
     },
   },
