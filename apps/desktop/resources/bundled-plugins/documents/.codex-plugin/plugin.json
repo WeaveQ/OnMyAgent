@@ -1,0 +1,32 @@
+{
+  "name": "documents",
+  "version": "1.0.0",
+  "description": "Create, read, revise, and review local document files.",
+  "author": {
+    "name": "OnMyAgent",
+    "url": "https://github.com/WeaveQ/onmyagent"
+  },
+  "homepage": "https://github.com/WeaveQ/onmyagent",
+  "repository": "https://github.com/WeaveQ/onmyagent",
+  "license": "Apache-2.0",
+  "keywords": ["documents", "docx", "writing"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Documents",
+    "shortDescription": "Create and revise document files.",
+    "longDescription": "Read, create, edit, review, render, and verify local DOCX documents.",
+    "developerName": "OnMyAgent",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/WeaveQ/onmyagent",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.svg",
+    "defaultPrompt": [
+      "Draft a polished DOCX report from my notes.",
+      "Review this Word document and suggest focused edits.",
+      "Turn this outline into a well-structured document."
+    ],
+    "brandColor": "#4F6BED",
+    "screenshots": []
+  }
+}

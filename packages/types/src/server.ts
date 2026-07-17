@@ -1,3 +1,8 @@
+import type {
+  ArtifactPluginManifest,
+  ArtifactPluginRuntimeConfig,
+} from "./artifact-plugin.js";
+
 export type WorkspaceType = "local" | "remote";
 
 export type RemoteType = "opencode" | "onmyagent";
@@ -162,6 +167,20 @@ export interface PluginItem {
   source: "config" | "dir.project" | "dir.global";
   scope: "project" | "global";
   path?: string;
+}
+
+export interface ArtifactPluginSkillItem {
+  id: string;
+  enabled: boolean;
+  defaultEnabled: boolean;
+}
+
+export interface ArtifactPluginCatalogItem {
+  id: string;
+  manifest: ArtifactPluginManifest;
+  runtime: ArtifactPluginRuntimeConfig;
+  enabled: boolean;
+  skills: ArtifactPluginSkillItem[];
 }
 
 export interface McpItem {

@@ -125,7 +125,16 @@ async function listSkillsInDir(dir: string, scope: SkillScope): Promise<SkillIte
   return items;
 }
 
-export async function listSkills(workspaceRoot: string, _includeGlobal: boolean): Promise<SkillItem[]> {
+export type ListSkillsOptions = {
+  artifactSkillIds?: ReadonlySet<string>;
+  effectiveArtifactSkillIds: ReadonlySet<string>;
+};
+
+export async function listSkills(
+  workspaceRoot: string,
+  _includeGlobal: boolean,
+  options?: ListSkillsOptions,
+): Promise<SkillItem[]> {
   const items: SkillItem[] = [];
 
   const bundledDir = bundledSkillsDir();
@@ -151,6 +160,15 @@ export async function listSkills(workspaceRoot: string, _includeGlobal: boolean)
 
   const seen = new Set<string>();
   return items.filter((item) => {
+    if (
+      item.scope === "built-in" &&
+      options !== undefined &&
+      (options.artifactSkillIds === undefined ||
+        options.artifactSkillIds.has(item.name)) &&
+      !options.effectiveArtifactSkillIds.has(item.name)
+    ) {
+      return false;
+    }
     if (seen.has(item.name)) return false;
     seen.add(item.name);
     return true;

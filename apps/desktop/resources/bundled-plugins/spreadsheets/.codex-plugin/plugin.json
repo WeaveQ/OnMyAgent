@@ -1,0 +1,33 @@
+{
+  "name": "spreadsheets",
+  "version": "1.0.0",
+  "description": "Create, analyze, edit, and verify spreadsheet files.",
+  "author": {
+    "name": "OnMyAgent",
+    "url": "https://github.com/WeaveQ/onmyagent"
+  },
+  "homepage": "https://github.com/WeaveQ/onmyagent",
+  "repository": "https://github.com/WeaveQ/onmyagent",
+  "license": "Apache-2.0",
+  "keywords": ["spreadsheets", "excel", "csv", "analysis"],
+  "skills": "./skills/",
+  "apps": "./.app.json",
+  "interface": {
+    "displayName": "Spreadsheets",
+    "shortDescription": "Analyze and edit spreadsheet data.",
+    "longDescription": "Create, read, edit, calculate, render, and verify spreadsheet files and workbooks.",
+    "developerName": "OnMyAgent",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/WeaveQ/onmyagent",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.svg",
+    "defaultPrompt": [
+      "Build a clear spreadsheet from this raw data.",
+      "Analyze this workbook and highlight useful trends.",
+      "Update the formulas and verify the calculated results."
+    ],
+    "brandColor": "#18864B",
+    "screenshots": []
+  }
+}

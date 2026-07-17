@@ -53,6 +53,11 @@
       "types": "./src/desktop-ipc-commands.mjs",
       "development": "./src/desktop-ipc-commands.mjs",
       "default": "./src/desktop-ipc-commands.mjs"
+    },
+    "./artifact-plugin": {
+      "types": "./src/artifact-plugin.ts",
+      "development": "./src/artifact-plugin.ts",
+      "default": "./src/artifact-plugin.ts"
     }
   },
   "files": [

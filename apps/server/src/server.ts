@@ -94,6 +94,7 @@ import { registerVoiceRoutes } from "./routes/voice-routes.js";
 import { registerCommandRoutes } from "./routes/command-routes.js";
 import { registerAutomationRoutes } from "./routes/automation-routes.js";
 import { registerPluginRoutes } from "./routes/plugin-routes.js";
+import { registerArtifactPluginRoutes } from "./routes/artifact-plugin-routes.js";
 import { registerSkillRoutes } from "./routes/skill-routes.js";
 import { registerMcpRoutes } from "./routes/mcp-routes.js";
 import { registerApprovalRoutes } from "./routes/approval-routes.js";
@@ -1791,6 +1792,16 @@ function createRoutes(
     requireApproval,
     emitReloadEvent,
     opencodeConfigPath,
+    readJsonBody,
+  });
+
+  registerArtifactPluginRoutes({
+    routes,
+    config,
+    ensureWritable,
+    requireClientScope,
+    resolveWorkspace,
+    emitReloadEvent,
     readJsonBody,
   });
 
