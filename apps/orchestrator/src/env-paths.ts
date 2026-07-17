@@ -111,6 +111,15 @@ function resolveExtraPathEntries(input: { orchestratorRoot: string; repoRoot: st
       join(home, ".cargo", "bin"),
       process.env.APPDATA ? join(process.env.APPDATA, "npm") : null,
       process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "pnpm") : null,
+      process.env.ProgramFiles
+        ? join(process.env.ProgramFiles, "Docker", "Docker", "resources", "bin")
+        : null,
+      process.env["ProgramFiles(x86)"]
+        ? join(process.env["ProgramFiles(x86)"], "Docker", "Docker", "resources", "bin")
+        : null,
+      process.env.LOCALAPPDATA
+        ? join(process.env.LOCALAPPDATA, "Programs", "Docker", "Docker", "resources", "bin")
+        : null,
     ]) {
       pushPath(entries, candidate);
     }
