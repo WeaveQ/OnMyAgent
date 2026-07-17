@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-11
+last-reviewed: 2026-07-17
 
 colors:
   light:
