@@ -13,6 +13,8 @@ import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NoticeBox } from "@/components/ui/notice-box";
+import { CountBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
 import {
@@ -261,11 +263,7 @@ export function SessionArchivePage(props: Props) {
         </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
 
       {/* Agent filter bar */}
       {groups.length > 0 ? (
@@ -344,9 +342,9 @@ export function SessionArchivePage(props: Props) {
                       <ChevronDown className="size-3.5 text-dls-secondary" />
                     )}
                     <span className="flex-1 truncate">{agentLabel(group.agent)}</span>
-                    <span className="rounded-full bg-dls-hover px-1.5 py-0.5 text-2xs font-medium text-dls-secondary tabular-nums">
+                    <CountBadge size="dot" className="tabular-nums">
                       {countLabel}
-                    </span>
+                    </CountBadge>
                   </button>
                   {collapsed ? null : (
                     <ul className="divide-y divide-dls-border/60">

@@ -44,7 +44,7 @@ interface LayoutSectionTitleProps {
 
 export function LayoutSectionTitle({ children, className }: LayoutSectionTitleProps) {
   return (
-    <h3 className={cn("flex items-center gap-2 text-lg font-medium text-foreground", className)}>
+    <h3 className={cn("flex items-center gap-2 text-lg font-medium text-dls-text", className)}>
       {children}
     </h3>
   );
@@ -57,7 +57,7 @@ interface LayoutSectionDescriptionProps {
 
 export function LayoutSectionDescription({ children, className }: LayoutSectionDescriptionProps) {
   return (
-    <p className={cn("text-sm text-muted-foreground", className)}>
+    <p className={cn("text-sm text-dls-secondary", className)}>
       {children}
     </p>
   );
@@ -109,7 +109,7 @@ interface LayoutSectionItemTitleProps {
 
 export function LayoutSectionItemTitle({ children, className }: LayoutSectionItemTitleProps) {
   return (
-    <h4 data-slot="item-title" className={cn("flex items-center gap-2 text-base font-medium text-foreground group-data-section/section:text-sm", className)}>
+    <h4 data-slot="item-title" className={cn("flex items-center gap-2 text-base font-medium text-dls-text group-data-section/section:text-sm", className)}>
       {children}
     </h4>
   );
@@ -122,7 +122,7 @@ interface LayoutSectionItemDescriptionProps {
 
 export function LayoutSectionItemDescription({ children, className }: LayoutSectionItemDescriptionProps) {
   return (
-    <p data-slot="item-description" className={cn("text-sm text-muted-foreground", className)}>
+    <p data-slot="item-description" className={cn("text-sm text-dls-secondary", className)}>
       {children}
     </p>
   );
@@ -161,7 +161,7 @@ interface LayoutSectionItemFootnoteProps {
 
 export function LayoutSectionItemFootnote({ children, className }: LayoutSectionItemFootnoteProps) {
   return (
-    <p className={cn("text-xs text-muted-foreground", className)}>
+    <p className={cn("text-xs text-dls-secondary", className)}>
       {children}
     </p>
   );
