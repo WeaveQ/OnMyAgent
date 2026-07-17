@@ -372,7 +372,7 @@ export default {
   "settings.provider_source_custom": "自定義",
   "settings.provider_source_env": "環境變量",
   "settings.providers_desc": "連接模型和工具服務",
-  "settings.providers_title": "模型服務商",
+  "settings.providers_title": "模型和配置",
   "settings.providers_dialog_title": "模型服務商",
   "settings.providers_dialog_description":
     "選擇你想要使用的模型服務商並輸入對應的秘鑰, 這些秘鑰只會存儲在你本地",
@@ -486,7 +486,7 @@ export default {
     "開啟後，助手完成一輪回覆且應用不在前台時會發送桌面通知。默認關閉；首次開啟時會請求系統通知權限。",
   "settings.agent_ready_notification_title": "助手已就緒",
   "settings.agent_ready_notification_body": "會話「{title}」可以繼續輸入。",
-  "settings.ai_providers": "模型服務商",
+  "settings.ai_providers": "模型和配置",
   "settings.ai_providers_card_description": "連接 AI 模型服務商",
   "settings.shell_view_current_version_description": "當前版本號",
   "settings.shell_view_release_channel": "發佈渠道",
