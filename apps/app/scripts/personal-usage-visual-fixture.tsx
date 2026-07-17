@@ -10,6 +10,7 @@ import { PersonalUsagePage } from "../src/react-app/domains/session/usage";
 
 const params = new URLSearchParams(window.location.search);
 const fixtureState = params.get("state");
+const fixtureMode = params.get("mode") as "daily" | "weekly" | "cumulative" | null;
 const locale = params.get("lang");
 if (locale === "en" || locale === "zh" || locale === "zh-TW") setLocale(locale);
 if (params.get("theme") === "dark") {
@@ -71,6 +72,7 @@ createRoot(root).render(
         client={client}
         workspaces={workspaces}
         onEdit={() => undefined}
+        defaultActivityMode={fixtureMode ?? undefined}
         identity={{
           name: longName ? "Alexandra Very Long Personal Workspace Account Name" : "Alex Morgan",
           email: "alex@example.com",

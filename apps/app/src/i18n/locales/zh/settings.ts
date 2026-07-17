@@ -739,4 +739,10 @@ export default {
   "settings.browser.protocol": "协议 {value}",
   "settings.browser.tabs": "标签页 {value}",
   "settings.browser.agent_tabs": "智能体标签页 {value}",
+  "settings.provider_edit_confirm_title": "保存对该模型服务商的修改？",
+  "settings.provider_edit_confirm_desc": "保存将写入 OpenCode 配置，需重新加载引擎后生效。",
+  "settings.provider_edit_confirm_button": "保存修改",
+  "settings.provider_delete_confirm_title": "删除该模型服务商？",
+  "settings.provider_delete_confirm_desc": "删除将从 OpenCode 配置移除该服务商，操作不可撤销，需重新加载引擎后生效。",
+  "settings.provider_more_actions": "更多操作",
 } as const;

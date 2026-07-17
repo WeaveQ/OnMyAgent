@@ -48,7 +48,6 @@ if (!commandConfig) {
 const env = {
   ...process.env,
   ONMYAGENT_DEV_MODE: '1',
-  ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT: process.env.ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT ?? '9823',
 }
 
 runCommand(commandConfig, { env })
