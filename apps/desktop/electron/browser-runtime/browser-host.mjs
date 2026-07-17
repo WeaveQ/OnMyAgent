@@ -1,12 +1,21 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { createBrowserTabRegistry } from "./browser-tab-registry.mjs";
 import { createDomCuaRefStore } from "./dom-cua-ref-store.mjs";
 import {
   domActionExpression,
   domObservationExpression,
+  domSnapshotExpression,
+  elementBoundsExpression,
+  elementInfoExpression,
+  exportContentExpression,
   locatorActionExpression,
   locatorObservationExpression,
+  mediaUrlExpression,
+  playwrightEvaluateExpression,
 } from "./browser-page-runtime.mjs";
 
 const BLOCKED_RAW_CDP_METHODS = new Set([
@@ -18,6 +27,10 @@ const BLOCKED_RAW_CDP_METHODS = new Set([
 
 const READONLY_FORBIDDEN_EXPRESSION = /(?:\b(?:process|require|import|eval|Function|WebSocket|fetch|XMLHttpRequest)\b|\b(?:append|appendChild|remove|removeChild|replaceWith|setAttribute|insertAdjacent\w*)\s*\(|(?:^|[^=!<>])=(?!=|>))/;
 
+// Playwright page/locator.evaluate allows local assignments for projection, but still
+// blocks host capability access and common DOM mutation helpers.
+const PLAYWRIGHT_EVAL_FORBIDDEN = /\b(?:process|require|WebSocket|XMLHttpRequest)\b|\b(?:import|eval|Function|fetch)\s*\(|\b(?:appendChild|removeChild|replaceWith|insertAdjacent(?:HTML|Text|Element))\s*\(/;
+
 function assertReadonlyExpression(expression) {
   if (typeof expression !== "string" || !expression.trim()) {
     throw new TypeError("read-only evaluation expression is required");
@@ -26,6 +39,16 @@ function assertReadonlyExpression(expression) {
     throw new Error("read-only evaluation cannot mutate the page or access host capabilities");
   }
   return expression;
+}
+
+function assertPlaywrightEvaluateFunction(pageFunction) {
+  if (typeof pageFunction !== "string" || !pageFunction.trim()) {
+    throw new TypeError("playwrightEvaluate pageFunction is required");
+  }
+  if (PLAYWRIGHT_EVAL_FORBIDDEN.test(pageFunction)) {
+    throw new Error("playwrightEvaluate cannot mutate the page or access host capabilities");
+  }
+  return pageFunction;
 }
 
 function requireContext(context) {
@@ -48,6 +71,7 @@ export function createBrowserHost(options) {
   const registry = createBrowserTabRegistry();
   const domRefs = createDomCuaRefStore();
   const views = new Map();
+  const pendingDialogs = new Map();
   const authorize = options.authorize ?? (async () => undefined);
 
   const describe = (tab) => {
@@ -60,9 +84,35 @@ export function createBrowserHost(options) {
     };
   };
 
+  const trackDialogs = (tabId, view) => {
+    const debuggerApi = view?.webContents?.debugger;
+    if (!debuggerApi || typeof debuggerApi.on !== "function") return;
+    if (debuggerApi.__onmyagentDialogTracked) return;
+    debuggerApi.__onmyagentDialogTracked = true;
+    try {
+      if (!debuggerApi.isAttached()) debuggerApi.attach("1.3");
+      debuggerApi.sendCommand?.("Page.enable", {}).catch?.(() => undefined);
+    } catch {
+      // optional
+    }
+    debuggerApi.on("message", (_event, method, params) => {
+      if (method === "Page.javascriptDialogOpening") {
+        pendingDialogs.set(tabId, {
+          type: params?.type ?? "alert",
+          message: params?.message ?? "",
+          defaultPrompt: params?.defaultPrompt ?? "",
+          url: params?.url ?? "",
+        });
+      } else if (method === "Page.javascriptDialogClosed") {
+        pendingDialogs.delete(tabId);
+      }
+    });
+  };
+
   const destroyTab = (tabId) => {
     const view = views.get(tabId);
     if (!view) return;
+    pendingDialogs.delete(tabId);
     if (!view.webContents.isDestroyed()) {
       if (view.webContents.debugger.isAttached()) {
         view.webContents.debugger.detach();
@@ -97,6 +147,31 @@ export function createBrowserHost(options) {
     return response?.result?.value ?? null;
   };
 
+  const loadUrlBestEffort = async (view, url, timeoutMs = 45_000) => {
+    const load = view.webContents.loadURL(url);
+    let timer;
+    try {
+      await Promise.race([
+        load,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`navigation timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
+        }),
+      ]);
+      return { ok: true, timedOut: false };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("timed out")) {
+        // Keep the tab; the page may still finish loading in the background.
+        return { ok: true, timedOut: true, message };
+      }
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
   const createTab = async (params, context) => {
     const url = typeof params?.url === "string" && params.url.trim()
       ? params.url.trim()
@@ -113,9 +188,29 @@ export function createBrowserHost(options) {
       deliverable: params?.deliverable === true,
       handoff: params?.handoff === true,
     });
+    trackDialogs(tabId, view);
     options.onTabCreated?.(tab, view);
-    await view.webContents.loadURL(url);
+    if (url !== "about:blank") {
+      const navigation = await loadUrlBestEffort(view, url);
+      return { tab: describe(tab), navigation };
+    }
     return { tab: describe(tab) };
+  };
+
+  const resolveElementSelector = (params) => {
+    if (params?.selector && typeof params.selector === "object") return params.selector;
+    if (typeof params?.css === "string") return { css: params.css };
+    if (typeof params?.role === "string") {
+      return {
+        role: params.role,
+        ...(typeof params.name === "string" ? { name: params.name } : {}),
+      };
+    }
+    if (typeof params?.testId === "string") return { testId: params.testId };
+    if (typeof params?.text === "string") return { text: params.text };
+    if (typeof params?.label === "string") return { label: params.label };
+    if (typeof params?.placeholder === "string") return { placeholder: params.placeholder };
+    return null;
   };
 
   return {
@@ -125,6 +220,7 @@ export function createBrowserHost(options) {
         return {
           protocolVersion: 1,
           backend: "in-app",
+          browserId: "in-app",
           capabilities: [
             "tabs",
             "cdp",
@@ -133,8 +229,58 @@ export function createBrowserHost(options) {
             "dialog",
             "clipboard",
             "downloads",
+            "playwright",
+            "dom_cua",
+            "cua",
           ],
         };
+      }
+      if (method === "describeTab") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        return { tab: describe(registry.assertControllable(tabId, context.sessionId)) };
+      }
+      if (method === "markTab") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const tab = registry.assertControllable(tabId, context.sessionId);
+        if (params?.deliverable === true) tab.deliverable = true;
+        if (params?.handoff === true) tab.handoff = true;
+        return { tab: describe(tab) };
+      }
+      if (method === "waitForTimeout") {
+        const timeoutMs = Math.min(
+          Math.max(Number(params?.timeoutMs) || 0, 0),
+          60_000,
+        );
+        await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+        return { ok: true };
+      }
+      if (method === "waitForLoadState") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const deadline = Date.now() + Math.min(Number(params?.timeoutMs) || 15_000, 60_000);
+        while (Date.now() < deadline) {
+          if (!view.webContents.isLoading?.()) return { ok: true };
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        throw new Error("timed out waiting for load state");
+      }
+      if (method === "waitForURL") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const expected = String(params?.url ?? "");
+        const view = controllableView(tabId, context.sessionId);
+        const deadline = Date.now() + Math.min(Number(params?.timeoutMs) || 15_000, 60_000);
+        while (Date.now() < deadline) {
+          const current = view.webContents.getURL?.() ?? "";
+          if (!expected || current.includes(expected) || current === expected) {
+            return { ok: true, url: current };
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        throw new Error(`timed out waiting for URL: ${expected}`);
+      }
+      if (method === "waitForNavigation" || method === "waitForEvent") {
+        // Best-effort: wait until loading settles.
+        return this.dispatch("waitForLoadState", params, contextInput);
       }
       if (method === "createTab") return createTab(params, context);
       if (method === "claimTab") {
@@ -162,9 +308,12 @@ export function createBrowserHost(options) {
         const url = typeof params?.url === "string" ? params.url : "";
         const view = controllableView(tabId, context.sessionId);
         await authorize({ kind: "navigate", url, context });
-        await view.webContents.loadURL(url);
+        const navigation = await loadUrlBestEffort(view, url);
         domRefs.invalidate(tabId);
-        return { tab: describe(registry.assertControllable(tabId, context.sessionId)) };
+        return {
+          tab: describe(registry.assertControllable(tabId, context.sessionId)),
+          navigation,
+        };
       }
       if (method === "navigateHistory") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
@@ -185,13 +334,86 @@ export function createBrowserHost(options) {
       if (method === "screenshot") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
+        // Prefer native capture + downscale so tool transcripts stay small.
+        // Return scale metadata so CUA clicks from the image can be mapped back
+        // to CSS viewport coordinates: pageX = imageX * scaleX.
+        const maxWidthRaw = Number(params?.maxWidth);
+        const maxWidth =
+          Number.isFinite(maxWidthRaw) && maxWidthRaw > 0
+            ? Math.min(Math.floor(maxWidthRaw), 1920)
+            : 960;
+        const qualityRaw = Number(params?.quality);
+        const quality =
+          Number.isFinite(qualityRaw) && qualityRaw > 0
+            ? Math.min(Math.max(Math.floor(qualityRaw), 1), 100)
+            : 55;
+        const preferPng = params?.format === "png";
+        let viewportWidth = 0;
+        let viewportHeight = 0;
+        try {
+          const metrics = await evaluateValue(
+            view,
+            "({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 })",
+          );
+          viewportWidth = Number(metrics?.width) || 0;
+          viewportHeight = Number(metrics?.height) || 0;
+        } catch {
+          // optional
+        }
+        if (typeof view.webContents.capturePage === "function") {
+          let image = await view.webContents.capturePage();
+          const size = image.getSize?.() ?? { width: 0, height: 0 };
+          if (size.width > maxWidth && typeof image.resize === "function") {
+            image = image.resize({
+              width: maxWidth,
+              quality: "better",
+            });
+          }
+          const outSize = image.getSize?.() ?? size;
+          const imageWidth = outSize.width || 1;
+          const imageHeight = outSize.height || 1;
+          const scaleX = viewportWidth > 0 ? viewportWidth / imageWidth : 1;
+          const scaleY = viewportHeight > 0 ? viewportHeight / imageHeight : 1;
+          const meta = {
+            width: imageWidth,
+            height: imageHeight,
+            viewportWidth,
+            viewportHeight,
+            scaleX,
+            scaleY,
+            coordinateNote:
+              "For tab.cua.click from this image use page coords: { x: imageX * scaleX, y: imageY * scaleY }. Prefer playwright/dom_cua when possible.",
+          };
+          if (preferPng && typeof image.toPNG === "function") {
+            const buffer = image.toPNG();
+            return {
+              image: `data:image/png;base64,${buffer.toString("base64")}`,
+              bytes: buffer.length,
+              format: "png",
+              ...meta,
+            };
+          }
+          const buffer = image.toJPEG(quality);
+          return {
+            image: `data:image/jpeg;base64,${buffer.toString("base64")}`,
+            bytes: buffer.length,
+            format: "jpeg",
+            quality,
+            ...meta,
+          };
+        }
         const result = await sendCdp(view, "Page.captureScreenshot", {
-          format: params?.format === "jpeg" ? "jpeg" : "png",
+          format: preferPng ? "png" : "jpeg",
+          ...(preferPng ? {} : { quality }),
         });
         return {
           image: typeof result?.data === "string"
-            ? `data:image/${params?.format === "jpeg" ? "jpeg" : "png"};base64,${result.data}`
+            ? `data:image/${preferPng ? "png" : "jpeg"};base64,${result.data}`
             : null,
+          viewportWidth,
+          viewportHeight,
+          scaleX: 1,
+          scaleY: 1,
         };
       }
       if (method === "coordinateAction") {
@@ -277,6 +499,13 @@ export function createBrowserHost(options) {
           await sendCdp(view, "Input.dispatchKeyEvent", { type: "keyUp", key });
           return { ok: true };
         }
+        if (params?.action === "downloadMedia") {
+          const media = await evaluateValue(view, mediaUrlExpression(params));
+          if (typeof options.downloadMedia === "function") {
+            return { ...(await options.downloadMedia({ ...media, tabId, context })) };
+          }
+          return { ok: true, ...media };
+        }
         throw new Error(`unsupported coordinate action: ${params?.action}`);
       }
       if (method === "evaluateReadonly") {
@@ -285,28 +514,122 @@ export function createBrowserHost(options) {
         const expression = assertReadonlyExpression(params?.expression);
         return { value: await evaluateValue(view, `(() => { const value = (${expression}); return value; })()`) };
       }
+      if (method === "playwrightEvaluate") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const pageFunction = assertPlaywrightEvaluateFunction(
+          typeof params?.pageFunction === "string"
+            ? params.pageFunction
+            : String(params?.pageFunction ?? ""),
+        );
+        const selector =
+          params?.selector && typeof params.selector === "object"
+            ? params.selector
+            : null;
+        const value = await evaluateValue(
+          view,
+          playwrightEvaluateExpression(pageFunction, params?.arg, selector),
+        );
+        return { value };
+      }
+      if (method === "domSnapshot") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const snapshot = await evaluateValue(view, domSnapshotExpression());
+        return snapshot && typeof snapshot === "object" ? snapshot : { snapshot: "", count: 0 };
+      }
+      if (method === "elementInfo") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const selector = resolveElementSelector(params);
+        if (!selector) throw new TypeError("elementInfo requires a selector");
+        return evaluateValue(view, elementInfoExpression(selector));
+      }
+      if (method === "elementScreenshot") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const selector = resolveElementSelector(params);
+        if (!selector) throw new TypeError("elementScreenshot requires a selector");
+        const bounds = await evaluateValue(view, elementBoundsExpression(selector));
+        const qualityRaw = Number(params?.quality);
+        const quality =
+          Number.isFinite(qualityRaw) && qualityRaw > 0
+            ? Math.min(Math.max(Math.floor(qualityRaw), 1), 100)
+            : 70;
+        const preferPng = params?.format === "png";
+        const clip = {
+          x: Number(bounds?.x) || 0,
+          y: Number(bounds?.y) || 0,
+          width: Math.max(1, Number(bounds?.width) || 1),
+          height: Math.max(1, Number(bounds?.height) || 1),
+          scale: 1,
+        };
+        const result = await sendCdp(view, "Page.captureScreenshot", {
+          format: preferPng ? "png" : "jpeg",
+          ...(preferPng ? {} : { quality }),
+          clip,
+          captureBeyondViewport: true,
+        });
+        return {
+          image: typeof result?.data === "string"
+            ? `data:image/${preferPng ? "png" : "jpeg"};base64,${result.data}`
+            : null,
+          bounds: clip,
+          format: preferPng ? "png" : "jpeg",
+        };
+      }
+      if (method === "getJsDialog") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        controllableView(tabId, context.sessionId);
+        const dialog = pendingDialogs.get(tabId) ?? null;
+        return { dialog, open: Boolean(dialog) };
+      }
+      if (method === "exportContent") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const type = typeof params?.type === "string" ? params.type : "text";
+        const exported = await evaluateValue(view, exportContentExpression(type));
+        return exported && typeof exported === "object"
+          ? exported
+          : { type: "text", text: String(exported ?? "") };
+      }
       if (method === "locatorAction") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
+        const action = typeof params?.action === "string" ? params.action : "";
+        const readOnlyActions = new Set([
+          "count",
+          "isVisible",
+          "isEnabled",
+          "textContent",
+          "innerText",
+          "getAttribute",
+          "waitFor",
+        ]);
+        if (readOnlyActions.has(action)) {
+          const value = await evaluateValue(
+            view,
+            locatorActionExpression(params?.selector ?? {}, action, params),
+          );
+          return { value };
+        }
         const candidates = await evaluateValue(view, locatorObservationExpression(params?.selector ?? {}));
         if (!Array.isArray(candidates) || candidates.length !== 1) {
           throw new Error(`locator matched ${Array.isArray(candidates) ? candidates.length : 0} elements; expected exactly 1`);
         }
         const target = candidates[0];
         if (target.visible !== true) throw new Error("locator target is not visible");
-        if (["fill", "type"].includes(params?.action) && target.editable !== true) {
+        if (["fill", "type"].includes(action) && target.editable !== true) {
           throw new Error("locator target is not editable");
         }
         if (target.hitTarget !== true) throw new Error("locator target is covered");
-        if (params?.action === "count") return { value: 1 };
-        if (params?.action === "textContent") return { value: target.label ?? "" };
         await authorize({
-          kind: params?.action === "click" ? "click" : "page-action",
+          kind: action === "click" ? "click" : "page-action",
           engine: "locator",
           label: target.label ?? "",
           context,
         });
-        await evaluateValue(view, locatorActionExpression(params?.selector ?? {}, params?.action, params));
+        await evaluateValue(view, locatorActionExpression(params?.selector ?? {}, action, params));
         domRefs.invalidate(tabId);
         return { ok: true };
       }
@@ -319,16 +642,37 @@ export function createBrowserHost(options) {
       if (method === "domAction") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
+        if (params?.action === "downloadMedia" && !params?.ref) {
+          const media = await evaluateValue(view, mediaUrlExpression(params));
+          if (typeof options.downloadMedia === "function") {
+            return { ...(await options.downloadMedia({ ...media, tabId, context })) };
+          }
+          return { ok: true, ...media };
+        }
         const node = domRefs.resolve(tabId, params?.ref);
         await authorize({
-          kind: params?.action === "click" ? "click" : "page-action",
+          kind: params?.action === "click" || params?.action === "doubleClick"
+            ? "click"
+            : "page-action",
           engine: "dom-cua",
           label: node.label ?? "",
           context,
         });
-        await evaluateValue(view, domActionExpression(node, params?.action, params));
-        domRefs.invalidate(tabId);
-        return { ok: true };
+        const value = await evaluateValue(view, domActionExpression(node, params?.action, params));
+        if (params?.action === "downloadMedia") {
+          if (typeof options.downloadMedia === "function") {
+            return {
+              ...(await options.downloadMedia({
+                ...(value && typeof value === "object" ? value : {}),
+                tabId,
+                context,
+              })),
+            };
+          }
+          return { ok: true, ...(value && typeof value === "object" ? value : {}) };
+        }
+        if (params?.action !== "keypress") domRefs.invalidate(tabId);
+        return { ok: true, value };
       }
       if (method === "tabContent") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
@@ -342,6 +686,7 @@ export function createBrowserHost(options) {
           accept: params?.action === "accept",
           promptText: params?.promptText,
         });
+        pendingDialogs.delete(tabId);
         return { ok: true };
       }
       if (method === "clipboardRead") {
@@ -361,7 +706,38 @@ export function createBrowserHost(options) {
         return { tabs: registry.list().filter((tab) => tab.owner === "user").map(describe) };
       }
       if (method === "history") return { items: await options.history?.(params ?? {}) ?? [] };
-      if (method === "documentation") return { topic: params?.topic ?? null, available: true };
+      if (method === "documentation") {
+        const topic = String(params?.topic ?? "api").replace(/\.md$/i, "");
+        const docsRoot = options.docsRoot;
+        if (typeof docsRoot === "string" && docsRoot) {
+          const candidates = [
+            join(docsRoot, `${topic}.md`),
+            join(docsRoot, "api-use-behavior.md"),
+          ];
+          for (const candidate of candidates) {
+            if (!existsSync(candidate)) continue;
+            const markdown = await readFile(candidate, "utf8");
+            return { topic, available: true, markdown };
+          }
+        }
+        if (typeof options.loadDocumentation === "function") {
+          const markdown = await options.loadDocumentation(topic);
+          if (typeof markdown === "string") {
+            return { topic, available: true, markdown };
+          }
+        }
+        return {
+          topic,
+          available: true,
+          markdown: [
+            "# Browser API",
+            "",
+            "Use `await agent.browsers.getDefault()` then `browser.tabs.new({ url })`.",
+            "Prefer Playwright locators, then DOM-CUA, then coordinate CUA.",
+            `Requested topic: ${topic}`,
+          ].join("\n"),
+        };
+      }
       if (method === "nameSession") {
         await options.nameSession?.(context.sessionId, String(params?.name ?? ""));
         return { ok: true };
@@ -394,14 +770,19 @@ export function createBrowserHost(options) {
       for (const tab of registry.list()) destroyTab(tab.tabId);
       domRefs.clear();
     },
-    registerUserTab(tabId, view) {
+    registerUserTab(tabId, view, optionsInput = {}) {
       views.set(tabId, view);
+      const sessionId =
+        typeof optionsInput?.sessionId === "string" && optionsInput.sessionId.trim()
+          ? optionsInput.sessionId.trim()
+          : null;
       const tab = registry.register({
         tabId,
         owner: "user",
-        sessionId: null,
+        sessionId,
         temporary: false,
       });
+      trackDialogs(tabId, view);
       options.onTabCreated?.(tab, view);
       return tab;
     },

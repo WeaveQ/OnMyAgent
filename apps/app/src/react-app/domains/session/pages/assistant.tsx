@@ -36,6 +36,8 @@ import {
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
 import { PersonalUsagePage } from "../usage";
+import { openInAppBrowser } from "../browser/open-in-app-browser";
+import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
@@ -451,23 +453,14 @@ export function AssistantPage(props: AssistantPageProps) {
     [setSidePanelState, sidePanelScopeId, toggleSidePanelState],
   );
 
-  useEffect(() => {
-    if (!isElectronRuntime()) return;
-    const browser = (window as Window).__ONMYAGENT_ELECTRON__?.browser;
-    if (!browser) return;
-    const unsubOpen = browser.onPanelOpened?.(() => {
-      if (preserveSidePanelOnPanelOpenRef.current) {
-        preserveSidePanelOnPanelOpenRef.current = false;
-        return;
-      }
-      setCurrentSidePanel("browser");
-    });
-    const unsubClose = browser.onPanelClosed?.(() => setCurrentSidePanel(null));
-    return () => {
-      unsubOpen?.();
-      unsubClose?.();
-    };
+  const openBrowserPanelFromAgent = useCallback(() => {
+    if (preserveSidePanelOnPanelOpenRef.current) {
+      preserveSidePanelOnPanelOpenRef.current = false;
+      return;
+    }
+    setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
   const {
     setRightSidebarExpandedWidth: setBrowserPanelWidth,
   } = useWorkspaceShellLayout({
@@ -534,14 +527,11 @@ export function AssistantPage(props: AssistantPageProps) {
     async (target: OpenTarget, options?: { auto?: boolean }) => {
       if (target.kind === "url" || target.preview === "browser") {
         const url = browserUrlForTarget(target);
-        if (isElectronRuntime()) {
-          setCurrentSidePanel("browser");
-          const createTab = window.__ONMYAGENT_ELECTRON__?.browser?.createTab;
-          if (!createTab) throw new Error("Browser bridge is unavailable.");
-          await createTab(url);
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
+        await openInAppBrowser({
+          openSidePanel: () => setCurrentSidePanel("browser"),
+          url,
+          sessionId: props.selectedSessionId,
+        });
         return;
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
@@ -549,7 +539,12 @@ export function AssistantPage(props: AssistantPageProps) {
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
-    [artifactTarget?.id, browserUrlForTarget, setCurrentSidePanel],
+    [
+      artifactTarget?.id,
+      browserUrlForTarget,
+      props.selectedSessionId,
+      setCurrentSidePanel,
+    ],
   );
   const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {
     setOpenTargets(targets);

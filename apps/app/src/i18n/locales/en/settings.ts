@@ -811,4 +811,8 @@ export default {
   "settings.provider_delete_confirm_title": "Delete this model provider?",
   "settings.provider_delete_confirm_desc": "This removes the provider from the OpenCode config. This cannot be undone. Reload the engine for changes to take effect.",
   "settings.provider_more_actions": "More actions",
+  "settings.provider_reload_required_title": "Engine reload required",
+  "settings.provider_reload_required_desc":
+    "Adding or modifying model providers requires an engine reload (no need to restart the app) to take effect immediately. Click reload now to apply.",
+  "settings.provider_reload_now": "Reload now",
 } as const;

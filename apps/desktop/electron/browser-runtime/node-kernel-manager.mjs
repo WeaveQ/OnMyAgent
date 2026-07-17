@@ -100,8 +100,10 @@ function createKernel(options) {
     isDead: () => dead,
     evaluate(code) {
       return sendRequest({
-          code,
-          syncTimeoutMs: Math.min(options.timeoutMs, 1_000),
+        code,
+        // vm timeout only covers the sync prelude before the first await.
+        // Keep it generous enough for large agent-authored scripts.
+        syncTimeoutMs: Math.min(options.timeoutMs, 15_000),
       });
     },
     configureBrowser(context) {
@@ -123,7 +125,8 @@ export function createNodeKernelManager(options = {}) {
     nodePath: options.nodePath ?? process.execPath,
     allowedModules: options.allowedModules ?? ["node:url", "node:path"],
     cwd: options.cwd ?? process.cwd(),
-    timeoutMs: options.timeoutMs ?? 10_000,
+    // Browser navigations (e.g. heavy sites) need more than a few seconds.
+    timeoutMs: options.timeoutMs ?? 60_000,
     browserRequest: options.browserRequest,
   };
 

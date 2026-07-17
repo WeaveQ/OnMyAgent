@@ -162,6 +162,7 @@ test("host captures screenshots and dispatches coordinate input through CDP", as
   }, context);
 
   assert.deepEqual(factory.views[0].webContents.commands.map((command) => command.method), [
+    "Runtime.evaluate",
     "Page.captureScreenshot",
     "Input.dispatchMouseEvent",
     "Input.dispatchMouseEvent",
@@ -266,4 +267,107 @@ test("host implements locator, DOM-CUA, content, dialog, clipboard, and user-tab
   assert.equal(clipboardText, "next");
   assert.equal((await host.dispatch("listUserTabs", {}, context)).tabs[0].tabId, "user-tab");
   assert.equal((await host.dispatch("selectedTab", {}, context)).tab.tabId, tabId);
+});
+
+test("host supports playwrightEvaluate, domSnapshot, elementInfo, exportContent, getJsDialog", async () => {
+  const factory = createFakeViewFactory([
+    3,
+    { url: "https://example.com", title: "Example", snapshot: "1 link \"Home\"", count: 1 },
+    {
+      matchCount: 1,
+      element: {
+        tag: "a",
+        role: "link",
+        label: "Home",
+        bounds: { x: 1, y: 2, width: 10, height: 12 },
+      },
+    },
+    { type: "text", text: "hello", title: "Example", url: "https://example.com" },
+    { url: "https://cdn.example.com/a.jpg" },
+  ]);
+  const host = createBrowserHost({ createView: factory.create });
+  const created = await host.dispatch("createTab", {}, context);
+  const tabId = created.tab.tabId;
+
+  const evaluated = await host.dispatch("playwrightEvaluate", {
+    tabId,
+    pageFunction: "() => document.querySelectorAll('a').length",
+  }, context);
+  assert.deepEqual(evaluated, { value: 3 });
+
+  await assert.rejects(
+    host.dispatch("playwrightEvaluate", {
+      tabId,
+      pageFunction: "() => fetch('/x')",
+    }, context),
+    /host capabilities|mutate/i,
+  );
+
+  const snapshot = await host.dispatch("domSnapshot", { tabId }, context);
+  assert.equal(snapshot.count, 1);
+  assert.match(snapshot.snapshot, /Home/);
+
+  const info = await host.dispatch("elementInfo", { tabId, css: "a" }, context);
+  assert.equal(info.matchCount, 1);
+  assert.equal(info.element.tag, "a");
+
+  const exported = await host.dispatch("exportContent", { tabId, type: "text" }, context);
+  assert.equal(exported.text, "hello");
+
+  const dialog = await host.dispatch("getJsDialog", { tabId }, context);
+  assert.equal(dialog.open, false);
+  assert.equal(dialog.dialog, null);
+
+  const media = await host.dispatch("coordinateAction", {
+    tabId,
+    action: "downloadMedia",
+    url: "https://cdn.example.com/a.jpg",
+  }, context);
+  assert.equal(media.url, "https://cdn.example.com/a.jpg");
+});
+
+test("host elementScreenshot captures a clipped page region", async () => {
+  const factory = createFakeViewFactory([
+    { x: 10, y: 20, width: 100, height: 50, dpr: 1, viewportWidth: 800, viewportHeight: 600 },
+  ]);
+  const host = createBrowserHost({ createView: factory.create });
+  const created = await host.dispatch("createTab", {}, context);
+  const tabId = created.tab.tabId;
+
+  factory.views[0].webContents.debugger.sendCommand = async (method, params) => {
+    factory.views[0].webContents.commands.push({ method, params });
+    if (method === "Runtime.evaluate") {
+      return { result: { value: { x: 10, y: 20, width: 100, height: 50, dpr: 1 } } };
+    }
+    if (method === "Page.captureScreenshot") {
+      return { data: "AAAA" };
+    }
+    return { ok: true };
+  };
+
+  const shot = await host.dispatch("elementScreenshot", {
+    tabId,
+    css: "img.hero",
+    format: "jpeg",
+  }, context);
+  assert.equal(shot.format, "jpeg");
+  assert.equal(shot.image.startsWith("data:image/jpeg;base64,"), true);
+  assert.equal(shot.bounds.width, 100);
+  assert.equal(
+    factory.views[0].webContents.commands.some((command) => command.method === "Page.captureScreenshot"),
+    true,
+  );
+});
+
+test("host locator getAttribute is read-only", async () => {
+  const factory = createFakeViewFactory(["https://example.com/item"]);
+  const host = createBrowserHost({ createView: factory.create });
+  const created = await host.dispatch("createTab", {}, context);
+  const result = await host.dispatch("locatorAction", {
+    tabId: created.tab.tabId,
+    selector: { css: "a.card" },
+    action: "getAttribute",
+    name: "href",
+  }, context);
+  assert.equal(result.value, "https://example.com/item");
 });

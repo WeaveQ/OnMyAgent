@@ -1,8 +1,24 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { isBrowserAutomationSkillEnabled } from "../artifact-plugin-runtime.mjs";
 import { createBrowserCapabilityAuthority } from "./browser-capability-authority.mjs";
 import { createBrowserRpcServer, resolveBrowserRpcEndpoint } from "./browser-rpc-server.mjs";
 import { createBrowserRuntime } from "./index.mjs";
+
+function defaultBundledPluginsRoot(dirname) {
+  const candidates = [
+    typeof process.resourcesPath === "string"
+      ? path.resolve(process.resourcesPath, "bundled-plugins")
+      : null,
+    path.resolve(dirname, "..", "resources", "bundled-plugins"),
+    path.resolve(dirname, "..", "..", "resources", "bundled-plugins"),
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
+}
 
 const DEFAULT_URL = "https://www.google.com";
 
@@ -33,6 +49,28 @@ export function createElectronBrowserController(options) {
 
   const sendState = () => {
     if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+    mainWindow.webContents.send("onmyagent:browser:state", browserStatePayload());
+  };
+
+  /**
+   * Mirror renderer openTarget(): expand the browser rail so EmbeddedBrowserViewport
+   * can mount and call show(bounds). Creating a WebContentsView alone is not enough.
+   */
+  const requestOpenBrowserPanel = (detail = {}) => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+      return;
+    }
+    try {
+      if (typeof mainWindow.isMinimized === "function" && mainWindow.isMinimized()) {
+        mainWindow.restore?.();
+      }
+      mainWindow.focus?.();
+    } catch {
+      // Best-effort focus only.
+    }
+    // Send both a dedicated open event and a state snapshot so the renderer can
+    // open even if one channel is missed.
+    mainWindow.webContents.send("onmyagent:browser:panel-opened", detail);
     mainWindow.webContents.send("onmyagent:browser:state", browserStatePayload());
   };
 
@@ -82,6 +120,13 @@ export function createElectronBrowserController(options) {
     if (bounds && bounds.width > 0 && bounds.height > 0) selected.setBounds(bounds);
   };
 
+  const pluginRoot =
+    options.bundledPluginsRoot ??
+    defaultBundledPluginsRoot(
+      options.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
+    );
+  const docsRoot = options.docsRoot
+    ?? (pluginRoot ? path.join(pluginRoot, "browser", "docs") : null);
   const runtime = createBrowserRuntime({
     createView,
     requestApproval: options.requestApproval,
@@ -90,25 +135,53 @@ export function createElectronBrowserController(options) {
     history: options.history,
     nameSession: options.nameSession,
     consoleLogs: options.consoleLogs,
+    docsRoot,
+    isBrowserEnabled:
+      options.isBrowserEnabled ??
+      (async () => {
+        if (!pluginRoot) return true;
+        return isBrowserAutomationSkillEnabled({
+          pluginRoot,
+          enablementPath: options.artifactPluginEnablementPath,
+        });
+      }),
   });
 
   // The host owns security and lifecycle; this controller owns Electron layout.
   const host = runtime.host;
   const originalRegisterUserTab = host.registerUserTab.bind(host);
-  const originalDispatch = runtime.dispatch.bind(runtime);
+  const originalHostDispatch = host.dispatch.bind(host);
 
-  runtime.dispatch = async (method, params, context) => {
-    const before = new Set(host.listAllTabs().map((tab) => tab.tabId));
-    const result = await originalDispatch(method, params, context);
+  /**
+   * Agent tools call host.dispatch via node-kernel browserRequest
+   * (tabs.new → createTab), NOT runtime.dispatch (which only sees nodeReplWrite).
+   * Layout/UI side effects must hook host.dispatch or they never run — that is
+   * why localhost openTarget worked (renderer setCurrentSidePanel) while agent
+   * createTab did not open the rail.
+   */
+  const syncControllerAfterHostMethod = (method, params, result) => {
+    let openedAgentSurface = false;
     if (method === "createTab") {
       const tabId = result?.tab?.tabId;
-      if (tabId && !before.has(tabId) && !records.has(tabId)) {
-        const view = host.getView?.(tabId);
-        if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
-        records.set(tabId, { tab: result.tab, view });
-        order.push(tabId);
+      if (tabId) {
+        if (!records.has(tabId)) {
+          const view = host.getView?.(tabId);
+          if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
+          records.set(tabId, { tab: result.tab, view });
+          if (!order.includes(tabId)) order.push(tabId);
+        }
+        activeTabId = tabId;
+        openedAgentSurface = true;
+      }
+    } else if (method === "navigate" || method === "claimTab") {
+      const tabId = result?.tab?.tabId
+        ?? (typeof params?.tabId === "string" ? params.tabId : null);
+      if (tabId && records.has(tabId)) {
+        activeTabId = tabId;
+        openedAgentSurface = true;
       }
     }
+
     for (const tabId of [...order]) {
       if (!host.listAllTabs().some((tab) => tab.tabId === tabId)) {
         detach(records.get(tabId)?.view);
@@ -117,8 +190,28 @@ export function createElectronBrowserController(options) {
         if (activeTabId === tabId) activeTabId = order[0] ?? null;
       }
     }
+
+    // Also pick up agent tabs created earlier that missed registration.
+    for (const tab of host.listAllTabs()) {
+      if (records.has(tab.tabId)) continue;
+      const view = host.getView?.(tab.tabId);
+      if (!view) continue;
+      records.set(tab.tabId, { tab, view });
+      if (!order.includes(tab.tabId)) order.push(tab.tabId);
+      if (tab.owner === "agent" || tab.owner === "claimed") {
+        activeTabId = tab.tabId;
+        openedAgentSurface = true;
+      }
+    }
+
+    if (openedAgentSurface) requestOpenBrowserPanel();
     attachSelected();
     sendState();
+  };
+
+  host.dispatch = async (method, params, context) => {
+    const result = await originalHostDispatch(method, params, context);
+    syncControllerAfterHostMethod(method, params, result);
     return result;
   };
 
@@ -151,10 +244,12 @@ export function createElectronBrowserController(options) {
     };
   }
 
-  function createBrowserTab(url = "about:blank", { select = true } = {}) {
+  function createBrowserTab(url = "about:blank", { select = true, sessionId = null } = {}) {
     const tabId = `tab-${randomUUID()}`;
     const view = createView();
-    const tab = originalRegisterUserTab(tabId, view);
+    const tab = originalRegisterUserTab(tabId, view, {
+      sessionId: typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : null,
+    });
     records.set(tabId, { tab, view, favicon: null });
     order.push(tabId);
     void view.webContents.loadURL(normalizeUrl(url, "about:blank"));
