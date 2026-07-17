@@ -61,31 +61,10 @@ describe("expert marketplace UI contract", () => {
     expect(packageNames).toEqual(
       expect.arrayContaining([
         "ai-engineer",
-        "browser-use-agent",
         "gaokao-advisor",
         "viral-topic-master",
       ]),
     );
-    const browserUseManifest = JSON.parse(
-      readFileSync(
-        join(builtinPluginsRoot, "browser-use-agent/.expert-plugin/plugin.json"),
-        "utf8",
-      ),
-    );
-    expect(browserUseManifest.agentName).toBe("browser-use-agent");
-    expect(browserUseManifest.runtime).toBe("browser-use-agent");
-    expect(existsSync(join(
-      builtinPluginsRoot,
-      "browser-use-agent/skills/browser-use-agent/SKILL.md",
-    ))).toBe(true);
-    const marketplaceData = readMarketplaceFile("data.ts");
-    const pendingAgent = readMarketplaceFile("pending-agent.ts");
-    const pendingStore = readWorkspaceFile(
-      "apps/app/src/react-app/domains/agents/pending-agent-store.ts",
-    );
-    expect(marketplaceData).toContain("runtime: normalizeExpertRuntime(manifest.runtime)");
-    expect(pendingAgent).toContain("runtime: expert.runtime");
-    expect(pendingStore).toContain('runtime?: "browser-use-agent"');
   });
 
   test("parses details from package files with folder-name fallback and duplicate-safe ids", () => {
@@ -164,60 +143,6 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
     expect(expertPage).toContain("activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert))");
-  });
-
-  test("browser-use expert routes its prompt to the dedicated runtime", () => {
-    const surfaceHook = readWorkspaceFile(
-      "apps/app/src/react-app/shell/session-route-surface-props-hook.ts",
-    );
-    expect(surfaceHook).toContain('agentRuntime === "browser-use-agent"');
-    expect(surfaceHook).toContain(
-      "draft.messageID ?? `msg_${crypto.randomUUID()}`",
-    );
-    expect(surfaceHook).toContain("browserUseAgentStart({");
-    expect(surfaceHook).toContain("noReply: true");
-    expect(surfaceHook).toContain("ownerId: `expert:${sessionId}`");
-    expect(surfaceHook).toContain("sessionId,");
-    expect(surfaceHook).toContain("userMessageId:");
-    expect(surfaceHook).toContain('queryKey: ["browser-use-agent-history", sessionId]');
-    const desktopBridge = readWorkspaceFile("apps/app/src/app/lib/desktop.ts");
-    expect(desktopBridge).toContain("export function browserUseAgentHistory(");
-    expect(desktopBridge).toContain('"browserUseAgentHistory"');
-    const electronMain = readWorkspaceFile("apps/desktop/electron/main.mjs");
-    expect(electronMain).toContain("createBrowserUseRunStore({");
-    expect(electronMain).toContain('case "browserUseAgentHistory"');
-    const sessionSurface = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
-    );
-    expect(sessionSurface).toContain("browserUseAgentHistory(props.sessionId)");
-    expect(sessionSurface).toContain("mergeBrowserUseTimeline(");
-    expect(sessionSurface).not.toContain("<BrowserUseAgentStatus");
-    const messageList = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/surface/message-list.tsx",
-    );
-    expect(messageList).toContain('part.tool === "browser_use_operation"');
-    expect(messageList).toContain("<ToolApprovalCard");
-    expect(messageList).toContain("browserUseAgentCancel(runId)");
-    expect(messageList).toContain("browserUseAgentApprove({");
-    expect(messageList).toContain("function browserActionLabel(");
-    expect(messageList).toContain("function browserResultSummary(");
-    expect(messageList).not.toContain('part.tool === "browser_use_activity"');
-    expect(messageList).toContain('t("session.browser_use_operation_goal")');
-    expect(messageList).not.toContain("formatStructuredValue(output.results)");
-    const browserUseTimeline = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/browser-use/browser-use-timeline.ts",
-    );
-    expect(browserUseTimeline).toContain('parts: [{ type: "text", text, state: "streaming" }]');
-    const zhSession = readWorkspaceFile("apps/app/src/i18n/locales/zh/session.ts");
-    const enSession = readWorkspaceFile("apps/app/src/i18n/locales/en/session.ts");
-    const zhTWSession = readWorkspaceFile("apps/app/src/i18n/locales/zh-TW/session.ts");
-    for (const locale of [zhSession, enSession, zhTWSession]) {
-      expect(locale).toContain('"session.browser_use_action_navigate"');
-      expect(locale).toContain('"session.browser_use_action_click"');
-      expect(locale).toContain('"session.browser_use_action_input"');
-      expect(locale).toContain('"session.browser_use_action_screenshot"');
-      expect(locale).toContain('"session.browser_use_operation_result_summary"');
-    }
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {
@@ -449,21 +374,6 @@ describe("expert marketplace UI contract", () => {
     expect(store).toContain("export function writeSessionAgentSnapshot");
     expect(model).toContain("readSessionAgentSnapshot(session.id)");
     expect(model).toContain("sessionAgentSnapshot?.name");
-  });
-
-  test("browser use expert carries its dedicated runtime into every prompt", () => {
-    const expertPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/pages/expert.tsx",
-    );
-    const sessionRoute = readWorkspaceFile(
-      "apps/app/src/react-app/shell/session-route-surface-props-hook.ts",
-    );
-
-    expect(expertPage).toContain("agentRuntime: activeAgentContext?.runtime");
-    expect(sessionRoute).toContain("resolvePendingAgentForPrompt({");
-    expect(sessionRoute).toContain(
-      "persistedRuntime: readSessionAgentSnapshot(sessionId)?.runtime",
-    );
   });
 
   test("exposes a lightweight expert registry separate from full card details", () => {

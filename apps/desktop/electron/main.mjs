@@ -49,13 +49,6 @@ import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./arc
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
-import { createBrowserUseBroker } from "./browser-use-broker.mjs";
-import { browserUseRuntimeStatus, desktopRuntimeTarget } from "./browser-use-runtime-status.mjs";
-import { createBrowserUseModelGateway } from "./browser-use-agent/model-gateway.mjs";
-import { createBrowserUseOpenCodeModelInvoker } from "./browser-use-agent/opencode-model-invoker.mjs";
-import { createBrowserUseAgentRuntime } from "./browser-use-agent/runtime.mjs";
-import { createBrowserUseRunStore } from "./browser-use-agent/run-store.mjs";
-import { createBrowserUseEnvironmentManager } from "./personal-agent-runtime/browser-use-environment.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
@@ -77,7 +70,7 @@ import {
   parseEditorTarget,
   resolveEditorCommand,
 } from "./code-workspace-actions.mjs";
-import { createEmbeddedBrowserPanel } from "./embedded-browser-panel.mjs";
+import { createElectronBrowserController } from "./browser-runtime/electron-browser-controller.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
 import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
 
@@ -99,7 +92,6 @@ const RELEASE_DOWNLOAD_BASE_URL =
 const RELEASE_PAGE_URL =
   "https://github.com/WeaveQ/onmyagent/releases/latest";
 const DOCS_PAGE_URL = "https://onmyagentlabs.com/docs";
-const BROWSER_PLUGIN = "opencode-chrome-devtools";
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
 const MARKETPLACE_RESOURCE_DIR = "marketplace";
 let cachedBundledSkillsRootPath = undefined;
@@ -277,7 +269,7 @@ if (
   app.dock.setIcon(APP_ICON_IMAGE);
 }
 
-const { remoteDebugPort } = await configureDesktopStartupFlags(app);
+await configureDesktopStartupFlags(app);
 const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("ONMYAGENT_FORCE_SIGNIN");
@@ -426,38 +418,28 @@ const {
   setApplicationMenuVisible,
 } = applicationMenuController;
 
-const embeddedBrowserPanel = createEmbeddedBrowserPanel({
-  app,
+const browserController = createElectronBrowserController({
   WebContentsView,
   clipboard,
-  shell,
-  dirname: __dirname,
-});
-const browserUseRuntimeRoot = app.isPackaged
-  ? path.join(process.resourcesPath, "runtimes")
-  : path.resolve(__dirname, "../resources/runtimes");
-const readBrowserUseStatus = () => {
-  const status = browserUseRuntimeStatus({ runtimeRoot: browserUseRuntimeRoot });
-  return {
-    ...status,
-    ready: status.ready && remoteDebugPort > 0,
-  };
-};
-const browserUseBroker = createBrowserUseBroker({
-  panel: embeddedBrowserPanel,
-  cdpPort: remoteDebugPort,
-  runtimeStatus: readBrowserUseStatus,
-});
-const browserUseResourceRoot = app.isPackaged
-  ? path.join(process.resourcesPath, "browser-use")
-  : path.resolve(__dirname, "../resources/browser-use");
-const browserUseEnvironmentManager = createBrowserUseEnvironmentManager({
-  runtimeRoot: browserUseRuntimeRoot,
-  resourceRoot: browserUseResourceRoot,
-  userDataDir: app.getPath("userData"),
-  environmentForOwner: async (ownerId) => {
-    await browserUseBroker.start();
-    return browserUseBroker.environmentForOwner(ownerId);
+  openExternal: (url) => shell.openExternal(url),
+  requestApproval: async (request) => {
+    const action = request?.action ?? {};
+    const detail = action.kind === "click"
+      ? `Allow the browser to activate “${String(action.label || "this control").slice(0, 160)}”?`
+      : action.kind === "upload"
+        ? "Allow the browser to upload the selected file?"
+        : "Allow the browser to download this file?";
+    const result = await dialog.showMessageBox(mainWindow ?? undefined, {
+      type: "warning",
+      title: "Browser confirmation",
+      message: "A browser action requires your confirmation.",
+      detail,
+      buttons: ["Cancel", "Allow"],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    return result.response === 1;
   },
 });
 const uiControlBridge = createUiControlServer({
@@ -1030,7 +1012,6 @@ async function ensureDefaultWorkspaceOpencodeConfig(workspacePath) {
   await writeJsonFileAtomic(configPath, {
     $schema: "https://opencode.ai/config.json",
     default_agent: "onmyagent",
-    plugin: [BROWSER_PLUGIN],
   });
   return true;
 }
@@ -1303,70 +1284,12 @@ async function writeWorkspaceState(nextState) {
 const runtimeManager = createRuntimeManager({
   app,
   desktopRoot: path.resolve(__dirname, ".."),
+  runtimeEnvironment: () => browserController.browserEnvironment(),
   listLocalWorkspacePaths: async () =>
     (await readWorkspaceState()).workspaces
       .filter((entry) => entry?.workspaceType !== "remote")
       .map((entry) => String(entry?.path ?? "").trim())
       .filter(Boolean),
-  browserUseEnvironment: (input) =>
-    browserUseEnvironmentManager.environmentForRun(input),
-});
-
-const browserUseAgentResourceRoot = app.isPackaged
-  ? path.join(process.resourcesPath, "browser-use-agent")
-  : path.resolve(__dirname, "../resources/browser-use-agent");
-const browserUseAgentTargetRoot = path.join(
-  browserUseRuntimeRoot,
-  desktopRuntimeTarget(),
-);
-const browserUseAgentPython = path.join(
-  browserUseAgentTargetRoot,
-  "python",
-  process.platform === "win32" ? "python.exe" : "bin/python3",
-);
-const browserUseModelInvoker = createBrowserUseOpenCodeModelInvoker({
-  connectionInfo: async () => {
-    const engine = await runtimeManager.engineInfo();
-    const server = await runtimeManager.onmyagentServerInfo();
-    const baseUrl = engine.baseUrl ?? server.baseUrl ?? "";
-    const authorization = engine.opencodeUsername && engine.opencodePassword
-      ? `Basic ${Buffer.from(`${engine.opencodeUsername}:${engine.opencodePassword}`, "utf8").toString("base64")}`
-      : server.clientToken || server.ownerToken
-        ? `Bearer ${server.clientToken ?? server.ownerToken}`
-        : "";
-    return { baseUrl, authorization };
-  },
-});
-const browserUseModelGateway = createBrowserUseModelGateway({
-  invokeModel: browserUseModelInvoker,
-});
-const browserUseRunStore = createBrowserUseRunStore({
-  filePath: path.join(app.getPath("userData"), "browser-use-agent", "runs.json"),
-});
-const browserUseAgentRuntime = createBrowserUseAgentRuntime({
-  browserEnvironment: {
-    environmentForOwner: async (ownerId) => {
-      await browserUseBroker.start();
-      return browserUseBroker.environmentForOwner(ownerId);
-    },
-    releaseOwner: (ownerId, options) => browserUseBroker.releaseOwner(ownerId, options),
-  },
-  modelGateway: browserUseModelGateway,
-  store: browserUseRunStore,
-  spawnRunner: ({ env }) => spawn(
-    browserUseAgentPython,
-    [path.join(browserUseAgentResourceRoot, "runner.py")],
-    {
-      cwd: browserUseAgentResourceRoot,
-      env: {
-        ...process.env,
-        ...env,
-        PYTHONPATH: browserUseAgentResourceRoot,
-      },
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    },
-  ),
 });
 
 const {
@@ -1382,8 +1305,6 @@ const {
   runtimeManager,
   readWorkspaceState,
   claudeProjectsRoot,
-  browserUseEnvironment: (input) =>
-    browserUseEnvironmentManager.environmentForRun(input),
 });
 
 const codeWorkspaceActions = createCodeWorkspaceActions({
@@ -1990,8 +1911,6 @@ async function dispatchDesktopCommand(event, command, ...args) {
   switch (command) {
     case "workspaceBootstrap":
       return readWorkspaceState();
-    case "browserUseStatus":
-      return readBrowserUseStatus();
     case "personalLocalAgentsList": {
       const result = await personalAgentRuntime.listAgents(args[0] ?? {});
       const agents = Array.isArray(result?.agents) ? result.agents : [];
@@ -2065,16 +1984,6 @@ async function dispatchDesktopCommand(event, command, ...args) {
       }
       return result;
     }
-    case "browserUseAgentStart":
-      return browserUseAgentRuntime.start(args[0] ?? {});
-    case "browserUseAgentStatus":
-      return browserUseAgentRuntime.status(String(args[0]?.runId ?? args[0] ?? ""));
-    case "browserUseAgentHistory":
-      return browserUseAgentRuntime.history(String(args[0]?.sessionId ?? args[0] ?? ""));
-    case "browserUseAgentCancel":
-      return browserUseAgentRuntime.cancel(String(args[0]?.runId ?? args[0] ?? ""));
-    case "browserUseAgentApprove":
-      return browserUseAgentRuntime.approve(args[0] ?? {});
     case "personalLocalAgentStatus":
       return personalAgentRuntime.getRun(args[0]);
     case "personalLocalAgentRun": {
@@ -3173,8 +3082,8 @@ async function createMainWindow() {
   });
 
   mainWindow.on("closed", () => {
-    embeddedBrowserPanel.destroyBrowserView();
-    embeddedBrowserPanel.setMainWindow(null);
+    browserController.destroyBrowserView();
+    browserController.setMainWindow(null);
     mainWindow = null;
   });
 
@@ -3184,7 +3093,7 @@ async function createMainWindow() {
       url.startsWith("http://127.0.0.1") ||
       url.startsWith("http://localhost");
     if (!local) {
-      void embeddedBrowserPanel.openAllowedExternalUrl(url);
+      void browserController.openAllowedExternalUrl(url);
       return { action: "deny" };
     }
     return { action: "allow" };
@@ -3212,9 +3121,9 @@ async function createMainWindow() {
     await mainWindow.loadURL("about:blank").catch(() => undefined);
   }
 
-  embeddedBrowserPanel.setMainWindow(mainWindow);
-  if (!embeddedBrowserPanel.hasActiveBrowserTab()) {
-    embeddedBrowserPanel.createBrowserTab("about:blank", { select: true });
+  browserController.setMainWindow(mainWindow);
+  if (!browserController.hasActiveBrowserTab()) {
+    browserController.createBrowserTab("about:blank", { select: true });
   }
 
   return mainWindow;
@@ -3227,7 +3136,7 @@ const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 ipcMain.handle(DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
 ipcMain.handle(LEGACY_DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
 ipcMain.handle("onmyagent:shell:openExternal", async (_event, url) => {
-  return embeddedBrowserPanel.openAllowedExternalUrl(url);
+  return browserController.openAllowedExternalUrl(url);
 });
 ipcMain.handle("onmyagent:shell:relaunch", async () => {
   app.relaunch();
@@ -3271,67 +3180,58 @@ ipcMain.handle("onmyagent:system:architecture", async () =>
   resolveArchitectureInfo(),
 );
 
-// ── Embedded browser IPC ────────────────────────────────────────────────
+// ── Session Browser IPC ─────────────────────────────────────────────────
 ipcMain.handle("onmyagent:browser:show", (_event, bounds) =>
-  embeddedBrowserPanel.attachBrowserView(bounds),
+  browserController.attachBrowserView(bounds),
 );
 ipcMain.handle("onmyagent:browser:hide", () =>
-  embeddedBrowserPanel.hideBrowserView(),
+  browserController.hideBrowserView(),
 );
 ipcMain.handle("onmyagent:browser:navigate", (_event, url, options) =>
-  embeddedBrowserPanel.navigate(url, options),
+  browserController.navigate(url, options),
 );
-ipcMain.handle("onmyagent:browser:back", () => embeddedBrowserPanel.goBack());
+ipcMain.handle("onmyagent:browser:back", () => browserController.goBack());
 ipcMain.handle("onmyagent:browser:forward", () =>
-  embeddedBrowserPanel.goForward(),
+  browserController.goForward(),
 );
 ipcMain.handle("onmyagent:browser:reload", () =>
-  embeddedBrowserPanel.reload(),
+  browserController.reload(),
 );
 ipcMain.handle("onmyagent:browser:bounds", (_event, bounds) =>
-  embeddedBrowserPanel.setBounds(bounds),
+  browserController.setBounds(bounds),
 );
 ipcMain.handle("onmyagent:browser:state", () =>
-  embeddedBrowserPanel.browserStatePayload(),
+  browserController.browserStatePayload(),
+);
+ipcMain.handle("onmyagent:browser:diagnostics", () =>
+  browserController.diagnostics(),
 );
 ipcMain.handle("onmyagent:browser:createTab", (_event, url) => {
-  const tab = embeddedBrowserPanel.createBrowserTab(url ?? "about:blank", {
+  const tab = browserController.createBrowserTab(url ?? "about:blank", {
     select: true,
   });
   return { tabId: tab.tabId };
 });
 ipcMain.handle("onmyagent:browser:closeTab", (_event, tabId) =>
-  embeddedBrowserPanel.closeBrowserTab(tabId == null ? undefined : String(tabId)),
+  browserController.closeBrowserTab(tabId == null ? undefined : String(tabId)),
 );
 ipcMain.handle("onmyagent:browser:closeAllTabs", () =>
-  embeddedBrowserPanel.closeAllBrowserTabs(),
+  browserController.closeAllBrowserTabs(),
 );
 ipcMain.handle("onmyagent:browser:selectTab", (_event, tabId) =>
-  embeddedBrowserPanel.selectBrowserTab(String(tabId ?? "")).tabId,
+  browserController.selectBrowserTab(String(tabId ?? "")).tabId,
 );
 ipcMain.handle("onmyagent:browser:reorderTabs", (_event, tabIds) =>
-  embeddedBrowserPanel.reorderBrowserTabs(tabIds),
+  browserController.reorderBrowserTabs(tabIds),
 );
 ipcMain.handle("onmyagent:browser:listTabs", () =>
-  embeddedBrowserPanel.listBrowserTabs(),
+  browserController.listBrowserTabs(),
 );
 ipcMain.handle("onmyagent:browser:tabContextMenu", (_event, tabId, point) =>
-  embeddedBrowserPanel.showBrowserTabContextMenu(tabId, point),
+  browserController.showBrowserTabContextMenu(tabId, point),
 );
 ipcMain.handle("onmyagent:browser:destroy", () =>
-  embeddedBrowserPanel.destroyBrowserView(),
-);
-ipcMain.on("onmyagent:menu-overlay:ready", (event) =>
-  embeddedBrowserPanel.onMenuOverlayReady(event),
-);
-ipcMain.on("onmyagent:menu-overlay:choose", (event, payload) =>
-  embeddedBrowserPanel.onMenuOverlayChoose(event, payload),
-);
-ipcMain.on("onmyagent:menu-overlay:close", (event, payload) =>
-  embeddedBrowserPanel.onMenuOverlayClose(event, payload),
-);
-ipcMain.on("onmyagent:menu-overlay:dismiss", (event) =>
-  embeddedBrowserPanel.onMenuOverlayDismiss(event),
+  browserController.destroyBrowserView(),
 );
 
 registerMigrationIpc({ app, ipcMain });
@@ -3350,10 +3250,8 @@ if (!app.requestSingleInstanceLock()) {
     codeTerminalManager.dispose();
     void Promise.all([
       disposeRuntimeBeforeQuit(),
+      browserController.close(),
       uiControlBridge.stop(),
-      browserUseAgentRuntime.dispose(),
-      browserUseModelGateway.stop(),
-      browserUseBroker.stop(),
     ]).finally(() => app.quit());
   });
 
@@ -3374,14 +3272,13 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    await browserController.startRpc({
+      runtimeDir: path.join(app.getPath("userData"), "browser-runtime"),
+    });
     installMediaPermissionHandlers();
     installApplicationMenu();
 
     await ensureOnMyAgentUserDataDirs();
-    await browserUseBroker.start().catch((error) => {
-      console.warn("[browser-use] broker failed to start", error);
-    });
-
     // Use Tauri's existing workspace state file as canonical so rollback and
     // Electron see the same workspace list. Import the short-lived
     // Electron-only filename only when the shared file is missing.

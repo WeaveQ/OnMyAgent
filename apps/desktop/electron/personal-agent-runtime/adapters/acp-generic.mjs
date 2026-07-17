@@ -524,16 +524,8 @@ async function withAcpSessionClient(ctx, appendEvent, operation) {
 }
 
 function processEnvironmentForContext(ctx, workdir, extra = {}) {
-  const pathEntries = Array.isArray(ctx.browserUsePathEntries)
-    ? ctx.browserUsePathEntries
-    : [];
-  const environment =
-    ctx.browserUseEnvironment && typeof ctx.browserUseEnvironment === "object"
-      ? ctx.browserUseEnvironment
-      : {};
-  return createExecHelpers({ extraPathEntries: pathEntries }).processEnv({
+  return createExecHelpers().processEnv({
     PWD: workdir,
-    ...environment,
     ...extra,
   });
 }

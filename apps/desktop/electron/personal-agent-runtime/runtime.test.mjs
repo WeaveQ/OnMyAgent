@@ -266,69 +266,6 @@ describe("personal agent runtime storage", () => {
     }
   });
 
-  it("passes conversation-scoped Browser Use environment to ACP adapters", async () => {
-    const workspaceRoot = await tempWorkspace();
-    try {
-      /** @type {{ browserUseEnvironment?: Record<string, string>, browserUsePathEntries?: string[] } | null} */
-      let capturedContext = null;
-      const environmentCalls = [];
-      const runtime = createPersonalAgentRuntime({
-        legacy: {
-          listAgents: async () => ({ agents: [] }),
-          normalizeAgent: async (input) => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", ...input }),
-          detectAgent: async (agent) => ({ ...agent, id: "codex", provider: "codex", status: "online" }),
-          start: async () => ({}),
-          run: async () => ({}),
-          status: () => ({}),
-          cancel: () => ({}),
-        },
-        browserUseEnvironment: async (input) => {
-          environmentCalls.push(input);
-          return {
-            environment: { BU_NAME: "conversation-browser" },
-            pathEntries: ["/bundled/browser-use/bin"],
-          };
-        },
-        adapters: {
-          codex: () => ({
-            sendMessage: async (ctx) => {
-              capturedContext = ctx;
-              return {
-                output: "ok",
-                command: "fake codex",
-                connectionMode: "Codex ACP session",
-              };
-            },
-          }),
-        },
-      });
-
-      const conversation = await runtime.createConversation({
-        workspaceRoot,
-        agent: { provider: "codex" },
-        title: "Browser Use",
-      });
-      const started = await runtime.startMessage({
-        workspaceRoot,
-        agent: { provider: "codex" },
-        conversationId: conversation.conversation.id,
-        prompt: "browse",
-      });
-      await waitForConversationFacadeRun(runtime, workspaceRoot, started.runId);
-
-      assert.equal(environmentCalls[0].conversationId, conversation.conversation.id);
-      assert.ok(capturedContext);
-      assert.deepEqual(capturedContext.browserUseEnvironment, {
-        BU_NAME: "conversation-browser",
-      });
-      assert.deepEqual(capturedContext.browserUsePathEntries, [
-        "/bundled/browser-use/bin",
-      ]);
-    } finally {
-      await cleanup(workspaceRoot);
-    }
-  });
-
   it("warms up a conversation by creating a provider session before the first message", async () => {
     const workspaceRoot = await tempWorkspace();
     try {

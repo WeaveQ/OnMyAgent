@@ -102,11 +102,6 @@ describe("software environment", () => {
       sidecarsRoot,
       process.platform === "win32" ? "opencode.exe" : "opencode",
     );
-    const browserUseLauncher = path.join(
-      runtimeRoot,
-      "bin",
-      process.platform === "win32" ? "browser-use.cmd" : "browser-use",
-    );
     const pythonSource = execFileSync(
       process.platform === "win32" ? "where.exe" : "sh",
       process.platform === "win32"
@@ -121,14 +116,12 @@ describe("software environment", () => {
 
     await mkdir(path.dirname(nodeTarget), { recursive: true });
     await mkdir(path.dirname(pythonTarget), { recursive: true });
-    await mkdir(path.dirname(browserUseLauncher), { recursive: true });
     await mkdir(sidecarsRoot, { recursive: true });
     await mkdir(home, { recursive: true });
     await writeFile(nodeTarget, `#!/bin/sh\nexec "${process.execPath}" "$@"\n`, "utf8");
     await chmod(nodeTarget, 0o755);
     await linkOrShimExecutable(pythonSource, pythonTarget);
     await linkOrShimExecutable(repoOpencode, opencodeTarget);
-    await writeFile(browserUseLauncher, "browser-use launcher", "utf8");
 
     const originalPath = process.env.PATH;
     const originalPathCapitalized = process.env.Path;
@@ -149,7 +142,7 @@ describe("software environment", () => {
     });
 
     try {
-      assert.equal(manager.runtimePathEntries()[0], path.dirname(browserUseLauncher));
+      assert.ok(manager.runtimePathEntries().includes(path.dirname(nodeTarget)));
       const before = manager.softwareEnvironmentInfo();
       assert.equal(before.node, true);
       assert.equal(before.python, true);

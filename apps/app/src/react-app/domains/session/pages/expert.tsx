@@ -463,7 +463,6 @@ export function ExpertPage(props: ExpertPageProps) {
           avatarBackground: "var(--ow-primary-light)",
         },
         systemPrompt: marketplaceExpert.systemPrompt,
-        runtime: marketplaceExpert.runtime ?? undefined,
         quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
         marketplaceExpert: {
           source: "builtin",
@@ -947,14 +946,12 @@ export function ExpertPage(props: ExpertPageProps) {
       }
       return props.surface?.onSendDraft({
         ...draft,
-        agentRuntime: activeAgentContext?.runtime,
         sessionStartIntent: props.selectedSessionId
           ? undefined
           : { mode: "expert" },
       });
     },
     [
-      activeAgentContext?.runtime,
       draftSessionActive,
       props.onCreateSessionForAgent,
       props.surface,
