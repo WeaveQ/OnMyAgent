@@ -6,6 +6,17 @@ Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc 
 
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
+### Desktop update discovery (installed apps)
+
+Packaged desktop builds use a **lightweight checker** (`apps/desktop/electron/updater.mjs`):
+
+- Poll GitHub `releases/latest` (stable only; no alpha feed).
+- Compare the release tag to the packaged app version.
+- On a newer release: OS notification + Settings UI; the user opens the **release page** in a browser.
+- **No in-app download / silent install** and no `electron-updater` / `latest.yml` requirement for prompts.
+
+Release packaging and code signing still follow the flows below; the checker only needs a normal GitHub Release with a semver tag.
+
 ## Daily PR Flow
 
 1. Start from the latest `main`.
