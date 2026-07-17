@@ -33,6 +33,11 @@ safelist: [
         "var(--dls-text-assistant)",
         { lineHeight: "var(--dls-leading-assistant)" },
       ],
+      // Chat composer editor body (replaces text-[15px] leading-[22px]).
+      composer: [
+        "var(--dls-text-composer)",
+        { lineHeight: "var(--dls-leading-composer)" },
+      ],
       sm: ["var(--dls-text-sm)", { lineHeight: "var(--dls-leading-normal)" }],
       base: ["var(--dls-text-base)", { lineHeight: "var(--dls-leading-normal)" }],
       lg: ["var(--dls-text-lg)", { lineHeight: "var(--dls-leading-tight)" }],

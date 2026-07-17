@@ -18,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
-import { IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip, IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -133,9 +133,7 @@ const pluginsLayoutClass = {
   cardGrid: "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3",
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
-  originTabs: "mb-3 flex flex-wrap gap-1.5 pl-6",
-  originActive: "bg-dls-list-selected text-dls-text hover:bg-dls-list-selected hover:text-dls-text",
-  originDefault: "bg-dls-surface-muted text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+  originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
 };
 
 function getSamplePlugins(): PluginItem[] {
@@ -749,20 +747,30 @@ export function PluginsPage(props: PluginsPageProps) {
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
           <ArtifactPluginsCatalog {...props} />
-          {categories.map((category) => {
-            const items = filteredByCategory.get(category.id) ?? [];
-            if (items.length === 0) return null;
-            return (
-              <section key={category.id} className="space-y-0">
-                <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
-                <div className={pluginsLayoutClass.cardGrid}>
-                  {items.map((item) => (
-                    <PluginCard key={item.id} item={item} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+          <section className="space-y-4 border-t border-dls-border pt-6">
+            <div className="space-y-1">
+              <h2 className="text-base font-medium leading-6 text-dls-text">
+                {t("plugins.sample_section_title")}
+              </h2>
+              <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
+                {t("plugins.sample_section_hint")}
+              </p>
+            </div>
+            {categories.map((category) => {
+              const items = filteredByCategory.get(category.id) ?? [];
+              if (items.length === 0) return null;
+              return (
+                <section key={category.id} className="space-y-0 opacity-90">
+                  <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
+                  <div className={pluginsLayoutClass.cardGrid}>
+                    {items.map((item) => (
+                      <PluginCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </section>
         </div>
       </div>
     </div>
@@ -920,21 +928,21 @@ function StoreSubTabs(props: {
   items: Array<{ value: StoreSubTab; label: string; count?: number }>;
 }) {
   return (
-    <SegmentedTabGroup>
+    <SegmentedTabGroup density="filter">
       {props.items.map(({ value, label, count }) => (
         <SegmentedTabButton
           key={value}
           type="button"
           onClick={() => props.onChange(value)}
           active={props.value === value}
-          size="comfortable"
+          size="chip"
           width="hug"
           className="items-center gap-1.5"
         >
           <span>{label}</span>
-          <span className="text-xs text-dls-secondary">
-            {count !== undefined ? count : ""}
-          </span>
+          {count !== undefined ? (
+            <span className="text-xs text-dls-secondary">{count}</span>
+          ) : null}
         </SegmentedTabButton>
       ))}
     </SegmentedTabGroup>
@@ -1196,25 +1204,21 @@ function LocalSkillsSection(props: { skills: ScannedSkill[] }) {
       {visibleOrigins.length > 1 ? (
         <div className={pluginsLayoutClass.originTabs}>
           {visibleOrigins.map((origin) => (
-            <Button
+            <FilterChip
               key={origin}
-              type="button"
+              selected={activeOrigin === origin}
               onClick={() => setActiveOrigin(origin)}
-              variant="ghost"
-              size="pill-xs"
-              className={cn(
-                activeOrigin === origin
-                  ? pluginsLayoutClass.originActive
-                  : pluginsLayoutClass.originDefault,
-              )}
-            >
-              {LOCAL_ORIGIN_LABELS[origin]}
-              {origin !== "all" ? (
-                <span className="ml-1 text-xs">
-                  {byOrigin[origin].length}
-                </span>
-              ) : null}
-            </Button>
+              label={
+                <>
+                  {LOCAL_ORIGIN_LABELS[origin]}
+                  {origin !== "all" ? (
+                    <span className="ml-1 text-xs opacity-70">
+                      {byOrigin[origin].length}
+                    </span>
+                  ) : null}
+                </>
+              }
+            />
           ))}
         </div>
       ) : null}

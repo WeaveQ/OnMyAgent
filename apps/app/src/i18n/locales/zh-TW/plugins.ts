@@ -40,4 +40,12 @@ export default {
   "plugins.artifact_starter_prompts": "推薦提示詞",
   "plugins.artifact_skills": "技能",
   "plugins.artifact_excel_unavailable": "Excel即時控制暫不可用，需要先註冊即時服務提供方。",
+  "plugins.artifact_plugin_documents_name": "文件",
+  "plugins.artifact_plugin_documents_desc": "建立與修訂 Word 文件。",
+  "plugins.artifact_plugin_pdf_name": "PDF",
+  "plugins.artifact_plugin_pdf_desc": "檢查與產生 PDF 檔案。",
+  "plugins.artifact_plugin_spreadsheets_name": "試算表",
+  "plugins.artifact_plugin_spreadsheets_desc": "分析與編輯試算表資料。",
+  "plugins.sample_section_title": "連接器預覽",
+  "plugins.sample_section_hint": "以下為即將接入的第三方服務示意，暫不可安裝。",
 } as const;

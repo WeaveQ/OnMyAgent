@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import { ArtifactPluginIcon } from "./artifact-plugin-detail";
@@ -18,9 +19,39 @@ export type ArtifactPluginCardProps = {
   onEnabledChange: (enabled: boolean) => Promise<void>;
 };
 
+const LOCALIZED_PLUGIN_COPY: Record<string, { nameKey: string; descKey: string }> = {
+  documents: {
+    nameKey: "plugins.artifact_plugin_documents_name",
+    descKey: "plugins.artifact_plugin_documents_desc",
+  },
+  pdf: {
+    nameKey: "plugins.artifact_plugin_pdf_name",
+    descKey: "plugins.artifact_plugin_pdf_desc",
+  },
+  spreadsheets: {
+    nameKey: "plugins.artifact_plugin_spreadsheets_name",
+    descKey: "plugins.artifact_plugin_spreadsheets_desc",
+  },
+};
+
+function localizedPluginCopy(plugin: ArtifactPluginCatalogItem) {
+  const keys = LOCALIZED_PLUGIN_COPY[plugin.id];
+  if (!keys) {
+    return {
+      name: plugin.manifest.interface.displayName,
+      description: plugin.manifest.interface.shortDescription,
+    };
+  }
+  return {
+    name: t(keys.nameKey),
+    description: t(keys.descKey),
+  };
+}
+
 export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const { plugin } = props;
   const enabled = plugin.enabled;
+  const copy = localizedPluginCopy(plugin);
 
   return (
     <article
@@ -35,7 +66,7 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate text-sm font-medium leading-5 text-dls-text">
-              {plugin.manifest.interface.displayName}
+              {copy.name}
             </h3>
             <Switch
               checked={enabled}
@@ -45,7 +76,7 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
             />
           </div>
           <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
-            {plugin.manifest.interface.shortDescription}
+            {copy.description}
           </p>
         </div>
       </div>

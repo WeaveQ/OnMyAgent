@@ -231,15 +231,15 @@ const mcpServiceProfiles: Array<{ match: (lower: string) => boolean; profile: Mc
   },
   {
     match: (lower) => lower.includes("linear"),
-    profile: { icon: Zap, iconClass: "text-blue-11", tileClass: "bg-blue-3 border-blue-6" },
+    profile: { icon: Zap, iconClass: "text-dls-accent", tileClass: "bg-dls-decision-soft border-dls-accent/30" },
   },
   {
     match: (lower) => lower.includes("sentry"),
-    profile: { icon: CircleAlert, iconClass: "text-purple-11", tileClass: "bg-purple-3 border-purple-6" },
+    profile: { icon: CircleAlert, iconClass: "text-dls-brand-lovable-fg", tileClass: "bg-dls-brand-lovable-soft border-dls-border" },
   },
   {
     match: (lower) => lower.includes("stripe"),
-    profile: { icon: CreditCard, iconClass: "text-blue-11", tileClass: "bg-blue-3 border-blue-6" },
+    profile: { icon: CreditCard, iconClass: "text-dls-accent", tileClass: "bg-dls-decision-soft border-dls-accent/30" },
   },
   {
     match: (lower) => lower.includes("context"),

@@ -201,18 +201,17 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
   return (
     <section className="flex flex-col gap-4" data-testid="local-agent-management-panel">
       <div className="flex flex-wrap items-center gap-2">
-        <SegmentedTabGroup className="flex flex-wrap items-center">
+        <SegmentedTabGroup density="panel">
           {LOCAL_AGENT_FILTER_IDS.map((id) => (
             <NavTabButton
               key={id}
               type="button"
               active={filter === id}
-              size="default"
-              shape="tab"
+              size="filter"
+              shape="pill"
               onClick={() => setFilter(id)}
               data-testid={`local-agent-filter-${id}`}
               aria-pressed={filter === id}
-              className="gap-1.5"
             >
               {t(FILTER_LABEL_KEYS[id])}
               <CountBadge size="dot" className={cn(filter === id ? "bg-dls-surface-muted" : "bg-dls-hover")}>

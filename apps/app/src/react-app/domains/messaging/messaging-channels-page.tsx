@@ -67,9 +67,9 @@ function resolveMessagingChannels(statusByChannel: Record<MessagingChannel["id"]
 }
 
 const messagingTextClass = {
-  pageTitle: "text-base font-medium text-dls-text",
-  panelTitle: "text-base font-medium text-dls-text",
-  sectionTitle: "text-sm font-medium uppercase text-dls-secondary",
+  pageTitle: "text-lg font-medium leading-7 text-dls-text",
+  panelTitle: "text-base font-medium leading-6 text-dls-text",
+  sectionTitle: "text-sm font-medium text-dls-secondary",
 };
 
 function ChannelIcon(props: {

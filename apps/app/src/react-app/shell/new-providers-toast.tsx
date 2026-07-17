@@ -178,7 +178,7 @@ export function NewProvidersToast() {
           type="button"
           variant="ghost"
           size="icon-xs"
-          className="shrink-0 rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          className="shrink-0 rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
           onClick={dismiss}
           aria-label={t("common.dismiss")}
         >

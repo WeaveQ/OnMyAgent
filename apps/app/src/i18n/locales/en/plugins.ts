@@ -41,4 +41,12 @@ export default {
   "plugins.artifact_starter_prompts": "Starter prompts",
   "plugins.artifact_skills": "Skills",
   "plugins.artifact_excel_unavailable": "Excel Live is unavailable until a live provider is registered.",
+  "plugins.artifact_plugin_documents_name": "Documents",
+  "plugins.artifact_plugin_documents_desc": "Create and revise document files.",
+  "plugins.artifact_plugin_pdf_name": "PDF",
+  "plugins.artifact_plugin_pdf_desc": "Inspect and produce PDF files.",
+  "plugins.artifact_plugin_spreadsheets_name": "Spreadsheets",
+  "plugins.artifact_plugin_spreadsheets_desc": "Analyze and edit spreadsheet data.",
+  "plugins.sample_section_title": "Connector preview",
+  "plugins.sample_section_hint": "Coming-soon third-party services — not installable yet.",
 } as const;
