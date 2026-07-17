@@ -43,6 +43,7 @@ import {
   type ProviderDraft,
 } from "../domains/local-agents";
 import { ConfirmModal } from "../design-system/modals/confirm-modal";
+import { ProviderReloadRequiredModal } from "../design-system/modals/provider-reload-required-modal";
 import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../domains/settings";
 import { isOnMyAgentExtensionEnabled } from "../domains/shared";
 import {
@@ -282,6 +283,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providerEditConfirmOpen, setProviderEditConfirmOpen] = useState(false);
   const [providerDeleteTarget, setProviderDeleteTarget] = useState<AiSettingsConnectedProvider | null>(null);
   const [providerDeleteBusy, setProviderDeleteBusy] = useState(false);
+  const [providerReloadRequiredOpen, setProviderReloadRequiredOpen] = useState(false);
+  const [providerReloadBusy, setProviderReloadBusy] = useState(false);
   const [providerEditError, setProviderEditError] = useState<string | null>(null);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [developerMode, setDeveloperMode] = useState(() => readStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, false));
@@ -1396,6 +1399,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     [opencodeManagedProviders],
   );
 
+  const handleProviderReloadRequired = useCallback(() => {
+    setProviderReloadRequiredOpen(true);
+  }, []);
+
+  const handleProviderReload = useCallback(async () => {
+    if (providerReloadBusy) return;
+    setProviderReloadBusy(true);
+    try {
+      await reloadCoordinator.reloadWorkspaceEngine();
+    } finally {
+      setProviderReloadBusy(false);
+      setProviderReloadRequiredOpen(false);
+    }
+  }, [providerReloadBusy, reloadCoordinator.reloadWorkspaceEngine]);
+
   const handleEditProvider = useCallback(
     (provider: AiSettingsConnectedProvider) => {
       const managed = managedProviderById(provider.id);
@@ -1447,11 +1465,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       setProviderEditConfirmOpen(false);
       setProviderEditOpen(false);
       setConfigActionStatus(t("settings.config_updated"));
-      reloadCoordinator.markReloadRequired("config", {
-        type: "config",
-        name: "opencode.json",
-        action: "updated",
-      });
+      handleProviderReloadRequired();
       const managedProviders = await loadOpenCodeManagedProviders();
       setOpenCodeManagedProviders(managedProviders);
       await providerAuthStore.refreshProviders();
@@ -1466,7 +1480,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot,
     loadOpenCodeManagedProviders,
     providerAuthStore,
-    reloadCoordinator.markReloadRequired,
+    handleProviderReloadRequired,
   ]);
 
   const handleDeleteProvider = useCallback((provider: AiSettingsConnectedProvider) => {
@@ -1486,11 +1500,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       });
       setProviderDeleteTarget(null);
       setConfigActionStatus(t("settings.config_updated"));
-      reloadCoordinator.markReloadRequired("config", {
-        type: "config",
-        name: "opencode.json",
-        action: "updated",
-      });
+      handleProviderReloadRequired();
       const managedProviders = await loadOpenCodeManagedProviders();
       setOpenCodeManagedProviders(managedProviders);
       await providerAuthStore.refreshProviders();
@@ -1505,7 +1515,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot,
     loadOpenCodeManagedProviders,
     providerAuthStore,
-    reloadCoordinator.markReloadRequired,
+    handleProviderReloadRequired,
   ]);
 
   const canEditConnectedProvider = useCallback(
@@ -2213,11 +2223,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onOpenChange={setOpenCodeProviderConfigOpen}
         onSaved={async () => {
           setConfigActionStatus(t("settings.config_updated"));
-          reloadCoordinator.markReloadRequired("config", {
-            type: "config",
-            name: "opencode.json",
-            action: "updated",
-          });
+          handleProviderReloadRequired();
           const managedProviders = await loadOpenCodeManagedProviders();
           setOpenCodeManagedProviders(managedProviders);
           await providerAuthStore.refreshProviders();
@@ -2257,6 +2263,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         variant="danger"
         onConfirm={() => void confirmDeleteProvider()}
         onCancel={() => setProviderDeleteTarget(null)}
+      />
+
+      <ProviderReloadRequiredModal
+        open={providerReloadRequiredOpen}
+        busy={providerReloadBusy}
+        onReload={() => void handleProviderReload()}
       />
 
       <ProviderAuthModal
