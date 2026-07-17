@@ -19,14 +19,15 @@ describe("main rail channel icon contract", () => {
     );
 
     expect(railSource).toContain("icon: WeChatBubblesIcon");
-    expect(railSource).toContain('props.active\n    ? "fill-current"');
+    expect(railSource).toContain("const active = props.active === true");
+    expect(railSource).toContain('active\n    ? "fill-current"');
     expect(railSource).toContain(
       ': "fill-none stroke-current transition-colors"',
     );
     expect(railSource).toContain(
-      'props.active\n    ? "fill-dls-rail"\n    : "fill-current transition-colors"',
+      'active\n    ? "fill-dls-rail"\n    : "fill-current transition-colors"',
     );
-    expect(railSource).toContain("strokeWidth={props.active ? 0 : 1.5}");
+    expect(railSource).toContain("strokeWidth={active ? 0 : 1.5}");
     expect(railSource).toContain('props.item.id === "channels" ? "group/channel"');
     expect(railSource).toContain(
       '<Icon active={props.active} className="size-5" />',
