@@ -202,6 +202,9 @@ describe("expert marketplace UI contract", () => {
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
     const surface = readWorkspaceFile("apps/app/src/react-app/domains/session/surface/session-surface.tsx");
+    const surfaceTypes = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface-types.ts",
+    );
 
     expect(expertPage).toContain("const activeAgentContext = useMemo<PendingAgentContext | null>");
     expect(expertPage).toContain("findBuiltinMarketplaceExpertById(");
@@ -209,7 +212,9 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("agentContext={activeAgentContext}");
     expect(expertPage).toContain("assistantFeatureCategoryId={activeExpertFeatureCategoryId}");
     expect(expertPage).not.toContain("DEFAULT_AGENT_TEMPLATE_ID");
-    expect(surface).toContain("agentContext?: PendingAgentContext | null");
+    // SessionSurfaceProps lives in session-surface-types (folder extract).
+    expect(surfaceTypes).toContain("agentContext?: PendingAgentContext | null");
+    expect(surface).toContain('export type { SessionSurfaceProps } from "./session-surface-types"');
     expect(surface).toContain(": props.agentContext");
     expect(surface).toContain("assistantFeatureCategoryId");
   });
