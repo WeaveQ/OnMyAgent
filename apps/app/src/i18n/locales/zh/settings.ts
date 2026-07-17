@@ -14,6 +14,10 @@ export default {
   "settings.font_size_default": "默认",
   "settings.font_size_large": "大",
   "settings.font_size_value": "第 {value} 档",
+  "settings.font_size_option_default": "默认（{percent}%）",
+  "settings.font_size_option_smaller": "{percent}%",
+  "settings.font_size_option_larger": "{percent}%",
+
 
   "settings.audit_log_title": "审计日志",
   "settings.auto_compact": "自动上下文压缩",

@@ -14,6 +14,10 @@ export default {
   "settings.font_size_default": "預設",
   "settings.font_size_large": "大",
   "settings.font_size_value": "第 {value} 檔",
+  "settings.font_size_option_default": "預設（{percent}%）",
+  "settings.font_size_option_smaller": "{percent}%",
+  "settings.font_size_option_larger": "{percent}%",
+
 
   "settings.audit_log_title": "審計日誌",
   "settings.auto_compact": "自動上下文壓縮",

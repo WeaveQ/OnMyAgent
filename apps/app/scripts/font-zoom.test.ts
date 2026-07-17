@@ -22,14 +22,15 @@ describe("font zoom", () => {
   });
 
   test("maps slider presets to discrete stops", () => {
+    expect(FONT_ZOOM_PRESETS).toEqual([
+      0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6,
+    ]);
     expect(FONT_ZOOM_PRESETS[2]).toBe(1.0);
-    expect(fontZoomFromPresetIndex(0)).toBe(FONT_ZOOM_PRESETS[0]);
-    expect(fontZoomFromPresetIndex(99)).toBe(
-      FONT_ZOOM_PRESETS[FONT_ZOOM_PRESETS.length - 1],
-    );
+    expect(fontZoomFromPresetIndex(0)).toBe(0.8);
+    expect(fontZoomFromPresetIndex(99)).toBe(1.6);
     expect(fontZoomPresetIndex(1.0)).toBe(2);
     expect(fontZoomPresetIndex(0.92)).toBe(1);
-    expect(fontZoomPresetIndex(1.4)).toBe(4);
+    expect(fontZoomPresetIndex(1.4)).toBe(6);
   });
 
   test("parses zoom shortcuts", () => {
