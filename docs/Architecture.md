@@ -8,7 +8,7 @@ pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `pac
 
 ```text
 apps/
-  desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / agent-management-skills / expert-marketplace 已从 main.mjs 抽出；architecture-info、application-menu、startup-flags、Computer Use desktop helper、Code workspace actions、browser-runtime、embedded browser panel、UI control bridge、lightweight GitHub Releases updater 已拆为独立模块
+  desktop/      Electron shell：main.mjs（composition）+ runtime.mjs + desktop-command-router.mjs + `electron/desktop-handlers/*` 域 IPC handlers；sidecar 管理与打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / skills / expert-marketplace、architecture-info、application-menu、startup-flags、Computer Use、Code workspace actions、browser-runtime、UI control bridge、lightweight GitHub Releases updater 均为独立模块
     resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
   server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE 事件流；server.ts 只保留 composition root + OpenCode/配置共享 helper，路由已按 system/dev-ui/runtime/integration/workspace/file/session/import-export/blueprint 等模块注册
@@ -18,7 +18,7 @@ apps/
   orchestrator/ 进程编排：嵌入 server，spawn opencode，审批路由，sandbox 管理；env/PATH、data-dir、sidecar target/config、version manifest、sandbox mount helper 已拆为独立模块
 
 packages/
-  types/        共享类型与 Zod schema：server API / Desktop IPC contract, desktop-policies, restrictions, inference
+  types/        共享类型与 Zod schema：server API / Desktop IPC（含 `DesktopCommandMap`）/ desktop-policies / restrictions / inference；health/status/runtime 响应类型也在此包
   ui/           Paper shader 视觉组件：仅 React 导出（`@onmyagent/ui/react`）；Solid 已移除
   handsfree/    macOS Computer Use：Swift AX + JS CUA runner
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
@@ -38,18 +38,19 @@ apps/app/src/react-app/
   capabilities/    跨域复用的应用能力（artifact、model selection、session identity）
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
-    session/       会话运行时：composer/surface/sync/sidebar/artifacts/browser/voice/goal
+    session/       会话运行时：composer/surface/sync/sidebar（主轨底栏 channels+devices）/artifacts/browser/voice/goal；expert/skills marketplace
     local-agents/  ACP / 本地 agent 编辑、卡片、agent-management
     messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
-    settings/      设置 shell + pages + state stores
+    settings/      设置 shell + pages + state stores（含全局 Updates）
     connections/   MCP + provider auth（canonical）
     cloud/         Den auth + restrictions + org onboarding
     plugins/       skills catalog / plugins / connectors pages
     shell-feedback/ reload banner、toast、右上角通知
     shared/        跨域 infra only（env / extension / desktop-config / server-store）
-apps/app/src/components/ui/  shadcn/ui atoms（见 DESIGN.md）
+  shell/session-route/  会话宿主 folder facade（index 薄导出 + render/intent/composer 模块）
+apps/app/src/components/ui/  shadcn/ui atoms + FilterChip/SegmentedTabGroup（见 DESIGN.md）
 apps/app/src/app/lib/        兼容层：desktop.ts、onmyagent-server.ts、opencode.ts
 apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索引：只供 UI 列表与搜索
 ```
@@ -70,15 +71,19 @@ desktop(electron) → runtime.mjs → spawn sidecars
   ├→ orchestrator → embed server + spawn router → Slack/Telegram
   └→ server HTTP API ← app(React) 通过 onmyagent-server.ts 调用
 
-app(React) ← desktop.ts(command-validated IPC bridge) ← preload.mjs ← desktop-command-router.mjs ← main.mjs
+app(React) ← desktop.ts(command-validated IPC bridge)
+  ← preload.mjs
+  ← desktop-command-router.mjs（按 desktopCommandGroups 路由）
+  ← desktop-handlers/*（workspace / system / local-agents / messaging / agent-management / opencode / runtime / skills）
+  ← main.mjs（组装 services + createAllDesktopDomainHandlers）
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
-app(React) ← @onmyagent/types ← packages/types (Zod schema)
+app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommandMap）
 ```
 
 ## Runtime Adapter (multi-agent harness)
 
-OpenCode 仍是产品 / server 的主会话底座；桌面端在此之上另托管 **Personal Local Agent** 多 agent harness，使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 `main.mjs` IPC 暴露给 renderer——**renderer 不直接 import adapters**。
+OpenCode 仍是产品 / server 的主会话底座；桌面端在此之上另托管 **Personal Local Agent** 多 agent harness，使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 domain handlers（`desktop-handlers/local-agents.mjs` 等）与 `main.mjs` 组合层暴露 IPC——**renderer 不直接 import adapters**。
 
 ### Adapter contract
 
@@ -126,7 +131,7 @@ renderer (domains/local-agents, session)
 ```
 
 - Adapters 与 contract **仅**存在于 `apps/desktop/electron/personal-agent-runtime/`（含 `adapters/`）。
-- `main.mjs` 持有 `createDesktopPersonalRuntimeServices` 返回的 runtime，IPC channel 映射 `listAgents` / `startMessage` / `runMessage` / `cancelRun` / conversations / approvals / extensions 等。
+- `createDesktopPersonalRuntimeServices` 返回的 runtime 由 `main.mjs` 持有，IPC 经 `desktop-handlers/local-agents.mjs`（及 router）映射 `listAgents` / `startMessage` / `runMessage` / `cancelRun` / conversations / approvals / extensions 等。
 - UI 只经 desktop IPC 与 server HTTP；**禁止** renderer import adapter 或 `personal-agent-runtime` 内部模块。
 - 扩展：`extension-registry.mjs` 从 bundled/user 的 `onmyagent-extension.json` 读取 `contributes.acpAdapters[]`，经 `adapterToCustomAgent` 变成 `provider: "custom"` 虚拟 agent，再走 generic ACP 路径。
 
@@ -270,7 +275,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
 3. 下一步：继续压缩 `server.ts` 中 OpenCode/client/config 共享 helper，条件成熟后迁入专门 service 模块，但保持路由 composition root 不承载业务路由实现。
 4. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
-5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions迁入 `apps/desktop/electron/code-workspace-actions.mjs`；Browser 的 WebContentsView、会话 Tab 所有权、Node kernel、RPC 与安全策略统一位于 `apps/desktop/electron/browser-runtime/`，不开放全局 CDP 端口；UI control HTTP bridge 位于 `apps/desktop/electron/ui-control-server.mjs`。Agent management 的 provider DB / live sync 迁入 `agent-management-providers.mjs`，skills 扫描与导入迁入 `agent-management-skills.mjs`，expert marketplace 包列表/注册迁入 `expert-marketplace.mjs`。桌面更新检查为 lightweight GitHub Releases poller（`updater.mjs`：查 `releases/latest` → 系统通知 → 打开发布页；无应用内下载/安装，stable-only）。Desktop IPC 已增加共享命令清单与域路由注册层，后续继续把 `main.mjs` 内各域 handler implementation 物理迁入独立模块。
+5. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。
 
 ## Personal Local Agent Runtime
 
