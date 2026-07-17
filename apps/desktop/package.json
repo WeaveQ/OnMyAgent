@@ -1,7 +1,7 @@
 {
   "name": "@onmyagent/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OnMyAgent desktop shell",
   "author": {
     "name": "OnMyAgent Contributors"
