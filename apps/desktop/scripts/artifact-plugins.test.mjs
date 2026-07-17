@@ -19,6 +19,7 @@ const bundledPluginsRoot = path.resolve(
   "bundled-plugins",
 );
 const expectedSkills = new Map([
+  ["browser", ["browser-automation"]],
   ["documents", ["documents"]],
   ["pdf", ["pdf"]],
   ["spreadsheets", ["spreadsheets", "excel-live-control"]],
@@ -98,6 +99,8 @@ test("desktop packaging copies bundled plugin packages into application resource
 test("package runtimes truthfully remain Task 8 placeholders", async () => {
   const catalog = await scanBundledArtifactPlugins(bundledPluginsRoot);
   for (const plugin of catalog.items) {
+    // Browser is host-integrated (Electron in-app browser); it has no Python runtime.
+    if (plugin.pluginId === "browser") continue;
     const runtime = JSON.parse(
       await readFile(path.join(plugin.root, ".onmyagent", "artifact.json"), "utf8"),
     );

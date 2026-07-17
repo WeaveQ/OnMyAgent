@@ -7,6 +7,15 @@
 // Agent management page + OpenCode provider dialog
 export { AgentManagementPage } from "./agent-management/agent-management-page";
 export { OpenCodeProviderConfigDialog } from "./agent-management/agent-management-providers";
+export {
+  AgentManagementProviderModal,
+  defaultProviderDraft,
+  providerDraftFromProvider,
+  serializeProviderModelRows,
+  serializeProviderModelCapabilities,
+  type AgentManagementProviderApp,
+  type ProviderDraft,
+} from "./agent-management/agent-management-providers";
 
 // Host-page building blocks
 export { LocalAgentStatusRail } from "./local-agent-status-rail";

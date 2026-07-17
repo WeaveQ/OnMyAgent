@@ -19,8 +19,13 @@ import {
   type BrowserTabInfo,
   useBrowserState,
 } from "./use-browser-state";
+import { filterTabsForSession } from "./session-browser-tabs";
 
-type BrowserPanelProps = { onClose: () => void };
+type BrowserPanelProps = {
+  onClose: () => void;
+  /** Chat session id — scopes page tabs so A/B sessions do not share tabs. */
+  sessionId?: string | null;
+};
 type EmbeddedBrowserViewportProps = {
   url?: string;
   announcePanelOpen?: boolean;
@@ -298,10 +303,12 @@ export function EmbeddedBrowserViewport({
   return <div ref={contentRef} className={className ?? "min-h-0 flex-1 overflow-hidden"} />;
 }
 
-export function BrowserPanel({ onClose }: BrowserPanelProps) {
+export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
   const [state, dispatch] = useBrowserState();
   const urlFocusedRef = useRef(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
   // Subscribe to state changes from the main process
   useEffect(() => {
@@ -332,12 +339,29 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
     return unsub;
   }, []);
 
+  const sessionTabs = filterTabsForSession(state.tabs, sessionId);
+  const sessionActiveTab =
+    sessionTabs.find((tab) => tab.tabId === state.activeTabId || tab.isActive) ??
+    sessionTabs[0] ??
+    null;
+
+  // Keep the native selected tab inside this chat session's tab set.
+  useEffect(() => {
+    if (!sessionId || !sessionActiveTab) return;
+    if (sessionActiveTab.tabId === state.activeTabId) return;
+    void getElectronBrowser()?.selectTab?.(sessionActiveTab.tabId);
+  }, [sessionId, sessionActiveTab?.tabId, state.activeTabId]);
+
   const navigate = useCallback((url?: string) => {
     getElectronBrowser()?.navigate?.(url ?? state.urlInput);
   }, [state.urlInput]);
 
   const createTab = useCallback(() => {
-    getElectronBrowser()?.createTab?.();
+    const sid = sessionIdRef.current;
+    void getElectronBrowser()?.createTab?.(
+      "about:blank",
+      sid ? { sessionId: sid } : undefined,
+    );
   }, []);
 
   const reorderTabs = useCallback((tabIds: unknown[]) => {
@@ -366,7 +390,7 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
     }
   }, [navigate]);
 
-  const activeTab = getActiveTab(state);
+  const activeTab = sessionActiveTab ?? getActiveTab(state);
   const browser = getElectronBrowser();
 
   if (!isElectronRuntime() || !browser) {
@@ -390,10 +414,10 @@ export function BrowserPanel({ onClose }: BrowserPanelProps) {
               className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
             >
               <PanelTabList
-                values={state.tabs.map((tab) => tab.tabId)}
+                values={sessionTabs.map((tab) => tab.tabId)}
                 onReorder={reorderTabs}
               >
-                {state.tabs.map((tab) => (
+                {sessionTabs.map((tab) => (
                   <BrowserTab
                     key={tab.tabId}
                     tab={tab}

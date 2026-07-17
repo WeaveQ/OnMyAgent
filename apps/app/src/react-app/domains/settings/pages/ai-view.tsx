@@ -1,7 +1,13 @@
 /** @jsxImportSource react */
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { FileCode } from "lucide-react";
+import { FileCode, MoreHorizontal, Pencil, Trash2, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { t } from "@/i18n";
@@ -50,6 +56,12 @@ export type AiSettingsViewProps = {
   onSubscribeOnMyAgentModels?: () => void | Promise<void>;
   cloudProvidersView?: ReactNode;
   onOpenOpencodeConfig?: () => void | Promise<void>;
+  onEditProvider?: (provider: AiSettingsConnectedProvider) => void;
+  onDeleteProvider?: (provider: AiSettingsConnectedProvider) => void;
+  canEditProvider?: (provider: AiSettingsConnectedProvider) => boolean;
+  canDeleteProvider?: (provider: AiSettingsConnectedProvider) => boolean;
+  /** Provider id currently being edited/deleted (disables its row actions). */
+  providerActionBusyId?: string | null;
 };
 
 function providerSourceLabel(source?: AiSettingsConnectedProvider["source"]) {
@@ -149,7 +161,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
             {props.connectedProviders.map((provider) => (
               <LayoutSectionItem
                 key={provider.id}
-                className="flex-row flex-wrap items-center justify-between gap-3 rounded-lg border border-dls-border px-4 py-3"
+                className="group flex-row flex-wrap items-center justify-between gap-3 rounded-lg border border-dls-border px-4 py-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <ProviderIcon
@@ -183,28 +195,64 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                   </div>
                 </div>
                 {!props.cloudProviderIds?.has(provider.id) ? (
-                  <Button
-                    variant={
-                      provider.managedBy === "opencode"
-                        ? "outline"
-                        : "destructive"
-                    }
-                    onClick={() => void props.onDisconnectProvider(provider.id)}
-                    disabled={
-                      props.busy ||
-                      props.providerAuthBusy ||
-                      props.disconnectingProviderId !== null ||
-                      !props.canDisconnectProvider(provider)
-                    }
-                  >
-                    {props.disconnectingProviderId === provider.id
-                      ? t("settings.disconnecting")
-                      : provider.managedBy === "opencode"
-                        ? t("settings.managed_by_opencode")
-                      : props.canDisconnectProvider(provider)
-                        ? t("settings.disconnect")
-                        : t("settings.managed_by_env")}
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={t("settings.provider_more_actions")}
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="w-44">
+                        {props.canEditProvider?.(provider) ? (
+                          <>
+                            <DropdownMenuItem
+                              disabled={props.busy || props.providerActionBusyId === provider.id}
+                              onClick={() => props.onEditProvider?.(provider)}
+                            >
+                              <Pencil />
+                              {t("agent_manager.provider_modal.edit_provider")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={
+                                props.busy ||
+                                props.providerActionBusyId === provider.id ||
+                                props.canDeleteProvider?.(provider) === false
+                              }
+                              onClick={() => props.onDeleteProvider?.(provider)}
+                            >
+                              <Trash2 />
+                              {t("agent_manager.provider_modal.delete_provider")}
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <DropdownMenuItem
+                            variant="destructive"
+                            disabled={
+                              props.busy ||
+                              props.providerAuthBusy ||
+                              props.disconnectingProviderId !== null ||
+                              !props.canDisconnectProvider(provider)
+                            }
+                            onClick={() => void props.onDisconnectProvider(provider.id)}
+                          >
+                            <Unplug />
+                            {props.disconnectingProviderId === provider.id
+                              ? t("settings.disconnecting")
+                              : props.canDisconnectProvider(provider)
+                                ? t("settings.disconnect")
+                                : t("settings.managed_by_env")}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ) : null}
               </LayoutSectionItem>
             ))}

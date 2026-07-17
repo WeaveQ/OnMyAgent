@@ -1,0 +1,12 @@
+{
+  "skills": [
+    {
+      "id": "browser-automation",
+      "defaultEnabled": true
+    }
+  ],
+  "routing": {
+    "extensions": [],
+    "mimeTypes": []
+  }
+}

@@ -9,13 +9,18 @@ function createKernel(options) {
     ["--max-old-space-size=128", workerPath, JSON.stringify(options.allowedModules)],
     {
       cwd: options.cwd,
-      env: {},
+      // nodePath defaults to process.execPath, which is the Electron binary
+      // inside the desktop app. Without ELECTRON_RUN_AS_NODE the child boots
+      // as a full Electron app, never reads stdin, and every eval times out.
+      // Real Node binaries ignore this variable, so it is safe to always set.
+      env: { ELECTRON_RUN_AS_NODE: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     },
   );
   const pending = new Map();
   let output = "";
   let stderr = "";
+  let dead = false;
 
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => {
@@ -65,6 +70,7 @@ function createKernel(options) {
     }
   });
   child.on("exit", () => {
+    dead = true;
     for (const request of pending.values()) {
       clearTimeout(request.timer);
       request.reject(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
@@ -77,6 +83,10 @@ function createKernel(options) {
     requestId += 1;
     const id = requestId;
     return new Promise((resolve, reject) => {
+      if (dead) {
+        reject(new Error("node kernel exited"));
+        return;
+      }
       const timer = setTimeout(() => {
         pending.delete(id);
         child.kill("SIGKILL");
@@ -87,10 +97,13 @@ function createKernel(options) {
     });
   };
   return {
+    isDead: () => dead,
     evaluate(code) {
       return sendRequest({
-          code,
-          syncTimeoutMs: Math.min(options.timeoutMs, 1_000),
+        code,
+        // vm timeout only covers the sync prelude before the first await.
+        // Keep it generous enough for large agent-authored scripts.
+        syncTimeoutMs: Math.min(options.timeoutMs, 15_000),
       });
     },
     configureBrowser(context) {
@@ -112,7 +125,8 @@ export function createNodeKernelManager(options = {}) {
     nodePath: options.nodePath ?? process.execPath,
     allowedModules: options.allowedModules ?? ["node:url", "node:path"],
     cwd: options.cwd ?? process.cwd(),
-    timeoutMs: options.timeoutMs ?? 10_000,
+    // Browser navigations (e.g. heavy sites) need more than a few seconds.
+    timeoutMs: options.timeoutMs ?? 60_000,
     browserRequest: options.browserRequest,
   };
 
@@ -121,7 +135,7 @@ export function createNodeKernelManager(options = {}) {
       throw new TypeError("node kernel sessionId is required");
     }
     let kernel = kernels.get(sessionId);
-    if (!kernel) {
+    if (!kernel || kernel.isDead()) {
       kernel = createKernel(settings);
       kernels.set(sessionId, kernel);
     }
