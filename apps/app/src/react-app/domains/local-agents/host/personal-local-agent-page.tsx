@@ -56,23 +56,21 @@ import {
   type PersonalLocalAgentApprovalRequest,
   type PersonalLocalAgentRunResult,
 } from "../../../../app/lib/desktop";
-import { type OpenTarget } from "../artifacts/open-target";
+import { type OpenTarget } from "../../../capabilities/artifacts/open-target";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import { resolveAgentIconUrlFor } from "../agent-icon-map";
+import { latestContextUsage } from "../context-usage-indicator";
+import { useAcpInitialMessage } from "../hooks/use-acp-initial-message";
+import { useAcpModelInfo } from "../hooks/use-acp-model-info";
+import { useConversationHistoryHydration } from "../hooks/use-conversation-history-hydration";
 import {
-  conversationTitle,
-  HeartbeatPanel,
-  heartbeatClass,
-  scheduledRunMessage,
-  scheduledTaskSessionContext,
-  type HeartbeatDraft,
-} from "../../local-agents";
-import {
-  LocalAgentStatusRail,
   LocalAgentDraftComposer,
   buildLocalAgentPrompt,
   type LocalAgentComposerSubmit,
   type LocalAgentSlashCommand,
-  elapsedSeconds,
-  shortTime,
+} from "../local-agent-draft-composer";
+import { elapsedSeconds, shortTime } from "../local-agent-formatters";
+import {
   APPROVAL_MODE_OPTIONS,
   DEFAULT_HEALTH_RESULT,
   DEFAULT_HEARTBEAT_PROMPT,
@@ -87,9 +85,10 @@ import {
   isUnsupportedNativeTranscriptError,
   localAgentChatKey,
   mergeSlashCommands,
+  modelSelectorLabel,
   nativeSessionResumeOnlyMessage,
-  normalizeAcpSlashCommands,
   normalizeAcpSlashCommandList,
+  normalizeAcpSlashCommands,
   personalAgentApprovalModeKey,
   personalAgentChatStateKey,
   personalAgentModelPrefKey,
@@ -100,33 +99,33 @@ import {
   safeWriteCachedAgents,
   transcriptMessagesForAgent,
   welcomeMessageForAgent,
-  modelSelectorLabel,
   type PersistedLocalAgentChatState,
-  type AgentHealthResult,
-  ChatBubble,
-  latestContextUsage,
-  type ChatMessage,
-  collectRunOpenTargets,
-  isRunFinal,
-  lastEventTime,
-  useAcpModelInfo,
-  type LocalAgentRepairAction,
-  useAcpInitialMessage,
-  WorkspaceFootnote,
+} from "../local-agent-page-model";
+import type { AgentHealthResult } from "../local-agent-page-types";
+import type { LocalAgentRepairAction } from "../local-agent-repair-panel";
+import { LocalAgentStatusRail } from "../local-agent-status-rail";
+import { ChatBubble } from "../messages/chat-bubble";
+import type { ChatMessage } from "../messages/message-types";
+import { collectRunOpenTargets, isRunFinal } from "../messages/message-utils";
+import { lastEventTime } from "../messages/timeline-messages";
+import {
+  HeartbeatPanel,
+  conversationTitle,
+  heartbeatClass,
+  scheduledRunMessage,
+  scheduledTaskSessionContext,
+  type HeartbeatDraft,
+} from "../personal-local-agent-scheduled-tasks";
+import {
   addRecentWorkspace,
   getRecentWorkspaces,
   readWorkspaceOverride,
   writeWorkspaceOverride,
-  useConversationHistoryHydration,
-} from "../../local-agents";
-import { resolveAgentIconUrlFor } from "../../local-agents";
-import { SidebarPaneCollapseToggle } from "../sidebar/sidebar-pane-collapse-toggle";
-import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
-import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
-import { useArchiveResume } from "./use-archive-resume";
+} from "../workspace-picker/recent-workspaces";
+import { WorkspaceFootnote } from "../workspace-picker/workspace-footnote";
+import type { SessionArchiveResumeRequest } from "./archive-resume-types";
+import { ListPaneCollapseToggle } from "./list-pane-collapse-toggle";
 import { ActiveRunsOverview } from "./personal-local-agent-active-runs";
-import { useWorkspaceOverride } from "./use-workspace-override";
-import { PersonalLocalAgentModelSelector } from "./personal-local-agent-model-selector";
 import {
   agentSubtitle,
   lastRunForAgent,
@@ -136,6 +135,9 @@ import {
   nowId,
   placeholderRunFromProcess,
 } from "./personal-local-agent-page-helpers";
+import { PersonalLocalAgentModelSelector } from "./personal-local-agent-model-selector";
+import { useArchiveResume } from "./use-archive-resume";
+import { useWorkspaceOverride } from "./use-workspace-override";
 type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
   workspaceName?: string | null;
@@ -1568,7 +1570,7 @@ return (
       </div>
     )}
 
-    <SidebarPaneCollapseToggle
+    <ListPaneCollapseToggle
       collapsed={agentListCollapsed}
       onToggle={() => setAgentListCollapsed((value) => !value)}
       style={{

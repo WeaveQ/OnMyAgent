@@ -11,7 +11,7 @@ import {
   personalLocalAgentConversationsList,
   personalLocalAgentConversationStatus,
 } from "../../../../app/lib/desktop";
-import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
+import type { SessionArchiveResumeRequest } from "./archive-resume-types";
 
 type UseArchiveResumeParams = {
   resumeRequest: SessionArchiveResumeRequest | null | undefined;

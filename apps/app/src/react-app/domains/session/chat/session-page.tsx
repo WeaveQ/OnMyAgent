@@ -120,7 +120,7 @@ import {
 } from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { PersonalLocalAgentPage } from "./personal-local-agent-page";
+import { PersonalLocalAgentPage } from "../../local-agents";
 import { PersonalUsagePage } from "../usage";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 

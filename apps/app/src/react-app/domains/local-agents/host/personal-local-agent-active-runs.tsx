@@ -7,7 +7,8 @@ import { StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgent, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import { elapsedSeconds, shortTime, lastEventTime, toConversationItems } from "../../local-agents";
+import { elapsedSeconds, shortTime } from "../local-agent-formatters";
+import { lastEventTime, toConversationItems } from "../messages/timeline-messages";
 import { activeRunClass, localAgentTextClass } from "./personal-local-agent-page-helpers";
 
 export function ActiveRunsOverview(props: {

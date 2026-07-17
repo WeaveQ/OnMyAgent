@@ -37,7 +37,7 @@ describe("right side panel toggle contract", () => {
   test("sidebar resize handles do not draw a persistent divider", () => {
     const sources = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/chat/personal-local-agent-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
     ];
