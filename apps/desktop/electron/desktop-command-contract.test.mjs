@@ -35,8 +35,11 @@ test("shared desktop contract and Electron handlers have exact parity", () => {
   assert.deepEqual(implemented, declared);
   assert.deepEqual(handlerKeys, declared);
 
+  /** @type {Set<string>} */
   const declaredSet = new Set(declared);
-  const missing = declared.filter((name) => !DESKTOP_HANDLER_COMMANDS.includes(name));
+  /** @type {Set<string>} */
+  const handlerSet = new Set(DESKTOP_HANDLER_COMMANDS);
+  const missing = declared.filter((name) => !handlerSet.has(name));
   const extra = DESKTOP_HANDLER_COMMANDS.filter((name) => !declaredSet.has(name));
   assert.deepEqual(missing, [], `handlers missing from DESKTOP_HANDLER_COMMANDS: ${missing.join(", ")}`);
   assert.deepEqual(extra, [], `DESKTOP_HANDLER_COMMANDS has undeclared commands: ${extra.join(", ")}`);

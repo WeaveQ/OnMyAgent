@@ -5,7 +5,7 @@
 
 /**
  * Register onmyagent:browser:* IPC handlers.
- * @param { ipcMain: import("electron").IpcMain, browserController: object } options
+ * @param {{ ipcMain: import("electron").IpcMain, browserController: object }} options
  */
 export function registerDesktopBrowserIpc({ ipcMain, browserController }) {
 ipcMain.handle("onmyagent:browser:show", (_event, bounds) =>

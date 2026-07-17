@@ -43,8 +43,11 @@ describe("assistant navigation tone contract", () => {
       join(repoRoot, "apps/app/src/react-app/domains/session/pages/expert.tsx"),
       "utf8",
     );
-    const surface = readFileSync(
-      join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
+    const surfaceChrome = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/surface/session-surface-chrome.tsx",
+      ),
       "utf8",
     );
     const composer = readFileSync(
@@ -73,7 +76,7 @@ describe("assistant navigation tone contract", () => {
     expect(expertPage).toContain(
       'className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"',
     );
-    expect(surface).toContain(
+    expect(surfaceChrome).toContain(
       'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
     );
     expect(composer).toContain(
