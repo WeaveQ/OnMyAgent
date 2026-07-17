@@ -88,15 +88,19 @@ test("controller shares one WebContents model for user and agent tabs", async ()
   await controller.close();
 });
 
-test("controller shows only the selected tab and leaves background agent tabs unfocused", async () => {
+test("agent createTab selects the tab and asks the renderer to open the browser panel", async () => {
   const harness = createHarness();
+  const sent = [];
+  harness.mainWindow.webContents.send = (channel, ...args) => {
+    sent.push({ channel, args });
+  };
   const controller = createElectronBrowserController({
     WebContentsView: harness.WebContentsView,
     dirname: "/tmp",
     openExternal: async () => true,
   });
   controller.setMainWindow(harness.mainWindow);
-  const userTab = controller.createBrowserTab("about:blank", { select: true });
+  controller.createBrowserTab("about:blank", { select: true });
   controller.attachBrowserView({ x: 10, y: 20, width: 800, height: 600 });
   const context = {
     workspaceId: "workspace-1",
@@ -106,13 +110,18 @@ test("controller shows only the selected tab and leaves background agent tabs un
     agentId: "agent-1",
     backend: "in-app",
   };
-  const { tab: agentTab } = await controller.runtime.dispatch("createTab", {}, context);
+  const { tab: agentTab } = await controller.runtime.dispatch(
+    "createTab",
+    { url: "https://agent.example" },
+    context,
+  );
 
-  assert.equal(controller.browserStatePayload().activeTabId, userTab.tabId);
-  assert.equal(harness.windowChildren.length, 1);
-  controller.selectBrowserTab(agentTab.tabId);
-  assert.equal(harness.windowChildren.length, 1);
   assert.equal(controller.browserStatePayload().activeTabId, agentTab.tabId);
+  assert.equal(
+    sent.some((entry) => entry.channel === "onmyagent:browser:panel-opened"),
+    true,
+  );
+  assert.equal(harness.windowChildren.length, 1);
   await controller.close();
 });
 

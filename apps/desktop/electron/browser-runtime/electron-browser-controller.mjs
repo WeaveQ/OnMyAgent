@@ -52,6 +52,20 @@ export function createElectronBrowserController(options) {
     mainWindow.webContents.send("onmyagent:browser:state", browserStatePayload());
   };
 
+  /** Ask the renderer to expand the browser side panel (rail + native view host). */
+  const requestOpenBrowserPanel = () => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+    try {
+      if (typeof mainWindow.isMinimized === "function" && mainWindow.isMinimized()) {
+        mainWindow.restore?.();
+      }
+      mainWindow.focus?.();
+    } catch {
+      // Best-effort focus only.
+    }
+    mainWindow.webContents.send("onmyagent:browser:panel-opened");
+  };
+
   const createView = () => {
     const view = new options.WebContentsView({
       webPreferences: {
@@ -133,6 +147,7 @@ export function createElectronBrowserController(options) {
   runtime.dispatch = async (method, params, context) => {
     const before = new Set(host.listAllTabs().map((tab) => tab.tabId));
     const result = await originalDispatch(method, params, context);
+    let openedAgentSurface = false;
     if (method === "createTab") {
       const tabId = result?.tab?.tabId;
       if (tabId && !before.has(tabId) && !records.has(tabId)) {
@@ -140,6 +155,17 @@ export function createElectronBrowserController(options) {
         if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
         records.set(tabId, { tab: result.tab, view });
         order.push(tabId);
+        // Agent-driven open: select the new tab and expand the UI panel so the
+        // user sees the in-app browser without a manual rail click.
+        activeTabId = tabId;
+        openedAgentSurface = true;
+      }
+    } else if (method === "navigate" || method === "claimTab") {
+      const tabId = result?.tab?.tabId
+        ?? (typeof params?.tabId === "string" ? params.tabId : null);
+      if (tabId && records.has(tabId)) {
+        activeTabId = tabId;
+        openedAgentSurface = true;
       }
     }
     for (const tabId of [...order]) {
@@ -150,6 +176,7 @@ export function createElectronBrowserController(options) {
         if (activeTabId === tabId) activeTabId = order[0] ?? null;
       }
     }
+    if (openedAgentSurface) requestOpenBrowserPanel();
     attachSelected();
     sendState();
     return result;
