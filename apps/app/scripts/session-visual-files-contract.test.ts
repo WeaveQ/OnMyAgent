@@ -16,6 +16,12 @@ describe("session visual and file contracts", () => {
     const messageItem = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/message-list/message-item.tsx",
     );
+    const messageStyles = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/message-list/styles.ts",
+    );
+    const messageContent = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/message-list/message-content.tsx",
+    );
     const messageListBarrel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/message-list.tsx",
     );
@@ -27,7 +33,9 @@ describe("session visual and file contracts", () => {
     );
     expect(markdown).toContain("session-markdown-table-cell border px-4 py-2 align-top");
     expect(messageItem).not.toContain("hover:bg-primary/10");
-    expect(messageItem).toContain("bg-dls-surface-muted text-dls-text");
+    // Bubble tokens live in styles.ts; file/resource chips keep muted surface in message-content.
+    expect(messageStyles).toContain("bg-dls-chat-user-bg text-dls-text");
+    expect(messageContent).toContain("bg-dls-surface-muted text-dls-text");
     expect(messageListBarrel).toContain('from "./message-list/index"');
   });
 

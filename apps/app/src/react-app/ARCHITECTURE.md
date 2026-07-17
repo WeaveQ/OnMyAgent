@@ -249,8 +249,8 @@ tree when a domain-scoped import path is clearer:
   chrome / composer modules). Keep `index.ts` thin (≤80 lines). Heavy composition
   stays in `render.tsx` / `page-view.tsx` / sibling modules — do not reintroduce a
   root-level `session-route.tsx` god file.
-- **Settings host:** `shell/settings-route.tsx` stays a thin entry; implementation in
-  `settings-route/` (render + model + actions facade).
+- **Settings host:** `shell/settings-route/` folder facade (`index.ts` + `render.tsx` + modules);
+  `settings-route-render.tsx` is a compat re-export.
 - Guard: `node scripts/checks/architecture-paths.mjs` (expects `session-route/index.ts`
   + `session-route/render.tsx` + thin settings entry).
 
