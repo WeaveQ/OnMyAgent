@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { FileCode, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { FileCode, MoreHorizontal, Pencil, Trash2, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { t } from "@/i18n";
@@ -196,61 +196,62 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 </div>
                 {!props.cloudProviderIds?.has(provider.id) ? (
                   <div className="flex shrink-0 items-center gap-2">
-                    {provider.managedBy !== "opencode" ? (
-                      <Button
-                        variant="destructive"
-                        onClick={() => void props.onDisconnectProvider(provider.id)}
-                        disabled={
-                          props.busy ||
-                          props.providerAuthBusy ||
-                          props.disconnectingProviderId !== null ||
-                          !props.canDisconnectProvider(provider)
-                        }
-                      >
-                        {props.disconnectingProviderId === provider.id
-                          ? t("settings.disconnecting")
-                          : props.canDisconnectProvider(provider)
-                            ? t("settings.disconnect")
-                            : t("settings.managed_by_env")}
-                      </Button>
-                    ) : null}
-                    {props.canEditProvider?.(provider) ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={t("settings.provider_more_actions")}
-                              className="pointer-events-none opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 data-[popup-open]:pointer-events-auto data-[popup-open]:opacity-100"
-                            >
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem
-                            disabled={props.busy || props.providerActionBusyId === provider.id}
-                            onClick={() => props.onEditProvider?.(provider)}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={t("settings.provider_more_actions")}
                           >
-                            <Pencil />
-                            {t("agent_manager.provider_modal.edit_provider")}
-                          </DropdownMenuItem>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="w-44">
+                        {props.canEditProvider?.(provider) ? (
+                          <>
+                            <DropdownMenuItem
+                              disabled={props.busy || props.providerActionBusyId === provider.id}
+                              onClick={() => props.onEditProvider?.(provider)}
+                            >
+                              <Pencil />
+                              {t("agent_manager.provider_modal.edit_provider")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={
+                                props.busy ||
+                                props.providerActionBusyId === provider.id ||
+                                props.canDeleteProvider?.(provider) === false
+                              }
+                              onClick={() => props.onDeleteProvider?.(provider)}
+                            >
+                              <Trash2 />
+                              {t("agent_manager.provider_modal.delete_provider")}
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
                           <DropdownMenuItem
                             variant="destructive"
                             disabled={
                               props.busy ||
-                              props.providerActionBusyId === provider.id ||
-                              props.canDeleteProvider?.(provider) === false
+                              props.providerAuthBusy ||
+                              props.disconnectingProviderId !== null ||
+                              !props.canDisconnectProvider(provider)
                             }
-                            onClick={() => props.onDeleteProvider?.(provider)}
+                            onClick={() => void props.onDisconnectProvider(provider.id)}
                           >
-                            <Trash2 />
-                            {t("agent_manager.provider_modal.delete_provider")}
+                            <Unplug />
+                            {props.disconnectingProviderId === provider.id
+                              ? t("settings.disconnecting")
+                              : props.canDisconnectProvider(provider)
+                                ? t("settings.disconnect")
+                                : t("settings.managed_by_env")}
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : null}
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ) : null}
               </LayoutSectionItem>
