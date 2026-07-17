@@ -34,6 +34,38 @@ test("preserves provider-advertised output token limits when fetching models", a
   }]);
 });
 
+test("falls back to Volcengine Ark /api/plan/v1/models for agent plan baseUrl", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  const seenUrls = [];
+  globalThis.fetch = async (url) => {
+    seenUrls.push(String(url));
+    // `/api/plan/v3/models` -> 404 (plan v3 path has no models sub-resource)
+    if (String(url).includes("/api/plan/v3/models")) {
+      return new Response("not found", { status: 404 });
+    }
+    // `/api/plan/v1/models` -> 200 with the real Ark agent-plan model list
+    if (String(url).endsWith("/api/plan/v1/models")) {
+      return new Response(JSON.stringify({
+        data: [{ id: "doubao-pro", name: "Doubao Pro" }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response("not found", { status: 404 });
+  };
+
+  const providers = createAgentManagementProviders({ getRealHomeDir: () => os.tmpdir() });
+  const result = await providers.agentManagementFetchModels({
+    appType: "opencode",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/plan/v3",
+  });
+
+  assert.ok(seenUrls.some((u) => u.endsWith("/api/plan/v1/models")),
+    `expected candidate list to include /api/plan/v1/models, got: ${seenUrls.join(", ")}`);
+  assert.deepEqual(result.models, [{ id: "doubao-pro", name: "Doubao Pro" }]);
+});
+
 test("writes explicit model capabilities into OpenCode provider config", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-"));
   try {

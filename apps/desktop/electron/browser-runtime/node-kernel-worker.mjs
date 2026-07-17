@@ -72,9 +72,15 @@ input.on("line", async (line) => {
       process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, value: true })}\n`);
       return;
     }
-    const source = `(async () => (${request.code}))()`;
-    const promise = new vm.Script(source, { filename: "onmyagent-node-repl.mjs" })
-      .runInContext(context, { timeout: request.syncTimeoutMs });
+    // Prefer the expression form so the value of `code` is returned; fall back
+    // to a block body so multi-statement code (const/await/return) is accepted.
+    let script;
+    try {
+      script = new vm.Script(`(async () => (${request.code}))()`, { filename: "onmyagent-node-repl.mjs" });
+    } catch {
+      script = new vm.Script(`(async () => { ${request.code} })()`, { filename: "onmyagent-node-repl.mjs" });
+    }
+    const promise = script.runInContext(context, { timeout: request.syncTimeoutMs });
     const value = await promise;
     process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, value: serialize(value) })}\n`);
   } catch (error) {

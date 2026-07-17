@@ -467,12 +467,46 @@ export function createAgentManagementProviders(options = {}) {
       add(`${stripped}/v1/models`);
       add(`${stripped}/models`);
     }
+    // 火山方舟（Volcengine Ark）的 coding plan / agent plan 等 compat 子产品
+    // 各自有独立的 OpenAI 兼容入口（如 `/api/plan/v1/models`、`/api/coding/v1/models`），
+    // 鉴权体系独立，不能混用总入口 `/api/v3/models`。
+    // 当用户填入 `.../api/plan/v3` 这类版本段非 v1 的 baseUrl 时，
+    // 前面生成的候选都会 404，需要补一个"同路径、版本段改 v1"的候选才能命中正确端点。
+    const v1Variant = agentManagementRewriteVersionSegment(raw, "v1");
+    if (v1Variant) add(`${v1Variant}/models`);
     return candidates;
   }
 
   function agentManagementEndsWithVersionSegment(pathname) {
     const last = String(pathname ?? "").split("/").filter(Boolean).at(-1) ?? "";
     return /^v\d+$/.test(last);
+  }
+
+  /**
+   * 把 baseUrl 末尾的版本段（如 `v3`、`v2`）替换成指定的目标版本（如 `v1`），
+   * 返回重写后的完整 URL 字符串。若末尾不是版本段则返回 null。
+   *
+   * 火山方舟 coding plan / agent plan 等子产品的用户入口 baseUrl 形如
+   * `https://ark.cn-beijing.volces.com/api/plan/v3`，但其 OpenAI 兼容的
+   * models 列表端点用的是 `v1` 版本段（`/api/plan/v1/models`），二者不同。
+   * 直接在 `v3` 后追加 `/models` 会 404，剥离到 origin 再拼又会落到总入口
+   * `/api/v3/models`（鉴权体系不通，返回 401）。把版本段重写成 `v1` 后，
+   * `/api/plan/v1/models` 才是子产品自己的正确 models 端点。
+   */
+  function agentManagementRewriteVersionSegment(baseUrl, targetVersion) {
+    let parsed;
+    try {
+      parsed = new URL(baseUrl);
+    } catch {
+      return null;
+    }
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const lastIndex = segments.length - 1;
+    if (lastIndex < 0) return null;
+    if (!/^v\d+$/.test(segments[lastIndex])) return null;
+    segments[lastIndex] = targetVersion;
+    parsed.pathname = `/${segments.join("/")}`;
+    return parsed.toString().replace(/\/+$/g, "");
   }
 
   function agentManagementStripCompatSuffix(baseUrl) {
