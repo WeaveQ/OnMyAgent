@@ -4,67 +4,66 @@ import { isElectronRuntime } from "@/app/utils";
 
 import type { BrowserStatePayload } from "./use-browser-state";
 
+function shouldRevealBrowserPanel(state: BrowserStatePayload): boolean {
+  const tabs = state.tabs ?? [];
+  if (tabs.length === 0) return false;
+
+  for (const tab of tabs) {
+    const owner = tab.owner ?? "user";
+    const url = String(tab.url ?? "").trim();
+    const hasRealUrl = url.length > 0 && url !== "about:blank";
+    // Agent / claimed automation surface — same UX expectation as openTarget().
+    if ((owner === "agent" || owner === "claimed") && hasRealUrl) {
+      return true;
+    }
+  }
+
+  // Active non-blank tab while panel was closed (covers race where owner is missing).
+  const active =
+    tabs.find((tab) => tab.tabId === state.activeTabId || tab.isActive) ?? null;
+  if (!active) return false;
+  const activeUrl = String(active.url ?? state.url ?? "").trim();
+  return activeUrl.length > 0 && activeUrl !== "about:blank" && active.owner !== "user";
+}
+
 /**
- * When the agent creates/navigates an in-app browser tab, expand the browser
- * side panel even if the user never clicked the rail. Covers:
- * - main process `panel-opened` IPC
- * - browser state updates (fallback if IPC is missed or arrives before mount)
+ * Keep the right browser rail in sync with agent-driven in-app browser work.
+ *
+ * Localhost link clicks already call setCurrentSidePanel("browser") in openTarget.
+ * Agent tools only create tabs in the main process — this hook applies the same
+ * UI step when:
+ * - main sends panel-opened
+ * - browser state shows an agent (or claimed) tab with a real URL
+ * - getState() on mount finds such a tab already open
  */
 export function useAutoOpenBrowserPanel(openBrowserPanel: () => void) {
   const openRef = useRef(openBrowserPanel);
   openRef.current = openBrowserPanel;
-  const seenAgentTabsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!isElectronRuntime()) return;
     const browser = window.__ONMYAGENT_ELECTRON__?.browser;
     if (!browser) return;
 
-    const openFromAgent = () => {
+    const reveal = () => {
       openRef.current();
     };
 
-    const unsubOpen = browser.onPanelOpened?.(openFromAgent);
-    const unsubClose = browser.onPanelClosed?.(() => {
-      // Keep seen set so a later new agent tab still re-opens.
-    });
-
-    const considerState = (state: BrowserStatePayload) => {
-      const tabs = state.tabs ?? [];
-      let shouldOpen = false;
-      for (const tab of tabs) {
-        const owner = tab.owner ?? "user";
-        const url = String(tab.url ?? "").trim();
-        const isAgentSurface =
-          (owner === "agent" || owner === "claimed") &&
-          url.length > 0 &&
-          url !== "about:blank";
-        if (!isAgentSurface) continue;
-        if (!seenAgentTabsRef.current.has(tab.tabId)) {
-          seenAgentTabsRef.current.add(tab.tabId);
-          shouldOpen = true;
-        }
-        // Always re-open when the active tab is agent-owned with a real URL,
-        // so a closed rail comes back on the next agent navigation.
-        if (tab.tabId === state.activeTabId || tab.isActive) {
-          shouldOpen = true;
-        }
-      }
-      if (shouldOpen) openFromAgent();
-    };
+    const unsubOpen = browser.onPanelOpened?.(reveal);
 
     const unsubState = browser.onStateChange?.((state: BrowserStatePayload) => {
-      considerState(state);
+      if (shouldRevealBrowserPanel(state)) reveal();
     });
 
-    // Catch tabs that already exist when the page mounts (event fired earlier).
-    void browser.getState?.().then((state) => {
-      if (state) considerState(state);
-    }).catch(() => undefined);
+    void browser
+      .getState?.()
+      .then((state) => {
+        if (state && shouldRevealBrowserPanel(state)) reveal();
+      })
+      .catch(() => undefined);
 
     return () => {
       unsubOpen?.();
-      unsubClose?.();
       unsubState?.();
     };
   }, []);

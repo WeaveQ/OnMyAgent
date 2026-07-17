@@ -52,9 +52,14 @@ export function createElectronBrowserController(options) {
     mainWindow.webContents.send("onmyagent:browser:state", browserStatePayload());
   };
 
-  /** Ask the renderer to expand the browser side panel (rail + native view host). */
-  const requestOpenBrowserPanel = () => {
-    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+  /**
+   * Mirror renderer openTarget(): expand the browser rail so EmbeddedBrowserViewport
+   * can mount and call show(bounds). Creating a WebContentsView alone is not enough.
+   */
+  const requestOpenBrowserPanel = (detail = {}) => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+      return;
+    }
     try {
       if (typeof mainWindow.isMinimized === "function" && mainWindow.isMinimized()) {
         mainWindow.restore?.();
@@ -63,7 +68,10 @@ export function createElectronBrowserController(options) {
     } catch {
       // Best-effort focus only.
     }
-    mainWindow.webContents.send("onmyagent:browser:panel-opened");
+    // Send both a dedicated open event and a state snapshot so the renderer can
+    // open even if one channel is missed.
+    mainWindow.webContents.send("onmyagent:browser:panel-opened", detail);
+    mainWindow.webContents.send("onmyagent:browser:state", browserStatePayload());
   };
 
   const createView = () => {

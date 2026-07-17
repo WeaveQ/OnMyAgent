@@ -15,6 +15,7 @@ import {
   writeHiddenAccessibleTargetIds,
 } from "./session-page-accessible-targets";
 import { GLOBAL_VOICE_SIDE_PANEL_KEY } from "./session-page-model";
+import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 
 type UseSessionPageSidePanelInput = {
@@ -173,14 +174,10 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     async (target: OpenTarget, options?: { auto?: boolean }) => {
       if (target.kind === "url" || target.preview === "browser") {
         const url = browserUrlForTarget(target);
-        if (isElectronRuntime()) {
-          setCurrentSidePanel("browser");
-          const createTab = window.__ONMYAGENT_ELECTRON__?.browser?.createTab;
-          if (!createTab) throw new Error("Browser bridge is unavailable.");
-          await createTab(url);
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
+        await openInAppBrowser({
+          openSidePanel: () => setCurrentSidePanel("browser"),
+          url,
+        });
         return;
       }
       if (options?.auto && artifactTarget?.id === target.id) return;

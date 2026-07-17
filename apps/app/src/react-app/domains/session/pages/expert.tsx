@@ -40,6 +40,7 @@ import {
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
 import { PersonalUsagePage } from "../usage";
+import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
   getExtensionId,
@@ -1028,14 +1029,10 @@ export function ExpertPage(props: ExpertPageProps) {
     async (target: OpenTarget, options?: { auto?: boolean }) => {
       if (target.kind === "url" || target.preview === "browser") {
         const url = browserUrlForTarget(target);
-        if (isElectronRuntime()) {
-          setCurrentSidePanel("browser");
-          const createTab = window.__ONMYAGENT_ELECTRON__?.browser?.createTab;
-          if (!createTab) throw new Error("Browser bridge is unavailable.");
-          await createTab(url);
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
+        await openInAppBrowser({
+          openSidePanel: () => setCurrentSidePanel("browser"),
+          url,
+        });
         return;
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
