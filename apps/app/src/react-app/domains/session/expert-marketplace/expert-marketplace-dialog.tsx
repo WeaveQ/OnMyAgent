@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
+import { FilterChip } from "@/components/ui/action-row";
 import { EXPERT_MARKETPLACE_CATEGORIES } from "./categories";
 import { BUILTIN_MARKETPLACE_EXPERTS } from "./data";
 import type { ExpertMarketplaceEntry } from "./types";
@@ -136,26 +137,17 @@ export function ExpertMarketplacePage(props: {
       >
         {view === "market" ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto px-6 py-2.5">
+            <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
               {EXPERT_MARKETPLACE_CATEGORIES.map((category) => {
                 const active = categoryId === category.id;
                 return (
-                  <Button
+                  <FilterChip
                     key={category.id}
-                    type="button"
-                    size="sm"
-                    variant="ghost"
+                    label={t(category.labelKey)}
+                    selected={active}
                     onClick={() => setCategoryId(category.id)}
-                    aria-pressed={active}
-                    className={cn(
-                      "h-7 shrink-0 rounded-full border px-2.5 text-xs font-medium",
-                      active
-                        ? "border-dls-accent/55 bg-dls-accent/12 text-dls-accent hover:bg-dls-accent/12 hover:text-dls-accent"
-                        : "border-dls-border bg-dls-surface-muted/70 text-dls-secondary hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text",
-                    )}
-                  >
-                    {t(category.labelKey)}
-                  </Button>
+                    className="mac:titlebar-no-drag"
+                  />
                 );
               })}
             </div>

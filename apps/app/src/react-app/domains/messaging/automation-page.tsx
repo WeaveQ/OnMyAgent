@@ -674,7 +674,7 @@ function FrequencyFields(props: {
               <option value="days">{t("automation.interval_days")}</option>
             </select>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-0.5">
             {weekdays.map((weekday) => {
               const selected = props.form.weekdays.includes(weekday);
               return (
@@ -682,7 +682,9 @@ function FrequencyFields(props: {
                   key={weekday}
                   type="button"
                   active={selected}
-                  size="compact"
+                  tone="chip"
+                  size="chip"
+                  width="hug"
                   onClick={() => setForm({
                     weekdays: selected
                       ? props.form.weekdays.filter((item) => item !== weekday)

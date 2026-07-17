@@ -18,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
-import { IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip, IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -133,9 +133,7 @@ const pluginsLayoutClass = {
   cardGrid: "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3",
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
-  originTabs: "mb-3 flex flex-wrap gap-1.5 pl-6",
-  originActive: "bg-dls-list-selected text-dls-text hover:bg-dls-list-selected hover:text-dls-text",
-  originDefault: "bg-dls-surface-muted text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+  originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
 };
 
 function getSamplePlugins(): PluginItem[] {
@@ -1206,25 +1204,21 @@ function LocalSkillsSection(props: { skills: ScannedSkill[] }) {
       {visibleOrigins.length > 1 ? (
         <div className={pluginsLayoutClass.originTabs}>
           {visibleOrigins.map((origin) => (
-            <Button
+            <FilterChip
               key={origin}
-              type="button"
+              selected={activeOrigin === origin}
               onClick={() => setActiveOrigin(origin)}
-              variant="ghost"
-              size="pill-xs"
-              className={cn(
-                activeOrigin === origin
-                  ? pluginsLayoutClass.originActive
-                  : pluginsLayoutClass.originDefault,
-              )}
-            >
-              {LOCAL_ORIGIN_LABELS[origin]}
-              {origin !== "all" ? (
-                <span className="ml-1 text-xs">
-                  {byOrigin[origin].length}
-                </span>
-              ) : null}
-            </Button>
+              label={
+                <>
+                  {LOCAL_ORIGIN_LABELS[origin]}
+                  {origin !== "all" ? (
+                    <span className="ml-1 text-xs opacity-70">
+                      {byOrigin[origin].length}
+                    </span>
+                  ) : null}
+                </>
+              }
+            />
           ))}
         </div>
       ) : null}
