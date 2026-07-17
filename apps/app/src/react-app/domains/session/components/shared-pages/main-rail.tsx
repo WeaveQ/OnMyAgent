@@ -42,11 +42,12 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-function WeChatBubblesIcon(props: { active: boolean; className?: string }) {
-  const bubbleClassName = props.active
+function WeChatBubblesIcon(props: { active?: boolean; className?: string }) {
+  const active = props.active === true;
+  const bubbleClassName = active
     ? "fill-current"
     : "fill-none stroke-current transition-colors";
-  const eyeClassName = props.active
+  const eyeClassName = active
     ? "fill-dls-rail"
     : "fill-current transition-colors";
 
@@ -59,7 +60,7 @@ function WeChatBubblesIcon(props: { active: boolean; className?: string }) {
     >
       <path
         className={bubbleClassName}
-        strokeWidth={props.active ? 0 : 1.5}
+        strokeWidth={active ? 0 : 1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M10.15 3.25C5.65 3.25 2 6.1 2 9.62c0 2.02 1.2 3.84 3.1 5l-.77 2.64 2.94-1.48c.74.18 1.53.27 2.35.27h.34a6.5 6.5 0 0 1-.56-2.57c0-3.84 3.48-6.96 7.82-6.96h.47c-1.3-1.97-4.1-3.27-7.54-3.27Z"
@@ -68,7 +69,7 @@ function WeChatBubblesIcon(props: { active: boolean; className?: string }) {
       <circle cx="12.05" cy="8.25" r="1" className={eyeClassName} />
       <path
         className={bubbleClassName}
-        strokeWidth={props.active ? 0 : 1.5}
+        strokeWidth={active ? 0 : 1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M22 13.48c0-3.35-3.27-6.06-7.3-6.06s-7.3 2.71-7.3 6.06 3.27 6.06 7.3 6.06c.76 0 1.49-.1 2.18-.27l2.68 1.36-.68-2.43c1.89-1.1 3.12-2.83 3.12-4.72Z"
