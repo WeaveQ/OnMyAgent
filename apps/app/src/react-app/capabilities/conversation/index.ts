@@ -4,6 +4,10 @@ export * from "./timeline";
 export * from "./runtime";
 export * from "./item-types";
 export {
+  ConversationItemsList,
+  type ConversationItemsListProps,
+} from "./conversation-items-list";
+export {
   filterPersonalTimelineMessages,
   groupPersonalTimelineMessages,
   mapPersonalEventToMessages,
