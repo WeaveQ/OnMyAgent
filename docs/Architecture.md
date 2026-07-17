@@ -184,16 +184,31 @@ pnpm check:boundaries
 - `packages/ui` 不依赖 app/server/desktop 业务包。
 - `apps/server` 不依赖 renderer、desktop 或 UI 包。
 - `apps/desktop` 不直接 import renderer 包；renderer 交互必须走 IPC/preload/server API。
-- Desktop IPC 命令名以 `packages/types/src/desktop-ipc-commands.mjs` 为运行时 SoT，
-  `desktop-ipc-commands.d.mts` 提供生成的字面量联合；Electron 按 workspace、runtime、
-  local-agents、messaging 等域注册路由，parity test 要求每条命令恰好声明和实现一次。
-  `desktop-ipc.ts` 共享跨端 payload 类型，renderer 公开 wrapper 保持参数/结果签名；当前
-  尚未建立覆盖全部命令的 command → args/result 映射，preload/main dispatch 仍是运行时边界，
-  后续应补共享 `DesktopCommandMap` 与 handler 级类型 parity，不能把命令名 parity 等同于
-  端到端 payload 类型闭环。
-- Renderer-facing HTTP client 方法以 `server-client-methods.mjs` 分域登记；
-  `app/lib/onmyagent-server.ts` 仅保留兼容 barrel，实际 client 与窄化 domain views 位于
-  `app/lib/onmyagent-server/`。跨端响应结构优先定义在 `@onmyagent/types/server`。
+- **Desktop IPC 三层 SoT**：
+  1. 命令名：`packages/types/src/desktop-ipc-commands.mjs`（运行时 groups）+
+     `desktop-ipc-commands.d.mts`（字面量联合）；parity test 要求每条命令恰好声明和实现一次。
+  2. 载荷类型：`packages/types/src/desktop-ipc.ts`（及 `desktop-ipc-code-workspace.ts`）。
+  3. **命令 → args/result 映射：`packages/types/src/desktop-ipc-command-map.ts` 的
+     `DesktopCommandMap` 已存在**，覆盖全部 `DesktopCommandName`；已绑定共享类型的命令用
+     显式 contract，其余仍为 `unknown[]`/`unknown` 占位，按域逐步收紧（workspace /
+     localAgents 已优先收紧）。preload / main dispatch 仍是运行时边界；handler 级
+     parity 可继续加严，但不能把「命令名 parity」当成端到端 payload 已全部闭环。
+- **Desktop handlers 已域拆分**：实现在 `apps/desktop/electron/desktop-handlers/`
+  （`workspace` / `system` / `local-agents` / `messaging` / `agent-management` /
+  `opencode` / `runtime` / `skills`），由 `createAllDesktopDomainHandlers` 组装；
+  `desktop-command-router.mjs` 按 `desktopCommandGroups` 路由；`main.mjs` 只做
+  composition root。新 IPC 优先加 domain handler + types map，而不是堆进 main。
+- Renderer-facing HTTP client 方法以 `packages/types/src/server-client-methods.mjs`
+  分域登记；`app/lib/onmyagent-server.ts` 仅保留兼容 barrel。实现位于
+  `app/lib/onmyagent-server/`：`client.ts` 为 facade（`createOnMyAgentServerClient` +
+  公共类型 re-export），方法按域拆到 `client-system` / `client-workspace` /
+  `client-sessions` / `client-extensions` / `client-session-archive`（共享 transport
+  在 `client-shared`）；`domains.ts` 提供窄化 Pick 视图。跨端响应结构优先定义在
+  `@onmyagent/types/server`。
+- **Conversation capability（双运行时 UI）**：`react-app/capabilities/conversation/`
+  提供中立 timeline / item VM / adapter 合同，把 **OpenCode 会话** 与
+  **Personal Local Agent** 消息流映射到同一套 conversation items，供 `session` 与
+  `local-agents` 宿主页复用，避免两套 transcript 表示分叉。
 - `apps/app/src/app/lib/**` 不反向 import `react-app`。
 - `apps/app/src/react-app/domains/<domain>` 的允许方向集中在
   `scripts/checks/domain-boundary-policy.mjs`；所有跨域 import 必须命中目标域一级 barrel。
@@ -203,8 +218,22 @@ pnpm check:boundaries
 - **文件级深链过渡白名单** `allowedDomainImports`（`scripts/checks/check-boundaries.mjs`）
   **尚未清零**：仍冻结一批历史 `file|importPath` 例外，**只减不增**；新增跨域 import
   必须走目标域一级 barrel，不得扩白名单。`local-agents` / `messaging` / `workspace`
-  不再作为「可随意反向依赖 session」的例外；artifact、model selection、session identity
-  与复合 UI 分别由 `capabilities/` / `design-system/` 中立所有者承接。
+  不再作为「可随意反向依赖 session」的例外；artifact、model selection、session identity、
+  conversation timeline 与复合 UI 分别由 `capabilities/` / `design-system/` 中立所有者承接。
+
+### Feature → Domain → Transport
+
+| Feature | UI domain / capability | Transport |
+| --- | --- | --- |
+| Live OpenCode chat | `domains/session` | HTTP `onmyagent-server` sessions + OpenCode SDK |
+| Session archive / analytics | `domains/session` (+ archive UI) | HTTP sessionArchive methods |
+| Personal Local Agent chat | `domains/local-agents` + `capabilities/conversation` | Desktop IPC `localAgents` |
+| Workspace CRUD / remote | `domains/workspace` | Desktop IPC `workspace` + HTTP workspace |
+| MCP / providers | `domains/connections` | HTTP extensions + Desktop agent-management |
+| Messaging channels | `domains/messaging` | Desktop IPC `messaging` |
+| Skills / plugins / marketplace | `domains/plugins` | HTTP extensions + Desktop `skills` |
+| Engine / orchestrator / sandbox | shell / settings advanced | Desktop IPC `runtime` |
+| Shared transcript items | `capabilities/conversation` | pure mappers (no I/O) |
 
 ## Dev Command Surface
 
