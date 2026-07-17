@@ -20,6 +20,7 @@ import {
   app,
   BrowserWindow,
   Menu,
+  Notification,
   WebContentsView,
   clipboard,
   dialog,
@@ -3329,6 +3330,8 @@ const { ensureAutoUpdater } = registerUpdaterIpc({
   app,
   ipcMain,
   getMainWindow: () => mainWindow,
+  Notification,
+  shell,
 });
 
 if (!app.requestSingleInstanceLock()) {

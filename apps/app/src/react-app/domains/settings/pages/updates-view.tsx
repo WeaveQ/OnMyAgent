@@ -119,9 +119,61 @@ export function UpdatesView(props: UpdatesViewProps) {
             </LayoutSectionItemTitle>
             <LayoutSectionItemDescription className="font-mono">
               v{props.appVersion}
+              {updateLastCheckedAt ? (
+                <span className="ml-2 font-sans text-xs text-muted-foreground">
+                  {t("settings.update_last_checked", undefined, {
+                    time: formatRelativeTime(updateLastCheckedAt),
+                  })}
+                </span>
+              ) : null}
             </LayoutSectionItemDescription>
+            <LayoutSectionItemHeaderActions>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void props.checkForUpdates()}
+                disabled={props.busy || updateState === "checking"}
+              >
+                {updateState === "checking"
+                  ? t("settings.checking_for_updates")
+                  : t("settings.check_for_updates")}
+              </Button>
+            </LayoutSectionItemHeaderActions>
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
+      ) : null}
+
+      {updateState === "available" && updateVersion ? (
+        <LayoutSectionItem>
+          <LayoutSectionItemHeader>
+            <LayoutSectionItemTitle>
+              {t("settings.update_available_version", undefined, {
+                version: updateVersion,
+              })}
+            </LayoutSectionItemTitle>
+            {updateDate ? (
+              <LayoutSectionItemDescription>
+                {t("settings.update_published", undefined, { date: updateDate })}
+              </LayoutSectionItemDescription>
+            ) : null}
+            <LayoutSectionItemHeaderActions>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => void props.downloadUpdate()}
+              >
+                {t("settings.open_release_page")}
+              </Button>
+            </LayoutSectionItemHeaderActions>
+          </LayoutSectionItemHeader>
+        </LayoutSectionItem>
+      ) : null}
+
+      {updateState === "error" && updateErrorMessage ? (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{updateErrorMessage}</AlertDescription>
+        </Alert>
       ) : null}
       {/* <LayoutSectionItem>
         <LayoutSectionItemHeader>
