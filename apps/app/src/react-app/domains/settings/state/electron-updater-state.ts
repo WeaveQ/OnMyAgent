@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import type { DenDesktopConfig } from "../../../../app/lib/den";
-import { isAlphaUpdateAllowed, isUpdateAllowed } from "../../../../app/lib/version-gate";
+import { isAlphaUpdateAllowed } from "../../../../app/lib/version-gate";
 import type { ReleaseChannel } from "../../../../app/types";
 import { isElectronRuntime, safeStringify } from "../../../../app/utils";
 import { t } from "../../../../i18n";
@@ -18,13 +18,31 @@ export type SettingsUpdateStatus = {
   message?: string;
 } | null;
 
-type ElectronUpdaterBridge = NonNullable<Window["__ONMYAGENT_ELECTRON__"]>["updater"] & {
-  onDownloadProgress?: (callback: (data: { transferred: number; total: number; percent: number; bytesPerSecond: number }) => void) => (() => void);
+type UpdateAvailabilityPayload = {
+  available?: boolean;
+  currentVersion?: string;
+  latestVersion?: string | null;
+  releaseDate?: string | null;
+  releaseNotes?: unknown;
+  reason?: string | null;
 };
+
+type ElectronUpdaterBridge = NonNullable<Window["__ONMYAGENT_ELECTRON__"]>["updater"] & {
+  onDownloadProgress?: (callback: (data: {
+    transferred: number;
+    total: number;
+    percent: number;
+    bytesPerSecond: number;
+  }) => void) => (() => void);
+  onAvailable?: (callback: (payload: UpdateAvailabilityPayload) => void) => (() => void);
+  getLastKnown?: () => Promise<UpdateAvailabilityPayload>;
+};
+
 type UseElectronUpdaterStateOptions = {
   releaseChannel: ReleaseChannel;
   onReleaseChannelChange: (next: ReleaseChannel) => void;
   updateAutoCheck: boolean;
+  /** @deprecated Lightweight updater never auto-downloads; kept for call-site compat. */
   updateAutoDownload: boolean;
   desktopConfig: DenDesktopConfig | null | undefined;
   setError: (message: string | null) => void;
@@ -33,11 +51,14 @@ type UseElectronUpdaterStateOptions = {
 type ElectronUpdaterEnvState = {
   appVersion: string | null;
   updateEnv: { supported?: boolean; reason?: string | null } | null;
+  /** Main process reports whether alpha feed exists (currently always false). */
+  alphaSupported: boolean;
 };
 
 type ElectronUpdaterEnvAction =
   | { type: "app-version"; appVersion: string | null }
-  | { type: "unsupported"; reason: string };
+  | { type: "unsupported"; reason: string }
+  | { type: "alpha-supported"; alphaSupported: boolean };
 
 function electronUpdaterEnvReducer(
   state: ElectronUpdaterEnvState,
@@ -51,6 +72,8 @@ function electronUpdaterEnvReducer(
         ...state,
         updateEnv: { supported: false, reason: action.reason },
       };
+    case "alpha-supported":
+      return { ...state, alphaSupported: action.alphaSupported };
   }
 }
 
@@ -82,25 +105,55 @@ function releaseNotesToText(value: unknown): string | undefined {
   return undefined;
 }
 
-function updateProgress(event: unknown): { downloaded?: number; total?: number } | null {
-  if (!event || typeof event !== "object") return null;
-  const data = event as { data?: unknown };
-  if (!data.data || typeof data.data !== "object") return null;
-  const payload = data.data as { chunkLength?: unknown; contentLength?: unknown };
-  return {
-    downloaded: typeof payload.chunkLength === "number" ? payload.chunkLength : undefined,
-    total: typeof payload.contentLength === "number" ? payload.contentLength : undefined,
-  };
+function statusFromAvailability(
+  result: UpdateAvailabilityPayload,
+  availableAllowed: boolean,
+): Exclude<SettingsUpdateStatus, null> {
+  if (result.reason && !result.available && !result.latestVersion) {
+    // Soft "no releases yet" stays idle; hard network failures are errors.
+    const soft =
+      /no release/i.test(result.reason) ||
+      /not been published/i.test(result.reason);
+    if (!soft) {
+      return {
+        state: "error",
+        lastCheckedAt: Date.now(),
+        message: result.reason,
+      };
+    }
+  }
+  return availableAllowed
+    ? {
+        state: "available",
+        lastCheckedAt: Date.now(),
+        version: result.latestVersion ?? undefined,
+        date: result.releaseDate ?? undefined,
+        notes: releaseNotesToText(result.releaseNotes),
+      }
+    : {
+        state: "idle",
+        lastCheckedAt: Date.now(),
+        version: result.latestVersion ?? undefined,
+        date: result.releaseDate ?? undefined,
+        notes: releaseNotesToText(result.releaseNotes),
+      };
 }
 
 export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions) {
-  const { releaseChannel, onReleaseChannelChange, updateAutoCheck, updateAutoDownload, desktopConfig, setError } = options;
+  const {
+    releaseChannel,
+    onReleaseChannelChange,
+    updateAutoCheck,
+    desktopConfig,
+    setError,
+  } = options;
   const [updateStatus, setUpdateStatus] = useState<SettingsUpdateStatus>(null);
   const [envState, dispatchEnvState] = useReducer(electronUpdaterEnvReducer, {
     appVersion: null,
     updateEnv: null,
+    alphaSupported: false,
   });
-  const { appVersion, updateEnv } = envState;
+  const { appVersion, updateEnv, alphaSupported } = envState;
   const autoCheckKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -116,13 +169,18 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       .then(async (state) => {
         if (cancelled) return;
         dispatchEnvState({ type: "app-version", appVersion: state.currentVersion ?? null });
-        if (state.channel && state.channel !== releaseChannel && bridge.setChannel) {
-          const nextState = await bridge.setChannel(releaseChannel);
-          if (cancelled) return;
-          dispatchEnvState({ type: "app-version", appVersion: nextState.currentVersion ?? null });
-          if (nextState.channel && nextState.channel !== releaseChannel) {
-            onReleaseChannelChange(nextState.channel);
-          }
+        const alphaOk =
+          typeof (state as { alphaSupported?: boolean }).alphaSupported === "boolean"
+            ? Boolean((state as { alphaSupported?: boolean }).alphaSupported)
+            : false;
+        dispatchEnvState({ type: "alpha-supported", alphaSupported: alphaOk });
+
+        // Snap prefs to the channel the main process actually serves.
+        if (state.channel && state.channel !== releaseChannel) {
+          onReleaseChannelChange(state.channel);
+        }
+        if (!alphaOk && releaseChannel === "alpha") {
+          onReleaseChannelChange("stable");
         }
       })
       .catch(() => {
@@ -135,52 +193,61 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     };
   }, [onReleaseChannelChange, releaseChannel]);
 
-  const downloadUpdate = useCallback(async (channelOverride?: ReleaseChannel) => {
+  // Keep Settings in sync with background main-process checks (OS notify path).
+  useEffect(() => {
+    if (!isElectronRuntime()) return;
+    const bridge = electronUpdaterBridge();
+    if (!bridge?.onAvailable) return;
+    return bridge.onAvailable((payload) => {
+      if (payload.currentVersion) {
+        dispatchEnvState({ type: "app-version", appVersion: payload.currentVersion });
+      }
+      if (!payload.available) return;
+      void (async () => {
+        // Stable feed is trusted from main; only alpha would need Den gating
+        // (and alpha is currently unsupported).
+        const allowed =
+          releaseChannel === "alpha" && payload.latestVersion
+            ? await isAlphaUpdateAllowed(payload.latestVersion, desktopConfig)
+            : Boolean(payload.available && payload.latestVersion);
+        setUpdateStatus(statusFromAvailability(payload, allowed));
+      })();
+    });
+  }, [desktopConfig, releaseChannel]);
+
+  /**
+   * Open the GitHub release page in the browser. Does not download or install.
+   * Status stays on "available" (never "ready") so we don't imply an install finished.
+   */
+  const downloadUpdate = useCallback(async () => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.download) {
-      const message = "Electron updater downloads are available only in the Electron desktop app.";
+      const message = "Opening the release page is only available in the Electron desktop app.";
       setUpdateStatus({ state: "error", message });
       setError(message);
       return;
     }
-
-    // Subscribe to incremental progress events from the main process so
-    // the UI updates in real time instead of staying stuck at 0 bytes.
-    let unsubProgress: (() => void) | null = null;
-    if (bridge.onDownloadProgress) {
-      unsubProgress = bridge.onDownloadProgress((data) => {
-        setUpdateStatus((current) => ({
-          ...(current ?? {}),
-          state: "downloading",
-          downloadedBytes: data.transferred ?? 0,
-          totalBytes: data.total ?? current?.totalBytes ?? null,
-        }));
-      });
-    }
-
-    setUpdateStatus((current) => ({
-      ...(current ?? {}),
-      state: "downloading",
-      downloadedBytes: current?.downloadedBytes ?? 0,
-      totalBytes: current?.totalBytes ?? null,
-    }));
     try {
       const result = await bridge.download();
       if (!result?.ok) {
-        setUpdateStatus({ state: "error", message: result?.reason ?? "Update download failed." });
+        setUpdateStatus({
+          state: "error",
+          message: result?.reason ?? "Failed to open the release page.",
+        });
         return;
       }
+      // Stay on available — browser open is not an install.
       setUpdateStatus((current) => ({
         ...(current ?? {}),
-        state: "ready",
+        state: "available",
+        message: undefined,
       }));
-    } finally {
-      unsubProgress?.();
+    } catch (error) {
+      setUpdateStatus({ state: "error", message: describeError(error) });
     }
-  }, [desktopConfig, releaseChannel, setError]);
+  }, [setError]);
 
-  const checkForUpdates = useCallback(async (channelOverride?: ReleaseChannel) => {
-    const activeReleaseChannel = channelOverride ?? releaseChannel;
+  const checkForUpdates = useCallback(async () => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.check) {
       const message = "Electron update checks are available only in the Electron desktop app.";
@@ -191,7 +258,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
 
     setUpdateStatus({ state: "checking" });
     try {
-      const result = await bridge.check(activeReleaseChannel);
+      const result = await bridge.check("stable");
       dispatchEnvState({ type: "app-version", appVersion: result.currentVersion ?? null });
       if (result.channel && result.channel !== releaseChannel) {
         onReleaseChannelChange(result.channel);
@@ -203,41 +270,39 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         });
         return;
       }
-      if (result.reason) {
-        setUpdateStatus({ state: "error", message: result.reason });
+
+      // Stable: trust the main-process GitHub comparison (no Den allow-list).
+      // Alpha would still go through Den if re-enabled later.
+      const checkedReleaseChannel = result.channel ?? "stable";
+      const availableAllowed =
+        result.available && result.latestVersion
+          ? checkedReleaseChannel === "alpha"
+            ? await isAlphaUpdateAllowed(result.latestVersion, desktopConfig)
+            : true
+          : false;
+
+      if (result.reason && !result.available && !result.latestVersion) {
+        const soft =
+          /no release/i.test(result.reason) ||
+          /not been published/i.test(result.reason);
+        setUpdateStatus(
+          soft
+            ? { state: "idle", lastCheckedAt: Date.now(), message: result.reason }
+            : { state: "error", lastCheckedAt: Date.now(), message: result.reason },
+        );
         return;
       }
 
-      const checkedReleaseChannel = result.channel ?? activeReleaseChannel;
-      const availableAllowed = result.available && result.latestVersion
-        ? checkedReleaseChannel === "alpha"
-          ? await isAlphaUpdateAllowed(result.latestVersion, desktopConfig)
-          : await isUpdateAllowed(result.latestVersion, desktopConfig)
-        : result.available;
-      const nextStatus: Exclude<SettingsUpdateStatus, null> = availableAllowed
-        ? {
-            state: "available",
-            lastCheckedAt: Date.now(),
-            version: result.latestVersion ?? undefined,
-            date: result.releaseDate ?? undefined,
-            notes: releaseNotesToText(result.releaseNotes),
-          }
-        : {
-            state: "idle",
-            lastCheckedAt: Date.now(),
-            version: result.latestVersion ?? undefined,
-            date: result.releaseDate ?? undefined,
-            notes: releaseNotesToText(result.releaseNotes),
-          };
-      setUpdateStatus(nextStatus);
-      if (availableAllowed && updateAutoDownload) {
-        await downloadUpdate(checkedReleaseChannel);
-      }
+      setUpdateStatus(statusFromAvailability(result, availableAllowed));
+      // Intentionally do NOT auto-open the browser when prefs say "auto download".
+      // The lightweight updater has no in-app download path.
     } catch (error) {
       setUpdateStatus({ state: "error", message: describeError(error) });
     }
-  }, [desktopConfig, downloadUpdate, onReleaseChannelChange, releaseChannel, setError, updateAutoDownload]);
+  }, [desktopConfig, onReleaseChannelChange, releaseChannel, setError]);
 
+  // Optional renderer-side check when the user enables background checks.
+  // Main process also polls and owns OS notifications; this only refreshes Settings state.
   useEffect(() => {
     if (!updateAutoCheck || updateEnv?.supported === false) return;
     const key = `${releaseChannel}:${appVersion ?? "unknown"}`;
@@ -247,31 +312,35 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   }, [appVersion, checkForUpdates, releaseChannel, updateAutoCheck, updateEnv?.supported]);
 
   const installUpdateAndRestart = useCallback(async () => {
-    const bridge = electronUpdaterBridge();
-    if (!bridge?.installAndRestart) {
-      const message = "Electron update install is available only in the Electron desktop app.";
-      setUpdateStatus({ state: "error", message });
-      setError(message);
-      return;
-    }
-    const result = await bridge.installAndRestart();
-    if (!result?.ok) {
-      setUpdateStatus({ state: "error", message: result?.reason ?? "Update install failed." });
-    }
-  }, [setError]);
+    // Same as open release page — there is no in-app install.
+    await downloadUpdate();
+  }, [downloadUpdate]);
 
   const setReleaseChannel = useCallback(
     async (next: ReleaseChannel) => {
-      onReleaseChannelChange(next);
       const bridge = electronUpdaterBridge();
-      if (!bridge?.setChannel) return;
+      if (!bridge?.setChannel) {
+        onReleaseChannelChange(next);
+        return;
+      }
       try {
         const state = await bridge.setChannel(next);
         dispatchEnvState({ type: "app-version", appVersion: state.currentVersion ?? null });
-        if (state.channel && state.channel !== next) {
-          onReleaseChannelChange(state.channel);
+        const alphaOk =
+          typeof (state as { alphaSupported?: boolean }).alphaSupported === "boolean"
+            ? Boolean((state as { alphaSupported?: boolean }).alphaSupported)
+            : false;
+        dispatchEnvState({ type: "alpha-supported", alphaSupported: alphaOk });
+        // Prefer the channel main actually serves (always stable today).
+        const applied = state.channel ?? "stable";
+        onReleaseChannelChange(applied);
+        if (applied !== next && (state as { reason?: string }).reason) {
+          setUpdateStatus({
+            state: "idle",
+            message: String((state as { reason?: string }).reason),
+          });
         }
-        await checkForUpdates(state.channel ?? next);
+        await checkForUpdates();
       } catch (error) {
         setUpdateStatus({ state: "error", message: describeError(error) });
       }
@@ -283,6 +352,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     appVersion,
     updateEnv,
     updateStatus,
+    alphaSupported,
     checkForUpdates,
     downloadUpdate,
     installUpdateAndRestart,

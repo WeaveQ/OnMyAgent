@@ -125,6 +125,10 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
         ipcRenderer.removeListener("onmyagent:updater:download-progress", handler);
       };
     },
+    /** Fetch the last cached update-availability payload from main. */
+    getLastKnown() {
+      return ipcRenderer.invoke("onmyagent:updater:getLastKnown");
+    },
     /** Fired when the background checker detects a newer release. */
     onAvailable(callback) {
       const handler = (_event, data) => callback(data);
