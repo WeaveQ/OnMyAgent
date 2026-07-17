@@ -43,8 +43,14 @@ interface LayoutSectionTitleProps {
 }
 
 export function LayoutSectionTitle({ children, className }: LayoutSectionTitleProps) {
+  // Match SettingsPageSection section title tokens.
   return (
-    <h3 className={cn("flex items-center gap-2 text-lg font-medium text-dls-text", className)}>
+    <h3
+      className={cn(
+        "flex items-center gap-2 text-lg font-medium leading-7 text-dls-text",
+        className,
+      )}
+    >
       {children}
     </h3>
   );
@@ -57,7 +63,7 @@ interface LayoutSectionDescriptionProps {
 
 export function LayoutSectionDescription({ children, className }: LayoutSectionDescriptionProps) {
   return (
-    <p className={cn("text-sm text-dls-secondary", className)}>
+    <p className={cn("max-w-[52ch] text-sm leading-5 text-dls-secondary", className)}>
       {children}
     </p>
   );
@@ -108,8 +114,15 @@ interface LayoutSectionItemTitleProps {
 }
 
 export function LayoutSectionItemTitle({ children, className }: LayoutSectionItemTitleProps) {
+  // Row title: same weight as SettingsBlockRow (text-sm).
   return (
-    <h4 data-slot="item-title" className={cn("flex items-center gap-2 text-base font-medium text-dls-text group-data-section/section:text-sm", className)}>
+    <h4
+      data-slot="item-title"
+      className={cn(
+        "flex items-center gap-2 text-sm font-medium leading-5 text-dls-text",
+        className,
+      )}
+    >
       {children}
     </h4>
   );

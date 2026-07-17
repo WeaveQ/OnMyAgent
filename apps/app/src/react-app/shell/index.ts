@@ -16,3 +16,4 @@ export * from "./workspace-routes";
 export * from "./workspace-shell-layout";
 export * from "./new-providers-toast";
 export * from "./workspace-provider";
+export * from "./font-zoom";

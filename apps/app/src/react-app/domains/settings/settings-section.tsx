@@ -114,6 +114,124 @@ export function SettingsCard({ children, className, size = "default", tone = "mu
   );
 }
 
+/**
+ * Canonical in-page section chrome for settings content.
+ *
+ * Typography scale (settings):
+ * - Page title (shell h1): text-xl font-medium
+ * - Page subtitle (shell): text-sm text-dls-secondary
+ * - Section title (this h3): text-lg font-medium text-dls-text
+ * - Section description: text-sm text-muted-foreground
+ * - Row title (SettingsBlockRow): text-sm font-medium
+ * - Row / field hint: text-sm | text-xs text-muted-foreground
+ */
+export function SettingsPageSection({
+  title,
+  description,
+  actions,
+  children,
+  className,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("flex w-full max-w-3xl flex-col gap-3", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="text-lg font-medium leading-7 text-dls-text">{title}</h3>
+          {description ? (
+            <p className="max-w-[52ch] text-sm leading-5 text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {actions}
+          </div>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * ChatGPT-style settings card: rounded block with divided rows.
+ * Use with SettingsBlockRow; section title stays outside the card.
+ */
+export function SettingsBlock({ children, className }: SettingsLayoutProps) {
+  // overflow-visible so SelectMenu / popovers in rows are not clipped.
+  // Corner radius is applied on first/last rows instead of clipping the card.
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-dls-border bg-dls-surface divide-y divide-dls-border",
+        "[&>[data-slot=settings-block-row]:first-child]:rounded-t-[inherit]",
+        "[&>[data-slot=settings-block-row]:last-child]:rounded-b-[inherit]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export interface SettingsBlockRowProps {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  /** Extra content under the description (e.g. textarea). */
+  children?: React.ReactNode;
+  className?: string;
+  /** Align control with first line (center) or top of multi-line copy. */
+  align?: "center" | "start";
+}
+
+export function SettingsBlockRow({
+  title,
+  description,
+  actions,
+  children,
+  className,
+  align = "center",
+}: SettingsBlockRowProps) {
+  return (
+    <div
+      data-slot="settings-block-row"
+      className={cn(
+        "flex w-full gap-4 px-4 py-3.5",
+        align === "center" ? "items-center" : "items-start",
+        className,
+      )}
+    >
+      <div className="min-w-0 flex-1 space-y-1 pr-2">
+        <div className="text-sm font-medium leading-5 text-foreground">{title}</div>
+        {description ? (
+          <div className="text-sm leading-5 text-muted-foreground">{description}</div>
+        ) : null}
+        {children}
+      </div>
+      {actions ? (
+        <div
+          className={cn(
+            // Keep all controls on the trailing edge of the card.
+            "ml-auto flex shrink-0 items-center justify-end",
+            "min-w-[7.5rem] [&_button]:justify-end",
+            align === "start" ? "pt-0.5 self-start" : "self-center",
+          )}
+        >
+          {actions}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export interface SettingsPanelProps extends SettingsLayoutProps {
   size?: "default" | "comfortable";
   tone?: "surface" | "soft";
@@ -227,7 +345,12 @@ interface SettingsItemHeaderTitleProps {
 
 export function SettingsSectionHeaderTitle({ children, className }: SettingsItemHeaderTitleProps) {
   return (
-    <div className={cn("flex items-center gap-2 text-lg font-medium text-dls-text", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 text-lg font-medium leading-7 text-dls-text",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -239,7 +362,11 @@ interface SectionItemHeaderDescriptionProps {
 }
 
 export function SettingsSectionHeaderDescription({ children, className }: SectionItemHeaderDescriptionProps) {
-  return <div className={cn("text-sm text-muted-foreground", className)}>{children}</div>;
+  return (
+    <div className={cn("max-w-[52ch] text-sm leading-5 text-muted-foreground", className)}>
+      {children}
+    </div>
+  );
 }
 
 

@@ -1,8 +1,9 @@
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
+
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import {
   desktopBridge,
@@ -12,11 +13,10 @@ import {
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
 import {
-  LayoutSection,
-  LayoutSectionDescription,
-  LayoutSectionHeader,
-  LayoutSectionTitle,
-} from "../settings-layout";
+  SettingsBlock,
+  SettingsBlockRow,
+  SettingsPageSection,
+} from "../settings-section";
 
 type SoftwareEnvStatus = {
   node: boolean;
@@ -39,11 +39,15 @@ type StatusLoadState = "loading" | "ready" | "error";
 function NodeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" {...props}>
-      <path
-        d="M12 2L3 7v10l9 5 9-5V7l-9-5z"
-        fill="#689F63"
-      />
-      <text x="12" y="15" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">
+      <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" fill="#689F63" />
+      <text
+        x="12"
+        y="15"
+        textAnchor="middle"
+        fill="white"
+        fontSize="8"
+        fontWeight="bold"
+      >
         JS
       </text>
     </svg>
@@ -68,14 +72,8 @@ function PythonIcon(props: React.SVGProps<SVGSVGElement>) {
 function OpencodeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" {...props}>
-      <path
-        d="M18 6H6v12h12V6z"
-        fill="#CFCECD"
-      />
-      <path
-        d="M18 4H6v14h12V4zM22 22H2V2h20v20z"
-        fill="#211E1E"
-      />
+      <path d="M18 6H6v12h12V6z" fill="#CFCECD" />
+      <path d="M18 4H6v14h12V4zM22 22H2V2h20v20z" fill="#211E1E" />
     </svg>
   );
 }
@@ -83,52 +81,40 @@ function OpencodeIcon(props: React.SVGProps<SVGSVGElement>) {
 const tools = [
   {
     id: "opencode" as const,
-    name: "OpenCode",
-    get description() { return t("settings.software_env.opencode_desc"); },
+    // Product-facing: local agent runtime (engine), not third-party brand.
+    get name() {
+      return t("settings.software_env.runtime_name");
+    },
+    get description() {
+      return t("settings.software_env.opencode_desc");
+    },
     Icon: OpencodeIcon,
   },
   {
     id: "node" as const,
     name: "Node.js",
-    get description() { return t("settings.software_env.nodejs_desc"); },
+    get description() {
+      return t("settings.software_env.nodejs_desc");
+    },
     Icon: NodeIcon,
   },
   {
     id: "python" as const,
     name: "Python",
-    get description() { return t("settings.software_env.python_desc"); },
+    get description() {
+      return t("settings.software_env.python_desc");
+    },
     Icon: PythonIcon,
   },
 ];
 
-const softwareEnvLayoutClass = {
-  description: "max-w-[52ch]",
-  tableShell: "overflow-hidden rounded-lg border border-border",
-  table: "w-full text-sm",
-  tableHead: "bg-muted/50",
-  headerRow: "border-b border-border",
-  toolHeader: "px-4 py-3 text-left font-medium text-muted-foreground w-1/4",
-  descriptionHeader: "px-4 py-3 text-left font-medium text-muted-foreground",
-  statusHeader: "px-4 py-3 text-right font-medium text-muted-foreground w-32",
-  tableRow: "border-b border-border last:border-b-0",
-  cell: "px-4 py-3",
-  descriptionCell: "px-4 py-3 text-muted-foreground",
-  statusCell: "px-4 py-3 text-right",
-  installedStack: "flex flex-col items-end gap-0.5",
-  installedLabel: "inline-flex items-center gap-1.5 text-sm text-dls-accent font-medium",
-  installingStack: "flex min-w-44 flex-col items-end gap-1.5",
-  installingLabel: "inline-flex items-center gap-1 text-sm text-muted-foreground",
-  loadingLabel: "inline-flex items-center gap-1 text-sm text-muted-foreground",
-  progressTrack: "h-1.5 w-44 overflow-hidden rounded-full bg-muted",
-  progressFill: "h-full rounded-full bg-primary transition-[width] duration-300",
-  errorStack: "flex flex-col items-end gap-1",
-  errorText: "text-xs text-dls-status-danger-fg",
-};
-
 export function SoftwareEnvironmentSection() {
   const [status, setStatus] = useState<SoftwareEnvStatus | null>(null);
-  const [statusLoadState, setStatusLoadState] = useState<StatusLoadState>("loading");
-  const [installing, setInstalling] = useState<Record<string, InstallState>>({});
+  const [statusLoadState, setStatusLoadState] =
+    useState<StatusLoadState>("loading");
+  const [installing, setInstalling] = useState<Record<string, InstallState>>(
+    {},
+  );
   const [errorMsg, setErrorMsg] = useState<Record<string, string>>({});
   const [installProgress, setInstallProgress] =
     useState<SoftwareEnvironmentProgress | null>(null);
@@ -137,7 +123,8 @@ export function SoftwareEnvironmentSection() {
   const checkStatus = useCallback(async () => {
     setStatusLoadState("loading");
     try {
-      const result = (await desktopBridge.checkSoftwareEnv()) as SoftwareEnvStatus;
+      const result =
+        (await desktopBridge.checkSoftwareEnv()) as SoftwareEnvStatus;
       setStatus(result);
       setStatusLoadState("ready");
     } catch {
@@ -176,17 +163,26 @@ export function SoftwareEnvironmentSection() {
     setInstalling((prev) => ({ ...prev, [toolId]: "installing" }));
     setErrorMsg((prev) => ({ ...prev, [toolId]: "" }));
     try {
-      const result = (await desktopBridge.installSoftwareEnv(toolId, requestId)) as { ok: boolean; message?: string };
+      const result = (await desktopBridge.installSoftwareEnv(
+        toolId,
+        requestId,
+      )) as { ok: boolean; message?: string };
       if (result.ok) {
         setInstalling((prev) => ({ ...prev, [toolId]: "installed" }));
         await checkStatus();
       } else {
         setInstalling((prev) => ({ ...prev, [toolId]: "error" }));
-        setErrorMsg((prev) => ({ ...prev, [toolId]: result.message ?? t("settings.software_env.install_failed") }));
+        setErrorMsg((prev) => ({
+          ...prev,
+          [toolId]: result.message ?? t("settings.software_env.install_failed"),
+        }));
       }
     } catch {
       setInstalling((prev) => ({ ...prev, [toolId]: "error" }));
-      setErrorMsg((prev) => ({ ...prev, [toolId]: t("settings.software_env.install_failed") }));
+      setErrorMsg((prev) => ({
+        ...prev,
+        [toolId]: t("settings.software_env.install_failed"),
+      }));
     }
   };
 
@@ -208,102 +204,116 @@ export function SoftwareEnvironmentSection() {
   const isStatusError = statusLoadState === "error";
 
   return (
-    <LayoutSection>
-      <LayoutSectionHeader>
-        <LayoutSectionTitle>{t("settings.software_env.title")}</LayoutSectionTitle>
-        <LayoutSectionDescription className={softwareEnvLayoutClass.description}>
-          {t("settings.software_env.description")}
-        </LayoutSectionDescription>
-      </LayoutSectionHeader>
+    <SettingsPageSection
+      title={t("settings.software_env.title")}
+      description={t("settings.software_env.description")}
+    >
+      <SettingsBlock>
+        {tools.map((tool) => {
+          const state = getInstallState(tool.id);
+          const detail = status?.details?.[tool.id];
 
-      <div className={softwareEnvLayoutClass.tableShell}>
-        <table className={softwareEnvLayoutClass.table}>
-          <thead className={softwareEnvLayoutClass.tableHead}>
-            <tr className={softwareEnvLayoutClass.headerRow}>
-              <th className={softwareEnvLayoutClass.toolHeader}>
-                {t("settings.software_env.tool")}
-              </th>
-              <th className={softwareEnvLayoutClass.descriptionHeader}>
-                {t("settings.software_env.description_col")}
-              </th>
-              <th className={softwareEnvLayoutClass.statusHeader}>
-                {t("settings.software_env.status")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {tools.map((tool) => {
-              const state = getInstallState(tool.id);
-              const detail = status?.details?.[tool.id];
+          const actions = (() => {
+            if (isStatusLoading) {
               return (
-                <tr key={tool.id} className={softwareEnvLayoutClass.tableRow}>
-                  <td className={softwareEnvLayoutClass.cell}>
-                    <span className="inline-flex items-center gap-2 font-medium">
-                      <tool.Icon className="size-5" />
-                      {tool.name}
-                    </span>
-                  </td>
-                  <td className={softwareEnvLayoutClass.descriptionCell}>{tool.description}</td>
-                  <td className={softwareEnvLayoutClass.statusCell}>
-                    {isStatusLoading ? (
-                      <span className={softwareEnvLayoutClass.loadingLabel}>
-                        <LoadingSpinner size="default" />
-                        {t("settings.software_env.loading")}
-                      </span>
-                    ) : state === "installed" ? (
-                      <div className={softwareEnvLayoutClass.installedStack}>
-                        <span className={softwareEnvLayoutClass.installedLabel}>
-                          <CheckCircle2 className="size-4 text-dls-accent" />
-                          {detail?.bundled
-                            ? t("settings.software_env.bundled")
-                            : t("settings.software_env.installed")}
-                        </span>
-                        {detail?.version ? (
-                          <span className="text-xs text-muted-foreground">
-                            {detail.version}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : state === "installing" ? (
-                      <div className={softwareEnvLayoutClass.installingStack}>
-                        <span className={softwareEnvLayoutClass.installingLabel}>
-                          <LoadingSpinner size="default" />
-                          {installProgress?.message ?? t("settings.software_env.installing")}
-                        </span>
-                        <div className={softwareEnvLayoutClass.progressTrack}>
-                          <div
-                            className={softwareEnvLayoutClass.progressFill}
-                            style={{ width: `${installProgress?.progress ?? 5}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : state === "error" ? (
-                      <div className={softwareEnvLayoutClass.errorStack}>
-                        <Button size="sm" variant="outline" onClick={() => handleInstall(tool.id)}>
-                          {t("settings.software_env.retry")}
-                        </Button>
-                        <span className={softwareEnvLayoutClass.errorText}>{errorMsg[tool.id]}</span>
-                      </div>
-                    ) : isStatusError ? (
-                      <span className={softwareEnvLayoutClass.errorText}>
-                        {t("settings.software_env.status_unavailable")}
-                      </span>
-                    ) : tool.id === "opencode" ? (
-                      <Button size="sm" variant="outline" onClick={() => handleInstall(tool.id)}>
-                        {t("settings.software_env.install")}
-                      </Button>
-                    ) : (
-                      <span className={softwareEnvLayoutClass.errorText}>
-                        {t("settings.software_env.bundled_missing")}
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <LoadingSpinner size="default" />
+                  {t("settings.software_env.loading")}
+                </span>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </LayoutSection>
+            }
+            if (state === "installed") {
+              return (
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-dls-accent">
+                    <CheckCircle2 className="size-4" />
+                    {detail?.bundled
+                      ? t("settings.software_env.bundled")
+                      : t("settings.software_env.installed")}
+                  </span>
+                  {detail?.version ? (
+                    <span className="text-xs text-muted-foreground">
+                      {detail.version}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            }
+            if (state === "installing") {
+              return (
+                <div className="flex min-w-40 flex-col items-end gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <LoadingSpinner size="default" />
+                    {installProgress?.message ??
+                      t("settings.software_env.installing")}
+                  </span>
+                  <div className="h-1.5 w-36 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-300"
+                      style={{
+                        width: `${installProgress?.progress ?? 5}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            }
+            if (state === "error") {
+              return (
+                <div className="flex flex-col items-end gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleInstall(tool.id)}
+                  >
+                    {t("settings.software_env.retry")}
+                  </Button>
+                  <span className="max-w-40 text-right text-xs text-dls-status-danger-fg">
+                    {errorMsg[tool.id]}
+                  </span>
+                </div>
+              );
+            }
+            if (isStatusError) {
+              return (
+                <span className="text-sm text-dls-status-danger-fg">
+                  {t("settings.software_env.status_unavailable")}
+                </span>
+              );
+            }
+            if (tool.id === "opencode") {
+              return (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleInstall(tool.id)}
+                >
+                  {t("settings.software_env.install")}
+                </Button>
+              );
+            }
+            return (
+              <span className="text-sm text-muted-foreground">
+                {t("settings.software_env.bundled_missing")}
+              </span>
+            );
+          })();
+
+          return (
+            <SettingsBlockRow
+              key={tool.id}
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <tool.Icon className="size-5 shrink-0" />
+                  {tool.name}
+                </span>
+              }
+              description={tool.description}
+              actions={actions}
+            />
+          );
+        })}
+      </SettingsBlock>
+    </SettingsPageSection>
   );
 }
