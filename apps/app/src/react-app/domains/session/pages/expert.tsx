@@ -40,6 +40,7 @@ import {
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
 import { PersonalUsagePage } from "../usage";
+import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
   getExtensionId,
   isOnMyAgentExtensionEnabled,
@@ -960,23 +961,14 @@ export function ExpertPage(props: ExpertPageProps) {
     [setSidePanelState, sidePanelScopeId, toggleSidePanelState],
   );
 
-  useEffect(() => {
-    if (!isElectronRuntime()) return;
-    const browser = (window as Window).__ONMYAGENT_ELECTRON__?.browser;
-    if (!browser) return;
-    const unsubOpen = browser.onPanelOpened?.(() => {
-      if (preserveSidePanelOnPanelOpenRef.current) {
-        preserveSidePanelOnPanelOpenRef.current = false;
-        return;
-      }
-      setCurrentSidePanel("browser");
-    });
-    const unsubClose = browser.onPanelClosed?.(() => setCurrentSidePanel(null));
-    return () => {
-      unsubOpen?.();
-      unsubClose?.();
-    };
+  const openBrowserPanelFromAgent = useCallback(() => {
+    if (preserveSidePanelOnPanelOpenRef.current) {
+      preserveSidePanelOnPanelOpenRef.current = false;
+      return;
+    }
+    setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
   const {
     setRightSidebarExpandedWidth: setBrowserPanelWidth,
   } = useWorkspaceShellLayout({
