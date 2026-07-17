@@ -8,5 +8,5 @@ export default {
   "onboarding.opencode_install_failed": "Installation failed, please retry",
   "onboarding.opencode_retry": "Retry",
   "onboarding.opencode_required":
-    "Please install OpenCode CLI before continuing",
+    "Please finish installing the local agent runtime before continuing",
 } as const;

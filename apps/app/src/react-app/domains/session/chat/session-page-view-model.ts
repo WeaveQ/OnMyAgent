@@ -83,7 +83,7 @@ export function buildSessionPageViewModel(input: BuildSessionPageViewModelInput)
   const selectedWorkspaceErrorTitle =
     input.selectedWorkspaceDisplay.workspaceType === "remote"
       ? "Remote workspace unavailable"
-      : "OpenCode unavailable";
+      : "Agent runtime unavailable";
   const reactSessionBaseUrl = input.opencodeBaseUrl?.trim() ?? "";
   const reactSessionToken =
     input.onmyagentServerToken?.trim() ||

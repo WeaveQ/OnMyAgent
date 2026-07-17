@@ -2,19 +2,19 @@ import { APP_NAME } from "../brand";
 
 export default {
   "system.reload_body_agents":
-    "OpenCode在啟動時加載Agent。重新加載引擎以使更新的Agent可用。",
+    "Agent 在啟動時加載。重新加載引擎以使更新的 Agent 可用。",
   "system.reload_body_commands":
-    "OpenCode在啟動時加載命令。重新加載引擎以使更新的命令可用。",
+    "命令在啟動時加載。重新加載引擎以使更新的命令可用。",
   "system.reload_body_config":
-    "OpenCode在啟動時讀取opencode.json。重新加載引擎以應用配置變更。",
-  "system.reload_body_default": `${APP_NAME}檢測到需要重新加載OpenCode實例的變更。`,
+    "工作區配置在啟動時讀取。重新加載引擎以應用配置變更。",
+  "system.reload_body_default": `${APP_NAME}檢測到需要重新加載本地智能體引擎的變更。`,
   "system.reload_body_mcp":
-    "OpenCode在啟動時加載MCP服務器。重新加載引擎以激活新連接。",
-  "system.reload_body_mixed": `${APP_NAME}檢測到OpenCode配置變更。重新加載引擎以應用。`,
+    "MCP 服務器在啟動時加載。重新加載引擎以激活新連接。",
+  "system.reload_body_mixed": `${APP_NAME}檢測到配置變更。重新加載引擎以應用。`,
   "system.reload_body_plugins":
-    "OpenCode在啟動時加載npm插件。重新加載引擎以應用opencode.json變更。",
+    "插件在啟動時加載。重新加載引擎以應用配置變更。",
   "system.reload_body_skills":
-    "OpenCode會緩存技能發現/狀態。重新加載引擎以使新安裝的技能可用。",
+    "技能發現狀態可能會被緩存。重新加載引擎以使新安裝的技能可用。",
   "system.reload_failed": "重新加載引擎失敗。",
   "system.reload_required": "需要重新加載",
   "system.reload_unavailable": "此工作區不支持重新加載。",

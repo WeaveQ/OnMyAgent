@@ -2,19 +2,19 @@ import { APP_NAME } from "../brand";
 
 export default {
   "system.reload_body_agents":
-    "OpenCode loads agents at startup. Reload the engine to make updated agents available.",
+    "Agents load at startup. Reload the engine to make updated agents available.",
   "system.reload_body_commands":
-    "OpenCode loads commands at startup. Reload the engine to make updated commands available.",
+    "Commands load at startup. Reload the engine to make updated commands available.",
   "system.reload_body_config":
-    "OpenCode reads opencode.json at startup. Reload the engine to apply configuration changes.",
-  "system.reload_body_default": `${APP_NAME} detected changes that require reloading the OpenCode instance.`,
+    "Workspace configuration is read at startup. Reload the engine to apply changes.",
+  "system.reload_body_default": `${APP_NAME} detected changes that require reloading the local agent engine.`,
   "system.reload_body_mcp":
-    "OpenCode loads MCP servers at startup. Reload the engine to activate the new connection.",
-  "system.reload_body_mixed": `${APP_NAME} detected OpenCode configuration changes. Reload the engine to apply them.`,
+    "MCP servers load at startup. Reload the engine to activate the new connection.",
+  "system.reload_body_mixed": `${APP_NAME} detected configuration changes. Reload the engine to apply them.`,
   "system.reload_body_plugins":
-    "OpenCode loads npm plugins at startup. Reload the engine to apply opencode.json changes.",
+    "Plugins load at startup. Reload the engine to apply configuration changes.",
   "system.reload_body_skills":
-    "OpenCode can cache skill discovery/state. Reload the engine to make newly installed skills available.",
+    "Skill discovery may be cached. Reload the engine to make newly installed skills available.",
   "system.reload_failed": "Failed to reload the engine.",
   "system.reload_required": "Reload required",
   "system.reload_unavailable": "Reload is unavailable for this worker.",

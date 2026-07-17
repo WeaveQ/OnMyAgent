@@ -2,7 +2,7 @@ import { APP_NAME } from "../brand";
 
 export default {
   "identities.agent_behavior_desc":
-    "每個工作區一個文件。可在首行添加@agent <id>以通過特定OpenCode智能體路由。",
+    "每個工作區一個文件。可在首行添加@agent <id>以通過特定智能體路由。",
   "identities.agent_behavior_title": "消息智能體行為",
   "identities.agent_created": "已創建默認消息智能體文件。",
   "identities.agent_file_changed": "文件已被遠程修改。請重新加載後再保存。",

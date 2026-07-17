@@ -16,7 +16,7 @@ export default {
     "部分配置功能（本地服务器共享 + 消息桥接）需要桌面应用。",
   "config.diagnostics_desc": "复制脱敏的运行时状态用于调试。",
   "config.diagnostics_title": "诊断包",
-  "config.engine_reload_desc": "重启此工作区的OpenCode服务器。",
+  "config.engine_reload_desc": "重启此工作区的智能体引擎。",
   "config.engine_reload_title": "引擎重新加载",
   "config.host_admin_token_hint":
     "仅限主机内部使用的令牌，用于审批CLI和管理API。请勿在远程应用连接流程中使用。",

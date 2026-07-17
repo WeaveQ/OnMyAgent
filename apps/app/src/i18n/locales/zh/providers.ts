@@ -5,7 +5,7 @@ export default {
   "providers.api_key_required": "API密钥为必填项",
   "providers.auth_failed": "认证失败",
   "providers.connect_failed": "连接模型服务商失败",
-  "providers.disabled_in_config_suffix": "并已在OpenCode配置中禁用。",
+  "providers.disabled_in_config_suffix": "并已在引擎配置中禁用。",
   "providers.disconnect_failed": "断开模型服务商失败",
   "providers.disconnected_prefix": "已断开",
   "providers.load_failed": "加载模型服务商失败",

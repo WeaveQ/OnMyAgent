@@ -706,7 +706,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const selectedWorkspaceErrorTitle =
     props.selectedWorkspaceDisplay.workspaceType === "remote"
       ? "Remote workspace unavailable"
-      : "OpenCode unavailable";
+      : "Agent runtime unavailable";
 
   const reactSessionBaseUrl = props.opencodeBaseUrl?.trim() ?? "";
   const reactSessionToken =

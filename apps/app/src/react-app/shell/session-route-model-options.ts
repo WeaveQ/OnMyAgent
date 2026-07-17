@@ -196,6 +196,112 @@ export function resolveProviderDefaultModel(input: {
   };
 }
 
+/**
+ * True when the model appears in the same connected catalog the composer
+ * picker builds from (getConnectedProviderItems + model keys).
+ * Stricter than isSelectedModelUnavailable — ignores OpenCode "suggested"
+ * models that are not actually listed for the user.
+ */
+export function isModelInConnectedCatalog(
+  data: ProviderListResponse | null | undefined,
+  model: ModelRef | null | undefined,
+): boolean {
+  if (!model?.providerID || !model.modelID) return false;
+  const providerId = model.providerID.trim();
+  const modelId = model.modelID.trim();
+  if (!providerId || !modelId) return false;
+
+  for (const provider of getConnectedProviderItems(data)) {
+    if (provider.id !== providerId) continue;
+    const models = provider.models ?? {};
+    const keys = Object.keys(models);
+    // Connected custom with empty map: accept any model id for that provider.
+    if (keys.length === 0) return true;
+    if (models[modelId]) return true;
+    const want = modelId.toLowerCase();
+    return keys.some((id) => id.toLowerCase() === want);
+  }
+  return false;
+}
+
+function firstConnectedCatalogModel(
+  data: ProviderListResponse | null | undefined,
+): ModelRef | null {
+  for (const provider of getConnectedProviderItems(data)) {
+    const modelId = Object.keys(provider.models ?? {})[0];
+    if (!modelId) continue;
+    return { providerID: provider.id, modelID: modelId };
+  }
+  return null;
+}
+
+function sameModelRef(
+  a: ModelRef | null | undefined,
+  b: ModelRef | null | undefined,
+): boolean {
+  if (!a?.providerID || !a.modelID || !b?.providerID || !b.modelID) return false;
+  return a.providerID === b.providerID && a.modelID === b.modelID;
+}
+
+/**
+ * Keep last-used default when it is still in the connected catalog the user
+ * can pick from; otherwise fall back to a catalog model so the composer is
+ * never empty and never lands on a ghost like OpenCode's suggested gpt-5-nano
+ * when the only connected model is e.g. ark-code-latest.
+ *
+ * Priority when current is missing/not in catalog:
+ * 1) First model on the first connected provider with a real catalog
+ * 2) OpenCode provider.list().default — only if that model is in the catalog
+ * 3) App DEFAULT_MODEL — only if in the catalog
+ *
+ * No-op until discovery has connected catalog entries (avoids wipe on blips).
+ */
+export function resolveUsableDefaultModel(input: {
+  currentDefault: ModelRef | null | undefined;
+  checkRestriction: DesktopAppRestrictionChecker;
+  connectedProviderIds: string[];
+  providerListData: ProviderListResponse | null | undefined;
+  providerListLoading?: boolean;
+}): { model: ModelRef | null; changed: boolean } {
+  const current = input.currentDefault ?? null;
+  if (input.providerListLoading || !input.providerListData) {
+    return { model: current, changed: false };
+  }
+
+  const catalogFirst = firstConnectedCatalogModel(input.providerListData);
+  // No models in the picker yet — do not invent a default.
+  if (!catalogFirst) {
+    return { model: current, changed: false };
+  }
+
+  if (isModelInConnectedCatalog(input.providerListData, current) && current) {
+    return { model: current, changed: false };
+  }
+
+  const suggested = resolveProviderDefaultModel({
+    defaults: input.providerListData.default,
+  });
+  const candidates: Array<ModelRef | null> = [
+    catalogFirst,
+    suggested && isModelInConnectedCatalog(input.providerListData, suggested)
+      ? suggested
+      : null,
+    isModelInConnectedCatalog(input.providerListData, DEFAULT_MODEL)
+      ? DEFAULT_MODEL
+      : null,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate?.providerID || !candidate.modelID) continue;
+    return {
+      model: candidate,
+      changed: !sameModelRef(current, candidate),
+    };
+  }
+
+  return { model: current, changed: false };
+}
+
 /** Whether we should surface a non-blocking hint to adopt the provider default. */
 export function shouldPromptProviderDefaultModel(input: {
   suggested: ModelRef | null | undefined;

@@ -172,7 +172,7 @@ export default {
   "skills.origin_claude": "Claude skills",
   "skills.origin_codex": "Codex skills",
   "skills.origin_cursor": "Cursor skills",
-  "skills.origin_opencode": "OpenCode skills",
+  "skills.origin_opencode": "Built-in skills",
   "skills.origin_windsurf": "Windsurf skills",
   "skills.origin_imported": "Imported skills",
   "skills.scope_builtin": "Built-in skills",

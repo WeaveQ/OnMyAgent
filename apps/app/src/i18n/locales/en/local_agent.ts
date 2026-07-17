@@ -96,7 +96,7 @@ export default {
   "local_agent.memory_none_mode": "Not selected",
   "local_agent.memory_opencode_mode": "OpenCode isolated session",
   "local_agent.memory_opencode_summary": "Uses an OpenCode ACP session stored in this local agent's dedicated runtime workspace.",
-  "local_agent.memory_opencode_detail": "It does not reuse expert or assistant OpenCode sessions. The same local agent will reuse its own session and workspace context when possible.",
+  "local_agent.memory_opencode_detail": "It does not reuse expert or assistant sessions. The same local agent will reuse its own session and workspace context when possible.",
   "local_agent.memory_codex_mode": "Codex isolated thread",
   "local_agent.memory_codex_summary": "Uses the Codex ACP bridge to connect to the Codex harness, scoped to this local agent.",
   "local_agent.memory_codex_detail": "Codex owns its context, tool state, and session history through its harness. OnMyAgent does not merge it with other agents automatically.",

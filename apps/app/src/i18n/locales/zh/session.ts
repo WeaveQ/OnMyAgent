@@ -234,7 +234,7 @@ export default {
   "session.transcript_share": "分享消息",
   "session.doom_loop_label": "死循环",
   "session.doom_loop_message":
-    "OpenCode检测到使用相同输入的重复工具调用，正在询问是否在多次失败后继续。",
+    "智能体检测到使用相同输入的重复工具调用，正在询问是否在多次失败后继续。",
   "session.doom_loop_note": "拒绝以停止循环，或允许以让智能体继续尝试。",
   "session.doom_loop_repeated_call_label": "重复调用",
   "session.doom_loop_repeated_tool_call": "重复的工具调用",
@@ -275,10 +275,10 @@ export default {
   "session.permission_kind_skill": "技能",
   "session.permission_kind_task": "子任务",
   "session.permission_kind_todowrite": "Todo写入",
-  "session.permission_message": "OpenCode正在请求权限以继续。",
+  "session.permission_message": "智能体正在请求权限以继续。",
   "session.permission_message_bash":
-    "允许OpenCode继续前，请先检查命令影响范围。",
-  "session.permission_message_edit": "允许OpenCode修改前，请先检查文件和差异。",
+    "允许智能体继续前，请先检查命令影响范围。",
+  "session.permission_message_edit": "允许智能体修改前，请先检查文件和差异。",
   "session.permission_message_external_directory":
     "允许访问工作区外部前，请先检查目标文件夹。",
   "session.permission_message_read": "允许访问前，请先检查请求的文件范围。",
@@ -315,7 +315,7 @@ export default {
   "session.share_missing_token": `缺少${APP_NAME}令牌。`,
   "session.share_note_direct_runtime":
     "引擎运行时设置为直连模式。切换本地工作区可能会重启主机并断开客户端连接。令牌可能在重启后变更。",
-  "session.share_opencode_base_url": "OpenCode基础URL",
+  "session.share_opencode_base_url": "运行时基础 URL",
   "session.share_onmyagent_workers_only": `分享服务链接仅适用于${APP_NAME}工作区。`,
   "session.share_owner_permission_hint": "远程客户端需要回答权限提示时使用。",
   "session.share_password": "密码",
@@ -345,7 +345,7 @@ export default {
   "session.control_delete_session_desc":
     "按 ID 删除会话。破坏性操作：仅在用户明确确认后执行。",
   "session.control_confirmed_desc": "用户明确确认后必须为 true。",
-  "session.control_opencode_not_connected": "OpenCode 客户端未连接",
+  "session.control_opencode_not_connected": "智能体运行时未连接",
   "session.control_delete_requires_confirmation":
     "删除操作需要在用户明确确认后传入 confirmed: true",
   "session.control_session_not_found": "当前会话列表中未找到该会话",
