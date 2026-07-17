@@ -648,16 +648,13 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
 
   return (
     <section className="space-y-4" aria-labelledby="artifact-plugins-heading">
-      <div className="space-y-1">
+      <div>
         <h2
           id="artifact-plugins-heading"
           className="text-base font-medium leading-6 text-dls-text"
         >
           {t("plugins.artifact_title")}
         </h2>
-        <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
-          {t("plugins.artifact_description")}
-        </p>
       </div>
 
       {mutationError ? (
@@ -748,13 +745,10 @@ export function PluginsPage(props: PluginsPageProps) {
         <div className={pluginsLayoutClass.pluginPageContainer}>
           <ArtifactPluginsCatalog {...props} />
           <section className="space-y-4 border-t border-dls-border pt-6">
-            <div className="space-y-1">
+            <div>
               <h2 className="text-base font-medium leading-6 text-dls-text">
                 {t("plugins.sample_section_title")}
               </h2>
-              <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
-                {t("plugins.sample_section_hint")}
-              </p>
             </div>
             {categories.map((category) => {
               const items = filteredByCategory.get(category.id) ?? [];

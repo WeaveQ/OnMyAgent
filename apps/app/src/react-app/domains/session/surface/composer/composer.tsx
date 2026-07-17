@@ -64,6 +64,7 @@ import {
   extensionIcon,
   pluginSlashCommandName,
 } from "./composer-helpers";
+import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
@@ -788,109 +789,6 @@ export function ReactSessionComposer(props: ComposerProps) {
       ? "rounded-t-[18px] border-t-transparent"
       : "";
 
-  const renderSlashMenu = () => {
-    if (!slashOpen) return null;
-    return (
-      <div className={composerMenuClass.anchor}>
-          <div className={composerMenuClass.panel}>
-            <div
-              role="presentation"
-              className={composerMenuClass.scrollArea}
-              onMouseDown={(event) => event.preventDefault()}
-          >
-            {slashFiltered.length > 0 ? (
-              <div className="grid gap-1">
-                {slashFiltered.map((command, index) => (
-                  <MenuRowButton
-                    key={command.id}
-                    ref={(element) => {
-                      menuItemRefs.current[index] = element;
-                    }}
-                    type="button"
-                    active={activeMenu === "slash" && slashFiltered[menuIndex]?.id === command.id}
-                    onMouseEnter={() => setMenuIndex(index)}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      applyCommandSelection(command);
-                    }}
-                    onClick={(event) => {
-                      if (event.detail === 0) applyCommandSelection(command);
-                    }}
-                  >
-                    <Terminal size={14} className={composerMenuClass.itemIcon} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className={composerMenuClass.itemTitle}>/{command.name}</div>
-                        {command.source && command.source !== "command" ? (
-                          <StatusBadge className={command.source === "skill" ? composerTextClass.sourceBadge : composerTextClass.commandBadge} size="tiny">
-                            {command.source === "skill" ? t("composer.skill_source") : t("composer.mcps_label")}
-                          </StatusBadge>
-                        ) : null}
-                      </div>
-                      {command.description ? <div className={composerMenuClass.itemMeta}>{command.description}</div> : null}
-                    </div>
-                  </MenuRowButton>
-                ))}
-              </div>
-            ) : (
-              <div className="px-3 py-2 text-xs text-dls-secondary">
-                {!commandsLoaded && commandsLoading ? t("composer.loading_commands") : t("composer.no_commands")}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderMentionMenu = () => {
-    if (!mentionOpen || mentionFiltered.length === 0) return null;
-    return (
-      <div className={composerMenuClass.anchor}>
-          <div className={composerMenuClass.panelWithoutBottomBorder}>
-            <div
-              role="presentation"
-              className={composerMenuClass.scrollArea}
-              onMouseDown={(event) => event.preventDefault()}
-          >
-            <div className="grid gap-1">
-              {mentionFiltered.map((item, index) => (
-                <MenuRowButton
-                  key={item.id}
-                  ref={(element) => {
-                    menuItemRefs.current[index] = element;
-                  }}
-                  type="button"
-                  active={activeMenu === "mention" && mentionFiltered[menuIndex]?.id === item.id}
-                  onMouseEnter={() => setMenuIndex(index)}
-                  onClick={() => {
-                    props.onInsertMention(item.kind, item.value);
-                    setMentionOpen(false);
-                  }}
-                >
-                  {item.kind === "agent" ? (
-                    <Zap size={14} className={composerMenuClass.itemIcon} />
-                  ) : (
-                    <FileText size={14} className={composerMenuClass.itemIcon} />
-                  )}
-                  <div className="min-w-0">
-                    <div className={composerMenuClass.itemTitle}>@{item.label}</div>
-                    <div className={composerMenuClass.itemMeta}>
-                      {item.kind === "agent"
-                        ? t("composer.agent_label")
-                        : t("composer.file_kind")}
-                    </div>
-                  </div>
-                </MenuRowButton>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div
       ref={rootRef}
@@ -912,8 +810,29 @@ export function ReactSessionComposer(props: ComposerProps) {
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
 
-          {renderMentionMenu()}
-          {renderSlashMenu()}
+          <ComposerMentionMenu
+            open={mentionOpen}
+            filtered={mentionFiltered}
+            activeMenu={activeMenu}
+            menuIndex={menuIndex}
+            menuItemRefs={menuItemRefs}
+            setMenuIndex={setMenuIndex}
+            onSelect={(item) => {
+              props.onInsertMention(item.kind, item.value);
+              setMentionOpen(false);
+            }}
+          />
+          <ComposerSlashMenu
+            open={slashOpen}
+            filtered={slashFiltered}
+            commandsLoaded={commandsLoaded}
+            commandsLoading={commandsLoading}
+            activeMenu={activeMenu}
+            menuIndex={menuIndex}
+            menuItemRefs={menuItemRefs}
+            setMenuIndex={setMenuIndex}
+            onSelect={applyCommandSelection}
+          />
 
           {props.attachments.length > 0 ? (
             // Align with editor padding (px-4); keep chips compact so they don't fight the shell.
@@ -1435,12 +1354,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-sm font-medium text-dls-text">{entry.name}</div>
+                                          <div className="truncate text-sm font-medium text-dls-text">
+                                            {entry.name}
+                                          </div>
                                           <StatusBadge size="tiny" shape="soft" tone={mcpStatusBadgeTone(status)}>
                                             {formatMcpStatusLabel(status)}
                                           </StatusBadge>
                                         </div>
-                                        <div className="truncate text-xs text-dls-secondary">{mcpServerDescription(entry)}</div>
+                                        <div className="truncate text-xs text-dls-secondary">
+                                          {mcpServerDescription(entry)}
+                                        </div>
                                       </div>
                                     </MenuRowSurface>
                                   ))}
@@ -1470,7 +1393,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-3">
-                                          <div className="truncate text-sm font-medium text-dls-text">{entry.name}</div>
+                                          <div className="truncate text-sm font-medium text-dls-text">
+                                            {entry.name}
+                                          </div>
                                           {entry.defaultEnabled ? (
                                             <StatusBadge size="tiny" shape="soft" tone="accent">{t("plugins.enabled")}</StatusBadge>
                                           ) : null}
