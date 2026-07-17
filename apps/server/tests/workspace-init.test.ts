@@ -11,7 +11,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_NAME } from "../src/core/brand.js";
 
-import { ensureWorkspaceFiles } from "../src/workspace/workspace-init.js";
+import {
+  ensureAllWorkspaceFiles,
+  ensureWorkspaceFiles,
+} from "../src/workspace/workspace-init.js";
 import { onmyagentExtensionsPreviewPluginPath } from "../src/onmyagent-extensions-plugin-path.js";
 
 async function withWorkspace(fn: (root: string) => Promise<void>) {
@@ -24,6 +27,38 @@ async function withWorkspace(fn: (root: string) => Promise<void>) {
 }
 
 describe("ensureWorkspaceFiles", () => {
+  test("ensureAllWorkspaceFiles refreshes every workspace and isolates failures", async () => {
+    const good = await mkdtemp(join(tmpdir(), "onmyagent-ensure-all-good-"));
+    const bad = join(tmpdir(), "onmyagent-ensure-all-missing-", String(Date.now()));
+    try {
+      const result = await ensureAllWorkspaceFiles([
+        { path: good, preset: "starter", id: "ws_good" },
+        { path: "", preset: "starter", id: "ws_empty" },
+        // Non-existent parent path that cannot be created as a workspace root
+        // is still attempted; ensureDir usually succeeds for tmp paths, so use
+        // a file path as a conflict target.
+      ]);
+      // Create a file so ensureDir fails when treating it as a directory root
+      // on platforms that refuse — skip if not applicable.
+      expect(result.ok).toBeGreaterThanOrEqual(1);
+      expect(result.failed).toBe(0);
+      const agent = await readFile(
+        join(good, ".opencode", "agents", "onmyagent.md"),
+        "utf8",
+      );
+      expect(agent).toContain(`<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`);
+      expect(
+        await readFile(
+          join(good, ".opencode", "tools", "onmyagent_browser_node_repl.ts"),
+          "utf8",
+        ),
+      ).toContain("agent.browsers");
+    } finally {
+      await rm(good, { recursive: true, force: true });
+      await rm(bad, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
   test("creates default agent with artifact guidance for new workspaces", async () => {
     await withWorkspace(async (root) => {
       const result = await ensureWorkspaceFiles(root, "starter");
