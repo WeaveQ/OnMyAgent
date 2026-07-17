@@ -12,7 +12,7 @@ const buttonVariants = cva(
         outline:
           "border-dls-border bg-dls-surface-muted/20 hover:bg-dls-surface-muted hover:border-foreground/20 hover:text-dls-text aria-expanded:bg-dls-surface-muted aria-expanded:text-dls-text dark:bg-dls-surface-muted/20 dark:hover:bg-input/30 dark:hover:border-input/80 bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
         dashed:
-          "border-dashed border-dls-border bg-dls-surface-muted/20 text-dls-secondary hover:border-dls-border-strong hover:bg-dls-surface-muted hover:text-dls-text bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
+          "border-dashed border-dls-border bg-dls-surface-muted/20 text-dls-secondary hover:border-dls-border hover:bg-dls-surface-muted hover:text-dls-text bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground active:not-aria-[haspopup]:translate-y-px",
         ghost:

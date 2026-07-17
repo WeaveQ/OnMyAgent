@@ -16,6 +16,7 @@ const testTargets = new Map([
   ['extensions-store', ['bun', ['test', 'scripts/extensions-store.test.ts']]],
   ['expert-marketplace-ui-contract', ['bun', ['test', 'scripts/expert-marketplace-ui-contract.test.ts']]],
   ['filter-chip-contract', ['bun', ['test', 'scripts/filter-chip-contract.test.ts']]],
+  ['style-residual-ui-contract', ['bun', ['test', 'scripts/style-residual-ui-contract.test.ts']]],
   ['session-route-facade-contract', ['bun', ['test', 'scripts/session-route-facade-contract.test.ts']]],
   ['e2e-scripts-health-binding-contract', ['bun', ['test', 'scripts/e2e-scripts-health-binding-contract.test.ts']]],
   ['main-rail-primary-icons-contract', ['bun', ['test', 'scripts/main-rail-primary-icons-contract.test.ts']]],

@@ -404,7 +404,8 @@ describe("expert marketplace UI contract", () => {
     expect(types).toContain("packageName: string");
     expect(types).toContain("packagePath: string");
     expect(data).toContain("export const BUILTIN_EXPERT_REGISTRY");
-    expect(desktop).toContain("export function listExpertRegistryRecords");
+    // desktop.ts may export as function or const re-export after domain splits
+    expect(desktop).toMatch(/export (?:async )?function listExpertRegistryRecords|export const listExpertRegistryRecords/);
     const skillsHandlers = readWorkspaceFile(
       "apps/desktop/electron/desktop-handlers/skills.mjs",
     );
