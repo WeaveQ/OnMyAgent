@@ -49,14 +49,15 @@ function ExpertCard(props: {
   expert: ExpertMarketplaceEntry;
   active?: boolean;
   onOpen: (expert: ExpertMarketplaceEntry) => void;
+  onSummon: (expert: ExpertMarketplaceEntry) => void;
 }) {
   return (
     <div
       role="button"
       tabIndex={0}
       className={cn(
-        "min-h-28 cursor-pointer rounded-xl border border-dls-border bg-dls-surface px-3.5 py-3 text-left transition-colors hover:border-dls-accent/30 hover:bg-dls-hover focus-visible:border-dls-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
-        props.active && "border-dls-accent/30 bg-dls-accent/10",
+        "group min-h-36 cursor-pointer rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
+        props.active && "border-dls-border bg-dls-accent/10",
       )}
       onClick={() => props.onOpen(props.expert)}
       onKeyDown={(event) => {
@@ -66,16 +67,31 @@ function ExpertCard(props: {
         }
       }}
     >
-      <div className="flex min-w-0 items-start justify-between gap-2.5">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <ExpertAvatar name={props.expert.displayName} avatarUrl={props.expert.avatarUrl} />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-dls-text">
-              {props.expert.displayName}
+      <div className="flex min-w-0 items-start gap-2.5">
+        <ExpertAvatar name={props.expert.displayName} avatarUrl={props.expert.avatarUrl} />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold leading-5 text-dls-text">
+                {props.expert.displayName}
+              </div>
+              <div className="mt-0.5 truncate text-xs leading-5 text-dls-secondary">
+                {props.expert.profession}
+              </div>
             </div>
-            <div className="truncate text-xs leading-5 text-dls-secondary">
-              {props.expert.profession}
-            </div>
+            <Button
+              type="button"
+              variant="default"
+              size="pill-xs"
+              tabIndex={-1}
+              className="pointer-events-none shrink-0 border-transparent bg-dls-text text-dls-background opacity-0 shadow-none transition-opacity hover:bg-dls-text/90 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onSummon(props.expert);
+              }}
+            >
+              {t("session.summon")}
+            </Button>
           </div>
         </div>
       </div>
@@ -83,9 +99,9 @@ function ExpertCard(props: {
         {props.expert.description}
       </p>
       {props.expert.tags.length ? (
-        <div className="mt-3 flex flex-wrap gap-1">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {props.expert.tags.slice(0, 3).map((tag) => (
-            <StatusBadge key={tag} tone="surface" shape="soft" size="tiny">
+            <StatusBadge key={tag} tone="surface" shape="pill" size="tiny">
               {tag}
             </StatusBadge>
           ))}
@@ -159,6 +175,7 @@ export function ExpertMarketplacePage(props: {
                     expert={expert}
                     active={selectedExpert?.id === expert.id}
                     onOpen={setSelectedExpert}
+                    onSummon={props.onSummonMarketplaceExpert}
                   />
                 ))}
               </div>
@@ -169,7 +186,7 @@ export function ExpertMarketplacePage(props: {
             <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               <button
                 type="button"
-                className="min-h-28 rounded-xl border border-dashed border-dls-border-strong bg-dls-surface px-3.5 py-3 text-left transition-colors hover:border-dls-accent/30 hover:bg-dls-hover mac:titlebar-no-drag"
+                className="min-h-36 rounded-2xl border border-dashed border-dls-border bg-dls-surface px-4 py-3.5 text-left transition-colors hover:bg-dls-hover mac:titlebar-no-drag"
                 onClick={props.onCreateExpert}
               >
                 <span className="inline-flex size-9 items-center justify-center rounded-full bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30">
@@ -188,6 +205,7 @@ export function ExpertMarketplacePage(props: {
                   expert={expert}
                   active={selectedExpert?.id === expert.id}
                   onOpen={setSelectedExpert}
+                  onSummon={props.onSummonMarketplaceExpert}
                 />
               ))}
             </div>

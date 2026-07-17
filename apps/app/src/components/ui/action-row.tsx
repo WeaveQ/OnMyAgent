@@ -112,10 +112,11 @@ const segmentedTabButtonVariants = cva(
         className: "bg-transparent text-dls-secondary hover:text-dls-text",
       },
       {
+        // Light free-float filters: soft gray solid pill (not elevated white).
+        // Dark: same list-selected wash. Idle stays plain label.
         tone: "chip",
         active: true,
-        className:
-          "bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:bg-dls-list-selected dark:shadow-none",
+        className: "bg-dls-list-selected text-dls-text shadow-none",
       },
       {
         tone: "chip",
