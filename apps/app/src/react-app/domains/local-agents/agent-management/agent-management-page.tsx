@@ -644,22 +644,23 @@ export function AgentManagementPage(props: {
 
       <div
         className={cn(
-          "min-h-0 flex-1 px-6 py-4",
-          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto",
+          "min-h-0 flex-1",
+          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto px-6 py-4",
         )}
       >
         <div
           className={cn(
-            "mx-auto w-full max-w-6xl",
-            activePanel === "archive" ? "flex h-full min-h-0 flex-col gap-4" : "space-y-4",
+            activePanel === "archive"
+              ? "flex h-full min-h-0 w-full flex-col"
+              : "mx-auto w-full max-w-6xl space-y-4",
           )}
         >
-          {error ? <NoticeBox size="comfortable" tone="error">{error}</NoticeBox> : null}
+          {error && activePanel !== "archive" ? (
+            <NoticeBox size="comfortable" tone="error">{error}</NoticeBox>
+          ) : null}
 
           {activePanel === "archive" && props.sessionArchiveSlot ? (
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-              {props.sessionArchiveSlot}
-            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">{props.sessionArchiveSlot}</div>
           ) : activePanel === "providers" ? (
             <>
               <AgentManagementProviderPanel
