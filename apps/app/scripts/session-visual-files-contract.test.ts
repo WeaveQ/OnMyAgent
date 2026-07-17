@@ -39,7 +39,7 @@ describe("session visual and file contracts", () => {
 
   test("workspace files page previews file content and routes browser targets through open artifacts", () => {
     const filesPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/workspace-files-page.tsx",
+      "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
     const chatPage = readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx");
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");

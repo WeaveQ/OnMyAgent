@@ -12,7 +12,7 @@ import {
   readAssistantPinnedSessionIds,
   writeAssistantPinnedSessionIds,
   writeCustomAgentIdForSession,
-} from "../src/react-app/domains/session/components/shared-pages/conversation-model";
+} from "../src/react-app/domains/session/sidebar/conversation-model";
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
 
 function createLocalStorage() {

@@ -68,16 +68,8 @@ import { AutomationPage, MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import {
   AgentConversationPanel,
-  BillingPage,
-  DevicesPage,
-  ProjectsComingSoonPage,
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
   SidebarPaneCollapseToggle,
-  SidebarFeaturePlaceholder,
   STARTUP_SKELETON_ROWS,
-  StorePage,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
@@ -88,15 +80,25 @@ import {
   sessionTitleForId,
   writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
-  type OnMyAgentPrimaryView,
-  type StorePrimaryTab,
-} from "../components/shared-pages";
-import {
   readAssistantSelectionMemory,
   resolveAssistantSelectionMemory,
-  type AssistantSelectionMemory,
   writeAssistantSelectionMemory,
-} from "../components/shared-pages/assistant-selection-memory";
+  type OnMyAgentPrimaryView,
+  type AssistantSelectionMemory,
+} from "../sidebar/session-chrome";
+import {
+  BillingPage,
+  DevicesPage,
+  ProjectsComingSoonPage,
+  SidebarFeaturePlaceholder,
+  StorePage,
+  type StorePrimaryTab,
+} from "../components/side-panel-pages";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 
 export type AssistantPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;

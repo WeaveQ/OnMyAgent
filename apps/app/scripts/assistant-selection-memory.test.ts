@@ -5,7 +5,7 @@ import {
   readAssistantSelectionMemory,
   resolveAssistantSelectionMemory,
   writeAssistantSelectionMemory,
-} from "../src/react-app/domains/session/components/shared-pages/assistant-selection-memory";
+} from "../src/react-app/domains/session/sidebar/assistant-selection-memory";
 import { writeAssistantSessionCategory } from "../src/react-app/domains/agents/agent-session-state";
 
 class MemoryStorage implements Storage {
