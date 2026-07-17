@@ -1,12 +1,26 @@
-import type { SessionActivityStatus } from "../session/status/session-activity-store";
+/**
+ * Pure helpers for opt-in agent-ready desktop alerts.
+ * Intentionally free of domain-to-domain imports so shell-feedback can
+ * export this without depending on session.
+ */
+
+/** Minimal activity phase set (mirrors session activity, no cross-domain import). */
+export type AgentActivityPhase =
+  | "idle"
+  | "thinking"
+  | "responding"
+  | "retrying"
+  | "error"
+  | "compacting"
+  | "waiting";
 
 /**
  * Whether an activity transition should fire an agent-ready desktop
  * notification (opt-in prefs only; callers still check the preference).
  */
 export function shouldNotifyAgentReadyTransition(
-  previous: SessionActivityStatus | undefined,
-  next: SessionActivityStatus,
+  previous: AgentActivityPhase | undefined,
+  next: AgentActivityPhase,
 ): boolean {
   if (next !== "idle") return false;
   if (!previous) return false;

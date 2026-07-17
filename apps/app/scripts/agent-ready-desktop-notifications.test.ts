@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildAgentReadyNotificationBody,
   shouldNotifyAgentReadyTransition,
-} from "../src/react-app/domains/shell-feedback/agent-ready-desktop-notifications";
+} from "../src/react-app/domains/shell-feedback";
 
 describe("agent ready desktop notifications", () => {
   test("only notifies when leaving a busy state for idle", () => {
