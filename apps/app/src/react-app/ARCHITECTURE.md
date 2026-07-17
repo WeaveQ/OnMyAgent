@@ -24,8 +24,8 @@ src/react-app/
     │   ├── chat/              Host pages + light panels (incl. personal-local-agent host)
     │   ├── surface/           Transcript, composer, plan-goal helpers, markdown
     │   ├── sync/              Session state plumbing
-    │   ├── components/        Session-local UI (permission modal, status bar, …)
-    │   │   └── shared-pages/  TRANSITIONAL re-exports + residual workbench panels
+    │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)
+    │   ├── sidebar/           Rail, conversation lists, chrome barrel (session-chrome.ts)
     │   ├── voice/ browser/ infinite-canvas/ skills-marketplace/ expert-marketplace/
     │   └── modals/
     ├── local-agents/          ACP / local agent editors, cards, agent-management
@@ -156,16 +156,18 @@ Do not add product pages, modals, or registries here.
 | plugins-page / skills-catalog / skill-scope | `plugins/` |
 | agent-registry / pending-agent / agent-session-state | `agents/` |
 
-### `session/components/shared-pages/` migration map
+### Former `session/components/shared-pages/` (cleared)
 
-| Current area | Target | Phase |
-| --- | --- | --- |
-| `agent-management-*` | **`local-agents/agent-management/`** (moved) | Done; import from `domains/local-agents` |
-| `automation-*`, channel panels | **`messaging/`** (moved) | Done; import from `domains/messaging` |
-| `workspace-files-page.tsx` | **`workspace/`** (moved) | Done; import from `domains/workspace` |
-| Conversation lists / true session chrome | stay in `session/` | — |
+| Former area | Current home |
+| --- | --- |
+| `agent-management-*` | **`local-agents/agent-management/`** — import from `domains/local-agents` |
+| `automation-*`, channel panels | **`messaging/`** — import from `domains/messaging` |
+| `workspace-files-page.tsx` | **`workspace/`** — import from `domains/workspace` |
+| Rail / conversation lists / panel chrome | **`session/sidebar/`** (+ `session-chrome.ts` barrel) |
+| Side panel pages (Store, Billing, …) | **`session/components/side-panel-pages.tsx`** |
+| Empty artifacts panel | **`session/surface/chrome/empty-artifacts-panel.tsx`** |
 
-Import these pages from the owning domain barrel, not from `shared-pages`.
+Import product pages from the owning domain barrel; session chrome from `session/sidebar/*`.
 
 ## Session goal lifecycle
 

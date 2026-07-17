@@ -120,7 +120,7 @@ import {
   useConversationHistoryHydration,
 } from "../../local-agents";
 import { resolveAgentIconUrlFor } from "../../local-agents";
-import { SidebarPaneCollapseToggle } from "../components/shared-pages/sidebar-pane-collapse-toggle";
+import { SidebarPaneCollapseToggle } from "../sidebar/sidebar-pane-collapse-toggle";
 import type { SessionArchiveResumeRequest } from "./session-page-session-archive-page";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { useArchiveResume } from "./use-archive-resume";

@@ -110,7 +110,7 @@ import {
 } from "./session-page-view-model";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
-import { StorePage, type StorePrimaryTab } from "../components/shared-pages";
+import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {

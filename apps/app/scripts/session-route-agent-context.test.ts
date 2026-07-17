@@ -4,7 +4,7 @@ import {
   bindPendingAgentToSession,
   registerCreatedSessionStartIntent,
   resolvePendingAgentForPrompt,
-} from "../src/react-app/shell/session-route-agent-context";
+} from "../src/react-app/shell/session-route/agent-context";
 import type { PendingAgentContext } from "../src/react-app/domains/agents/pending-agent-store";
 
 function pendingAgent(input: Partial<PendingAgentContext> = {}): PendingAgentContext {

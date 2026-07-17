@@ -4,7 +4,7 @@ import {
   resolveCreatedSessionWorkspaceId,
   resolveSessionWorkspaceCreateTargetId,
   resolveSelectedDesktopSessionWorkspaceId,
-} from "../src/react-app/shell/session-route-workspace-actions";
+} from "../src/react-app/shell/session-route/workspace-actions";
 import type { WorkspaceList } from "../src/app/lib/desktop";
 
 function workspaceList(input: {

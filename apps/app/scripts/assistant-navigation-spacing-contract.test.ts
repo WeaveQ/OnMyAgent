@@ -9,7 +9,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel-header.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel-header.tsx",
       ),
       "utf8",
     );
@@ -24,7 +24,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-sidebar-controls.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-sidebar-controls.tsx",
       ),
       "utf8",
     );
@@ -42,7 +42,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );
@@ -54,7 +54,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/session-panel-model.ts",
+        "apps/app/src/react-app/domains/session/sidebar/session-panel-model.ts",
       ),
       "utf8",
     );
@@ -66,7 +66,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/sidebar-pane-collapse-toggle.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/sidebar-pane-collapse-toggle.tsx",
       ),
       "utf8",
     );

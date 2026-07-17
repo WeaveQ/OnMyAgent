@@ -6,7 +6,7 @@ import {
   ensureAgentSessionsVisible,
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
-} from "../src/react-app/domains/session/components/shared-pages/agent-session-visibility";
+} from "../src/react-app/domains/session/sidebar/agent-session-visibility";
 
 const existingSession = {
   id: "expert_chuangye",

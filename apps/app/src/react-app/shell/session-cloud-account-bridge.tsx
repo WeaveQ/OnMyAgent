@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import { usePlatform } from "../kernel/platform";
 import { useCloudSession, useDenSession } from "../domains/settings";
-import type { SessionSidebarAccount } from "./session-route-model";
+import type { SessionSidebarAccount } from "./session-route/model";
 
 export function SessionCloudAccountBridge(props: {
   developerMode: boolean;

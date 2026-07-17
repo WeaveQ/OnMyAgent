@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { WorkspaceConnectionState, WorkspaceSessionGroup } from "../src/app/types";
-import type { RouteWorkspace } from "../src/react-app/shell/session-route-model";
+import type { RouteWorkspace } from "../src/react-app/shell/session-route/model";
 import {
   applyWorkspaceSessionLoadSuccessConnectionState,
   applyWorkspaceSessionLoadingConnectionState,
@@ -13,7 +13,7 @@ import {
   pruneWorkspaceConnectionStateById,
   removeWorkspaceConnectionStateById,
   resolveSidebarActiveWorkspaceId,
-} from "../src/react-app/shell/session-route-sidebar-model";
+} from "../src/react-app/shell/session-route/sidebar-model";
 
 const localWorkspace = {
   id: "ws_local",

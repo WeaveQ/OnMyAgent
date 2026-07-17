@@ -8,16 +8,17 @@ conversation runtime into sibling domains (`local-agents`, `messaging`, `workspa
 
 ## Public surface
 
-Prefer `./index.ts` barrel. Residual re-exports from `components/shared-pages/*` exist for
-compat after domain extraction; new call sites should import the target domain instead.
+Prefer `./index.ts` barrel. Session chrome (rail, conversation lists) lives under
+`sidebar/` (`session-chrome.ts` barrel). Product pages extracted to sibling domains
+should be imported from those domain barrels (`local-agents`, `messaging`, `workspace`).
 
 ## Internal conventions
 
 - `sync/` is the primary persistence / cross-session state entry for session runtime.
 - `surface/` owns transcript, composer, and plan/goal helpers. Shared markdown/artifact
   rendering lives under `react-app/capabilities/artifacts`.
-- `components/shared-pages/*` is transitional: most automation / agent-management / files
-  pages have moved; remaining files are re-exports or residual workbench panels.
+- `sidebar/` owns main rail, conversation list panels, and related chrome.
+- `components/` holds session-local UI (permission modal, status bar, side-panel pages).
 - Submodules may deep-link each other (`sidebar` ↔ `pages` ↔ `sync`); external callers should not.
 
 ## Lateral dependencies

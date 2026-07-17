@@ -9,7 +9,7 @@ describe("main rail channel icon contract", () => {
     const railSource = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/main-rail.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/main-rail.tsx",
       ),
       "utf8",
     );

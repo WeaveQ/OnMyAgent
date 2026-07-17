@@ -4,7 +4,7 @@ import {
   SKILL_AGENT_LABELS,
   SKILL_AGENT_TONES,
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
-} from "../src/react-app/domains/session/components/shared-pages/agent-management-skill-model";
+} from "../src/react-app/domains/local-agents/agent-management/agent-management-skill-model";
 import {
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
@@ -13,7 +13,7 @@ import {
   GLOBAL_VOICE_SIDE_PANEL_KEY,
   STARTUP_SKELETON_ROWS,
   sessionTitleForId,
-} from "../src/react-app/domains/session/components/shared-pages/session-panel-model";
+} from "../src/react-app/domains/session/sidebar/session-panel-model";
 
 describe("session panel model", () => {
   test("resolves display session titles across workspace groups", () => {
@@ -50,7 +50,15 @@ describe("session panel model", () => {
 
 describe("agent management skill model", () => {
   test("keeps studio switch agent options labelled and toned", () => {
-    expect(STUDIO_SWITCH_SKILL_AGENT_OPTIONS).toEqual(["opencode", "codex", "claude", "hermes", "openclaw", "onmyagent"]);
+    expect(STUDIO_SWITCH_SKILL_AGENT_OPTIONS).toEqual([
+      "opencode",
+      "codex",
+      "claude",
+      "gemini",
+      "hermes",
+      "openclaw",
+      "onmyagent",
+    ]);
 
     for (const agent of STUDIO_SWITCH_SKILL_AGENT_OPTIONS) {
       expect(SKILL_AGENT_LABELS[agent]).toBeString();
@@ -59,7 +67,8 @@ describe("agent management skill model", () => {
       expect(SKILL_AGENT_TONES[agent]?.dot).toContain("bg-");
     }
 
-    expect(SKILL_AGENT_LABELS.unknown).toBe("未识别");
+    // Locale under bun may be en or zh.
+    expect(["未识别", "Unrecognized"]).toContain(SKILL_AGENT_LABELS.unknown);
     expect(SKILL_AGENT_LABELS.onmyagent).toBe("OnMyAgent");
     expect(SKILL_AGENT_TONES.unknown.dot).toBe("bg-dls-secondary");
     expect(SKILL_AGENT_TONES.onmyagent.dot).toBe("bg-dls-secondary");

@@ -9,14 +9,14 @@ describe("assistant navigation tone contract", () => {
     const controls = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-sidebar-controls.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-sidebar-controls.tsx",
       ),
       "utf8",
     );
     const panel = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx",
       ),
       "utf8",
     );
@@ -88,7 +88,7 @@ describe("assistant navigation tone contract", () => {
     const sections = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );

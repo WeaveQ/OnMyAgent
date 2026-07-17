@@ -21,7 +21,7 @@ describe("Electron titlebar hit targets", () => {
       "apps/app/src/react-app/domains/session/surface/code-scene-toolbar.tsx",
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
       "apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx",
-      "apps/app/src/react-app/domains/session/components/shared-pages/empty-artifacts-panel.tsx",
+      "apps/app/src/react-app/domains/session/surface/chrome/empty-artifacts-panel.tsx",
       "apps/app/src/react-app/domains/session/chat/session-page-light-pages.tsx",
     ];
 

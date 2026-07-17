@@ -9,7 +9,7 @@ describe("assistant navigation typography contract", () => {
     const headerSource = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel-header.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel-header.tsx",
       ),
       "utf8",
     );
@@ -26,21 +26,21 @@ describe("assistant navigation typography contract", () => {
     const controlsSource = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-sidebar-controls.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-sidebar-controls.tsx",
       ),
       "utf8",
     );
     const taskSource = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-task-item.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-task-item.tsx",
       ),
       "utf8",
     );
     const sectionsSource = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );

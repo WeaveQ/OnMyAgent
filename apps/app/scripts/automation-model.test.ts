@@ -4,7 +4,7 @@ import {
   AUTOMATION_TEMPLATES,
   getAutomationTemplatesForScene,
   isAutomationScheduleTime,
-} from "../src/react-app/domains/session/components/shared-pages/automation-model";
+} from "../src/react-app/domains/messaging/automation-model";
 
 describe("automation templates", () => {
   test("keeps office and code scene templates separated", () => {

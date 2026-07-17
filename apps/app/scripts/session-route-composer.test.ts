@@ -23,7 +23,7 @@ import {
   routeForSettingsSection,
   sanitizeUploadFilename,
   updateDefaultModelPrefs,
-} from "../src/react-app/shell/session-route-composer";
+} from "../src/react-app/shell/session-route/composer";
 import type { ComposerAttachment, ComposerDraft } from "../src/app/types";
 import { setLocale } from "../src/i18n";
 
