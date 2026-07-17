@@ -21,6 +21,7 @@ export type TranscriptMessageSourceInfo = {
   error?: {
     name?: string;
   };
+  finish?: string;
 };
 
 export type TranscriptTokenUsage = {
@@ -40,6 +41,7 @@ export type TranscriptMessageMetadata = {
   cost: number | null;
   tokens: TranscriptTokenUsage | null;
   errorName: string | null;
+  finishReason: string | null;
 };
 
 function finiteNumber(value: unknown) {
@@ -78,6 +80,7 @@ export function createTranscriptMessageMetadata(info: TranscriptMessageSourceInf
   const modelID = stringValue(info.modelID);
   const cost = finiteNumber(info.cost);
   const errorName = stringValue(info.error?.name);
+  const finishReason = stringValue(info.finish);
 
   return {
     opencode: {
@@ -88,6 +91,7 @@ export function createTranscriptMessageMetadata(info: TranscriptMessageSourceInf
       ...(cost === null ? {} : { cost }),
       ...(info.tokens ? { tokens: info.tokens } : {}),
       ...(errorName === null ? {} : { errorName }),
+      ...(finishReason === null ? {} : { finishReason }),
     },
   };
 }
@@ -101,6 +105,7 @@ export function readTranscriptMessageMetadata(metadata: unknown): TranscriptMess
     cost: null,
     tokens: null,
     errorName: null,
+    finishReason: null,
   };
   if (!metadata || typeof metadata !== "object") return empty;
 
@@ -115,5 +120,6 @@ export function readTranscriptMessageMetadata(metadata: unknown): TranscriptMess
     cost: finiteNumber(propertyValue(opencode, "cost")),
     tokens: tokenUsage(propertyValue(opencode, "tokens")),
     errorName: stringValue(propertyValue(opencode, "errorName")),
+    finishReason: stringValue(propertyValue(opencode, "finishReason")),
   };
 }

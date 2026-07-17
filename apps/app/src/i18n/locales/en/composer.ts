@@ -41,6 +41,8 @@ export default {
   "composer.access_full_desc": "Access the internet and any file on your computer without limits",
   "composer.access_high_risk": "High risk",
   "composer.add_file": "Add file",
+  "composer.capture_appshot": "Capture Appshot",
+  "composer.appshot_failed": "Could not capture Appshot",
   "composer.collaboration_choose_mode": "Choose collaboration modes",
   "composer.collaboration_mode": "Collaboration",
   "composer.collaboration_mode_info": "{mode} details",

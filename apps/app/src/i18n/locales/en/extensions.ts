@@ -52,6 +52,17 @@ export default {
   "extensions.browser_primary_cta": "Enable browser automation",
   "extensions.browser_plugin_loaded": "Browser plugin loaded",
   "extensions.computer_use_connect_mcp": "Connect Computer Use MCP",
+  "extensions.computer_use_name": "Computer Use",
+  "extensions.computer_use_description":
+    "Control macOS apps through semantic accessibility, screenshots, background-safe input, and strict mode.",
+  "extensions.computer_use_prompt": "Use Computer Use to ",
+  "extensions.computer_use_suggestion_playlist": "Play a playlist to help me lock in",
+  "extensions.computer_use_suggestion_xcode": "Build and run my open Xcode project, then test it for bugs",
+  "extensions.computer_use_suggestion_chess": "Play a game in Chess.app",
+  "extensions.computer_use_check_permissions": "Check macOS permissions",
+  "extensions.computer_use_native_runtime": "macOS accessibility runtime",
+  "extensions.computer_use_builtin_setup":
+    "Computer Use is built into local macOS workspaces through the OnMyAgent accessibility runtime. Grant Accessibility and Screen Recording permissions when macOS asks.",
   "extensions.computer_use_mcp": "Computer Use MCP",
   "extensions.mcp_server_connected": "MCP server connected",
   "extensions.computer_use_permissions": "Accessibility and Screen Recording",

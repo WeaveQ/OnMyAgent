@@ -93,6 +93,22 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       };
     },
   },
+  computerUse: {
+    onActivity(callback) {
+      const handler = (_event, activity) => callback(activity);
+      ipcRenderer.on("onmyagent:computer-use:activity", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:computer-use:activity", handler);
+      };
+    },
+    onAppshot(callback) {
+      const handler = (_event, appshot) => callback(appshot);
+      ipcRenderer.on("onmyagent:computer-use:appshot", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:computer-use:appshot", handler);
+      };
+    },
+  },
   migration: {
     readSnapshot() {
       return ipcRenderer.invoke("onmyagent:migration:read");

@@ -1,13 +1,86 @@
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  unwatchFile,
+  watchFile,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const COMPUTER_USE_HELPER_APP_NAME = "OnMyAgent Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
 
+export function parseComputerUseStatus(stdout) {
+  try {
+    const parsed = JSON.parse(String(stdout ?? "").trim());
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof parsed.ok !== "boolean" ||
+      typeof parsed.accessibility !== "boolean" ||
+      typeof parsed.screenRecording !== "boolean"
+    ) {
+      return null;
+    }
+    return {
+      ok: parsed.ok,
+      accessibility: parsed.accessibility,
+      screenRecording: parsed.screenRecording,
+      ...(typeof parsed.helperVersion === "string"
+        ? { helperVersion: parsed.helperVersion }
+        : {}),
+      ...(Number.isInteger(parsed.protocolVersion)
+        ? { protocolVersion: parsed.protocolVersion }
+        : {}),
+      ...(typeof parsed.activity === "object" && parsed.activity !== null
+        ? { activity: parsed.activity }
+        : {}),
+      ...(typeof parsed.skysight === "object" && parsed.skysight !== null
+        ? { skysight: parsed.skysight }
+        : {}),
+      ...(typeof parsed.appAuthorizations === "object" &&
+      parsed.appAuthorizations !== null &&
+      Array.isArray(parsed.appAuthorizations.allowedBundleIdentifiers) &&
+      parsed.appAuthorizations.allowedBundleIdentifiers.every(
+        (identifier) => typeof identifier === "string",
+      )
+        ? { appAuthorizations: parsed.appAuthorizations }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function parseComputerUseActivity(value) {
+  if (typeof value !== "object" || value === null) return null;
+  if (
+    value.phase !== "inactive" &&
+    value.phase !== "ready" &&
+    value.phase !== "running" &&
+    value.phase !== "paused" &&
+    value.phase !== "errored"
+  ) {
+    return null;
+  }
+  return {
+    phase: value.phase,
+    ...(typeof value.app === "string" ? { app: value.app } : {}),
+    ...(typeof value.reason === "string" ? { reason: value.reason } : {}),
+  };
+}
+
 export function createComputerUseDesktopHelpers(input) {
   const { app, shell, dialog, systemPreferences, dirname } = input;
+  const spawnProcess = input.spawnProcess ?? spawn;
+  const readFile = input.readFile ?? readFileSync;
+  const resolveComputerUseExecutableOverride = input.resolveComputerUseExecutable;
+  let skysightRecorder = null;
+  let appshotMonitor = null;
+  let watchedActivityFile = null;
+  let watchedAppshotFile = null;
 
 function computerUseHelperExecutablePath() {
   const appPath = computerUseHelperAppPath();
@@ -75,6 +148,9 @@ function getComputerUseMcpCommand() {
 // ---------------------------------------------------------------------------
 
 function resolveComputerUseExecutable() {
+  if (typeof resolveComputerUseExecutableOverride === "function") {
+    return resolveComputerUseExecutableOverride();
+  }
   // 1. Explicit env override.
   const explicit = process.env.ONMYAGENT_COMPUTER_USE_BINARY?.trim();
   if (explicit && existsSync(explicit)) return explicit;
@@ -135,7 +211,299 @@ async function checkComputerUsePermissions() {
       error: "Helper binary not found. Run pnpm dev to build it.",
     };
   }
-  return spawnCheckPermissions(bin);
+  const status = await spawnCheckPermissions(bin);
+  if (status.accessibility === true && status.screenRecording === true) {
+    startAppshotMonitor(bin);
+  }
+  return {
+    ...status,
+    desktopVersion: app.getVersion(),
+    ...(status.skysight
+      ? {
+          skysight: {
+            ...status.skysight,
+            recording:
+              status.skysight.recording === true || isSkysightRecorderRunning(),
+          },
+        }
+      : {}),
+  };
+}
+
+function isSkysightRecorderRunning() {
+  return skysightRecorder !== null && skysightRecorder.exitCode === null;
+}
+
+function startSkysightRecorder(bin) {
+  if (isSkysightRecorderRunning()) return;
+  const child = spawnProcess(bin, ["skysight", "record"], {
+    stdio: "ignore",
+  });
+  skysightRecorder = child;
+  child.on("error", (error) => {
+    console.warn("[ComputerUse] Skysight recorder failed:", error.message);
+  });
+  child.on("exit", () => {
+    if (skysightRecorder === child) skysightRecorder = null;
+  });
+}
+
+function stopSkysightRecorder() {
+  if (!isSkysightRecorderRunning()) {
+    skysightRecorder = null;
+    return;
+  }
+  skysightRecorder.kill("SIGTERM");
+  skysightRecorder = null;
+}
+
+function runComputerUseCommand(bin, args) {
+  return new Promise((resolve, reject) => {
+    let stderr = "";
+    const child = spawnProcess(bin, args, {
+      stdio: ["ignore", "ignore", "pipe"],
+      timeout: 5_000,
+    });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(stderr.trim() || `Computer Use helper exited with code ${code}.`));
+    });
+  });
+}
+
+function runComputerUseJSONCommand(bin, args) {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const child = spawnProcess(bin, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 10_000,
+    });
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || `Computer Use helper exited with code ${code}.`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout.trim()));
+      } catch {
+        reject(new Error("Computer Use helper returned invalid JSON."));
+      }
+    });
+  });
+}
+
+function appshotAttachmentPayload(result) {
+  if (
+    typeof result !== "object" || result === null || result.ok !== true ||
+    typeof result.path !== "string" || typeof result.name !== "string" ||
+    typeof result.mimeType !== "string"
+  ) {
+    throw new Error("Computer Use returned an invalid Appshot result.");
+  }
+  return {
+    name: result.name,
+    mimeType: result.mimeType,
+    data: readFile(result.path).toString("base64"),
+    ...(typeof result.appName === "string" ? { appName: result.appName } : {}),
+  };
+}
+
+async function captureComputerUseAppshot() {
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  return appshotAttachmentPayload(
+    await runComputerUseJSONCommand(bin, ["appshot", "capture"]),
+  );
+}
+
+function startAppshotMonitor(bin) {
+  if (appshotMonitor !== null && appshotMonitor.exitCode === null) return;
+  const child = spawnProcess(bin, ["appshot", "monitor"], { stdio: "ignore" });
+  appshotMonitor = child;
+  child.on("error", (error) => {
+    console.warn("[ComputerUse] Appshot monitor failed:", error.message);
+  });
+  child.on("exit", () => {
+    if (appshotMonitor === child) appshotMonitor = null;
+  });
+}
+
+function stopAppshotMonitor() {
+  if (appshotMonitor !== null && appshotMonitor.exitCode === null) {
+    appshotMonitor.kill("SIGTERM");
+  }
+  appshotMonitor = null;
+}
+
+async function setComputerUseSkysightEnabled(enabled) {
+  if (typeof enabled !== "boolean") {
+    throw new Error("Skysight enabled state must be a boolean.");
+  }
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  await runComputerUseCommand(bin, ["skysight", enabled ? "enable" : "disable"]);
+  if (enabled) startSkysightRecorder(bin);
+  else stopSkysightRecorder();
+  return checkComputerUsePermissions();
+}
+
+async function setComputerUseSkysightPaused(paused) {
+  if (typeof paused !== "boolean") {
+    throw new Error("Skysight paused state must be a boolean.");
+  }
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  await runComputerUseCommand(bin, ["skysight", paused ? "pause" : "resume"]);
+  return checkComputerUsePermissions();
+}
+
+async function updateComputerUseSkysightExclusion(operation, scope, value) {
+  if (operation !== "add" && operation !== "remove") {
+    throw new Error("Skysight exclusion operation must be add or remove.");
+  }
+  if (scope !== "app" && scope !== "website" && scope !== "private_browsing") {
+    throw new Error("Skysight exclusion scope is invalid.");
+  }
+  const normalizedValue = typeof value === "string" ? value.trim() : "";
+  if (scope !== "private_browsing" && !normalizedValue) {
+    throw new Error("Skysight app and website exclusions require a value.");
+  }
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  const command = ["skysight", "exclude", operation, scope];
+  if (normalizedValue) command.push(normalizedValue);
+  await runComputerUseCommand(bin, command);
+  return checkComputerUsePermissions();
+}
+
+async function clearComputerUseSkysightData() {
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  await runComputerUseCommand(bin, ["skysight", "clear"]);
+  return { ok: true };
+}
+
+async function revokeComputerUseAppAuthorization(bundleIdentifier) {
+  if (typeof bundleIdentifier !== "string" || !bundleIdentifier.trim()) {
+    throw new Error("A Computer Use bundle identifier is required.");
+  }
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  await runComputerUseCommand(bin, [
+    "authorization",
+    "revoke",
+    bundleIdentifier.trim(),
+  ]);
+  return checkComputerUsePermissions();
+}
+
+async function clearComputerUseAppAuthorizations() {
+  const bin = resolveComputerUseExecutable();
+  if (!bin) {
+    throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  }
+  await runComputerUseCommand(bin, ["authorization", "clear"]);
+  return checkComputerUsePermissions();
+}
+
+async function restoreComputerUseServices() {
+  const bin = resolveComputerUseExecutable();
+  if (!bin) return;
+  const status = await spawnCheckPermissions(bin);
+  if (status.skysight?.enabled === true) startSkysightRecorder(bin);
+  if (status.accessibility === true && status.screenRecording === true) {
+    startAppshotMonitor(bin);
+  }
+}
+
+function disposeComputerUseServices() {
+  stopSkysightRecorder();
+  stopAppshotMonitor();
+  if (watchedActivityFile) {
+    unwatchFile(watchedActivityFile);
+    watchedActivityFile = null;
+  }
+  if (watchedAppshotFile) {
+    unwatchFile(watchedAppshotFile);
+    watchedAppshotFile = null;
+  }
+}
+
+function watchComputerUseAppshots(onAppshot) {
+  if (watchedAppshotFile) unwatchFile(watchedAppshotFile);
+  const eventFile = path.join(
+    os.homedir(),
+    "Library", "Application Support", "OnMyAgent", "ComputerUse",
+    "Appshots", "latest-event.json",
+  );
+  watchedAppshotFile = eventFile;
+  watchFile(eventFile, { interval: 250 }, (current, previous) => {
+    if (current.mtimeMs === previous.mtimeMs || !existsSync(eventFile)) return;
+    try {
+      onAppshot(appshotAttachmentPayload(JSON.parse(readFile(eventFile, "utf8"))));
+    } catch (error) {
+      console.warn("[ComputerUse] Failed to deliver Appshot:", error.message);
+    }
+  });
+  return () => {
+    if (watchedAppshotFile === eventFile) watchedAppshotFile = null;
+    unwatchFile(eventFile);
+  };
+}
+
+function watchComputerUseActivity(onActivity) {
+  if (watchedActivityFile) unwatchFile(watchedActivityFile);
+  const activityFile = path.join(
+    os.homedir(),
+    "Library",
+    "Application Support",
+    "OnMyAgent",
+    "ComputerUse",
+    "activity.json",
+  );
+  watchedActivityFile = activityFile;
+  watchFile(activityFile, { interval: 250 }, (current, previous) => {
+    if (current.mtimeMs === previous.mtimeMs || !existsSync(activityFile)) return;
+    try {
+      const activity = parseComputerUseActivity(
+        JSON.parse(readFileSync(activityFile, "utf8")),
+      );
+      if (activity) onActivity(activity);
+    } catch {
+      // A writer may still be replacing the atomic state file; the next
+      // modification delivers the complete snapshot.
+    }
+  });
+  return () => {
+    if (watchedActivityFile === activityFile) watchedActivityFile = null;
+    unwatchFile(activityFile);
+  };
 }
 
 // ─── System permissions (macOS only) ─────────────────────────────────────────
@@ -306,7 +674,7 @@ function openSystemPermissionSettings(type) {
 function spawnCheckPermissions(bin) {
   return new Promise((resolve) => {
     let stdout = "";
-    const child = spawn(bin, ["--check"], {
+    const child = spawnProcess(bin, ["--status"], {
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 5_000,
     });
@@ -323,14 +691,10 @@ function spawnCheckPermissions(bin) {
       }),
     );
     child.on("close", () => {
-      try {
-        const parsed = JSON.parse(stdout.trim());
-        resolve({
-          ok: parsed?.ok === true,
-          accessibility: parsed?.accessibility === true,
-          screenRecording: parsed?.screenRecording === true,
-        });
-      } catch {
+      const parsed = parseComputerUseStatus(stdout);
+      if (parsed) {
+        resolve(parsed);
+      } else {
         resolve({
           ok: false,
           accessibility: false,
@@ -356,7 +720,7 @@ async function openComputerUseSetupApp() {
   const bin = resolveComputerUseExecutable();
   if (!bin)
     throw new Error("Helper binary not found. Run pnpm dev to build it.");
-  const child = spawn(bin, [], { detached: true, stdio: "ignore" });
+  const child = spawnProcess(bin, [], { detached: true, stdio: "ignore" });
   child.unref();
 }
 
@@ -364,6 +728,17 @@ async function openComputerUseSetupApp() {
   return {
     getComputerUseMcpCommand,
     checkComputerUsePermissions,
+    setComputerUseSkysightEnabled,
+    setComputerUseSkysightPaused,
+    updateComputerUseSkysightExclusion,
+    clearComputerUseSkysightData,
+    captureComputerUseAppshot,
+    revokeComputerUseAppAuthorization,
+    clearComputerUseAppAuthorizations,
+    restoreComputerUseServices,
+    disposeComputerUseServices,
+    watchComputerUseActivity,
+    watchComputerUseAppshots,
     checkSystemPermissions,
     openSystemPermissionSettings,
     openComputerUseSetupApp,

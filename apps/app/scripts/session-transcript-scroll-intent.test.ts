@@ -113,9 +113,49 @@ describe("session transcript scroll intent", () => {
     expect(surface).toContain("event.target !== event.currentTarget");
     expect(surface).toContain('liveStatus.type === "retry"');
     expect(controller).toContain("observer.observe(content)");
-    expect(controller).toContain("return () => observer.disconnect()");
+    expect(controller).toContain("mutationObserver.observe(content");
+    expect(controller).toContain("const stickToMutatedGrowth");
+    const wheelHandler = controller.slice(
+      controller.indexOf("const markWheelGesture"),
+      controller.indexOf("const releaseProgrammaticScrollSoon"),
+    );
+    expect(wheelHandler.indexOf("if (!shouldPauseTranscriptFollowOnWheel(deltaY)) return;")).toBeLessThan(
+      wheelHandler.indexOf("markScrollGesture(target);"),
+    );
+    expect(controller).toContain("mutationObserver.disconnect()");
+    expect(controller).toContain("observer.disconnect()");
     expect(controller).toContain("countPrependedTranscriptMessages");
     expect(controller).toContain("anchoredTranscriptScrollTop");
+  });
+
+  test("matches the WorkBuddy scroll-to-bottom affordance", async () => {
+    const [surface, controller, control, styles] = await Promise.all([
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/session-surface.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/scroll-controller.ts",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/chrome/transcript-scroll-to-latest.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL("../src/app/index.css", import.meta.url)).text(),
+    ]);
+
+    expect(surface).not.toContain("session.jump_to_start");
+    expect(surface).not.toContain("jumpToStartOfMessage");
+    expect(controller).not.toContain("jumpToStartOfMessage");
+    expect(surface).toContain("visible={!personalAssistantDraftHome && !sessionScroll.isAtBottom}");
+    expect(surface).toContain('sessionScroll.jumpToLatest("auto")');
+    expect(control).toContain("session-workbuddy-scroll-to-bottom");
+    expect(styles).toContain(".session-workbuddy-scroll-to-bottom");
+    expect(styles).toContain("width: 32px");
+    expect(styles).toContain("height: 32px");
+    expect(styles).toContain("border-radius: 999px");
+    expect(styles).toContain("0 4px 12px rgb(0 0 0 / 4%)");
   });
 
   test("keeps virtualization-library overscan semantics explicit", async () => {

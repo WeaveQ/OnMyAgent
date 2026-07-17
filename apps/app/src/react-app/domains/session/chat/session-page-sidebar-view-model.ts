@@ -27,6 +27,7 @@ export type SidebarFeatureView = Exclude<
 
 export const SIDEBAR_VIEW_LABELS: Record<SidebarFeatureView, string> = {
   get billing() { return t("nav.billing"); },
+  get usage() { return t("nav.usage"); },
   get agents() { return t("nav.agents"); },
   get skills() { return t("nav.skills"); },
   get connectors() { return t("nav.connectors"); },
@@ -39,6 +40,7 @@ export const SIDEBAR_VIEW_LABELS: Record<SidebarFeatureView, string> = {
 
 export const SIDEBAR_VIEW_ICONS: Record<SidebarFeatureView, LucideIcon> = {
   billing: Sparkles,
+  usage: UserRound,
   agents: Bot,
   skills: FileText,
   connectors: Zap,

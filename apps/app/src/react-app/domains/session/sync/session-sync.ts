@@ -462,6 +462,31 @@ function toFileUIParts(part: FilePart): UIMessage["parts"] {
   return [toFileUIPart(part)];
 }
 
+function toolStateProviderMetadata(state: Extract<Part, { type: "tool" }>["state"]) {
+  if (!("metadata" in state) || !state.metadata || typeof state.metadata !== "object") {
+    return undefined;
+  }
+  const value = state.metadata.mcpProgress;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const progress = "progress" in value && typeof value.progress === "number"
+    ? value.progress
+    : null;
+  if (progress === null || !Number.isFinite(progress)) return undefined;
+  const total = "total" in value && typeof value.total === "number" && Number.isFinite(value.total)
+    ? value.total
+    : undefined;
+  const message = "message" in value && typeof value.message === "string" && value.message.trim()
+    ? value.message
+    : undefined;
+  return {
+    mcpProgress: {
+      progress,
+      ...(total === undefined ? {} : { total }),
+      ...(message === undefined ? {} : { message }),
+    },
+  };
+}
+
 function toUIPart(part: Part): UIMessage["parts"][number] | null {
   if (part.type === "text") {
     if (part.synthetic || part.ignored) return null;
@@ -502,6 +527,7 @@ function toUIPart(part: Part): UIMessage["parts"][number] | null {
         },
       };
     }
+    const toolMetadata = toolStateProviderMetadata(part.state);
     if (part.state.status === "error") {
       return {
         type: "dynamic-tool",
@@ -510,7 +536,9 @@ function toUIPart(part: Part): UIMessage["parts"][number] | null {
         state: "output-error",
         input: part.state.input,
         errorText: part.state.error,
-        callProviderMetadata: { opencode: { partId: part.id } },
+        callProviderMetadata: {
+          opencode: { partId: part.id, toolMetadata },
+        },
       };
     }
     if (part.state.status === "completed") {
@@ -521,7 +549,9 @@ function toUIPart(part: Part): UIMessage["parts"][number] | null {
         state: "output-available",
         input: part.state.input,
         output: part.state.output,
-        callProviderMetadata: { opencode: { partId: part.id } },
+        callProviderMetadata: {
+          opencode: { partId: part.id, toolMetadata },
+        },
       };
     }
     return {
@@ -530,7 +560,9 @@ function toUIPart(part: Part): UIMessage["parts"][number] | null {
       toolCallId: part.callID,
       state: "input-available",
       input: part.state.input,
-      callProviderMetadata: { opencode: { partId: part.id } },
+      callProviderMetadata: {
+        opencode: { partId: part.id, toolMetadata },
+      },
     };
   }
   if (part.type === "agent") {

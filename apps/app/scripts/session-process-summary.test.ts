@@ -94,16 +94,16 @@ describe("session process summary", () => {
     });
   });
 
-  test("folds only contiguous runs with at least two process items", () => {
+  test("folds every root process cluster so transport details never dominate the transcript", () => {
     const readA = stepBlock("read-a", "read");
     const terminal = stepBlock("terminal-a", "bash");
 
-    expect(shouldFoldStepGroups(readA.stepGroups)).toBe(false);
+    expect(shouldFoldStepGroups(readA.stepGroups)).toBe(true);
     expect(shouldFoldStepGroups([...readA.stepGroups, ...terminal.stepGroups])).toBe(true);
   });
 
-  test("uses a user-facing fallback label for uncategorized process work", () => {
-    expect(summarizeStepCluster(stepBlock("question-a", "question").stepGroups).label).toBe("Processed 1 actions");
+  test("uses the concrete action label for a single uncategorized process item", () => {
+    expect(summarizeStepCluster(stepBlock("question-a", "question").stepGroups).label).toBe("question");
   });
 
   test("attaches a leading assistant process cluster to the following assistant message", () => {

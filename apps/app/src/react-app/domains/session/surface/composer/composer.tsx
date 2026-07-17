@@ -1,9 +1,10 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
+import { desktopBridge } from "../../../../../app/lib/desktop";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { MenuRowButton, MenuRowSurface } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -420,6 +421,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("files");
   const [selectedPromptTemplateId, setSelectedPromptTemplateId] = useState<string | null>(null);
+  const [selectedComposerExtension, setSelectedComposerExtension] = useState<McpDirectoryInfo | null>(null);
   const [skillSearchQuery, setSkillSearchQuery] = useState("");
   const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
   const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
@@ -579,6 +581,9 @@ export function ReactSessionComposer(props: ComposerProps) {
     setConnectorSearchQuery("");
     if (!toolMenuOpen || toolMenuSection !== "templates") {
       setSelectedPromptTemplateId(null);
+    }
+    if (!toolMenuOpen || toolMenuSection !== "mcps") {
+      setSelectedComposerExtension(null);
     }
   }, [toolMenuOpen, toolMenuSection]);
 
@@ -834,6 +839,12 @@ export function ReactSessionComposer(props: ComposerProps) {
     setToolMenuOpen(false);
   };
 
+  const applyExtensionSuggestion = (entry: McpDirectoryInfo, prompt: string) => {
+    props.onDraftChange(`${entry.composerPrompt ?? `Use ${entry.name} to `}${prompt}`);
+    setSelectedComposerExtension(null);
+    setToolMenuOpen(false);
+  };
+
   const openToolMenuSettings = () => {
     props.onOpenSkillsMarketplace?.();
     if (!props.onOpenSkillsMarketplace) {
@@ -1018,6 +1029,46 @@ export function ReactSessionComposer(props: ComposerProps) {
     }
 
   };
+
+  const attachAppshot = async (payload: unknown) => {
+    if (typeof payload !== "object" || payload === null) return;
+    if (!("name" in payload) || typeof payload.name !== "string") return;
+    if (!("mimeType" in payload) || typeof payload.mimeType !== "string") return;
+    if (!("data" in payload) || typeof payload.data !== "string") return;
+    const binary = atob(payload.data);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    await addAttachments([
+      new File([bytes], payload.name, {
+        type: payload.mimeType,
+        lastModified: Date.now(),
+      }),
+    ]);
+  };
+
+  const captureAppshot = async () => {
+    if (!props.attachmentsEnabled) return;
+    setToolMenuOpen(false);
+    try {
+      await attachAppshot(await desktopBridge.captureComputerUseAppshot());
+    } catch (error) {
+      props.onNotice({
+        title: error instanceof Error ? error.message : t("composer.appshot_failed"),
+        tone: "warning",
+      });
+    }
+  };
+
+  useEffect(() => {
+    const subscribe = window.__ONMYAGENT_ELECTRON__?.computerUse?.onAppshot;
+    if (!subscribe) return;
+    return subscribe((payload) => {
+      if (!rootRef.current || rootRef.current.offsetParent === null) return;
+      void attachAppshot(payload);
+    });
+  });
 
   const activeMcpItems = mcpServers.map((entry) => ({
     entry,
@@ -1391,6 +1442,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                             <span className="truncate">{t("composer.add_file")}</span>
                           </span>
                         </MenuRowButton>
+                        <MenuRowButton
+                          type="button"
+                          align="center"
+                          className="mb-1 gap-2"
+                          disabled={!props.attachmentsEnabled}
+                          onClick={() => void captureAppshot()}
+                        >
+                          <Camera size={14} className="shrink-0 text-dls-secondary" />
+                          <span className="truncate">{t("composer.capture_appshot")}</span>
+                        </MenuRowButton>
                         {promptTemplates.length > 0 ? (
                           <MenuRowButton
                             type="button"
@@ -1611,7 +1672,20 @@ export function ReactSessionComposer(props: ComposerProps) {
                                     <MenuRowButton
                                       key={entry.id ?? entry.serverName ?? entry.name}
                                       type="button"
-                                      onClick={() => applyExtensionSelection(entry)}
+                                      active={selectedComposerExtension === entry}
+                                      onMouseEnter={() => setSelectedComposerExtension(
+                                        entry.suggestedPrompts?.length ? entry : null,
+                                      )}
+                                      onFocus={() => setSelectedComposerExtension(
+                                        entry.suggestedPrompts?.length ? entry : null,
+                                      )}
+                                      onClick={() => {
+                                        if (entry.suggestedPrompts?.length) {
+                                          setSelectedComposerExtension(entry);
+                                          return;
+                                        }
+                                        applyExtensionSelection(entry);
+                                      }}
                                     >
                                       <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
                                         {extensionIcon(entry, 16)}
@@ -1625,6 +1699,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                                         </div>
                                         <div className="truncate text-xs text-dls-secondary">{entry.description}</div>
                                       </div>
+                                      {entry.suggestedPrompts?.length ? (
+                                        <ChevronRight size={14} className="shrink-0 text-dls-secondary" />
+                                      ) : null}
                                     </MenuRowButton>
                                   ))}
                                 </div>
@@ -1655,6 +1732,29 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   align="start"
                                   className="gap-2"
                                   onClick={() => applyPromptTemplate(selectedPromptTemplate.id, prompt)}
+                                >
+                                  <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                  <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>
+                                </MenuRowButton>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      {toolMenuSection === "mcps" && selectedComposerExtension?.suggestedPrompts?.length ? (
+                        <div className="absolute bottom-0 left-[calc(36rem-2px)] flex w-[clamp(18rem,calc(100vw-38.5rem),27rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                          <div className="flex min-h-12 items-center border-b border-dls-border px-3 py-2 text-xs font-medium text-dls-text">
+                            <span className="truncate">{selectedComposerExtension.name}</span>
+                          </div>
+                          <div className="max-h-72 overflow-y-auto p-2">
+                            <div className="grid gap-1">
+                              {selectedComposerExtension.suggestedPrompts.map((prompt) => (
+                                <MenuRowButton
+                                  key={prompt}
+                                  type="button"
+                                  align="start"
+                                  className="gap-2"
+                                  onClick={() => applyExtensionSuggestion(selectedComposerExtension, prompt)}
                                 >
                                   <MessageCircle size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
                                   <span className="line-clamp-2 text-xs text-dls-text">{prompt}</span>

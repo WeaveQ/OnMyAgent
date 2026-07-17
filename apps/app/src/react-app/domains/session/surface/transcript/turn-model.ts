@@ -54,12 +54,6 @@ function latestNumber(values: Array<number | null>) {
   return available.length > 0 ? Math.max(...available) : null;
 }
 
-function messageHasToolError(message: UIMessage) {
-  return message.parts.some(
-    (part) => part.type === "dynamic-tool" && part.state === "output-error",
-  );
-}
-
 function finalizeTurn(
   turn: MutableTranscriptTurn,
   index: number,
@@ -87,19 +81,18 @@ function finalizeTurn(
   );
   const hasFailure = turn.assistantMessages.some((message) => {
     const metadata = readTranscriptMessageMetadata(message.metadata);
-    return (
-      (metadata.errorName !== null && metadata.errorName !== "MessageAbortedError") ||
-      messageHasToolError(message)
-    );
+    return metadata.errorName !== null && metadata.errorName !== "MessageAbortedError";
   });
 
   let state: TranscriptTurnState;
   if (hasCancellation) state = "cancelled";
-  else if (hasFailure) state = "failed";
   else if (isLastTurn && options.hasPendingApproval) state = "awaiting-approval";
   else if (isLastTurn && options.isStreaming) state = "streaming";
+  else if (hasFailure) state = "failed";
   else if (turn.assistantMessages.length === 0) state = "pending";
   else state = "completed";
+
+  const terminal = state === "completed" || state === "cancelled" || state === "failed";
 
   return {
     ...turn,
@@ -107,7 +100,7 @@ function finalizeTurn(
     startedAt,
     completedAt,
     durationMs:
-      startedAt !== null && completedAt !== null
+      terminal && startedAt !== null && completedAt !== null
         ? Math.max(0, completedAt - startedAt)
         : null,
     actionMessageId: turn.assistantMessages.at(-1)?.id ?? null,

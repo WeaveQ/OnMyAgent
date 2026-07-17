@@ -44,6 +44,7 @@ export const SIDEBAR_VIEW_LABELS: Record<
   string
 > = {
   get billing() { return t("nav.billing"); },
+  get usage() { return t("nav.usage"); },
   get agents() { return t("nav.agents"); },
   get skills() { return t("nav.skills"); },
   get connectors() { return t("nav.connectors"); },
@@ -58,6 +59,7 @@ export const SIDEBAR_VIEW_ICONS: Record<
   typeof Bot
 > = {
   billing: Sparkles,
+  usage: LayoutDashboard,
   agents: Bot,
   skills: FileText,
   connectors: Zap,

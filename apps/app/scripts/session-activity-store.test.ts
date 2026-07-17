@@ -31,6 +31,29 @@ describe("session activity store", () => {
     expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("responding");
   });
 
+  test("preserves the backend retry phase instead of flattening it to thinking", () => {
+    useSessionActivityStore.getState().seedSessionRun(
+      "ws_1",
+      "ses_retry",
+      { type: "retry" },
+      false,
+    );
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_retry")).toBe("retrying");
+
+    useSessionActivityStore.getState().markMessageRole(
+      "ws_1",
+      "ses_retry",
+      "msg_assistant",
+      "assistant",
+    );
+    useSessionActivityStore.getState().markAssistantOutput(
+      "ws_1",
+      "ses_retry",
+      "msg_assistant",
+    );
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_retry")).toBe("retrying");
+  });
+
   test("prioritizes waiting, compacting, and error states over active runs", () => {
     useSessionActivityStore.getState().seedSessionRun("ws_1", "ses_1", "running", true);
     expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_1")).toBe("responding");
@@ -126,7 +149,15 @@ describe("session activity store", () => {
   });
 
   test("exposes labels for every activity status", () => {
-    const statuses = ["idle", "thinking", "responding", "error", "compacting", "waiting"] satisfies SessionActivityStatus[];
+    const statuses = [
+      "idle",
+      "thinking",
+      "responding",
+      "retrying",
+      "error",
+      "compacting",
+      "waiting",
+    ] satisfies SessionActivityStatus[];
 
     for (const status of statuses) {
       expect(getSessionActivityStatusLabel(status)).toBeString();

@@ -142,6 +142,19 @@ declare global {
     __ONMYAGENT_ZOOM_FACTOR__?: number;
     __ONMYAGENT_ELECTRON__?: {
       invokeDesktop?: (command: DesktopCommandName, ...args: unknown[]) => Promise<unknown>;
+      computerUse?: {
+        onActivity?: (callback: (activity: {
+          phase: "inactive" | "ready" | "running" | "paused" | "errored";
+          app?: string;
+          reason?: string;
+        }) => void) => () => void;
+        onAppshot?: (callback: (appshot: {
+          name: string;
+          mimeType: string;
+          data: string;
+          appName?: string;
+        }) => void) => () => void;
+      };
       shell?: {
         openExternal?: (url: string) => Promise<void>;
         relaunch?: () => Promise<void>;

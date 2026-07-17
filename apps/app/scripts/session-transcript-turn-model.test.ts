@@ -58,7 +58,7 @@ describe("session transcript turn model", () => {
         message("user", "user"),
         message("assistant", "assistant", createTranscriptMessageMetadata({ error: { name: "MessageAbortedError" } })),
       ],
-      { isStreaming: true },
+      { isStreaming: false },
     )[0];
     expect(cancelled?.state).toBe("cancelled");
 
@@ -67,7 +67,7 @@ describe("session transcript turn model", () => {
         message("user", "user"),
         message("assistant", "assistant", createTranscriptMessageMetadata({ error: { name: "APIError" } })),
       ],
-      { isStreaming: true },
+      { isStreaming: false },
     )[0];
     expect(failed?.state).toBe("failed");
 
@@ -87,7 +87,34 @@ describe("session transcript turn model", () => {
       ],
       { isStreaming: false },
     )[0];
-    expect(toolFailed?.state).toBe("failed");
+    expect(toolFailed?.state).toBe("completed");
+  });
+
+  test("keeps an active turn running despite stale terminal metadata or tool errors", () => {
+    const active = buildTranscriptTurns(
+      [
+        message("user", "user", createTranscriptMessageMetadata({
+          time: { created: 1_000 },
+        })),
+        message("assistant", "assistant", createTranscriptMessageMetadata({
+          time: { created: 1_100, completed: 8_000 },
+          error: { name: "APIError" },
+        }), [
+          {
+            type: "dynamic-tool",
+            toolName: "shell",
+            toolCallId: "tool-1",
+            state: "output-error",
+            input: {},
+            errorText: "failed",
+          },
+        ]),
+      ],
+      { isStreaming: true },
+    )[0];
+
+    expect(active?.state).toBe("streaming");
+    expect(active?.durationMs).toBeNull();
   });
 
   test("marks only the latest active turn as waiting or streaming", () => {
@@ -138,6 +165,7 @@ describe("session transcript turn model", () => {
         cacheWrite: 6,
       },
       errorName: "APIError",
+      finishReason: null,
     });
   });
 

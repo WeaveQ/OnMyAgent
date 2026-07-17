@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  ChartNoAxesCombined,
   CircleHelp,
   FileText,
   Globe2,
@@ -432,6 +433,7 @@ export type SidebarAccountInfo = {
 export type SidebarPrimaryView =
   | "chat"
   | "billing"
+  | "usage"
   | "agents"
   | "skills"
   | "connectors"
@@ -494,6 +496,7 @@ function isSessionActivityStatus(
     status === "idle" ||
     status === "thinking" ||
     status === "responding" ||
+    status === "retrying" ||
     status === "error" ||
     status === "compacting" ||
     status === "waiting"
@@ -763,6 +766,8 @@ export function AppSidebar(props: AppSidebarProps) {
               <div className="min-w-0 flex-1">
                 <SidebarAccountButton
                   account={props.account || undefined}
+                  onOpenDevices={() => props.onOpenPrimaryView("devices")}
+                  onOpenUsage={() => props.onOpenPrimaryView("usage")}
                   onOpenSettings={props.onOpenAccountSettings}
                   onSignOut={props.onSignOut}
                   onOpenBilling={props.onOpenBilling}
@@ -815,6 +820,7 @@ export function AppSidebar(props: AppSidebarProps) {
 export function SidebarAccountButton(props: {
   account?: SidebarAccountInfo;
   onOpenDevices?: () => void;
+  onOpenUsage?: () => void;
   onOpenSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -928,6 +934,16 @@ export function SidebarAccountButton(props: {
             onSelect={() => {
               setOpen(false);
               props.onOpenDevices?.();
+            }}
+          />
+        ) : null}
+        {props.onOpenUsage ? (
+          <SidebarAccountMenuItem
+            icon={ChartNoAxesCombined}
+            label={t("nav.usage")}
+            onSelect={() => {
+              setOpen(false);
+              props.onOpenUsage?.();
             }}
           />
         ) : null}

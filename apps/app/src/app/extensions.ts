@@ -125,6 +125,7 @@ export type OnMyAgentExtensionManifest = {
   };
   composer?: {
     prompt: string;
+    suggestions?: string[];
   };
   setup?: OnMyAgentExtensionSetup;
   resources: OnMyAgentExtensionResource[];
@@ -216,18 +217,23 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
     {
       schemaVersion: 1,
       id: "computer-use",
-      name: "Computer Use",
-      description:
-        "Control macOS apps through semantic accessibility refs, screenshots, background-safe clicks, keyboard input, and strict mode.",
+      name: t("extensions.computer_use_name"),
+      description: t("extensions.computer_use_description"),
       preview: true,
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/on-my-agent-logo.png" },
-      composer: { prompt: "Use Computer Use to " },
+      composer: {
+        prompt: t("extensions.computer_use_prompt"),
+        suggestions: [
+          t("extensions.computer_use_suggestion_playlist"),
+          t("extensions.computer_use_suggestion_xcode"),
+          t("extensions.computer_use_suggestion_chess"),
+        ],
+      },
       setup: {
-        instructions:
-          "Computer Use runs as a local MCP server backed by a macOS accessibility runtime. Grant Accessibility and Screen Recording permissions when macOS asks, then connect the MCP server in this workspace.",
+        instructions: t("extensions.computer_use_builtin_setup"),
         primaryCta: t("extensions.computer_use_connect_mcp"),
-        secondaryCta: "Check macOS permissions",
+        secondaryCta: t("extensions.computer_use_check_permissions"),
         testActionRef: "onmyagent.computerUse.healthCheck",
       },
       resources: [
@@ -243,7 +249,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         {
           type: "native-binary",
           id: "computer-use-native",
-          label: "macOS accessibility runtime",
+          label: t("extensions.computer_use_native_runtime"),
           packageName: "@onmyagent/handsfree",
           required: true,
         },
@@ -266,7 +272,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         },
         {
           type: "composer-prompt",
-          prompt: "Use Computer Use to ",
+          prompt: t("extensions.computer_use_prompt"),
           location: "composer",
         },
       ],

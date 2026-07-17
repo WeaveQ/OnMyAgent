@@ -45,6 +45,10 @@ export function useSessionPageAgentPanel(selectedSessionId: string | null) {
     setActiveSidebarView("billing");
   }, []);
 
+  const openUsageView = useCallback(() => {
+    setActiveSidebarView("usage");
+  }, []);
+
   const toggleAgentPanelCollapsed = useCallback(() => {
     setAgentPanelCollapsed((value) => !value);
   }, []);
@@ -116,6 +120,7 @@ export function useSessionPageAgentPanel(selectedSessionId: string | null) {
     openSidebarView,
     openChatView,
     openDevicesView,
+    openUsageView,
     openBillingView,
     toggleAgentPanelCollapsed,
     expandAgentPanel,

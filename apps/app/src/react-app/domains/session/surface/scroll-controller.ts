@@ -156,9 +156,8 @@ export function useSessionScrollController(
 
   const markWheelGesture = useCallback(
     (deltaY: number, target?: EventTarget | null) => {
-      if (Math.abs(deltaY) <= 3) return;
-      markScrollGesture(target);
       if (!shouldPauseTranscriptFollowOnWheel(deltaY)) return;
+      markScrollGesture(target);
       programmaticScrollRef.current = false;
       clearProgrammaticScrollReset();
     },
@@ -183,6 +182,17 @@ export function useSessionScrollController(
     return nextId;
   }, [options.containerRef, selectedSessionId, setTopClippedMessageId]);
 
+  const syncToBottom = useCallback(() => {
+    const container = options.containerRef.current;
+    if (!container) return;
+
+    programmaticScrollRef.current = true;
+    container.scrollTop = container.scrollHeight;
+    lastKnownScrollTopRef.current = container.scrollTop;
+    refreshTopClippedMessage();
+    releaseProgrammaticScrollSoon();
+  }, [options.containerRef, refreshTopClippedMessage, releaseProgrammaticScrollSoon]);
+
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const container = options.containerRef.current;
@@ -197,21 +207,9 @@ export function useSessionScrollController(
         return;
       }
 
-      container.scrollTop = container.scrollHeight;
-      lastKnownScrollTopRef.current = container.scrollTop;
-      window.requestAnimationFrame(() => {
-        const next = options.containerRef.current;
-        if (!next) {
-          programmaticScrollRef.current = false;
-          return;
-        }
-        next.scrollTop = next.scrollHeight;
-        lastKnownScrollTopRef.current = next.scrollTop;
-        refreshTopClippedMessage();
-        releaseProgrammaticScrollSoon();
-      });
+      syncToBottom();
     },
-    [options.containerRef, refreshTopClippedMessage, releaseProgrammaticScrollSoon, selectedSessionId, setStickyBottom],
+    [options.containerRef, releaseProgrammaticScrollSoon, selectedSessionId, setStickyBottom, syncToBottom],
   );
 
   const saveScrollPosition = useCallback(
@@ -287,30 +285,68 @@ export function useSessionScrollController(
     [scrollToBottom],
   );
 
-  const jumpToStartOfMessage = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
-      const messageId = topClippedMessageId;
-      const container = options.containerRef.current;
-      if (!messageId || !container) return;
-
-      const target = messageElementById(container, messageId);
-      if (!target) return;
-
-      setManualScroll(selectedSessionId, container.scrollTop, topClippedMessageId);
-      target.scrollIntoView({ behavior, block: "start" });
-    },
-    [options.containerRef, selectedSessionId, setManualScroll, topClippedMessageId],
-  );
-
   useEffect(() => {
     updateOverflowAnchor();
   }, [updateOverflowAnchor]);
+
+  useLayoutEffect(() => {
+    void options.renderedMessages;
+    if (
+      !isAtBottom ||
+      !options.active ||
+      options.sessionChangeScroll === "top" ||
+      hasScrollGesture()
+    ) {
+      return;
+    }
+
+    // React has committed the new token, but the browser has not painted it
+    // yet. Keep the tail pinned in this layout phase so users never see an
+    // intermediate frame where content grows before scrollTop catches up.
+    syncToBottom();
+  }, [
+    hasScrollGesture,
+    isAtBottom,
+    options.active,
+    options.renderedMessages,
+    options.sessionChangeScroll,
+    syncToBottom,
+  ]);
 
   useEffect(() => {
     const content = options.contentRef.current;
     if (!content) return;
 
     observedContentHeightRef.current = content.offsetHeight;
+    const stickToMutatedGrowth = () => {
+      const nextContent = options.contentRef.current;
+      if (!nextContent) return;
+
+      // Math, Mermaid, syntax highlighting, iframe reports, and other child
+      // effects can change transcript geometry without changing the messages
+      // prop. MutationObserver runs in the same microtask checkpoint as those
+      // DOM writes; forcing layout here lets us pin the tail before the next
+      // frame instead of waiting for a later ResizeObserver delivery.
+      const nextHeight = nextContent.offsetHeight;
+      const grew = nextHeight > observedContentHeightRef.current + 1;
+      observedContentHeightRef.current = nextHeight;
+      if (shouldAutoStickTranscriptGrowth({
+        grew,
+        stickyBottom: isAtBottom,
+        active: options.active,
+        userInteracting: hasScrollGesture(),
+        sessionChangeScroll: options.sessionChangeScroll,
+      })) {
+        syncToBottom();
+      }
+    };
+    const mutationObserver = new MutationObserver(stickToMutatedGrowth);
+    mutationObserver.observe(content, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
     const observer = new ResizeObserver(() => {
       const nextContent = options.contentRef.current;
       if (!nextContent) return;
@@ -332,7 +368,7 @@ export function useSessionScrollController(
         userInteracting: hasScrollGesture(),
         sessionChangeScroll: options.sessionChangeScroll,
       })) {
-        scrollToBottom("auto");
+        syncToBottom();
         return;
       }
 
@@ -340,7 +376,10 @@ export function useSessionScrollController(
     });
 
     observer.observe(content);
-    return () => observer.disconnect();
+    return () => {
+      mutationObserver.disconnect();
+      observer.disconnect();
+    };
   }, [
     hasScrollGesture,
     isAtBottom,
@@ -348,7 +387,7 @@ export function useSessionScrollController(
     options.contentRef,
     options.sessionChangeScroll,
     refreshTopClippedMessage,
-    scrollToBottom,
+    syncToBottom,
   ]);
 
   useLayoutEffect(() => {
@@ -484,6 +523,5 @@ export function useSessionScrollController(
     markWheelGesture,
     scrollToBottom,
     jumpToLatest,
-    jumpToStartOfMessage,
   };
 }

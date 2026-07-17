@@ -10,6 +10,7 @@ import {
   Folder,
   Globe,
   Image as ImageIcon,
+  Maximize2,
   ListTodo,
   LoaderCircle,
   Network,
@@ -21,6 +22,7 @@ import {
 
 import { openDesktopPath } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
@@ -62,6 +64,57 @@ function webLabel(details: Extract<TranscriptSpecializedToolDetails, { kind: "we
   }
 }
 
+function McpImagePreview(props: {
+  source: string;
+  index: number;
+  onOpen: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className="rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-3 py-4 text-center text-xs text-dls-status-danger-fg">
+        {t("session.tool_mcp_image_failed")}
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      data-mcp-image-preview="true"
+      className="group relative h-auto max-w-full overflow-hidden rounded-lg border border-dls-border bg-dls-surface-muted p-0 hover:bg-dls-surface-muted"
+      aria-label={t("session.tool_mcp_image_open", { index: props.index + 1 })}
+      onClick={props.onOpen}
+    >
+      {loading ? (
+        <span className="inline-flex min-h-20 min-w-40 items-center justify-center gap-2 px-4 py-6 text-xs text-dls-secondary">
+          <LoadingSpinner />
+          {t("session.tool_mcp_image_loading")}
+        </span>
+      ) : null}
+      <img
+        src={props.source}
+        alt={t("session.tool_mcp_image_alt", { index: props.index + 1 })}
+        className={cn("max-h-[300px] max-w-full object-contain", loading && "hidden")}
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setLoading(false);
+          setFailed(true);
+        }}
+      />
+      {!loading ? (
+        <span className="pointer-events-none absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-lg bg-dls-surface/90 text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100">
+          <Maximize2 className="size-3.5" aria-hidden="true" />
+        </span>
+      ) : null}
+    </Button>
+  );
+}
+
 export function specializedToolHeadline(
   details: TranscriptSpecializedToolDetails,
   running: boolean,
@@ -72,10 +125,14 @@ export function specializedToolHeadline(
   if (details.kind === "write") {
     return t(
       running
-        ? details.operation === "modify"
+        ? details.operation === "append"
+          ? "session.tool_write_appending"
+          : details.operation === "modify"
           ? "session.tool_write_modifying"
           : "session.tool_write_generating"
-        : details.operation === "modify"
+        : details.operation === "append"
+          ? "session.tool_write_appended"
+          : details.operation === "modify"
           ? "session.tool_write_modified"
           : "session.tool_write_generated",
       { file: details.fileName || details.filePath },
@@ -135,6 +192,11 @@ export function specializedToolHeadline(
     if (details.variant === "upload-file") return t("session.tool_upload_file");
     if (details.variant === "skill-manage") return t("session.tool_skill_manage");
     if (details.variant === "present-files") return t("session.tool_present_files");
+    if (details.variant === "cloud-service") {
+      return t(running ? "session.tool_cloud_connecting" : "session.tool_cloud_connected", {
+        service: details.summary || t("session.tool_cloud_service"),
+      });
+    }
     return details.summary || t("session.tool_generic");
   }
   if (details.kind === "mcp") {
@@ -148,6 +210,23 @@ export function specializedToolHeadline(
       : t("session.tool_mcp_resource");
   }
   if (details.kind === "skill") return details.skillName || t("session.tool_skill");
+  if (details.kind === "completion") {
+    const status = running
+      ? t("session.tool_completion_running")
+      : details.success
+        ? t("session.tool_completion_succeeded")
+        : t("session.tool_completion_failed");
+    return details.message ? `${status}: ${details.message}` : status;
+  }
+  if (details.kind === "open-result") {
+    return t(running ? "session.tool_open_result_opening" : "session.tool_open_result_opened", {
+      target: details.target.split(/[\\/]/).at(-1) || details.target,
+    });
+  }
+  if (details.kind === "mcp-match") {
+    return t(running ? "session.tool_mcp_match_loading" : "session.tool_mcp_match_loaded");
+  }
+  if (details.kind === "integration") return details.integrationName;
   if (details.kind === "image-gen") {
     if (running || details.status === "generating") {
       return details.prompt
@@ -187,6 +266,12 @@ export function specializedToolCanExpand(details: TranscriptSpecializedToolDetai
   }
   if (details.kind === "mcp-resource") return Boolean(details.uri || details.content || details.downloadPath);
   if (details.kind === "skill") return false;
+  if (details.kind === "completion") return Boolean(details.details);
+  if (details.kind === "open-result") return false;
+  if (details.kind === "mcp-match") return details.requests.length > 0;
+  if (details.kind === "integration") {
+    return Boolean(details.result || details.searchResults.length || details.hint);
+  }
   if (details.kind === "image-gen") return true;
   return Boolean(details.toolItems.length || details.finalResult);
 }
@@ -627,6 +712,7 @@ export function SpecializedToolDetails(props: {
 }) {
   const platform = usePlatform();
   const details = props.details;
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   if (details.kind === "compact-tool") {
     return (
@@ -689,11 +775,11 @@ export function SpecializedToolDetails(props: {
           ) : details.content.length > 0 ? (
             <div className="max-h-[360px] space-y-2 overflow-auto">
               {details.content.map((item, index) => item.type === "image" ? (
-                <img
+                <McpImagePreview
                   key={`image:${index}`}
-                  src={`data:${item.mimeType};base64,${item.data}`}
-                  alt={t("session.tool_mcp_image_alt", { index: index + 1 })}
-                  className="max-h-[300px] max-w-full rounded-sm object-contain"
+                  source={`data:${item.mimeType};base64,${item.data}`}
+                  index={index}
+                  onOpen={() => setPreviewImage(`data:${item.mimeType};base64,${item.data}`)}
                 />
               ) : (
                 <pre key={`${item.type}:${index}`} className="m-0 whitespace-pre-wrap wrap-break-word font-mono leading-5 text-dls-text">
@@ -705,6 +791,23 @@ export function SpecializedToolDetails(props: {
             <span className="text-dls-secondary">{t("session.tool_no_result")}</span>
           )}
         </div>
+        <Dialog open={previewImage !== null} onOpenChange={(open) => {
+          if (!open) setPreviewImage(null);
+        }}>
+          <DialogContent className="bg-dls-surface p-3 sm:max-w-4xl" showCloseButton>
+            <DialogTitle className="sr-only">{t("session.tool_mcp_image_preview")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("session.tool_mcp_image_preview_description")}
+            </DialogDescription>
+            {previewImage ? (
+              <img
+                src={previewImage}
+                alt={t("session.tool_mcp_image_preview")}
+                className="max-h-[82vh] w-full object-contain"
+              />
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -713,18 +816,12 @@ export function SpecializedToolDetails(props: {
     return (
       <div className="overflow-hidden rounded-lg border border-dls-border bg-dls-surface text-xs">
         {details.uri ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto w-full justify-start gap-2 rounded-none border-b border-dls-border px-3 py-2 font-normal text-dls-accent"
-            onClick={() => platform.openLink(details.uri)}
-          >
+          <div className="flex items-center gap-2 border-b border-dls-border px-3 py-2 font-mono text-dls-secondary">
             <Plug className="size-3.5 shrink-0" />
-            <span className="truncate">{details.uri}</span>
-          </Button>
+            <span className="truncate" title={details.uri}>{details.uri}</span>
+          </div>
         ) : null}
-        {details.downloadPath ? (
+        {details.presentation === "download" && details.downloadPath ? (
           <Button
             type="button"
             variant="ghost"
@@ -735,10 +832,28 @@ export function SpecializedToolDetails(props: {
             <File className="size-3.5 shrink-0" />
             <span className="truncate">{details.downloadPath}</span>
           </Button>
-        ) : null}
-        <pre className="m-0 max-h-[360px] overflow-auto whitespace-pre-wrap wrap-break-word px-3 py-2 font-mono leading-5 text-dls-text">
-          {details.content || t("session.tool_no_result")}
-        </pre>
+        ) : details.presentation === "http" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal text-dls-accent"
+            onClick={() => platform.openLink(details.uri)}
+          >
+            <ExternalLink className="size-3.5 shrink-0" />
+            <span className="truncate">{details.uri}</span>
+          </Button>
+        ) : details.presentation === "image" ? (
+          <img
+            src={details.content}
+            alt={t("session.tool_mcp_resource_image_alt")}
+            className="max-h-[360px] max-w-full px-3 py-2 object-contain"
+          />
+        ) : (
+          <pre className="m-0 max-h-[360px] overflow-auto whitespace-pre-wrap wrap-break-word px-3 py-2 font-mono leading-5 text-dls-text">
+            {details.content || t("session.tool_no_result")}
+          </pre>
+        )}
       </div>
     );
   }
@@ -748,6 +863,44 @@ export function SpecializedToolDetails(props: {
       <div className="inline-flex items-center gap-2 text-xs text-dls-secondary">
         <Sparkles className="size-3.5" />
         {details.skillName}
+      </div>
+    );
+  }
+
+  if (details.kind === "completion") {
+    return details.details ? (
+      <div className="whitespace-pre-wrap rounded-lg border border-dls-border bg-dls-surface-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
+        {details.details}
+      </div>
+    ) : null;
+  }
+
+  if (details.kind === "open-result") return null;
+
+  if (details.kind === "mcp-match") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-dls-border bg-dls-surface text-xs">
+        {details.requests.map((request, index) => (
+          <div key={`${request.serverName}:${request.toolName}:${index}`} className="flex items-center gap-3 border-b border-dls-border px-3 py-2 last:border-b-0">
+            <span className="min-w-0 flex-1 truncate text-dls-text">{request.toolName}</span>
+            <span className="shrink-0 text-dls-secondary">{request.serverName}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (details.kind === "integration") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-dls-border bg-dls-surface text-xs">
+        {details.searchResults.map((result, index) => (
+          <div key={`${result.integrationId}:${result.toolName}:${index}`} className="flex items-center gap-2 border-b border-dls-border px-3 py-2 last:border-b-0">
+            <span className="font-medium text-dls-text">{result.integrationName}</span>
+            <span className="text-dls-secondary">{result.toolName}</span>
+          </div>
+        ))}
+        {details.result ? <pre className="m-0 whitespace-pre-wrap px-3 py-2 font-mono leading-5 text-dls-text">{details.result}</pre> : null}
+        {details.hint ? <div className="border-t border-dls-border px-3 py-2 text-dls-secondary">{details.hint}</div> : null}
       </div>
     );
   }

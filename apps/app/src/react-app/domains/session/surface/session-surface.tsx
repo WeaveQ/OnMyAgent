@@ -5,7 +5,6 @@ import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import {
-  ArrowDown,
   BookOpenCheck,
   Check,
   ChevronRight,
@@ -57,6 +56,10 @@ import type {
 } from "../../../../app/types";
 import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OnMyAgentControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
 import { ReactSessionComposer } from "./composer/composer";
+import {
+  deriveAssistantActivity,
+  getAssistantActivityPhaseLabel,
+} from "./chrome/assistant-activity";
 import { AccessPermissionSelect } from "./composer/access-permission-select";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import {
@@ -67,7 +70,6 @@ import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { ActionRowButton, DisclosureRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { PaperGrainGradient } from "@onmyagent/ui/react";
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
 import {
@@ -83,7 +85,6 @@ import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
 import {
-  getSessionActivityStatusLabel,
   useSessionActivityStore,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
@@ -107,6 +108,11 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
+import {
+  OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
+  buildOutputLimitContinuationDraft,
+  latestOutputLimitedAssistantMessage,
+} from "../sync/output-limit-recovery";
 import {
   deriveGoalSummary,
   manualStopNoticeKind,
@@ -175,8 +181,10 @@ import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
   AssistantWaitingCard,
+  OutputLimitContinueCard,
   TranscriptHistorySkeleton,
 } from "./chrome/assistant-status";
+import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
 import {
   PlanApprovalPanel,
   TodoPanel,
@@ -749,6 +757,60 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const compacted = filterCompactionMessages(rawRenderedMessages, compactBoundary);
     return mergeBrowserUseTimeline(compacted, browserUseHistoryQuery.data ?? []);
   }, [browserUseHistoryQuery.data, compactBoundary, rawRenderedMessages]);
+  const outputLimitedAssistantMessage = useMemo(
+    () => latestOutputLimitedAssistantMessage(renderedMessages),
+    [renderedMessages],
+  );
+  const handleOutputLimitContinue = useCallback(async () => {
+    if (!outputLimitedAssistantMessage || sending || chatStreaming) return;
+    setError(null);
+    setDismissedErrorMessage(null);
+    const startedAt = Date.now();
+    const runKey = `${props.sessionId}:${startedAt}`;
+    activeRunStartedAtRef.current = startedAt;
+    activeRunKeyRef.current = runKey;
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: startedAt,
+        });
+    }
+    setSending(true);
+    setAwaitingAssistantBaseline(renderedMessages.length);
+    setNoVisibleAssistantOutputBaseline(null);
+    try {
+      const continuationDraft = buildOutputLimitContinuationDraft({
+        messageID: `${OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX}${crypto.randomUUID()}`,
+        prompt: t("session.output_limit_continue_content"),
+        hiddenSystemPrompt: t("session.output_limit_continue_hidden"),
+      });
+      await props.onSendDraft(continuationDraft);
+    } catch (nextError) {
+      const parsed = parseSessionError(nextError);
+      setError(parsed);
+      setDismissedErrorMessage(null);
+      if (!props.draftOnly) {
+        useSessionActivityStore
+          .getState()
+          .setError(props.workspaceId, props.sessionId, parsed.message);
+      }
+      setAwaitingAssistantBaseline(null);
+      setNoVisibleAssistantOutputBaseline(null);
+    } finally {
+      setSending(false);
+    }
+  }, [
+    chatStreaming,
+    outputLimitedAssistantMessage,
+    props.draftOnly,
+    props.onSendDraft,
+    props.sessionId,
+    props.workspaceId,
+    renderedMessages.length,
+    sending,
+  ]);
   const renderedMessageCountRef = useRef(renderedMessages.length);
   renderedMessageCountRef.current = renderedMessages.length;
   const appendTranscriptNotice = useCallback(
@@ -964,6 +1026,20 @@ export function SessionSurface(props: SessionSurfaceProps) {
         : showAssistantRespondingState
           ? "responding"
           : "idle";
+  const activePermissionNeedsApproval = Boolean(
+    props.activePermission &&
+      !resolveAccessModePermissionReply(
+        effectiveAccessMode,
+        props.activePermission.permission,
+      ),
+  );
+  const assistantActivity = deriveAssistantActivity({
+    status: effectiveActivityStatus,
+    sending,
+    hasActivePermission: activePermissionNeedsApproval,
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    messages: renderedMessages,
+  });
   const activityFingerprint = useMemo(
     () => messageActivityFingerprint(renderedMessages),
     [renderedMessages],
@@ -1050,10 +1126,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
     showInlineActivityIndicator ? (
       <AssistantWaitingCard
         collapseLayout
-        label={getSessionActivityStatusLabel(effectiveActivityStatus)}
+        label={getAssistantActivityPhaseLabel(assistantActivity)}
       />
     ) : showNoVisibleAssistantOutput ? (
       <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
+    ) : outputLimitedAssistantMessage && !visibleTranscriptError ? (
+      <OutputLimitContinueCard
+        key={outputLimitedAssistantMessage.id}
+        busy={sending || chatStreaming}
+        onContinue={() => {
+          void handleOutputLimitContinue();
+        }}
+      />
     ) : reserveAssistantStatusSpace ? (
       <AssistantStatusSpacer />
     ) : null;
@@ -2086,6 +2170,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const resolveTranscriptScrollElement = useCallback(() => scrollRef.current, []);
   const sessionScroll = useSessionScrollController({
     selectedSessionId: props.sessionId,
     renderedMessages,
@@ -2243,13 +2328,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }) && isGoalIntentRuntime(props.goalRuntime)
     ? props.goalRuntime
     : null;
-  const activePermissionNeedsApproval = Boolean(
-    props.activePermission &&
-      !resolveAccessModePermissionReply(
-        effectiveAccessMode,
-        props.activePermission.permission,
-      ),
-  );
   const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
     activePermissionNeedsApproval
       ? "permission"
@@ -2556,9 +2634,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 !visibleTranscriptError ? (
                 <div className="px-6 py-12">
                   <AssistantWaitingCard
-                    label={getSessionActivityStatusLabel(
-                      effectiveActivityStatus,
-                    )}
+                    label={getAssistantActivityPhaseLabel(assistantActivity)}
                   />
                 </div>
               ) : !hasTranscriptContent &&
@@ -2605,7 +2681,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       developerMode={props.developerMode}
                       showThinking={showThinking}
                       dividers={interruptionDividers}
-                      scrollElement={() => scrollRef.current}
+                      scrollElement={resolveTranscriptScrollElement}
                       onRevertToMessage={props.onRevertToMessage}
                       onForkAtMessage={props.onForkAtMessage}
                       openTargets={verifiedOpenTargets}
@@ -2626,42 +2702,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
               )}
             </div>
           </div>
-          {!personalAssistantDraftHome &&
-          (!sessionScroll.isAtBottom ||
-            (!chatStreaming && sessionScroll.topClippedMessageId)) ? (
-            <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 justify-center">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface p-1 backdrop-blur-md">
-                {!chatStreaming && sessionScroll.topClippedMessageId ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    className="text-dls-text hover:bg-dls-hover"
-                    onClick={() => {
-                      sessionScroll.jumpToStartOfMessage("smooth");
-                    }}
-                  >
-                    {t("session.jump_to_start")}
-                  </Button>
-                ) : null}
-                {!sessionScroll.isAtBottom ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    className="border-dls-border bg-dls-surface text-dls-text hover:bg-dls-hover"
-                    title={t("session.jump_to_latest")}
-                    aria-label={t("session.jump_to_latest")}
-                    onClick={() => {
-                      sessionScroll.jumpToLatest("smooth");
-                    }}
-                  >
-                    <ArrowDown className="size-4" />
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
+          <TranscriptScrollToLatest
+            visible={!personalAssistantDraftHome && !sessionScroll.isAtBottom}
+            label={t("session.jump_to_latest")}
+            onActivate={() => {
+              sessionScroll.jumpToLatest("auto");
+            }}
+          />
         </div>
 
         {personalAssistantDraftHome && codeSceneToolbar ? (

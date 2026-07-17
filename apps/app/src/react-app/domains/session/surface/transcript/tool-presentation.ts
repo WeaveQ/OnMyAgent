@@ -29,6 +29,7 @@ export type TranscriptWebSearchResult = {
 
 export type TranscriptTodoItem = {
   content: string;
+  activeForm: string | null;
   status: "pending" | "in_progress" | "completed" | "cancelled";
 };
 
@@ -47,6 +48,8 @@ export type TranscriptGeneratedImage = {
 export type TranscriptMcpContent =
   | { type: "text" | "resource"; text: string }
   | { type: "image"; data: string; mimeType: string };
+
+export type TranscriptMcpResourcePresentation = "download" | "http" | "image" | "text";
 
 export type TranscriptDiffLine = {
   kind: "added" | "removed" | "unchanged";
@@ -95,7 +98,7 @@ export type TranscriptSpecializedToolDetails =
       kind: "write";
       fileName: string;
       filePath: string;
-      operation: "create" | "modify";
+      operation: "create" | "modify" | "append";
       addedLines: number;
       removedLines: number;
       lines: TranscriptDiffLine[];
@@ -153,7 +156,7 @@ export type TranscriptSpecializedToolDetails =
     }
   | {
       kind: "compact-tool";
-      variant: "memory" | "preview-url" | "read-rules" | "upload-file" | "skill-manage" | "present-files" | "generic";
+      variant: "memory" | "preview-url" | "read-rules" | "upload-file" | "skill-manage" | "present-files" | "cloud-service" | "generic";
       action: string | null;
       title: string | null;
       summary: string | null;
@@ -174,8 +177,20 @@ export type TranscriptSpecializedToolDetails =
       uri: string;
       content: string;
       downloadPath: string | null;
+      presentation: TranscriptMcpResourcePresentation;
     }
-  | { kind: "skill"; skillName: string };
+  | { kind: "skill"; skillName: string }
+  | { kind: "completion"; message: string; success: boolean; details: string | null }
+  | { kind: "open-result"; target: string; viewType: "preview" | "changes" | "artifacts" }
+  | { kind: "mcp-match"; requests: Array<{ serverName: string; toolName: string }> }
+  | {
+      kind: "integration";
+      integrationName: string;
+      actionName: string | null;
+      result: string | null;
+      searchResults: Array<{ integrationId: string; integrationName: string; toolName: string }>;
+      hint: string | null;
+    };
 
 export type TranscriptToolPresentation = {
   family: TranscriptToolFamily;
@@ -214,6 +229,14 @@ function booleanValue(record: Record<string, unknown> | null, keys: string[]) {
     if (typeof value === "boolean") return value;
   }
   return false;
+}
+
+function optionalBooleanValue(record: Record<string, unknown> | null, keys: string[]) {
+  for (const key of keys) {
+    const value = record?.[key];
+    if (typeof value === "boolean") return value;
+  }
+  return null;
 }
 
 function optionalNumberValue(record: Record<string, unknown> | null, keys: string[]) {
@@ -292,7 +315,21 @@ function compactToolVariant(name: string): Extract<TranscriptSpecializedToolDeta
   if (name === "uploadfile") return "upload-file";
   if (name === "skillmanage") return "skill-manage";
   if (name === "presentfiles") return "present-files";
+  if (name === "connectcloudservice") return "cloud-service";
   return null;
+}
+
+function mcpResourcePresentation(input: {
+  uri: string;
+  content: string;
+  downloadPath: string | null;
+}): TranscriptMcpResourcePresentation {
+  if (input.downloadPath && input.content.includes("Resource saved to:")) return "download";
+  if (/^https?:\/\//i.test(input.uri)) return "http";
+  if (/\.(?:png|jpe?g|gif|webp|svg|bmp|ico)(?:[?#].*)?$/i.test(input.uri) && input.content.startsWith("data:image")) {
+    return "image";
+  }
+  return "text";
 }
 
 function basename(value: string) {
@@ -316,6 +353,7 @@ function toolFamily(toolName: string): TranscriptToolFamily {
     "multiedit",
     "applypatch",
     "patch",
+    "appendtofile",
   ].includes(name)) {
     return "write";
   }
@@ -398,6 +436,7 @@ function normalizeTodo(value: unknown): TranscriptTodoItem | null {
   const status = stringValue(record, ["status"]);
   return {
     content,
+    activeForm: stringValue(record, ["activeForm", "active_form"]),
     status:
       status === "in_progress" || status === "completed" || status === "cancelled"
         ? status
@@ -646,6 +685,7 @@ function specializedToolDetails(input: {
   family: TranscriptToolFamily;
   toolInput: Record<string, unknown> | undefined;
   toolOutput: unknown;
+  toolMetadata: Record<string, unknown> | undefined;
 }): TranscriptSpecializedToolDetails | null {
   const toolInput = input.toolInput ?? null;
   const payload = resultPayload(input.toolOutput);
@@ -654,7 +694,7 @@ function specializedToolDetails(input: {
   if (normalizedName === "mcpcalltool") {
     const output = parseRecord(input.toolOutput);
     const result = parseRecord(output?.result) ?? output;
-    const progress = recordValue(toolInput?.mcpProgress);
+    const progress = recordValue(input.toolMetadata?.mcpProgress) ?? recordValue(toolInput?.mcpProgress);
     const content = arrayValue(result, ["data"]).flatMap((value): TranscriptMcpContent[] => {
       const item = recordValue(value);
       const type = stringValue(item, ["type"]);
@@ -687,17 +727,102 @@ function specializedToolDetails(input: {
   }
 
   if (normalizedName === "fetchmcpresource") {
+    const uri = stringValue(toolInput, ["uri"]) ?? stringValue(payload, ["uri"]) ?? "";
+    const content = rawStringValue(payload, ["content"]) ?? "";
+    const downloadPath = stringValue(payload, ["downloadPath"]) ?? stringValue(toolInput, ["downloadPath"]);
     return {
       kind: "mcp-resource",
       server: stringValue(toolInput, ["server"]) ?? stringValue(payload, ["server"]) ?? "",
-      uri: stringValue(toolInput, ["uri"]) ?? stringValue(payload, ["uri"]) ?? "",
-      content: rawStringValue(payload, ["content"]) ?? "",
-      downloadPath: stringValue(payload, ["downloadPath"]) ?? stringValue(toolInput, ["downloadPath"]),
+      uri,
+      content,
+      downloadPath,
+      presentation: mcpResourcePresentation({ uri, content, downloadPath }),
     };
   }
 
   if (normalizedName === "useskill") {
     return { kind: "skill", skillName: stringValue(toolInput, ["command"]) ?? "" };
+  }
+
+  if (["completion", "finishtask"].includes(normalizedName)) {
+    return {
+      kind: "completion",
+      message: stringValue(toolInput, ["message"]) ?? stringValue(payload, ["message"]) ?? "",
+      success: optionalBooleanValue(toolInput, ["success"])
+        ?? optionalBooleanValue(payload, ["success"])
+        ?? true,
+      details: stringValue(payload, ["details"]),
+    };
+  }
+
+  if (normalizedName === "openresultview") {
+    const requestedView = stringValue(toolInput, ["viewType"]);
+    return {
+      kind: "open-result",
+      target: stringValue(toolInput, ["target", "target_file", "filePath", "file_path", "path"]) ?? "",
+      viewType: requestedView === "preview" || requestedView === "changes" ? requestedView : "artifacts",
+    };
+  }
+
+  if (normalizedName === "mcpgettooldescription") {
+    const rawRequests = toolInput?.toolRequests;
+    let requestValues: unknown[] = [];
+    if (Array.isArray(rawRequests)) requestValues = rawRequests;
+    else if (typeof rawRequests === "string") {
+      try {
+        const parsed: unknown = JSON.parse(rawRequests);
+        if (Array.isArray(parsed)) requestValues = parsed;
+      } catch {
+        requestValues = [];
+      }
+    }
+    return {
+      kind: "mcp-match",
+      requests: requestValues.flatMap((value) => {
+        if (!Array.isArray(value)) return [];
+        const serverName = typeof value[0] === "string" ? value[0] : "";
+        const toolName = typeof value[1] === "string" ? value[1] : "";
+        return serverName || toolName ? [{ serverName, toolName }] : [];
+      }),
+    };
+  }
+
+  if ([
+    "calltcbintegration",
+    "calleopintegration",
+    "callanydevintegration",
+    "calllighthouseintegration",
+    "callintegration",
+    "searchintegrationtool",
+  ].includes(normalizedName)) {
+    const integrationLabels: Record<string, string> = {
+      calltcbintegration: "CloudBase Integration",
+      calleopintegration: "EOP Integration",
+      callanydevintegration: "AnyDev Integration",
+      calllighthouseintegration: "Lighthouse Integration",
+      callintegration: "Integration",
+      searchintegrationtool: "Search Integration Tool",
+    };
+    const searchResults = arrayValue(payload, ["data"]).flatMap((value) => {
+      const item = recordValue(value);
+      const integrationId = stringValue(item, ["integrationId"]) ?? "";
+      const toolName = stringValue(item, ["toolName"]) ?? "";
+      if (!integrationId && !toolName) return [];
+      return [{
+        integrationId,
+        integrationName: stringValue(item, ["integrationName"]) ?? integrationId,
+        toolName,
+      }];
+    });
+    const dataRecord = recordValue(payload?.data);
+    return {
+      kind: "integration",
+      integrationName: integrationLabels[normalizedName] ?? "Integration",
+      actionName: stringValue(toolInput, ["toolName", "tool", "action"]),
+      result: rawStringValue(dataRecord, ["text"]) ?? (searchResults.length === 0 ? formattedValue(payload?.data) : null),
+      searchResults,
+      hint: stringValue(payload, ["hint"]),
+    };
   }
 
   const compactVariant = compactToolVariant(normalizedName);
@@ -709,12 +834,14 @@ function specializedToolDetails(input: {
       title: stringValue(toolInput, ["title", "name"]),
       summary: compactVariant === "memory"
         ? stringValue(toolInput, ["knowledge_to_store"])
+        : compactVariant === "cloud-service"
+          ? stringValue(toolInput, ["serviceName", "service", "name"])
         : compactVariant === "preview-url"
           ? stringValue(toolInput, ["url"])
           : compactVariant === "read-rules"
             ? stringValue(toolInput, ["ruleNames"])
             : stringValue(toolInput, ["name", "path", "file"]),
-      result: formattedValue(payload),
+      result: compactVariant === "cloud-service" ? null : formattedValue(payload),
     };
   }
 
@@ -754,7 +881,9 @@ function specializedToolDetails(input: {
       const edit = normalizeWriteEdit(value);
       return edit ? [edit] : [];
     });
-    const operation = parsedPatch?.operation
+    const operation = normalizedName === "appendtofile"
+      ? "append"
+      : parsedPatch?.operation
       ?? (oldContent !== null || edits.length > 0 ? "modify" : "create");
     const directDiff = oldContent !== null && content !== null
       ? buildDiff(oldContent, content)
@@ -965,6 +1094,7 @@ export function buildTranscriptToolPresentation(input: {
   toolName: string;
   toolInput: Record<string, unknown> | undefined;
   toolOutput: unknown;
+  toolMetadata?: Record<string, unknown>;
 }): TranscriptToolPresentation {
   const family = toolFamily(input.toolName);
   const outputRecord = resultPayload(input.toolOutput) ?? recordValue(input.toolOutput);
@@ -993,6 +1123,7 @@ export function buildTranscriptToolPresentation(input: {
     family,
     toolInput: input.toolInput,
     toolOutput: input.toolOutput,
+    toolMetadata: input.toolMetadata,
   });
   const specializedSecondary = (() => {
     if (!details) return null;
@@ -1010,6 +1141,10 @@ export function buildTranscriptToolPresentation(input: {
     if (details.kind === "mcp") return [details.serverName, details.toolName].filter(Boolean).join(" · ");
     if (details.kind === "mcp-resource") return details.uri;
     if (details.kind === "skill") return details.skillName;
+    if (details.kind === "completion") return details.message;
+    if (details.kind === "open-result") return details.target;
+    if (details.kind === "mcp-match") return details.requests.map((request) => request.serverName).filter(Boolean).join(", ");
+    if (details.kind === "integration") return details.actionName ?? details.integrationName;
     return details.variant === "generic" ? null : details.summary;
   })();
 
