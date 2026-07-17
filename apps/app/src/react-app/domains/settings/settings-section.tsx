@@ -114,6 +114,71 @@ export function SettingsCard({ children, className, size = "default", tone = "mu
   );
 }
 
+/**
+ * ChatGPT-style settings card: rounded block with divided rows.
+ * Use with SettingsBlockRow; section title stays outside the card.
+ */
+export function SettingsBlock({ children, className }: SettingsLayoutProps) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border border-dls-border bg-dls-surface divide-y divide-dls-border",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export interface SettingsBlockRowProps {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  /** Extra content under the description (e.g. textarea). */
+  children?: React.ReactNode;
+  className?: string;
+  /** Align control with first line (center) or top of multi-line copy. */
+  align?: "center" | "start";
+}
+
+export function SettingsBlockRow({
+  title,
+  description,
+  actions,
+  children,
+  className,
+  align = "center",
+}: SettingsBlockRowProps) {
+  return (
+    <div
+      className={cn(
+        "flex gap-4 px-4 py-3.5",
+        align === "center" ? "items-center" : "items-start",
+        className,
+      )}
+    >
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="text-sm font-medium leading-5 text-foreground">{title}</div>
+        {description ? (
+          <div className="text-sm leading-5 text-muted-foreground">{description}</div>
+        ) : null}
+        {children}
+      </div>
+      {actions ? (
+        <div
+          className={cn(
+            "shrink-0",
+            align === "start" ? "pt-0.5" : "self-center",
+          )}
+        >
+          {actions}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export interface SettingsPanelProps extends SettingsLayoutProps {
   size?: "default" | "comfortable";
   tone?: "surface" | "soft";

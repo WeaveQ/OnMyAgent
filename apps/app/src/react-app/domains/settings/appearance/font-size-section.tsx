@@ -9,17 +9,7 @@ import {
   fontZoomPresetIndex,
 } from "../../../../app/lib/font-zoom";
 import { useFontZoom } from "../../../shell/font-zoom";
-import {
-  LayoutSection,
-  LayoutSectionDescription,
-  LayoutSectionHeader,
-  LayoutSectionItem,
-  LayoutSectionItemDescription,
-  LayoutSectionItemHeader,
-  LayoutSectionItemHeaderActions,
-  LayoutSectionItemTitle,
-  LayoutSectionTitle,
-} from "../settings-layout";
+import { SettingsBlock, SettingsBlockRow } from "../settings-section";
 
 function labelForPresetIndex(index: number): string {
   const zoom = FONT_ZOOM_PRESETS[index] ?? 1;
@@ -34,10 +24,9 @@ function labelForPresetIndex(index: number): string {
 }
 
 /**
- * Settings row: SelectMenu with full zoom preset list (80%–160%).
- * Shares state with ⌘/Ctrl +/- /0 via the font-zoom controller.
+ * Single block-row for font size. Parent supplies the section title.
  */
-export function FontSizeSection() {
+export function FontSizeBlockRow() {
   const { value, setValue } = useFontZoom();
   const selectedIndex = fontZoomPresetIndex(value);
   const selectedValue = String(selectedIndex);
@@ -48,41 +37,41 @@ export function FontSizeSection() {
         value: String(index),
         label: labelForPresetIndex(index),
       })),
-    // Labels depend on locale; parent re-renders on locale change.
     [],
   );
 
   return (
-    <LayoutSection>
-      <LayoutSectionHeader>
-        <LayoutSectionTitle>{t("settings.font_size_title")}</LayoutSectionTitle>
-        <LayoutSectionDescription>
-          {t("settings.font_size_desc")}
-        </LayoutSectionDescription>
-      </LayoutSectionHeader>
+    <SettingsBlockRow
+      title={t("settings.font_size_label")}
+      description={t("settings.font_size_hint")}
+      actions={
+        <SelectMenu
+          ariaLabel={t("settings.font_size_label")}
+          options={options}
+          value={selectedValue}
+          onChange={(next) => {
+            const index = Number(next);
+            if (!Number.isFinite(index)) return;
+            setValue(fontZoomFromPresetIndex(index));
+          }}
+        />
+      }
+    />
+  );
+}
 
-      <LayoutSectionItem>
-        <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>
-            {t("settings.font_size_label")}
-          </LayoutSectionItemTitle>
-          <LayoutSectionItemDescription>
-            {t("settings.font_size_hint")}
-          </LayoutSectionItemDescription>
-          <LayoutSectionItemHeaderActions>
-            <SelectMenu
-              ariaLabel={t("settings.font_size_label")}
-              options={options}
-              value={selectedValue}
-              onChange={(next) => {
-                const index = Number(next);
-                if (!Number.isFinite(index)) return;
-                setValue(fontZoomFromPresetIndex(index));
-              }}
-            />
-          </LayoutSectionItemHeaderActions>
-        </LayoutSectionItemHeader>
-      </LayoutSectionItem>
-    </LayoutSection>
+/** @deprecated Prefer composing SettingsBlock + FontSizeBlockRow in the page. */
+export function FontSizeSection() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-lg font-medium text-foreground">
+          {t("settings.font_size_title")}
+        </h3>
+      </div>
+      <SettingsBlock>
+        <FontSizeBlockRow />
+      </SettingsBlock>
+    </div>
   );
 }
