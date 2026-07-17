@@ -133,7 +133,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
             <div className="text-xs text-dls-secondary">{props.part.toolName}</div>
             {subtitle ? <div className="text-xs text-dls-secondary">{subtitle}</div> : null}
           </div>
-          <StatusBadge tone={toolCallStatusTone(status)}>
+          <StatusBadge tone={toolCallStatusTone(status)} shape="pill" size="tiny">
             {status}
           </StatusBadge>
         </div>

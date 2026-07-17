@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { t } from "../../../../i18n";
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { shellChrome } from "@/react-app/design-system/type-scale";
 
 type StorePrimaryTab = "experts" | "skills";
 type StorePrimaryTabItem = readonly [StorePrimaryTab, string];
@@ -25,7 +26,7 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-background px-6">
+      <div className={shellChrome.pageHeaderSimple}>
         <SegmentedTabGroup density="filter">
           {tabs.map(([tab, label]) => (
             <NavTabButton
@@ -33,8 +34,8 @@ export function StorePage(props: {
               type="button"
               onClick={() => setActiveTab(tab)}
               active={activeTab === tab}
-              size="filter"
-              shape="pill"
+              size="tab"
+              shape="tab"
             >
               {label}
             </NavTabButton>

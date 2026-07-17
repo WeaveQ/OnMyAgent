@@ -66,8 +66,8 @@ export function AssistantCategorySwitch(props: {
               aria-selected={active}
               onClick={() => props.onChange(item.id)}
               active={active}
-              size="filter"
-              shape="pill"
+              size="tab"
+              shape="tab"
             >
               <Icon className="size-3.5 shrink-0 opacity-80" />
               <span>{item.label}</span>

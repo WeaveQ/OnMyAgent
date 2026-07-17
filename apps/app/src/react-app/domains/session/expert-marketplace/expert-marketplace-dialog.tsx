@@ -101,7 +101,7 @@ function ExpertCard(props: {
       {props.expert.tags.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {props.expert.tags.slice(0, 3).map((tag) => (
-            <StatusBadge key={tag} tone="surface" shape="pill" size="tiny">
+            <StatusBadge key={tag} tone="surface" shape="soft" size="tiny">
               {tag}
             </StatusBadge>
           ))}

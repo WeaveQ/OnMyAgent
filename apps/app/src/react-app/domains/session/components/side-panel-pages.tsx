@@ -21,6 +21,7 @@ import { CountBadge } from "@/components/ui/status-badge";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
+import { shellChrome } from "@/react-app/design-system/type-scale";
 import type { SidebarPrimaryView } from "../sidebar/app-sidebar";
 import {
   ExpertMarketplacePage,
@@ -301,8 +302,8 @@ function StorePrimaryTabs(props: {
             type="button"
             onClick={() => props.onChange(item.id)}
             active={active}
-            size="filter"
-            shape="pill"
+            size="tab"
+            shape="tab"
             className="mac:titlebar-no-drag"
             aria-pressed={active}
           >
@@ -361,7 +362,7 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-dls-border bg-dls-background px-6 mac:titlebar-drag">
+      <div className={cn(shellChrome.pageHeader, "mac:titlebar-drag")}>
         {activeTab === "experts" && expertView === "mine" ? (
           <Button
             type="button"
