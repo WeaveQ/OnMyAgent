@@ -59,15 +59,15 @@ function SkillStateGlyph(props: {
     );
   }
   if (props.state === "available") {
-    // Always-visible soft + so empty columns don't read as unfinished hollow dots.
+    // Always-visible soft + ; hover lifts contrast without flashing a white fill.
     return (
       <span
         className={cn(
           "flex items-center justify-center rounded-full font-medium leading-none",
           sizeClass,
-          "border border-dashed border-dls-border text-dls-secondary/70",
+          "border border-dashed border-dls-border/80 bg-transparent text-dls-secondary/80",
           props.size !== "legend" &&
-            "transition-colors group-hover/cell:border-dls-secondary group-hover/cell:text-dls-secondary",
+            "transition-colors group-hover/cell:border-dls-border-strong group-hover/cell:bg-dls-surface-muted group-hover/cell:text-dls-text",
         )}
       >
         +
@@ -102,6 +102,7 @@ function SkillMatrixCell(props: {
   return (
     <Tooltip>
       <TooltipTrigger
+        delay={280}
         render={
           <MatrixButton
             type="button"
@@ -109,7 +110,9 @@ function SkillMatrixCell(props: {
             onClick={interactive ? props.onClick : undefined}
             interactive={interactive}
             className={cn(
-              interactive && "hover:bg-dls-hover",
+              // Quiet cell hover — avoid bright wash behind empty + glyphs.
+              interactive && props.state === "available" && "hover:bg-transparent",
+              interactive && props.state !== "available" && "hover:bg-dls-hover",
               props.state === "native" && "hover:brightness-95",
             )}
             aria-label={props.tooltip}
@@ -118,7 +121,9 @@ function SkillMatrixCell(props: {
           </MatrixButton>
         }
       />
-      <TooltipContent side="bottom"><span>{props.tooltip}</span></TooltipContent>
+      <TooltipContent side="bottom">
+        <span>{props.tooltip}</span>
+      </TooltipContent>
     </Tooltip>
   );
 }
