@@ -79,7 +79,7 @@ const reloadWorkspaceToastClass = {
   errorText: "text-dls-status-danger-fg",
   warningText: "text-dls-status-warning",
   reloadButton: "h-auto px-0 align-baseline font-medium text-dls-text underline-offset-2 hover:text-dls-text/80 disabled:cursor-not-allowed disabled:opacity-60",
-  dismissButton: "shrink-0 rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+  dismissButton: "shrink-0 rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
 };
 
 export function ReloadWorkspaceToast(props: ReloadWorkspaceToastProps) {

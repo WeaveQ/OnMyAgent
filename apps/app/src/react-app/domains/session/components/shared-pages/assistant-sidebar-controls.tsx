@@ -53,11 +53,8 @@ export function AssistantCategorySwitch(props: {
   ];
 
   return (
-    <div className="mb-3 w-full px-0 mac:titlebar-no-drag">
-      <SegmentedTabGroup
-        className="flex h-9 w-full gap-0.5 rounded-full border-dls-border bg-dls-surface-muted/80 p-0.5"
-        role="tablist"
-      >
+    <div className="mb-3 flex w-full justify-start mac:titlebar-no-drag">
+      <SegmentedTabGroup density="filter" role="tablist">
         {items.map((item) => {
           const Icon = item.icon;
           const active = props.value === item.id;
@@ -69,16 +66,11 @@ export function AssistantCategorySwitch(props: {
               aria-selected={active}
               onClick={() => props.onChange(item.id)}
               active={active}
-              size="default"
+              size="filter"
               shape="pill"
-              className={
-                active
-                  ? "h-8 min-w-0 flex-1 gap-1.5 px-3 text-xs font-medium"
-                  : "h-8 min-w-0 flex-1 gap-1.5 px-3 text-xs font-medium text-dls-secondary hover:text-dls-text"
-              }
             >
               <Icon className="size-3.5 shrink-0 opacity-80" />
-              <span className="truncate">{item.label}</span>
+              <span>{item.label}</span>
             </NavTabButton>
           );
         })}

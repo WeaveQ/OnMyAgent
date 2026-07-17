@@ -219,7 +219,7 @@ export function ExpertMarketplacePage(props: {
                   size="lg"
                 />
                 <div className="min-w-0">
-                  <div className="text-xl font-semibold text-dls-text">
+                  <div className="text-lg font-medium leading-7 text-dls-text">
                     {selectedExpert.displayName}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1.5">

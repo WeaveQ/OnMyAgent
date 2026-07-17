@@ -669,19 +669,19 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
               <div className="text-sm font-medium">
                 {t("settings.computer_use_skysight_exclusions")}
               </div>
-              <SegmentedTabGroup className="w-fit">
+              <SegmentedTabGroup density="filter">
                 <NavTabButton
                   active={skysightExclusionScope === "app"}
-                  size="tab"
-                  shape="tab"
+                  size="filter"
+                  shape="pill"
                   onClick={() => setSkysightExclusionScope("app")}
                 >
                   {t("settings.computer_use_skysight_exclusion_app")}
                 </NavTabButton>
                 <NavTabButton
                   active={skysightExclusionScope === "website"}
-                  size="tab"
-                  shape="tab"
+                  size="filter"
+                  shape="pill"
                   onClick={() => setSkysightExclusionScope("website")}
                 >
                   {t("settings.computer_use_skysight_exclusion_website")}

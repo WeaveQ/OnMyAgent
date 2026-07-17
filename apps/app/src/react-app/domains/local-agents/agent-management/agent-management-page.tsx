@@ -601,10 +601,10 @@ export function AgentManagementPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-background px-6">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-medium text-dls-text">
+          <h2 className="truncate text-lg font-medium leading-7 text-dls-text">
             {t("agent_manager.title")}
           </h2>
-          <p className="truncate text-xs text-dls-secondary">
+          <p className="truncate text-sm leading-5 text-dls-secondary">
             {t("agent_manager.description")}
           </p>
         </div>
@@ -636,7 +636,7 @@ export function AgentManagementPage(props: {
 
           <div className="flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <SegmentedTabGroup className="h-9 gap-0.5 rounded-xl border-dls-border bg-dls-surface-muted/80 p-0.5">
+              <SegmentedTabGroup density="filter">
                 {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
                   (tab) => {
                     const Icon = tab.icon;
@@ -646,14 +646,8 @@ export function AgentManagementPage(props: {
                         key={tab.id}
                         active={active}
                         onClick={() => setActivePanel(tab.id)}
-                        size="default"
-                        shape="tab"
-                        className={cn(
-                          "h-8 gap-1.5 px-2.5 text-xs font-medium",
-                          active
-                            ? "bg-dls-surface text-dls-text shadow-sm"
-                            : "text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text",
-                        )}
+                        size="filter"
+                        shape="pill"
                       >
                         <Icon className="size-3.5 shrink-0" />
                         {t(tab.labelKey)}
@@ -725,20 +719,20 @@ export function AgentManagementPage(props: {
                       {filteredDetectedAgents.length} / {detectedAgents.length}
                     </span>
                   </div>
-                  <SegmentedTabGroup>
-                    <NavTabButton active={agentFilter === "all"} onClick={() => setAgentFilter("all")} size="tab" shape="tab">
+                  <SegmentedTabGroup density="panel">
+                    <NavTabButton active={agentFilter === "all"} onClick={() => setAgentFilter("all")} size="filter" shape="pill">
                       {t("agent_manager.filter_all")}
                     </NavTabButton>
-                    <NavTabButton active={agentFilter === "available"} onClick={() => setAgentFilter("available")} size="tab" shape="tab">
+                    <NavTabButton active={agentFilter === "available"} onClick={() => setAgentFilter("available")} size="filter" shape="pill">
                       {t("agent_manager.filter_available")}
                     </NavTabButton>
-                    <NavTabButton active={agentFilter === "unavailable"} onClick={() => setAgentFilter("unavailable")} size="tab" shape="tab">
+                    <NavTabButton active={agentFilter === "unavailable"} onClick={() => setAgentFilter("unavailable")} size="filter" shape="pill">
                       {t("agent_manager.filter_unavailable")}
                     </NavTabButton>
-                    <NavTabButton active={agentFilter === "needs_auth"} onClick={() => setAgentFilter("needs_auth")} size="tab" shape="tab">
+                    <NavTabButton active={agentFilter === "needs_auth"} onClick={() => setAgentFilter("needs_auth")} size="filter" shape="pill">
                       {t("local_agent.filter_needs_auth")}
                     </NavTabButton>
-                    <NavTabButton active={agentFilter === "missing"} onClick={() => setAgentFilter("missing")} size="tab" shape="tab">
+                    <NavTabButton active={agentFilter === "missing"} onClick={() => setAgentFilter("missing")} size="filter" shape="pill">
                       {t("local_agent.filter_missing")}
                     </NavTabButton>
                   </SegmentedTabGroup>

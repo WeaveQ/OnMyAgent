@@ -7,6 +7,7 @@ import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { currentLocale, t } from "@/i18n";
 import {
@@ -155,16 +156,16 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
           >
             {initials(props.identity.name)}
           </div>
-          <h2 className="mt-4 truncate text-xl font-medium tracking-tight text-dls-text">
+          <h2 className="mt-4 truncate text-lg font-medium leading-7 tracking-tight text-dls-text">
             {props.identity.name}
           </h2>
           <div className="mt-2 flex min-w-0 flex-wrap items-center justify-center gap-2 text-sm text-dls-secondary">
             {props.identity.email ? (
               <span className="max-w-80 truncate">{props.identity.email}</span>
             ) : null}
-            <span className="rounded-full border border-dls-border bg-dls-surface-solid px-2.5 py-0.5 text-xs text-dls-secondary">
+            <StatusBadge tone="neutral" shape="soft" size="sm">
               {t("session.usage_profile_plan")}
-            </span>
+            </StatusBadge>
           </div>
         </section>
 
@@ -220,6 +221,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   {t("session.usage_activity")}
                 </h2>
                 <SegmentedTabGroup
+                  density="filter"
                   role="tablist"
                   aria-label={t("session.usage_activity_mode_label")}
                 >
@@ -228,11 +230,10 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                       key={mode}
                       type="button"
                       role="tab"
-                      size="default"
+                      size="filter"
                       shape="pill"
                       active={activityMode === mode}
                       aria-selected={activityMode === mode}
-                      className="px-2.5 py-0 text-xs font-medium"
                       onClick={() => setActivityMode(mode)}
                     >
                       {usageActivityModeLabel(mode)}

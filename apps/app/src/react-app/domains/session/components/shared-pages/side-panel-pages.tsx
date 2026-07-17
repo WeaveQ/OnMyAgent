@@ -292,7 +292,7 @@ function StorePrimaryTabs(props: {
   ];
 
   return (
-    <SegmentedTabGroup className="h-8 w-fit shrink-0 gap-0.5 rounded-full p-0.5 mac:titlebar-no-drag">
+    <SegmentedTabGroup density="filter" className="mac:titlebar-no-drag">
       {items.map((item) => {
         const active = props.value === item.id;
         return (
@@ -301,9 +301,9 @@ function StorePrimaryTabs(props: {
             type="button"
             onClick={() => props.onChange(item.id)}
             active={active}
-            size="default"
+            size="filter"
             shape="pill"
-            className="h-7 w-auto shrink-0 px-3 text-xs font-medium mac:titlebar-no-drag"
+            className="mac:titlebar-no-drag"
             aria-pressed={active}
           >
             <span>{item.label}</span>
