@@ -301,9 +301,9 @@ export function HeartbeatPanel(props: {
             </div>
           );
         }) : (
-          <div className="rounded-lg border border-dashed border-dls-border px-3 py-3 text-center text-xs text-dls-secondary">
+          <EmptyStateBox size="compact" className="text-center text-xs">
             {t("local_agent.heartbeat_empty")}
-          </div>
+          </EmptyStateBox>
         )}
       </div>
       </ScheduleSection>
