@@ -25,6 +25,7 @@ import {
   filterToolMenuItems,
   formatPluginObjectType,
   pluginSkillFileSearchText,
+  skillMenuDescription,
   type CollaborationModeOptionKey,
 } from "./tool-menu-model";
 import {
@@ -1171,19 +1172,22 @@ export function ReactSessionComposer(props: ComposerProps) {
                             </div>
                           ) : toolMenuSection === "skills" ? (
                             <div className="space-y-2 border-b border-dls-border px-3 py-2">
+                              {/* Match connectors panel: title + quiet configure, then search */}
                               <div className="flex min-h-8 items-center justify-between gap-3">
-                                <div className="text-sm font-medium text-dls-text">{t("dashboard.skills")}</div>
+                                <div className="text-sm font-medium text-dls-text">
+                                  {t("dashboard.skills")}
+                                </div>
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="ghost"
                                   size="xs"
-                                  className="shrink-0 text-dls-secondary hover:bg-dls-surface-muted"
+                                  className="shrink-0 gap-1 text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
                                   onClick={() => {
                                     setToolMenuOpen(false);
                                     openToolMenuSettings();
                                   }}
                                 >
-                                  <Settings size={12} />
+                                  <Settings className="size-3.5" />
                                   {t("composer.configure")}
                                 </Button>
                               </div>
@@ -1341,41 +1345,51 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                             {toolMenuSection === "skills" ? (
                               hasSkillMatches ? (
-                                <div className="grid min-w-0 gap-1">
-                                  {filteredSkillItems.map((command) => (
-                                    <MenuRowButton
-                                      key={command.id}
-                                      type="button"
-                                      className="w-full min-w-0 max-w-full overflow-hidden"
-                                      onClick={() => applyCommandSelection(command)}
-                                    >
-                                      <Zap size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                                      <div className="min-w-0 flex-1 overflow-hidden">
-                                        <div className="truncate text-xs font-medium text-dls-text">
-                                          /{command.name}
+                                <div className="grid min-w-0 gap-0.5">
+                                  {filteredSkillItems.map((command) => {
+                                    const description = skillMenuDescription(command.description);
+                                    return (
+                                      <MenuRowButton
+                                        key={command.id}
+                                        type="button"
+                                        align="center"
+                                        className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
+                                        onClick={() => applyCommandSelection(command)}
+                                      >
+                                        {/* Same icon tile language as connector extension rows */}
+                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                          <Zap className="size-3.5 text-dls-secondary" aria-hidden="true" />
                                         </div>
-                                        {command.description ? (
-                                          <div className="truncate text-xs text-dls-secondary">
-                                            {command.description}
+                                        <div className="min-w-0 flex-1 overflow-hidden">
+                                          <div className="truncate text-sm font-medium text-dls-text">
+                                            {command.name}
                                           </div>
-                                        ) : null}
-                                      </div>
-                                    </MenuRowButton>
-                                  ))}
+                                          {description ? (
+                                            <div className="truncate text-xs text-dls-secondary">
+                                              {description}
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      </MenuRowButton>
+                                    );
+                                  })}
                                   {filteredPluginSkillFiles.map((file) => (
                                     <MenuRowButton
                                       key={`${file.configObjectId}:${file.path}`}
                                       type="button"
-                                      className="w-full min-w-0 max-w-full overflow-hidden"
+                                      align="center"
+                                      className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
                                       onClick={() => applyPluginFileSelection(file)}
                                     >
-                                      <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                        <FileText className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                      </div>
                                       <div className="min-w-0 flex-1 overflow-hidden">
                                         <div className="flex min-w-0 items-center justify-between gap-2">
-                                          <div className="min-w-0 truncate text-xs font-medium text-dls-text">
+                                          <div className="min-w-0 truncate text-sm font-medium text-dls-text">
                                             {file.title}
                                           </div>
-                                          <StatusBadge size="tiny" tone="neutral" className="shrink-0">
+                                          <StatusBadge size="tiny" tone="neutral" shape="soft" className="shrink-0">
                                             {formatPluginObjectType(file.objectType)}
                                           </StatusBadge>
                                         </div>
