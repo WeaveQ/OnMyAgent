@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DESKTOP_HANDLER_COMMANDS } from "../electron/desktop-handlers/index.mjs";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
 const repoRoot = resolve(desktopRoot, "../..");
@@ -33,9 +35,8 @@ const bridgeMethods = destructure[1]
   .filter(Boolean)
   .filter((name) => !clientOnlyBridgeMethods.has(name));
 
-const electronHandlers = new Set(
-  Array.from(electronMainSource.matchAll(/case\s+"([^"]+)"\s*:/g)).map((match) => match[1]),
-);
+// Domain handlers live under electron/desktop-handlers/*; main only wires them.
+const electronHandlers = new Set(DESKTOP_HANDLER_COMMANDS);
 const missing = bridgeMethods.filter((name) => !electronHandlers.has(name));
 
 const requiredMainSnippets = [
