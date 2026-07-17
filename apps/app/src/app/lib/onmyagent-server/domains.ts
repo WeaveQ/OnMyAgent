@@ -22,6 +22,8 @@ export type OnMyAgentSessionClient = Pick<OnMyAgentServerClient,
 
 export type OnMyAgentExtensionClient = Pick<OnMyAgentServerClient,
   | "listPlugins" | "addPlugin" | "removePlugin" | "listSkills" | "listHubSkills"
+  | "listArtifactPlugins" | "getArtifactPlugin" | "setArtifactPluginEnabled"
+  | "setArtifactPluginSkillEnabled" | "getArtifactPluginConnection"
   | "installHubSkill" | "getSkill" | "upsertSkill" | "deleteSkill" | "listMcp"
   | "addMcp" | "removeMcp" | "setMcpEnabled" | "logoutMcpAuth"
   | "listCommands" | "upsertCommand" | "deleteCommand" | "listAutomations"

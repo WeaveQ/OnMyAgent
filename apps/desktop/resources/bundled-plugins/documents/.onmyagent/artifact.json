@@ -1,0 +1,18 @@
+{
+  "skills": [
+    {
+      "id": "documents",
+      "defaultEnabled": true
+    }
+  ],
+  "routing": {
+    "extensions": [".docx"],
+    "mimeTypes": [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ]
+  },
+  "runtime": {
+    "entry": "runtime/artifact_runtime.py",
+    "requiredTools": ["python", "libreoffice"]
+  }
+}

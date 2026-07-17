@@ -21,6 +21,8 @@ import { CodeToken } from "@/components/ui/code-token";
 import { IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import {
   DropdownMenu,
@@ -36,6 +38,23 @@ import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
+import { ArtifactPluginCard } from "./artifact-plugin-card";
+import {
+  loadArtifactPluginCatalog,
+  loadArtifactPluginDetail,
+  type ArtifactPluginDetail as ArtifactPluginDetailModel,
+} from "./artifact-plugin-client";
+import {
+  ArtifactPluginDetail,
+  type ArtifactPluginDetailLabels,
+} from "./artifact-plugin-detail";
+import { createArtifactPluginState } from "./artifact-plugin-state";
+
+export type ArtifactPluginPromptSelection = {
+  pluginId: string;
+  skillId: string;
+  prompt: string;
+};
 
 type PluginsPageProps = {
   workspaceId: string;
@@ -43,6 +62,7 @@ type PluginsPageProps = {
   client?: OnMyAgentServerClient | null;
   marketOnly?: boolean;
   searchQuery?: string;
+  onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
 };
 
 type PluginCategory =
@@ -526,6 +546,176 @@ function PluginCard(props: { item: PluginItem }) {
   );
 }
 
+function artifactPluginLabels(): ArtifactPluginDetailLabels {
+  return {
+    pluginEnabled: t("plugins.artifact_plugin_toggle"),
+    skillEnabled: (name) => t("plugins.artifact_skill_toggle", { name }),
+    starterPrompts: t("plugins.artifact_starter_prompts"),
+    skills: t("plugins.artifact_skills"),
+    unavailable: t("plugins.artifact_excel_unavailable"),
+    enabled: t("plugins.artifact_enabled"),
+    disabled: t("plugins.artifact_disabled"),
+  };
+}
+
+function ArtifactPluginsCatalog(props: PluginsPageProps) {
+  const [pluginState] = useState(() => createArtifactPluginState([]));
+  const [, setRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [mutationError, setMutationError] = useState(false);
+  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<ArtifactPluginDetailModel | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(
+    () => pluginState.subscribe(() => setRevision((revision) => revision + 1)),
+    [pluginState],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!props.client || !props.workspaceId) {
+      setLoading(false);
+      setLoadError(true);
+      return;
+    }
+
+    setLoading(true);
+    setLoadError(false);
+    void loadArtifactPluginCatalog(props.client, props.workspaceId)
+      .then(({ items }) => {
+        if (!cancelled) pluginState.replace(items);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pluginState, props.client, props.workspaceId]);
+
+  const plugins = pluginState.list();
+  const selectedPlugin = selectedPluginId ? pluginState.get(selectedPluginId) : undefined;
+  const labels = artifactPluginLabels();
+
+  const setPluginEnabled = async (pluginId: string, enabled: boolean) => {
+    if (!props.client) return;
+    setMutationError(false);
+    try {
+      await pluginState.setPluginEnabled(pluginId, enabled, async () => {
+        await props.client?.setArtifactPluginEnabled(props.workspaceId, pluginId, enabled);
+      });
+    } catch {
+      setMutationError(true);
+    }
+  };
+
+  const setSkillEnabled = async (pluginId: string, skillId: string, enabled: boolean) => {
+    if (!props.client) return;
+    setMutationError(false);
+    try {
+      await pluginState.setSkillEnabled(pluginId, skillId, enabled, async () => {
+        await props.client?.setArtifactPluginSkillEnabled(
+          props.workspaceId,
+          pluginId,
+          skillId,
+          enabled,
+        );
+      });
+    } catch {
+      setMutationError(true);
+    }
+  };
+
+  const openPlugin = async (pluginId: string) => {
+    if (!props.client) return;
+    setSelectedPluginId(pluginId);
+    setSelectedDetail(null);
+    setDetailLoading(true);
+    setLoadError(false);
+    try {
+      const detail = await loadArtifactPluginDetail(props.client, props.workspaceId, pluginId);
+      setSelectedDetail(detail);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  return (
+    <section className="space-y-6" aria-labelledby="artifact-plugins-heading">
+      <div>
+        <h2 id="artifact-plugins-heading" className="font-heading text-lg font-semibold text-dls-text">
+          {t("plugins.artifact_title")}
+        </h2>
+        <p className="mt-1 text-sm text-dls-secondary">
+          {t("plugins.artifact_description")}
+        </p>
+      </div>
+
+      {mutationError ? (
+        <NoticeBox tone="error" role="alert">
+          {t("plugins.artifact_update_error")}
+        </NoticeBox>
+      ) : null}
+
+      {loading ? (
+        <div className="flex min-h-20 items-center justify-center" role="status" aria-label={t("plugins.artifact_loading")}>
+          <LoadingSpinner />
+        </div>
+      ) : loadError ? (
+        <NoticeBox tone="error" role="alert">
+          {t("plugins.artifact_load_error")}
+        </NoticeBox>
+      ) : plugins.length === 0 ? (
+        <EmptyStateBox size="comfortable">
+          {t("plugins.artifact_empty")}
+        </EmptyStateBox>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {plugins.map((plugin) => (
+            <ArtifactPluginCard
+              key={plugin.id}
+              plugin={plugin}
+              enabledLabel={labels.enabled}
+              disabledLabel={labels.disabled}
+              openLabel={t("plugins.artifact_open")}
+              toggleLabel={t("plugins.artifact_card_toggle", { name: plugin.manifest.interface.displayName })}
+              onOpen={() => void openPlugin(plugin.id)}
+              onEnabledChange={(enabled) => setPluginEnabled(plugin.id, enabled)}
+            />
+          ))}
+        </div>
+      )}
+
+      {detailLoading ? (
+        <div className="flex min-h-20 items-center justify-center" role="status" aria-label={t("plugins.artifact_detail_loading")}>
+          <LoadingSpinner />
+        </div>
+      ) : selectedPlugin && selectedDetail ? (
+        <ArtifactPluginDetail
+          plugin={{ ...selectedPlugin, connection: selectedDetail.connection }}
+          labels={labels}
+          onSelectPrompt={(pluginId, skillId, prompt) =>
+            props.onSelectArtifactPrompt?.({ pluginId, skillId, prompt })
+          }
+          starterPromptsDisabled={!props.onSelectArtifactPrompt}
+          onPluginEnabledChange={(enabled) => setPluginEnabled(selectedPlugin.id, enabled)}
+          onSkillEnabledChange={(skillId, enabled) =>
+            setSkillEnabled(selectedPlugin.id, skillId, enabled)
+          }
+        />
+      ) : null}
+    </section>
+  );
+}
+
 export function PluginsPage(props: PluginsPageProps) {
   const categories = useMemo(() => getPluginCategories(), []);
   const samplePlugins = useMemo(() => getSamplePlugins(), []);
@@ -547,6 +737,7 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
+          <ArtifactPluginsCatalog {...props} />
           {categories.map((category) => {
             const items = filteredByCategory.get(category.id) ?? [];
             if (items.length === 0) return null;

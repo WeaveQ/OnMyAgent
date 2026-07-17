@@ -1,14 +1,32 @@
 ---
 name: pdf
-description: Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/decrypting PDFs, extracting images, and OCR on scanned PDFs to make them searchable. If the user mentions a .pdf file or asks to produce one, use this skill.
-display_name_zh: "PDF 处理"
-display_name_en: "PDF Processing"
-description_zh: "读取、创建、合并、拆分、加水印、OCR、加密和提取 PDF 内容"
-description_en: "Read, create, merge, split, watermark, OCR, encrypt and extract PDF content"
+description: "Read, create, inspect, extract, edit, render, and verify PDF files when the durable input or output is a PDF and visual layout matters. Covers text and table extraction, merge, split, rotation, watermarking, forms, OCR, encryption, metadata, and image extraction."
+display_name_zh: "PDF"
+display_name_en: "PDF"
+description_zh: "读取、创建、检查、提取、渲染并验证 PDF 文件"
+description_en: "Read, create, inspect, extract, render, and verify PDF files"
 license: Proprietary. LICENSE.txt has complete terms
 ---
 
 # PDF Processing Guide
+
+## OnMyAgent execution contract
+
+- Work on a copy unless the user explicitly requests an in-place edit.
+- Choose the narrowest suitable tool: page-tree libraries for merge/split/metadata, layout-aware extraction for text and tables, a PDF authoring library for creation, OCR only for scanned pages, and the bundled form scripts for AcroForm tasks.
+- Never claim an encrypted file was decrypted, a signature was preserved, or a form was updated without reopening and checking the result.
+- Do not expose extracted sensitive information beyond the user's requested scope.
+
+## Required visual verification
+
+For any created or modified PDF:
+
+1. Reopen the result and verify page count, encryption state, page dimensions, and expected extractable text or form fields.
+2. Run `python scripts/convert_pdf_to_images.py <input.pdf> <qa-dir>`.
+3. Inspect every rendered page for blank output, clipping, overlap, missing glyphs, broken tables, incorrect rotation, and inconsistent margins.
+4. Fix defects and repeat the render before delivery.
+
+If neither Poppler nor the Python rendering dependency is available, report that visual QA was not executed and do not describe the PDF as visually verified.
 
 ## Overview
 

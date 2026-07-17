@@ -20,6 +20,8 @@ extraResources:
     to: app-dist
   - from: resources/bundled-skills
     to: bundled-skills
+  - from: resources/bundled-plugins
+    to: bundled-plugins
   - from: resources/marketplace
     to: marketplace
   - from: resources/browser-use

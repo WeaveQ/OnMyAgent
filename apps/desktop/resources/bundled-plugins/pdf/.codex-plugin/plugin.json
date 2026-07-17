@@ -1,0 +1,32 @@
+{
+  "name": "pdf",
+  "version": "1.0.0",
+  "description": "Read, create, inspect, and transform PDF files.",
+  "author": {
+    "name": "OnMyAgent",
+    "url": "https://github.com/WeaveQ/onmyagent"
+  },
+  "homepage": "https://github.com/WeaveQ/onmyagent",
+  "repository": "https://github.com/WeaveQ/onmyagent",
+  "license": "Apache-2.0",
+  "keywords": ["pdf", "documents", "forms"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PDF",
+    "shortDescription": "Inspect and produce PDF files.",
+    "longDescription": "Read, create, extract, edit, render, and verify durable PDF files.",
+    "developerName": "OnMyAgent",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/WeaveQ/onmyagent",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.svg",
+    "defaultPrompt": [
+      "Summarize the key findings in this PDF.",
+      "Create a clean PDF handout from this content.",
+      "Inspect these PDF pages for layout problems."
+    ],
+    "brandColor": "#D1495B",
+    "screenshots": []
+  }
+}

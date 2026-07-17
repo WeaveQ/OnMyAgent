@@ -11,6 +11,13 @@ import { recordAudit } from "../services/audit.js";
 import { ApiError } from "../core/errors.js";
 import { installHubSkill, listHubSkills } from "../services/skill-hub.js";
 import { deleteSkill, listSkills, upsertSkill } from "../services/skills.js";
+import {
+  artifactPluginEnablementPath,
+  readArtifactPluginEnablement,
+  resolveEffectiveArtifactSkills,
+} from "../services/artifact-plugin-enablement.js";
+import { scanArtifactPlugins } from "../services/artifact-plugin-registry.js";
+import { bundledArtifactPluginsDir } from "../workspace/workspace-files.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import { shortId } from "../core/utils.js";
 
@@ -60,7 +67,11 @@ export function registerSkillRoutes(input: {
   addRoute(routes, "GET", "/workspace/:id/skills", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const includeGlobal = ctx.url.searchParams.get("includeGlobal") === "true";
-    const items = await listSkills(workspace.path, includeGlobal);
+    const items = await listSkills(
+      workspace.path,
+      includeGlobal,
+      await loadArtifactSkillOptions(config),
+    );
     return systemJsonResponse({ items });
   });
 
@@ -126,7 +137,11 @@ export function registerSkillRoutes(input: {
       if (!name) {
         throw new ApiError(400, "invalid_skill_name", "Skill name is required");
       }
-      const items = await listSkills(workspace.path, includeGlobal);
+      const items = await listSkills(
+        workspace.path,
+        includeGlobal,
+        await loadArtifactSkillOptions(config),
+      );
       const item = items.find((skill) => skill.name === name);
       if (!item) {
         throw new ApiError(404, "skill_not_found", `Skill not found: ${name}`);
@@ -216,6 +231,31 @@ export function registerSkillRoutes(input: {
       return systemJsonResponse({ ok: true, name, path: result.path });
     },
   );
+}
+
+async function loadArtifactSkillOptions(config: ServerConfig) {
+  const root = bundledArtifactPluginsDir();
+  if (!root) {
+    return {
+      artifactSkillIds: new Set<string>(),
+      effectiveArtifactSkillIds: new Set<string>(),
+    };
+  }
+  const catalog = await scanArtifactPlugins(root);
+  const enablement = await readArtifactPluginEnablement(
+    artifactPluginEnablementPath(config.configPath),
+  );
+  return {
+    artifactSkillIds: new Set(
+      catalog.items.flatMap((plugin) =>
+        plugin.runtime.skills.map((skill) => skill.id),
+      ),
+    ),
+    effectiveArtifactSkillIds: resolveEffectiveArtifactSkills(
+      catalog,
+      enablement,
+    ),
+  };
 }
 
 function parseHubRepoPayload(value: unknown) {

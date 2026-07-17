@@ -1,10 +1,10 @@
 ---
-name: docx
-description: "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce professional documents with formatting like tables of contents, headings, page numbers, or letterheads. Also use when extracting or reorganizing content from .docx files, inserting or replacing images in documents, performing find-and-replace in Word files, working with tracked changes or comments, or converting content into a polished Word document. If the user asks for a 'report', 'memo', 'letter', 'template', or similar deliverable as a Word or .docx file, use this skill. Do NOT use for PDFs, spreadsheets, Google Docs, or general coding tasks unrelated to document generation."
-display_name_zh: "Word 文档"
-display_name_en: "Word Documents"
-description_zh: "创建、读取、编辑和处理 Word 文档（.docx 文件）"
-description_en: "Create, read, edit, or manipulate Word documents (.docx files)"
+name: documents
+description: "Create, read, edit, review, render, and verify local DOCX and Word-compatible document artifacts. Use for documents, docs, Word files, .docx, memos, reports, letters, templates, tracked changes, comments, or a local DOCX intended for later Google Docs import. Do not use when the durable target is a PDF or spreadsheet."
+display_name_zh: "Documents 文档"
+display_name_en: "Documents"
+description_zh: "创建、编辑、审阅、渲染并验证 DOCX 与 Word 兼容文档"
+description_en: "Create, edit, review, render, and verify DOCX and Word-compatible documents"
 license: Proprietary. LICENSE.txt has complete terms
 ---
 
@@ -13,6 +13,25 @@ license: Proprietary. LICENSE.txt has complete terms
 ## Overview
 
 A .docx file is a ZIP archive containing XML files.
+
+## OnMyAgent execution contract
+
+- Work on a copy unless the user explicitly requests an in-place edit.
+- Use the scripts in this skill directory through paths resolved relative to this `SKILL.md`; do not assume a Codex-only runtime or connector exists.
+- For an existing document, preserve its page geometry, styles, numbering, headers, footers, relationships, and template conventions. Make the smallest change that satisfies the request.
+- For a new document, set page size, margins, font, heading hierarchy, list numbering, table widths, and image alternative text explicitly instead of relying on application defaults.
+- A Google Docs target is first delivered as a verified local DOCX. Import it only when the current session exposes a real Google Drive/Docs connector; never claim a cloud document was created without a successful connector result.
+
+## Required visual verification
+
+Writing a DOCX is not completion. Before delivery:
+
+1. Run structural validation with `scripts/office/validate.py` when the document uses OOXML operations supported by that validator.
+2. Run `python scripts/render_docx.py <input.docx> --output-dir <qa-dir>`.
+3. Inspect every generated `page-*.png` at readable zoom for clipping, overlap, missing glyphs, broken tables, awkward page breaks, and header/footer problems.
+4. Fix defects and repeat the render. Deliver only after the final render is clean.
+
+If LibreOffice or Poppler is unavailable, continue with structural checks, clearly report that visual QA was not executed, and never describe the document as visually verified.
 
 ## Quick Reference
 
