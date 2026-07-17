@@ -1,24 +1,31 @@
-import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ELECTRON_UPDATER_CHANNEL_FILENAME = "electron-updater-channel.v1.json";
+// Lightweight update checker: query GitHub Releases API and, when a newer
+// version is available, notify the user and (on click) open the release
+// page in the default browser. No download, no in-place install — keeps
+// the update surface simple and portable across macOS / Windows / Linux
+// with zero code-signing requirements for the update flow itself.
 
-// In dev mode, app.getVersion() returns the Electron framework version
-// (e.g. "35.7.5") instead of the OnMyAgent app version. Read from
-// package.json so the UI always shows the correct version.
+const RELEASES_LATEST_API =
+  "https://api.github.com/repos/WeaveQ/onmyagent/releases/latest";
+const RELEASES_HTML_URL =
+  "https://github.com/WeaveQ/onmyagent/releases/latest";
+const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
+const INITIAL_CHECK_DELAY_MS = 30 * 1000; // 30s
+const FETCH_TIMEOUT_MS = 10 * 1000;
+
 const __updater_dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cachedAppVersion = null;
+
 function resolveAppVersion(app) {
   if (_cachedAppVersion) return _cachedAppVersion;
   const electronVersion = app.getVersion();
-  // If packaged, app.getVersion() is correct (set by electron-builder).
   if (app.isPackaged) {
     _cachedAppVersion = electronVersion;
     return electronVersion;
   }
-  // In dev, read from package.json.
   try {
     const pkgPath = path.resolve(__updater_dirname, "..", "package.json");
     const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -28,65 +35,22 @@ function resolveAppVersion(app) {
   }
   return _cachedAppVersion;
 }
-const ELECTRON_UPDATER_FEEDS = Object.freeze({
-  stable: "https://github.com/WeaveQ/onmyagent/releases/latest/download",
-  alpha: "https://github.com/WeaveQ/onmyagent/releases/download/alpha-macos-latest",
-});
-
-function normalizeElectronUpdaterChannel(value) {
-  if (value === "alpha" && process.platform === "darwin") return "alpha";
-  return "stable";
-}
-
-function electronUpdaterChannelPath(app) {
-  return path.join(app.getPath("userData"), ELECTRON_UPDATER_CHANNEL_FILENAME);
-}
-
-async function readElectronUpdaterChannel(app) {
-  try {
-    const raw = await readFile(electronUpdaterChannelPath(app), "utf8");
-    const parsed = JSON.parse(raw);
-    return normalizeElectronUpdaterChannel(parsed?.channel);
-  } catch {
-    return "stable";
-  }
-}
-
-async function writeElectronUpdaterChannel(app, channel) {
-  const normalized = normalizeElectronUpdaterChannel(channel);
-  const outputPath = electronUpdaterChannelPath(app);
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(
-    outputPath,
-    `${JSON.stringify({ channel: normalized, writtenAt: new Date().toISOString() }, null, 2)}\n`,
-    "utf8",
-  );
-  return normalized;
-}
-
-function electronUpdaterFeedUrl(channel) {
-  return ELECTRON_UPDATER_FEEDS[normalizeElectronUpdaterChannel(channel)];
-}
 
 function parseComparableVersion(value) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().replace(/^v/i, "");
   if (!normalized) return null;
-
   const [versionCore] = normalized.split("+", 1);
   if (!versionCore) return null;
-
   const [releasePart, prereleasePart = ""] = versionCore.split("-", 2);
   const release = releasePart.split(".").map((segment) => Number(segment));
   if (!release.length || release.some((segment) => !Number.isInteger(segment) || segment < 0)) {
     return null;
   }
-
   const prerelease = prereleasePart
     .split(".")
     .map((segment) => segment.trim())
     .filter(Boolean);
-
   return { release, prerelease };
 }
 
@@ -94,29 +58,23 @@ function comparePrereleaseIdentifiers(left, right) {
   if (!left.length && !right.length) return 0;
   if (!left.length) return 1;
   if (!right.length) return -1;
-
   const count = Math.max(left.length, right.length);
   for (let index = 0; index < count; index += 1) {
     const leftPart = left[index];
     const rightPart = right[index];
     if (leftPart === undefined) return -1;
     if (rightPart === undefined) return 1;
-
     const leftNumeric = /^\d+$/.test(leftPart) ? Number(leftPart) : null;
     const rightNumeric = /^\d+$/.test(rightPart) ? Number(rightPart) : null;
-
     if (leftNumeric !== null && rightNumeric !== null) {
       if (leftNumeric !== rightNumeric) return leftNumeric < rightNumeric ? -1 : 1;
       continue;
     }
-
     if (leftNumeric !== null) return -1;
     if (rightNumeric !== null) return 1;
-
     const comparison = leftPart.localeCompare(rightPart);
     if (comparison !== 0) return comparison < 0 ? -1 : 1;
   }
-
   return 0;
 }
 
@@ -124,14 +82,12 @@ function compareVersions(left, right) {
   const parsedLeft = parseComparableVersion(left);
   const parsedRight = parseComparableVersion(right);
   if (!parsedLeft || !parsedRight) return null;
-
   const count = Math.max(parsedLeft.release.length, parsedRight.release.length);
   for (let index = 0; index < count; index += 1) {
     const leftPart = parsedLeft.release[index] ?? 0;
     const rightPart = parsedRight.release[index] ?? 0;
     if (leftPart !== rightPart) return leftPart < rightPart ? -1 : 1;
   }
-
   return comparePrereleaseIdentifiers(parsedLeft.prerelease, parsedRight.prerelease);
 }
 
@@ -140,156 +96,166 @@ function isVersionNewer(candidate, current) {
   return comparison === null ? candidate !== current : comparison > 0;
 }
 
-function updaterChannelState(app, channel) {
-  const normalized = normalizeElectronUpdaterChannel(channel);
-  return {
-    channel: normalized,
-    feedUrl: electronUpdaterFeedUrl(normalized),
-    currentVersion: resolveAppVersion(app),
-  };
+async function fetchLatestRelease() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(RELEASES_LATEST_API, {
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "OnMyAgent-UpdateChecker",
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`GitHub API responded ${response.status}`);
+    }
+    const data = await response.json();
+    return {
+      tagName: typeof data?.tag_name === "string" ? data.tag_name : null,
+      htmlUrl: typeof data?.html_url === "string" ? data.html_url : RELEASES_HTML_URL,
+      name: typeof data?.name === "string" ? data.name : null,
+      publishedAt: typeof data?.published_at === "string" ? data.published_at : null,
+      body: typeof data?.body === "string" ? data.body : null,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function applyElectronUpdaterFeed(app, updater) {
-  const channel = await readElectronUpdaterChannel(app);
-  const state = updaterChannelState(app, channel);
-  updater.allowPrerelease = state.channel === "alpha";
-  // Moving from alpha back to stable can be a semver downgrade; still show
-  // the latest stable so users can return to the stable channel deliberately.
-  updater.allowDowngrade = state.channel === "stable";
-  if (updater?.setFeedURL) {
-    updater.setFeedURL({ provider: "generic", url: state.feedUrl });
+export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, shell }) {
+  let lastNotifiedVersion = null;
+
+  function openReleasePage(url) {
+    const target = url || RELEASES_HTML_URL;
+    if (shell?.openExternal) {
+      shell.openExternal(target).catch(() => undefined);
+    }
   }
-  return state;
-}
 
-// electron-updater wiring. Packaged-only; dev builds skip this so the
-// updater doesn't try to probe a non-existent release channel.
-export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
-  let autoUpdaterInstance = null;
-  let autoUpdaterLoaded = false;
-  let checkedUpdateVersion = null;
-
-  function sendToRenderer(channel, data) {
+  async function performCheck({ silent }) {
+    const currentVersion = resolveAppVersion(app);
     try {
-      const win = typeof getMainWindow === "function" ? getMainWindow() : null;
-      if (win?.webContents && !win.isDestroyed()) {
-        win.webContents.send(channel, data);
+      const release = await fetchLatestRelease();
+      if (!release?.tagName) {
+        return {
+          available: false,
+          reason: "No release found.",
+          currentVersion,
+        };
       }
-    } catch {
-      // Window may be closed; swallow send failures.
-    }
-  }
-
-  async function ensureAutoUpdater() {
-    if (!app.isPackaged) return null;
-    if (autoUpdaterLoaded) return autoUpdaterInstance;
-    autoUpdaterLoaded = true;
-    try {
-      const mod = await import("electron-updater");
-      autoUpdaterInstance = mod.autoUpdater ?? mod.default?.autoUpdater ?? null;
-      if (autoUpdaterInstance) {
-        autoUpdaterInstance.autoDownload = false;
-        autoUpdaterInstance.autoInstallOnAppQuit = true;
-        autoUpdaterInstance.on("error", (err) => {
-          console.warn("[updater] error", err);
-        });
-        // Forward download progress to the renderer so the UI can show
-        // incremental bytes instead of staying stuck at 0.
-        autoUpdaterInstance.on("download-progress", (info) => {
-          sendToRenderer("onmyagent:updater:download-progress", {
-            bytesPerSecond: info.bytesPerSecond ?? 0,
-            percent: info.percent ?? 0,
-            transferred: info.transferred ?? 0,
-            total: info.total ?? 0,
-            delta: info.delta ?? 0,
-          });
-        });
-        await applyElectronUpdaterFeed(app, autoUpdaterInstance);
-      }
-    } catch (error) {
-      console.warn("[updater] electron-updater not available", error);
-      autoUpdaterInstance = null;
-    }
-    return autoUpdaterInstance;
-  }
-
-  ipcMain.handle("onmyagent:updater:getChannel", async () => {
-    const channel = await readElectronUpdaterChannel(app);
-    return updaterChannelState(app, channel);
-  });
-
-  ipcMain.handle("onmyagent:updater:setChannel", async (_event, rawChannel) => {
-    const channel = await writeElectronUpdaterChannel(app, rawChannel);
-    checkedUpdateVersion = null;
-    const updater = await ensureAutoUpdater();
-    if (updater) {
-      return applyElectronUpdaterFeed(app, updater);
-    }
-    return updaterChannelState(app, channel);
-  });
-
-  ipcMain.handle("onmyagent:updater:check", async (_event, rawChannel) => {
-    if (rawChannel !== undefined) {
-      await writeElectronUpdaterChannel(app, rawChannel);
-    }
-    const updater = await ensureAutoUpdater();
-    const channelState = updater
-      ? await applyElectronUpdaterFeed(app, updater)
-      : updaterChannelState(app, await readElectronUpdaterChannel(app));
-    if (!updater) return { available: false, reason: "unavailable", ...channelState };
-    try {
-      const result = await updater.checkForUpdates();
-      const info = result?.updateInfo ?? null;
-      const currentVersion = resolveAppVersion(app);
-      const available = Boolean(info?.version && isVersionNewer(info.version, currentVersion));
-      checkedUpdateVersion = available ? info.version : null;
-      return {
+      const available = isVersionNewer(release.tagName, currentVersion);
+      const payload = {
         available,
         currentVersion,
-        latestVersion: info?.version ?? null,
-        releaseDate: info?.releaseDate ?? null,
-        releaseNotes: info?.releaseNotes ?? null,
-        ...channelState,
+        latestVersion: release.tagName.replace(/^v/i, ""),
+        releaseTag: release.tagName,
+        releaseUrl: release.htmlUrl,
+        releaseName: release.name,
+        releaseDate: release.publishedAt,
+        releaseNotes: release.body,
       };
+      if (available && !silent && lastNotifiedVersion !== release.tagName) {
+        lastNotifiedVersion = release.tagName;
+        try {
+          if (Notification?.isSupported?.()) {
+            const notification = new Notification({
+              title: "OnMyAgent update available",
+              body: `Version ${payload.latestVersion} is available. Click to open the release page.`,
+              silent: false,
+            });
+            notification.on("click", () => openReleasePage(release.htmlUrl));
+            notification.show();
+          }
+        } catch {
+          // Notifications may fail on headless CI; ignore.
+        }
+        try {
+          const win = typeof getMainWindow === "function" ? getMainWindow() : null;
+          if (win?.webContents && !win.isDestroyed()) {
+            win.webContents.send("onmyagent:updater:available", payload);
+          }
+        } catch {
+          // Renderer may be gone; ignore.
+        }
+      }
+      return payload;
     } catch (error) {
-      checkedUpdateVersion = null;
-      return { available: false, reason: String(error?.message ?? error), ...channelState };
+      return {
+        available: false,
+        currentVersion,
+        reason: String(error?.message ?? error),
+      };
     }
+  }
+
+  ipcMain.handle("onmyagent:updater:getChannel", async () => ({
+    channel: "stable",
+    feedUrl: RELEASES_HTML_URL,
+    currentVersion: resolveAppVersion(app),
+  }));
+
+  ipcMain.handle("onmyagent:updater:setChannel", async () => ({
+    channel: "stable",
+    feedUrl: RELEASES_HTML_URL,
+    currentVersion: resolveAppVersion(app),
+  }));
+
+  ipcMain.handle("onmyagent:updater:check", async () => {
+    const result = await performCheck({ silent: false });
+    return {
+      ...result,
+      channel: "stable",
+      feedUrl: RELEASES_HTML_URL,
+    };
   });
 
+  // Legacy download IPC: instead of downloading in-app, open the browser to
+  // the release page so the user can grab the appropriate installer.
   ipcMain.handle("onmyagent:updater:download", async () => {
-    const updater = await ensureAutoUpdater();
-    if (!updater) return { ok: false, reason: "unavailable" };
     try {
-      await applyElectronUpdaterFeed(app, updater);
-      const currentVersion = resolveAppVersion(app);
-      if (!checkedUpdateVersion || !isVersionNewer(checkedUpdateVersion, currentVersion)) {
-        const result = await updater.checkForUpdates();
-        const info = result?.updateInfo ?? null;
-        checkedUpdateVersion = info?.version && isVersionNewer(info.version, currentVersion)
-          ? info.version
-          : null;
-      }
-      if (!checkedUpdateVersion) {
-        return { ok: false, reason: "No update available." };
-      }
-      await updater.downloadUpdate();
+      const release = await fetchLatestRelease();
+      openReleasePage(release?.htmlUrl);
       return { ok: true };
     } catch (error) {
-      return { ok: false, reason: String(error?.message ?? error) };
+      openReleasePage(RELEASES_HTML_URL);
+      return { ok: true, reason: String(error?.message ?? error) };
     }
   });
 
+  // Legacy install IPC: no-op with browser fallback so old renderer code
+  // paths keep working during the migration.
   ipcMain.handle("onmyagent:updater:installAndRestart", async () => {
-    const updater = await ensureAutoUpdater();
-    if (!updater) return { ok: false, reason: "unavailable" };
-    try {
-      updater.quitAndInstall(false, true);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reason: String(error?.message ?? error) };
-    }
+    openReleasePage(RELEASES_HTML_URL);
+    return { ok: true };
   });
 
-  return { ensureAutoUpdater };
+  let scheduledInitial = null;
+  let intervalHandle = null;
+
+  function scheduleAutoChecks() {
+    if (scheduledInitial || intervalHandle) return;
+    scheduledInitial = setTimeout(() => {
+      scheduledInitial = null;
+      void performCheck({ silent: false });
+    }, INITIAL_CHECK_DELAY_MS);
+    intervalHandle = setInterval(() => {
+      void performCheck({ silent: false });
+    }, CHECK_INTERVAL_MS);
+    if (typeof intervalHandle?.unref === "function") intervalHandle.unref();
+    if (typeof scheduledInitial?.unref === "function") scheduledInitial.unref();
+  }
+
+  app.on("before-quit", () => {
+    if (scheduledInitial) clearTimeout(scheduledInitial);
+    if (intervalHandle) clearInterval(intervalHandle);
+  });
+
+  return {
+    ensureAutoUpdater: async () => {
+      scheduleAutoChecks();
+      return null;
+    },
+    checkForUpdatesNow: () => performCheck({ silent: false }),
+  };
 }
