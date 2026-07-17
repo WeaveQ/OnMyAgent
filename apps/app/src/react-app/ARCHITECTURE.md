@@ -12,6 +12,9 @@ Monorepo-level architecture, command surface, and package boundaries live in
 ```text
 src/react-app/
 ├── shell/                     App bootstrap, providers, route frames (orchestration only)
+│   ├── session-route/         Session host facade folder (index + render + intent/composer/…)
+│   ├── settings-route*.tsx    Settings host (thin entry + render + action modules)
+│   └── app-root / providers   Route tree composition
 ├── kernel/                    App-wide state + provider contracts
 ├── infra/                     React-only runtime infra (e.g. QueryClient)
 ├── capabilities/              Cross-domain application capabilities with neutral ownership
@@ -26,6 +29,7 @@ src/react-app/
     │   ├── sync/              Session state plumbing
     │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)
     │   ├── sidebar/           Rail, conversation lists, chrome barrel (session-chrome.ts)
+    │   │                        main rail bottom: channels + devices icons
     │   ├── voice/ browser/ infinite-canvas/ skills-marketplace/ expert-marketplace/
     │   └── modals/
     ├── local-agents/          ACP / local agent editors, cards, agent-management
@@ -33,7 +37,7 @@ src/react-app/
     ├── agents/                Agent registry UI + personal agent pages
     ├── plugins/               Skills catalog / plugins / connectors pages
     ├── workspace/             Create + share + rename + workspace files
-    ├── settings/              Settings shell + tab bodies under pages/
+    ├── settings/              Settings shell + tab bodies under pages/ (incl. global Updates)
     ├── connections/           MCP + provider auth (canonical owner)
     ├── cloud/                 Den auth + restrictions + org onboarding
     ├── shell-feedback/        Reload banner, toasts, top-right notifications
@@ -240,8 +244,15 @@ tree when a domain-scoped import path is clearer:
 
 ## Route entry rule (enforced)
 
-- `shell/session-route.tsx` and `shell/settings-route.tsx` must stay thin re-exports
-  (implementation in `*-route-render.tsx`). Guard: `node scripts/checks/architecture-paths.mjs`.
+- **Session host:** `shell/session-route/` is a **folder facade**. Public entry is
+  `session-route/index.ts` (re-exports `SessionRoute` from `render.tsx` plus intent /
+  chrome / composer modules). Keep `index.ts` thin (≤80 lines). Heavy composition
+  stays in `render.tsx` / `page-view.tsx` / sibling modules — do not reintroduce a
+  root-level `session-route.tsx` god file.
+- **Settings host:** `shell/settings-route.tsx` stays a thin entry; implementation in
+  `settings-route-render.tsx` and `settings-route-*.ts` helpers.
+- Guard: `node scripts/checks/architecture-paths.mjs` (expects `session-route/index.ts`
+  + `session-route/render.tsx` + thin settings entry).
 
 ## Domain README template
 
