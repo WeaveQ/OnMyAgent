@@ -6,12 +6,28 @@ import { realpathSync, statSync } from "node:fs";
 
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 
+const isCi = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
+const DEFAULT_HEALTH_TIMEOUT_MS = isCi ? 45_000 : 15_000;
+const HEALTH_ATTEMPT_TIMEOUT_MS = 2_500;
+
 function resolveBasicAuthHeader() {
   const password = process.env.OPENCODE_SERVER_PASSWORD?.trim() ?? "";
   if (!password) return undefined;
   const username = process.env.OPENCODE_SERVER_USERNAME?.trim() || "opencode";
   const encoded = Buffer.from(`${username}:${password}`, "utf8").toString("base64");
   return `Basic ${encoded}`;
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    clearTimeout(timer);
+  });
 }
 
 export function makeClient({ baseUrl, directory }) {
@@ -52,14 +68,16 @@ export async function spawnOpencodeServe({
   assert.ok(Number.isInteger(port) && port > 0, "port must be a positive integer");
 
   const cwd = realpathSync(directory);
+  const bin = process.env.OPENCODE_BIN?.trim() || "opencode";
   const args = ["serve", "--hostname", hostname, "--port", String(port)];
   for (const origin of corsOrigins) {
     args.push("--cors", origin);
   }
 
-  const child = spawn("opencode", args, {
+  const child = spawn(bin, args, {
     cwd,
-    stdio: ["ignore", "ignore", "pipe"],
+    // Capture both streams so early failures are visible in CI logs.
+    stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       // Make it explicit we're a non-TUI client.
@@ -69,11 +87,20 @@ export async function spawnOpencodeServe({
 
   const baseUrl = `http://${hostname}:${port}`;
 
-  // If the process dies early, surface stderr.
   let stderr = "";
+  let stdout = "";
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => {
     stderr += chunk;
+  });
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+
+  let spawnError = null;
+  child.on("error", (error) => {
+    spawnError = error;
   });
 
   async function waitForExit(ms) {
@@ -87,6 +114,7 @@ export async function spawnOpencodeServe({
     cwd,
     baseUrl,
     child,
+    bin,
     async close() {
       if (child.exitCode !== null || child.signalCode !== null) {
         return;
@@ -113,18 +141,50 @@ export async function spawnOpencodeServe({
       await waitForExit(2500);
     },
     getStderr() {
-      return stderr;
+      const parts = [];
+      if (spawnError) {
+        parts.push(`spawn error: ${spawnError.message}`);
+      }
+      if (child.exitCode !== null || child.signalCode !== null) {
+        parts.push(
+          `process exited code=${child.exitCode} signal=${child.signalCode}`,
+        );
+      }
+      if (stdout.trim()) {
+        parts.push(`stdout:\n${stdout.trim()}`);
+      }
+      if (stderr.trim()) {
+        parts.push(`stderr:\n${stderr.trim()}`);
+      }
+      return parts.join("\n");
+    },
+    isAlive() {
+      return child.exitCode === null && child.signalCode === null && !spawnError;
     },
   };
 }
 
-export async function waitForHealthy(client, { timeoutMs = 10_000, pollMs = 250 } = {}) {
+export async function waitForHealthy(
+  client,
+  { timeoutMs = DEFAULT_HEALTH_TIMEOUT_MS, pollMs = 250, server } = {},
+) {
   const start = Date.now();
   let lastError;
 
   while (Date.now() - start < timeoutMs) {
+    if (server && typeof server.isAlive === "function" && !server.isAlive()) {
+      const detail = typeof server.getStderr === "function" ? server.getStderr() : "";
+      throw new Error(
+        `OpenCode process exited before becoming healthy${detail ? `: ${detail}` : ""}`,
+      );
+    }
+
     try {
-      const health = await client.global.health();
+      const health = await withTimeout(
+        client.global.health(),
+        HEALTH_ATTEMPT_TIMEOUT_MS,
+        "health check",
+      );
       assert.equal(health.healthy, true);
       assert.ok(typeof health.version === "string");
       return health;
@@ -135,7 +195,11 @@ export async function waitForHealthy(client, { timeoutMs = 10_000, pollMs = 250 
   }
 
   const msg = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`Timed out waiting for /global/health: ${msg}`);
+  const detail =
+    server && typeof server.getStderr === "function" && server.getStderr()
+      ? `; process: ${server.getStderr()}`
+      : "";
+  throw new Error(`Timed out waiting for /global/health: ${msg}${detail}`);
 }
 
 export function normalizeEvent(raw) {

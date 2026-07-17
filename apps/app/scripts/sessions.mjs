@@ -19,7 +19,7 @@ const server = await spawnOpencodeServe({
 
 try {
   const client = makeClient({ baseUrl: server.baseUrl, directory: server.cwd });
-  await waitForHealthy(client);
+  await waitForHealthy(client, { server });
 
   const before = await client.session.list({ limit: 20 });
   assert.ok(Array.isArray(before));
