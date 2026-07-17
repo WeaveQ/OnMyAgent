@@ -82,6 +82,7 @@ vendor/opencode/
 .opencode/personal-assistant/
 .opencode/personal-local-agent-runs/
 .opencode/personal-local-agent-sessions/
+.opencode/tools/
 .vercel
 .env*.local
 .claude/*

@@ -805,4 +805,10 @@ export default {
   "settings.browser.protocol": "Protocol {value}",
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
+  "settings.provider_edit_confirm_title": "Save changes to this model provider?",
+  "settings.provider_edit_confirm_desc": "Saving writes to the OpenCode config. Reload the engine for changes to take effect.",
+  "settings.provider_edit_confirm_button": "Save changes",
+  "settings.provider_delete_confirm_title": "Delete this model provider?",
+  "settings.provider_delete_confirm_desc": "This removes the provider from the OpenCode config. This cannot be undone. Reload the engine for changes to take effect.",
+  "settings.provider_more_actions": "More actions",
 } as const;

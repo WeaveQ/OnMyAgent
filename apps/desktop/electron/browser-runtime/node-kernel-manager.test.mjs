@@ -40,6 +40,50 @@ test("reset destroys a session kernel and clears its state", async () => {
   }
 });
 
+test("node kernels respawn after the worker process dies", async () => {
+  const manager = createNodeKernelManager({ timeoutMs: 200 });
+  try {
+    await manager.evaluate("session-a", "globalThis.kept = 'first'");
+
+    // Hang at the async level so the timeout timer SIGKILLs the worker. A dead
+    // worker left in the cache must respawn on the next call instead of
+    // hanging until the next timeout.
+    await assert.rejects(
+      manager.evaluate("session-a", "await new Promise(() => {})"),
+      /node kernel timed out after 200ms/,
+    );
+
+    // The exit handler fires async after SIGKILL; retry until the kernel is
+    // marked dead and kernelFor respawns a fresh worker.
+    let value;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        value = await manager.evaluate("session-a", "globalThis.kept ?? 'respawned'");
+        break;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+    assert.equal(value, "respawned");
+  } finally {
+    await manager.dispose();
+  }
+});
+
+
+test("node kernels accept multi-statement code with return", async () => {
+  const manager = createNodeKernelManager();
+  try {
+    const value = await manager.evaluate(
+      "session-a",
+      "const a = 2\nconst b = 3\nreturn a * b",
+    );
+    assert.equal(value, 6);
+  } finally {
+    await manager.dispose();
+  }
+});
+
 test("node kernels reject disabled module imports", async () => {
   const manager = createNodeKernelManager({ allowedModules: ["node:url"] });
   try {

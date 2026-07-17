@@ -1,11 +1,13 @@
 import { basename, join } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 
 import { ensureDir, exists } from "../core/utils.js";
 import { ApiError } from "../core/errors.js";
+import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
 import { onmyagentConfigPath, opencodeConfigPath } from "./workspace-files.js";
 import {
   readJsoncFile,
+  updateJsoncTopLevel,
   writeJsoncFile,
 } from "../core/jsonc.js";
 import type { ReloadReason } from "@onmyagent/types/server";
@@ -183,6 +185,17 @@ const ONMYAGENT_LANGUAGE_GUIDANCE = `<!-- ${APP_NAME}_LANGUAGE_START -->
 - Keep source code, identifiers, command names, tool names, and anything the user explicitly quotes in its original language.
 <!-- ${APP_NAME}_LANGUAGE_END -->`;
 
+const ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->
+## Browser automation
+
+${APP_NAME} has a built-in in-app browser. For any web task (open a site, search, read or fill a page, scrape content), drive it directly instead of asking the user to browse manually.
+
+- Invoke the \`browser-automation\` skill for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
+- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\`.
+- The built-in browser needs no URL or port from you. Never invent localhost endpoints, CDP, the \`opencode-chrome-devtools\` plugin, or any external browser tool.
+- Finalize temporary tabs when the task is done; leave user-owned tabs open unless the user asks otherwise.
+<!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
+
 const ONMYAGENT_AGENT = `---
 description: ${APP_NAME} default agent
 mode: primary
@@ -214,6 +227,8 @@ Hard rule: never copy private memory into repo files. Store only redacted summar
 - If you change code, run the smallest meaningful test.
 - If steps repeat, factor them into a skill.
 - Prefer clear, practical steps over abstract explanations.
+
+${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}
 
 ${ONMYAGENT_ARTIFACT_GUIDANCE}
 
@@ -267,18 +282,92 @@ async function ensureWorkspaceOnMyAgentConfig(
   return true;
 }
 
+// Agents that opencode ships built in; they resolve without a workspace
+// agent file, so a default_agent pointing at them is always valid.
+const BUILTIN_OPENCODE_AGENTS = new Set([
+  "build",
+  "plan",
+  "general",
+  "explore",
+  "compaction",
+  "title",
+  "summary",
+]);
+
+// Legacy builds loaded the built-in browser through this CDP plugin (the
+// 127.0.0.1:9823 path). Browsing now goes through the managed
+// onmyagent_browser_node_repl tool, so the plugin entry is retired.
+const LEGACY_BROWSER_PLUGIN = "opencode-chrome-devtools";
+
+function isLegacyBrowserPlugin(entry: unknown): boolean {
+  return (
+    typeof entry === "string" &&
+    (entry === LEGACY_BROWSER_PLUGIN ||
+      entry.startsWith(`${LEGACY_BROWSER_PLUGIN}@`))
+  );
+}
+
 async function ensureOpencodeConfig(workspaceRoot: string): Promise<boolean> {
   const path = opencodeConfigPath(workspaceRoot);
-  if (await exists(path)) {
-    await readJsoncFile<Record<string, unknown>>(path, {});
+  if (!(await exists(path))) {
+    await writeJsoncFile(path, {
+      $schema: "https://opencode.ai/config.json",
+      default_agent: DEFAULT_OPENCODE_AGENT,
+    });
+    return true;
+  }
+
+  const { data: config } = await readJsoncFile<Record<string, unknown>>(path, {});
+
+  // Only repair configs in workspaces the desktop app manages (marked by
+  // .opencode/onmyagent.json). External projects opened as workspaces keep
+  // their own opencode.jsonc byte-for-byte untouched.
+  if (!(await exists(onmyagentConfigPath(workspaceRoot)))) return false;
+
+  const defaultAgent =
+    typeof config.default_agent === "string"
+      ? config.default_agent.trim()
+      : "";
+  if (!defaultAgent) {
+    // Only stamp desktop-created schema-only configs. A config that carries
+    // real user keys (plugin, provider, ...) but no default_agent belongs to
+    // an external project and must stay byte-for-byte stable across route
+    // reads — import previews fingerprint it.
+    const schemaOnly = Object.keys(config).every((key) => key === "$schema");
+    if (!schemaOnly) return false;
+    await updateJsoncTopLevel(path, { default_agent: DEFAULT_OPENCODE_AGENT });
     return false;
   }
 
-  await writeJsoncFile(path, {
-    $schema: "https://opencode.ai/config.json",
-    default_agent: DEFAULT_OPENCODE_AGENT,
-  });
-  return true;
+  let changed = false;
+  if (
+    defaultAgent !== DEFAULT_OPENCODE_AGENT &&
+    !BUILTIN_OPENCODE_AGENTS.has(defaultAgent) &&
+    !(await exists(
+      join(workspaceRoot, ".opencode", "agents", `${defaultAgent}.md`),
+    ))
+  ) {
+    // A default_agent left behind by another brand build (teamwork, openwork,
+    // ...) whose agent file no longer exists makes every prompt fail with
+    // `default agent "<name>" not found`. Fall back to the managed agent.
+    await updateJsoncTopLevel(path, { default_agent: DEFAULT_OPENCODE_AGENT });
+    changed = true;
+  }
+
+  if (Array.isArray(config.plugin)) {
+    const plugins = config.plugin.filter(
+      (entry) => !isLegacyBrowserPlugin(entry),
+    );
+    if (plugins.length !== config.plugin.length) {
+      // jsonc-parser removes the key when the value is undefined.
+      await updateJsoncTopLevel(path, {
+        plugin: plugins.length > 0 ? plugins : undefined,
+      });
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 function resolveAgentTemplate(): string {
@@ -359,13 +448,20 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
     changed = true;
   }
 
-  // Remove the retired browser prompt from workspaces created by older builds.
-  const browserStart = `<!-- ${APP_NAME}_BROWSER_START -->`;
-  const browserEnd = `<!-- ${APP_NAME}_BROWSER_END -->`;
-  const bsIdx = current.indexOf(browserStart);
-  const beIdx = current.indexOf(browserEnd);
-  if (bsIdx >= 0 && beIdx > bsIdx) {
-    current = `${current.slice(0, bsIdx).trimEnd()}\n\n${current.slice(beIdx + browserEnd.length).trimStart()}`;
+  // Patch browser automation section (uses a distinct marker so the legacy
+  // *_BROWSER_START retire pass leaves it in place).
+  const browserAutoStart = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`;
+  const browserAutoEnd = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
+  const browserAutoStartIdx = current.indexOf(browserAutoStart);
+  const browserAutoEndIdx = current.indexOf(browserAutoEnd);
+  if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
+    const patched = `${current.slice(0, browserAutoStartIdx)}${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}${current.slice(browserAutoEndIdx + browserAutoEnd.length)}`;
+    if (patched !== current) {
+      current = patched;
+      changed = true;
+    }
+  } else {
+    current = `${current.trimEnd()}\n\n${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}\n`;
     changed = true;
   }
 
@@ -395,10 +491,12 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
   } else {
     // Pick a stable anchor right before the first section we know about
     // so the block lands near "Your job:" where the template puts it.
+    // Prefer early section headings. Do not use bare "## Browser" — it
+    // false-matches "## Browser automation" which is often near the end.
     const anchors = [
-      "## Browser",
       "## Memory",
       "## Working style",
+      "## Browser automation",
     ];
     const anchor = anchors.find((marker) => current.includes(marker));
     if (anchor) {
@@ -421,12 +519,36 @@ async function ensureOnMyAgentAgent(workspaceRoot: string): Promise<boolean> {
   return false;
 }
 
+// The built-in browser prompt is retired for every agent, regardless of the
+// brand marker it was written with (OnMyAgent, TeamWork, openwork, ...).
+// Older builds stamped the block into custom agent files too, so scan all of
+// `.opencode/agents/*.md` instead of only the managed default agent.
+const LEGACY_BROWSER_PROMPT_PATTERN =
+  /[ \t]*<!--\s*[A-Za-z0-9_-]+_BROWSER_START\s*-->[\s\S]*?<!--\s*[A-Za-z0-9_-]+_BROWSER_END\s*-->\n?/g;
+
+async function retireLegacyBrowserPrompts(workspaceRoot: string): Promise<boolean> {
+  const agentsDir = join(workspaceRoot, ".opencode", "agents");
+  if (!(await exists(agentsDir))) return false;
+  let changed = false;
+  for (const entry of await readdir(agentsDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+    const path = join(agentsDir, entry.name);
+    const current = await readFile(path, "utf8");
+    const next = current.replace(LEGACY_BROWSER_PROMPT_PATTERN, "");
+    if (next === current) continue;
+    await writeFile(path, next, "utf8");
+    changed = true;
+  }
+  return changed;
+}
+
 async function ensureVisualTools(workspaceRoot: string): Promise<boolean> {
   const toolsDir = join(workspaceRoot, ".opencode", "tools");
   await ensureDir(toolsDir);
   const managedTools = [
     ["get_design_spec.ts", visualDesignSpecToolSource()],
     ["render_visual.ts", renderVisualToolSource()],
+    ["onmyagent_browser_node_repl.ts", opencodeBrowserNodeReplToolSource()],
   ] as const;
   let changed = false;
 
@@ -457,6 +579,7 @@ export async function ensureWorkspaceFiles(
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
   if (await ensureOnMyAgentAgent(workspaceRoot)) reloadReasons.add("agents");
+  if (await retireLegacyBrowserPrompts(workspaceRoot)) reloadReasons.add("agents");
   if (await ensureVisualTools(workspaceRoot)) reloadReasons.add("commands");
   const onmyagentConfigChanged = await ensureWorkspaceOnMyAgentConfig(
     workspaceRoot,

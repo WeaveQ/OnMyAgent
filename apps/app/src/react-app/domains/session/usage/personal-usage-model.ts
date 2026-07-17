@@ -40,6 +40,19 @@ export type TokenActivityPoint = {
   level: number;
 };
 
+export type TokenActivityCell = {
+  date: string;
+  value: number;
+  level: number;
+};
+
+export type TokenActivityColumn = {
+  weekStart: string;
+  cells: TokenActivityCell[];
+  weeklyValue: number;
+  cumulativeValue: number;
+};
+
 export type PersonalUsageWorkspace = {
   id: string;
   name: string;
@@ -225,53 +238,126 @@ function activityLevel(value: number, maximum: number) {
   return Math.max(1, Math.min(4, Math.ceil((value / maximum) * 4)));
 }
 
-function withActivityLevels(
-  points: Array<Omit<TokenActivityPoint, "level">>,
-): TokenActivityPoint[] {
-  const maximum = points.reduce((highest, point) => Math.max(highest, point.value), 0);
-  return points.map((point) => ({
-    ...point,
-    level: activityLevel(point.value, maximum),
-  }));
+function withActivityLevels(values: number[]): { value: number; level: number }[] {
+  const maximum = Math.max(0, ...values);
+  return values.map((value) => ({ value, level: activityLevel(value, maximum) }));
 }
 
-function dailyWindow(daily: PersonalUsageDailyTotal[], today: string) {
+function startOfWeek(value: string) {
+  const date = parseDateOnly(value);
+  const day = date.getUTCDay();
+  return dateOnly(new Date(date.getTime() - day * DAY_MS));
+}
+
+function buildWeeklyColumns(
+  daily: PersonalUsageDailyTotal[],
+  today: string,
+): Array<{ weekStart: string; weeklyValue: number; cells: TokenActivityCell[] }> {
   const valueByDate = new Map(daily.map((entry) => [entry.date, entry.tokens]));
   const firstDate = shiftDate(today, -364);
-  return Array.from({ length: 365 }, (_, index) => {
-    const date = shiftDate(firstDate, index);
-    return { date, value: valueByDate.get(date) ?? 0 };
+  const startSunday = startOfWeek(firstDate);
+  const endSunday = startOfWeek(today);
+  const weeks: string[] = [];
+  let cursor = startSunday;
+  while (cursor <= endSunday) {
+    weeks.push(cursor);
+    cursor = shiftDate(cursor, 7);
+  }
+
+  return weeks.map((weekStart) => {
+    let weeklyValue = 0;
+    const cells: TokenActivityCell[] = [];
+    for (let index = 0; index < 7; index += 1) {
+      const date = shiftDate(weekStart, index);
+      const value = valueByDate.get(date) ?? 0;
+      weeklyValue += value;
+      cells.push({ date, value, level: 0 });
+    }
+    return { weekStart, weeklyValue, cells };
   });
+}
+
+export function monthLabelColumns(
+  columns: TokenActivityColumn[],
+  today: string,
+  locale: string,
+): Array<{ label: string; columnIndex: number }> {
+  const formatter = new Intl.DateTimeFormat(locale, { month: "short" });
+  const end = parseDateOnly(today);
+  const labels: Array<{ label: string; columnIndex: number }> = [];
+  for (let offset = -11; offset <= 0; offset += 1) {
+    const firstDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + offset, 1));
+    const dateStr = dateOnly(firstDay);
+    const columnIndex = columns.findIndex((column) => {
+      const start = parseDateOnly(column.weekStart).getTime();
+      const endWeek = start + 6 * DAY_MS;
+      const dateTime = parseDateOnly(dateStr).getTime();
+      return dateTime >= start && dateTime <= endWeek;
+    });
+    if (columnIndex !== -1) {
+      labels.push({ label: formatter.format(firstDay), columnIndex });
+    }
+  }
+  return labels;
 }
 
 export function buildTokenActivitySeries(
   daily: PersonalUsageDailyTotal[],
   mode: TokenActivityMode,
   today: string,
-): TokenActivityPoint[] {
-  const window = dailyWindow(daily, today);
+): TokenActivityColumn[] {
+  const columns = buildWeeklyColumns(daily, today);
 
   if (mode === "weekly") {
-    const weeks = new Map<string, number>();
-    for (const point of window) {
-      const date = parseDateOnly(point.date);
-      const weekStart = dateOnly(new Date(date.getTime() - date.getUTCDay() * DAY_MS));
-      weeks.set(weekStart, (weeks.get(weekStart) ?? 0) + point.value);
-    }
-    return withActivityLevels(
-      Array.from(weeks.entries()).map(([date, value]) => ({ date, value })),
-    );
-  }
-
-  if (mode === "cumulative") {
-    let total = 0;
-    return withActivityLevels(window.map((point) => {
-      total += point.value;
-      return { date: point.date, value: total };
+    const levels = withActivityLevels(columns.map((column) => column.weeklyValue));
+    return columns.map((column, index) => ({
+      weekStart: column.weekStart,
+      weeklyValue: column.weeklyValue,
+      cumulativeValue: 0,
+      cells: column.cells.map((cell) => ({
+        date: column.weekStart,
+        value: column.weeklyValue,
+        level: levels[index]?.level ?? 0,
+      })),
     }));
   }
 
-  return withActivityLevels(window);
+  if (mode === "cumulative") {
+    let runningTotal = 0;
+    const cumulativeValues = columns.map((column) => {
+      runningTotal += column.weeklyValue;
+      return runningTotal;
+    });
+    const levels = withActivityLevels(cumulativeValues);
+    return columns.map((column, index) => ({
+      weekStart: column.weekStart,
+      weeklyValue: column.weeklyValue,
+      cumulativeValue: cumulativeValues[index] ?? 0,
+      cells: column.cells.map((cell) => ({
+        date: column.weekStart,
+        value: cumulativeValues[index] ?? 0,
+        level: levels[index]?.level ?? 0,
+      })),
+    }));
+  }
+
+  const dailyValues = columns.flatMap((column) => column.cells.map((cell) => cell.value));
+  const levels = withActivityLevels(dailyValues);
+  let levelIndex = 0;
+  return columns.map((column) => ({
+    weekStart: column.weekStart,
+    weeklyValue: 0,
+    cumulativeValue: 0,
+    cells: column.cells.map((cell) => {
+      const cellLevel = levels[levelIndex]?.level ?? 0;
+      levelIndex += 1;
+      return {
+        date: cell.date,
+        value: cell.value,
+        level: cellLevel,
+      };
+    }),
+  }));
 }
 
 export function formatPersonalTokenCount(tokens: number) {
