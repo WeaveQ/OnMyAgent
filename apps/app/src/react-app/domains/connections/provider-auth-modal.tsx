@@ -294,7 +294,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       const methodText = entry.methods
         .map(
           (method) =>
-            method.label || (method.type === "oauth" ? "OAuth" : "API key"),
+            method.label || (method.type === "oauth" ? t("provider_auth.method_oauth") : t("provider_auth.method_api_key")),
         )
         .join(" ");
       return `${entry.name} ${entry.id} ${methodText}`
@@ -327,7 +327,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   }, [oauthInstructions]);
 
   const methodLabel = (method: ProviderAuthMethod) =>
-    method.label || (method.type === "oauth" ? "OAuth" : "API key");
+    method.label || (method.type === "oauth" ? t("provider_auth.method_oauth") : t("provider_auth.method_api_key"));
 
   const actionDisabled = props.loading || props.submitting;
 
@@ -491,7 +491,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     const code = oauthDisplayCode.trim();
     if (!code) return;
     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-      setLocalError("Clipboard is unavailable in this environment.");
+      setLocalError(t("provider_auth.error_clipboard_unavailable"));
       return;
     }
     await navigator.clipboard.writeText(code);
@@ -521,7 +521,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to complete OAuth";
+        error instanceof Error ? error.message : t("provider_auth.error_oauth_complete");
       setLocalError(message);
       throw error instanceof Error ? error : new Error(message);
     }
@@ -561,7 +561,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   const startOauth = async (entry: ProviderAuthEntry, methodIndex?: number) => {
     if (actionDisabled) return;
     if (!Number.isInteger(methodIndex) || methodIndex === undefined) {
-      setLocalError(`No OAuth flow available for ${entry.name}.`);
+      setLocalError(t("provider_auth.error_no_oauth_flow", { name: entry.name }));
       return;
     }
     setLocalError(null);
@@ -576,7 +576,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       );
       if (!selectedMethod) {
         throw new Error(
-          `Selected auth method is unavailable for ${entry.name}.`,
+          t("provider_auth.error_method_unavailable", { name: entry.name }),
         );
       }
       const nextSession: ProviderOAuthSession = {
@@ -600,7 +600,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       setView("oauth-auto");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to start OAuth";
+        error instanceof Error ? error.message : t("provider_auth.error_oauth_start");
       setLocalError(message);
     }
   };
@@ -647,7 +647,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       return;
     }
 
-    setLocalError(`No authentication methods available for ${entry.name}.`);
+    setLocalError(t("provider_auth.error_no_auth_methods", { name: entry.name }));
   };
 
   const handleApiSubmit = async () => {
@@ -655,7 +655,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
     const trimmed = apiKeyInput.trim();
     if (!trimmed) {
-      setLocalError("API key is required.");
+      setLocalError(t("provider_auth.error_api_key_required"));
       return;
     }
 
@@ -666,7 +666,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       props.onClose();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to save API key";
+        error instanceof Error ? error.message : t("provider_auth.error_save_api_key");
       setLocalError(message);
     }
   };
@@ -682,7 +682,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       const message =
         error instanceof Error
           ? error.message
-          : "Failed to connect organization provider";
+          : t("provider_auth.error_connect_org");
       setLocalError(message);
     }
   };
@@ -692,7 +692,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
     const trimmed = oauthCodeInput.trim();
     if (!trimmed) {
-      setLocalError("Authorization code is required.");
+      setLocalError(t("provider_auth.error_auth_code_required"));
       return;
     }
 
@@ -737,12 +737,12 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
   const submittingLabel = () => {
     if (!props.submitting) return null;
-    if (resolvedView === "api") return "Saving API key...";
-    if (resolvedView === "cloud") return "Connecting organization provider...";
-    if (resolvedView === "oauth-code") return "Verifying authorization code...";
+    if (resolvedView === "api") return t("provider_auth.spinner_saving_api");
+    if (resolvedView === "cloud") return t("provider_auth.spinner_connecting_org");
+    if (resolvedView === "oauth-code") return t("provider_auth.spinner_verifying_code");
     if (resolvedView === "oauth-auto")
-      return "Waiting for OAuth confirmation...";
-    return "Opening authentication...";
+      return t("provider_auth.spinner_waiting_oauth");
+    return t("provider_auth.spinner_opening_auth");
   };
 
   const stepEntryIndex = (delta: number) => {
@@ -798,22 +798,22 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       (label.includes("headless") || label.includes("device"))
     ) {
       return isRemoteWorker
-        ? "Use OpenAI's device flow for remote workers, where the browser callback may not resolve on your local machine."
-        : "Use OpenAI's device flow when the local browser callback is unreliable.";
+        ? t("provider_auth.hint_openai_device_remote")
+        : t("provider_auth.hint_openai_device_local");
     }
     if (method.type === "oauth") {
-      return "Continue in the browser and let OnMyAgent finish the connection automatically.";
+      return t("provider_auth.hint_oauth_continue_in_browser");
     }
     if (method.type === "cloud") {
       return (
         method.description ??
-        "Use the provider and credential managed by your organization."
+        t("provider_auth.hint_org_managed")
       );
     }
     if (isOpencodeZenProvider(entry.id)) {
-      return "Sign in to OpenCode Zen with an API key to unlock paid models alongside the free tier.";
+      return t("provider_auth.hint_opencode_zen_signin");
     }
-    return "Paste a secret key that OnMyAgent stores locally on this device.";
+    return t("provider_auth.hint_paste_secret_key_local");
   };
 
   return (
@@ -836,7 +836,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
             <NoticeBox tone="error">{errorMessage}</NoticeBox>
           ) : props.loading ? (
             <NoticeBox className="animate-pulse" size="comfortable">
-              Loading providers…
+              {t("provider_auth.loading_providers")}
             </NoticeBox>
           ) : null}
 
@@ -903,11 +903,11 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                               {entry.connected ? (
                                 <StatusBadge tone="accent" shape="soft" size="tiny">
                                   <CheckCircle2 size={12} strokeWidth={2.5} />
-                                  Connected
+                                  {t("provider_auth.action_connected")}
                                 </StatusBadge>
                               ) : (
                                 <div className="text-xs font-medium text-dls-secondary group-hover:text-dls-text transition-colors flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
-                                  Connect
+                                  {t("provider_auth.action_connect")}
                                   <ChevronRight
                                     size={14}
                                     className="opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-200"
@@ -942,13 +942,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   ) : (
                     <div className="text-sm text-dls-secondary pt-2">
                       {entries.length
-                        ? "No providers match your search."
-                        : "No providers available."}
+                        ? t("provider_auth.empty_no_match")
+                        : t("provider_auth.empty_no_providers")}
                     </div>
                   )}
 
                   <div className="text-xs text-dls-secondary">
-                    Arrow keys to navigate, Enter to select.
+                    {t("provider_auth.hint_keyboard_navigation")}
                   </div>
                 </div>
               ) : null}
@@ -961,7 +961,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         {selectedEntry.name}
                       </div>
                       <div className="text-xs text-dls-secondary mt-1">
-                        Choose how you'd like to connect.
+                        {t("provider_auth.hint_choose_connection")}
                       </div>
                     </div>
                     <Button
@@ -969,7 +969,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={handleBack}
                       disabled={actionDisabled}
                     >
-                      Back
+                      {t("provider_auth.action_back")}
                     </Button>
                   </div>
                   <div className="grid gap-2">
@@ -1007,8 +1007,8 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       </div>
                       <div className="text-xs text-dls-secondary mt-1">
                         {isOpencodeZenProvider(selectedEntry.id)
-                          ? "Sign in to OpenCode Zen with an API key from opencode.ai/auth."
-                          : "Paste your API key to connect."}
+                          ? t("provider_auth.hint_opencode_zen_signin_from_url")
+                          : t("provider_auth.hint_paste_api_key")}
                       </div>
                     </div>
                     <Button
@@ -1016,14 +1016,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={handleBack}
                       disabled={actionDisabled}
                     >
-                      Back
+                      {t("provider_auth.action_back")}
                     </Button>
                   </div>
                   {isOpencodeZenProvider(selectedEntry.id) ? (
                     <NoticeBox className="space-y-1.5" tone="info">
                       <div>
-                        OpenCode Zen gives you access to the best coding models.
-                        Free models keep working without a key.
+                        {t("provider_auth.hint_opencode_zen_perks")}
                       </div>
                       <Button
                         type="button"
@@ -1033,7 +1032,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                           void openExternalUrl(OPENCODE_ZEN_KEY_URL)
                         }
                       >
-                        Get an API key →
+                        {t("provider_auth.action_get_api_key")}
                       </Button>
                     </NoticeBox>
                   ) : null}
@@ -1057,7 +1056,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   />
                   {selectedEntry.env.length > 0 ? (
                     <div className="text-xs text-dls-secondary">
-                      Env vars:{" "}
+                      {t("provider_auth.label_env_vars")}{" "}
                       <span className="font-mono">
                         {selectedEntry.env.join(", ")}
                       </span>
@@ -1065,13 +1064,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-xs text-dls-secondary">
-                      Keys are stored locally by OpenCode.
+                      {t("provider_auth.hint_keys_stored_locally")}
                     </div>
                     <Button
                       onClick={handleApiSubmit}
                       disabled={actionDisabled || !apiKeyInput.trim()}
                     >
-                      {props.submitting ? "Saving…" : "Save key"}
+                      {props.submitting ? t("provider_auth.action_saving") : t("provider_auth.action_save_key")}
                     </Button>
                   </div>
                 </ProviderAuthPanel>
@@ -1087,7 +1086,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         {selectedEntry.name}
                       </div>
                       <div className="text-xs text-dls-secondary mt-1">
-                        Connect with the provider managed by your organization.
+                        {t("provider_auth.hint_org_managed_short")}
                       </div>
                     </div>
                     <Button
@@ -1095,25 +1094,21 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={handleBack}
                       disabled={actionDisabled}
                     >
-                      Back
+                      {t("provider_auth.action_back")}
                     </Button>
                   </div>
                   <div className="text-xs text-dls-secondary">
                     {selectedCloudMethod.description ??
-                      "Use the provider and credential managed by your organization."}
+                      t("provider_auth.hint_org_managed")}
                   </div>
                   {(selectedCloudMethod.modelCount ?? 0) > 0 ? (
                     <NoticeBox>
-                      {selectedCloudMethod.modelCount ?? 0} curated model
-                      {(selectedCloudMethod.modelCount ?? 0) === 1
-                        ? ""
-                        : "s"}{" "}
-                      will be added to this workspace.
+                      {t("provider_auth.hint_org_curated_models", { count: selectedCloudMethod.modelCount ?? 0 })}
                     </NoticeBox>
                   ) : null}
                   {(selectedCloudMethod.env?.length ?? 0) > 0 ? (
                     <div className="text-xs text-dls-secondary">
-                      Env vars:{" "}
+                      {t("provider_auth.label_env_vars")}{" "}
                       <span className="font-mono">
                         {selectedCloudMethod.env?.join(", ")}
                       </span>
@@ -1121,14 +1116,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-xs text-dls-secondary">
-                      OnMyAgent will install the provider config and use the
-                      credential stored for your org.
+                      {t("provider_auth.hint_org_install")}
                     </div>
                     <Button
                       onClick={handleCloudSubmit}
                       disabled={actionDisabled}
                     >
-                      {props.submitting ? "Connecting..." : "Connect provider"}
+                      {props.submitting ? t("provider_auth.action_connecting") : t("provider_auth.action_connect_provider")}
                     </Button>
                   </div>
                 </ProviderAuthPanel>
@@ -1139,11 +1133,10 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-sm font-medium text-dls-text">
-                        OnMyAgent Models
+                        {t("provider_auth.subscribe_title")}
                       </div>
                       <div className="text-xs text-dls-secondary mt-1">
-                        Frontier intelligence, hand picked for your team&apos;s
-                        most ambitious work.
+                        {t("provider_auth.subscribe_subtitle")}
                       </div>
                     </div>
                     <Button
@@ -1151,7 +1144,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={handleBack}
                       disabled={actionDisabled}
                     >
-                      Back
+                      {t("provider_auth.action_back")}
                     </Button>
                   </div>
                   <div className="flex items-center justify-end">
@@ -1159,7 +1152,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={() => void props.onSubscribeOnMyAgentModels?.()}
                       disabled={actionDisabled}
                     >
-                      Subscribe
+                      {t("provider_auth.subscribe")}
                     </Button>
                   </div>
                 </div>
@@ -1175,7 +1168,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         {selectedEntry.name}
                       </div>
                       <div className="text-xs text-dls-secondary mt-1">
-                        Finish OAuth by pasting the authorization code.
+                        {t("provider_auth.hint_finish_oauth_paste_code")}
                       </div>
                     </div>
                     <Button
@@ -1183,7 +1176,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={handleBack}
                       disabled={actionDisabled}
                     >
-                      Back
+                      {t("provider_auth.action_back")}
                     </Button>
                   </div>
                   <div className="text-xs text-dls-secondary">
@@ -1220,15 +1213,15 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         void openOauthUrl(oauthSession.authorization.url ?? "");
                       }}
                     >
-                      Open browser again
+                      {t("provider_auth.action_open_browser_again")}
                     </Button>
                     <Button
                       onClick={() => void handleOauthCodeSubmit()}
                       disabled={actionDisabled || !oauthCodeInput.trim()}
                     >
                       {props.submitting
-                        ? "Verifying..."
-                        : "Complete connection"}
+                        ? t("provider_auth.action_verifying")
+                        : t("provider_auth.action_complete_connection")}
                     </Button>
                   </div>
                 </ProviderAuthPanel>
@@ -1244,7 +1237,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         {selectedEntry.name}
                       </div>
                       <div className="text-xs text-dls-secondary mt-1">
-                        Waiting for browser confirmation.
+                        {t("provider_auth.hint_waiting_browser")}
                       </div>
                     </div>
                     <Button
@@ -1252,39 +1245,26 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       onClick={handleBack}
                       disabled={actionDisabled}
                     >
-                      Back
+                      {t("provider_auth.action_back")}
                     </Button>
                   </div>
                   {isOpenAiHeadlessSession ? (
                     <div className="space-y-2 text-xs text-dls-secondary">
-                      <div>
-                        You'll need to sign in to your OpenAI account and
-                        provide the code below.
-                      </div>
-                      <div>
-                        The first time you do this you'll need to enable Device
-                        auth in your account settings.
-                      </div>
-                      <div>
-                        ChatGPT &gt; Account Settings &gt; Security &gt; Enable
-                        device code authorization
-                      </div>
-                      <div>
-                        When you're ready, copy the code below, and click
-                        &quot;Open Browser&quot;.
-                      </div>
+                      <div>{t("provider_auth.hint_openai_signin_step1")}</div>
+                      <div>{t("provider_auth.hint_openai_device_auth_step")}</div>
+                      <div>{t("provider_auth.hint_openai_chatgpt_path")}</div>
+                      <div>{t("provider_auth.hint_openai_ready")}</div>
                     </div>
                   ) : (
                     <div className="text-xs text-dls-secondary">
-                      Sign in in the browser tab we just opened. We will
-                      complete the connection automatically.
+                      {t("provider_auth.hint_oauth_signin_open_tab")}
                     </div>
                   )}
                   {oauthDisplayCode ? (
                     <div className="rounded-xl border border-dls-mist bg-dls-surface-muted p-3 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className={providerAuthTextClass.fieldLabel}>
-                          Confirmation code
+                          {t("provider_auth.label_confirmation_code")}
                         </div>
                         <div className="text-sm text-dls-text font-mono break-all">
                           {oauthDisplayCode}
@@ -1296,15 +1276,14 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         className="shrink-0"
                         onClick={() => void copyOauthDisplayCode()}
                       >
-                        {oauthCodeCopied ? "Copied" : "Copy"}
+                        {oauthCodeCopied ? t("provider_auth.action_copied") : t("provider_auth.action_copy")}
                       </Button>
                     </div>
                   ) : null}
                   {isOpenAiHeadlessSession && !oauthBrowserOpened ? (
                     <div className="flex items-center gap-2 text-xs text-dls-secondary">
                       <span>
-                        Authorization checks will start after you click Open
-                        Browser.
+                        {t("provider_auth.hint_authorization_checks_start")}
                       </span>
                     </div>
                   ) : (
@@ -1329,12 +1308,12 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     >
                       {isOpenAiHeadlessSession
                         ? oauthBrowserOpened
-                          ? "Reopen Browser"
-                          : "Open Browser"
-                        : "Open browser again"}
+                          ? t("provider_auth.action_reopen_browser")
+                          : t("provider_auth.action_open_browser")
+                        : t("provider_auth.action_open_browser_again")}
                     </Button>
                     <div className="text-xs text-dls-secondary text-right">
-                      This window will close once the provider is connected.
+                      {t("provider_auth.hint_window_closes_when_connected")}
                     </div>
                   </div>
                 </ProviderAuthPanel>
@@ -1351,7 +1330,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
             disabled={actionDisabled}
             render={<Button variant="outline" disabled={actionDisabled} />}
           >
-            Close
+            {t("provider_auth.action_close")}
           </DialogClose>
         </DialogFooter>
       </DialogContent>
