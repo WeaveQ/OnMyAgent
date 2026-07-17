@@ -523,44 +523,63 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
       {(attachments.length > 0 || quotes.length > 0 || uploading > 0) ? (
         <div className="flex flex-wrap gap-2 px-4 pt-3">
           {attachments.map((att) => (
-            <div key={att.id} className="flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface-muted px-2 py-1.5 text-xs text-dls-secondary" data-testid="local-agent-attachment">
+            <div
+              key={att.id}
+              className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
+              data-testid="local-agent-attachment"
+            >
               {att.kind === "image" && att.previewUrl ? (
-                <img src={att.previewUrl} alt="" className="size-8 rounded-md object-cover" />
+                <div className="size-8 shrink-0 overflow-hidden rounded-md bg-dls-surface">
+                  <img src={att.previewUrl} alt="" className="size-full object-cover" />
+                </div>
               ) : (
-                <FileText size={14} />
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
+                  <FileText className="size-3.5" aria-hidden="true" />
+                </div>
               )}
-              <div className="min-w-0 max-w-[180px]">
+              <div className="min-w-0 max-w-[14rem]">
                 <div className="truncate text-xs font-medium text-dls-text">{att.name}</div>
-                <div className="truncate text-2xs text-dls-secondary">{att.relativePath}{att.size ? ` · ${bytes(att.size)}` : ""}</div>
+                <div className="truncate text-2xs text-dls-secondary">
+                  {att.relativePath}
+                  {att.size ? ` · ${bytes(att.size)}` : ""}
+                </div>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                className="ml-1 size-5 rounded-full text-dls-secondary hover:bg-dls-hover"
+                className="ml-0.5 size-5 shrink-0 rounded-full text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                 onClick={() => removeAttachment(att.id)}
                 aria-label={t("action.remove")}
               >
-                <X size={12} />
+                <X className="size-3" />
               </Button>
             </div>
           ))}
           {quotes.map((q) => (
-            <div key={q.id} className="flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface-muted px-2 py-1.5 text-xs text-dls-secondary" data-testid="local-agent-quote">
-              <Quote size={14} />
-              <div className="min-w-0 max-w-[180px]">
+            <div
+              key={q.id}
+              className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
+              data-testid="local-agent-quote"
+            >
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
+                <Quote className="size-3.5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 max-w-[14rem]">
                 <div className="truncate text-xs font-medium text-dls-text">{t("local_agent.composer_pasted_text")}</div>
-                <div className="truncate text-2xs text-dls-secondary">{t("local_agent.composer_pasted_lines", { count: q.lines })}</div>
+                <div className="truncate text-2xs text-dls-secondary">
+                  {t("local_agent.composer_pasted_lines", { count: q.lines })}
+                </div>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                className="ml-1 size-5 rounded-full text-dls-secondary hover:bg-dls-hover"
+                className="ml-0.5 size-5 shrink-0 rounded-full text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                 onClick={() => removeQuote(q.id)}
                 aria-label={t("action.remove")}
               >
-                <X size={12} />
+                <X className="size-3" />
               </Button>
             </div>
           ))}

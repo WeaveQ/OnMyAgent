@@ -21,45 +21,60 @@ import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy";
 
-const SKILL_MATRIX_GRID_STYLE = { gridTemplateColumns: "minmax(0,1fr) repeat(6, 44px) 56px" };
+const SKILL_MATRIX_AGENT_COLS = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.length;
+const SKILL_MATRIX_GRID_STYLE = {
+  gridTemplateColumns: `minmax(0,1fr) repeat(${SKILL_MATRIX_AGENT_COLS}, 40px) 52px`,
+};
 
-function SkillStateGlyph(props: { state: Exclude<SkillCellState, "busy">; toneDot?: string; borderColor?: string; size?: "cell" | "legend" }) {
-  const sizeClass = props.size === "legend" ? "size-4 text-xs" : "size-5 text-xs";
-  const markerSizeClass = props.size === "legend" ? "size-1" : "size-1.5";
+function SkillStateGlyph(props: {
+  state: Exclude<SkillCellState, "busy">;
+  size?: "cell" | "legend";
+}) {
+  const sizeClass = props.size === "legend" ? "size-4 text-2xs" : "size-4 text-xs";
   if (props.state === "native") {
     return (
-      <span className={cn("flex items-center justify-center rounded-full font-medium leading-none text-white", sizeClass, "bg-dls-online")}>
+      <span
+        className={cn(
+          "flex items-center justify-center rounded-full font-semibold leading-none text-white",
+          sizeClass,
+          "bg-dls-online",
+        )}
+      >
         ✓
       </span>
     );
   }
   if (props.state === "managed") {
-    // Outline check in the same green family as native — no agent-hue cell fill.
+    // Soft filled check — same family as native, lighter surface (no corner marker).
     return (
       <span
         className={cn(
-          "relative flex items-center justify-center rounded-full border-2 border-dls-online bg-transparent font-medium leading-none text-dls-online",
+          "flex items-center justify-center rounded-full font-semibold leading-none text-dls-online",
           sizeClass,
+          "bg-dls-online/15 ring-1 ring-dls-online/40",
         )}
       >
-        <span
-          className={cn(
-            "absolute -right-0.5 -top-0.5 rounded-md bg-dls-online",
-            markerSizeClass,
-          )}
-        />
         ✓
       </span>
     );
   }
   if (props.state === "available") {
+    // Always-visible soft + ; hover lifts contrast without flashing a white fill.
     return (
-      <span className={cn("flex items-center justify-center rounded-full border border-dls-border-strong font-medium leading-none", sizeClass, props.size === "legend" ? "text-dls-secondary" : "text-transparent transition-colors group-hover/cell:border-dls-secondary group-hover/cell:text-dls-secondary")}>
+      <span
+        className={cn(
+          "flex items-center justify-center rounded-full font-medium leading-none",
+          sizeClass,
+          "border border-dashed border-dls-border/80 bg-transparent text-dls-secondary/80",
+          props.size !== "legend" &&
+            "transition-colors group-hover/cell:border-dls-border-strong group-hover/cell:bg-dls-surface-muted group-hover/cell:text-dls-text",
+        )}
+      >
         +
       </span>
     );
   }
-  return <span className="h-0.5 w-3 rounded-full bg-dls-border-strong" />;
+  return <span className="h-0.5 w-2.5 rounded-full bg-dls-border" />;
 }
 
 function SkillMatrixCell(props: {
@@ -87,6 +102,7 @@ function SkillMatrixCell(props: {
   return (
     <Tooltip>
       <TooltipTrigger
+        delay={280}
         render={
           <MatrixButton
             type="button"
@@ -94,7 +110,9 @@ function SkillMatrixCell(props: {
             onClick={interactive ? props.onClick : undefined}
             interactive={interactive}
             className={cn(
-              interactive && "hover:bg-dls-hover",
+              // Quiet cell hover — avoid bright wash behind empty + glyphs.
+              interactive && props.state === "available" && "hover:bg-transparent",
+              interactive && props.state !== "available" && "hover:bg-dls-hover",
               props.state === "native" && "hover:brightness-95",
             )}
             aria-label={props.tooltip}
@@ -103,7 +121,9 @@ function SkillMatrixCell(props: {
           </MatrixButton>
         }
       />
-      <TooltipContent side="bottom"><span>{props.tooltip}</span></TooltipContent>
+      <TooltipContent side="bottom">
+        <span>{props.tooltip}</span>
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -167,27 +187,22 @@ function getSkillCellState(
 }
 
 function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
-  const enabledAgents = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.filter((agent) => props.skill.agents.includes(agent));
+  const enabledAgents = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.filter((agent) =>
+    props.skill.agents.includes(agent),
+  );
   const visibleLimit = enabledAgents.length > 3 ? 2 : 3;
   const visibleAgents = enabledAgents.slice(0, visibleLimit);
   const overflow = enabledAgents.length - visibleAgents.length;
-  const label = enabledAgents.length > 0
-    ? enabledAgents.map((agent) => skillAgentLabel(agent)).join(" / ")
-    : t("skills.matrix_no_enabled_agents");
-  const ringTone = props.skill.readonly
-    ? "ring-dls-border-strong"
-    : props.skill.managedByStudioSwitch
-      ? "ring-dls-accent/30"
-      : "ring-dls-border-strong";
+  const label =
+    enabledAgents.length > 0
+      ? enabledAgents.map((agent) => skillAgentLabel(agent)).join(" / ")
+      : t("skills.matrix_no_enabled_agents");
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <div
-            className={cn(
-              "flex h-8 w-14 shrink-0 items-center justify-start overflow-hidden rounded-lg bg-dls-surface-muted pl-1.5 ring-1",
-              ringTone,
-            )}
+            className="flex h-8 w-11 shrink-0 items-center justify-start"
             aria-label={label}
           >
             {visibleAgents.length > 0 ? (
@@ -196,27 +211,31 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
                   <span
                     key={agent}
                     className={cn(
-                      "flex size-4 items-center justify-center rounded-full border border-dls-surface bg-dls-surface",
-                      index > 0 && "-ml-[5px]",
+                      "flex size-5 items-center justify-center rounded-full border border-dls-surface bg-dls-surface-muted",
+                      index > 0 && "-ml-1.5",
                     )}
                     style={{ zIndex: 10 - index }}
                   >
-                    <AgentSkillIcon agent={agent} />
+                    <span className="flex size-3.5 items-center justify-center">
+                      <AgentSkillIcon agent={agent} />
+                    </span>
                   </span>
                 ))}
                 {overflow > 0 ? (
-                  <BadgeDot className="-ml-[5px] border border-dls-surface" size="sm">
+                  <BadgeDot className="-ml-1.5 border border-dls-surface" size="sm">
                     +{overflow}
                   </BadgeDot>
                 ) : null}
               </div>
             ) : (
-              <span className="size-4 rounded-full border border-dashed border-dls-border-strong bg-dls-surface" />
+              <span className="size-5 rounded-full border border-dashed border-dls-border bg-dls-surface" />
             )}
           </div>
         }
       />
-      <TooltipContent side="bottom"><span>{label}</span></TooltipContent>
+      <TooltipContent side="bottom">
+        <span>{label}</span>
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -229,57 +248,97 @@ function SkillMatrixRow(props: {
   onOpenDetail: (skill: AgentManagementSkill) => void;
 }) {
   const sourceLabels = Array.from(new Set(props.skill.sources.map((source) => source.label)));
-  const sourceSummary = sourceLabels.length > 0 ? sourceLabels.join(" / ") : props.skill.scopeLabel;
+  const sourceSummary =
+    sourceLabels.length > 0 ? sourceLabels.join(" · ") : props.skill.scopeLabel;
   const pathSummary = props.skill.sources[0]?.path ?? props.skill.path;
-  const title = props.skill.displayNameZh || props.skill.displayNameEn || props.skill.name;
-  const description = props.skill.descriptionZh || props.skill.descriptionEn || props.skill.description || "";
-  const sourceKind = props.skill.kind ?? props.skill.sources.find((source) => source.kind)?.kind ?? "skill";
-  const sourceKindLabel = sourceKind === "runtime-skill" ? t("agent_manager.skill.kind_runtime") : sourceKind === "slash-command" ? t("agent_manager.skill.kind_slash") : sourceKind === "plugin" ? t("agent_manager.skill.kind_plugin") : null;
-  const importAgent = props.skill.agents.find((agent) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(agent)) ?? props.skill.sources.find((source) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(source.agent))?.agent ?? "claude";
+  const title =
+    props.skill.displayNameZh || props.skill.displayNameEn || props.skill.name;
+  const sourceKind =
+    props.skill.kind ?? props.skill.sources.find((source) => source.kind)?.kind ?? "skill";
+  const sourceKindLabel =
+    sourceKind === "runtime-skill"
+      ? t("agent_manager.skill.kind_runtime")
+      : sourceKind === "slash-command"
+        ? t("agent_manager.skill.kind_slash")
+        : sourceKind === "plugin"
+          ? t("agent_manager.skill.kind_plugin")
+          : null;
+  const importAgent =
+    props.skill.agents.find((agent) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(agent)) ??
+    props.skill.sources.find((source) =>
+      STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(source.agent),
+    )?.agent ??
+    "claude";
   const importBusy = props.busyKey === `${props.skill.path}:${importAgent}:import`;
   return (
     <div
       className={cn(
-        "group grid items-stretch border-b border-dls-border text-xs transition-colors",
-        props.selected ? "bg-dls-hover" : "hover:bg-dls-hover",
+        "group grid min-h-12 items-center border-b border-dls-border/70 text-xs transition-colors",
+        props.selected ? "bg-dls-list-selected" : "hover:bg-dls-hover",
       )}
       style={SKILL_MATRIX_GRID_STYLE}
     >
       <MenuRowButton
         type="button"
         onClick={() => props.onOpenDetail(props.skill)}
-        align="center" className="min-w-0 px-4"
+        align="center"
+        className="min-w-0 gap-2.5 px-3 py-2"
       >
         <SkillAgentCluster skill={props.skill} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-sm font-medium text-dls-text">{title}</span>
-            {title !== props.skill.name ? (
-              <span className="shrink-0 font-mono text-xs text-dls-secondary">{props.skill.name}</span>
-            ) : null}
-            {sourceKindLabel ? (
-              <span className="shrink-0 rounded border border-dls-border px-1 py-0 text-xs font-medium text-dls-secondary">{sourceKindLabel}</span>
-            ) : null}
+            <span className="truncate text-sm font-medium leading-5 text-dls-text">
+              {title}
+            </span>
             {props.skill.managedByStudioSwitch ? (
               <Tooltip>
-                <TooltipTrigger render={<span className="size-1.5 shrink-0 rounded-full bg-dls-accent" aria-label={t("skills.matrix_managed_badge")} />} />
-                <TooltipContent side="bottom"><span>{t("skills.matrix_managed_badge")}</span></TooltipContent>
+                <TooltipTrigger
+                  render={
+                    <span
+                      className="size-1.5 shrink-0 rounded-full bg-dls-accent"
+                      aria-label={t("skills.matrix_managed_badge")}
+                    />
+                  }
+                />
+                <TooltipContent side="bottom">
+                  <span>{t("skills.matrix_managed_badge")}</span>
+                </TooltipContent>
               </Tooltip>
             ) : null}
             {props.skill.readonly ? (
               <Tooltip>
-                <TooltipTrigger render={<span className="size-1.5 shrink-0 rounded-full bg-dls-secondary" aria-label={t("skills.matrix_readonly_badge")} />} />
-                <TooltipContent side="bottom"><span>{t("skills.matrix_readonly_badge")}</span></TooltipContent>
+                <TooltipTrigger
+                  render={
+                    <span
+                      className="size-1.5 shrink-0 rounded-full bg-dls-secondary"
+                      aria-label={t("skills.matrix_readonly_badge")}
+                    />
+                  }
+                />
+                <TooltipContent side="bottom">
+                  <span>{t("skills.matrix_readonly_badge")}</span>
+                </TooltipContent>
               </Tooltip>
             ) : null}
           </div>
-          <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-dls-secondary">
-            {description ? (
-              <span className="min-w-0 flex-1 truncate" title={description}>{description}</span>
-            ) : (
-              <span className="min-w-0 flex-1 truncate font-mono opacity-70" title={pathSummary}>{pathSummary}</span>
-            )}
-            <span className="shrink-0 truncate text-dls-secondary/70 max-w-[40%]" title={pathSummary}>{sourceSummary}</span>
+          {/* Meta only — long description lives in the detail drawer */}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            {sourceSummary ? (
+              <StatusBadge
+                tone="surface"
+                shape="soft"
+                size="tiny"
+                className="max-w-[min(100%,14rem)] truncate font-normal"
+                title={pathSummary}
+              >
+                {sourceSummary}
+              </StatusBadge>
+            ) : null}
+            {sourceKindLabel ? (
+              <StatusBadge tone="neutral" shape="soft" size="tiny" className="font-normal">
+                {sourceKindLabel}
+              </StatusBadge>
+            ) : null}
           </div>
         </div>
       </MenuRowButton>
@@ -287,7 +346,7 @@ function SkillMatrixRow(props: {
       {STUDIO_SWITCH_SKILL_AGENT_OPTIONS.map((agent) => {
         const { state, tooltip } = getSkillCellState(props.skill, agent, props.busyKey);
         return (
-          <div key={agent} className="border-l border-dls-border">
+          <div key={agent} className="flex items-center justify-center">
             <SkillMatrixCell
               state={state}
               agent={agent}
@@ -302,39 +361,57 @@ function SkillMatrixRow(props: {
         );
       })}
 
-      <div className="flex shrink-0 items-center justify-end gap-0.5 border-l border-dls-border pr-2 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center justify-end gap-0.5 pr-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {!props.skill.managedByStudioSwitch ? (
           <Tooltip>
             <TooltipTrigger
               render={
-                <Button variant="ghost" size="icon-xs"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   type="button"
                   disabled={importBusy}
                   className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-default disabled:opacity-60"
-                  onClick={(event) => { event.stopPropagation(); props.onSkillAction(props.skill, importAgent, "import"); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    props.onSkillAction(props.skill, importAgent, "import");
+                  }}
                   aria-label={t("skills.matrix_import_managed")}
                 >
                   {importBusy ? <LoadingSpinner size="sm" /> : <Download className="size-3.5" />}
                 </Button>
               }
             />
-            <TooltipContent side="bottom"><span>{t("skills.matrix_import_managed")}</span></TooltipContent>
+            <TooltipContent side="bottom">
+              <span>{t("skills.matrix_import_managed")}</span>
+            </TooltipContent>
           </Tooltip>
         ) : null}
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button variant="ghost" size="icon-xs"
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 type="button"
                 className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                onClick={(event) => { event.stopPropagation(); props.onSkillAction(props.skill, props.skill.agents[0] ?? "unknown", "open"); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onSkillAction(
+                    props.skill,
+                    props.skill.agents[0] ?? "unknown",
+                    "open",
+                  );
+                }}
                 aria-label={t("skills.matrix_open_folder")}
               >
                 <FolderOpen className="size-3.5" />
               </Button>
             }
           />
-          <TooltipContent side="bottom"><span>{t("skills.matrix_open_folder")}</span></TooltipContent>
+          <TooltipContent side="bottom">
+            <span>{t("skills.matrix_open_folder")}</span>
+          </TooltipContent>
         </Tooltip>
       </div>
     </div>
@@ -542,10 +619,10 @@ export function SkillMatrixPanel(props: {
         </div>
 
         <div
-          className="grid shrink-0 items-stretch border-b border-dls-border bg-dls-surface-muted text-xs font-medium text-dls-secondary"
+          className="grid shrink-0 items-center border-b border-dls-border bg-dls-surface-muted text-xs font-medium text-dls-secondary"
           style={SKILL_MATRIX_GRID_STYLE}
         >
-          <div className="flex items-center gap-1.5 px-4 py-2">
+          <div className="flex items-center gap-1.5 px-3 py-2">
             <FileText className="size-3.5" />
             <span>{t("skills.matrix_skill_source")}</span>
           </div>
@@ -558,7 +635,7 @@ export function SkillMatrixPanel(props: {
               onToggle={(event) => handleHeaderToggle(agent, event)}
             />
           ))}
-          <div className="border-l border-dls-border" />
+          <div aria-hidden="true" />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">

@@ -18,7 +18,7 @@
     "package:electron:dir": "pnpm run build:electron && pnpm exec electron-builder --config electron-builder.yml --dir",
     "electron": "pnpm exec electron ./electron/main.mjs",
     "check:electron": "node ./scripts/check-electron-bridge.mjs",
-    "test:runtime": "node --test ./scripts/prepare-sidecar-policy.test.mjs ./scripts/runtime-archive.test.mjs ./electron/desktop-command-contract.test.mjs ./electron/browser-runtime/*.test.mjs && pnpm check:electron",
+    "test:runtime": "node --test ./scripts/prepare-sidecar-policy.test.mjs ./scripts/runtime-archive.test.mjs ./electron/desktop-command-contract.test.mjs ./electron/desktop-handlers/domain-smoke.test.mjs ./electron/browser-runtime/*.test.mjs && pnpm check:electron",
     "test:browser-smoke": "electron ./scripts/browser-runtime-smoke.mjs",
     "test:release-smoke": "pnpm build && node ./scripts/check-electron-bridge.mjs && pnpm exec electron-builder --config electron-builder.yml --dir --publish never",
     "typecheck": "pnpm typecheck:electron",

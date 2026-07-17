@@ -4,7 +4,7 @@ import { renderToString } from "react-dom/server";
 
 import { ConnectorsPage, SkillsPage } from "../src/react-app/domains/plugins/plugins-page";
 import { StatusToastsProvider } from "../src/react-app/domains/shell-feedback";
-import { StorePage } from "../src/react-app/domains/session/components/shared-pages/side-panel-pages";
+import { StorePage } from "../src/react-app/domains/session/components/side-panel-pages";
 
 describe("shared plugins page contract", () => {
   test("exports reusable skills and connectors pages for session side panels", () => {

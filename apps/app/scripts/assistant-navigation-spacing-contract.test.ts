@@ -9,7 +9,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel-header.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel-header.tsx",
       ),
       "utf8",
     );
@@ -24,14 +24,16 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-sidebar-controls.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-sidebar-controls.tsx",
       ),
       "utf8",
     );
 
+    // Track strip stays density="filter"; children use tab size/shape (not free-float filter pills).
     expect(source).toContain('density="filter"');
-    expect(source).toContain('size="filter"');
-    expect(source).toContain('shape="pill"');
+    expect(source).toContain('size="tab"');
+    expect(source).toContain('shape="tab"');
+    expect(source).not.toContain('size="filter"');
     expect(source).not.toContain("flex-1 gap-1.5");
     expect(source).not.toContain('className="flex w-full"');
     expect(source).not.toContain("min-w-24");
@@ -42,7 +44,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );
@@ -54,7 +56,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/session-panel-model.ts",
+        "apps/app/src/react-app/domains/session/sidebar/session-panel-model.ts",
       ),
       "utf8",
     );
@@ -66,7 +68,7 @@ describe("assistant navigation spacing contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/sidebar-pane-collapse-toggle.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/sidebar-pane-collapse-toggle.tsx",
       ),
       "utf8",
     );

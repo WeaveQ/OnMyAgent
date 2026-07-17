@@ -1,23 +1,21 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { DESKTOP_HANDLER_COMMANDS } from "../electron/desktop-handlers/index.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
 const repoRoot = resolve(desktopRoot, "../..");
 
-const desktopBridgePath = resolve(repoRoot, "apps/app/src/app/lib/desktop.ts");
+const appLibDir = resolve(repoRoot, "apps/app/src/app/lib");
+const desktopBridgePath = join(appLibDir, "desktop.ts");
 const electronMainPath = resolve(desktopRoot, "electron/main.mjs");
 const preloadPath = resolve(desktopRoot, "electron/preload.mjs");
 
 const desktopBridgeSource = readFileSync(desktopBridgePath, "utf8");
 const electronMainSource = readFileSync(electronMainPath, "utf8");
 const preloadSource = readFileSync(preloadPath, "utf8");
-
-const destructure = desktopBridgeSource.match(/const\s*\{([\s\S]*?)\}\s*=\s*desktopBridge;/);
-if (!destructure?.[1]) {
-  throw new Error(`Could not find desktopBridge export destructure in ${desktopBridgePath}`);
-}
 
 const clientOnlyBridgeMethods = new Set([
   "isElectron",
@@ -26,16 +24,37 @@ const clientOnlyBridgeMethods = new Set([
   "getElectronVersion",
   "getChromeVersion",
 ]);
-const bridgeMethods = destructure[1]
-  .split(/\r?\n/)
-  .filter((line) => !line.trim().startsWith("//"))
-  .map((line) => line.split(":")[0]?.trim().replace(/,$/, ""))
-  .filter(Boolean)
-  .filter((name) => !clientOnlyBridgeMethods.has(name));
 
-const electronHandlers = new Set(
-  Array.from(electronMainSource.matchAll(/case\s+"([^"]+)"\s*:/g)).map((match) => match[1]),
-);
+/** Collect IPC command names used by renderer desktop wrappers (all desktop*.ts). */
+function collectRendererCommandNames() {
+  const names = new Set();
+  const files = readdirSync(appLibDir).filter(
+    (name) => name === "desktop.ts" || (name.startsWith("desktop-") && name.endsWith(".ts")),
+  );
+  for (const file of files) {
+    const source = readFileSync(join(appLibDir, file), "utf8");
+    for (const match of source.matchAll(
+      /invoke(?:DesktopCommand|ElectronHelper)\s*(?:<[^>]*>)?\s*\(\s*["']([A-Za-z0-9_]+)["']/g,
+    )) {
+      names.add(match[1]);
+    }
+  }
+
+  // Legacy: methods destructured from desktopBridge Proxy still count as IPC surface.
+  const destructure = desktopBridgeSource.match(/const\s*\{([\s\S]*?)\}\s*=\s*desktopBridge;/);
+  if (destructure?.[1]) {
+    for (const line of destructure[1].split(/\r?\n/)) {
+      if (line.trim().startsWith("//")) continue;
+      const name = line.split(":")[0]?.trim().replace(/,$/, "");
+      if (name && !clientOnlyBridgeMethods.has(name)) names.add(name);
+    }
+  }
+
+  return [...names].sort();
+}
+
+const bridgeMethods = collectRendererCommandNames();
+const electronHandlers = new Set(DESKTOP_HANDLER_COMMANDS);
 const missing = bridgeMethods.filter((name) => !electronHandlers.has(name));
 
 const requiredMainSnippets = [
@@ -74,4 +93,6 @@ if (missing.length > 0 || bridgeFailures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Electron desktop bridge covers ${bridgeMethods.length} renderer methods and IPC channels.`);
+console.log(
+  `Electron desktop bridge covers ${bridgeMethods.length} renderer methods and IPC channels.`,
+);

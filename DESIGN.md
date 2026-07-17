@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-17
+last-reviewed: 2026-07-18
 
 colors:
   light:
@@ -624,6 +624,16 @@ components:
       radius: "{rounded.lg}"                          # 10
       text: "{typography.scale.xs}"                   # 12
       padding-x: "{spacing.scale.sm}"                 # 12 (px-3)
+    filter-chip:
+      # Free-float category filter (FilterChip → SegmentedTabButton tone=chip size=chip)
+      # Selected: soft gray wash — NOT elevated white surface-solid
+      height: "{spacing.button-heights.sm}"          # 28 (h-7) compact
+      radius: "{rounded.pill}"                        # full pill
+      text: "{typography.scale.xs}"                   # 12 medium
+      padding-x: "px-2.5"
+      selected-surface: "{colors.list-selected}"      # light #E4E4E4 / dark #363636
+      idle-surface: transparent
+      idle-text: "{colors.slate}"
     kbd-chip:
       radius: "{rounded.sm}"                          # 6
       family: "{typography.font-mono}"
@@ -1702,7 +1712,7 @@ that look.
 - Follow the **canonical primitive table** in
   `docs/design/theme-system.md` and **§ 4i Shell Chrome**
   (EmptyStateBox / Empty dual-track, NoticeBox, LoadingSpinner,
-  ConfirmModal, plus SegmentedTabGroup, Input/InputGroup,
+  ConfirmModal, plus SegmentedTabGroup, FilterChip, Input/InputGroup,
   ToolApprovalCard, StreamingCursor, formatShortcut).
 - Give primary decisions visual weight: solid `--ow-primary`, white text,
   `size="lg"` on dialog footers.
@@ -1735,6 +1745,9 @@ that look.
   primitives. Reach for the atom.
 - Do not hand-write segmented tab tracks (`inline-flex rounded-xl … p-1`
   around tab buttons). Use `SegmentedTabGroup`.
+- Do not style free-float category filters as elevated white pills
+  (`bg-dls-surface-solid` + shadow). Use `FilterChip` with
+  `bg-dls-list-selected` when selected.
 - Do not add new bare `Loader2 animate-spin` in page JSX; use
   `LoadingSpinner`.
 - Do not force menu rows or nav tabs into the standard `Button` sizing;

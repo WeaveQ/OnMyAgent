@@ -195,7 +195,7 @@ test("rejects missing skill, app, asset, and runtime references", async () => {
   }
 });
 
-test("loads the three bundled artifact plugin packages", async () => {
+test("loads the bundled artifact plugin packages", async () => {
   const root = join(
     import.meta.dirname,
     "../../desktop/resources/bundled-plugins",
@@ -205,13 +205,18 @@ test("loads the three bundled artifact plugin packages", async () => {
   assert.deepEqual(catalog.diagnostics, []);
   assert.deepEqual(
     catalog.items.map((item) => item.manifest.name),
-    ["documents", "pdf", "spreadsheets"],
+    ["browser", "documents", "pdf", "spreadsheets"],
   );
   assert.deepEqual(
     catalog.items.map((item) => item.runtime.skills.map((skill) => skill.id)),
-    [["documents"], ["pdf"], ["spreadsheets", "excel-live-control"]],
+    [
+      ["browser-automation"],
+      ["documents"],
+      ["pdf"],
+      ["spreadsheets", "excel-live-control"],
+    ],
   );
-  assert.equal(catalog.items[2]?.manifest.apps, "./.app.json");
+  assert.equal(catalog.items[3]?.manifest.apps, "./.app.json");
 });
 
 test("rejects manifest and companion files that resolve outside the plugin root", async () => {

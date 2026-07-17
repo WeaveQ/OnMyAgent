@@ -10,7 +10,7 @@ import {
   resolveProviderDefaultModel,
   resolveUsableDefaultModel,
   shouldPromptProviderDefaultModel,
-} from "../src/react-app/shell/session-route-model-options";
+} from "../src/react-app/shell/session-route/model-options";
 import type { ModelOption } from "../src/app/types";
 import { DEFAULT_MODEL } from "../src/app/constants";
 

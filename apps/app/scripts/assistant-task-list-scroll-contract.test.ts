@@ -9,7 +9,7 @@ describe("assistant task list scroll contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );
@@ -21,7 +21,7 @@ describe("assistant task list scroll contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );
@@ -34,7 +34,7 @@ describe("assistant task list scroll contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx",
+        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
       ),
       "utf8",
     );

@@ -368,8 +368,8 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                       key={mode}
                       type="button"
                       role="tab"
-                      size="filter"
-                      shape="pill"
+                      size="tab"
+                      shape="tab"
                       active={activityMode === mode}
                       aria-selected={activityMode === mode}
                       onClick={() => setActivityMode(mode)}

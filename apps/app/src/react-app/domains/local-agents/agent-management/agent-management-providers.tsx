@@ -422,7 +422,7 @@ export function AgentManagementProviderModal(props: {
   const jsonTextareaClass = `${textareaClass} min-h-64 font-mono text-xs leading-5`;
   const labelClass = "text-xs font-medium text-dls-text";
   const hintClass = "text-xs leading-4 text-dls-secondary";
-  const modelSelectButtonClass = "relative flex h-9 w-9 items-center justify-center rounded-lg border border-dls-border bg-dls-surface text-dls-secondary transition-colors hover:border-dls-border-strong hover:bg-dls-hover hover:text-dls-text focus-within:border-dls-border-strong";
+  const modelSelectButtonClass = "relative flex h-9 w-9 items-center justify-center rounded-lg border border-dls-border bg-dls-surface text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text focus-within:border-dls-border";
   const requiredMark = <span className="ml-1 text-dls-status-danger-fg">*</span>;
 
   useEffect(() => {

@@ -9,15 +9,15 @@ function readWorkspaceFile(path: string): string {
 }
 
 describe("session shared page layouts", () => {
-  test("file, management, tool, and channel pages use full-width content containers", () => {
+  test("extracted domain pages live outside shared-pages and keep wide content containers", () => {
     const filesPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/workspace-files-page.tsx",
+      "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
     const managementPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/agent-management-page.tsx",
+      "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
     );
     const channelsPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/messaging-channels-page.tsx",
+      "apps/app/src/react-app/domains/messaging/messaging-channels-page.tsx",
     );
     const toolsPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/plugins/plugins-page.tsx",
@@ -28,31 +28,29 @@ describe("session shared page layouts", () => {
     expect(managementPage).not.toContain('"mx-auto w-full max-w-7xl"');
     expect(channelsPage).toContain('className="w-full"');
     expect(channelsPage).not.toContain("mx-auto max-w-screen-2xl");
-    expect(toolsPage).toContain('pageContainer: "w-full px-8 pb-10 pt-7"');
-    expect(toolsPage).toContain('pluginPageContainer: "w-full space-y-10 px-8 pb-10 pt-7"');
+    // plugins page keeps a centered readable column (not full-bleed)
+    expect(toolsPage).toContain('pageContainer: "mx-auto w-full max-w-5xl px-6 pb-10 pt-5"');
+    expect(toolsPage).toContain(
+      'pluginPageContainer: "mx-auto w-full max-w-5xl space-y-8 px-6 pb-10 pt-5"',
+    );
     expect(toolsPage).not.toContain("mx-auto w-full max-w-screen-2xl");
   });
 
   test("cloud drive tab uses a dedicated empty state instead of task file controls", () => {
-    const sharedFilesPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/workspace-files-page.tsx",
-    );
-    const legacyFilesPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/chat/session-page-workspace-files-page.tsx",
+    const filesPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
     const imagePath = join(
       repoRoot,
       "apps/app/public/empty-states/cloud-drive-placeholder.png",
     );
 
-    for (const filesPage of [sharedFilesPage, legacyFilesPage]) {
-      expect(filesPage).toContain("CloudDriveEmptyState");
-      expect(filesPage).toContain("cloud-drive-placeholder.png");
-      expect(filesPage).toContain('t("files.cloud_empty_title")');
-      expect(filesPage).toContain('t("files.cloud_empty_description")');
-      expect(filesPage).not.toContain('t("files.cloud_coming_soon")');
-    }
-    expect(sharedFilesPage).toContain('activeTab === "cloud" ? (');
+    expect(filesPage).toContain("CloudDriveEmptyState");
+    expect(filesPage).toContain("cloud-drive-placeholder.png");
+    expect(filesPage).toContain('t("files.cloud_empty_title")');
+    expect(filesPage).toContain('t("files.cloud_empty_description")');
+    expect(filesPage).not.toContain('t("files.cloud_coming_soon")');
+    expect(filesPage).toContain('activeTab === "cloud" ? (');
     expect(existsSync(imagePath)).toBe(true);
   });
 });

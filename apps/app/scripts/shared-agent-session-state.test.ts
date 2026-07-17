@@ -16,7 +16,7 @@ import {
   readAutomationSessionRecords,
   renameAutomationSessionRecord,
   syncAutomationSessionRecords,
-} from "../src/react-app/domains/session/components/shared-pages/automation-session-groups";
+} from "../src/react-app/domains/messaging/automation-session-groups";
 
 const storageKeys = [
   "onmyagent:assistantSessionIds",

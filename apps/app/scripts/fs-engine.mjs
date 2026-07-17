@@ -18,7 +18,7 @@ const server = await spawnOpencodeServe({ directory, port });
 
 try {
   const client = makeClient({ baseUrl: server.baseUrl, directory: server.cwd });
-  await waitForHealthy(client);
+  await waitForHealthy(client, { server });
 
   const root = ".onmyagent/test-engine";
   const nestedDir = path.join(root, "nested");

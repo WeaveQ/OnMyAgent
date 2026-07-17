@@ -401,7 +401,7 @@ export function MessagingView(props: MessagingViewProps) {
                           : t("identities.worker_offline")}
                     </span>
                   </div>
-                  <StatusBadge tone={workerStatusTone}>
+                  <StatusBadge tone={workerStatusTone} shape="pill" size="tiny">
                     {statusLabel}
                   </StatusBadge>
                 </div>
@@ -853,11 +853,11 @@ export function MessagingView(props: MessagingViewProps) {
                     <span className="text-sm font-medium text-dls-secondary">{t("identities.default_routing")}</span>
                   </div>
                   <div className={messagingLayoutClass.routingRow}>
-                    <StatusBadge shape="soft" tone="neutral">
+                    <StatusBadge shape="soft" size="tiny" tone="neutral">
                       {t("identities.all_channels")}
                     </StatusBadge>
                     <ArrowRight size={14} className="text-dls-secondary" />
-                    <StatusBadge shape="soft" tone="accent">
+                    <StatusBadge shape="soft" size="tiny" tone="accent">
                       {defaultRoutingDirectory}
                     </StatusBadge>
                   </div>

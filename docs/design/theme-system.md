@@ -28,20 +28,21 @@ are driven by semantic CSS tokens.
 ## Component Contracts
 
 Signature and primitive component shapes (`SettingsCard`, `RailButton`,
-`SendButton`, `SegmentedTabGroup`, `Dialog`, `Input`, `ToggleChip`, …)
-are now bound to token references inside `DESIGN.md`'s YAML front
-matter under `components.contracts`. That block is the machine-readable
-target — radius, height, surface, padding — for the 20 most-drifted
-primitives. When adding or refactoring a signature component, edit
-that block in the same PR.
+`SendButton`, `SegmentedTabGroup`, `FilterChip`, `Dialog`, `Input`,
+`ToggleChip`, …) are bound to token references inside `DESIGN.md`'s YAML
+front matter under `components.contracts`. That block is the machine-readable
+target — radius, height, surface, padding — for the most-drifted primitives.
+When adding or refactoring a signature component, edit that block in the same PR.
 
 Cross-cutting rules that surface most often in review:
 
-- **Tab bars.** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">`. Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view. `SegmentedTabGroup` must keep a visible track (`border-dls-border` + muted fill) so active tabs do not read as free-floating pills.
-- **`rounded-full` is a whitelist.** Only avatars, `NavTabButton shape="pill"` (compact filter chips), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11.
+- **Tab bars (in a track).** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">` (or `SegmentedTabButton` inside the group). Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view. `SegmentedTabGroup` must keep a visible track (`border-dls-border` + muted fill) so active tabs do not read as free-floating pills.
+- **Free-floating category filters.** Use `<FilterChip>` (`action-row.tsx`, wraps `SegmentedTabButton tone="chip"`). **Selected** = soft gray solid (`bg-dls-list-selected`), no elevated white pill / no drop shadow. **Idle** = plain label (`bg-transparent text-dls-secondary`). Used on expert/skills/plugins category rows and onboarding multi-select. Do not reuse track-style `SegmentedTabGroup` for free-float filters, and do not reintroduce light-theme `bg-dls-surface-solid` + shadow for selected chips.
+- **`rounded-full` is a whitelist.** Only avatars, pill filter chips (`FilterChip` / `NavTabButton shape="pill"`), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11. Ordinary CTAs stay `rounded-lg` / `rounded-xl`.
 - **Radius scale is flat.** `xs=3 sm=6 md=8 lg=10 xl=14 pill=999`. `2xl/3xl/4xl` are legacy aliases mapped to `xl=14` in Tailwind config so migration is safe, but new code must pick a named tier — not a legacy alias.
 - **Composer host policy.** Global `SessionSurface` composer only on chat host views; never under manage / files / market / local-agent (local has its own ACP composer). See `DESIGN.md` § 11.
-- **Marketplace dialect.** Expert/skill store card grids may stay avatar-forward; do not import that density into workbench panels.
+- **Marketplace dialect.** Expert/skill/plugin store cards are avatar-forward: no default border (`border-transparent`, border on hover), soft surface hover wash, soft pill tags. Expert cards also hover-reveal a **召唤** CTA. Do not import that density into workbench panels.
+- **Tool chrome headers.** Full-height side pages use `shellChrome.pageHeader` + title only (`typeScale.pageTitle`). Do not stack a page-level subtitle under the title; put contextual copy in empty states or section headers instead.
 
 ## Canonical primitive table
 
@@ -54,6 +55,7 @@ When more than one component could fit, use this table. New code must not invent
 | In-page persistent callout | `NoticeBox` (tones: neutral/info/warning/error) | Toast for sticky gates; ad-hoc tinted borders |
 | Ephemeral feedback | Toast (§ 4b) | `NoticeBox` that auto-dismisses |
 | In-page segmented control | `SegmentedTabGroup` + `NavTabButton shape="tab"` (or `SegmentedTabButton` inside the group) | Hand-written `inline-flex rounded-xl … p-1` tracks |
+| Free-float category filter | `FilterChip` (soft `list-selected` when active) | Elevated white selected pill; track-wrapped chips for free-float rows |
 | Multi-panel content tabs | `components/ui/tabs` | Mixing pill Segmented styling with content Tabs |
 | Local busy / refresh | `LoadingSpinner` (or Button with spinner child) | New bare `Loader2 className="animate-spin"` in page JSX |
 | Destructive / confirm | `ConfirmModal` (wraps `AlertDialog`; footer `size="lg"`) | Ad-hoc Dialog footers for delete/reset |

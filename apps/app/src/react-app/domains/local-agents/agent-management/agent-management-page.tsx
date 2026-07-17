@@ -6,10 +6,10 @@ import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, Plus, Re
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip, IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { shellChrome } from "@/react-app/design-system/type-scale";
 import { cn } from "@/lib/utils";
 import {
   agentManagementFetchModels,
@@ -586,101 +586,81 @@ export function AgentManagementPage(props: {
   const onlineAgents = snapshot?.agents.filter((agent) => agent.status === "online").length ?? 0;
   const managedProviderTotal = snapshot?.providers.total ?? 0;
 
-  const panelDescription =
-    activePanel === "archive"
-      ? t("agent_manager.session_archive_desc")
-      : activePanel === "mcp"
-        ? t("agent_manager.mcp.desc")
-        : activePanel === "providers"
-          ? t("agent_manager.providers_desc")
-          : activePanel === "agents"
-            ? t("agent_manager.agents_desc")
-            : t("agent_manager.skills_desc");
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-background px-6">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-medium leading-7 text-dls-text">
-            {t("agent_manager.title")}
-          </h2>
-          <p className="truncate text-sm leading-5 text-dls-secondary">
-            {t("agent_manager.description")}
-          </p>
+      {/* Store-style top chrome: segmented switch only (no page title). */}
+      <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3")}>
+        <SegmentedTabGroup density="filter">
+          {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
+            (tab) => {
+              const Icon = tab.icon;
+              const active = activePanel === tab.id;
+              return (
+                <NavTabButton
+                  key={tab.id}
+                  type="button"
+                  active={active}
+                  onClick={() => setActivePanel(tab.id)}
+                  size="tab"
+                  shape="tab"
+                >
+                  <Icon className="size-3.5 shrink-0" />
+                  {t(tab.labelKey)}
+                </NavTabButton>
+              );
+            },
+          )}
+        </SegmentedTabGroup>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {activePanel === "agents" ? (
+            <>
+              <AgentManagementMetric
+                label={t("agent_manager.online_agents")}
+                value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`}
+              />
+              <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
+              <AgentManagementMetric
+                label={t("agent_manager.recognized_skills")}
+                value={snapshot?.skills.length ?? 0}
+              />
+              <AgentManagementMetric
+                label={t("agent_manager.managed_providers")}
+                value={managedProviderTotal}
+              />
+            </>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => void refresh({ force: true })}
+            title={t("common.refresh")}
+            aria-label={t("common.refresh")}
+            className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+          >
+            {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void refresh({ force: true })}
-          title={t("common.refresh")}
-          aria-label={t("common.refresh")}
-          className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
-        >
-          {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
-        </Button>
       </header>
 
       <div
         className={cn(
-          "min-h-0 flex-1 px-6 py-4",
-          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto",
+          "min-h-0 flex-1",
+          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto px-6 py-4",
         )}
       >
         <div
           className={cn(
-            "mx-auto w-full max-w-6xl",
-            activePanel === "archive" ? "flex h-full min-h-0 flex-col gap-4" : "space-y-4",
+            activePanel === "archive"
+              ? "flex h-full min-h-0 w-full flex-col"
+              : "mx-auto w-full max-w-6xl space-y-4",
           )}
         >
-          {error ? <NoticeBox size="comfortable" tone="error">{error}</NoticeBox> : null}
-
-          <div className="flex flex-col gap-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <SegmentedTabGroup density="filter">
-                {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
-                  (tab) => {
-                    const Icon = tab.icon;
-                    const active = activePanel === tab.id;
-                    return (
-                      <NavTabButton
-                        key={tab.id}
-                        active={active}
-                        onClick={() => setActivePanel(tab.id)}
-                        size="filter"
-                        shape="pill"
-                      >
-                        <Icon className="size-3.5 shrink-0" />
-                        {t(tab.labelKey)}
-                      </NavTabButton>
-                    );
-                  },
-                )}
-              </SegmentedTabGroup>
-              {activePanel === "agents" ? (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <AgentManagementMetric
-                    label={t("agent_manager.online_agents")}
-                    value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`}
-                  />
-                  <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
-                  <AgentManagementMetric
-                    label={t("agent_manager.recognized_skills")}
-                    value={snapshot?.skills.length ?? 0}
-                  />
-                  <AgentManagementMetric
-                    label={t("agent_manager.managed_providers")}
-                    value={managedProviderTotal}
-                  />
-                </div>
-              ) : null}
-            </div>
-            <p className="text-xs leading-5 text-dls-secondary">{panelDescription}</p>
-          </div>
+          {error && activePanel !== "archive" ? (
+            <NoticeBox size="comfortable" tone="error">{error}</NoticeBox>
+          ) : null}
 
           {activePanel === "archive" && props.sessionArchiveSlot ? (
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-              {props.sessionArchiveSlot}
-            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">{props.sessionArchiveSlot}</div>
           ) : activePanel === "providers" ? (
             <>
               <AgentManagementProviderPanel
@@ -719,23 +699,33 @@ export function AgentManagementPage(props: {
                       {filteredDetectedAgents.length} / {detectedAgents.length}
                     </span>
                   </div>
-                  <SegmentedTabGroup density="panel">
-                    <NavTabButton active={agentFilter === "all"} onClick={() => setAgentFilter("all")} size="filter" shape="pill">
-                      {t("agent_manager.filter_all")}
-                    </NavTabButton>
-                    <NavTabButton active={agentFilter === "available"} onClick={() => setAgentFilter("available")} size="filter" shape="pill">
-                      {t("agent_manager.filter_available")}
-                    </NavTabButton>
-                    <NavTabButton active={agentFilter === "unavailable"} onClick={() => setAgentFilter("unavailable")} size="filter" shape="pill">
-                      {t("agent_manager.filter_unavailable")}
-                    </NavTabButton>
-                    <NavTabButton active={agentFilter === "needs_auth"} onClick={() => setAgentFilter("needs_auth")} size="filter" shape="pill">
-                      {t("local_agent.filter_needs_auth")}
-                    </NavTabButton>
-                    <NavTabButton active={agentFilter === "missing"} onClick={() => setAgentFilter("missing")} size="filter" shape="pill">
-                      {t("local_agent.filter_missing")}
-                    </NavTabButton>
-                  </SegmentedTabGroup>
+                  <div className="flex flex-wrap items-center gap-0.5">
+                    <FilterChip
+                      selected={agentFilter === "all"}
+                      onClick={() => setAgentFilter("all")}
+                      label={t("agent_manager.filter_all")}
+                    />
+                    <FilterChip
+                      selected={agentFilter === "available"}
+                      onClick={() => setAgentFilter("available")}
+                      label={t("agent_manager.filter_available")}
+                    />
+                    <FilterChip
+                      selected={agentFilter === "unavailable"}
+                      onClick={() => setAgentFilter("unavailable")}
+                      label={t("agent_manager.filter_unavailable")}
+                    />
+                    <FilterChip
+                      selected={agentFilter === "needs_auth"}
+                      onClick={() => setAgentFilter("needs_auth")}
+                      label={t("local_agent.filter_needs_auth")}
+                    />
+                    <FilterChip
+                      selected={agentFilter === "missing"}
+                      onClick={() => setAgentFilter("missing")}
+                      label={t("local_agent.filter_missing")}
+                    />
+                  </div>
                 </div>
                 {detectedAgents.length === 0 ? (
                   <EmptyStateBox size="spacious" tone="surface" className="text-sm">

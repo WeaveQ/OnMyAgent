@@ -1,13 +1,17 @@
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useEffect, useState } from "react";
-import { CheckCircle2, ChevronRight, Clock3, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
-import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
+import {
+  ConversationItemView,
+  mapPersonalRunToMessages,
+  personalMessagesToConversationItems,
+  toPersonalConversationItems,
+  type PersonalAdapterMessage,
+} from "../../../capabilities/conversation";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
@@ -17,112 +21,18 @@ export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefine
   return event?.at ?? run?.finishedAt ?? run?.startedAt ?? null;
 }
 
-function runEventString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function runEventPlanEntries(event: PersonalLocalAgentRunResult["events"][number]) {
-  if (Array.isArray(event.plan?.entries)) return event.plan.entries;
-  const entries = event.data?.entries;
-  return Array.isArray(entries) ? entries : [];
-}
-
-function runEventResolution(value: unknown) {
-  return value && typeof value === "object" ? value as { target?: string; kind?: string; message?: string } : null;
-}
-
-function shouldJoinAssistantChunkTightly(current: string, next: string) {
-  if (!current || /^\s/.test(next) || /\s$/.test(current)) return true;
-  if (/^[,.;:!?，。！？、；：）)\]}]/.test(next)) return true;
-  if (/[（([{]$/.test(current)) return true;
-  if (/[\u4e00-\u9fff]$/.test(current) || /^[\u4e00-\u9fff]/.test(next)) return true;
-  return false;
-}
-
+/**
+ * Visible timeline rows for a personal run.
+ * Event → message mapping lives in capabilities/conversation personal adapter;
+ * this keeps the rich PersonalLocalAgentConversationMessage shape for UI cards.
+ */
 export function visibleRunTimelineMessages(run: PersonalLocalAgentRunResult | null | undefined) {
-  const sourceMessages = run?.conversationMessages?.length
-    ? run.conversationMessages
-    : (run?.events ?? []).flatMap((event, index): PersonalLocalAgentConversationMessage[] => {
-      const text = event.text.trim();
-      if (!text) return [];
-      const createdAt = event.at || Date.now();
-      if (event.type === "assistant_chunk") return [{ id: `event-${index}`, type: "text", role: "assistant", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "assistant" || event.type === "finish") return [{ id: `event-${index}`, type: "finish", role: "assistant", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "tool") return [{ id: `event-${index}`, type: "tool", role: "tool", text, createdAt, sourceEventType: event.type, status: /failed|error/i.test(text) ? "failed" : "running", toolCall: event.toolCall ?? null }];
-      if (event.type === "acp_tool_call") return [{ id: `event-${index}`, type: "acp_tool_call", role: "tool", text, createdAt, sourceEventType: event.type, status: event.update?.status ?? "running", update: event.update ?? null, msgId: event.msgId ?? null }];
-      if (event.type === "plan") return [{ id: `event-${index}`, type: "plan", role: "assistant", text, createdAt, sourceEventType: event.type, entries: runEventPlanEntries(event) }];
-      if (event.type === "thinking") return [{ id: `event-${index}`, type: "thinking", role: "assistant", text, createdAt, sourceEventType: event.type, status: event.status ?? runEventString(event.data?.status) ?? "thinking", msgId: event.msgId ?? null, durationMs: event.durationMs ?? null, startedAt: event.startedAt ?? null }];
-      if (event.type === "tips") return [{ id: `event-${index}`, type: "tips", role: "system", text, createdAt, sourceEventType: event.type, category: event.category ?? runEventString(event.data?.category) ?? "info", ownership: event.ownership ?? runEventString(event.data?.ownership), resolution: event.resolution ?? runEventResolution(event.data?.resolution) }];
-      if (event.type === "approval_request") return [{ id: `event-${index}`, type: "permission", role: "system", text, createdAt, sourceEventType: event.type, approval: event.approval ?? null }];
-      if (event.type === "error") return [{ id: `event-${index}`, type: "error", role: "system", text, createdAt, sourceEventType: event.type }];
-      if (event.type === "status") return [{ id: `event-${index}`, type: "agent_status", role: "system", text, createdAt, sourceEventType: event.type }];
-      return [];
-    });
-  const messages = sourceMessages.filter((message) => {
-    if (message.type === "thought") return false;
-    if (!message.text.trim() && !(message.type === "thinking" && (message.status === "done" || message.status === "completed"))) return false;
-    if (message.type === "finish") return false;
-    if (message.role === "assistant" && message.type === "text") {
-      return false;
-    }
-    if (message.type === "agent_status") return false;
-    if (message.type === "agent_status" && /^.+ ACP flow started$/.test(message.text.trim())) return false;
-    if (message.type === "available_commands" || message.type === "context_usage") return false;
-    if (message.type === "tool" && !message.toolCall?.id) return false;
-    if (message.type === "acp_tool_call" && !message.update?.toolCallId) return false;
-    return true;
-  });
-  const grouped: PersonalLocalAgentConversationMessage[] = [];
-  const thinkingIndexByKey = new Map<string, number>();
-  let planIndex = -1;
-  for (const message of messages) {
-    if (message.type === "plan") {
-      if (planIndex >= 0) {
-        grouped[planIndex] = { ...message, id: grouped[planIndex].id };
-      } else {
-        planIndex = grouped.length;
-        grouped.push({ ...message, id: `plan-card` });
-      }
-      continue;
-    }
-    if (message.type === "thinking") {
-      const key = message.msgId ?? "__default__";
-      const existingIndex = thinkingIndexByKey.get(key);
-      if (existingIndex !== undefined) {
-        const existing = grouped[existingIndex];
-        const isDone = message.status === "done" || message.status === "completed";
-        grouped[existingIndex] = {
-          ...existing,
-          text: message.text ? `${existing.text}${existing.text ? "" : ""}${message.text}` : existing.text,
-          status: isDone ? "done" : existing.status ?? "thinking",
-          durationMs: message.durationMs ?? existing.durationMs ?? null,
-          startedAt: existing.startedAt ?? message.startedAt ?? null,
-          createdAt: message.createdAt || existing.createdAt,
-        };
-        continue;
-      }
-      const idx = grouped.length;
-      grouped.push({ ...message, id: `thinking-${key}` });
-      thinkingIndexByKey.set(key, idx);
-      continue;
-    }
-    const previous = grouped[grouped.length - 1];
-    const isAssistantChunk = message.role === "assistant" && message.type === "text";
-    const previousIsAssistantChunk = previous?.role === "assistant" && previous.type === "text";
-    if (isAssistantChunk && previous && previousIsAssistantChunk) {
-      grouped[grouped.length - 1] = {
-        ...previous,
-        id: `${previous.id}-${message.id}`,
-        text: shouldJoinAssistantChunkTightly(previous.text, message.text)
-          ? `${previous.text}${message.text}`
-          : `${previous.text}\n${message.text}`,
-        createdAt: message.createdAt,
-      };
-      continue;
-    }
-    grouped.push(message);
-  }
-  return grouped;
+  return mapPersonalRunToMessages(run) as PersonalLocalAgentConversationMessage[];
+}
+
+/** Runtime-agnostic ConversationItemVM[] for the same personal run. */
+export function toConversationItems(run: PersonalLocalAgentRunResult | null | undefined) {
+  return toPersonalConversationItems(run);
 }
 
 type LocalAgentToolStatus = "running" | "completed" | "failed" | "pending";
@@ -451,7 +361,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
             <div className="text-xs text-dls-secondary">{tool.description}</div>
           ) : null}
         </div>
-        <StatusBadge tone={tone}>{tool.status}</StatusBadge>
+        <StatusBadge tone={tone} shape="pill" size="tiny">{tool.status}</StatusBadge>
       </button>
       {expanded && hasDetail ? (
         <div className="mt-2 space-y-3">
@@ -496,9 +406,34 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
   );
 }
 
+/** True when the tool needs the expandable Input/Output card (not Content/Locations alone). */
+function toolNeedsRichInputOutputCard(display: LocalAgentToolDisplay): boolean {
+  return display.detail.some((section) => section.label === "Input" || section.label === "Output");
+}
+
+function sharedToolItemFromMessage(
+  message: PersonalLocalAgentConversationMessage,
+  display: LocalAgentToolDisplay,
+) {
+  const [item] = personalMessagesToConversationItems([message as PersonalAdapterMessage]);
+  if (!item) return null;
+  return {
+    ...item,
+    kind: "tool" as const,
+    toolName: display.title || item.toolName,
+    toolStatus: display.status || item.toolStatus,
+    text: display.description || item.text,
+    meta: {
+      ...item.meta,
+      description:
+        display.description !== display.title ? display.description : undefined,
+    },
+  };
+}
+
 export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConversationMessage[]; runStatus?: string }) {
-  // Normalize + filter empty tool calls (Upstream pattern), so the count and
-  // running indicator only reflect tools that actually carry information.
+  // Prefer shared ConversationItemView for compact tool rows. Keep the rich
+  // LocalAgentToolCard only when expandable Input/Output is present.
   const tools = props.messages
     .map((message) => ({ message, display: localAgentToolDisplay(message, props.runStatus) }))
     .filter((entry) => entry.display !== null);
@@ -507,109 +442,122 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
 
   return (
     <div className="max-w-full flex flex-col gap-2">
-      {tools.map((entry) => (
-        <LocalAgentToolCard key={entry.message.id} message={entry.message} runStatus={props.runStatus} />
-      ))}
+      {tools.map((entry) => {
+        const display = entry.display!;
+        if (toolNeedsRichInputOutputCard(display)) {
+          return (
+            <LocalAgentToolCard
+              key={entry.message.id}
+              message={entry.message}
+              runStatus={props.runStatus}
+            />
+          );
+        }
+        const item = sharedToolItemFromMessage(entry.message, display);
+        if (!item) return null;
+        return <ConversationItemView key={entry.message.id} item={item} />;
+      })}
     </div>
   );
 }
 
-function LocalAgentPlanMessage(props: { message: PersonalLocalAgentConversationMessage; streaming: boolean }) {
-  const entries = props.message.entries ?? [];
-  const [expanded, setExpanded] = useState(true);
-  if (!entries.length) return <MarkdownBlock text={props.message.text} />;
-  const hasActive = props.streaming && entries.some((e) => e.status === "in_progress" || e.status === "running");
-  const completedCount = entries.filter((e) => e.status === "completed").length;
-  return (
-    <div className="min-w-0 rounded-md border border-dls-border/70 bg-dls-surface-muted/50" data-testid="local-agent-plan-card">
-      <button
-        type="button"
-        data-testid="local-agent-plan-header"
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm leading-5 text-dls-secondary transition-colors hover:bg-dls-hover/40"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-      >
-        {hasActive ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" />}
-        <span className="min-w-0 flex-1 truncate font-medium text-dls-text">{t("local_agent.plan_title", { defaultValue: "Plan" })}</span>
-        <span className="shrink-0 text-xs text-dls-text-tertiary" data-testid="local-agent-plan-count">{completedCount}/{entries.length}</span>
-        <ChevronRight className={cn("size-3 shrink-0 text-dls-text-tertiary transition-transform", expanded && "rotate-90")} />
-      </button>
-      {expanded ? (
-        <div className="space-y-1.5 border-t border-dls-border/50 px-3 py-2 text-sm leading-5" data-testid="local-agent-plan-body">
-          {entries.map((entry) => {
-            const completed = entry.status === "completed";
-            const running = props.streaming && (entry.status === "in_progress" || entry.status === "running");
-            const label = entry.title || entry.content || props.message.text || t("local_agent.plan_title", { defaultValue: "Plan" });
-            return (
-              <div key={entry.id} className="flex min-w-0 items-center gap-2">
-                {completed ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : running ? <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" /> : <Clock3 className="size-3.5 shrink-0 text-dls-text-tertiary" />}
-                <span className="min-w-0 flex-1 truncate text-dls-text">{label}</span>
-                {entry.priority ? <StatusBadge tone="neutral" size="tiny">{entry.priority}</StatusBadge> : null}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
+/** Map a personal timeline message → ConversationItemVM (adapter) then shared UI. */
+function PersonalConversationItem(props: {
+  message: PersonalLocalAgentConversationMessage;
+  streaming?: boolean;
+  runStatus?: string;
+}) {
+  // Tools get display-normalized titles/status when possible so the shared row
+  // matches LocalAgentToolCard chrome without pulling in expandable detail.
+  if (props.message.type === "tool" || props.message.type === "acp_tool_call") {
+    const display = localAgentToolDisplay(props.message, props.runStatus);
+    if (!display) return null;
+    if (toolNeedsRichInputOutputCard(display)) {
+      return <LocalAgentToolCard message={props.message} runStatus={props.runStatus} />;
+    }
+    const toolItem = sharedToolItemFromMessage(props.message, display);
+    if (!toolItem) return null;
+    return <ConversationItemView item={toolItem} streaming={props.streaming} />;
+  }
+
+  const [item] = personalMessagesToConversationItems([
+    props.message as PersonalAdapterMessage,
+  ]);
+  if (!item) return null;
+
+  // Enrich approval cards with title/summary when present on the message.
+  if (item.kind === "approval" && props.message.approval) {
+    const approval = props.message.approval;
+    return (
+      <ConversationItemView
+        item={{
+          ...item,
+          meta: {
+            ...item.meta,
+            title: typeof approval.title === "string" ? approval.title : item.meta?.title,
+            summary:
+              typeof approval.summary === "string"
+                ? approval.summary
+                : typeof approval.command === "string"
+                  ? approval.command
+                  : item.meta?.summary,
+            command: typeof approval.command === "string" ? approval.command : item.meta?.command,
+          },
+        }}
+        streaming={props.streaming}
+      />
+    );
+  }
+
+  return <ConversationItemView item={item} streaming={props.streaming} />;
 }
 
-function LocalAgentThinkingMessage(props: { message: PersonalLocalAgentConversationMessage }) {
-  const done = props.message.status === "done" || props.message.status === "completed";
-  const [expanded, setExpanded] = useState(!done);
-  useEffect(() => {
-    if (done) setExpanded(false);
-  }, [done]);
-  const bodyText = props.message.text || t("session.assistant_thinking", { defaultValue: "Thinking..." });
-  const durationSec = typeof props.message.durationMs === "number" && props.message.durationMs > 0
-    ? Math.max(1, Math.round(props.message.durationMs / 1000))
-    : null;
-  const summary = done
-    ? (durationSec
-        ? t("local_agent.thinking_done_with_duration", { defaultValue: "Thought for {seconds}s", seconds: durationSec })
-        : t("local_agent.thinking_complete", { defaultValue: "Thinking complete" }))
-    : (durationSec
-        ? t("local_agent.thinking_running_with_duration", { defaultValue: "Thinking... {seconds}s", seconds: durationSec })
-        : t("local_agent.thinking_running", { defaultValue: "Thinking..." }));
-  return (
-    <div className="min-w-0 rounded-md border border-dls-border/70 bg-dls-surface-muted/50" data-testid="local-agent-thinking-card">
-      <button
-        type="button"
-        data-testid="local-agent-thinking-header"
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm leading-5 text-dls-secondary transition-colors hover:bg-dls-hover/40"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        data-status={done ? "done" : "running"}
-      >
-        {done ? <CheckCircle2 className="size-3.5 shrink-0 text-dls-status-success-fg" /> : <LoadingSpinner size="sm" className="shrink-0 text-dls-accent" />}
-        <span className="min-w-0 flex-1 truncate" data-testid="local-agent-thinking-status">{summary}</span>
-        <ChevronRight className={cn("size-3 shrink-0 text-dls-text-tertiary transition-transform", expanded && "rotate-90")} />
-      </button>
-      {expanded ? (
-        <div className="border-t border-dls-border/50 px-3 py-2" data-testid="local-agent-thinking-body">
-          <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-dls-secondary font-sans">{bodyText}</pre>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-export function LocalAgentTimelineMessage(props: { message: PersonalLocalAgentConversationMessage; streaming: boolean; onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void }) {
-  if (props.message.type === "plan") return <LocalAgentPlanMessage message={props.message} streaming={props.streaming} />;
-  if (props.message.type === "thinking") return <LocalAgentThinkingMessage message={props.message} />;
-  if (props.message.type === "tips") return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
+export function LocalAgentTimelineMessage(props: {
+  message: PersonalLocalAgentConversationMessage;
+  streaming: boolean;
+  runStatus?: string;
+  onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
+}) {
+  // Shared conversation UI for tool / thinking / plan / approval / error / tips
+  // (tips with resolution keep MessageTips for the action button).
+  if (
+    props.message.type === "plan"
+    || props.message.type === "thinking"
+    || props.message.type === "permission"
+    || props.message.type === "error"
+    || props.message.type === "tool"
+    || props.message.type === "acp_tool_call"
+    || props.message.type === "system"
+    || props.message.type === "tips"
+  ) {
+    if (props.message.type === "tips" && props.message.resolution) {
+      return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
+    }
+    return (
+      <PersonalConversationItem
+        message={props.message}
+        streaming={props.streaming}
+        runStatus={props.runStatus}
+      />
+    );
+  }
   if (props.message.role === "assistant") {
     return (
       <div className="text-sm leading-6 text-dls-text">
-        <MarkdownBlock text={props.message.text} streaming={props.streaming && props.message.type !== "finish"} />
+        <MarkdownBlock
+          text={props.message.text}
+          streaming={props.streaming && props.message.type !== "finish"}
+        />
       </div>
     );
   }
-  if (props.message.type === "permission" || props.message.type === "error") {
+  if (props.message.role === "system" || props.message.role === "user") {
     return (
-      <div className="text-xs leading-5 text-dls-secondary">
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-sans">{props.message.text}</pre>
-      </div>
+      <PersonalConversationItem
+        message={props.message}
+        streaming={props.streaming}
+        runStatus={props.runStatus}
+      />
     );
   }
   return null;

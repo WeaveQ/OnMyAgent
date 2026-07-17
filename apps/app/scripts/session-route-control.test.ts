@@ -8,14 +8,14 @@ import {
   resolveWorkspaceSelectionSessionTarget,
   resolveWorkspaceSessionRoute,
   shouldRedirectSessionRouteToWelcome,
-} from "../src/react-app/shell/session-route-control";
+} from "../src/react-app/shell/session-route/control";
 import { INITIAL_UI } from "../src/react-app/kernel/local-provider";
 import type { SidebarSessionItem } from "../src/app/types";
 import {
   buildSelectedWorkspaceRouteState,
   buildSettingsNavigationTarget,
-} from "../src/react-app/shell/session-route-model";
-import type { RouteWorkspace } from "../src/react-app/shell/session-route-model";
+} from "../src/react-app/shell/session-route/model";
+import type { RouteWorkspace } from "../src/react-app/shell/session-route/model";
 
 function session(id: string): SidebarSessionItem {
   return { id, title: id, version: "0.0.0", time: { created: 1, updated: 1 } };

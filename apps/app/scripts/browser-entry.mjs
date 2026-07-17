@@ -223,7 +223,8 @@ try {
   const client = makeClient({ baseUrl: opencode.baseUrl, directory: opencode.cwd });
 
   await step("health", async () => {
-    const health = await waitForHealthy(client);
+    // spawnOpencodeServe handle is stored as `opencode` in this script
+    const health = await waitForHealthy(client, { server: opencode });
     return health;
   });
 

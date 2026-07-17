@@ -207,8 +207,8 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
               key={id}
               type="button"
               active={filter === id}
-              size="filter"
-              shape="pill"
+              size="tab"
+              shape="tab"
               onClick={() => setFilter(id)}
               data-testid={`local-agent-filter-${id}`}
               aria-pressed={filter === id}

@@ -27,7 +27,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MenuRowButton, NavTabButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip, MenuRowButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -443,7 +443,7 @@ function AutomationTemplateCard(props: {
     <button
       type="button"
       onClick={() => props.onSelect(props.template)}
-      className="group flex min-h-20 items-center gap-4 rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-left transition-colors hover:border-dls-border-strong hover:bg-dls-surface-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      className="group flex min-h-20 items-center gap-4 rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-left transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
     >
       <Icon className="size-5 shrink-0 text-dls-secondary group-hover:text-dls-text" />
       <span className="min-w-0 flex-1">
@@ -460,10 +460,10 @@ function AutomationTaskMeta(props: {
 }) {
   return (
     <>
-      <StatusBadge tone="neutral" size="sm" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
+      <StatusBadge tone="neutral" size="tiny" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
         {automationDisplayId(props.item, props.groupName)}
       </StatusBadge>
-      <StatusBadge tone="neutral" size="sm" shape="soft" className="shrink-0 font-medium">
+      <StatusBadge tone="neutral" size="tiny" shape="soft" className="shrink-0 font-medium">
         {scheduleLabel(props.item.schedule)}
       </StatusBadge>
     </>
@@ -491,7 +491,7 @@ function ScheduledAutomationRow(props: {
           </span>
         ) : null}
         {!props.item.enabled ? (
-          <StatusBadge tone="surface" size="sm" shape="soft">{t("automation.status_paused")}</StatusBadge>
+          <StatusBadge tone="surface" size="tiny" shape="soft">{t("automation.status_paused")}</StatusBadge>
         ) : null}
       </span>
       <span className="shrink-0 text-xs text-dls-secondary">{nextRunLabel(props.item)}</span>
@@ -551,7 +551,7 @@ function CompletedAutomationRow(props: {
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-medium">{task.title}</span>
-          <StatusBadge tone="neutral" size="sm" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
+          <StatusBadge tone="neutral" size="tiny" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
             {automationDisplayId(task, run.groupName)}
           </StatusBadge>
           <span className={`shrink-0 ${statusClassName}`}>
@@ -1137,11 +1137,10 @@ export function AutomationPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex shrink-0 items-start justify-between gap-4 px-8 pb-6 pt-8">
-        <div>
-          <h1 className="text-lg font-medium leading-7 text-dls-text">{t("automation.title")}</h1>
-          <p className="mt-2 text-sm text-dls-secondary">{t("automation.subtitle")}</p>
-        </div>
+      <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-6">
+        <h1 className="min-w-0 truncate text-lg font-medium leading-7 text-dls-text">
+          {t("automation.title")}
+        </h1>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={openBlankDialog}>
             {t("automation.add_with_plus")}
@@ -1185,30 +1184,26 @@ export function AutomationPage(props: {
           </div>
         ) : (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-0.5">
               {automationStatusTabs.map((tab) => (
-                <NavTabButton
+                <FilterChip
                   key={tab}
                   type="button"
-                  active={activeStatusTab === tab}
-                  shape="tab"
-                  size="tab"
-                  className={activeStatusTab === tab ? "bg-dls-list-selected text-dls-text hover:bg-dls-list-selected hover:text-dls-text" : "hover:bg-dls-list-hover"}
+                  selected={activeStatusTab === tab}
                   onClick={() => setActiveStatusTab(tab)}
-                >
-                  {tab === "scheduled"
-                    ? t("automation.scheduled_section")
-                    : tab === "running"
-                      ? t("automation.running_section")
-                      : t("automation.completed_section")}
-                  <StatusBadge
-                    tone="neutral"
-                    size="sm"
-                    shape="soft"
-                  >
-                    {statusTabCounts[tab]}
-                  </StatusBadge>
-                </NavTabButton>
+                  label={
+                    <>
+                      {tab === "scheduled"
+                        ? t("automation.scheduled_section")
+                        : tab === "running"
+                          ? t("automation.running_section")
+                          : t("automation.completed_section")}
+                      <StatusBadge tone="neutral" size="tiny" shape="soft">
+                        {statusTabCounts[tab]}
+                      </StatusBadge>
+                    </>
+                  }
+                />
               ))}
             </div>
             <div className="space-y-1">

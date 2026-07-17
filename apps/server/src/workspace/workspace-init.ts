@@ -350,8 +350,8 @@ async function ensureOpencodeConfig(workspaceRoot: string): Promise<boolean> {
       join(workspaceRoot, ".opencode", "agents", `${defaultAgent}.md`),
     ))
   ) {
-    // A default_agent left behind by another brand build (teamwork, openwork,
-    // ...) whose agent file no longer exists makes every prompt fail with
+    // A default_agent left behind by another brand build (teamwork, …)
+    // whose agent file no longer exists makes every prompt fail with
     // `default agent "<name>" not found`. Fall back to the managed agent.
     await updateJsoncTopLevel(path, { default_agent: DEFAULT_OPENCODE_AGENT });
     changed = true;
@@ -539,7 +539,7 @@ async function ensureOnMyAgentAgent(
 }
 
 // The built-in browser prompt is retired for every agent, regardless of the
-// brand marker it was written with (OnMyAgent, TeamWork, openwork, ...).
+// brand marker it was written with (OnMyAgent, TeamWork, prior product names, …).
 // Older builds stamped the block into custom agent files too, so scan all of
 // `.opencode/agents/*.md` instead of only the managed default agent.
 const LEGACY_BROWSER_PROMPT_PATTERN =

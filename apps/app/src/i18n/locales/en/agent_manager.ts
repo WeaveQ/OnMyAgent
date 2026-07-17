@@ -7,8 +7,6 @@ export default {
     "Local coding agent status, connection checks, and run info",
   "agent_manager.config_preview": "Configuration preview",
   "agent_manager.current": "Current",
-  "agent_manager.description":
-    "Manage local agents, model providers, skills, and MCP",
   "agent_manager.import_current": "Import current configuration",
   "agent_manager.local_runs": "Local runs",
   "agent_manager.managed_providers": "Model providers",

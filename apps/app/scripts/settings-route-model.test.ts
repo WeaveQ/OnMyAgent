@@ -19,7 +19,7 @@ import {
   settingsPathForRoute,
   updateSettingsWorkspaceConnectionOverrides,
   type RouteWorkspace,
-} from "../src/react-app/shell/settings-route-model";
+} from "../src/react-app/shell/settings-route/model";
 import type { WorkspaceInfo, WorkspaceList } from "../src/app/lib/desktop";
 
 function desktopWorkspace(input: {

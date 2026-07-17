@@ -13,7 +13,7 @@ import {
   requiredPermissionQueryKey,
   requiredQuestionQueryKey,
   todoQueryKeyForSession,
-} from "../src/react-app/shell/session-route-state";
+} from "../src/react-app/shell/session-route/state";
 
 describe("session route state", () => {
   test("builds nullable query keys for session-scoped sync state", () => {

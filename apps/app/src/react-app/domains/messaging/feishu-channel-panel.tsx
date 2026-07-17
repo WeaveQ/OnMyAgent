@@ -419,7 +419,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone(serviceState.status)}>{serviceState.status ?? "stopped"}</StatusBadge>
+          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="tiny">{serviceState.status ?? "stopped"}</StatusBadge>
           <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={Boolean(busy)} aria-label={t("common.refresh")}>
             {busy === "refresh" ? <LoadingSpinner size="default" /> : <RefreshCw className="size-4" />}
           </Button>

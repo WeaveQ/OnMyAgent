@@ -37,22 +37,25 @@ const requiredFiles = [
   join(domains, "shell-feedback/status-toasts.tsx"),
   join(domains, "workspace/share-workspace-modal.tsx"),
   join(designSystem, "modal-styles.ts"),
-  join(shell, "session-route.tsx"),
-  join(shell, "session-route-render.tsx"),
-  join(shell, "settings-route.tsx"),
+  // session-route and settings-route are folder facades (index + render + modules)
+  join(shell, "session-route/index.ts"),
+  join(shell, "session-route/render.tsx"),
+  join(shell, "settings-route/index.ts"),
+  join(shell, "settings-route/render.tsx"),
+  // Compat re-export retained for older import paths
   join(shell, "settings-route-render.tsx"),
 ];
 
 const missingDirs = requiredDirs.filter((name) => !existsSync(join(domains, name)));
 const missingFiles = requiredFiles.filter((p) => !existsSync(p));
 
-// Thin route entry guard: session-route / settings-route should stay small
+// Thin route entry guard: public facades stay small; heavy composition lives in render modules
 function lineCount(file) {
   return readFileSync(file, "utf8").split("\n").length;
 }
 const thinRoutes = [
-  join(shell, "session-route.tsx"),
-  join(shell, "settings-route.tsx"),
+  join(shell, "session-route/index.ts"),
+  join(shell, "settings-route/index.ts"),
 ];
 const fatEntries = thinRoutes.filter((p) => existsSync(p) && lineCount(p) > 80);
 

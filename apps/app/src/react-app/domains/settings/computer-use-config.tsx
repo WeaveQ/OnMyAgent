@@ -672,16 +672,16 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
               <SegmentedTabGroup density="filter">
                 <NavTabButton
                   active={skysightExclusionScope === "app"}
-                  size="filter"
-                  shape="pill"
+                  size="tab"
+                  shape="tab"
                   onClick={() => setSkysightExclusionScope("app")}
                 >
                   {t("settings.computer_use_skysight_exclusion_app")}
                 </NavTabButton>
                 <NavTabButton
                   active={skysightExclusionScope === "website"}
-                  size="filter"
-                  shape="pill"
+                  size="tab"
+                  shape="tab"
                   onClick={() => setSkysightExclusionScope("website")}
                 >
                   {t("settings.computer_use_skysight_exclusion_website")}
@@ -890,7 +890,7 @@ function StatusValue(props: {
   return (
     <SettingsActionRow density="compact">
       <span className="min-w-0 break-words text-sm">{props.label}</span>
-      <StatusBadge className="shrink-0" tone={props.tone}>{props.value}</StatusBadge>
+      <StatusBadge className="shrink-0" tone={props.tone} shape="pill" size="tiny">{props.value}</StatusBadge>
     </SettingsActionRow>
   );
 }
@@ -913,7 +913,7 @@ function Pill(props: { label: string; granted: boolean; checked: boolean }) {
         <StatusIcon complete={granted} muted={!checked} />
         <span className="truncate">{label}</span>
       </div>
-      <StatusBadge className="shrink-0" tone={!checked ? "neutral" : granted ? "accent" : "warning"}>
+      <StatusBadge className="shrink-0" tone={!checked ? "neutral" : granted ? "accent" : "warning"} shape="pill" size="tiny">
         {!checked ? "…" : granted ? t("settings.permission_granted") : t("settings.permission_needed")}
       </StatusBadge>
     </SettingsActionRow>

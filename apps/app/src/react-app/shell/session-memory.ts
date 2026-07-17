@@ -5,7 +5,7 @@ import type {
   TodoItem,
   ComposerCollaborationMode,
 } from "../../app/types";
-import { deriveGoalSummary } from "./session-route-composer";
+import { deriveGoalSummary } from "./session-route/composer";
 
 /**
  * Thin localStorage wrapper for the React shell's "remember what the user had

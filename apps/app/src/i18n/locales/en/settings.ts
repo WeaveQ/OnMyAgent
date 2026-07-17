@@ -368,7 +368,7 @@ export default {
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
   "settings.providers_desc": "Connect model and tool services",
-  "settings.providers_title": "Providers",
+  "settings.providers_title": "Models & Config",
   "settings.providers_dialog_title": "Connect providers",
   "settings.providers_dialog_description":
     "Select the model provider you want to use and enter the corresponding key. These keys will only be stored locally",
@@ -516,7 +516,7 @@ export default {
   "settings.system_authorizations_description":
     "Manage system permissions required for the app to run",
   "settings.system_authorizations_go_configure": "Go to settings",
-  "settings.ai_providers": "Model Providers",
+  "settings.ai_providers": "Models & Config",
   "settings.ai_providers_card_description":
     "Connect AI model providers",
   "settings.shell_view_current_version_description": "Current version",

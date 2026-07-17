@@ -8,7 +8,7 @@ pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `pac
 
 ```text
 apps/
-  desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / agent-management-skills / expert-marketplace 已从 main.mjs 抽出；architecture-info、application-menu、startup-flags、Computer Use desktop helper、Code workspace actions、browser-runtime、embedded browser panel、UI control bridge、lightweight GitHub Releases updater 已拆为独立模块
+  desktop/      Electron shell：main.mjs（composition）+ runtime.mjs + desktop-command-router.mjs + `electron/desktop-handlers/*` 域 IPC handlers；sidecar 管理与打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / skills / expert-marketplace、architecture-info、application-menu、startup-flags、Computer Use、Code workspace actions、browser-runtime、UI control bridge、lightweight GitHub Releases updater 均为独立模块
     resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
   server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE 事件流；server.ts 只保留 composition root + OpenCode/配置共享 helper，路由已按 system/dev-ui/runtime/integration/workspace/file/session/import-export/blueprint 等模块注册
@@ -18,7 +18,7 @@ apps/
   orchestrator/ 进程编排：嵌入 server，spawn opencode，审批路由，sandbox 管理；env/PATH、data-dir、sidecar target/config、version manifest、sandbox mount helper 已拆为独立模块
 
 packages/
-  types/        共享类型与 Zod schema：server API / Desktop IPC contract, desktop-policies, restrictions, inference
+  types/        共享类型与 Zod schema：server API / Desktop IPC（含 `DesktopCommandMap`）/ desktop-policies / restrictions / inference；health/status/runtime 响应类型也在此包
   ui/           Paper shader 视觉组件：仅 React 导出（`@onmyagent/ui/react`）；Solid 已移除
   handsfree/    macOS Computer Use：Swift AX + JS CUA runner
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
@@ -38,18 +38,19 @@ apps/app/src/react-app/
   capabilities/    跨域复用的应用能力（artifact、model selection、session identity）
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
-    session/       会话运行时：composer/surface/sync/sidebar/artifacts/browser/voice/goal
+    session/       会话运行时：composer/surface/sync/sidebar（主轨底栏 channels+devices）/artifacts/browser/voice/goal；expert/skills marketplace
     local-agents/  ACP / 本地 agent 编辑、卡片、agent-management
     messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
-    settings/      设置 shell + pages + state stores
+    settings/      设置 shell + pages + state stores（含全局 Updates）
     connections/   MCP + provider auth（canonical）
     cloud/         Den auth + restrictions + org onboarding
     plugins/       skills catalog / plugins / connectors pages
     shell-feedback/ reload banner、toast、右上角通知
     shared/        跨域 infra only（env / extension / desktop-config / server-store）
-apps/app/src/components/ui/  shadcn/ui atoms（见 DESIGN.md）
+  shell/session-route/  会话宿主 folder facade（index 薄导出 + render/intent/composer 模块）
+apps/app/src/components/ui/  shadcn/ui atoms + FilterChip/SegmentedTabGroup（见 DESIGN.md）
 apps/app/src/app/lib/        兼容层：desktop.ts、onmyagent-server.ts、opencode.ts
 apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索引：只供 UI 列表与搜索
 ```
@@ -70,15 +71,19 @@ desktop(electron) → runtime.mjs → spawn sidecars
   ├→ orchestrator → embed server + spawn router → Slack/Telegram
   └→ server HTTP API ← app(React) 通过 onmyagent-server.ts 调用
 
-app(React) ← desktop.ts(command-validated IPC bridge) ← preload.mjs ← desktop-command-router.mjs ← main.mjs
+app(React) ← desktop.ts(command-validated IPC bridge)
+  ← preload.mjs
+  ← desktop-command-router.mjs（按 desktopCommandGroups 路由）
+  ← desktop-handlers/*（workspace / system / local-agents / messaging / agent-management / opencode / runtime / skills）
+  ← main.mjs（组装 services + createAllDesktopDomainHandlers）
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
-app(React) ← @onmyagent/types ← packages/types (Zod schema)
+app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommandMap）
 ```
 
 ## Runtime Adapter (multi-agent harness)
 
-OpenCode 仍是产品 / server 的主会话底座；桌面端在此之上另托管 **Personal Local Agent** 多 agent harness，使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 `main.mjs` IPC 暴露给 renderer——**renderer 不直接 import adapters**。
+OpenCode 仍是产品 / server 的主会话底座；桌面端在此之上另托管 **Personal Local Agent** 多 agent harness，使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 domain handlers（`desktop-handlers/local-agents.mjs` 等）与 `main.mjs` 组合层暴露 IPC——**renderer 不直接 import adapters**。
 
 ### Adapter contract
 
@@ -126,7 +131,7 @@ renderer (domains/local-agents, session)
 ```
 
 - Adapters 与 contract **仅**存在于 `apps/desktop/electron/personal-agent-runtime/`（含 `adapters/`）。
-- `main.mjs` 持有 `createDesktopPersonalRuntimeServices` 返回的 runtime，IPC channel 映射 `listAgents` / `startMessage` / `runMessage` / `cancelRun` / conversations / approvals / extensions 等。
+- `createDesktopPersonalRuntimeServices` 返回的 runtime 由 `main.mjs` 持有，IPC 经 `desktop-handlers/local-agents.mjs`（及 router）映射 `listAgents` / `startMessage` / `runMessage` / `cancelRun` / conversations / approvals / extensions 等。
 - UI 只经 desktop IPC 与 server HTTP；**禁止** renderer import adapter 或 `personal-agent-runtime` 内部模块。
 - 扩展：`extension-registry.mjs` 从 bundled/user 的 `onmyagent-extension.json` 读取 `contributes.acpAdapters[]`，经 `adapterToCustomAgent` 变成 `provider: "custom"` 虚拟 agent，再走 generic ACP 路径。
 
@@ -179,16 +184,39 @@ pnpm check:boundaries
 - `packages/ui` 不依赖 app/server/desktop 业务包。
 - `apps/server` 不依赖 renderer、desktop 或 UI 包。
 - `apps/desktop` 不直接 import renderer 包；renderer 交互必须走 IPC/preload/server API。
-- Desktop IPC 命令名以 `packages/types/src/desktop-ipc-commands.mjs` 为运行时 SoT，
-  `desktop-ipc-commands.d.mts` 提供生成的字面量联合；Electron 按 workspace、runtime、
-  local-agents、messaging 等域注册路由，parity test 要求每条命令恰好声明和实现一次。
-  `desktop-ipc.ts` 共享跨端 payload 类型，renderer 公开 wrapper 保持参数/结果签名；当前
-  尚未建立覆盖全部命令的 command → args/result 映射，preload/main dispatch 仍是运行时边界，
-  后续应补共享 `DesktopCommandMap` 与 handler 级类型 parity，不能把命令名 parity 等同于
-  端到端 payload 类型闭环。
-- Renderer-facing HTTP client 方法以 `server-client-methods.mjs` 分域登记；
-  `app/lib/onmyagent-server.ts` 仅保留兼容 barrel，实际 client 与窄化 domain views 位于
-  `app/lib/onmyagent-server/`。跨端响应结构优先定义在 `@onmyagent/types/server`。
+- **Desktop IPC 三层 SoT**：
+  1. 命令名：`packages/types/src/desktop-ipc-commands.mjs`（运行时 groups）+
+     `desktop-ipc-commands.d.mts`（字面量联合）；parity test 要求每条命令恰好声明和实现一次。
+  2. 载荷类型：`packages/types/src/desktop-ipc.ts`（及 `desktop-ipc-code-workspace.ts`）。
+  3. **命令 → args/result 映射：`packages/types/src/desktop-ipc-command-map.ts` 的
+     `DesktopCommandMap` 已存在**，覆盖全部 `DesktopCommandName`。Map density：
+     **全部命令均有显式 contract**（system / runtime / skills / messaging / opencode
+     在 workspace + localAgents 之后已收紧）；仅少量嵌套字段仍用
+     `Record<string, unknown>` 或 `unknown`（灵活 options、session metadata 等）。
+     Renderer 侧 `apps/app/src/app/lib/desktop-invoke.ts` 的 `invokeDesktopCommand`
+     按 Map 约束 args/result。preload / main dispatch 仍是运行时边界；handler 级
+     parity 可继续加严，但不能把「命令名 parity」当成端到端 payload 已全部闭环。
+- **Desktop handlers 已域拆分**：实现在 `apps/desktop/electron/desktop-handlers/`
+  （`workspace` / `system` / `local-agents` / `messaging` / `agent-management` /
+  `opencode` / `runtime` / `skills`），由 `createAllDesktopDomainHandlers` 组装；
+  `desktop-command-router.mjs` 按 `desktopCommandGroups` 路由；`main.mjs` 只做
+  composition root。新 IPC 优先加 domain handler + types map，而不是堆进 main。
+- Renderer-facing HTTP client 方法以 `packages/types/src/server-client-methods.mjs`
+  分域登记；**方法 → args/result 映射**在
+  `packages/types/src/server-client-method-map.ts` 的 `ServerClientMethodMap`
+  （覆盖全部 `ServerClientMethodName`；system / workspace / sessions / extensions /
+  sessionArchive / artifacts / environment 等已有显式 contract，OpenCode router 等
+  少数 client-local 形状仍用 fallback）。`app/lib/onmyagent-server.ts` 仅保留兼容
+  barrel。实现位于 `app/lib/onmyagent-server/`：`client.ts` 为 facade
+  （`createOnMyAgentServerClient` + map 类型 re-export + 可选 `serverClientMethod`
+  动态访问），方法按域拆到 `client-system` / `client-workspace` /
+  `client-sessions` / `client-extensions` / `client-session-archive`（共享 transport
+  在 `client-shared`）；`domains.ts` 提供窄化 Pick 视图。跨端响应结构优先定义在
+  `@onmyagent/types/server` 与 `@onmyagent/types/session-archive`。
+- **Conversation capability（双运行时 UI）**：`react-app/capabilities/conversation/`
+  提供中立 timeline / item VM / adapter 合同，把 **OpenCode 会话** 与
+  **Personal Local Agent** 消息流映射到同一套 conversation items，供 `session` 与
+  `local-agents` 宿主页复用，避免两套 transcript 表示分叉。
 - `apps/app/src/app/lib/**` 不反向 import `react-app`。
 - `apps/app/src/react-app/domains/<domain>` 的允许方向集中在
   `scripts/checks/domain-boundary-policy.mjs`；所有跨域 import 必须命中目标域一级 barrel。
@@ -196,10 +224,26 @@ pnpm check:boundaries
   `scripts/checks/domain-boundary-policy.mjs` 的 `allowedDomainDependencies`；
   `shared` 始终可读，其余跨域边必须登记。
 - **文件级深链过渡白名单** `allowedDomainImports`（`scripts/checks/check-boundaries.mjs`）
-  **尚未清零**：仍冻结一批历史 `file|importPath` 例外，**只减不增**；新增跨域 import
-  必须走目标域一级 barrel，不得扩白名单。`local-agents` / `messaging` / `workspace`
-  不再作为「可随意反向依赖 session」的例外；artifact、model selection、session identity
-  与复合 UI 分别由 `capabilities/` / `design-system/` 中立所有者承接。
+  **已清零**（Set 为空）：历史 `file|importPath` 例外已收完。该 Set 仍保留为文档 +
+  可选再启用位；**只减不增**（不得再写入新例外）。跨域 import 必须走目标域一级 barrel。
+  活跃边界由 `domain-boundary-policy.mjs` 与 public-barrel 规则强制。
+  `local-agents` / `messaging` / `workspace` 不再作为「可随意反向依赖 session」的例外；
+  artifact、model selection、session identity、conversation timeline 与复合 UI 分别由
+  `capabilities/` / `design-system/` 中立所有者承接。
+
+### Feature → Domain → Transport
+
+| Feature | UI domain / capability | Transport |
+| --- | --- | --- |
+| Live OpenCode chat | `domains/session` | HTTP `onmyagent-server` sessions + OpenCode SDK |
+| Session archive / analytics | `domains/session` (+ archive UI) | HTTP sessionArchive methods |
+| Personal Local Agent chat | `domains/local-agents` + `capabilities/conversation` | Desktop IPC `localAgents` |
+| Workspace CRUD / remote | `domains/workspace` | Desktop IPC `workspace` + HTTP workspace |
+| MCP / providers | `domains/connections` | HTTP extensions + Desktop agent-management |
+| Messaging channels | `domains/messaging` | Desktop IPC `messaging` |
+| Skills / plugins / marketplace | `domains/plugins` | HTTP extensions + Desktop `skills` |
+| Engine / orchestrator / sandbox | shell / settings advanced | Desktop IPC `runtime` |
+| Shared transcript items | `capabilities/conversation` | pure mappers (no I/O) |
 
 ## Dev Command Surface
 
@@ -270,12 +314,12 @@ scripts/release/      release review, prepare, ship, and asset publishing
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
 3. 下一步：继续压缩 `server.ts` 中 OpenCode/client/config 共享 helper，条件成熟后迁入专门 service 模块，但保持路由 composition root 不承载业务路由实现。
 4. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
-5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions迁入 `apps/desktop/electron/code-workspace-actions.mjs`；Browser 的 WebContentsView、会话 Tab 所有权、Node kernel、RPC 与安全策略统一位于 `apps/desktop/electron/browser-runtime/`，不开放全局 CDP 端口；UI control HTTP bridge 位于 `apps/desktop/electron/ui-control-server.mjs`。Agent management 的 provider DB / live sync 迁入 `agent-management-providers.mjs`，skills 扫描与导入迁入 `agent-management-skills.mjs`，expert marketplace 包列表/注册迁入 `expert-marketplace.mjs`。桌面更新检查为 lightweight GitHub Releases poller（`updater.mjs`：查 `releases/latest` → 系统通知 → 打开发布页；无应用内下载/安装，stable-only）。Desktop IPC 已增加共享命令清单与域路由注册层，后续继续把 `main.mjs` 内各域 handler implementation 物理迁入独立模块。
+5. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。
 
 ## Personal Local Agent Runtime
 
 - UI 实现主目录：`apps/app/src/react-app/domains/local-agents/`（management / cards / ACP hooks / messages）。
-- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级 `allowedDomainImports` 仍是可缩减过渡表（见上文 Package Boundaries），不是已清零。
+- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级 `allowedDomainImports` 已清零（见上文 Package Boundaries），新跨域边只走 public barrel。
 - Desktop harness / adapter 分层见上文 **Runtime Adapter (multi-agent harness)**；本段只记 UI 域边界。
 - 临时执行 ledger 只写本地 `.loop/plans/`；稳定架构事实写本文件与 `apps/app/src/react-app/ARCHITECTURE.md`。
 - 该路径不是 team workspace 或 global connector 的实现说明，除非用户明确扩展范围。

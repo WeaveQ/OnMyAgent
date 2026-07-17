@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -7,12 +6,10 @@ import {
   desktopCommandNames,
 } from "../../../packages/types/src/desktop-ipc-commands.mjs";
 import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
-
-const mainSourceUrl = new URL("./main.mjs", import.meta.url);
-
-function implementedDesktopCommands(source) {
-  return [...source.matchAll(/^\s*case "([^"]+)":/gm)].map((match) => match[1]);
-}
+import {
+  DESKTOP_HANDLER_COMMANDS,
+  listImplementedDesktopCommands,
+} from "./desktop-handlers/index.mjs";
 
 test("desktop commands are assigned to exactly one domain", () => {
   const grouped = Object.values(desktopCommandGroups).flat();
@@ -20,11 +17,32 @@ test("desktop commands are assigned to exactly one domain", () => {
   assert.equal(new Set(grouped).size, grouped.length);
 });
 
-test("shared desktop contract and Electron handlers have exact parity", async () => {
-  const source = await readFile(mainSourceUrl, "utf8");
-  const implemented = implementedDesktopCommands(source).sort();
+test("shared desktop contract and Electron handlers have exact parity", () => {
+  const implemented = [...listImplementedDesktopCommands()].sort();
   const declared = [...desktopCommandNames].sort();
+  const handlerKeys = [...DESKTOP_HANDLER_COMMANDS].sort();
+
+  assert.equal(
+    DESKTOP_HANDLER_COMMANDS.length,
+    new Set(DESKTOP_HANDLER_COMMANDS).size,
+    "DESKTOP_HANDLER_COMMANDS must not contain duplicate command names",
+  );
+  assert.equal(
+    DESKTOP_HANDLER_COMMANDS.length,
+    desktopCommandNames.length,
+    "DESKTOP_HANDLER_COMMANDS length must equal desktopCommandNames",
+  );
   assert.deepEqual(implemented, declared);
+  assert.deepEqual(handlerKeys, declared);
+
+  /** @type {Set<string>} */
+  const declaredSet = new Set(declared);
+  /** @type {Set<string>} */
+  const handlerSet = new Set(DESKTOP_HANDLER_COMMANDS);
+  const missing = declared.filter((name) => !handlerSet.has(name));
+  const extra = DESKTOP_HANDLER_COMMANDS.filter((name) => !declaredSet.has(name));
+  assert.deepEqual(missing, [], `handlers missing from DESKTOP_HANDLER_COMMANDS: ${missing.join(", ")}`);
+  assert.deepEqual(extra, [], `DESKTOP_HANDLER_COMMANDS has undeclared commands: ${extra.join(", ")}`);
 });
 
 test("desktop router exposes one handler registry per command domain", () => {

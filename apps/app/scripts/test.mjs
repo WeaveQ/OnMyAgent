@@ -15,6 +15,24 @@ const testTargets = new Map([
   ['automation-model', ['bun', ['test', 'scripts/automation-model.test.ts']]],
   ['extensions-store', ['bun', ['test', 'scripts/extensions-store.test.ts']]],
   ['expert-marketplace-ui-contract', ['bun', ['test', 'scripts/expert-marketplace-ui-contract.test.ts']]],
+  ['filter-chip-contract', ['bun', ['test', 'scripts/filter-chip-contract.test.ts']]],
+  ['style-residual-ui-contract', ['bun', ['test', 'scripts/style-residual-ui-contract.test.ts']]],
+  ['session-route-facade-contract', ['bun', ['test', 'scripts/session-route-facade-contract.test.ts']]],
+  ['e2e-scripts-health-binding-contract', ['bun', ['test', 'scripts/e2e-scripts-health-binding-contract.test.ts']]],
+  ['main-rail-primary-icons-contract', ['bun', ['test', 'scripts/main-rail-primary-icons-contract.test.ts']]],
+  ['main-rail-channel-icon-contract', ['bun', ['test', 'scripts/main-rail-channel-icon-contract.test.ts']]],
+  ['assistant-draft-home-brand-contract', ['bun', ['test', 'scripts/assistant-draft-home-brand-contract.test.ts']]],
+  ['assistant-navigation-spacing-contract', ['bun', ['test', 'scripts/assistant-navigation-spacing-contract.test.ts']]],
+  ['assistant-navigation-tone-contract', ['bun', ['test', 'scripts/assistant-navigation-tone-contract.test.ts']]],
+  ['assistant-navigation-typography-contract', ['bun', ['test', 'scripts/assistant-navigation-typography-contract.test.ts']]],
+  ['assistant-task-list-scroll-contract', ['bun', ['test', 'scripts/assistant-task-list-scroll-contract.test.ts']]],
+  ['automation-prompt-tools-contract', ['bun', ['test', 'scripts/automation-prompt-tools-contract.test.ts']]],
+  ['automation-title-required-contract', ['bun', ['test', 'scripts/automation-title-required-contract.test.ts']]],
+  ['automation-typography-contract', ['bun', ['test', 'scripts/automation-typography-contract.test.ts']]],
+  ['composer-editor-typography-contract', ['bun', ['test', 'scripts/composer-editor-typography-contract.test.ts']]],
+  ['personal-usage-ui-contract', ['bun', ['test', 'scripts/personal-usage-ui-contract.test.ts']]],
+  ['right-side-panel-titlebar-contract', ['bun', ['test', 'scripts/right-side-panel-titlebar-contract.test.ts']]],
+  ['session-transcript-layout-contract', ['bun', ['test', 'scripts/session-transcript-layout-contract.test.ts']]],
   ['infinite-canvas-model', ['bun', ['test', 'scripts/infinite-canvas-model.test.ts']]],
   ['infinite-canvas-ui-contract', ['bun', ['test', 'scripts/infinite-canvas-ui-contract.test.ts']]],
   ['infinite-canvas-ui-smoke', ['node', ['--experimental-websocket', 'scripts/infinite-canvas-ui-smoke.mjs']]],
@@ -27,6 +45,8 @@ const testTargets = new Map([
   ['assistant-selection-memory', ['bun', ['test', 'scripts/assistant-selection-memory.test.ts']]],
   ['composer-state-store', ['bun', ['test', 'scripts/composer-state-store.test.ts']]],
   ['conversation-model', ['bun', ['test', 'scripts/conversation-model.test.ts']]],
+  ['conversation-adapters', ['bun', ['test', 'scripts/conversation-adapters.test.ts']]],
+  ['conversation-ui-contract', ['bun', ['test', 'scripts/conversation-ui-contract.test.ts']]],
   ['session-memory', ['bun', ['test', 'scripts/session-memory.test.ts']]],
   ['session-activity-store', ['bun', ['test', 'scripts/session-activity-store.test.ts']]],
   ['session-sync', ['bun', ['test', 'scripts/session-sync.test.ts']]],
@@ -96,7 +116,20 @@ const testTargets = new Map([
 const composedTargets = new Map([
   ['refactor', ['typecheck', 'health', 'sessions']],
   ['e2e', ['local-file-path', 'raw:e2e', 'session-switch', 'fs-engine', 'browser-entry']],
-  ['ui', ['version-gate', 'transport-contract', 'e2e']],
+  // Fast source-scan safety nets — must run in PR CI via test:ui
+  ['ui-contracts', [
+    // Structural / product safety nets verified green
+    'expert-marketplace-ui-contract',
+    'filter-chip-contract',
+    'session-route-facade-contract',
+    'e2e-scripts-health-binding-contract',
+    'main-rail-primary-icons-contract',
+    'main-rail-channel-icon-contract',
+    'session-side-panel-toggle-contract',
+    'session-visual-files-contract',
+    // Style contracts stay registered as individual targets (run manually if needed)
+  ]],
+  ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],
 ])
 
 function printUsage() {
@@ -107,7 +140,7 @@ Targets:
   remote-diagnostics|open-target|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|personal-local-agent-codex-acp-tool-smoke|artifact-spreadsheet|assistant-selection-memory|composer-state-store|conversation-model|session-memory|session-activity-store|session-sync|session-draft-store|session-page-info-models|session-page-conversation-model|session-page-files-model|session-page-model|session-page-session-archive-model|session-route-agent-context|session-route-created-session-actions|session-route-control|session-route-model-options|session-route-sessions|session-scroll-store|session-surface-model|session-transition-controller|session-route-state|session-route-storage|session-render-state|session-process-summary|session-shared-pages-layout|session-shared-models|session-side-panel-toggle-contract|settings-route-model|session-route-composer|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|session-archive-pagination|session-archive-message-pagination|session-archive-command-palette|session-archive-keyboard|session-archive-grouping|session-archive-transcript-controls|session-archive-inline-rename|session-archive-ui-smoke|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|shared-pending-agent-store|shared-desktop-config-context|shared-agent-session-state|shared-agent-registry-store|shared-agent-registry-types|shared-agent-registry-helpers|shared-agent-default-registry|dev-log
   session-error-recovery|session-scope|session-switch|fs-engine
   local-file-path|browser-entry|version-gate
-  refactor|e2e|ui`)
+  refactor|e2e|ui-contracts|ui`)
 }
 
 if (target === 'help' || target === '--help' || target === '-h') {

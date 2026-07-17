@@ -94,11 +94,23 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).not.toContain("onSummonMyExpert");
   });
 
+  test("expert cards hide summon until hover and only show border on hover", () => {
+    const dialog = readMarketplaceFile("expert-marketplace-dialog.tsx");
+    expect(dialog).toContain("border border-transparent");
+    expect(dialog).toContain("hover:border-dls-border");
+    expect(dialog).toContain("opacity-0");
+    expect(dialog).toContain("group-hover:opacity-100");
+    expect(dialog).toContain("group-hover:pointer-events-auto");
+    expect(dialog).toContain("pointer-events-none");
+    expect(dialog).toContain("event.stopPropagation()");
+    expect(dialog).toContain("props.onSummon(props.expert)");
+  });
+
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const storePage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/side-panel-pages.tsx",
+      "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
     );
     const installHelper = readMarketplaceFile("install.ts");
     const pendingAgent = readMarketplaceFile("pending-agent.ts");
@@ -190,6 +202,9 @@ describe("expert marketplace UI contract", () => {
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
     const surface = readWorkspaceFile("apps/app/src/react-app/domains/session/surface/session-surface.tsx");
+    const surfaceTypes = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface-types.ts",
+    );
 
     expect(expertPage).toContain("const activeAgentContext = useMemo<PendingAgentContext | null>");
     expect(expertPage).toContain("findBuiltinMarketplaceExpertById(");
@@ -197,15 +212,17 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("agentContext={activeAgentContext}");
     expect(expertPage).toContain("assistantFeatureCategoryId={activeExpertFeatureCategoryId}");
     expect(expertPage).not.toContain("DEFAULT_AGENT_TEMPLATE_ID");
-    expect(surface).toContain("agentContext?: PendingAgentContext | null");
+    // SessionSurfaceProps lives in session-surface-types (folder extract).
+    expect(surfaceTypes).toContain("agentContext?: PendingAgentContext | null");
+    expect(surface).toContain('export type { SessionSurfaceProps } from "./session-surface-types"');
     expect(surface).toContain(": props.agentContext");
     expect(surface).toContain("assistantFeatureCategoryId");
   });
 
   test("expert draft tabs keep multiple unsent experts selectable", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
-    const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx");
-    const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx");
+    const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
+    const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx");
 
     expect(expertPage).toContain("draftAgentContexts");
     expect(expertPage).toContain("`draft:${props.selectedWorkspaceId}:${agent.id}`");
@@ -219,9 +236,9 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert conversation list keeps the selected agent highlighted for draft tabs", () => {
-    const list = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-list.tsx");
-    const item = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-item.tsx");
-    const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-conversation-panel.tsx");
+    const list = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-list.tsx");
+    const item = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-item.tsx");
+    const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx");
 
     expect(panel).toContain("selectedAgentId?: string | null");
     expect(panel).toContain("selectedAgentId={props.selectedAgentId}");
@@ -249,8 +266,8 @@ describe("expert marketplace UI contract", () => {
 
   test("expert page feeds selected route expert sessions back into the left conversation panel", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
-    const visibility = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-session-visibility.ts");
-    const barrel = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/index.tsx");
+    const visibility = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-visibility.ts");
+    const barrel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/session-chrome.ts");
 
     expect(visibility).toContain("export function ensureSelectedAgentSessionVisible");
     expect(visibility).toContain("export function ensureSelectedAgentSessionGroupVisible");
@@ -280,7 +297,7 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert session tab menu auto-closes when pointer leaves the menu", () => {
-    const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx");
+    const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
 
     expect(tabs).toContain("const menuRef = useRef<HTMLDivElement>(null)");
     expect(tabs).toContain('window.addEventListener("pointermove", handlePointerMove)');
@@ -291,7 +308,7 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert session tabs keep pending selection visible while route catches up", () => {
-    const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx");
+    const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
     const actionRow = readWorkspaceFile("apps/app/src/components/ui/action-row.tsx");
 
     expect(tabs).toContain("const [pendingSessionId, setPendingSessionId]");
@@ -305,7 +322,7 @@ describe("expert marketplace UI contract", () => {
 
   test("expert session tabs separate expanded chrome and embed the collapse handle", () => {
     const tabs = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/components/shared-pages/agent-session-tabs.tsx",
+      "apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx",
     );
 
     expect(tabs).toContain(
@@ -326,8 +343,8 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("assistant automation session rows do not expose pinning", () => {
-    const sections = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/assistant-conversation-sections.tsx");
-    const taskItem = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/assistant-task-item.tsx");
+    const sections = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx");
+    const taskItem = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/assistant-task-item.tsx");
 
     expect(taskItem).toContain("pinnable?: boolean");
     expect(taskItem).toContain("const pinnable = props.pinnable ?? true");
@@ -337,7 +354,7 @@ describe("expert marketplace UI contract", () => {
 
   test("session route cleans local expert and assistant indexes after deletion", () => {
     const sessionRoute = readWorkspaceFile(
-      "apps/app/src/react-app/shell/session-route-page-view.tsx",
+      "apps/app/src/react-app/shell/session-route/page-view.tsx",
     );
 
     expect(sessionRoute).toContain("removeAssistantSession(sessionId)");
@@ -350,11 +367,11 @@ describe("expert marketplace UI contract", () => {
 
   test("keeps built-in package installation delayed until a real session exists", () => {
     const sessionRoute = [
-      readWorkspaceFile("apps/app/src/react-app/shell/session-route-page-view.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/shell/session-route-surface-props-hook.ts"),
-      readWorkspaceFile("apps/app/src/react-app/shell/session-route-intent.ts"),
+      readWorkspaceFile("apps/app/src/react-app/shell/session-route/page-view.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook.ts"),
+      readWorkspaceFile("apps/app/src/react-app/shell/session-route/intent.ts"),
     ].join("\n");
-    const agentContext = readWorkspaceFile("apps/app/src/react-app/shell/session-route-agent-context.ts");
+    const agentContext = readWorkspaceFile("apps/app/src/react-app/shell/session-route/agent-context.ts");
 
     expect(sessionRoute).toContain("installMarketplaceExpertAfterSessionCreated");
     expect(sessionRoute).toContain('marketplaceExpert.source !== "builtin"');
@@ -369,10 +386,10 @@ describe("expert marketplace UI contract", () => {
 
   test("expert sessions persist agent metadata snapshots for restart restore", () => {
     const sessionRoute = readWorkspaceFile(
-      "apps/app/src/react-app/shell/session-route-page-view.tsx",
+      "apps/app/src/react-app/shell/session-route/page-view.tsx",
     );
     const store = readWorkspaceFile("apps/app/src/react-app/domains/agents/agent-registry-store.ts");
-    const model = readWorkspaceFile("apps/app/src/react-app/domains/session/components/shared-pages/conversation-model.ts");
+    const model = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/conversation-model.ts");
 
     expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, pendingAgentSnapshot)");
     expect(store).toContain("onmyagent:customAgentSnapshotBySessionId");
@@ -392,7 +409,13 @@ describe("expert marketplace UI contract", () => {
     expect(types).toContain("packageName: string");
     expect(types).toContain("packagePath: string");
     expect(data).toContain("export const BUILTIN_EXPERT_REGISTRY");
-    expect(desktop).toContain("export function listExpertRegistryRecords");
-    expect(main).toContain('case "listExpertRegistryRecords"');
+    // desktop.ts may export as function or const re-export after domain splits
+    expect(desktop).toMatch(/export (?:async )?function listExpertRegistryRecords|export const listExpertRegistryRecords/);
+    const skillsHandlers = readWorkspaceFile(
+      "apps/desktop/electron/desktop-handlers/skills.mjs",
+    );
+    expect(skillsHandlers).toContain('"listExpertRegistryRecords"');
+    expect(skillsHandlers).toContain("listExpertRegistryRecords:");
+    expect(main).toContain("createAllDesktopDomainHandlers");
   });
 });

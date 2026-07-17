@@ -10,7 +10,7 @@ const server = await spawnOpencodeServe({ directory, port });
 
 try {
   const client = makeClient({ baseUrl: server.baseUrl, directory: server.cwd });
-  await waitForHealthy(client);
+  await waitForHealthy(client, { server });
 
   const session = await client.session.create({ title: "OnMyAgent todos test" });
 

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
+import { shellChrome } from "@/react-app/design-system/type-scale";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import type {
   OnMyAgentServerClient,
@@ -657,14 +658,14 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-background px-6">
+      <div className={shellChrome.pageHeaderSimple}>
         <SegmentedTabGroup density="filter">
           <NavTabButton
             active={activeTab === "task"}
             type="button"
             onClick={() => setActiveTab("task")}
-            size="filter"
-            shape="pill"
+            size="tab"
+            shape="tab"
           >
             {t("files.task_results")}
           </NavTabButton>
@@ -672,8 +673,8 @@ export function WorkspaceFilesPage(props: {
             active={activeTab === "cloud"}
             type="button"
             onClick={() => setActiveTab("cloud")}
-            size="filter"
-            shape="pill"
+            size="tab"
+            shape="tab"
           >
             {t("files.cloud_drive")}
           </NavTabButton>

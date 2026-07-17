@@ -5,9 +5,9 @@ import {
   readDeveloperModeEnabled,
   readOrgOnboardingReloadRequested,
   readWindowSeenProviderIds,
-} from "../src/react-app/shell/session-route-storage";
-import { reloadAfterOrgOnboardingKey } from "../src/react-app/shell/session-route-state";
-import { SETTINGS_DEVELOPER_MODE_KEY } from "../src/react-app/shell/settings-route-storage";
+} from "../src/react-app/shell/session-route/storage";
+import { reloadAfterOrgOnboardingKey } from "../src/react-app/shell/session-route/state";
+import { SETTINGS_DEVELOPER_MODE_KEY } from "../src/react-app/shell/settings-route/storage";
 
 function createLocalStorage() {
   const store = new Map<string, string>();

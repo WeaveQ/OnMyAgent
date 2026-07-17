@@ -5,7 +5,7 @@ import type { CollaborationGoalRuntime } from "../src/app/types";
 import {
   applySessionScopedValue,
   moveSessionScopedValue,
-} from "../src/react-app/shell/session-route-composer";
+} from "../src/react-app/shell/session-route/composer";
 
 function readSource(relativePath: string) {
   return readFileSync(new URL(`../src/react-app/${relativePath}`, import.meta.url), "utf8");
