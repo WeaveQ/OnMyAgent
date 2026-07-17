@@ -174,23 +174,46 @@ export function isSelectedModelUnavailable(input: {
   return !isModelAvailableInConnectedProviders(input.providerListData, model);
 }
 
+/**
+ * Resolve OpenCode's suggested default model from provider.list().default.
+ * Does not mutate prefs — callers may prompt the user to adopt it.
+ */
 export function resolveProviderDefaultModel(input: {
   defaults: ProviderListResponse["default"] | null | undefined;
-  currentDefault: ModelRef | null | undefined;
+  /** @deprecated ignored; kept for call-site compatibility */
+  currentDefault?: ModelRef | null | undefined;
 }): ModelRef | null {
+  void input.currentDefault;
   const defaults = input.defaults ?? {};
+  // Prefer the first *connected* default when connected ids are provided via
+  // a later overload path; for now take Object key order from OpenCode.
   const firstProviderId = Object.keys(defaults)[0];
   const firstModelId = firstProviderId ? defaults[firstProviderId] : null;
   if (!firstProviderId || !firstModelId) return null;
-  const currentDefault = input.currentDefault;
-  if (
-    currentDefault &&
-    (currentDefault.providerID !== DEFAULT_MODEL.providerID || currentDefault.modelID !== DEFAULT_MODEL.modelID)
-  ) {
-    return null;
-  }
   return {
     providerID: firstProviderId,
     modelID: firstModelId,
   };
+}
+
+/** Whether we should surface a non-blocking hint to adopt the provider default. */
+export function shouldPromptProviderDefaultModel(input: {
+  suggested: ModelRef | null | undefined;
+  currentDefault: ModelRef | null | undefined;
+}): boolean {
+  const suggested = input.suggested;
+  if (!suggested?.providerID || !suggested.modelID) return false;
+  const current = input.currentDefault;
+  if (!current?.providerID || !current.modelID) return true;
+  if (
+    current.providerID === suggested.providerID &&
+    current.modelID === suggested.modelID
+  ) {
+    return false;
+  }
+  // Only nudge while the user is still on the app placeholder default.
+  return (
+    current.providerID === DEFAULT_MODEL.providerID &&
+    current.modelID === DEFAULT_MODEL.modelID
+  );
 }

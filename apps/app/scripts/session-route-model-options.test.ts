@@ -8,8 +8,10 @@ import {
   readSeenProviderIds,
   resolveModelVariantState,
   resolveProviderDefaultModel,
+  shouldPromptProviderDefaultModel,
 } from "../src/react-app/shell/session-route-model-options";
 import type { ModelOption } from "../src/app/types";
+import { DEFAULT_MODEL } from "../src/app/constants";
 
 function providerListData() {
   return {
@@ -208,15 +210,52 @@ describe("session route model options", () => {
     ).toBe(false);
   });
 
-  test("uses provider defaults only while current default is still the app default", () => {
-    expect(resolveProviderDefaultModel({ defaults: { openai: "gpt-4o" }, currentDefault: null }))
-      .toEqual({ providerID: "openai", modelID: "gpt-4o" });
+  test("resolves OpenCode suggested default without mutating prefs", () => {
+    expect(resolveProviderDefaultModel({ defaults: { openai: "gpt-4o" } })).toEqual({
+      providerID: "openai",
+      modelID: "gpt-4o",
+    });
+    // Suggestion is independent of current prefs (callers decide whether to prompt).
     expect(
       resolveProviderDefaultModel({
         defaults: { openai: "gpt-4o" },
         currentDefault: { providerID: "anthropic", modelID: "claude" },
       }),
-    ).toBeNull();
-    expect(resolveProviderDefaultModel({ defaults: {}, currentDefault: null })).toBeNull();
+    ).toEqual({ providerID: "openai", modelID: "gpt-4o" });
+    expect(resolveProviderDefaultModel({ defaults: {} })).toBeNull();
+  });
+
+  test("only prompts for provider default while still on app placeholder", () => {
+    const suggested = { providerID: "google", modelID: "gemini-2.5-flash" };
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: DEFAULT_MODEL,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: { providerID: "anthropic", modelID: "claude" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: suggested,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested: null,
+        currentDefault: DEFAULT_MODEL,
+      }),
+    ).toBe(false);
   });
 });
