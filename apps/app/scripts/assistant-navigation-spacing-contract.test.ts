@@ -29,9 +29,11 @@ describe("assistant navigation spacing contract", () => {
       "utf8",
     );
 
+    // Track strip stays density="filter"; children use tab size/shape (not free-float filter pills).
     expect(source).toContain('density="filter"');
-    expect(source).toContain('size="filter"');
-    expect(source).toContain('shape="pill"');
+    expect(source).toContain('size="tab"');
+    expect(source).toContain('shape="tab"');
+    expect(source).not.toContain('size="filter"');
     expect(source).not.toContain("flex-1 gap-1.5");
     expect(source).not.toContain('className="flex w-full"');
     expect(source).not.toContain("min-w-24");
