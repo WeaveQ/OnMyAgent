@@ -117,6 +117,7 @@ import {
   type Logger,
   type LoggerChild,
 } from "./cli-logging.js";
+import { ensureExecutable } from "./cli-binary-resolve.js";
 
 export type ApprovalMode = "manual" | "auto";
 

@@ -13,6 +13,7 @@ import {
   rename,
   rm,
   stat,
+  writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
