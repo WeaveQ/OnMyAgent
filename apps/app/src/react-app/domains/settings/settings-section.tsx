@@ -158,12 +158,12 @@ export function SettingsBlockRow({
     <div
       data-slot="settings-block-row"
       className={cn(
-        "flex gap-4 px-4 py-3.5",
+        "flex w-full gap-4 px-4 py-3.5",
         align === "center" ? "items-center" : "items-start",
         className,
       )}
     >
-      <div className="min-w-0 flex-1 space-y-1">
+      <div className="min-w-0 flex-1 space-y-1 pr-2">
         <div className="text-sm font-medium leading-5 text-foreground">{title}</div>
         {description ? (
           <div className="text-sm leading-5 text-muted-foreground">{description}</div>
@@ -173,10 +173,10 @@ export function SettingsBlockRow({
       {actions ? (
         <div
           className={cn(
-            "relative z-20 shrink-0",
-            // Give selects room so labels like "默认 (100%)" and the menu don't clip.
-            "min-w-[9.5rem]",
-            align === "start" ? "pt-0.5" : "self-center",
+            // Keep all controls on the trailing edge of the card.
+            "ml-auto flex shrink-0 items-center justify-end",
+            "min-w-[7.5rem] [&_button]:justify-end",
+            align === "start" ? "pt-0.5 self-start" : "self-center",
           )}
         >
           {actions}

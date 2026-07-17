@@ -45,16 +45,18 @@ export function FontSizeBlockRow() {
       title={t("settings.font_size_label")}
       description={t("settings.font_size_hint")}
       actions={
-        <SelectMenu
-          ariaLabel={t("settings.font_size_label")}
-          options={options}
-          value={selectedValue}
-          onChange={(next) => {
-            const index = Number(next);
-            if (!Number.isFinite(index)) return;
-            setValue(fontZoomFromPresetIndex(index));
-          }}
-        />
+        <div className="w-[11rem]">
+          <SelectMenu
+            ariaLabel={t("settings.font_size_label")}
+            options={options}
+            value={selectedValue}
+            onChange={(next) => {
+              const index = Number(next);
+              if (!Number.isFinite(index)) return;
+              setValue(fontZoomFromPresetIndex(index));
+            }}
+          />
+        </div>
       }
     />
   );
