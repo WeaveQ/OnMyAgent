@@ -20,8 +20,26 @@ test("desktop commands are assigned to exactly one domain", () => {
 test("shared desktop contract and Electron handlers have exact parity", () => {
   const implemented = [...listImplementedDesktopCommands()].sort();
   const declared = [...desktopCommandNames].sort();
+  const handlerKeys = [...DESKTOP_HANDLER_COMMANDS].sort();
+
+  assert.equal(
+    DESKTOP_HANDLER_COMMANDS.length,
+    new Set(DESKTOP_HANDLER_COMMANDS).size,
+    "DESKTOP_HANDLER_COMMANDS must not contain duplicate command names",
+  );
+  assert.equal(
+    DESKTOP_HANDLER_COMMANDS.length,
+    desktopCommandNames.length,
+    "DESKTOP_HANDLER_COMMANDS length must equal desktopCommandNames",
+  );
   assert.deepEqual(implemented, declared);
-  assert.deepEqual([...DESKTOP_HANDLER_COMMANDS].sort(), declared);
+  assert.deepEqual(handlerKeys, declared);
+
+  const declaredSet = new Set(declared);
+  const missing = declared.filter((name) => !DESKTOP_HANDLER_COMMANDS.includes(name));
+  const extra = DESKTOP_HANDLER_COMMANDS.filter((name) => !declaredSet.has(name));
+  assert.deepEqual(missing, [], `handlers missing from DESKTOP_HANDLER_COMMANDS: ${missing.join(", ")}`);
+  assert.deepEqual(extra, [], `DESKTOP_HANDLER_COMMANDS has undeclared commands: ${extra.join(", ")}`);
 });
 
 test("desktop router exposes one handler registry per command domain", () => {

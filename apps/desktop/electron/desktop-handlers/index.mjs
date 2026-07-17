@@ -18,7 +18,17 @@ export {
   createSystemDomainHandlers,
 };
 
-/** Static command names implemented by domain handler modules (no services required). */
+/**
+ * Static command names implemented by domain handler modules (no services required).
+ *
+ * Contract: must match `@onmyagent/types` `desktopCommandNames` **exactly**
+ * (same multiset / sorted equality). Enforced by
+ * `desktop-command-contract.test.mjs` and `domain-smoke.test.mjs`.
+ * Each domain module exports `HANDLER_COMMAND_NAMES` for its slice; this list
+ * is the flat union used by parity tests and bridge checks.
+ *
+ * @type {readonly string[]}
+ */
 export const DESKTOP_HANDLER_COMMANDS = Object.freeze([
   ...workspaceCommands,
   ...systemCommands,
