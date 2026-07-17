@@ -8,6 +8,18 @@ export {
   type ConversationItemsListProps,
 } from "./conversation-items-list";
 export {
+  ApprovalCard,
+  ConversationItemView,
+  PlanBlock,
+  ThinkingBlock,
+  ToolItemRow,
+  type ApprovalCardProps,
+  type ConversationItemViewProps,
+  type PlanBlockProps,
+  type ThinkingBlockProps,
+  type ToolItemRowProps,
+} from "./ui";
+export {
   filterPersonalTimelineMessages,
   groupPersonalTimelineMessages,
   mapPersonalEventToMessages,
@@ -19,6 +31,8 @@ export {
   type PersonalAdapterRun,
   type PersonalAdapterRunEvent,
   mapOpenCodeMessageToItems,
+  mapOpenCodeReasoningPartToItem,
+  mapOpenCodeToolPartToItem,
   toOpenCodeConversationItems,
   type OpenCodeMessageLike,
   type OpenCodeMessagePartLike,

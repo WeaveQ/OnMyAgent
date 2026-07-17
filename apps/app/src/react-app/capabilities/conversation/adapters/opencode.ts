@@ -10,8 +10,9 @@ export type OpenCodeMessagePartLike = {
   type?: string;
   text?: string;
   toolName?: string;
+  tool?: string;
   toolCallId?: string;
-  state?: string;
+  state?: string | Record<string, unknown>;
   input?: unknown;
   output?: unknown;
   [key: string]: unknown;
@@ -41,22 +42,35 @@ function resolveMessageText(message: OpenCodeMessageLike): string {
   return textFromParts(message.parts);
 }
 
+function messageParts(message: OpenCodeMessageLike): OpenCodeMessagePartLike[] {
+  if (Array.isArray(message.parts)) return message.parts;
+  if (Array.isArray(message.content)) return message.content;
+  return [];
+}
+
+function isToolPart(part: OpenCodeMessagePartLike): boolean {
+  const type = `${part.type ?? ""}`.toLowerCase();
+  return (
+    type === "tool-invocation"
+    || type === "dynamic-tool"
+    || type === "tool-call"
+    || type === "tool"
+    || type.startsWith("tool-")
+    || Boolean(part.toolCallId || part.toolName || part.tool)
+  );
+}
+
+function isReasoningPart(part: OpenCodeMessagePartLike): boolean {
+  const type = `${part.type ?? ""}`.toLowerCase();
+  return type === "reasoning" || type === "thinking";
+}
+
 function toolParts(message: OpenCodeMessageLike): OpenCodeMessagePartLike[] {
-  const parts = Array.isArray(message.parts)
-    ? message.parts
-    : Array.isArray(message.content)
-      ? message.content
-      : [];
-  return parts.filter((part) => {
-    const type = `${part.type ?? ""}`.toLowerCase();
-    return (
-      type === "tool-invocation"
-      || type === "dynamic-tool"
-      || type === "tool-call"
-      || type.startsWith("tool-")
-      || Boolean(part.toolCallId || part.toolName)
-    );
-  });
+  return messageParts(message).filter(isToolPart);
+}
+
+function reasoningParts(message: OpenCodeMessageLike): OpenCodeMessagePartLike[] {
+  return messageParts(message).filter(isReasoningPart);
 }
 
 function roleOf(message: OpenCodeMessageLike): ConversationItemVM["role"] {
@@ -64,6 +78,76 @@ function roleOf(message: OpenCodeMessageLike): ConversationItemVM["role"] {
     return message.role;
   }
   return "assistant";
+}
+
+function resolvePartState(part: OpenCodeMessagePartLike): string | null {
+  if (typeof part.state === "string") return part.state;
+  if (part.state && typeof part.state === "object") {
+    const status = (part.state as Record<string, unknown>).status;
+    if (typeof status === "string") return status;
+  }
+  return null;
+}
+
+function resolveToolName(part: OpenCodeMessagePartLike): string {
+  if (typeof part.toolName === "string" && part.toolName.trim()) return part.toolName;
+  if (typeof part.tool === "string" && part.tool.trim()) return part.tool;
+  return "tool";
+}
+
+/**
+ * Map a single OpenCode tool-ish part → ConversationItemVM.
+ * Used by shared UI bridges without pulling in the full message-list stack.
+ */
+export function mapOpenCodeToolPartToItem(
+  part: OpenCodeMessagePartLike,
+  options?: { id?: string; createdAt?: number; index?: number },
+): ConversationItemVM {
+  const index = options?.index ?? 0;
+  const toolName = resolveToolName(part);
+  const status = resolvePartState(part);
+  const toolId =
+    options?.id
+    || (typeof part.toolCallId === "string" && part.toolCallId)
+    || `tool-${index}`;
+  return {
+    id: toolId,
+    kind: "tool",
+    role: "tool",
+    text: toolName,
+    createdAt: options?.createdAt ?? index,
+    status,
+    toolName,
+    toolStatus: status,
+    meta: {
+      source: "opencode",
+      toolName,
+      toolCallId: part.toolCallId,
+      input: part.input ?? (typeof part.state === "object" ? (part.state as Record<string, unknown>)?.input : undefined),
+      output: part.output ?? (typeof part.state === "object" ? (part.state as Record<string, unknown>)?.output : undefined),
+      partType: part.type,
+    },
+  };
+}
+
+/** Map a reasoning/thinking part → ConversationItemVM. */
+export function mapOpenCodeReasoningPartToItem(
+  part: OpenCodeMessagePartLike,
+  options?: { id?: string; createdAt?: number; index?: number; complete?: boolean },
+): ConversationItemVM {
+  const index = options?.index ?? 0;
+  const text = typeof part.text === "string" ? part.text : "";
+  const thinkingStatus = options?.complete === false ? "thinking" : "done";
+  return {
+    id: options?.id ?? `reasoning-${index}`,
+    kind: "thinking",
+    role: "assistant",
+    text,
+    createdAt: options?.createdAt ?? index,
+    status: thinkingStatus,
+    thinkingStatus,
+    meta: { source: "opencode", partType: part.type ?? "reasoning" },
+  };
 }
 
 /** Map a single UIMessage-like object to zero or more ConversationItemVM rows. */
@@ -99,24 +183,26 @@ export function mapOpenCodeMessageToItems(
     const toolId =
       (typeof part.toolCallId === "string" && part.toolCallId)
       || `${message.id}-tool-${toolIndex}`;
-    const toolName = typeof part.toolName === "string" ? part.toolName : "tool";
-    const status = typeof part.state === "string" ? part.state : null;
-    items.push({
-      id: toolId,
-      kind: "tool",
-      role: "tool",
-      text: toolName,
-      createdAt,
-      status,
-      meta: {
-        source: "opencode",
-        toolName,
-        toolCallId: part.toolCallId,
-        input: part.input,
-        output: part.output,
-        partType: part.type,
-      },
-    });
+    items.push(
+      mapOpenCodeToolPartToItem(part, {
+        id: toolId,
+        createdAt,
+        index: toolIndex,
+      }),
+    );
+  }
+
+  for (const [reasoningIndex, part] of reasoningParts(message).entries()) {
+    const body = typeof part.text === "string" ? part.text.trim() : "";
+    if (!body) continue;
+    items.push(
+      mapOpenCodeReasoningPartToItem(part, {
+        id: `${message.id}-reasoning-${reasoningIndex}`,
+        createdAt,
+        index: reasoningIndex,
+        complete: true,
+      }),
+    );
   }
 
   return items;

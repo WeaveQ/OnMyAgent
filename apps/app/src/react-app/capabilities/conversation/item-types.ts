@@ -18,6 +18,14 @@ export type ConversationItemVM = {
   text: string;
   createdAt: number;
   status?: string | null;
+  /** Tool display name when kind is "tool". */
+  toolName?: string | null;
+  /** Tool lifecycle status (running / completed / failed / …). */
+  toolStatus?: string | null;
+  /** Thinking lifecycle status (thinking / done / completed / …). */
+  thinkingStatus?: string | null;
+  /** Approval request id when kind is "approval". */
+  approvalId?: string | null;
   /** Optional raw fields for host-specific UI. */
   meta?: Record<string, unknown>;
 };

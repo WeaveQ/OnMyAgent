@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  mapOpenCodeReasoningPartToItem,
+  mapOpenCodeToolPartToItem,
   mapPersonalEventToMessages,
   toOpenCodeConversationItems,
   toPersonalConversationItems,
@@ -43,6 +45,8 @@ describe("personal conversation adapter", () => {
       role: "tool",
       text: "read file",
       status: "running",
+      toolName: "read",
+      toolStatus: "running",
     });
     expect(items[0]?.meta?.toolCall).toMatchObject({ id: "tool-1", name: "read" });
     expect(items[1]).toMatchObject({
@@ -88,6 +92,55 @@ describe("personal conversation adapter", () => {
     expect(items).toHaveLength(1);
     expect(items[0]?.text).toBe("from transcript");
   });
+
+  test("populates thinkingStatus, approvalId, and plan meta", () => {
+    const items = toPersonalConversationItems({
+      conversationMessages: [
+        {
+          id: "think-1",
+          type: "thinking",
+          role: "assistant",
+          text: "pondering",
+          createdAt: 1,
+          status: "done",
+          durationMs: 2500,
+        },
+        {
+          id: "plan-1",
+          type: "plan",
+          role: "assistant",
+          text: "Plan",
+          createdAt: 2,
+          entries: [{ id: "e1", title: "Step one", status: "completed" }],
+        },
+        {
+          id: "appr-1",
+          type: "permission",
+          role: "system",
+          text: "Allow shell?",
+          createdAt: 3,
+          approval: { id: "approval-9", title: "bash" },
+        },
+      ],
+    });
+
+    expect(items.map((item) => item.kind)).toEqual(["thinking", "plan", "approval"]);
+    expect(items[0]).toMatchObject({
+      kind: "thinking",
+      thinkingStatus: "done",
+      status: "done",
+    });
+    expect(items[0]?.meta?.durationMs).toBe(2500);
+    expect(items[1]?.kind).toBe("plan");
+    expect(items[1]?.meta?.entries).toEqual([
+      { id: "e1", title: "Step one", status: "completed" },
+    ]);
+    expect(items[2]).toMatchObject({
+      kind: "approval",
+      approvalId: "approval-9",
+      text: "Allow shell?",
+    });
+  });
 });
 
 describe("opencode conversation adapter", () => {
@@ -127,7 +180,7 @@ describe("opencode conversation adapter", () => {
     ]);
   });
 
-  test("maps tool-ish parts alongside text", () => {
+  test("maps tool-ish parts alongside text with structured fields", () => {
     const items = toOpenCodeConversationItems([
       {
         id: "a2",
@@ -154,6 +207,57 @@ describe("opencode conversation adapter", () => {
       role: "tool",
       text: "bash",
       status: "output-available",
+      toolName: "bash",
+      toolStatus: "output-available",
+    });
+  });
+
+  test("mapOpenCodeToolPartToItem bridges single tool parts", () => {
+    const item = mapOpenCodeToolPartToItem(
+      {
+        type: "tool",
+        tool: "read",
+        toolCallId: "call-7",
+        state: { status: "completed", input: { path: "a.ts" } },
+      },
+      { id: "call-7", createdAt: 5 },
+    );
+    expect(item).toMatchObject({
+      id: "call-7",
+      kind: "tool",
+      toolName: "read",
+      toolStatus: "completed",
+      status: "completed",
+    });
+  });
+
+  test("mapOpenCodeReasoningPartToItem bridges thinking parts", () => {
+    const item = mapOpenCodeReasoningPartToItem(
+      { type: "reasoning", text: "consider options" },
+      { id: "r1", complete: false },
+    );
+    expect(item).toMatchObject({
+      id: "r1",
+      kind: "thinking",
+      text: "consider options",
+      thinkingStatus: "thinking",
+    });
+  });
+
+  test("maps reasoning parts on messages to thinking items", () => {
+    const items = toOpenCodeConversationItems([
+      {
+        id: "a3",
+        role: "assistant",
+        parts: [{ type: "reasoning", text: "hmm" }],
+        createdAt: 30,
+      },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "thinking",
+      text: "hmm",
+      thinkingStatus: "done",
     });
   });
 });

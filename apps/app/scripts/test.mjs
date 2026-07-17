@@ -45,6 +45,7 @@ const testTargets = new Map([
   ['composer-state-store', ['bun', ['test', 'scripts/composer-state-store.test.ts']]],
   ['conversation-model', ['bun', ['test', 'scripts/conversation-model.test.ts']]],
   ['conversation-adapters', ['bun', ['test', 'scripts/conversation-adapters.test.ts']]],
+  ['conversation-ui-contract', ['bun', ['test', 'scripts/conversation-ui-contract.test.ts']]],
   ['session-memory', ['bun', ['test', 'scripts/session-memory.test.ts']]],
   ['session-activity-store', ['bun', ['test', 'scripts/session-activity-store.test.ts']]],
   ['session-sync', ['bun', ['test', 'scripts/session-sync.test.ts']]],

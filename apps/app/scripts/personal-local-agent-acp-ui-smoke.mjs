@@ -123,12 +123,19 @@ async function main() {
     await page.waitForText("Inspect workspace", 10000);
     await page.waitForText("Reasoning smoke", 10000);
     await page.assertVisibleTestId("local-agent-timeline-body");
-    await page.assertVisibleTestId("local-agent-plan-card");
-    await page.assertVisibleTestId("local-agent-plan-header");
-    await page.assertVisibleTestId("local-agent-plan-body");
-    await page.assertVisibleTestId("local-agent-thinking-card");
-    await page.assertVisibleTestId("local-agent-thinking-header");
-    await page.assertVisibleTestId("local-agent-thinking-body");
+    // Shared conversation UI (plan/thinking) — primary + legacy testids.
+    await page.assertVisibleTestId("conversation-plan-block");
+    await page.assertVisibleTestId("conversation-plan-header");
+    await page.assertVisibleTestId("conversation-plan-body");
+    await page.assertVisibleTestId("conversation-thinking-block");
+    await page.assertVisibleTestId("conversation-thinking-header");
+    // Expand thinking if collapsed after completion so the body is visible.
+    try {
+      await page.assertVisibleTestId("conversation-thinking-body");
+    } catch {
+      await page.clickTestId("conversation-thinking-header");
+      await page.assertVisibleTestId("conversation-thinking-body");
+    }
     await page.waitForText("Content-only plan item", 10000);
     await page.waitForText("Provider timeout", 10000);
     await page.waitForText(["上下文用量", "Context usage"], 10000);
