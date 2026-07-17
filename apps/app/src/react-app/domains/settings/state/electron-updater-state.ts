@@ -16,6 +16,10 @@ export type SettingsUpdateStatus = {
   totalBytes?: number | null;
   downloadedBytes?: number;
   message?: string;
+  /** Soft notice (network/timeout/no release) — UI uses neutral alert, not destructive. */
+  soft?: boolean;
+  /** When true, show "Open release page" next to the soft notice. */
+  showOpenReleasePage?: boolean;
 } | null;
 
 type UpdateAvailabilityPayload = {
@@ -25,6 +29,9 @@ type UpdateAvailabilityPayload = {
   releaseDate?: string | null;
   releaseNotes?: unknown;
   reason?: string | null;
+  reasonCode?: string | null;
+  soft?: boolean;
+  releaseUrl?: string | null;
 };
 
 type ElectronUpdaterBridge = NonNullable<Window["__ONMYAGENT_ELECTRON__"]>["updater"] & {
@@ -105,22 +112,64 @@ function releaseNotesToText(value: unknown): string | undefined {
   return undefined;
 }
 
+function localizeCheckReason(result: UpdateAvailabilityPayload): string | undefined {
+  const code = result.reasonCode ?? "";
+  if (code === "timeout") return t("settings.update_check_timeout");
+  if (code === "network") return t("settings.update_check_network");
+  if (code === "http") return t("settings.update_check_http");
+  if (code === "not_published") return t("settings.update_check_no_releases");
+  if (code === "unknown" || result.soft) {
+    return t("settings.update_check_unavailable");
+  }
+  if (result.reason) {
+    // Prefer i18n for known English fallbacks from main.
+    if (/timed out|timeout/i.test(result.reason)) return t("settings.update_check_timeout");
+    if (/could not reach|network|proxy/i.test(result.reason)) {
+      return t("settings.update_check_network");
+    }
+    if (/no releases have been published|no release found/i.test(result.reason)) {
+      return t("settings.update_check_no_releases");
+    }
+    return result.reason;
+  }
+  return undefined;
+}
+
+function isSoftCheckFailure(result: UpdateAvailabilityPayload): boolean {
+  if (result.soft === true) return true;
+  if (result.available) return false;
+  if (result.latestVersion) return false;
+  const code = result.reasonCode ?? "";
+  if (code === "timeout" || code === "network" || code === "http" || code === "not_published" || code === "unknown") {
+    return true;
+  }
+  if (!result.reason) return false;
+  return (
+    /timed out|timeout|could not reach|network|proxy|no release|not been published|GitHub API responded/i.test(
+      result.reason,
+    )
+  );
+}
+
 function statusFromAvailability(
   result: UpdateAvailabilityPayload,
   availableAllowed: boolean,
 ): Exclude<SettingsUpdateStatus, null> {
   if (result.reason && !result.available && !result.latestVersion) {
-    // Soft "no releases yet" stays idle; hard network failures are errors.
-    const soft =
-      /no release/i.test(result.reason) ||
-      /not been published/i.test(result.reason);
-    if (!soft) {
+    if (isSoftCheckFailure(result)) {
       return {
-        state: "error",
+        state: "idle",
         lastCheckedAt: Date.now(),
-        message: result.reason,
+        message: localizeCheckReason(result),
+        soft: true,
+        showOpenReleasePage: true,
       };
     }
+    return {
+      state: "error",
+      lastCheckedAt: Date.now(),
+      message: localizeCheckReason(result) ?? result.reason,
+    };
   }
   return availableAllowed
     ? {
@@ -282,14 +331,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
           : false;
 
       if (result.reason && !result.available && !result.latestVersion) {
-        const soft =
-          /no release/i.test(result.reason) ||
-          /not been published/i.test(result.reason);
-        setUpdateStatus(
-          soft
-            ? { state: "idle", lastCheckedAt: Date.now(), message: result.reason }
-            : { state: "error", lastCheckedAt: Date.now(), message: result.reason },
-        );
+        setUpdateStatus(statusFromAvailability(result, false));
         return;
       }
 
@@ -297,12 +339,21 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       // Intentionally do NOT auto-open the browser when prefs say "auto download".
       // The lightweight updater has no in-app download path.
     } catch (error) {
-      setUpdateStatus({ state: "error", message: describeError(error) });
+      // Renderer-side exceptions are rare; still soft so Settings stays calm.
+      setUpdateStatus({
+        state: "idle",
+        lastCheckedAt: Date.now(),
+        message: t("settings.update_check_unavailable"),
+        soft: true,
+        showOpenReleasePage: true,
+      });
+      void error;
     }
   }, [desktopConfig, onReleaseChannelChange, releaseChannel, setError]);
 
   // Optional renderer-side check when the user enables background checks.
   // Main process also polls and owns OS notifications; this only refreshes Settings state.
+  // Skip the automatic first check when auto-check is off (dev default path).
   useEffect(() => {
     if (!updateAutoCheck || updateEnv?.supported === false) return;
     const key = `${releaseChannel}:${appVersion ?? "unknown"}`;

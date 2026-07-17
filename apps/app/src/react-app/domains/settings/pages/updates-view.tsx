@@ -56,8 +56,18 @@ export function UpdatesView(props: UpdatesViewProps) {
   const updateLastCheckedAt = props.updateStatus?.lastCheckedAt ?? null;
   const updateErrorMessage = props.updateStatus?.message ?? null;
   const updateNotes = props.updateStatus?.notes ?? null;
-  const softIdleMessage =
-    updateState === "idle" && updateErrorMessage ? updateErrorMessage : null;
+  const softNotice =
+    (updateState === "idle" || updateState === "error") &&
+    updateErrorMessage &&
+    (props.updateStatus?.soft || updateState === "idle")
+      ? updateErrorMessage
+      : null;
+  const hardError =
+    updateState === "error" && updateErrorMessage && !props.updateStatus?.soft
+      ? updateErrorMessage
+      : null;
+  const showOpenReleaseWithSoft =
+    Boolean(softNotice) && props.updateStatus?.showOpenReleasePage !== false;
 
   return (
     <LayoutStack>
@@ -119,16 +129,28 @@ export function UpdatesView(props: UpdatesViewProps) {
         </LayoutSectionItem>
       ) : null}
 
-      {updateState === "error" && updateErrorMessage ? (
+      {hardError ? (
         <Alert variant="destructive">
           <CircleAlert />
-          <AlertDescription>{updateErrorMessage}</AlertDescription>
+          <AlertDescription>{hardError}</AlertDescription>
         </Alert>
       ) : null}
 
-      {softIdleMessage ? (
+      {softNotice ? (
         <Alert>
-          <AlertDescription>{softIdleMessage}</AlertDescription>
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>{softNotice}</span>
+            {showOpenReleaseWithSoft ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0 self-start sm:self-center"
+                onClick={() => void props.downloadUpdate()}
+              >
+                {t("settings.open_release_page")}
+              </Button>
+            ) : null}
+          </AlertDescription>
         </Alert>
       ) : null}
 

@@ -228,6 +228,9 @@ declare global {
           channel?: "stable" | "alpha";
           feedUrl?: string;
           reason?: string;
+          reasonCode?: string;
+          soft?: boolean;
+          releaseUrl?: string;
         }>;
         download?: () => Promise<{ ok: boolean; reason?: string }>;
         installAndRestart?: () => Promise<{ ok: boolean; reason?: string }>;
