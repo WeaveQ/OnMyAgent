@@ -44,9 +44,26 @@ function createLocator(request, tabId, selector) {
     selectOption: (value, options = {}) => act("selectOption", { value, ...options }),
     textContent: (options = {}) => act("textContent", options),
     innerText: (options = {}) => act("innerText", options),
+    getAttribute: (name, options = {}) => act("getAttribute", { name, ...options }),
     count: () => act("count"),
     isVisible: () => act("isVisible"),
     isEnabled: () => act("isEnabled"),
+    evaluate: async (pageFunction, arg, options = {}) => {
+      const result = await request("playwrightEvaluate", {
+        tabId,
+        pageFunction:
+          typeof pageFunction === "function"
+            ? pageFunction.toString()
+            : String(pageFunction),
+        arg,
+        selector,
+        ...options,
+      });
+      if (result && typeof result === "object" && "value" in result) {
+        return result.value;
+      }
+      return result;
+    },
     waitFor: async (options = {}) => {
       const deadline = Date.now() + Math.min(Number(options.timeoutMs) || 10_000, 60_000);
       while (Date.now() < deadline) {
@@ -107,6 +124,13 @@ function createFrameLocator(request, tabId, frameSelector) {
   });
 }
 
+function unwrapValue(result) {
+  if (result && typeof result === "object" && "value" in result) {
+    return result.value;
+  }
+  return result;
+}
+
 function createTab(request, metadata) {
   const tabId = metadata.tabId;
   const coordinateAction = (action, params = {}) =>
@@ -123,10 +147,47 @@ function createTab(request, metadata) {
     return meta;
   };
 
+  const url = async () => (await refreshMeta()).url ?? meta.url ?? "";
+  const title = async () => (await refreshMeta()).title ?? meta.title ?? "";
+  const goto = async (targetUrl, options = {}) => {
+    const result = await request("navigate", { tabId, url: targetUrl, ...options });
+    if (result?.tab) meta = result.tab;
+    return result;
+  };
+  const back = () => request("navigateHistory", { tabId, direction: "back" });
+  const forward = () => request("navigateHistory", { tabId, direction: "forward" });
+  const reload = () => request("reload", { tabId });
+  const close = () => request("finalizeTabs", { tabIds: [tabId] });
+  const screenshot = async (options = {}) => {
+    // Defaults keep tool output under typical transcript limits.
+    const result = await request("screenshot", {
+      tabId,
+      format: options.format ?? "jpeg",
+      maxWidth: options.maxWidth ?? 960,
+      quality: options.quality ?? 55,
+      ...options,
+    });
+    return result;
+  };
+  const evaluateReadonly = async (expression) =>
+    unwrapValue(await request("evaluateReadonly", { tabId, expression }));
+  const playwrightEvaluate = async (pageFunction, arg, options = {}) =>
+    unwrapValue(
+      await request("playwrightEvaluate", {
+        tabId,
+        pageFunction:
+          typeof pageFunction === "function"
+            ? pageFunction.toString()
+            : String(pageFunction),
+        arg,
+        ...options,
+      }),
+    );
+
   return Object.freeze({
     id: tabId,
-    url: async () => (await refreshMeta()).url ?? meta.url ?? "",
-    title: async () => (await refreshMeta()).title ?? meta.title ?? "",
+    url,
+    title,
     capabilities: createCapabilityCollection([
       "playwright",
       "dom_cua",
@@ -134,32 +195,26 @@ function createTab(request, metadata) {
       "clipboard",
       "screenshot",
     ]),
-    goto: async (url, options = {}) => {
-      const result = await request("navigate", { tabId, url, ...options });
-      if (result?.tab) meta = result.tab;
-      return result;
-    },
-    back: () => request("navigateHistory", { tabId, direction: "back" }),
-    forward: () => request("navigateHistory", { tabId, direction: "forward" }),
-    reload: () => request("reload", { tabId }),
-    close: () => request("finalizeTabs", { tabIds: [tabId] }),
-    screenshot: async (options = {}) => {
-      // Defaults keep tool output under typical transcript limits.
-      const result = await request("screenshot", {
-        tabId,
-        format: options.format ?? "jpeg",
-        maxWidth: options.maxWidth ?? 960,
-        quality: options.quality ?? 55,
-        ...options,
-      });
-      return result;
-    },
-    evaluate: (expression) =>
-      request("evaluateReadonly", { tabId, expression }),
+    goto,
+    back,
+    forward,
+    reload,
+    close,
+    screenshot,
+    evaluate: evaluateReadonly,
     markDeliverable: () => request("markTab", { tabId, deliverable: true }),
     markHandoff: () => request("markTab", { tabId, handoff: true }),
     getJsDialog: () => request("getJsDialog", { tabId }),
     playwright: Object.freeze({
+      // Common agent mistakes (page-like API under playwright.*): alias to Tab.
+      title,
+      url,
+      goto,
+      back,
+      forward,
+      reload,
+      close,
+      screenshot,
       locator: (css) => createLocator(request, tabId, { css }),
       getByRole: (role, options = {}) =>
         createLocator(request, tabId, { role, ...options }),
@@ -172,20 +227,11 @@ function createTab(request, metadata) {
       getByTestId: (testId) => createLocator(request, tabId, { testId }),
       frameLocator: (frameSelector) =>
         createFrameLocator(request, tabId, frameSelector),
-      evaluate: (pageFunction, arg, options = {}) =>
-        request("playwrightEvaluate", {
-          tabId,
-          pageFunction:
-            typeof pageFunction === "function"
-              ? pageFunction.toString()
-              : String(pageFunction),
-          arg,
-          ...options,
-        }),
+      evaluate: playwrightEvaluate,
       waitForTimeout: (timeoutMs) =>
         request("waitForTimeout", { tabId, timeoutMs }),
-      waitForURL: (url, options = {}) =>
-        request("waitForURL", { tabId, url, ...options }),
+      waitForURL: (targetUrl, options = {}) =>
+        request("waitForURL", { tabId, url: targetUrl, ...options }),
       waitForLoadState: (options = {}) =>
         request("waitForLoadState", { tabId, ...options }),
       waitForEvent: (event, options = {}) =>

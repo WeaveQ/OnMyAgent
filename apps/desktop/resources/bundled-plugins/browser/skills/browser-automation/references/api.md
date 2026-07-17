@@ -45,6 +45,16 @@ await tab.markDeliverable()
 await tab.markHandoff()
 ```
 
+Prefer **`tab.title()` / `tab.url()` / `tab.screenshot()` / `tab.goto(url)`**.  
+Aliases also work under `tab.playwright.*` (same functions) so agents that treat `playwright` like Playwright `page` do not crash:
+
+```js
+await tab.playwright.title()      // == await tab.title()
+await tab.playwright.url()        // == await tab.url()
+await tab.playwright.screenshot() // == await tab.screenshot()
+await tab.playwright.goto(url)    // == await tab.goto(url)
+```
+
 ### Screenshots (keep them small, map coords if clicking from the image)
 
 Full-page PNG base64 often exceeds tool/transcript limits ("截图过大被截断"). Defaults are jpeg + maxWidth 960.
@@ -107,7 +117,33 @@ tab.playwright.getByTestId(testId)
 tab.playwright.frameLocator(frameSelector)
 ```
 
-Locators support `click`, `fill`, `type`, `press`, `hover`, `check`, `uncheck`, `setChecked`, `selectOption`, `textContent`, `innerText`, `count`, `isVisible`, `isEnabled`, `waitFor`, `all`, `first`, `last`, `nth`, and nested `locator` / `getBy*`.
+Locators support `click`, `fill`, `type`, `press`, `hover`, `check`, `uncheck`, `setChecked`, `selectOption`, `textContent`, `innerText`, `getAttribute`, `evaluate`, `count`, `isVisible`, `isEnabled`, `waitFor`, `all`, `first`, `last`, `nth`, and nested `locator` / `getBy*`.
+
+## Playwright evaluate + snapshot
+
+Read-only page/element evaluation and structured observation:
+
+```js
+// Page-scoped: function receives the optional arg only; returns the value directly (not { value })
+const pageTitle = await tab.playwright.evaluate(() => document.title)
+const hrefs = await tab.playwright.evaluate((limit) => {
+  return Array.from(document.querySelectorAll("a")).slice(0, limit).map((a) => a.href)
+}, 20)
+
+// Locator-scoped: function receives the matched element, then arg
+await tab.playwright.locator("a.card").evaluate((el) => el.href)
+await tab.playwright.locator("a").getAttribute("href")
+
+// Accessibility-oriented text snapshot for locator construction
+const snap = await tab.playwright.domSnapshot()
+// snap.snapshot is line-oriented: `1 link "Home" href=/ css=a...`
+
+// Single-element inspection / clipped screenshot
+await tab.playwright.elementInfo({ css: "img.hero" })
+await tab.playwright.elementScreenshot({ css: "img.hero", format: "jpeg" })
+```
+
+`evaluate` / `locator.evaluate` reject host capability access (`fetch`, `require`, …) and common DOM mutation helpers. Return only serializable values.
 
 ## DOM-CUA and coordinate CUA
 
@@ -133,8 +169,12 @@ DOM refs become stale after navigation or a new observation. Observe again inste
 ```js
 await tab.dialog.accept(promptText)
 await tab.dialog.dismiss()
+await tab.getJsDialog() // { open, dialog }
 await tab.clipboard.readText()
 await tab.clipboard.writeText(text)
+await tab.content.export({ type: "text" }) // text | html | markdown
+await tab.dom_cua.downloadMedia({ ref }) // or { url } / selector via coordinate path
+await tab.cua.downloadMedia({ url })
 await tab.dev.logs()
 nodeRepl.emitImage(dataUrl)
 await nodeRepl.import(allowedModuleName)

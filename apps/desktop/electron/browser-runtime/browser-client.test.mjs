@@ -78,3 +78,58 @@ test("browser client exposes tab lifecycle and interaction namespaces", async ()
     "finalizeTabs",
   ]);
 });
+
+test("browser client routes playwright evaluate, snapshot, and element helpers", async () => {
+  const calls = [];
+  const agent = setupBrowserRuntime({
+    context,
+    request: async (method, params) => {
+      calls.push({ method, params });
+      if (method === "getInfo") return { backend: "in-app", browserId: "in-app" };
+      if (method === "listTabs") {
+        return { tabs: [{ tabId: "tab-1", url: "https://example.com", title: "Example" }] };
+      }
+      if (method === "playwrightEvaluate") return { value: 2 };
+      if (method === "domSnapshot") return { snapshot: "1 link", count: 1 };
+      if (method === "elementInfo") return { matchCount: 1, element: { tag: "a" } };
+      if (method === "elementScreenshot") return { image: "data:image/jpeg;base64,AA==", format: "jpeg" };
+      if (method === "exportContent") return { type: "text", text: "body" };
+      if (method === "getJsDialog") return { open: false, dialog: null };
+      if (method === "locatorAction") return { value: "/path" };
+      return {};
+    },
+  });
+  const browser = await agent.browsers.getDefault();
+  const [tab] = await browser.tabs.list();
+
+  assert.equal(await tab.playwright.evaluate("() => 1"), 2);
+  assert.equal((await tab.playwright.domSnapshot()).count, 1);
+  assert.equal((await tab.playwright.elementInfo({ css: "a" })).element.tag, "a");
+  assert.equal((await tab.playwright.elementScreenshot({ css: "img" })).format, "jpeg");
+  assert.equal((await tab.content.export({ type: "text" })).text, "body");
+  assert.equal((await tab.getJsDialog()).open, false);
+  assert.equal(await tab.playwright.locator("a").getAttribute("href"), "/path");
+  assert.equal(await tab.playwright.locator("a").evaluate("(el) => el.href"), 2);
+
+  // Common agent pitfall: page-like APIs under playwright.*
+  assert.equal(await tab.playwright.title(), "Example");
+  assert.equal(await tab.playwright.url(), "https://example.com");
+  assert.equal(typeof tab.playwright.screenshot, "function");
+  assert.equal(typeof tab.playwright.goto, "function");
+
+  assert.equal(calls.some((call) => call.method === "playwrightEvaluate"), true);
+  assert.equal(calls.some((call) => call.method === "domSnapshot"), true);
+  assert.equal(calls.some((call) => call.method === "elementInfo"), true);
+  assert.equal(calls.some((call) => call.method === "elementScreenshot"), true);
+  assert.equal(calls.some((call) => call.method === "exportContent"), true);
+  assert.equal(calls.some((call) => call.method === "getJsDialog"), true);
+  assert.equal(calls.some((call) => call.method === "describeTab"), true);
+  assert.equal(
+    calls.some((call) => call.method === "locatorAction" && call.params.action === "getAttribute"),
+    true,
+  );
+  assert.equal(
+    calls.some((call) => call.method === "playwrightEvaluate" && call.params.selector?.css === "a"),
+    true,
+  );
+});
