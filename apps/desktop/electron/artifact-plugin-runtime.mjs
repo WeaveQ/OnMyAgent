@@ -314,17 +314,40 @@ export async function materializeEnabledArtifactSkills({
     const destinationPath = path.join(managedSkillsRoot, skillId);
     const state = await destinationState(destinationPath, pluginRealRoot);
     const sourcePath = await realpath(skill.sourcePath);
+    // Artifact skill ids are reserved. A *stale symlink* left by an older
+    // bundled-skills materialize (outside the plugin root) must be reclaimed.
+    // Real directories at the destination are treated as user conflicts and
+    // preserved.
     if (state.kind === "conflict") {
-      diagnostics.push({
-        pluginDirectory: skill.pluginId,
-        message: `preserved non-owned skill destination: ${destinationPath}`,
-      });
-      continue;
-    }
-    if (state.kind === "owned" && state.resolved !== sourcePath) {
+      let isSymlink = false;
+      try {
+        isSymlink = (await lstat(destinationPath)).isSymbolicLink();
+      } catch {
+        isSymlink = false;
+      }
+      if (!isSymlink) {
+        diagnostics.push({
+          pluginDirectory: skill.pluginId,
+          message: `preserved non-owned skill destination: ${destinationPath}`,
+        });
+        continue;
+      }
+      try {
+        await rm(destinationPath, { recursive: true, force: true });
+      } catch (error) {
+        diagnostics.push({
+          pluginDirectory: skill.pluginId,
+          message: `could not reclaim skill destination ${destinationPath}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+        continue;
+      }
+    } else if (state.kind === "owned" && state.resolved !== sourcePath) {
       await rm(destinationPath);
     }
-    if (state.kind === "missing" || (state.kind === "owned" && state.resolved !== sourcePath)) {
+    const after = await destinationState(destinationPath, pluginRealRoot);
+    if (after.kind === "missing") {
       await symlink(
         sourcePath,
         destinationPath,
