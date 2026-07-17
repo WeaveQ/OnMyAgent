@@ -7,7 +7,7 @@ import { readDenBootstrapConfig, readDenSettings } from "../../app/lib/den";
 import { denSettingsChangedEvent, denSessionUpdatedEvent } from "../../app/lib/den-session-events";
 import { useDenAuth, ForcedSigninPage, OrgOnboardingPage } from "../domains/cloud";
 import { NewProvidersToast } from "./new-providers-toast";
-import { useDesktopFontZoomBehavior } from "./font-zoom";
+import { useFontZoomBehavior } from "./font-zoom";
 import { LoadingOverlay } from "./loading-overlay";
 import { OwDotTicker } from "./dot-ticker";
 import { DevProfiler, DevProfilerOverlay } from "./dev-profiler";
@@ -214,7 +214,7 @@ function DenSigninGate({ children }: DenSigninGateProps) {
 }
 
 export function AppRoot() {
-  useDesktopFontZoomBehavior();
+  useFontZoomBehavior();
   useTransientScrollbars();
   useSyncExternalStore(subscribeToLocale, currentLocale, currentLocale);
 

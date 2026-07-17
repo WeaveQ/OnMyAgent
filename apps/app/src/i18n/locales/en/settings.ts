@@ -7,6 +7,16 @@ export default {
     "API keys are stored locally on this device. Environment-backed providers must be changed in the worker environment and then reloaded.",
   "settings.appearance_hint": "Match the system or force light/dark mode",
   "settings.appearance_title": "Appearance",
+
+  "settings.font_size_title": "Display size",
+  "settings.font_size_desc": "Scale the whole interface. You can also use ⌘/Ctrl + and −, or ⌘/Ctrl + 0 to reset.",
+  "settings.font_size_label": "Font size",
+  "settings.font_size_hint": "Applies to the entire app, including chat and settings.",
+  "settings.font_size_small": "Small",
+  "settings.font_size_default": "Default",
+  "settings.font_size_large": "Large",
+  "settings.font_size_value": "Level {value}",
+
   "settings.audit_log_title": "Audit log",
   "settings.auto_compact": "Auto context compaction",
   "settings.auto_compact_desc":

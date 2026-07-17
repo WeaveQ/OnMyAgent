@@ -10,6 +10,7 @@ import { desktopBridge } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
 
 import { t } from "@/i18n";
+import { FontSizeSection } from "../appearance/font-size-section";
 import {
   LayoutSection,
   LayoutSectionDescription,
@@ -89,6 +90,8 @@ export function PreferencesView(props: PreferencesViewProps) {
 
   return (
     <LayoutStack>
+      <FontSizeSection />
+
       <LayoutSection>
         <LayoutSectionHeader>
           <LayoutSectionTitle>{t("settings.notifications_section_title")}</LayoutSectionTitle>
