@@ -363,7 +363,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {resourceLabels.map((label) => (
-                            <StatusBadge key={label} tone="surface">
+                            <StatusBadge key={label} tone="surface" shape="soft" size="tiny">
                               {label}
                             </StatusBadge>
                           ))}
@@ -377,7 +377,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {contributionLabels.map((label) => (
-                            <StatusBadge key={label} tone="surface">
+                            <StatusBadge key={label} tone="surface" shape="soft" size="tiny">
                               {label}
                             </StatusBadge>
                           ))}

@@ -102,7 +102,7 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge tone={plugin.enabled ? "success" : "neutral"} shape="soft">
+          <StatusBadge tone={plugin.enabled ? "success" : "neutral"} shape="soft" size="tiny">
             {plugin.enabled ? labels.enabled : labels.disabled}
           </StatusBadge>
           <Switch
@@ -141,7 +141,7 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
                   ) : null}
                 </div>
                 <div className="flex items-center gap-3">
-                  <StatusBadge tone={skill.enabled && !disabled ? "success" : "neutral"} shape="soft">
+                  <StatusBadge tone={skill.enabled && !disabled ? "success" : "neutral"} shape="soft" size="tiny">
                     {skill.enabled && !disabled ? labels.enabled : labels.disabled}
                   </StatusBadge>
                   <Switch

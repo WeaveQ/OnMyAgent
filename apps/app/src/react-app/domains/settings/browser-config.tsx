@@ -39,7 +39,7 @@ function CapabilityCard(props: {
         <CardTitle>{props.title}</CardTitle>
         <CardDescription>{props.description}</CardDescription>
         <CardAction>
-          <StatusBadge tone={props.ready ? "success" : "neutral"} shape="soft">
+          <StatusBadge tone={props.ready ? "success" : "neutral"} shape="soft" size="tiny">
             {props.status}
           </StatusBadge>
         </CardAction>

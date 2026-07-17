@@ -190,7 +190,12 @@ export const ChatBubble = memo(function ChatBubble(props: {
                 {item.kind === "tool_group" ? (
                   <LocalAgentToolGroupSummary messages={item.messages} runStatus={run?.status} />
                 ) : (
-                  <LocalAgentTimelineMessage message={item.message} streaming={run?.status === "running"} onResolveTip={props.onResolveTip} />
+                  <LocalAgentTimelineMessage
+                    message={item.message}
+                    streaming={run?.status === "running"}
+                    runStatus={run?.status}
+                    onResolveTip={props.onResolveTip}
+                  />
                 )}
               </div>
             ))}
@@ -285,7 +290,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
               </div>
             ) : null}
             {actionFeedback ? (
-              <StatusBadge tone={actionFeedback.tone === "ok" ? "success" : "danger"}>
+              <StatusBadge tone={actionFeedback.tone === "ok" ? "success" : "danger"} shape="pill" size="tiny">
                 {actionFeedback.text}
               </StatusBadge>
             ) : null}
