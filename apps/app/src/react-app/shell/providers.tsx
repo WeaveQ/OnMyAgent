@@ -8,6 +8,7 @@ import { DenAuthProvider, DesktopConfigProvider, RestrictionNoticeProvider } fro
 import { StatusToastsProvider } from "../domains/shell-feedback";
 import { LocalProvider } from "../kernel/local-provider";
 import { ServerProvider } from "../kernel/server-provider";
+import { AgentReadyDesktopNotificationMonitor } from "./agent-ready-desktop-notification-monitor";
 import { ArchitectureMismatchGate } from "./architecture-mismatch-gate";
 import { BootStateProvider } from "./boot-state";
 import { DesktopRuntimeBoot } from "./desktop-runtime-boot";
@@ -67,6 +68,7 @@ export function AppProviders({ children }: AppProvidersProps) {
               <RestrictionNoticeProvider>
                 <LocalProvider>
                   <StatusToastsProvider>
+                    <AgentReadyDesktopNotificationMonitor />
                     <ReloadCoordinatorProvider>{children}</ReloadCoordinatorProvider>
                   </StatusToastsProvider>
                 </LocalProvider>

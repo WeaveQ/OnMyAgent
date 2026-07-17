@@ -1747,6 +1747,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             autoCompactContext={autoCompactContext}
             autoCompactContextBusy={autoCompactContextBusy}
             onToggleAutoCompactContext={toggleAutoCompactContext}
+            desktopNotifyOnAgentReady={local.prefs.desktopNotifyOnAgentReady === true}
+            onDesktopNotifyOnAgentReadyChange={(enabled) => {
+              local.setPrefs((previous) => ({
+                ...previous,
+                desktopNotifyOnAgentReady: enabled,
+              }));
+            }}
           />
         );
       case "skills":

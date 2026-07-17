@@ -8,8 +8,10 @@ import {
   readSeenProviderIds,
   resolveModelVariantState,
   resolveProviderDefaultModel,
+  shouldPromptProviderDefaultModel,
 } from "../src/react-app/shell/session-route-model-options";
 import type { ModelOption } from "../src/app/types";
+import { DEFAULT_MODEL } from "../src/app/constants";
 
 function providerListData() {
   return {
@@ -144,7 +146,7 @@ describe("session route model options", () => {
   test("detects selected model unavailability from restrictions and provider list", () => {
     expect(
       isSelectedModelUnavailable({
-        defaultModel: null,
+        model: null,
         checkRestriction: () => false,
         connectedProviderIds: [],
         providerListData: providerListData(),
@@ -152,31 +154,108 @@ describe("session route model options", () => {
     ).toBe(false);
     expect(
       isSelectedModelUnavailable({
-        defaultModel: { providerID: "openai", modelID: "missing" },
+        model: { providerID: "openai", modelID: "missing" },
         checkRestriction: () => false,
         connectedProviderIds: ["openai"],
         providerListData: providerListData(),
       }),
     ).toBe(true);
+    // No connected discovery yet → do not flash unavailable.
     expect(
       isSelectedModelUnavailable({
-        defaultModel: { providerID: "local", modelID: "llama" },
+        model: { providerID: "local", modelID: "llama" },
         checkRestriction: ({ restriction }) => restriction === "allowCustomProviders",
-        connectedProviderIds: ["openai"],
+        connectedProviderIds: [],
         providerListData: null,
       }),
+    ).toBe(false);
+    // Restriction knows connected providers and selection is outside them.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "local", modelID: "llama" },
+        checkRestriction: ({ restriction }) => restriction === "allowCustomProviders",
+        connectedProviderIds: ["openai"],
+        providerListData: providerListData(),
+      }),
     ).toBe(true);
+    // Connected custom provider with empty models map should not block.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "ark", modelID: "ark-code-latest" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["ark"],
+        providerListData: {
+          all: [
+            {
+              id: "ark",
+              name: "Ark",
+              source: "custom",
+              models: {},
+            } as never,
+          ],
+          connected: ["ark"],
+          default: {},
+        } as never,
+      }),
+    ).toBe(false);
+    // Loading list should not mark unavailable.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "openai", modelID: "missing" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["openai"],
+        providerListData: providerListData(),
+        providerListLoading: true,
+      }),
+    ).toBe(false);
   });
 
-  test("uses provider defaults only while current default is still the app default", () => {
-    expect(resolveProviderDefaultModel({ defaults: { openai: "gpt-4o" }, currentDefault: null }))
-      .toEqual({ providerID: "openai", modelID: "gpt-4o" });
+  test("resolves OpenCode suggested default without mutating prefs", () => {
+    expect(resolveProviderDefaultModel({ defaults: { openai: "gpt-4o" } })).toEqual({
+      providerID: "openai",
+      modelID: "gpt-4o",
+    });
+    // Suggestion is independent of current prefs (callers decide whether to prompt).
     expect(
       resolveProviderDefaultModel({
         defaults: { openai: "gpt-4o" },
         currentDefault: { providerID: "anthropic", modelID: "claude" },
       }),
-    ).toBeNull();
-    expect(resolveProviderDefaultModel({ defaults: {}, currentDefault: null })).toBeNull();
+    ).toEqual({ providerID: "openai", modelID: "gpt-4o" });
+    expect(resolveProviderDefaultModel({ defaults: {} })).toBeNull();
+  });
+
+  test("only prompts for provider default while still on app placeholder", () => {
+    const suggested = { providerID: "google", modelID: "gemini-2.5-flash" };
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: DEFAULT_MODEL,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: { providerID: "anthropic", modelID: "claude" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested,
+        currentDefault: suggested,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPromptProviderDefaultModel({
+        suggested: null,
+        currentDefault: DEFAULT_MODEL,
+      }),
+    ).toBe(false);
   });
 });
