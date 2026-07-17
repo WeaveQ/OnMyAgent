@@ -30,7 +30,7 @@ import type { AssistantCategoryId } from "./personal-assistant-config";
 
 export function resolveVisibleGoalRuntime(input: {
   mode: ComposerCollaborationMode;
-  categoryId?: AssistantCategoryId;
+  categoryId: AssistantCategoryId;
   goalRuntime: CollaborationGoalRuntime | null | undefined;
   dismissed: boolean;
 }): CollaborationGoalRuntime | null {
