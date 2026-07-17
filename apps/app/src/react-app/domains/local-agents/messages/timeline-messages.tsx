@@ -406,9 +406,34 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
   );
 }
 
+/** True when the tool needs the expandable Input/Output card (not Content/Locations alone). */
+function toolNeedsRichInputOutputCard(display: LocalAgentToolDisplay): boolean {
+  return display.detail.some((section) => section.label === "Input" || section.label === "Output");
+}
+
+function sharedToolItemFromMessage(
+  message: PersonalLocalAgentConversationMessage,
+  display: LocalAgentToolDisplay,
+) {
+  const [item] = personalMessagesToConversationItems([message as PersonalAdapterMessage]);
+  if (!item) return null;
+  return {
+    ...item,
+    kind: "tool" as const,
+    toolName: display.title || item.toolName,
+    toolStatus: display.status || item.toolStatus,
+    text: display.description || item.text,
+    meta: {
+      ...item.meta,
+      description:
+        display.description !== display.title ? display.description : undefined,
+    },
+  };
+}
+
 export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConversationMessage[]; runStatus?: string }) {
   // Prefer shared ConversationItemView for compact tool rows. Keep the rich
-  // LocalAgentToolCard when the tool carries expandable Input/Output detail.
+  // LocalAgentToolCard only when expandable Input/Output is present.
   const tools = props.messages
     .map((message) => ({ message, display: localAgentToolDisplay(message, props.runStatus) }))
     .filter((entry) => entry.display !== null);
@@ -418,8 +443,8 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
   return (
     <div className="max-w-full flex flex-col gap-2">
       {tools.map((entry) => {
-        const hasDetail = (entry.display?.detail.length ?? 0) > 0;
-        if (hasDetail) {
+        const display = entry.display!;
+        if (toolNeedsRichInputOutputCard(display)) {
           return (
             <LocalAgentToolCard
               key={entry.message.id}
@@ -428,28 +453,9 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
             />
           );
         }
-        const [item] = personalMessagesToConversationItems([
-          entry.message as PersonalAdapterMessage,
-        ]);
+        const item = sharedToolItemFromMessage(entry.message, display);
         if (!item) return null;
-        const display = entry.display!;
-        return (
-          <ConversationItemView
-            key={entry.message.id}
-            item={{
-              ...item,
-              kind: "tool",
-              toolName: display.title || item.toolName,
-              toolStatus: display.status || item.toolStatus,
-              text: display.description || item.text,
-              meta: {
-                ...item.meta,
-                description:
-                  display.description !== display.title ? display.description : undefined,
-              },
-            }}
-          />
-        );
+        return <ConversationItemView key={entry.message.id} item={item} />;
       })}
     </div>
   );
@@ -459,20 +465,61 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
 function PersonalConversationItem(props: {
   message: PersonalLocalAgentConversationMessage;
   streaming?: boolean;
+  runStatus?: string;
 }) {
+  // Tools get display-normalized titles/status when possible so the shared row
+  // matches LocalAgentToolCard chrome without pulling in expandable detail.
+  if (props.message.type === "tool" || props.message.type === "acp_tool_call") {
+    const display = localAgentToolDisplay(props.message, props.runStatus);
+    if (!display) return null;
+    if (toolNeedsRichInputOutputCard(display)) {
+      return <LocalAgentToolCard message={props.message} runStatus={props.runStatus} />;
+    }
+    const toolItem = sharedToolItemFromMessage(props.message, display);
+    if (!toolItem) return null;
+    return <ConversationItemView item={toolItem} streaming={props.streaming} />;
+  }
+
   const [item] = personalMessagesToConversationItems([
     props.message as PersonalAdapterMessage,
   ]);
   if (!item) return null;
+
+  // Enrich approval cards with title/summary when present on the message.
+  if (item.kind === "approval" && props.message.approval) {
+    const approval = props.message.approval;
+    return (
+      <ConversationItemView
+        item={{
+          ...item,
+          meta: {
+            ...item.meta,
+            title: typeof approval.title === "string" ? approval.title : item.meta?.title,
+            summary:
+              typeof approval.summary === "string"
+                ? approval.summary
+                : typeof approval.command === "string"
+                  ? approval.command
+                  : item.meta?.summary,
+            command: typeof approval.command === "string" ? approval.command : item.meta?.command,
+          },
+        }}
+        streaming={props.streaming}
+      />
+    );
+  }
+
   return <ConversationItemView item={item} streaming={props.streaming} />;
 }
 
 export function LocalAgentTimelineMessage(props: {
   message: PersonalLocalAgentConversationMessage;
   streaming: boolean;
+  runStatus?: string;
   onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
 }) {
-  // Shared conversation UI for tool / thinking / plan / approval / error kinds.
+  // Shared conversation UI for tool / thinking / plan / approval / error / tips
+  // (tips with resolution keep MessageTips for the action button).
   if (
     props.message.type === "plan"
     || props.message.type === "thinking"
@@ -480,16 +527,19 @@ export function LocalAgentTimelineMessage(props: {
     || props.message.type === "error"
     || props.message.type === "tool"
     || props.message.type === "acp_tool_call"
+    || props.message.type === "system"
+    || props.message.type === "tips"
   ) {
+    if (props.message.type === "tips" && props.message.resolution) {
+      return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
+    }
     return (
       <PersonalConversationItem
         message={props.message}
         streaming={props.streaming}
+        runStatus={props.runStatus}
       />
     );
-  }
-  if (props.message.type === "tips") {
-    return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
   }
   if (props.message.role === "assistant") {
     return (
@@ -499,6 +549,15 @@ export function LocalAgentTimelineMessage(props: {
           streaming={props.streaming && props.message.type !== "finish"}
         />
       </div>
+    );
+  }
+  if (props.message.role === "system" || props.message.role === "user") {
+    return (
+      <PersonalConversationItem
+        message={props.message}
+        streaming={props.streaming}
+        runStatus={props.runStatus}
+      />
     );
   }
   return null;
