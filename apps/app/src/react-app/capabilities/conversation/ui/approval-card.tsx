@@ -16,6 +16,21 @@ export type ApprovalCardProps = {
   rejectLabel?: string;
 };
 
+/** DESIGN.md §4f tool-approval riskTier (left-border anatomy). */
+function resolveRiskTier(item: ConversationItemVM): "safe" | "careful" | "destructive" {
+  const raw = item.meta?.riskTier ?? item.meta?.tier ?? item.meta?.risk;
+  if (raw === "safe" || raw === "careful" || raw === "destructive") return raw;
+  if (raw === "danger" || raw === "high") return "destructive";
+  if (raw === "low") return "safe";
+  return "careful";
+}
+
+const riskTierBorderClass: Record<"safe" | "careful" | "destructive", string> = {
+  safe: "border-l-0",
+  careful: "border-l-[2px] border-l-dls-warning",
+  destructive: "border-l-[4px] border-l-dls-danger",
+};
+
 export function ApprovalCard(props: ApprovalCardProps) {
   const {
     item,
@@ -26,6 +41,7 @@ export function ApprovalCard(props: ApprovalCardProps) {
     rejectLabel = "Decline",
   } = props;
   const showActions = Boolean(onApprove || onReject);
+  const riskTier = resolveRiskTier(item);
   const title =
     (typeof item.meta?.title === "string" && item.meta.title.trim())
     || item.text?.trim()
@@ -43,9 +59,11 @@ export function ApprovalCard(props: ApprovalCardProps) {
     <div
       className={cn(
         "min-w-0 rounded-xl border border-dls-border bg-dls-surface text-dls-text",
+        riskTierBorderClass[riskTier],
         className,
       )}
       data-kind="approval"
+      data-risk-tier={riskTier}
       data-approval-id={item.approvalId ?? undefined}
       data-testid="conversation-approval-card"
     >

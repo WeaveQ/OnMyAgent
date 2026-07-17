@@ -93,7 +93,15 @@ describe("artifact plugin enablement", () => {
   test("effective skills combine plugin defaults, skill defaults, and overrides", async () => {
     const catalog = await scanArtifactPlugins(process.env.ONMYAGENT_BUNDLED_PLUGINS_DIR ?? "");
     const defaults = resolveEffectiveArtifactSkills(catalog, { plugins: {} });
-    expect(defaults).toEqual(new Set(["documents", "excel-live-control", "pdf", "spreadsheets"]));
+    expect(defaults).toEqual(
+      new Set([
+        "browser-automation",
+        "documents",
+        "excel-live-control",
+        "pdf",
+        "spreadsheets",
+      ]),
+    );
 
     const effective = resolveEffectiveArtifactSkills(catalog, {
       plugins: {
@@ -104,7 +112,9 @@ describe("artifact plugin enablement", () => {
         },
       },
     });
-    expect(effective).toEqual(new Set(["pdf", "spreadsheets"]));
+    expect(effective).toEqual(
+      new Set(["browser-automation", "pdf", "spreadsheets"]),
+    );
   });
 
   test("routes list, inspect, mutate, audit, reload, and report an honest connection", async () => {
@@ -128,11 +138,12 @@ describe("artifact plugin enablement", () => {
     const listed = await callRoute(routes, "GET", "/workspace/workspace-1/artifact-plugins", config, workspace);
     expect(listed.status).toBe(200);
     expect(listed.body.items.map((item: { id: string }) => item.id)).toEqual([
+      "browser",
       "documents",
       "pdf",
       "spreadsheets",
     ]);
-    expect(listed.body.items[2].skills).toEqual([
+    expect(listed.body.items[3].skills).toEqual([
       { id: "spreadsheets", enabled: true, defaultEnabled: true },
       { id: "excel-live-control", enabled: true, defaultEnabled: true },
     ]);

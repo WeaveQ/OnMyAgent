@@ -2,6 +2,7 @@
  * Personal agent run artifact / file-change tracking helpers.
  * Extracted from personal-agent-runtime/index.mjs (mechanical split).
  */
+import { createHash } from "node:crypto";
 import { statSync } from "node:fs";
 import path from "node:path";
 

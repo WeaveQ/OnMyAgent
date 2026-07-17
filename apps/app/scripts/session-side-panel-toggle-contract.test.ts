@@ -10,8 +10,8 @@ function readWorkspaceFile(path: string): string {
 
 describe("right side panel toggle contract", () => {
   test("chat header stays borderless while right panel titlebars keep their divider", () => {
-    const surface = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
+    const surfaceChrome = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface-chrome.tsx",
     );
     const sessionPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/chat/session-page.tsx",
@@ -20,10 +20,10 @@ describe("right side panel toggle contract", () => {
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
     );
 
-    expect(surface).toContain(
+    expect(surfaceChrome).toContain(
       'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
     );
-    expect(surface).not.toContain(
+    expect(surfaceChrome).not.toContain(
       'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
     );
     expect(sessionPage).toContain(

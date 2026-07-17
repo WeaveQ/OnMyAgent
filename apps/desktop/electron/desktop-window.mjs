@@ -11,7 +11,7 @@ import { BrowserWindow } from "electron";
  * @param {(win: import("electron").BrowserWindow | null) => void} options.setMainWindow
  * @param {import("electron").App} options.app
  * @param {import("electron").NativeTheme} options.nativeTheme
- * @param {import("electron").Session} options.session
+ * @param {typeof import("electron").session} options.session
  * @param {string} options.appName
  * @param {boolean} options.isDevMode
  * @param {number} options.minWidth
