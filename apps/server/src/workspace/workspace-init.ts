@@ -191,8 +191,10 @@ const ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE = `<!-- ${APP_NAME}_BROWSER_AUTOMATI
 
 ${APP_NAME} has a built-in in-app browser. For any web task (open a site, search, read or fill a page, scrape content), drive it directly instead of asking the user to browse manually.
 
-- Invoke the \`browser-automation\` skill for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
-- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\`.
+- Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
+- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
+- Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
+- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`.
 - The built-in browser needs no URL or port from you. Never invent localhost endpoints, CDP, the \`opencode-chrome-devtools\` plugin, or any external browser tool.
 - Finalize temporary tabs when the task is done; leave user-owned tabs open unless the user asks otherwise.
 <!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;

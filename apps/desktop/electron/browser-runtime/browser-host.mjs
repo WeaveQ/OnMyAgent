@@ -100,6 +100,31 @@ export function createBrowserHost(options) {
     return response?.result?.value ?? null;
   };
 
+  const loadUrlBestEffort = async (view, url, timeoutMs = 45_000) => {
+    const load = view.webContents.loadURL(url);
+    let timer;
+    try {
+      await Promise.race([
+        load,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`navigation timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
+        }),
+      ]);
+      return { ok: true, timedOut: false };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("timed out")) {
+        // Keep the tab; the page may still finish loading in the background.
+        return { ok: true, timedOut: true, message };
+      }
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
   const createTab = async (params, context) => {
     const url = typeof params?.url === "string" && params.url.trim()
       ? params.url.trim()
@@ -117,7 +142,10 @@ export function createBrowserHost(options) {
       handoff: params?.handoff === true,
     });
     options.onTabCreated?.(tab, view);
-    await view.webContents.loadURL(url);
+    if (url !== "about:blank") {
+      const navigation = await loadUrlBestEffort(view, url);
+      return { tab: describe(tab), navigation };
+    }
     return { tab: describe(tab) };
   };
 
@@ -216,9 +244,12 @@ export function createBrowserHost(options) {
         const url = typeof params?.url === "string" ? params.url : "";
         const view = controllableView(tabId, context.sessionId);
         await authorize({ kind: "navigate", url, context });
-        await view.webContents.loadURL(url);
+        const navigation = await loadUrlBestEffort(view, url);
         domRefs.invalidate(tabId);
-        return { tab: describe(registry.assertControllable(tabId, context.sessionId)) };
+        return {
+          tab: describe(registry.assertControllable(tabId, context.sessionId)),
+          navigation,
+        };
       }
       if (method === "navigateHistory") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";

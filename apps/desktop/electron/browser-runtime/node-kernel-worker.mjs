@@ -32,9 +32,48 @@ context.nodeRepl = Object.freeze({
   },
 });
 
+function summarizeBrowserHandle(value) {
+  if (value == null || typeof value !== "object") return null;
+  // Browser handle from setupBrowserRuntime
+  if (typeof value.browserId === "string" && value.tabs && typeof value.tabs.new === "function") {
+    return {
+      __type: "Browser",
+      browserId: value.browserId,
+      name: value.name ?? value.browserId,
+    };
+  }
+  // Tab handle
+  if (typeof value.id === "string" && value.playwright && typeof value.goto === "function") {
+    return {
+      __type: "Tab",
+      id: value.id,
+      note: "Keep this Tab in a variable. Use await tab.url() / await tab.title() for live fields.",
+    };
+  }
+  return null;
+}
+
 function serialize(value) {
   if (value === undefined) return null;
-  return JSON.parse(JSON.stringify(value));
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "function") {
+    return { __type: "Function", name: value.name || "anonymous" };
+  }
+  const handle = summarizeBrowserHandle(value);
+  if (handle) return handle;
+  try {
+    return JSON.parse(
+      JSON.stringify(value, (_key, current) => {
+        if (typeof current === "function") return undefined;
+        if (typeof current === "bigint") return current.toString();
+        const nested = summarizeBrowserHandle(current);
+        if (nested) return nested;
+        return current;
+      }),
+    );
+  } catch {
+    return String(value);
+  }
 }
 
 const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
