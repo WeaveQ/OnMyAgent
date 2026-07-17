@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, FolderOpen, Loader2, Play, Plug, QrCode, RefreshCw, Save, Send, Square } from "lucide-react";
+import { ExternalLink, FolderOpen, Play, Plug, QrCode, RefreshCw, Save, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,19 +108,30 @@ function statusTone(status: string | undefined) {
   return "neutral";
 }
 
-function PanelSection(props: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
+function PanelSection(props: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <section className="rounded-lg border border-dls-border bg-dls-card p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="space-y-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-xs font-medium text-dls-text">{props.title}</div>
+          <div className="text-sm font-medium text-dls-text">{props.title}</div>
           {props.description ? (
-            <div className="mt-1 text-xs leading-5 text-dls-secondary">{props.description}</div>
+            <p className="mt-0.5 max-w-2xl text-xs leading-5 text-dls-secondary">
+              {props.description}
+            </p>
           ) : null}
         </div>
-        {props.actions ? <div className="flex shrink-0 flex-wrap gap-2">{props.actions}</div> : null}
+        {props.actions ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {props.actions}
+          </div>
+        ) : null}
       </div>
-      <div className="mt-3">{props.children}</div>
+      {props.children}
     </section>
   );
 }
@@ -130,7 +141,7 @@ function FieldLabel(props: { label: string; children: ReactNode; hint?: string }
     <label className="min-w-0 text-xs text-dls-secondary">
       <span className="mb-1 block">{props.label}</span>
       {props.children}
-      {props.hint ? <span className="mt-1 block text-xs leading-4 text-dls-muted">{props.hint}</span> : null}
+      {props.hint ? <span className="mt-1 block text-xs leading-4 text-dls-secondary">{props.hint}</span> : null}
     </label>
   );
 }
@@ -560,43 +571,144 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
   }, [effectiveAccountId]);
 
   return (
-    <div className="mt-4 space-y-4 rounded-lg border border-dls-border bg-dls-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium text-dls-text">{t("messaging.weixin_native_title")}</div>
-          <div className="mt-1 text-xs leading-5 text-dls-secondary">{t("messaging.weixin_native_desc")}</div>
-        </div>
+    <div className="space-y-5">
+      {/* Runtime summary — single strip, no metric cards */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone(serviceState.status)}>{serviceState.status ?? "stopped"}</StatusBadge>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={Boolean(busy)} aria-label={t("common.refresh")}>
-            {busy === "refresh" ? <LoadingSpinner size="default" /> : <RefreshCw className="size-4" />}
+          <StatusBadge tone={statusTone(serviceState.status)}>
+            {serviceState.status ?? "stopped"}
+          </StatusBadge>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={refresh}
+            disabled={Boolean(busy)}
+            aria-label={t("common.refresh")}
+          >
+            {busy === "refresh" ? (
+              <LoadingSpinner size="default" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
           </Button>
         </div>
+        <span className="hidden h-3 w-px bg-dls-border sm:block" aria-hidden />
+        <MetricInline
+          label={t("messaging.weixin_account")}
+          value={account?.accountId || effectiveAccountId || "--"}
+        />
+        <MetricInline
+          label={t("messaging.weixin_last_message")}
+          value={shortTime(serviceState.lastMessageAt)}
+        />
+        <MetricInline
+          label={t("messaging.weixin_counts")}
+          value={`${serviceState.processedCount ?? 0}/${serviceState.sentCount ?? 0}`}
+        />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric label={t("messaging.weixin_account")} value={account?.accountId || effectiveAccountId || "--"} />
-        <Metric label={t("messaging.weixin_access_workspace_metric")} value={effectiveWorkspaceRoot || "--"} />
-        <Metric label={t("messaging.weixin_last_message")} value={shortTime(serviceState.lastMessageAt)} />
-        <Metric label={t("messaging.weixin_counts")} value={`${serviceState.processedCount ?? 0}/${serviceState.sentCount ?? 0}`} />
-      </div>
+      <PanelSection title={t("messaging.weixin_account")}>
+        <div className="grid gap-2 md:grid-cols-3">
+          <Input
+            value={accountId}
+            onChange={(event) => setAccountId(event.currentTarget.value)}
+            placeholder="account_id"
+          />
+          <Input
+            value={token}
+            onChange={(event) => setToken(event.currentTarget.value)}
+            placeholder="token"
+            type="password"
+          />
+          <Input
+            value={baseUrl}
+            onChange={(event) => setBaseUrl(event.currentTarget.value)}
+            placeholder="base_url"
+          />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={saveManualAccount}
+            disabled={!accountId.trim() || !token.trim() || Boolean(busy)}
+          >
+            {busy === "save" ? busyIcon : <Save className="size-4" />}
+            {t("messaging.weixin_save_account")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={startLogin}
+            disabled={Boolean(busy)}
+          >
+            {busy === "login" ? busyIcon : <QrCode className="size-4" />}
+            {t("messaging.weixin_qr_login")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={testConnection}
+            disabled={!effectiveAccountId || Boolean(busy)}
+            title={
+              effectiveAccountId
+                ? undefined
+                : t("messaging.weixin_test_need_account")
+            }
+          >
+            {busy === "test" ? busyIcon : <Plug className="size-4" />}
+            {t("messaging.weixin_test_connection")}
+          </Button>
+        </div>
+        {probeResult ? (
+          <div className="mt-2">
+            {probeResult.ok ? (
+              <NoticeBox tone="info" className="break-words leading-5">
+                {t("messaging.weixin_test_ok", {
+                  username: probeResult.botUsername ?? "",
+                })}
+              </NoticeBox>
+            ) : (
+              <NoticeBox tone="error" className="break-words leading-5">
+                {probeResult.error ?? t("messaging.weixin_test_failed")}
+              </NoticeBox>
+            )}
+          </div>
+        ) : null}
+      </PanelSection>
 
       <PanelSection
         title={t("messaging.weixin_access_workspace_title")}
         description={t("messaging.weixin_access_workspace_desc")}
-        actions={(
+        actions={
           <>
-            <Button type="button" variant="outline" size="sm" onClick={() => void chooseAccessWorkspace()} disabled={running || Boolean(busy)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void chooseAccessWorkspace()}
+              disabled={running || Boolean(busy)}
+            >
               <FolderOpen className="size-4" />
               {t("messaging.weixin_access_workspace_pick")}
             </Button>
             {props.workspaceRoot ? (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setAccessWorkspaceRoot(props.workspaceRoot ?? "")} disabled={running || Boolean(busy)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setAccessWorkspaceRoot(props.workspaceRoot ?? "")}
+                disabled={running || Boolean(busy)}
+              >
                 {t("messaging.weixin_access_workspace_use_current")}
               </Button>
             ) : null}
           </>
-        )}
+        }
       >
         <Input
           className="font-mono text-xs"
@@ -605,19 +717,24 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           placeholder={t("messaging.weixin_access_workspace_placeholder")}
           disabled={running || Boolean(busy)}
         />
-        <div className="mt-3 border-t border-dls-border pt-3">
+        <div className="mt-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-medium text-dls-text">{t("messaging.weixin_access_workspace_extra_title")}</div>
-              <div className="mt-1 text-xs leading-5 text-dls-secondary">{t("messaging.weixin_access_workspace_extra_desc")}</div>
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => void addAccessibleWorkspaceRoot()} disabled={running || Boolean(busy)}>
+            <span className="text-xs text-dls-secondary">
+              {t("messaging.weixin_access_workspace_extra_title")}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void addAccessibleWorkspaceRoot()}
+              disabled={running || Boolean(busy)}
+            >
               <FolderOpen className="size-4" />
               {t("messaging.weixin_access_workspace_extra_add")}
             </Button>
           </div>
           {effectiveAccessibleRoots.length ? (
-            <div className="mt-2 flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {effectiveAccessibleRoots.map((root) => (
                 <AccessibleRootRow
                   key={root}
@@ -629,114 +746,105 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
               ))}
             </div>
           ) : (
-            <NoticeBox tone="neutral" className="mt-2">
+            <p className="text-xs text-dls-secondary">
               {t("messaging.weixin_access_workspace_extra_empty")}
-            </NoticeBox>
+            </p>
           )}
-        </div>
-      </PanelSection>
-
-      <PanelSection title={t("messaging.weixin_account")} description={t("messaging.weixin_native_desc")}>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Input value={accountId} onChange={(event) => setAccountId(event.currentTarget.value)} placeholder="account_id" />
-          <Input value={token} onChange={(event) => setToken(event.currentTarget.value)} placeholder="token" type="password" />
-          <Input value={baseUrl} onChange={(event) => setBaseUrl(event.currentTarget.value)} placeholder="base_url" />
         </div>
       </PanelSection>
 
       <PanelSection
         title={t("identities.message_routing_title")}
-        description={t("messaging.configure_agent_desc")}
-        actions={(
-          <Button type="button" variant="ghost" size="sm" onClick={() => void refreshAgents()} disabled={running || Boolean(busy)}>
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void refreshAgents()}
+            disabled={running || Boolean(busy)}
+          >
             <RefreshCw className="size-4" />
             {t("common.refresh")}
           </Button>
-        )}
+        }
       >
         <div className="grid gap-3 md:grid-cols-3">
           <FieldLabel label={t("messaging.weixin_reply_agent")}>
-          <SelectMenu
-            size="compact"
-            value={selectedAgent.id}
-            onChange={setSelectedAgentId}
-            ariaLabel={t("messaging.weixin_reply_agent")}
-            disabled={running || Boolean(busy)}
-            options={agents.map((agent) => ({
-              value: agent.id,
-              label: `${agent.name} (${agent.provider}${agent.status ? `/${agent.status}` : ""})`,
-            }))}
-          />
+            <SelectMenu
+              size="compact"
+              value={selectedAgent.id}
+              onChange={setSelectedAgentId}
+              ariaLabel={t("messaging.weixin_reply_agent")}
+              disabled={running || Boolean(busy)}
+              options={agents.map((agent) => ({
+                value: agent.id,
+                label: `${agent.name} (${agent.provider}${agent.status ? `/${agent.status}` : ""})`,
+              }))}
+            />
           </FieldLabel>
           <FieldLabel
             label={t("messaging.weixin_approval_mode")}
-            hint={running ? t("messaging.weixin_approval_mode_live_desc") : t("messaging.weixin_approval_mode_desc")}
+            hint={
+              running
+                ? t("messaging.weixin_approval_mode_live_desc")
+                : t("messaging.weixin_approval_mode_desc")
+            }
           >
-          <SelectMenu
-            size="compact"
-            value={approvalMode}
-            onChange={(value) => void applyApprovalMode(value as PersonalLocalAgentApprovalMode)}
-            ariaLabel={t("messaging.weixin_approval_mode")}
-            disabled={Boolean(busy) || !selectedAgentSupportsApproval}
-            options={APPROVAL_MODE_OPTIONS}
-          />
+            <SelectMenu
+              size="compact"
+              value={approvalMode}
+              onChange={(value) =>
+                void applyApprovalMode(value as PersonalLocalAgentApprovalMode)
+              }
+              ariaLabel={t("messaging.weixin_approval_mode")}
+              disabled={Boolean(busy) || !selectedAgentSupportsApproval}
+              options={APPROVAL_MODE_OPTIONS}
+            />
           </FieldLabel>
           <FieldLabel label={t("messaging.weixin_prompt_mode")}>
-          <SelectMenu
-            size="compact"
-            value={promptMode}
-            onChange={(value) => setPromptMode(value === "debug" ? "debug" : "raw")}
-            ariaLabel={t("messaging.weixin_prompt_mode")}
-            disabled={running || Boolean(busy)}
-            options={PROMPT_MODE_OPTIONS}
-          />
+            <SelectMenu
+              size="compact"
+              value={promptMode}
+              onChange={(value) =>
+                setPromptMode(value === "debug" ? "debug" : "raw")
+              }
+              ariaLabel={t("messaging.weixin_prompt_mode")}
+              disabled={running || Boolean(busy)}
+              options={PROMPT_MODE_OPTIONS}
+            />
           </FieldLabel>
         </div>
+        <p className="text-xs leading-5 text-dls-secondary">
+          {t("messaging.weixin_agent_command_help_prefix")}{" "}
+          <span className="font-mono text-dls-text">#agent</span>{" "}
+          {t("messaging.weixin_agent_command_help_middle")}{" "}
+          <span className="font-mono text-dls-text">#agent codex</span>{" "}
+          {t("messaging.weixin_agent_command_help_suffix")}
+        </p>
       </PanelSection>
 
-      <PanelSection title={t("status.running")} description={t("identities.message_routing_desc")}>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={saveManualAccount} disabled={!accountId.trim() || !token.trim() || Boolean(busy)}>
-          {busy === "save" ? busyIcon : <Save className="size-4" />}
-          {t("messaging.weixin_save_account")}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={startLogin} disabled={Boolean(busy)}>
-          {busy === "login" ? busyIcon : <QrCode className="size-4" />}
-          {t("messaging.weixin_qr_login")}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={startService} disabled={!canStart || Boolean(busy)}>
-          {busy === "start" ? busyIcon : <Play className="size-4" />}
-          {t("messaging.weixin_start")}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={stopService} disabled={!running || Boolean(busy)}>
-          {busy === "stop" ? busyIcon : <Square className="size-4" />}
-          {t("messaging.weixin_stop")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={testConnection}
-          disabled={!effectiveAccountId || Boolean(busy)}
-          title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
-        >
-          {busy === "test" ? busyIcon : <Plug className="size-4" />}
-          {t("messaging.weixin_test_connection")}
-        </Button>
-      </div>
-      {probeResult ? (
-        <div className="mt-2">
-          {probeResult.ok ? (
-            <NoticeBox tone="info" className="break-words leading-5">
-              {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
-            </NoticeBox>
-          ) : (
-            <NoticeBox tone="error" className="break-words leading-5">
-              {probeResult.error ?? t("messaging.weixin_test_failed")}
-            </NoticeBox>
-          )}
+      <PanelSection title={t("messaging.weixin_start")}>
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            onClick={startService}
+            disabled={!canStart || Boolean(busy)}
+          >
+            {busy === "start" ? busyIcon : <Play className="size-4" />}
+            {t("messaging.weixin_start")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={stopService}
+            disabled={!running || Boolean(busy)}
+          >
+            {busy === "stop" ? busyIcon : <Square className="size-4" />}
+            {t("messaging.weixin_stop")}
+          </Button>
         </div>
-      ) : null}
       </PanelSection>
 
       {serviceState.lastError || error ? (
@@ -746,59 +854,84 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
       ) : null}
 
       {qrCode || qrCodeUrl ? (
-        <div className="rounded-lg border border-dls-border bg-dls-card p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0 text-xs text-dls-secondary">
-              {t("messaging.weixin_qr_status", { status: qrStatus || "wait" })}
-            </div>
-            <Button type="button" variant="secondary" size="sm" onClick={() => void pollLogin()} disabled={!qrCode || Boolean(busy)}>
+        <PanelSection
+          title={t("messaging.weixin_qr_status", { status: qrStatus || "wait" })}
+          actions={
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void pollLogin()}
+              disabled={!qrCode || Boolean(busy)}
+            >
               {busy === "poll" ? busyIcon : <RefreshCw className="size-4" />}
               {t("messaging.weixin_poll_login")}
             </Button>
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          }
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
             {qrImageUrl ? (
-              <div className="flex size-60 items-center justify-center rounded-lg border border-dls-border bg-white p-3">
-                <img src={qrImageUrl} alt={t("messaging.weixin_qr_alt")} className="size-56" draggable={false} />
+              <div className="flex size-60 items-center justify-center rounded-lg border border-dls-border bg-dls-surface p-3">
+                {/* QR needs a white plate for scan reliability; keep it local to the image. */}
+                <div className="rounded-md bg-white p-2">
+                  <img
+                    src={qrImageUrl}
+                    alt={t("messaging.weixin_qr_alt")}
+                    className="size-52"
+                    draggable={false}
+                  />
+                </div>
               </div>
             ) : qrScanValue ? (
               <div className="flex size-60 items-center justify-center rounded-lg border border-dls-border bg-dls-surface-muted p-3 text-center text-xs text-dls-secondary">
                 {t("messaging.weixin_qr_render_failed")}
               </div>
             ) : null}
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-2">
               <MonoLogBox>{qrScanValue}</MonoLogBox>
-              <MonoLogBox density="stacked" className="mt-2">
-                <div>{t("messaging.weixin_qr_poll_count", { count: qrPollCount })}</div>
-                <div>{t("messaging.weixin_qr_last_poll", { time: shortTime(qrLastPollAt) })}</div>
-                <div className="break-all">baseUrl: {qrLastPollBaseUrl || qrPollBaseUrl || baseUrl}</div>
-                {qrRedirectHost ? <div className="break-all">redirectHost: {qrRedirectHost}</div> : null}
-                {qrPollDetail ? <div className="break-all">{qrPollDetail}</div> : null}
+              <MonoLogBox density="stacked">
+                <div>
+                  {t("messaging.weixin_qr_poll_count", { count: qrPollCount })}
+                </div>
+                <div>
+                  {t("messaging.weixin_qr_last_poll", {
+                    time: shortTime(qrLastPollAt),
+                  })}
+                </div>
+                <div className="break-all">
+                  baseUrl: {qrLastPollBaseUrl || qrPollBaseUrl || baseUrl}
+                </div>
+                {qrRedirectHost ? (
+                  <div className="break-all">redirectHost: {qrRedirectHost}</div>
+                ) : null}
+                {qrPollDetail ? (
+                  <div className="break-all">{qrPollDetail}</div>
+                ) : null}
               </MonoLogBox>
               {qrImageUrl || qrCodeUrl ? (
-                <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => void openDesktopUrl(qrImageUrl || qrCodeUrl)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void openDesktopUrl(qrImageUrl || qrCodeUrl)}
+                >
                   <ExternalLink className="size-4" />
                   {t("messaging.weixin_open_qr")}
                 </Button>
               ) : null}
             </div>
           </div>
-        </div>
+        </PanelSection>
       ) : null}
-
-      {/* Agent switch tip */}
-      <div className="rounded-lg border border-dls-border bg-dls-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
-        {t("messaging.weixin_agent_command_help_prefix")} <span className="font-mono text-dls-text">#agent</span> {t("messaging.weixin_agent_command_help_middle")} <span className="font-mono text-dls-text">#agent codex</span> {t("messaging.weixin_agent_command_help_suffix")}
-      </div>
     </div>
   );
 }
 
-function Metric(props: { label: string; value: string }) {
+function MetricInline(props: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-dls-border bg-dls-card px-3 py-2">
-      <div className="text-xs text-dls-secondary">{props.label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-dls-text">{props.value}</div>
-    </div>
+    <span className="inline-flex min-w-0 max-w-full items-baseline gap-1.5">
+      <span className="shrink-0">{props.label}</span>
+      <span className="truncate font-medium text-dls-text">{props.value}</span>
+    </span>
   );
 }

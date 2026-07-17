@@ -43,7 +43,16 @@ import {
   SettingsPanelToolbarStatus,
 } from "./panel";
 
-const settingsSidebarGroupLabelClass = "px-2 text-sm font-medium text-dls-secondary";
+const settingsSidebarGroupLabelClass =
+  "px-2 text-xs font-medium tracking-wide text-dls-secondary";
+
+/** Settings list-lane chrome: solid cool sidebar (not rail/vibrancy bleed). */
+const settingsSidebarClass =
+  "**:data-[sidebar=sidebar]:bg-dls-sidebar **:data-[sidebar=sidebar]:text-dls-text";
+
+/** Active/hover rows match list-lane tokens used by the main shell. */
+const settingsNavButtonClass =
+  "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text data-active:bg-dls-list-selected data-active:font-medium data-active:text-dls-text mac:hover:bg-dls-list-hover mac:active:bg-dls-list-hover mac:data-active:bg-dls-list-selected dark:mac:hover:bg-dls-list-hover dark:mac:active:bg-dls-list-hover dark:mac:data-active:bg-dls-list-selected";
 
 export function getSettingsTabIcon(tab: SettingsTab) {
   switch (tab) {
@@ -199,12 +208,17 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
 
   return (
-    <Sidebar className="mac:**:data-[sidebar=sidebar]:bg-transparent">
+    <Sidebar className={settingsSidebarClass}>
       <div className="hidden h-10 mac:block mac:titlebar-drag" />
       <SidebarHeader className="px-2 pt-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton type="button" onClick={props.onClose} size="settings">
+            <SidebarMenuButton
+              type="button"
+              onClick={props.onClose}
+              size="settings"
+              className={settingsNavButtonClass}
+            >
               <ArrowLeft size={14} />
               <span>{t("dashboard.back_to_app")}</span>
             </SidebarMenuButton>
@@ -215,7 +229,7 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         <SidebarGroup className="px-0 py-2">
           <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>{t("settings.group_workspace")}</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {workspaceTabs.map((tab) => {
                 const Icon = getSettingsTabIcon(tab);
                 return (
@@ -225,6 +239,7 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
                       isActive={props.activeTab === tab}
                       onClick={() => props.onSelectTab(tab)}
                       size="settings"
+                      className={settingsNavButtonClass}
                     >
                       <Icon />
                       <span>{getSettingsTabLabel(tab)}</span>
@@ -239,7 +254,7 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         <SidebarGroup className="px-0 py-2">
           <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>{t("settings.group_global")}</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {globalTabs.map((tab) => {
                 const Icon = getSettingsTabIcon(tab);
                 return (
@@ -249,6 +264,7 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
                       isActive={props.activeTab === tab}
                       onClick={() => props.onSelectTab(tab)}
                       size="settings"
+                      className={settingsNavButtonClass}
                     >
                       <Icon />
                       <span>{getSettingsTabLabel(tab)}</span>

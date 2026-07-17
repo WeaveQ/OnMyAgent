@@ -67,7 +67,7 @@ export function FontSizeSection() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h3 className="text-lg font-medium text-foreground">
+        <h3 className="text-lg font-medium text-dls-text">
           {t("settings.font_size_title")}
         </h3>
       </div>

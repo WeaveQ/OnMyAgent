@@ -198,7 +198,7 @@ export function AgentSessionTabs(props: {
       className={cn(
         "relative shrink-0 bg-dls-background",
         expanded
-          ? "h-11 border-b border-dls-mist px-3 shadow-sm"
+          ? "h-11 border-b border-dls-mist px-3"
           : "h-0 overflow-visible shadow-none",
       )}
     >

@@ -70,6 +70,7 @@ export function ToggleChip(props: { label: string; selected: boolean; onClick: (
       tone="chip"
       size="chip"
       width="hug"
+      className="rounded-full"
     >
       {props.label}
     </SegmentedTabButton>
@@ -78,7 +79,7 @@ export function ToggleChip(props: { label: string; selected: boolean; onClick: (
 
 export function FieldLabel(props: { children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-dls-secondary">
+    <label className="flex flex-col gap-1 text-xs font-medium leading-4 text-dls-secondary">
       {props.children}
     </label>
   );

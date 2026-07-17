@@ -258,16 +258,16 @@ const baseMarkedOptions = {
       return `<li class="my-1">${checkbox}${this.parser.parse(item.tokens)}</li>`;
     },
     blockquote({ tokens }) {
-      return `<blockquote class="session-markdown-muted-surface my-4 rounded-r-lg border-l px-4 py-2 italic text-muted-foreground">${this.parser.parse(tokens)}</blockquote>`;
+      return `<blockquote class="session-markdown-muted-surface my-4 rounded-r-lg border-l px-4 py-2 italic text-dls-secondary">${this.parser.parse(tokens)}</blockquote>`;
     },
     code({ text, lang }) {
       const info = parseMarkdownCodeFenceInfo(lang);
       const special = renderSpecialMarkdownCodeFence(text, info);
       if (special) return special;
-      return `<div data-markdown-code-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(info)}<pre class="overflow-x-auto px-4 py-3 text-xs leading-6 text-muted-foreground"><code${codeLanguageClass(info.language)}>${escapeHtml(text)}</code></pre></div>`;
+      return `<div data-markdown-code-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(info)}<pre class="overflow-x-auto px-4 py-3 text-xs leading-6 text-dls-secondary"><code${codeLanguageClass(info.language)}>${escapeHtml(text)}</code></pre></div>`;
     },
     codespan({ text }) {
-      return `<code data-markdown-inline-code="${escapeAttribute(text)}" class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-foreground">${escapeHtml(text)}</code>`;
+      return `<code data-markdown-inline-code="${escapeAttribute(text)}" class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-dls-text">${escapeHtml(text)}</code>`;
     },
     del({ raw, tokens }) {
       if (!raw.startsWith("~~")) return escapeHtml(raw);

@@ -4,21 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none titlebar-no-drag focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 relative",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none titlebar-no-drag focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-dls-status-danger-border aria-invalid:ring-3 aria-invalid:ring-dls-danger/20 dark:aria-invalid:border-dls-status-danger-border dark:aria-invalid:ring-dls-danger/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 relative",
   {
     variants: {
       variant: {
         default: "bg-dls-decision text-white hover:bg-dls-decision-hover bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
         outline:
-          "border-border bg-muted/20 hover:bg-muted hover:border-foreground/20 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-muted/20 dark:hover:bg-input/30 dark:hover:border-input/80 bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
+          "border-dls-border bg-dls-surface-muted/20 hover:bg-dls-surface-muted hover:border-foreground/20 hover:text-dls-text aria-expanded:bg-dls-surface-muted aria-expanded:text-dls-text dark:bg-dls-surface-muted/20 dark:hover:bg-input/30 dark:hover:border-input/80 bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
         dashed:
-          "border-dashed border-dls-border bg-muted/20 text-dls-secondary hover:border-dls-border-strong hover:bg-muted hover:text-dls-text bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
+          "border-dashed border-dls-border bg-dls-surface-muted/20 text-dls-secondary hover:border-dls-border-strong hover:bg-dls-surface-muted hover:text-dls-text bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground active:not-aria-[haspopup]:translate-y-px",
         ghost:
-          "hover:text-foreground aria-expanded:text-foreground",
+          "hover:text-dls-text aria-expanded:text-dls-text",
         destructive:
-          "border-border text-destructive hover:bg-destructive/10 hover:border-destructive/40 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:border-border dark:hover:bg-destructive/10 dark:border-destructive/40 dark:focus-visible:ring-destructive/40 bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
+          "border-dls-border text-dls-danger hover:bg-dls-danger-soft hover:border-dls-status-danger-border focus-visible:border-dls-status-danger-border focus-visible:ring-dls-danger/20 dark:border-dls-border dark:hover:bg-dls-danger-soft dark:border-dls-status-danger-border dark:focus-visible:ring-dls-danger/40 bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-lg active:not-aria-[haspopup]:translate-y-px",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

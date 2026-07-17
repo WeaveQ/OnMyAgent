@@ -2,14 +2,13 @@ import {
   CalendarDays,
   Check,
   Clock3,
-  Cloud,
-  MonitorSmartphone,
   Play,
-  Smartphone,
-  Wifi,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { t } from "@/i18n";
+
+const DEVICES_PLACEHOLDER_ASSET = "/empty-states/devices-placeholder.png";
 
 type FeaturePreviewPlaceholderProps = {
   kind: "scheduledTasks" | "devices";
@@ -45,28 +44,13 @@ function ScheduledTasksIllustration() {
 
 function DevicesIllustration() {
   return (
-    <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-xl border border-dls-accent/30 bg-gradient-to-br from-dls-accent/10 via-dls-signal/10 to-dls-surface">
-      <div className="absolute -left-5 bottom-0 size-32 rounded-full bg-dls-accent/10 blur-2xl" />
-      <div className="absolute -right-6 top-0 size-28 rounded-full bg-dls-signal/15 blur-2xl" />
-      <div className="relative flex items-center gap-8">
-        <div className="flex h-28 w-44 flex-col rounded-xl border border-dls-surface bg-dls-surface p-3">
-          <div className="flex flex-1 items-center justify-center rounded-xl bg-dls-canvas text-white">
-            <MonitorSmartphone className="size-9" />
-          </div>
-          <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-dls-border" />
-        </div>
-        <div className="absolute left-[142px] z-10 flex size-10 items-center justify-center rounded-full border-4 border-dls-surface bg-dls-accent text-white">
-          <Wifi className="size-4" />
-        </div>
-        <div className="flex h-32 w-16 flex-col rounded-xl border-4 border-dls-canvas bg-dls-surface p-1.5">
-          <div className="flex flex-1 items-center justify-center rounded-xl bg-gradient-to-b from-dls-accent/10 to-dls-signal/15 text-dls-accent">
-            <Smartphone className="size-6" />
-          </div>
-          <div className="mx-auto mt-1.5 h-1 w-5 rounded-full bg-dls-border-strong" />
-        </div>
-        <Cloud className="absolute -right-3 -top-5 size-7 fill-dls-surface text-dls-accent/40" />
-      </div>
-    </div>
+    <img
+      src={resolvePublicAssetUrl(DEVICES_PLACEHOLDER_ASSET)}
+      alt=""
+      loading="lazy"
+      className="h-auto w-full max-w-[360px]"
+      draggable={false}
+    />
   );
 }
 
@@ -76,7 +60,7 @@ export function FeaturePreviewPlaceholder(
   const scheduledTasks = props.kind === "scheduledTasks";
 
   return (
-    <div className="flex h-full min-h-0 w-full items-center justify-center overflow-y-auto bg-dls-surface px-6 py-12 text-center">
+    <div className="flex h-full min-h-0 w-full items-center justify-center overflow-y-auto bg-dls-background px-6 py-12 text-center">
       <div className="flex w-full max-w-xl flex-col items-center">
         {scheduledTasks ? (
           <ScheduledTasksIllustration />

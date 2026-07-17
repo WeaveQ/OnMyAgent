@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 function Page({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("relative h-screen bg-background text-foreground", className)}
+      className={cn("relative h-screen bg-dls-background text-dls-text", className)}
       {...props}
     />
   );
@@ -73,7 +73,7 @@ function PageLoading({ className, ...props }: ComponentProps<"div">) {
 function PageLoadingSpinner({ className, ...props }: ComponentProps<typeof Loader2>) {
   return (
     <Loader2
-      className={cn("size-6 animate-spin text-muted-foreground", className)}
+      className={cn("size-6 animate-spin text-dls-secondary", className)}
       {...props}
     />
   );
@@ -82,7 +82,7 @@ function PageLoadingSpinner({ className, ...props }: ComponentProps<typeof Loade
 function PageLoadingDescription({ className, ...props }: ComponentProps<"p">) {
   return (
     <p
-      className={cn("text-muted-foreground", className)}
+      className={cn("text-dls-secondary", className)}
       {...props}
     />
   );
@@ -100,7 +100,7 @@ function PageFooter({ className, ...props }: ComponentProps<"div">) {
 function PageTitle({ className, ...props }: ComponentProps<"h1">) {
   return (
     <h1
-      className={cn("text-2xl font-semibold tracking-tight text-foreground", className)}
+      className={cn("text-2xl font-semibold tracking-tight text-dls-text", className)}
       {...props}
     />
   );
@@ -109,7 +109,7 @@ function PageTitle({ className, ...props }: ComponentProps<"h1">) {
 function PageDescription({ className, ...props }: ComponentProps<"p">) {
   return (
     <p
-      className={cn("text-base text-muted-foreground", className)}
+      className={cn("text-base text-dls-secondary", className)}
       {...props}
     />
   );

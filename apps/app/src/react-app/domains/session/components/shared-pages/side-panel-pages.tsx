@@ -158,7 +158,7 @@ function BillingUsagePanel() {
               {t("session.billing_period_placeholder")}
             </span>
           </div>
-          <div className="mb-3 h-1 overflow-hidden rounded-full bg-muted">
+          <div className="mb-3 h-1 overflow-hidden rounded-full bg-dls-surface-muted">
             <div className="h-full w-[5%] rounded-full bg-dls-accent" />
           </div>
           <div className="space-y-2 text-sm">
@@ -286,13 +286,13 @@ function StorePrimaryTabs(props: {
   onChange: (tab: StorePrimaryTab) => void;
 }) {
   const items: Array<{ id: StorePrimaryTab; label: string }> = [
-    { id: "experts", label: t("store.experts_marketplace") },
-    { id: "skills", label: t("store.skills_marketplace") },
-    { id: "plugins", label: t("plugins.artifact_title") },
+    { id: "experts", label: t("store.experts_tab") },
+    { id: "skills", label: t("store.skills_tab") },
+    { id: "plugins", label: t("plugins.artifact_tab") },
   ];
 
   return (
-    <SegmentedTabGroup className="mac:titlebar-no-drag">
+    <SegmentedTabGroup className="h-8 w-fit shrink-0 gap-0.5 rounded-full p-0.5 mac:titlebar-no-drag">
       {items.map((item) => {
         const active = props.value === item.id;
         return (
@@ -301,12 +301,12 @@ function StorePrimaryTabs(props: {
             type="button"
             onClick={() => props.onChange(item.id)}
             active={active}
-            size="tab"
-            shape="tab"
-            className="mac:titlebar-no-drag"
+            size="default"
+            shape="pill"
+            className="h-7 w-auto shrink-0 px-3 text-xs font-medium mac:titlebar-no-drag"
             aria-pressed={active}
           >
-            <span className="truncate">{item.label}</span>
+            <span>{item.label}</span>
           </NavTabButton>
         );
       })}
@@ -361,14 +361,14 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-dls-border bg-dls-surface px-6 mac:titlebar-drag">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-dls-border bg-dls-background px-6 mac:titlebar-drag">
         {activeTab === "experts" && expertView === "mine" ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setExpertView("market")}
-            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+            className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text mac:titlebar-no-drag"
           >
             <ChevronLeft data-icon="inline-start" className="size-4" />
             {t("store.all_experts")}
@@ -379,7 +379,7 @@ export function StorePage(props: {
             variant="ghost"
             size="sm"
             onClick={() => setSkillView("market")}
-            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+            className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text mac:titlebar-no-drag"
           >
             <ChevronLeft data-icon="inline-start" className="size-4" />
             {t("store.skills_marketplace")}
@@ -387,9 +387,9 @@ export function StorePage(props: {
         ) : (
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
-        <div className="flex min-w-0 items-center gap-2.5 mac:titlebar-no-drag">
+        <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
           {activeTab !== "plugins" && expertView === "market" && skillView === "market" ? (
-            <InputGroup controlSize="sm" radius="md" tone="surface" className="w-72 mac:titlebar-no-drag">
+            <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
               <InputGroupAddon align="inline-start">
                 <Search className="size-3.5" />
               </InputGroupAddon>

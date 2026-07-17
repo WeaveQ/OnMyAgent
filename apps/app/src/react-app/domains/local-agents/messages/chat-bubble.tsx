@@ -178,7 +178,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
               <span className="min-w-0 flex-1 truncate font-medium not-italic text-dls-text">{throttledThought.subject}</span>
             </div>
             {throttledThought.description ? (
-              <div className="mt-1 line-clamp-3 text-xs not-italic text-dls-tertiary">{throttledThought.description}</div>
+              <div className="mt-1 line-clamp-3 text-xs not-italic text-dls-text-tertiary">{throttledThought.description}</div>
             ) : null}
           </MessageRoleRow>
         ) : null}

@@ -47,8 +47,9 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             onClick={props.onCreateTask}
             active={!props.selectedSessionId && !props.automationActive}
             size="sidebar"
+            className="font-medium"
           >
-            <MessageCirclePlus className="size-4 shrink-0 text-dls-text" />
+            <MessageCirclePlus className="size-4 shrink-0" />
             {t("session.new_task")}
           </NavListButton>
           {assistantMenuItems.map((item) => (

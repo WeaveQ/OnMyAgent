@@ -241,24 +241,30 @@ export function AgentConversationPanel(props: {
     })),
   });
   const assistantTitleFallbacks = new Map<string, string>();
+  const assistantPreviewBySessionId = new Map<string, string>();
   assistantSessions.forEach((session, index) => {
     const snapshot = assistantSnapshotQueries[index]?.data;
     if (!snapshot) return;
-    assistantTitleFallbacks.set(
-      session.id,
-      snapshotConversationSummary(
-        snapshot,
-        session.time?.updated ?? session.time?.created,
-      ).preview,
+    const summary = snapshotConversationSummary(
+      snapshot,
+      session.time?.updated ?? session.time?.created,
     );
+    assistantTitleFallbacks.set(session.id, summary.preview);
+    if (summary.preview) {
+      assistantPreviewBySessionId.set(session.id, summary.preview);
+    }
   });
   const normalizedQuery = props.query.trim().toLowerCase();
   const agentGroups = useMemo(
     () =>
       mode === "assistant"
-        ? buildAssistantConversationGroups(sessions, assistantTitleFallbacks)
+        ? buildAssistantConversationGroups(
+            sessions,
+            assistantTitleFallbacks,
+            assistantPreviewBySessionId,
+          )
         : buildAgentConversationGroups(sessions, registry),
-    [assistantTitleFallbacks, mode, registry, sessions],
+    [assistantPreviewBySessionId, assistantTitleFallbacks, mode, registry, sessions],
   );
   const visibleAgentGroups = useMemo(() => {
     if (mode === "assistant") return agentGroups;
@@ -416,7 +422,7 @@ export function AgentConversationPanel(props: {
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col bg-dls-sidebar pb-5",
+        "flex shrink-0 flex-col bg-dls-sidebar pb-5 mac:bg-dls-sidebar",
         mode === "agent" ? "overflow-visible" : "overflow-hidden",
         mode === "assistant" && "px-2.5",
       )}

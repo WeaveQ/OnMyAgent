@@ -146,7 +146,7 @@ export function ConfigServerSharingSection(props: {
           <div className={configTextClass.sectionTitle}>{t("config.server_sharing_title")}</div>
           <div className={configTextClass.description}>{t("config.server_sharing_desc")}</div>
         </div>
-        <div className={`text-xs px-2 py-1 rounded-full border ${props.hostStatusStyle}`}>{props.hostStatusLabel}</div>
+        <div className={`text-xs px-2 py-1 rounded-md border ${props.hostStatusStyle}`}>{props.hostStatusLabel}</div>
       </div>
       <div className="grid gap-3">
         <SettingsActionRow>

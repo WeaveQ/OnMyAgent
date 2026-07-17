@@ -22,6 +22,7 @@ import { isDesktopRuntime } from "@/app/utils";
 import { compareProviders } from "@/app/utils/providers";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { CodeToken } from "@/components/ui/code-token";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";

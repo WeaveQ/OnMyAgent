@@ -43,7 +43,7 @@ export function RefreshButton({
           <Button
             variant="ghost"
             size="icon-sm"
-            className={cn("text-muted-foreground", className)}
+            className={cn("text-dls-secondary", className)}
             onClick={() => void onRefresh()}
             {...props}
           >
@@ -121,9 +121,9 @@ export function SettingsCard({ children, className, size = "default", tone = "mu
  * - Page title (shell h1): text-xl font-medium
  * - Page subtitle (shell): text-sm text-dls-secondary
  * - Section title (this h3): text-lg font-medium text-dls-text
- * - Section description: text-sm text-muted-foreground
+ * - Section description: text-sm text-dls-secondary
  * - Row title (SettingsBlockRow): text-sm font-medium
- * - Row / field hint: text-sm | text-xs text-muted-foreground
+ * - Row / field hint: text-sm | text-xs text-dls-secondary
  */
 export function SettingsPageSection({
   title,
@@ -144,7 +144,7 @@ export function SettingsPageSection({
         <div className="min-w-0 flex-1 space-y-1">
           <h3 className="text-lg font-medium leading-7 text-dls-text">{title}</h3>
           {description ? (
-            <p className="max-w-[52ch] text-sm leading-5 text-muted-foreground">
+            <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
               {description}
             </p>
           ) : null}
@@ -210,9 +210,9 @@ export function SettingsBlockRow({
       )}
     >
       <div className="min-w-0 flex-1 space-y-1 pr-2">
-        <div className="text-sm font-medium leading-5 text-foreground">{title}</div>
+        <div className="text-sm font-medium leading-5 text-dls-text">{title}</div>
         {description ? (
-          <div className="text-sm leading-5 text-muted-foreground">{description}</div>
+          <div className="text-sm leading-5 text-dls-secondary">{description}</div>
         ) : null}
         {children}
       </div>
@@ -363,7 +363,7 @@ interface SectionItemHeaderDescriptionProps {
 
 export function SettingsSectionHeaderDescription({ children, className }: SectionItemHeaderDescriptionProps) {
   return (
-    <div className={cn("max-w-[52ch] text-sm leading-5 text-muted-foreground", className)}>
+    <div className={cn("max-w-[52ch] text-sm leading-5 text-dls-secondary", className)}>
       {children}
     </div>
   );
@@ -376,7 +376,7 @@ interface SectionItemHintProps {
 }
 
 export function SettingsSectionHint({ children, className }: SectionItemHintProps) {
-  return <div className={cn("text-xs text-muted-foreground", className)}>{children}</div>;
+  return <div className={cn("text-xs text-dls-secondary", className)}>{children}</div>;
 }
 
 interface SectionItemHeaderActionsProps {

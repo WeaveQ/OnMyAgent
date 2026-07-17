@@ -90,7 +90,7 @@ function BillingUsagePanel() {
               {t("session.billing_period_placeholder")}
             </span>
           </div>
-          <div className="mb-3 h-1 overflow-hidden rounded-full bg-muted">
+          <div className="mb-3 h-1 overflow-hidden rounded-full bg-dls-surface-muted">
             <div className="h-full w-[5%] rounded-full bg-dls-accent" />
           </div>
           <div className="space-y-2 text-sm">
