@@ -8,7 +8,7 @@ import {
   fontZoomFromPresetIndex,
   fontZoomPresetIndex,
 } from "../../../../app/lib/font-zoom";
-import { useFontZoom } from "../../../shell/font-zoom";
+import { useFontZoom } from "@/react-app/shell";
 import { SettingsBlock, SettingsBlockRow } from "../settings-section";
 
 function labelForPresetIndex(index: number): string {
