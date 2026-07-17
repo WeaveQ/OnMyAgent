@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { createBrowserTabRegistry } from "./browser-tab-registry.mjs";
 import { createDomCuaRefStore } from "./dom-cua-ref-store.mjs";
@@ -125,6 +128,7 @@ export function createBrowserHost(options) {
         return {
           protocolVersion: 1,
           backend: "in-app",
+          browserId: "in-app",
           capabilities: [
             "tabs",
             "cdp",
@@ -133,8 +137,58 @@ export function createBrowserHost(options) {
             "dialog",
             "clipboard",
             "downloads",
+            "playwright",
+            "dom_cua",
+            "cua",
           ],
         };
+      }
+      if (method === "describeTab") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        return { tab: describe(registry.assertControllable(tabId, context.sessionId)) };
+      }
+      if (method === "markTab") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const tab = registry.assertControllable(tabId, context.sessionId);
+        if (params?.deliverable === true) tab.deliverable = true;
+        if (params?.handoff === true) tab.handoff = true;
+        return { tab: describe(tab) };
+      }
+      if (method === "waitForTimeout") {
+        const timeoutMs = Math.min(
+          Math.max(Number(params?.timeoutMs) || 0, 0),
+          60_000,
+        );
+        await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+        return { ok: true };
+      }
+      if (method === "waitForLoadState") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const view = controllableView(tabId, context.sessionId);
+        const deadline = Date.now() + Math.min(Number(params?.timeoutMs) || 15_000, 60_000);
+        while (Date.now() < deadline) {
+          if (!view.webContents.isLoading?.()) return { ok: true };
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        throw new Error("timed out waiting for load state");
+      }
+      if (method === "waitForURL") {
+        const tabId = typeof params?.tabId === "string" ? params.tabId : "";
+        const expected = String(params?.url ?? "");
+        const view = controllableView(tabId, context.sessionId);
+        const deadline = Date.now() + Math.min(Number(params?.timeoutMs) || 15_000, 60_000);
+        while (Date.now() < deadline) {
+          const current = view.webContents.getURL?.() ?? "";
+          if (!expected || current.includes(expected) || current === expected) {
+            return { ok: true, url: current };
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        throw new Error(`timed out waiting for URL: ${expected}`);
+      }
+      if (method === "waitForNavigation" || method === "waitForEvent") {
+        // Best-effort: wait until loading settles.
+        return this.dispatch("waitForLoadState", params, contextInput);
       }
       if (method === "createTab") return createTab(params, context);
       if (method === "claimTab") {
@@ -288,25 +342,39 @@ export function createBrowserHost(options) {
       if (method === "locatorAction") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
         const view = controllableView(tabId, context.sessionId);
+        const action = typeof params?.action === "string" ? params.action : "";
+        const readOnlyActions = new Set([
+          "count",
+          "isVisible",
+          "isEnabled",
+          "textContent",
+          "innerText",
+          "waitFor",
+        ]);
+        if (readOnlyActions.has(action)) {
+          const value = await evaluateValue(
+            view,
+            locatorActionExpression(params?.selector ?? {}, action, params),
+          );
+          return { value };
+        }
         const candidates = await evaluateValue(view, locatorObservationExpression(params?.selector ?? {}));
         if (!Array.isArray(candidates) || candidates.length !== 1) {
           throw new Error(`locator matched ${Array.isArray(candidates) ? candidates.length : 0} elements; expected exactly 1`);
         }
         const target = candidates[0];
         if (target.visible !== true) throw new Error("locator target is not visible");
-        if (["fill", "type"].includes(params?.action) && target.editable !== true) {
+        if (["fill", "type"].includes(action) && target.editable !== true) {
           throw new Error("locator target is not editable");
         }
         if (target.hitTarget !== true) throw new Error("locator target is covered");
-        if (params?.action === "count") return { value: 1 };
-        if (params?.action === "textContent") return { value: target.label ?? "" };
         await authorize({
-          kind: params?.action === "click" ? "click" : "page-action",
+          kind: action === "click" ? "click" : "page-action",
           engine: "locator",
           label: target.label ?? "",
           context,
         });
-        await evaluateValue(view, locatorActionExpression(params?.selector ?? {}, params?.action, params));
+        await evaluateValue(view, locatorActionExpression(params?.selector ?? {}, action, params));
         domRefs.invalidate(tabId);
         return { ok: true };
       }
@@ -361,7 +429,38 @@ export function createBrowserHost(options) {
         return { tabs: registry.list().filter((tab) => tab.owner === "user").map(describe) };
       }
       if (method === "history") return { items: await options.history?.(params ?? {}) ?? [] };
-      if (method === "documentation") return { topic: params?.topic ?? null, available: true };
+      if (method === "documentation") {
+        const topic = String(params?.topic ?? "api").replace(/\.md$/i, "");
+        const docsRoot = options.docsRoot;
+        if (typeof docsRoot === "string" && docsRoot) {
+          const candidates = [
+            join(docsRoot, `${topic}.md`),
+            join(docsRoot, "api-use-behavior.md"),
+          ];
+          for (const candidate of candidates) {
+            if (!existsSync(candidate)) continue;
+            const markdown = await readFile(candidate, "utf8");
+            return { topic, available: true, markdown };
+          }
+        }
+        if (typeof options.loadDocumentation === "function") {
+          const markdown = await options.loadDocumentation(topic);
+          if (typeof markdown === "string") {
+            return { topic, available: true, markdown };
+          }
+        }
+        return {
+          topic,
+          available: true,
+          markdown: [
+            "# Browser API",
+            "",
+            "Use `await agent.browsers.getDefault()` then `browser.tabs.new({ url })`.",
+            "Prefer Playwright locators, then DOM-CUA, then coordinate CUA.",
+            `Requested topic: ${topic}`,
+          ].join("\n"),
+        };
+      }
       if (method === "nameSession") {
         await options.nameSession?.(context.sessionId, String(params?.name ?? ""));
         return { ok: true };

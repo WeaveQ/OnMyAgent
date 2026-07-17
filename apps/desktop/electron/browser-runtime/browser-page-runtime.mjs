@@ -32,7 +32,54 @@ export function locatorObservationExpression(selector) {
 }
 
 export function locatorActionExpression(selector, action, input) {
-  return `(() => { ${queryFunctionSource} const nodes = query(${encoded(selector)}); if (nodes.length !== 1) throw new Error('locator changed before action'); const node = nodes[0]; const action = ${encoded(action)}; const value = ${encoded(input?.value ?? "")}; node.scrollIntoView({ block: 'center', inline: 'center' }); if (action === 'click') node.click(); else if (action === 'fill') { node.focus(); node.value = value; node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value })); node.dispatchEvent(new Event('change', { bubbles: true })); } else if (action === 'type') { node.focus(); node.value += value; node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value })); } else if (action === 'hover') node.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); else if (action === 'check') { node.checked = true; node.dispatchEvent(new Event('change', { bubbles: true })); } else if (action === 'uncheck') { node.checked = false; node.dispatchEvent(new Event('change', { bubbles: true })); } else if (action === 'selectOption') { node.value = value; node.dispatchEvent(new Event('change', { bubbles: true })); } else if (action === 'press') node.dispatchEvent(new KeyboardEvent('keydown', { key: ${encoded(input?.key ?? "")}, bubbles: true })); return true; })()`;
+  return `(() => {
+    ${queryFunctionSource}
+    const selector = ${encoded(selector)};
+    const action = ${encoded(action)};
+    const value = ${encoded(input?.value ?? "")};
+    const key = ${encoded(input?.key ?? "")};
+    let nodes = query(selector);
+    if (action === 'count') return nodes.length;
+    if (action === 'isVisible' || action === 'isEnabled' || action === 'waitFor') {
+      const node = nodes[0];
+      if (!node) return action === 'waitFor' ? false : false;
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      const visible = rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+      if (action === 'isVisible') return visible;
+      if (action === 'isEnabled') return !node.disabled && visible;
+      return visible;
+    }
+    if (nodes.length !== 1) throw new Error('locator changed before action');
+    const node = nodes[0];
+    node.scrollIntoView({ block: 'center', inline: 'center' });
+    if (action === 'click') node.click();
+    else if (action === 'fill') {
+      node.focus();
+      if ('value' in node) node.value = '';
+      node.value = value;
+      node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    } else if (action === 'type') {
+      node.focus();
+      node.value = (node.value || '') + value;
+      node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
+    } else if (action === 'hover') node.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    else if (action === 'check') { node.checked = true; node.dispatchEvent(new Event('change', { bubbles: true })); }
+    else if (action === 'uncheck') { node.checked = false; node.dispatchEvent(new Event('change', { bubbles: true })); }
+    else if (action === 'selectOption') { node.value = value; node.dispatchEvent(new Event('change', { bubbles: true })); }
+    else if (action === 'press') {
+      node.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      if (key === 'Enter' || key === 'ENTER') {
+        node.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
+        if (typeof node.form?.requestSubmit === 'function') node.form.requestSubmit();
+        else node.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      }
+    } else if (action === 'textContent') return node.textContent;
+    else if (action === 'innerText') return node.innerText;
+    else throw new Error('unsupported locator action: ' + action);
+    return true;
+  })()`;
 }
 
 export function domObservationExpression() {

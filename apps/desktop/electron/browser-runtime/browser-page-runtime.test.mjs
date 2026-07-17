@@ -13,7 +13,8 @@ test("page runtime expressions encode selectors and values as inert JSON", () =>
   const observation = locatorObservationExpression({ text: hostile });
   const action = locatorActionExpression({ label: hostile }, "fill", { value: hostile });
   assert.match(observation, /const selector = \{"text":/);
-  assert.match(action, /const nodes = query\(\{"label":/);
+  assert.match(action, /const selector = \{"label":/);
+  assert.equal(action.includes(JSON.stringify(hostile)), true);
   assert.equal(observation.includes("const selector = x');"), false);
   assert.equal(action.includes("const value = x');"), false);
 });
