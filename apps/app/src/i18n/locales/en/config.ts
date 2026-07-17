@@ -18,7 +18,7 @@ export default {
   "config.diagnostics_desc": "Copy sanitized runtime state for debugging.",
   "config.diagnostics_title": "Diagnostics bundle",
   "config.engine_reload_desc":
-    "Restart the OpenCode server for this workspace.",
+    "Restart the agent engine for this workspace.",
   "config.engine_reload_title": "Engine reload",
   "config.host_admin_token_hint":
     "Internal host-only token for approvals CLI and admin APIs. Do not use this in the remote app connect flow.",

@@ -27,7 +27,7 @@ export default {
   "provider_auth.action_get_api_key": "Get an API key →",
   "provider_auth.label_env_vars": "Env vars:",
   "provider_auth.label_confirmation_code": "Confirmation code",
-  "provider_auth.hint_keys_stored_locally": "Keys are stored locally by OpenCode.",
+  "provider_auth.hint_keys_stored_locally": "Keys are stored locally on this device.",
   "provider_auth.hint_paste_api_key": "Paste your API key to connect.",
   "provider_auth.hint_paste_secret_key_local": `Paste a secret key that ${APP_NAME} stores locally on this device.`,
   "provider_auth.hint_opencode_zen_signin_from_url": "Sign in to OpenCode Zen with an API key from opencode.ai/auth.",

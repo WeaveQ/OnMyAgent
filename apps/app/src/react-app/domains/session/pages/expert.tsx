@@ -1208,7 +1208,7 @@ export function ExpertPage(props: ExpertPageProps) {
   const selectedWorkspaceErrorTitle =
     props.selectedWorkspaceDisplay.workspaceType === "remote"
       ? "Remote workspace unavailable"
-      : "OpenCode unavailable";
+      : "Agent runtime unavailable";
   const reactSessionBaseUrl = props.opencodeBaseUrl?.trim() ?? "";
   const reactSessionToken =
     props.onmyagentServerToken?.trim() ||
