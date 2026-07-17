@@ -71,6 +71,8 @@ import { createUiControlServer } from "./ui-control-server.mjs";
 import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
 import { createAllDesktopDomainHandlers } from "./desktop-handlers/index.mjs";
 import { createDesktopPaths } from "./desktop-paths.mjs";
+import { createDesktopWindowController } from "./desktop-window.mjs";
+import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
@@ -250,71 +252,24 @@ const IDLE_ROUTER_INFO = Object.freeze({
 let mainWindow = null;
 const pendingDeepLinks = [];
 
-function isLocalRendererOrigin(origin) {
-  const value = String(origin ?? "").trim();
-  if (!value || value === "file://") return true;
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === "file:" ||
-      url.hostname === "127.0.0.1" ||
-      url.hostname === "localhost" ||
-      url.hostname === "[::1]"
-    );
-  } catch {
-    return false;
-  }
+
+/** Populated after browserController is created (menu/ui-control call at runtime). */
+let desktopWindowController = null;
+
+async function createMainWindow() {
+  return desktopWindowController.createMainWindow();
 }
 
-function isMainWindowWebContents(webContents) {
-  return Boolean(
-    mainWindow && webContents && webContents.id === mainWindow.webContents.id,
-  );
+function applyNativeTheme(mode) {
+  return desktopWindowController.applyNativeTheme(mode);
 }
 
-function shouldAllowMainWindowPermission(
-  webContents,
-  permission,
-  origin,
-  details = {},
-) {
-  if (!isMainWindowWebContents(webContents)) return false;
-  if (!isLocalRendererOrigin(origin)) return false;
-  if (permission !== "media" && permission !== "audioCapture") return true;
-  const mediaType =
-    typeof details.mediaType === "string" ? details.mediaType : "";
-  if (mediaType && mediaType !== "audio") return false;
-  const mediaTypes = Array.isArray(details.mediaTypes)
-    ? details.mediaTypes
-    : [];
-  return (
-    mediaTypes.length === 0 ||
-    (mediaTypes.includes("audio") && !mediaTypes.includes("video"))
-  );
+function activeWindowFromEvent(event) {
+  return desktopWindowController.activeWindowFromEvent(event);
 }
 
 function installMediaPermissionHandlers() {
-  session.defaultSession.setPermissionRequestHandler(
-    (webContents, permission, callback, details) => {
-      callback(
-        shouldAllowMainWindowPermission(
-          webContents,
-          permission,
-          details?.requestingUrl,
-          details,
-        ),
-      );
-    },
-  );
-  session.defaultSession.setPermissionCheckHandler(
-    (webContents, permission, requestingOrigin, details) =>
-      shouldAllowMainWindowPermission(
-        webContents,
-        permission,
-        requestingOrigin,
-        details,
-      ),
-  );
+  return desktopWindowController.installMediaPermissionHandlers();
 }
 
 const applicationMenuController = createApplicationMenuController({
@@ -357,6 +312,26 @@ const browserController = createElectronBrowserController({
     return result.response === 1;
   },
 });
+
+desktopWindowController = createDesktopWindowController({
+  getMainWindow: () => mainWindow,
+  setMainWindow: (win) => {
+    mainWindow = win;
+  },
+  app,
+  nativeTheme,
+  session,
+  appName: APP_NAME,
+  isDevMode,
+  minWidth: MAIN_WINDOW_MIN_WIDTH,
+  minHeight: MAIN_WINDOW_MIN_HEIGHT,
+  appIconImage: APP_ICON_IMAGE,
+  dirname: __dirname,
+  applyApplicationMenuVisibility,
+  browserController,
+  flushPendingDeepLinks,
+});
+
 const uiControlBridge = createUiControlServer({
   app,
   appName: APP_NAME,
@@ -1613,29 +1588,6 @@ function engineDoctor(options = {}) {
   return runtimeManager.engineDoctor(options);
 }
 
-function activeWindowFromEvent(event) {
-  return BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
-}
-
-function macosVibrancyForCurrentTheme() {
-  // under-window: blur desktop behind the frame (WeChat-like translucent shell).
-  // sidebar: slightly denser material for light mode so light chrome stays readable.
-  return nativeTheme.shouldUseDarkColors ? "under-window" : "sidebar";
-}
-
-function applyNativeTheme(mode) {
-  nativeTheme.themeSource = mode;
-
-  if (process.platform !== "darwin") {
-    return true;
-  }
-
-  mainWindow?.setVibrancy(macosVibrancyForCurrentTheme());
-  mainWindow?.setBackgroundColor("#00000001");
-
-  return true;
-}
-
 const desktopCommandHandlers = createAllDesktopDomainHandlers({
   // messaging
   weixinService,
@@ -1754,116 +1706,6 @@ async function dispatchDesktopCommand(event, command, ...args) {
   return handler(event, args);
 }
 
-async function createMainWindow() {
-  if (mainWindow) return mainWindow;
-
-  const preloadPath = path.join(__dirname, "preload.mjs");
-  const windowAppearanceOptions = {};
-  if (process.platform === "darwin") {
-    Object.assign(windowAppearanceOptions, {
-      backgroundColor: "#00000001",
-      titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 6, y: 12 },
-      vibrancy: macosVibrancyForCurrentTheme(),
-      visualEffectState: "active",
-    });
-  }
-
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: MAIN_WINDOW_MIN_WIDTH,
-    minHeight: MAIN_WINDOW_MIN_HEIGHT,
-    title: APP_NAME,
-    show: false,
-    ...windowAppearanceOptions,
-    ...(APP_ICON_IMAGE && !APP_ICON_IMAGE.isEmpty()
-      ? { icon: APP_ICON_IMAGE }
-      : {}),
-    webPreferences: {
-      // The renderer owns session dispatch + event streams; keep it running
-      // while hidden/minimized so background tasks are not interrupted.
-      backgroundThrottling: false,
-      preload: preloadPath,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-    },
-  });
-  mainWindow.setMinimumSize(MAIN_WINDOW_MIN_WIDTH, MAIN_WINDOW_MIN_HEIGHT);
-  applyApplicationMenuVisibility(mainWindow);
-
-  if (isDevMode) {
-    mainWindow.on("page-title-updated", (event) => {
-      event.preventDefault();
-      mainWindow?.setTitle(APP_NAME);
-    });
-    mainWindow.setTitle(APP_NAME);
-  }
-
-  mainWindow.once("ready-to-show", () => {
-    if (isDevMode) {
-      mainWindow?.setTitle(APP_NAME);
-    }
-    mainWindow?.show();
-    if (isDevMode && process.env.ONMYAGENT_OPEN_DEVTOOLS === "1") {
-      try {
-        mainWindow?.webContents.openDevTools({ mode: "detach" });
-      } catch (error) {
-        console.warn("[main] openDevTools failed:", error?.message ?? error);
-      }
-    }
-    flushPendingDeepLinks();
-  });
-
-  mainWindow.on("closed", () => {
-    browserController.destroyBrowserView();
-    browserController.setMainWindow(null);
-    mainWindow = null;
-  });
-
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    const local =
-      url.startsWith("file://") ||
-      url.startsWith("http://127.0.0.1") ||
-      url.startsWith("http://localhost");
-    if (!local) {
-      void browserController.openAllowedExternalUrl(url);
-      return { action: "deny" };
-    }
-    return { action: "allow" };
-  });
-
-  const startUrl =
-    process.env.ONMYAGENT_ELECTRON_START_URL?.trim() ||
-    process.env.ELECTRON_START_URL?.trim();
-  try {
-    if (startUrl) {
-      await mainWindow.loadURL(startUrl);
-    } else {
-      const packagedIndexPath = path.join(
-        process.resourcesPath,
-        "app-dist",
-        "index.html",
-      );
-      const devIndexPath = path.resolve(__dirname, "../../app/dist/index.html");
-      await mainWindow.loadFile(
-        app.isPackaged ? packagedIndexPath : devIndexPath,
-      );
-    }
-  } catch (error) {
-    console.warn("[main-window] initial load failed", error);
-    await mainWindow.loadURL("about:blank").catch(() => undefined);
-  }
-
-  browserController.setMainWindow(mainWindow);
-  if (!browserController.hasActiveBrowserTab()) {
-    browserController.createBrowserTab("about:blank", { select: true });
-  }
-
-  return mainWindow;
-}
-
 const handleDesktopInvoke = createDesktopCommandRouter(dispatchDesktopCommand);
 
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
@@ -1915,59 +1757,7 @@ ipcMain.handle("onmyagent:system:architecture", async () =>
   resolveArchitectureInfo(),
 );
 
-// ── Session Browser IPC ─────────────────────────────────────────────────
-ipcMain.handle("onmyagent:browser:show", (_event, bounds) =>
-  browserController.attachBrowserView(bounds),
-);
-ipcMain.handle("onmyagent:browser:hide", () =>
-  browserController.hideBrowserView(),
-);
-ipcMain.handle("onmyagent:browser:navigate", (_event, url, options) =>
-  browserController.navigate(url, options),
-);
-ipcMain.handle("onmyagent:browser:back", () => browserController.goBack());
-ipcMain.handle("onmyagent:browser:forward", () =>
-  browserController.goForward(),
-);
-ipcMain.handle("onmyagent:browser:reload", () =>
-  browserController.reload(),
-);
-ipcMain.handle("onmyagent:browser:bounds", (_event, bounds) =>
-  browserController.setBounds(bounds),
-);
-ipcMain.handle("onmyagent:browser:state", () =>
-  browserController.browserStatePayload(),
-);
-ipcMain.handle("onmyagent:browser:diagnostics", () =>
-  browserController.diagnostics(),
-);
-ipcMain.handle("onmyagent:browser:createTab", (_event, url) => {
-  const tab = browserController.createBrowserTab(url ?? "about:blank", {
-    select: true,
-  });
-  return { tabId: tab.tabId };
-});
-ipcMain.handle("onmyagent:browser:closeTab", (_event, tabId) =>
-  browserController.closeBrowserTab(tabId == null ? undefined : String(tabId)),
-);
-ipcMain.handle("onmyagent:browser:closeAllTabs", () =>
-  browserController.closeAllBrowserTabs(),
-);
-ipcMain.handle("onmyagent:browser:selectTab", (_event, tabId) =>
-  browserController.selectBrowserTab(String(tabId ?? "")).tabId,
-);
-ipcMain.handle("onmyagent:browser:reorderTabs", (_event, tabIds) =>
-  browserController.reorderBrowserTabs(tabIds),
-);
-ipcMain.handle("onmyagent:browser:listTabs", () =>
-  browserController.listBrowserTabs(),
-);
-ipcMain.handle("onmyagent:browser:tabContextMenu", (_event, tabId, point) =>
-  browserController.showBrowserTabContextMenu(tabId, point),
-);
-ipcMain.handle("onmyagent:browser:destroy", () =>
-  browserController.destroyBrowserView(),
-);
+registerDesktopBrowserIpc({ ipcMain, browserController });
 
 registerMigrationIpc({ app, ipcMain });
 const { ensureAutoUpdater } = registerUpdaterIpc({
