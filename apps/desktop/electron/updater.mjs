@@ -11,13 +11,27 @@ import { fileURLToPath } from "node:url";
 // Channel note: only the stable `releases/latest` feed is supported. Alpha
 // is intentionally not wired — setChannel always snaps back to stable.
 
-const RELEASES_LATEST_API =
+const DEFAULT_RELEASES_LATEST_API =
   "https://api.github.com/repos/WeaveQ/OnMyAgent/releases/latest";
 const RELEASES_HTML_URL =
   "https://github.com/WeaveQ/OnMyAgent/releases/latest";
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
 const INITIAL_CHECK_DELAY_MS = 30 * 1000; // 30s
-const FETCH_TIMEOUT_MS = 10 * 1000;
+/** Slightly generous: api.github.com is often slow or filtered. */
+const FETCH_TIMEOUT_MS = 15 * 1000;
+const FETCH_RETRY_COUNT = 1;
+const FETCH_RETRY_DELAY_MS = 1_200;
+/**
+ * Dev builds skip background polling by default (manual Check still works).
+ * Set ONMYAGENT_UPDATE_CHECK_IN_DEV=1 to force background checks while unpackaged.
+ */
+const UPDATE_CHECK_IN_DEV =
+  process.env.ONMYAGENT_UPDATE_CHECK_IN_DEV === "1" ||
+  process.env.ONMYAGENT_UPDATE_CHECK_IN_DEV === "true";
+/** Optional mirror / override for the latest-release JSON endpoint. */
+const RELEASES_LATEST_API_OVERRIDE = String(
+  process.env.ONMYAGENT_UPDATE_API ?? "",
+).trim();
 
 const __updater_dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cachedAppVersion = null;
@@ -109,7 +123,11 @@ function channelState(app) {
   };
 }
 
-function friendlyFetchError(error) {
+/**
+ * Classify fetch failures so the renderer can soft-fail with i18n.
+ * @returns {{ code: "timeout" | "network" | "http" | "unknown", message: string, soft: boolean }}
+ */
+function classifyFetchError(error) {
   const name = error && typeof error === "object" ? error.name : null;
   const message = String(error?.message ?? error ?? "");
   if (
@@ -117,19 +135,48 @@ function friendlyFetchError(error) {
     name === "TimeoutError" ||
     /aborted|timeout/i.test(message)
   ) {
-    return "Network timed out while contacting GitHub. Check your connection or try again later.";
+    return {
+      code: "timeout",
+      message:
+        "Network timed out while contacting the update server. You can open the release page in a browser instead.",
+      soft: true,
+    };
   }
-  return message || "Failed to check for updates.";
+  if (
+    /fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|network|socket|CERT|SSL|TLS/i.test(
+      message,
+    )
+  ) {
+    return {
+      code: "network",
+      message:
+        "Could not reach the update server. Check your network or proxy, or open the release page in a browser.",
+      soft: true,
+    };
+  }
+  if (/GitHub API responded/i.test(message)) {
+    return { code: "http", message, soft: true };
+  }
+  return {
+    code: "unknown",
+    message: message || "Failed to check for updates.",
+    soft: true,
+  };
 }
 
-async function fetchLatestRelease() {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchLatestReleaseOnce() {
+  const apiUrl = RELEASES_LATEST_API_OVERRIDE || DEFAULT_RELEASES_LATEST_API;
   const controller = new AbortController();
   const timer = setTimeout(
     () => controller.abort(new Error("timeout")),
     FETCH_TIMEOUT_MS,
   );
   try {
-    const response = await fetch(RELEASES_LATEST_API, {
+    const response = await fetch(apiUrl, {
       headers: {
         Accept: "application/vnd.github+json",
         "User-Agent": "OnMyAgent-UpdateChecker",
@@ -153,6 +200,22 @@ async function fetchLatestRelease() {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** One retry on soft network/timeout failures. */
+async function fetchLatestRelease() {
+  let lastError = null;
+  for (let attempt = 0; attempt <= FETCH_RETRY_COUNT; attempt += 1) {
+    try {
+      return await fetchLatestReleaseOnce();
+    } catch (error) {
+      lastError = error;
+      const classified = classifyFetchError(error);
+      if (!classified.soft || attempt >= FETCH_RETRY_COUNT) break;
+      await sleep(FETCH_RETRY_DELAY_MS);
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -201,6 +264,9 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
           available: false,
           currentVersion,
           reason: "No releases have been published yet.",
+          reasonCode: "not_published",
+          soft: true,
+          releaseUrl: RELEASES_HTML_URL,
         };
         lastKnownAvailable = payload;
         return payload;
@@ -209,7 +275,10 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
         const payload = {
           available: false,
           reason: "No release found.",
+          reasonCode: "not_published",
+          soft: true,
           currentVersion,
+          releaseUrl: RELEASES_HTML_URL,
         };
         lastKnownAvailable = payload;
         return payload;
@@ -253,12 +322,20 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
       }
       return payload;
     } catch (error) {
+      const classified = classifyFetchError(error);
       const payload = {
         available: false,
         currentVersion,
-        reason: friendlyFetchError(error),
+        reason: classified.message,
+        reasonCode: classified.code,
+        soft: classified.soft,
+        releaseUrl: RELEASES_HTML_URL,
       };
-      lastKnownAvailable = payload;
+      // Keep a previous successful availability result for UI badges; only
+      // replace lastKnown when we never had a successful check.
+      if (!lastKnownAvailable?.latestVersion) {
+        lastKnownAvailable = payload;
+      }
       return payload;
     }
   }
@@ -313,7 +390,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
       return { ok: true };
     } catch (error) {
       openReleasePage(RELEASES_HTML_URL);
-      return { ok: true, reason: friendlyFetchError(error) };
+      return { ok: true, reason: classifyFetchError(error).message };
     }
   });
 
@@ -328,8 +405,13 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
 
   function scheduleAutoChecks() {
     if (scheduledInitial || intervalHandle) return;
+    // Unpackaged dev: skip background noise unless explicitly enabled.
+    if (!app.isPackaged && !UPDATE_CHECK_IN_DEV) {
+      return;
+    }
     // Background poller owns OS notifications (silent: false).
     // Renderer manual checks use silent: true to avoid double toasts.
+    // Failures are soft (no OS notification on network error).
     scheduledInitial = setTimeout(() => {
       scheduledInitial = null;
       void performCheck({ silent: false });
