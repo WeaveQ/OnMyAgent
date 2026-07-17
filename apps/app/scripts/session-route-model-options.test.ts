@@ -144,7 +144,7 @@ describe("session route model options", () => {
   test("detects selected model unavailability from restrictions and provider list", () => {
     expect(
       isSelectedModelUnavailable({
-        defaultModel: null,
+        model: null,
         checkRestriction: () => false,
         connectedProviderIds: [],
         providerListData: providerListData(),
@@ -152,20 +152,60 @@ describe("session route model options", () => {
     ).toBe(false);
     expect(
       isSelectedModelUnavailable({
-        defaultModel: { providerID: "openai", modelID: "missing" },
+        model: { providerID: "openai", modelID: "missing" },
         checkRestriction: () => false,
         connectedProviderIds: ["openai"],
         providerListData: providerListData(),
       }),
     ).toBe(true);
+    // No connected discovery yet → do not flash unavailable.
     expect(
       isSelectedModelUnavailable({
-        defaultModel: { providerID: "local", modelID: "llama" },
+        model: { providerID: "local", modelID: "llama" },
         checkRestriction: ({ restriction }) => restriction === "allowCustomProviders",
-        connectedProviderIds: ["openai"],
+        connectedProviderIds: [],
         providerListData: null,
       }),
+    ).toBe(false);
+    // Restriction knows connected providers and selection is outside them.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "local", modelID: "llama" },
+        checkRestriction: ({ restriction }) => restriction === "allowCustomProviders",
+        connectedProviderIds: ["openai"],
+        providerListData: providerListData(),
+      }),
     ).toBe(true);
+    // Connected custom provider with empty models map should not block.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "ark", modelID: "ark-code-latest" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["ark"],
+        providerListData: {
+          all: [
+            {
+              id: "ark",
+              name: "Ark",
+              source: "custom",
+              models: {},
+            } as never,
+          ],
+          connected: ["ark"],
+          default: {},
+        } as never,
+      }),
+    ).toBe(false);
+    // Loading list should not mark unavailable.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "openai", modelID: "missing" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["openai"],
+        providerListData: providerListData(),
+        providerListLoading: true,
+      }),
+    ).toBe(false);
   });
 
   test("uses provider defaults only while current default is still the app default", () => {

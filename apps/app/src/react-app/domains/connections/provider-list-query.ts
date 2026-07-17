@@ -81,9 +81,28 @@ export function isModelAvailableInConnectedProviders(
   model: ModelRef | null | undefined,
 ) {
   if (!model?.providerID || !model.modelID) return true;
-  return getConnectedProviderItems(value).some(
-    (provider) => provider.id === model.providerID && Boolean(provider.models?.[model.modelID]),
-  );
+  const providerId = model.providerID.trim();
+  const modelId = model.modelID.trim();
+  if (!providerId || !modelId) return true;
+
+  // Prefer the raw connected set + all[] so we don't drop custom providers
+  // that are connected but temporarily report an empty models map (common
+  // during provider list refresh). getConnectedProviderItems() filters those
+  // out and would false-positive "model unavailable".
+  const connected = new Set((value?.connected ?? []).map((id) => String(id)));
+  if (!connected.has(providerId)) return false;
+
+  const provider = (value?.all ?? []).find((item) => item.id === providerId);
+  if (!provider) return false;
+
+  const models = provider.models ?? {};
+  const modelKeys = Object.keys(models);
+  // Connected with no catalog yet: trust the selection rather than blocking
+  // the composer with "model no longer available".
+  if (modelKeys.length === 0) return true;
+  if (models[modelId]) return true;
+  const want = modelId.toLowerCase();
+  return modelKeys.some((id) => id.toLowerCase() === want);
 }
 
 export function getConnectedProviderSnapshotChange(input: {
