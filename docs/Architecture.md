@@ -8,7 +8,7 @@ pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `pac
 
 ```text
 apps/
-  desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；architecture-info、application-menu、startup-flags、Computer Use desktop helper、Code workspace actions、embedded browser panel 与 UI control bridge 已拆为独立模块
+  desktop/      Electron shell：main.mjs + runtime.mjs，IPC 桥接，sidecar 管理，打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / agent-management-skills / expert-marketplace 已从 main.mjs 抽出；architecture-info、application-menu、startup-flags、Computer Use desktop helper、Code workspace actions、browser-runtime、embedded browser panel、UI control bridge、lightweight GitHub Releases updater 已拆为独立模块
     resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
   server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE 事件流；server.ts 只保留 composition root + OpenCode/配置共享 helper，路由已按 system/dev-ui/runtime/integration/workspace/file/session/import-export/blueprint 等模块注册
@@ -192,9 +192,14 @@ pnpm check:boundaries
 - `apps/app/src/app/lib/**` 不反向 import `react-app`。
 - `apps/app/src/react-app/domains/<domain>` 的允许方向集中在
   `scripts/checks/domain-boundary-policy.mjs`；所有跨域 import 必须命中目标域一级 barrel。
-- 文件级 `allowedDomainImports` 过渡白名单已清零。`local-agents`、`messaging`、`workspace`
-  不再反向依赖 `session`；artifact、model selection、session identity 与复合 UI 分别由
-  `capabilities/` / `design-system/` 中立所有者承接。
+- **域间依赖**（`A → B` 是否允许）写在
+  `scripts/checks/domain-boundary-policy.mjs` 的 `allowedDomainDependencies`；
+  `shared` 始终可读，其余跨域边必须登记。
+- **文件级深链过渡白名单** `allowedDomainImports`（`scripts/checks/check-boundaries.mjs`）
+  **尚未清零**：仍冻结一批历史 `file|importPath` 例外，**只减不增**；新增跨域 import
+  必须走目标域一级 barrel，不得扩白名单。`local-agents` / `messaging` / `workspace`
+  不再作为「可随意反向依赖 session」的例外；artifact、model selection、session identity
+  与复合 UI 分别由 `capabilities/` / `design-system/` 中立所有者承接。
 
 ## Dev Command Surface
 
@@ -265,12 +270,12 @@ scripts/release/      release review, prepare, ship, and asset publishing
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
 3. 下一步：继续压缩 `server.ts` 中 OpenCode/client/config 共享 helper，条件成熟后迁入专门 service 模块，但保持路由 composition root 不承载业务路由实现。
 4. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
-5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions迁入 `apps/desktop/electron/code-workspace-actions.mjs`；Browser 的 WebContentsView、会话 Tab 所有权、Node kernel、RPC 与安全策略统一位于 `apps/desktop/electron/browser-runtime/`，不开放全局 CDP 端口；UI control HTTP bridge 位于 `apps/desktop/electron/ui-control-server.mjs`。Desktop IPC 已增加共享命令清单与域路由注册层，后续继续把 `main.mjs` 内各域 handler implementation 物理迁入独立模块。
+5. 已开始：Electron 架构下载信息 helper 迁入 `apps/desktop/electron/architecture-info.mjs`，原生菜单控制迁入 `apps/desktop/electron/application-menu.mjs`，启动期 Chromium flags 迁入 `apps/desktop/electron/startup-flags.mjs`，Computer Use 权限/helper 逻辑迁入 `apps/desktop/electron/computer-use-desktop.mjs`，Code workspace/open-in-editor/Git actions迁入 `apps/desktop/electron/code-workspace-actions.mjs`；Browser 的 WebContentsView、会话 Tab 所有权、Node kernel、RPC 与安全策略统一位于 `apps/desktop/electron/browser-runtime/`，不开放全局 CDP 端口；UI control HTTP bridge 位于 `apps/desktop/electron/ui-control-server.mjs`。Agent management 的 provider DB / live sync 迁入 `agent-management-providers.mjs`，skills 扫描与导入迁入 `agent-management-skills.mjs`，expert marketplace 包列表/注册迁入 `expert-marketplace.mjs`。桌面更新检查为 lightweight GitHub Releases poller（`updater.mjs`：查 `releases/latest` → 系统通知 → 打开发布页；无应用内下载/安装，stable-only）。Desktop IPC 已增加共享命令清单与域路由注册层，后续继续把 `main.mjs` 内各域 handler implementation 物理迁入独立模块。
 
 ## Personal Local Agent Runtime
 
 - UI 实现主目录：`apps/app/src/react-app/domains/local-agents/`（management / cards / ACP hooks / messages）。
-- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级边界白名单已清零。
+- 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级 `allowedDomainImports` 仍是可缩减过渡表（见上文 Package Boundaries），不是已清零。
 - Desktop harness / adapter 分层见上文 **Runtime Adapter (multi-agent harness)**；本段只记 UI 域边界。
 - 临时执行 ledger 只写本地 `.loop/plans/`；稳定架构事实写本文件与 `apps/app/src/react-app/ARCHITECTURE.md`。
 - 该路径不是 team workspace 或 global connector 的实现说明，除非用户明确扩展范围。

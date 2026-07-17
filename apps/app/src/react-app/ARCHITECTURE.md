@@ -41,8 +41,8 @@ src/react-app/
 ```
 
 **`domains/plugins/`** owns the skills/plugins UI implementation (`plugins-page.tsx`,
-`skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts`). Import via
-`domains/plugins` barrel.
+`skills-catalog.ts`, `skill-scope.ts`, `bundled-skill-locale.ts`, and artifact plugin
+install/detail surfaces). Import via `domains/plugins` barrel.
 
 **`domains/local-agents/`** ships a domain-level `index.ts` barrel. Session host pages
 and re-exports import via the barrel; local-agents has no reverse dependency on session.
@@ -69,10 +69,12 @@ Domain ownership gives every feature one obvious home.
   Product features must not land here.
 
 Cross-domain imports must be declared by `scripts/checks/domain-boundary-policy.mjs`
-and go through the target public entrypoint (`domains/<name>/index.ts`). Deep imports
-and undeclared dependency directions fail `pnpm check:boundaries`; there is no
-file-specific transition allowlist. Reusable application behavior belongs in
-`capabilities/`, while reusable product composites belong in `design-system/`.
+and go through the target public entrypoint (`domains/<name>/index.ts`). Undeclared
+dependency directions fail `pnpm check:boundaries`. A separate **file-level**
+transition table `allowedDomainImports` in `scripts/checks/check-boundaries.mjs`
+still freezes some historical deep-import paths (shrink-only; never grow). New code
+must not add to it. Reusable application behavior belongs in `capabilities/`, while
+reusable product composites belong in `design-system/`.
 
 ## Data flow
 
