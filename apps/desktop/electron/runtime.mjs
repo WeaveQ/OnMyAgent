@@ -153,7 +153,6 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
 
   const personalAgentLegacyHarness = createPersonalAgentLegacyHarness({
     runtimePathEntries: () => runtimeManager.runtimePathEntries(),
-    browserUseEnvironment: options.browserUseEnvironment,
   });
   const personalAgentRuntime = createPersonalAgentRuntime({
     userDataDir: app.getPath("userData"),
@@ -161,7 +160,6 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
     legacy: personalAgentLegacyHarness,
     bundledExtensionRoots: bundledExtensionRootPaths(),
-    browserUseEnvironment: options.browserUseEnvironment,
   });
   const personalAgentHeartbeatScheduler = createPersonalAgentHeartbeatScheduler({
     personalAgentRuntime,
@@ -594,7 +592,7 @@ export function createRuntimeManager({
   app,
   desktopRoot,
   listLocalWorkspacePaths,
-  browserUseEnvironment = undefined,
+  runtimeEnvironment = () => ({}),
 }) {
   const engineState = createEngineState();
   const onmyagentServerState = createOnMyAgentServerState();
@@ -908,13 +906,6 @@ export function createRuntimeManager({
   }
 
   async function buildChildEnv(extra = {}, options = {}) {
-    const browserUseContext =
-      typeof browserUseEnvironment === "function" && options.workspaceRoot
-        ? await browserUseEnvironment({
-            workspaceRoot: options.workspaceRoot,
-            conversationId: `workspace-runtime:${path.resolve(options.workspaceRoot)}`,
-          })
-        : { environment: {}, pathEntries: [] };
     /** @type {NodeJS.ProcessEnv} */
     // User env is layered first so process.env + any caller overrides always
     // win. See apps/server/src/env-file.ts; both loaders must agree on path
@@ -923,7 +914,7 @@ export function createRuntimeManager({
       ...loadUserEnvFile(),
       ...process.env,
       BUN_CONFIG_DNS_RESULT_ORDER: "verbatim",
-      ...browserUseContext.environment,
+      ...runtimeEnvironment(),
       ...extra,
     };
     const pathKey =
@@ -932,7 +923,7 @@ export function createRuntimeManager({
         ? "PATH"
         : "Path";
     const pathEnv = enrichedPath(
-      [...browserUseContext.pathEntries, ...runtimeBinDirs, ...sidecarDirs],
+      [...runtimeBinDirs, ...sidecarDirs],
       env[pathKey],
     );
     if (pathEnv) {

@@ -54,10 +54,7 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
     const workspace = config.workspaces[0];
     if (workspace?.path) {
       const onmyagentExtensionsPreviewConfig = JSON.stringify({
-        plugin: [
-          "opencode-chrome-devtools",
-          onmyagentExtensionsPreviewPluginPath(),
-        ],
+        plugin: [onmyagentExtensionsPreviewPluginPath()],
       });
       const cwd = options.opencodeCwd
         || process.env.ONMYAGENT_MANAGED_OPENCODE_CWD?.trim()

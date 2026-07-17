@@ -9,8 +9,7 @@
   ],
   "skills": [
     "./skills/impeccable",
-    "./skills/frontend-dev",
-    "./skills/browser-use"
+    "./skills/frontend-dev"
   ],
   "displayName": {
     "en": "Sam",

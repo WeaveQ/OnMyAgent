@@ -24,10 +24,8 @@ extraResources:
     to: bundled-plugins
   - from: resources/marketplace
     to: marketplace
-  - from: resources/browser-use
-    to: browser-use
-  - from: resources/browser-use-agent
-    to: browser-use-agent
+  - from: resources/browser
+    to: browser
   - from: resources/runtimes
     to: runtimes
 asar: true

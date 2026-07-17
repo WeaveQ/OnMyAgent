@@ -29,6 +29,11 @@
       "development": "./src/session-archive.ts",
       "default": "./src/session-archive.ts"
     },
+    "./browser": {
+      "types": "./src/browser.ts",
+      "development": "./src/browser.ts",
+      "default": "./src/browser.ts"
+    },
     "./server": {
       "types": "./src/server.ts",
       "development": "./src/server.ts",

@@ -27,8 +27,6 @@ import {
 } from "lucide-react";
 
 import {
-  browserUseAgentApprove,
-  browserUseAgentCancel,
   openDesktopPath,
   revealDesktopItemInDir,
 } from "../../../../app/lib/desktop";
@@ -730,17 +728,6 @@ function isRunningStepStatus(status?: string) {
 }
 
 export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClusterSummary {
-  const browserUseParts = stepGroups.flatMap((group) =>
-    group.parts.filter(
-      (part) => part.type === "tool" && part.tool === "browser_use_operation",
-    ),
-  );
-  if (browserUseParts.length === 1) {
-    return {
-      category: "tool",
-      label: summarizeStep(browserUseParts[0]).title,
-    };
-  }
   const toolParts = stepGroups.flatMap((group) =>
     group.parts.filter((part) => part.type === "tool"),
   );
@@ -858,14 +845,6 @@ export function summarizeStepCluster(stepGroups: StepTimelineGroup[]): StepClust
 export function canMergeStepClusters(previous: MessageBlockItem | undefined, next: StepClusterBlock) {
   if (!previous || previous.kind !== "steps-cluster") return false;
   if (previous.isUser !== next.isUser) return false;
-  const hasBrowserUseOperation = (groups: StepTimelineGroup[]) => groups.some((group) =>
-    group.parts.some(
-      (part) => part.type === "tool" && part.tool === "browser_use_operation",
-    ),
-  );
-  if (hasBrowserUseOperation(previous.stepGroups) || hasBrowserUseOperation(next.stepGroups)) {
-    return false;
-  }
   return true;
 }
 
@@ -1773,19 +1752,6 @@ function StepRow(props: {
       ? normalizeTranscriptQuestionAnswers(toolInput, toolOutput)
       : [];
 
-  if (props.part.type === "tool" && props.part.tool === "browser_use_operation") {
-    return (
-      <BrowserUseOperationStep
-        input={toolInput}
-        output={toolOutput}
-        error={toolError}
-        headline={headline}
-        expanded={props.expanded}
-        onToggle={props.onToggle}
-      />
-    );
-  }
-
   if (questionAnswers.length > 0) {
     return (
       <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-sm">
@@ -2196,296 +2162,6 @@ function recordText(record: Record<string, unknown> | null, key: string): string
   return typeof value === "string" ? value : "";
 }
 
-type BrowserApprovalView = {
-  id: string;
-  summary: string;
-};
-
-function pendingBrowserApprovals(input: Record<string, unknown> | undefined): BrowserApprovalView[] {
-  const resolvedIds = new Set(
-    (Array.isArray(input?.approvalResolutions) ? input.approvalResolutions : [])
-      .flatMap((value) => {
-        const record = recordValue(value);
-        const id = recordText(record, "approvalId");
-        return id ? [id] : [];
-      }),
-  );
-  return (Array.isArray(input?.approvals) ? input.approvals : []).flatMap((value) => {
-    const record = recordValue(value);
-    const id = recordText(record, "id");
-    if (!id || resolvedIds.has(id)) return [];
-    return [{ id, summary: recordText(record, "summary") }];
-  });
-}
-
-function browserObservationLabel(input: Record<string, unknown> | undefined): string | null {
-  const progress = Array.isArray(input?.progress) ? input.progress : [];
-  const source = progress
-    .map((value) => recordText(recordValue(value), "observationSource"))
-    .find(Boolean);
-  if (source === "hybrid") return t("session.browser_use_operation_hybrid");
-  if (source === "dom") return t("session.browser_use_operation_dom");
-  if (source === "vision") return t("session.browser_use_operation_vision");
-  return null;
-}
-
-function browserPhaseLabel(phase: string): string {
-  if (phase === "observing") return t("session.browser_use_agent_phase_observing");
-  if (phase === "acting") return t("session.browser_use_agent_phase_acting");
-  if (phase === "verifying") return t("session.browser_use_agent_phase_verifying");
-  return t("session.browser_use_agent_phase_planning");
-}
-
-function browserActionLabel(action: Record<string, unknown>): string {
-  const name = recordText(action, "name");
-  if (["go_to_url", "navigate", "navigate_to"].includes(name)) {
-    return t("session.browser_use_action_navigate");
-  }
-  if (["click", "click_element"].includes(name)) {
-    return t("session.browser_use_action_click");
-  }
-  if (["input_text", "type", "type_text", "fill"].includes(name)) {
-    return t("session.browser_use_action_input");
-  }
-  if (["scroll", "scroll_down", "scroll_up"].includes(name)) {
-    return t("session.browser_use_action_scroll");
-  }
-  if (["wait", "wait_for_element", "wait_for_page_load"].includes(name)) {
-    return t("session.browser_use_action_wait");
-  }
-  if (["screenshot", "take_screenshot"].includes(name)) {
-    return t("session.browser_use_action_screenshot");
-  }
-  if (["extract", "extract_content", "extract_structured_data", "get_page_content"].includes(name)) {
-    return t("session.browser_use_action_extract");
-  }
-  if (["open_tab", "new_tab"].includes(name)) {
-    return t("session.browser_use_action_new_tab");
-  }
-  if (["switch_tab", "select_tab"].includes(name)) {
-    return t("session.browser_use_action_switch_tab");
-  }
-  if (name === "close_tab") return t("session.browser_use_action_close_tab");
-  return t("session.browser_use_action_unknown", {
-    action: name.replaceAll("_", " ") || t("session.browser_use_operation_actions"),
-  });
-}
-
-type BrowserActionState = "pending" | "running" | "completed" | "failed";
-
-const BROWSER_ACTION_STATE_LABEL: Record<BrowserActionState, string> = {
-  pending: t("session.browser_use_action_pending"),
-  running: t("session.browser_use_action_running"),
-  completed: t("session.browser_use_action_completed"),
-  failed: t("session.browser_use_action_failed"),
-};
-
-function browserActions(
-  input: Record<string, unknown> | undefined,
-  completed: boolean,
-  failed: boolean,
-): Array<{ label: string; state: BrowserActionState }> {
-  const actions = Array.isArray(input?.actions) ? input.actions : [];
-  const progressCount = Array.isArray(input?.progress) ? input.progress.length : 0;
-  return actions.flatMap((value, index) => {
-    const action = recordValue(value);
-    if (!action) return [];
-    let state: BrowserActionState = "pending";
-    if (completed) state = "completed";
-    else if (failed && index === Math.max(progressCount - 1, 0)) state = "failed";
-    else if (progressCount > 0 && index < progressCount - 1) state = "completed";
-    else if (progressCount > 0 && index === progressCount - 1) state = "running";
-    return [{ label: browserActionLabel(action), state }];
-  });
-}
-
-function browserResultSummary(output: Record<string, unknown> | null): string {
-  const results = Array.isArray(output?.results) ? output.results : [];
-  const extracted = results.flatMap((value) => {
-    const content = recordValue(value)?.extractedContent;
-    return typeof content === "string" && content.trim() ? [content.trim()] : [];
-  });
-  if (extracted.length > 0) return extracted.join("\n").slice(0, 1_200);
-  return t("session.browser_use_operation_result_summary", { count: results.length });
-}
-
-function BrowserUseOperationStep(props: {
-  input: Record<string, unknown> | undefined;
-  output: unknown;
-  error: string | null;
-  headline: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [resolvedApprovalIds, setResolvedApprovalIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const output = recordValue(props.output);
-  const runId = typeof props.input?.runId === "string" ? props.input.runId : "";
-  const approvals = pendingBrowserApprovals(props.input).filter(
-    (approval) => !resolvedApprovalIds.has(approval.id),
-  );
-  const active = !output && !props.error;
-  const actions = browserActions(props.input, Boolean(output), Boolean(props.error));
-  const observation = browserObservationLabel(props.input);
-  const goal = typeof props.input?.currentGoal === "string" ? props.input.currentGoal : "";
-  const phase = typeof props.input?.phase === "string" ? props.input.phase : "";
-  const targetTitle = recordText(output, "title") || (typeof props.input?.title === "string" ? props.input.title : "");
-  const targetUrl = recordText(output, "url") || (typeof props.input?.url === "string" ? props.input.url : "");
-
-  const resolveApproval = async (approvalId: string, decision: "accept" | "reject") => {
-    if (!runId) return;
-    setBusyAction(approvalId);
-    try {
-      const result = await browserUseAgentApprove({ runId, approvalId, decision });
-      if (result.ok) {
-        setResolvedApprovalIds((current) => new Set(current).add(approvalId));
-      }
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const stop = async () => {
-    if (!runId) return;
-    setBusyAction("cancel");
-    try {
-      await browserUseAgentCancel(runId);
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  return (
-    <div className={messageTextClass.body}>
-      <div className="flex items-center gap-2">
-        <DisclosureRowButton
-          type="button"
-          density="flush"
-          className="min-w-0 flex-1 text-muted-foreground hover:bg-transparent hover:text-foreground"
-          aria-expanded={props.expanded}
-          onClick={props.onToggle}
-        >
-          <span className="inline-flex min-w-0 items-center gap-3">
-            <ToolActivityIcon category="tool" />
-            <span className="min-w-0 wrap-break-word">{props.headline}</span>
-            <ChevronDown
-              size={14}
-              className={cn(
-                "shrink-0 text-muted-foreground transition-transform",
-                !props.expanded && "-rotate-90",
-              )}
-            />
-          </span>
-        </DisclosureRowButton>
-        {active ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            disabled={busyAction === "cancel"}
-            onClick={() => void stop()}
-          >
-            {busyAction === "cancel" ? <LoadingSpinner size="sm" /> : null}
-            {t("session.browser_use_agent_cancel")}
-          </Button>
-        ) : null}
-      </div>
-
-      {props.expanded ? (
-        <div className="ml-7 mt-3 space-y-3 text-sm text-dls-secondary">
-          {phase ? (
-            <div>
-              <div className={messageTextClass.toolLabel}>{t("session.browser_use_operation_phase")}</div>
-              <div className="flex items-center gap-2">
-                {active ? <LoadingSpinner size="sm" /> : null}
-                <span>{browserPhaseLabel(phase)}</span>
-              </div>
-            </div>
-          ) : null}
-          {goal ? (
-            <div>
-              <div className={messageTextClass.toolLabel}>{t("session.browser_use_operation_goal")}</div>
-              <div className="wrap-break-word text-dls-text">{goal}</div>
-            </div>
-          ) : null}
-          {actions.length ? (
-            <div>
-              <div className={messageTextClass.toolLabel}>{t("session.browser_use_operation_actions")}</div>
-              <div className="space-y-2">
-                {actions.map((action, index) => (
-                  <div key={`${action.label}:${index}`} className="flex items-center justify-between gap-3">
-                    <span className="min-w-0 wrap-break-word text-dls-text">{action.label}</span>
-                    <StatusBadge
-                      size="tiny"
-                      shape="soft"
-                      tone={action.state === "failed" ? "danger" : action.state === "completed" ? "success" : action.state === "running" ? "accent" : "neutral"}
-                    >
-                      {BROWSER_ACTION_STATE_LABEL[action.state]}
-                    </StatusBadge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {targetTitle || targetUrl ? (
-            <div>
-              <div className={messageTextClass.toolLabel}>{t("session.browser_use_operation_target")}</div>
-              <div className="wrap-break-word text-dls-text">{targetTitle || targetUrl}</div>
-              {targetTitle && targetUrl ? <div className="wrap-break-word text-xs">{targetUrl}</div> : null}
-            </div>
-          ) : null}
-          {observation ? (
-            <div>
-              <div className={messageTextClass.toolLabel}>{t("session.browser_use_operation_observation")}</div>
-              <div>{observation}</div>
-            </div>
-          ) : null}
-          {output && hasStructuredValue(output.results) ? (
-            <div>
-              <div className={messageTextClass.toolLabel}>{t("session.browser_use_operation_result")}</div>
-              <div className="whitespace-pre-wrap wrap-break-word text-dls-text">
-                {browserResultSummary(output)}
-              </div>
-            </div>
-          ) : null}
-          {props.error ? <NoticeBox tone="error">{props.error}</NoticeBox> : null}
-        </div>
-      ) : null}
-
-      {approvals.map((approval) => (
-        <ToolApprovalCard key={approval.id} risk="careful" className="ml-7 mt-3">
-          <ToolApprovalCardHeader>
-            <div className="min-w-0">
-              <div className="font-medium">{t("session.browser_use_agent_approval_title")}</div>
-              {approval.summary ? <div className="mt-1 text-xs text-dls-secondary">{approval.summary}</div> : null}
-            </div>
-          </ToolApprovalCardHeader>
-          <ToolApprovalCardBody>
-            <p className="text-xs text-dls-secondary">{t("session.browser_use_agent_approval_desc")}</p>
-          </ToolApprovalCardBody>
-          <ToolApprovalCardFooter
-            risk="careful"
-            busy={busyAction === approval.id}
-            denyLabel={t("session.browser_use_agent_deny")}
-            allowOnceLabel={t("session.browser_use_agent_allow_once")}
-            onDeny={() => void resolveApproval(approval.id, "reject")}
-            onAllowOnce={() => void resolveApproval(approval.id, "accept")}
-          />
-        </ToolApprovalCard>
-      ))}
-    </div>
-  );
-}
-
-function browserOperationAutoExpanded(part: TranscriptPart): boolean {
-  if (part.type !== "tool" || part.tool !== "browser_use_operation") return false;
-  const state = recordValue(part.state);
-  const input = recordValue(state?.input);
-  return input?.keepExpanded === true;
-}
-
 function StepsContainer(props: {
   stepGroups: StepTimelineGroup[];
   isUser: boolean;
@@ -2511,56 +2187,16 @@ function StepsContainer(props: {
     });
   };
   const shouldFold = shouldFoldStepGroups(props.stepGroups);
-  const hasPinnedBrowserUseOperation = props.stepGroups.some((group) =>
-    group.parts.some((part) => browserOperationAutoExpanded(part)),
-  );
   const active = props.isActive;
-  const autoExpanded = hasPinnedBrowserUseOperation;
-  const wasAutoExpandedRef = useRef(autoExpanded);
-  const [containerExpanded, setContainerExpanded] = useState(autoExpanded);
-  useEffect(() => {
-    if (autoExpanded) {
-      setContainerExpanded(true);
-    } else if (wasAutoExpandedRef.current) {
-      setContainerExpanded(false);
-    }
-    wasAutoExpandedRef.current = autoExpanded;
-  }, [autoExpanded]);
-  const detailsExpanded = autoExpanded || props.turnDetailsExpanded === true || containerExpanded;
+  const [containerExpanded, setContainerExpanded] = useState(active);
+  const detailsExpanded = props.turnDetailsExpanded === true || containerExpanded;
   const toggleContainer = () => {
-    if (autoExpanded) return;
     if (props.onTurnDetailsExpandedChange) {
       props.onTurnDetailsExpandedChange(!detailsExpanded);
       return;
     }
     setContainerExpanded((value) => !value);
   };
-  const autoExpandedRowIds = props.stepGroups.flatMap((group) =>
-    group.parts.flatMap((part, index) =>
-      browserOperationAutoExpanded(part) ? [`${group.id}:${index}`] : [],
-    ),
-  );
-  const autoExpandedRowKey = autoExpandedRowIds.join("|");
-  const previousAutoExpandedRowIdsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const nextAutoExpandedRowIds = new Set(autoExpandedRowIds);
-    const previousAutoExpandedRowIds = previousAutoExpandedRowIdsRef.current;
-    props.onExpandedStepIdsChange((current) => {
-      const next = new Set(current);
-      let changed = false;
-      for (const id of previousAutoExpandedRowIds) {
-        if (!nextAutoExpandedRowIds.has(id) && next.delete(id)) changed = true;
-      }
-      for (const id of nextAutoExpandedRowIds) {
-        if (!next.has(id)) {
-          next.add(id);
-          changed = true;
-        }
-      }
-      return changed ? next : current;
-    });
-    previousAutoExpandedRowIdsRef.current = nextAutoExpandedRowIds;
-  }, [autoExpandedRowKey, props.onExpandedStepIdsChange]);
   const stepSummaries = useMemo(
     () =>
       props.stepGroups.flatMap((group) =>
@@ -2572,13 +2208,7 @@ function StepsContainer(props: {
     () => summarizeStepCluster(props.stepGroups),
     [props.stepGroups],
   );
-  const singleBrowserUseOperation = props.stepGroups.reduce(
-    (count, group) => count + group.parts.filter(
-      (part) => part.type === "tool" && part.tool === "browser_use_operation",
-    ).length,
-    0,
-  ) === 1 && stepSummaries.length === 1;
-  const previewItems = singleBrowserUseOperation ? [] : stepSummaries.slice(0, 2);
+  const previewItems = stepSummaries.slice(0, 2);
 
   if (!shouldFold) {
     return (

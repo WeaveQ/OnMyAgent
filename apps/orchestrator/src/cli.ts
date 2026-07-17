@@ -51,6 +51,7 @@ import {
   type SandboxMode,
 } from "./cli-args.js";
 import { resolveRouterDataDir } from "./data-dir.js";
+import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
 import { loadUserEnvFile } from "./env-paths.js";
 import {
   assertManagedOpencodeAuth,
@@ -2212,6 +2213,10 @@ async function ensureOpencodeManagedTools(configDir: string): Promise<void> {
   await writeManagedTool(
     "opencode_router_status.ts",
     opencodeRouterStatusToolSource(),
+  );
+  await writeManagedTool(
+    "onmyagent_browser_node_repl.ts",
+    opencodeBrowserNodeReplToolSource(),
   );
 }
 
