@@ -33,7 +33,11 @@ import {
   useEnvironmentVariableRemove,
   useIsEnvironmentVariableChangesPending,
 } from "./environment-variable-provider";
-import { SettingsNotice, Spinner } from "../settings-section";
+import {
+  SettingsNotice,
+  SettingsPageSection,
+  Spinner,
+} from "../settings-section";
 import {
   EnvironmentVariableTableItem,
   EnvironmentVariableTable,
@@ -152,26 +156,18 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
   };
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className={environmentLayoutClass.panelHeader}>
-        <div className="min-w-0 space-y-1">
-          <h3 className="text-lg font-medium text-foreground">
-            {t("settings.environment.title")}
-          </h3>
-          <p
-            className={`text-sm text-muted-foreground ${environmentLayoutClass.description}`}
-          >
-            {t("settings.environment.description")}
-          </p>
-        </div>
-        {props.canEdit ? (
-          <Button className="shrink-0" onClick={openAdd}>
+    <SettingsPageSection
+      title={t("settings.environment.title")}
+      description={t("settings.environment.description")}
+      actions={
+        props.canEdit ? (
+          <Button onClick={openAdd}>
             <Plus className="size-4" />
             {t("settings.environment.add_button")}
           </Button>
-        ) : null}
-      </div>
-
+        ) : null
+      }
+    >
       {props.isRemoteWorkspace ? (
         <SettingsNotice>{t("settings.environment.remote_workspace_hint")}</SettingsNotice>
       ) : null}
@@ -209,7 +205,7 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
           onChange={props.onEditorChange}
         />
       ) : null}
-    </section>
+    </SettingsPageSection>
   );
 }
 

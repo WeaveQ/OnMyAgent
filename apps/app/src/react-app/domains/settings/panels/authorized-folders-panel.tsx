@@ -38,6 +38,7 @@ import {
   SettingsBlock,
   SettingsBlockRow,
   SettingsNotice,
+  SettingsPageSection,
 } from "../settings-section";
 
 export type AuthorizedFoldersPanelProps = {
@@ -294,18 +295,11 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
   }, [authorizedFolders, persistAuthorizedFolders, workspaceRootFolder]);
 
   return (
-    <section className="flex w-full max-w-3xl flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h3 className="text-lg font-medium text-foreground">
-            {t("context_panel.authorized_folders")}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {t("context_panel.authorized_folders_desc")}
-          </p>
-        </div>
+    <SettingsPageSection
+      title={t("context_panel.authorized_folders")}
+      description={t("context_panel.authorized_folders_desc")}
+      actions={
         <Button
-          className="shrink-0"
           onClick={() => void pickAuthorizedFolder()}
           disabled={
             authorizedFoldersLoading ||
@@ -316,8 +310,8 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
           <Plus className="size-4" />
           {t("context_panel.add_folder_button")}
         </Button>
-      </div>
-
+      }
+    >
       {!canReadConfig ? (
         <SettingsNotice>
           {authorizedFoldersHint ??
@@ -378,6 +372,6 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
           ) : null}
         </>
       )}
-    </section>
+    </SettingsPageSection>
   );
 }

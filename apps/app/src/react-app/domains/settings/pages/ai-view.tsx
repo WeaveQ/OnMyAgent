@@ -6,18 +6,18 @@ import type { ReactNode } from "react";
 
 import { t } from "@/i18n";
 import { ProviderIcon } from "../../../design-system/provider-icon";
-import { SettingsNotice, SettingsStatusBadge } from "../settings-section";
 import {
-  LayoutSection,
-  LayoutSectionDescription,
-  LayoutSectionHeader,
+  SettingsNotice,
+  SettingsPageSection,
+  SettingsStatusBadge,
+} from "../settings-section";
+import {
   LayoutSectionItem,
   LayoutSectionItemDescription,
   LayoutSectionItemFootnote,
   LayoutSectionItemHeader,
   LayoutSectionItemHeaderActions,
   LayoutSectionItemTitle,
-  LayoutSectionTitle,
   LayoutStack,
 } from "../settings-layout";
 import { APP_NAME } from "../../../../i18n/locales/brand";
@@ -80,16 +80,10 @@ export function AiSettingsView(props: AiSettingsViewProps) {
   return (
     <LayoutStack>
       {/* ---- Providers ---- */}
-      <LayoutSection>
-        <LayoutSectionHeader>
-          <LayoutSectionTitle>
-            {t("settings.providers_title")}
-          </LayoutSectionTitle>
-          <LayoutSectionDescription>
-            {t("settings.providers_desc")}
-          </LayoutSectionDescription>
-        </LayoutSectionHeader>
-
+      <SettingsPageSection
+        title={t("settings.providers_title")}
+        description={t("settings.providers_desc")}
+      >
         <LayoutSectionItem>
           <LayoutSectionItemHeader>
             <LayoutSectionItemTitle>
@@ -234,7 +228,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
         <LayoutSectionItemFootnote>
           {t("settings.api_keys_info")}
         </LayoutSectionItemFootnote>
-      </LayoutSection>
+      </SettingsPageSection>
 
       {props.cloudProvidersView}
     </LayoutStack>
