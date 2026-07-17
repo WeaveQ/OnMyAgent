@@ -27,7 +27,7 @@ export default {
   "provider_auth.action_get_api_key": "获取 API 密钥 →",
   "provider_auth.label_env_vars": "环境变量：",
   "provider_auth.label_confirmation_code": "确认码",
-  "provider_auth.hint_keys_stored_locally": "密钥由 OpenCode 存储在本机。",
+  "provider_auth.hint_keys_stored_locally": "密钥存储在本机本地。",
   "provider_auth.hint_paste_api_key": "粘贴你的 API 密钥以连接。",
   "provider_auth.hint_paste_secret_key_local": `粘贴一个由 ${APP_NAME} 在本机存储的密钥。`,
   "provider_auth.hint_opencode_zen_signin_from_url": "使用来自 opencode.ai/auth 的 API 密钥登录 OpenCode Zen。",

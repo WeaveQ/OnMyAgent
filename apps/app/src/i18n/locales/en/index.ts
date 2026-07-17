@@ -1,6 +1,6 @@
 /**
  * English translations
- * Professional terms (Skills, Plugins, Commands, Sessions, OpenCode, OpenPackage, OnMyAgent) are NOT translated
+ * Professional terms (Skills, Plugins, Commands, Sessions, OnMyAgent (product); OpenCode Zen only as a provider brand) are NOT translated
  */
 import app from "./app";
 import action from "./action";

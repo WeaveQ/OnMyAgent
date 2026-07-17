@@ -33,6 +33,7 @@ import { filterProviderList } from "../../app/utils/providers";
 import type { DesktopAppRestrictionChecker } from "../../app/cloud/desktop-app-restrictions";
 import { currentLocale, subscribeToLocale, t } from "../../i18n";
 import type { LocalPreferences } from "../kernel/local-provider";
+import { writeStoredDefaultModel } from "../kernel/model-config";
 import { getReactQueryClient } from "../infra/query-client";
 import {
   ensureProviderListQuery,
@@ -47,6 +48,7 @@ import {
   filterAllowedModelOptions,
   resolveModelVariantState,
   resolveProviderDefaultModel,
+  resolveUsableDefaultModel,
   shouldPromptProviderDefaultModel,
   type ProviderModelCatalog,
 } from "./session-route-model-options";
@@ -108,6 +110,8 @@ export function useSessionRouteModelCatalog(input: Input) {
   defaultModelRef.current = local.prefs.defaultModel;
   const setPrefsRef = useRef(local.setPrefs);
   setPrefsRef.current = local.setPrefs;
+  const checkRestrictionRef = useRef(checkDesktopRestriction);
+  checkRestrictionRef.current = checkDesktopRestriction;
   /** Avoid re-toasting the same OpenCode suggestion on every provider refresh. */
   const promptedProviderDefaultKeyRef = useRef<string | null>(null);
 
@@ -140,15 +144,36 @@ export function useSessionRouteModelCatalog(input: Input) {
       setProviderConnectedIds(value.connected ?? []);
       setProviderDefaults(value.default ?? {});
 
-      // Never auto-overwrite user prefs. Only surface a non-blocking hint when
-      // still on the app placeholder default and OpenCode has a suggestion.
+      // Keep last-used default when still connected; if missing/stale, fall
+      // back to a usable model (never leave the composer empty).
+      let currentDefault = defaultModelRef.current;
+      const resolved = resolveUsableDefaultModel({
+        currentDefault,
+        checkRestriction: checkRestrictionRef.current,
+        connectedProviderIds: value.connected ?? [],
+        providerListData: value,
+      });
+      if (resolved.changed && resolved.model) {
+        writeStoredDefaultModel(resolved.model);
+        setPrefsRef.current((previous) => ({
+          ...previous,
+          defaultModel: resolved.model,
+        }));
+        currentDefault = resolved.model;
+        defaultModelRef.current = resolved.model;
+      } else if (resolved.model) {
+        currentDefault = resolved.model;
+      }
+
+      // Non-blocking hint only while still on the app placeholder default —
+      // not when we just healed a stale selection with a real fallback.
       const suggested = resolveProviderDefaultModel({
         defaults: value.default,
       });
       if (
         shouldPromptProviderDefaultModel({
           suggested,
-          currentDefault: defaultModelRef.current,
+          currentDefault,
         }) &&
         suggested
       ) {
@@ -166,6 +191,7 @@ export function useSessionRouteModelCatalog(input: Input) {
             actionLabel: t("model_picker.provider_default_apply"),
             durationMs: 8000,
             onAction: () => {
+              writeStoredDefaultModel(suggested);
               setPrefsRef.current((previous) => ({
                 ...previous,
                 defaultModel: suggested,

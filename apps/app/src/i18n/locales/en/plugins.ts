@@ -9,7 +9,7 @@ export default {
   "plugins.config_label": "Config",
   "plugins.connect": "Connect",
   "plugins.desc":
-    "Manage `opencode.json` for your project or global OpenCode plugins.",
+    "Manage plugins for this project or your global workspace configuration.",
   "plugins.empty": "No plugins configured yet.",
   "plugins.enabled": "Enabled",
   "plugins.hide_setup": "Hide setup",
@@ -23,7 +23,7 @@ export default {
   "plugins.setup": "Setup",
   "plugins.suggested": "Suggested plugins",
   "plugins.suggested_heading": "Suggested plugins",
-  "plugins.title": "OpenCode plugins",
+  "plugins.title": "Plugins",
   "plugins.artifact_title": "Artifact plugins",
   "plugins.artifact_description": "Create, edit, and analyze documents, PDFs, and spreadsheets with built-in skills.",
   "plugins.artifact_loading": "Loading artifact plugins",

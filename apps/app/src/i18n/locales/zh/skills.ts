@@ -178,7 +178,7 @@ export default {
   "skills.origin_claude": "Claude 技能",
   "skills.origin_codex": "Codex 技能",
   "skills.origin_cursor": "Cursor 技能",
-  "skills.origin_opencode": "OpenCode 技能",
+  "skills.origin_opencode": "内置技能",
   "skills.origin_windsurf": "Windsurf 技能",
   "skills.origin_imported": "导入技能",
   "skills.scope_builtin": "内置技能",

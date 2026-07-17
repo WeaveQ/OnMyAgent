@@ -8,6 +8,7 @@ import {
   readSeenProviderIds,
   resolveModelVariantState,
   resolveProviderDefaultModel,
+  resolveUsableDefaultModel,
   shouldPromptProviderDefaultModel,
 } from "../src/react-app/shell/session-route-model-options";
 import type { ModelOption } from "../src/app/types";
@@ -223,6 +224,103 @@ describe("session route model options", () => {
       }),
     ).toEqual({ providerID: "openai", modelID: "gpt-4o" });
     expect(resolveProviderDefaultModel({ defaults: {} })).toBeNull();
+  });
+
+  test("keeps last-used when in catalog; heals to first catalog model not OpenCode ghosts", () => {
+    const data = providerListData();
+    // Still loading → do not rewrite.
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: { providerID: "google", modelID: "gemini-3-pro-preview" },
+        checkRestriction: () => false,
+        connectedProviderIds: [],
+        providerListData: null,
+      }),
+    ).toEqual({
+      model: { providerID: "google", modelID: "gemini-3-pro-preview" },
+      changed: false,
+    });
+    // Last used still in connected catalog → keep.
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: { providerID: "openai", modelID: "gpt-4o" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["openai"],
+        providerListData: data,
+      }),
+    ).toEqual({
+      model: { providerID: "openai", modelID: "gpt-4o" },
+      changed: false,
+    });
+    // Stale / empty → first connected catalog model (openai/gpt-4o), not a
+    // ghost OpenCode suggestion outside the picker.
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: { providerID: "google", modelID: "gemini-3-pro-preview" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["openai", "lpr_org"],
+        providerListData: data,
+      }),
+    ).toEqual({
+      model: { providerID: "openai", modelID: "gpt-4o" },
+      changed: true,
+    });
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: null,
+        checkRestriction: () => false,
+        connectedProviderIds: ["openai"],
+        providerListData: data,
+      }),
+    ).toEqual({
+      model: { providerID: "openai", modelID: "gpt-4o" },
+      changed: true,
+    });
+
+    // Only ark connected → always ark, never OpenCode default outside catalog.
+    const arkOnly = {
+      all: [
+        {
+          id: "ark",
+          name: "Volcano Engine Code Plan",
+          source: "custom",
+          models: {
+            "ark-code-latest": { id: "ark-code-latest", name: "ark-code-latest" },
+          },
+        },
+        {
+          id: "opencode",
+          name: "OpenCode",
+          models: {
+            "gpt-5-nano": { id: "gpt-5-nano", name: "gpt-5-nano" },
+          },
+        },
+      ],
+      connected: ["ark"],
+      default: { opencode: "gpt-5-nano" },
+    } as never;
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: { providerID: "opencode", modelID: "gpt-5-nano" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["ark"],
+        providerListData: arkOnly,
+      }),
+    ).toEqual({
+      model: { providerID: "ark", modelID: "ark-code-latest" },
+      changed: true,
+    });
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: null,
+        checkRestriction: () => false,
+        connectedProviderIds: ["ark"],
+        providerListData: arkOnly,
+      }),
+    ).toEqual({
+      model: { providerID: "ark", modelID: "ark-code-latest" },
+      changed: true,
+    });
   });
 
   test("only prompts for provider default while still on app placeholder", () => {

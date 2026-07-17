@@ -241,7 +241,7 @@ export default {
   "session.transcript_share": "Share message",
   "session.doom_loop_label": "Doom Loop",
   "session.doom_loop_message":
-    "OpenCode detected repeated tool calls with identical input and is asking whether it should continue after repeated failures.",
+    "The agent detected repeated tool calls with identical input and is asking whether it should continue after repeated failures.",
   "session.doom_loop_note":
     "Reject to stop the loop, or allow if you want the agent to keep trying.",
   "session.doom_loop_repeated_call_label": "Repeated call",
@@ -286,11 +286,11 @@ export default {
   "session.permission_kind_task": "Subtask",
   "session.permission_kind_todowrite": "Todo write",
   "session.permission_message":
-    "OpenCode is requesting permission to continue.",
+    "The agent is requesting permission to continue.",
   "session.permission_message_bash":
-    "Review the command scope before allowing OpenCode to continue.",
+    "Review the command scope before allowing the agent to continue.",
   "session.permission_message_edit":
-    "Review the file and diff before allowing OpenCode to make changes.",
+    "Review the file and diff before allowing the agent to make changes.",
   "session.permission_message_external_directory":
     "Review the folder before allowing access outside the workspace.",
   "session.permission_message_read":
@@ -333,7 +333,7 @@ export default {
   "session.share_missing_token": `Missing ${APP_NAME} token.`,
   "session.share_note_direct_runtime":
     "Remote access shares the currently running local worker. If you switch local folders later, reopen this panel to confirm the URL and password.",
-  "session.share_opencode_base_url": "OpenCode base URL",
+  "session.share_opencode_base_url": "Runtime base URL",
   "session.share_onmyagent_workers_only": `Share service links are available for ${APP_NAME} workers.`,
   "session.share_owner_permission_hint":
     "Use when the remote client must answer permission prompts.",
@@ -365,7 +365,7 @@ export default {
   "session.control_delete_session_desc":
     "Delete a session by ID. Destructive: only run after explicit user confirmation.",
   "session.control_confirmed_desc": "Must be true after explicit user confirmation.",
-  "session.control_opencode_not_connected": "OpenCode client is not connected",
+  "session.control_opencode_not_connected": "Agent runtime is not connected",
   "session.control_delete_requires_confirmation":
     "Deletion requires confirmed: true after explicit user confirmation",
   "session.control_session_not_found": "Session was not found in the current session list",

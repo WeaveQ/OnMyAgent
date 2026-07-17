@@ -164,6 +164,16 @@ export function writeStoredDefaultModel(model: ModelRef): void {
   }
 }
 
+/** Drop the legacy string key so a cleared prefs.defaultModel is not re-hydrated. */
+export function clearStoredDefaultModel(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(MODEL_PREF_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Minimal React hook covering the default model picker state. The richer
  * session/workspace model overrides from context/model-config.ts will be
