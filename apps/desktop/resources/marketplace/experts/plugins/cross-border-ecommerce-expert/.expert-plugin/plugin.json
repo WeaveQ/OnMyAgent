@@ -53,9 +53,7 @@
       "en": "Plan cross-border logistics and supply chain solutions"
     }
   ],
-  "skills": [
-    "./skills/browser-use"
-  ],
+  "skills": [],
   "categoryIds": [
     "01-OPC",
     "product-operations"

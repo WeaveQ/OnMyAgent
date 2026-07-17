@@ -207,6 +207,7 @@ enum ComputerUseError: LocalizedError {
     case accessibilityDenied
     case screenshotFailed
     case appNotFound(String)
+    case ambiguousApp(String, [String])
     case noFrontmostApplication
     case noWindow(String)
     case noSnapshot
@@ -216,6 +217,13 @@ enum ComputerUseError: LocalizedError {
     case eventSourceFailed
     case eventCreationFailed
     case unknownKey(String)
+    case powerAssertionFailed(IOReturn)
+    case physicalInputPaused
+    case appAuthorizationDenied(String)
+    case protectedApplication(String)
+    case blockedBrowserURL
+    case recordingStartDeclined
+    case invalidCommand(String)
 
     var errorDescription: String? {
         switch self {
@@ -224,7 +232,9 @@ enum ComputerUseError: LocalizedError {
         case .screenshotFailed:
             return "Screenshot capture failed."
         case .appNotFound(let name):
-            return "App '\(name)' is not running."
+            return "App '\(name)' was not found."
+        case .ambiguousApp(let name, let identifiers):
+            return "App '\(name)' is ambiguous. Use a bundle identifier or path: \(identifiers.joined(separator: ", "))."
         case .noFrontmostApplication:
             return "No frontmost application found."
         case .noWindow(let app):
@@ -243,6 +253,20 @@ enum ComputerUseError: LocalizedError {
             return "Failed to create CGEvent."
         case .unknownKey(let key):
             return "Unknown key: \(key)"
+        case .powerAssertionFailed(let code):
+            return "Failed to prevent display sleep for the Computer Use session (IOKit \(code))."
+        case .physicalInputPaused:
+            return "Computer Use paused because physical keyboard, mouse, or trackpad input was detected. Retry after one second of inactivity."
+        case .appAuthorizationDenied(let app):
+            return "Computer Use was not allowed to use \(app)."
+        case .protectedApplication(let bundleIdentifier):
+            return "Computer use actions are not allowed for system security process \(bundleIdentifier)."
+        case .blockedBrowserURL:
+            return "Computer Use stopped due to encountering a disallowed URL."
+        case .recordingStartDeclined:
+            return "Record & Replay was not started because the user did not approve recording."
+        case .invalidCommand(let command):
+            return "Unknown Computer Use command: \(command)"
         }
     }
 }

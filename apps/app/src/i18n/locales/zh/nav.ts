@@ -11,6 +11,7 @@ export default {
   "nav.connectors": "连接器 MCP",
   "nav.connectors_desc": "连接外部工具和服务",
   "nav.devices": "设备",
+  "nav.usage": "用量",
   "nav.no_team": "暂无团队",
   "nav.personal_assistant": "本地工作入口",
   "nav.personal_assistant_desc": "云手机分身",

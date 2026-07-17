@@ -5,6 +5,7 @@ import {
   canMergeStepClusters,
   mergeLeadingAssistantStepClusters,
   resolveDisplayedPastedText,
+  shouldFoldStepGroups,
   summarizeStepCluster,
 } from "../src/react-app/domains/session/surface/message-list";
 import { groupMessageParts, summarizeStep } from "../src/app/utils";
@@ -69,15 +70,15 @@ function messageBlock(id: string, role: "assistant" | "user"): TimelineBlock {
 }
 
 describe("session process summary", () => {
-  test("merges only contiguous process clusters with the same summary category", () => {
+  test("merges contiguous foldable process clusters across tool categories", () => {
     const readA = stepBlock("read-a", "read");
     const readB = stepBlock("read-b", "read");
     const terminal = stepBlock("terminal-a", "bash");
     const readC = stepBlock("read-c", "read");
 
     expect(canMergeStepClusters(readA, readB)).toBe(true);
-    expect(canMergeStepClusters(readB, terminal)).toBe(false);
-    expect(canMergeStepClusters(terminal, readC)).toBe(false);
+    expect(canMergeStepClusters(readB, terminal)).toBe(true);
+    expect(canMergeStepClusters(terminal, readC)).toBe(true);
   });
 
   test("summarizes merged process clusters by action category", () => {
@@ -87,10 +88,22 @@ describe("session process summary", () => {
 
     expect(summarizeStepCluster([...readA.stepGroups, ...readB.stepGroups]).category).toBe("read");
     expect(summarizeStepCluster(terminal.stepGroups).category).toBe("terminal");
+    expect(summarizeStepCluster([...readA.stepGroups, ...terminal.stepGroups])).toEqual({
+      category: "tool",
+      label: "Processed 2 actions",
+    });
   });
 
-  test("uses a user-facing fallback label for uncategorized process work", () => {
-    expect(summarizeStepCluster(stepBlock("question-a", "question").stepGroups).label).toBe("Processed 1 actions");
+  test("folds every root process cluster so transport details never dominate the transcript", () => {
+    const readA = stepBlock("read-a", "read");
+    const terminal = stepBlock("terminal-a", "bash");
+
+    expect(shouldFoldStepGroups(readA.stepGroups)).toBe(true);
+    expect(shouldFoldStepGroups([...readA.stepGroups, ...terminal.stepGroups])).toBe(true);
+  });
+
+  test("uses the concrete action label for a single uncategorized process item", () => {
+    expect(summarizeStepCluster(stepBlock("question-a", "question").stepGroups).label).toBe("question");
   });
 
   test("attaches a leading assistant process cluster to the following assistant message", () => {

@@ -29,6 +29,11 @@
       "development": "./src/session-archive.ts",
       "default": "./src/session-archive.ts"
     },
+    "./browser": {
+      "types": "./src/browser.ts",
+      "development": "./src/browser.ts",
+      "default": "./src/browser.ts"
+    },
     "./server": {
       "types": "./src/server.ts",
       "development": "./src/server.ts",
@@ -53,6 +58,11 @@
       "types": "./src/desktop-ipc-commands.mjs",
       "development": "./src/desktop-ipc-commands.mjs",
       "default": "./src/desktop-ipc-commands.mjs"
+    },
+    "./artifact-plugin": {
+      "types": "./src/artifact-plugin.ts",
+      "development": "./src/artifact-plugin.ts",
+      "default": "./src/artifact-plugin.ts"
     }
   },
   "files": [

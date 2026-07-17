@@ -35,6 +35,8 @@ describe("portable files", () => {
     await writeFile(join(workspaceRoot, ".opencode", "agents", "onmyagent.md"), "# agent\n", "utf8");
     await writeFile(join(workspaceRoot, ".opencode", "plugins", "router.json"), '{"enabled":true}\n', "utf8");
     await writeFile(join(workspaceRoot, ".opencode", "tools", "database.ts"), "export default {};\n", "utf8");
+    await writeFile(join(workspaceRoot, ".opencode", "tools", "get_design_spec.ts"), "managed\n", "utf8");
+    await writeFile(join(workspaceRoot, ".opencode", "tools", "render_visual.ts"), "managed\n", "utf8");
     await writeFile(join(workspaceRoot, ".opencode", "node_modules", "demo", "index.js"), "export default 1;\n", "utf8");
     await writeFile(join(workspaceRoot, ".opencode", "skills", "demo", "SKILL.md"), "# skill\n", "utf8");
     await writeFile(join(workspaceRoot, ".opencode", "commands", "demo.md"), "# command\n", "utf8");
@@ -93,6 +95,10 @@ describe("portable files", () => {
 
     expect(() =>
       planPortableFiles(workspaceRoot, [{ path: ".opencode/node_modules/demo/index.js", content: "oops" }]),
+    ).toThrow(/not allowed/i);
+
+    expect(() =>
+      planPortableFiles(workspaceRoot, [{ path: ".opencode/tools/render_visual.ts", content: "override" }]),
     ).toThrow(/not allowed/i);
   });
 });

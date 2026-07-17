@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { StatusToast } from "./status-toast";
+import { ComputerUseStatusMonitor } from "./computer-use-status-monitor";
 
 export type AppStatusToastTone = "success" | "info" | "warning" | "error";
 
@@ -105,6 +106,7 @@ export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
 
   return (
     <StatusToastsContext.Provider value={store}>
+      <ComputerUseStatusMonitor showToast={showToast} />
       {children}
     </StatusToastsContext.Provider>
   );

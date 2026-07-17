@@ -19,8 +19,7 @@ import {
   writeSessionTranscriptNotices,
 } from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
-import { t, currentLocale } from "../../../../i18n";
-import { browserUseAgentHistory } from "../../../../app/lib/desktop";
+import { currentLocale, t } from "../../../../i18n";
 import {
   readWorkspaceCloudImports,
   type CloudImportedPlugin,
@@ -47,6 +46,10 @@ import type {
 } from "../../../../app/types";
 import { DevProfiler, OwDotTicker, publishInspectorSlice, recordInspectorEvent, type OnMyAgentControlAction, useControlAction, useReactRenderWatchdog } from "../../../shell";
 import { ReactSessionComposer } from "./composer/composer";
+import {
+  deriveAssistantActivity,
+  getAssistantActivityPhaseLabel,
+} from "./chrome/assistant-activity";
 import { AccessPermissionSelect } from "./composer/access-permission-select";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import {
@@ -56,7 +59,6 @@ import {
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { PaperGrainGradient } from "@onmyagent/ui/react";
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
 import {
@@ -67,12 +69,10 @@ import {
   SessionTranscript,
   type SessionTranscriptDivider,
 } from "./message-list";
-import { mergeBrowserUseTimeline } from "../browser-use/browser-use-timeline";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
 import {
-  getSessionActivityStatusLabel,
   useSessionActivityStore,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
@@ -96,6 +96,11 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
+import {
+  OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
+  buildOutputLimitContinuationDraft,
+  latestOutputLimitedAssistantMessage,
+} from "../sync/output-limit-recovery";
 import {
   deriveGoalSummary,
   manualStopNoticeKind,
@@ -164,7 +169,10 @@ import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
   AssistantWaitingCard,
+  OutputLimitContinueCard,
+  TranscriptHistorySkeleton,
 } from "./chrome/assistant-status";
+import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
 import {
   PlanApprovalPanel,
   TodoPanel,
@@ -561,19 +569,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
       ).item,
     staleTime: 500,
   });
-  const browserUseHistoryQuery = useQuery({
-    queryKey: ["browser-use-agent-history", props.sessionId],
-    queryFn: () => browserUseAgentHistory(props.sessionId),
-    enabled:
-      !props.draftOnly && effectiveAgent?.runtime === "browser-use-agent",
-    refetchInterval: (query) => {
-      const active = query.state.data?.some(
-        (run) => run.status === "running" || run.status === "pending_approval",
-      );
-      return active ? 1_000 : false;
-    },
-  });
-
   const currentSnapshot =
     snapshotQuery.data?.session.id === props.sessionId
       ? snapshotQuery.data
@@ -706,39 +701,70 @@ export function SessionSurface(props: SessionSurfaceProps) {
     cachedRendered: rendered,
   });
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
-  const browserUseRunActive = (browserUseHistoryQuery.data ?? []).some(
-    (run) => run.status === "running" || run.status === "pending_approval",
-  );
-  const chatStreaming = effectiveAgent?.runtime === "browser-use-agent"
-    ? sending || browserUseRunActive
-    : sending || liveStatus.type === "busy" || liveStatus.type === "retry";
-  useEffect(() => {
-    if (
-      effectiveAgent?.runtime !== "browser-use-agent" ||
-      browserUseHistoryQuery.isFetching ||
-      !browserUseHistoryQuery.data?.length ||
-      browserUseRunActive
-    ) {
-      return;
-    }
-    useSessionActivityStore.getState()
-      .setRunStatus(props.workspaceId, props.sessionId, { type: "idle" });
-  }, [
-    browserUseHistoryQuery.data?.length,
-    browserUseHistoryQuery.isFetching,
-    browserUseRunActive,
-    effectiveAgent?.runtime,
-    props.sessionId,
-    props.workspaceId,
-  ]);
+  const chatStreaming =
+    sending || liveStatus.type === "busy" || liveStatus.type === "retry";
   const rawRenderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
-  const renderedMessages = useMemo(() => {
-    const compacted = filterCompactionMessages(rawRenderedMessages, compactBoundary);
-    return mergeBrowserUseTimeline(compacted, browserUseHistoryQuery.data ?? []);
-  }, [browserUseHistoryQuery.data, compactBoundary, rawRenderedMessages]);
+  const renderedMessages = useMemo(
+    () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
+    [compactBoundary, rawRenderedMessages],
+  );
+  const outputLimitedAssistantMessage = useMemo(
+    () => latestOutputLimitedAssistantMessage(renderedMessages),
+    [renderedMessages],
+  );
+  const handleOutputLimitContinue = useCallback(async () => {
+    if (!outputLimitedAssistantMessage || sending || chatStreaming) return;
+    setError(null);
+    setDismissedErrorMessage(null);
+    const startedAt = Date.now();
+    const runKey = `${props.sessionId}:${startedAt}`;
+    activeRunStartedAtRef.current = startedAt;
+    activeRunKeyRef.current = runKey;
+    if (!props.draftOnly) {
+      useSessionActivityStore
+        .getState()
+        .startRun(props.workspaceId, props.sessionId, {
+          runKey,
+          runStartedAt: startedAt,
+        });
+    }
+    setSending(true);
+    setAwaitingAssistantBaseline(renderedMessages.length);
+    setNoVisibleAssistantOutputBaseline(null);
+    try {
+      const continuationDraft = buildOutputLimitContinuationDraft({
+        messageID: `${OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX}${crypto.randomUUID()}`,
+        prompt: t("session.output_limit_continue_content"),
+        hiddenSystemPrompt: t("session.output_limit_continue_hidden"),
+      });
+      await props.onSendDraft(continuationDraft);
+    } catch (nextError) {
+      const parsed = parseSessionError(nextError);
+      setError(parsed);
+      setDismissedErrorMessage(null);
+      if (!props.draftOnly) {
+        useSessionActivityStore
+          .getState()
+          .setError(props.workspaceId, props.sessionId, parsed.message);
+      }
+      setAwaitingAssistantBaseline(null);
+      setNoVisibleAssistantOutputBaseline(null);
+    } finally {
+      setSending(false);
+    }
+  }, [
+    chatStreaming,
+    outputLimitedAssistantMessage,
+    props.draftOnly,
+    props.onSendDraft,
+    props.sessionId,
+    props.workspaceId,
+    renderedMessages.length,
+    sending,
+  ]);
   const renderedMessageCountRef = useRef(renderedMessages.length);
   renderedMessageCountRef.current = renderedMessages.length;
   const appendTranscriptNotice = useCallback(
@@ -954,6 +980,20 @@ export function SessionSurface(props: SessionSurfaceProps) {
         : showAssistantRespondingState
           ? "responding"
           : "idle";
+  const activePermissionNeedsApproval = Boolean(
+    props.activePermission &&
+      !resolveAccessModePermissionReply(
+        effectiveAccessMode,
+        props.activePermission.permission,
+      ),
+  );
+  const assistantActivity = deriveAssistantActivity({
+    status: effectiveActivityStatus,
+    sending,
+    hasActivePermission: activePermissionNeedsApproval,
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    messages: renderedMessages,
+  });
   const activityFingerprint = useMemo(
     () => messageActivityFingerprint(renderedMessages),
     [renderedMessages],
@@ -1018,6 +1058,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       id: notice.id,
       afterMessageCount: notice.afterMessageCount,
       label: transcriptNoticeLabel(notice),
+      variant: notice.kind,
     }));
   }, [props.sessionId, transcriptNoticesBySessionId]);
   const hasTranscriptContent =
@@ -1037,9 +1078,20 @@ export function SessionSurface(props: SessionSurfaceProps) {
     !chatStreaming;
   const assistantStatusFooter =
     showInlineActivityIndicator ? (
-      <AssistantWaitingCard collapseLayout />
+      <AssistantWaitingCard
+        collapseLayout
+        label={getAssistantActivityPhaseLabel(assistantActivity)}
+      />
     ) : showNoVisibleAssistantOutput ? (
       <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
+    ) : outputLimitedAssistantMessage && !visibleTranscriptError ? (
+      <OutputLimitContinueCard
+        key={outputLimitedAssistantMessage.id}
+        busy={sending || chatStreaming}
+        onContinue={() => {
+          void handleOutputLimitContinue();
+        }}
+      />
     ) : reserveAssistantStatusSpace ? (
       <AssistantStatusSpacer />
     ) : null;
@@ -2072,11 +2124,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const resolveTranscriptScrollElement = useCallback(() => scrollRef.current, []);
   const sessionScroll = useSessionScrollController({
     selectedSessionId: props.sessionId,
     renderedMessages,
+    renderedMessageIds: renderedMessages.map((message) => message.id),
     containerRef: scrollRef,
     contentRef,
+    active: chatStreaming,
     sessionChangeScroll:
       props.personalAssistantHome && props.draftOnly ? "top" : "bottom",
   });
@@ -2227,13 +2282,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }) && isGoalIntentRuntime(props.goalRuntime)
     ? props.goalRuntime
     : null;
-  const activePermissionNeedsApproval = Boolean(
-    props.activePermission &&
-      !resolveAccessModePermissionReply(
-        effectiveAccessMode,
-        props.activePermission.permission,
-      ),
-  );
   const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
     activePermissionNeedsApproval
       ? "permission"
@@ -2428,13 +2476,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
           avatarUrl: null,
           avatarBackground: null,
         };
-  const assistantAvatarOverride = props.personalAssistantHome
-    ? {
-        name: onmyagentAssistantName(),
-        avatarUrl: resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR),
-        avatarBackground: "#eef7f2",
-      }
-    : undefined;
   const codeSceneToolbar =
     assistantCodeFeaturesActive && assistantFeatureCategoryId === "code" ? (
       <CodeSceneToolbar
@@ -2505,7 +2546,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           <div
             ref={scrollRef}
             onWheel={(event) => {
-              sessionScroll.markScrollGesture(event.target);
+              sessionScroll.markWheelGesture(event.deltaY, event.target);
             }}
             onTouchStart={(event) => {
               sessionScroll.markScrollGesture(event.target);
@@ -2522,13 +2563,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           >
             <div ref={contentRef} className="w-full">
               {showDelayedLoading && pendingSessionLoad ? (
-                <div className="px-6 py-16">
-                  <div className="mx-auto max-w-sm rounded-xl border border-dls-border bg-dls-surface-muted px-8 py-10 text-center">
-                    <div className={sessionSurfaceTextClass.openingSession}>
-                      Opening session…
-                    </div>
-                  </div>
-                </div>
+                <TranscriptHistorySkeleton pairCount={3} />
               ) : (snapshotQuery.isError || visibleTranscriptError) &&
                 !snapshot &&
                 !hasTranscriptContent ? (
@@ -2553,9 +2588,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 !visibleTranscriptError ? (
                 <div className="px-6 py-12">
                   <AssistantWaitingCard
-                    label={getSessionActivityStatusLabel(
-                      effectiveActivityStatus,
-                    )}
+                    label={getAssistantActivityPhaseLabel(assistantActivity)}
                   />
                 </div>
               ) : !hasTranscriptContent &&
@@ -2602,23 +2635,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       developerMode={props.developerMode}
                       showThinking={showThinking}
                       dividers={interruptionDividers}
-                      scrollElement={() => scrollRef.current}
+                      scrollElement={resolveTranscriptScrollElement}
                       onRevertToMessage={props.onRevertToMessage}
                       onForkAtMessage={props.onForkAtMessage}
                       openTargets={verifiedOpenTargets}
                       onOpenTarget={props.onOpenTarget}
                       footer={assistantStatusFooter}
-                      assistantAvatar={
-                        effectiveAgent
-                          ? {
-                              name: effectiveAgent.name,
-                              avatarUrl: effectiveAgent.avatar.avatarUrl,
-                              avatarBackground:
-                                effectiveAgent.avatar.avatarBackground,
-                            }
-                          : assistantAvatarOverride
-                      }
-                      userIdentity={props.userIdentity}
+                      assistantAvatar={chatHeaderAgent}
                     />
                     {visibleTranscriptError ? (
                       <SessionErrorCard
@@ -2633,40 +2656,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
               )}
             </div>
           </div>
-          {!personalAssistantDraftHome &&
-          (!sessionScroll.isAtBottom ||
-            (!chatStreaming && sessionScroll.topClippedMessageId)) ? (
-            <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 justify-center">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-dls-border bg-dls-surface p-1 backdrop-blur-md">
-                {!chatStreaming && sessionScroll.topClippedMessageId ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    className="rounded-full text-dls-text hover:bg-dls-hover"
-                    onClick={() => {
-                      sessionScroll.jumpToStartOfMessage("smooth");
-                    }}
-                  >
-                    {t("session.jump_to_start")}
-                  </Button>
-                ) : null}
-                {!sessionScroll.isAtBottom ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    className="rounded-full text-dls-text hover:bg-dls-hover"
-                    onClick={() => {
-                      sessionScroll.jumpToLatest("smooth");
-                    }}
-                  >
-                    {t("session.jump_to_latest")}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
+          <TranscriptScrollToLatest
+            visible={!personalAssistantDraftHome && !sessionScroll.isAtBottom}
+            label={t("session.jump_to_latest")}
+            onActivate={() => {
+              sessionScroll.jumpToLatest("auto");
+            }}
+          />
         </div>
 
         {personalAssistantDraftHome && codeSceneToolbar ? (

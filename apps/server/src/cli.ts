@@ -36,10 +36,7 @@ if (!config.opencodeBaseUrl && process.env.ONMYAGENT_MANAGE_OPENCODE === "1") {
   const workspace = config.workspaces[0];
   if (workspace?.path) {
     const onmyagentExtensionsPreviewConfig = JSON.stringify({
-      plugin: [
-        "opencode-chrome-devtools",
-        onmyagentExtensionsPreviewPluginPath(),
-      ],
+      plugin: [onmyagentExtensionsPreviewPluginPath()],
     });
     const managedOpencodeCwd = process.env.ONMYAGENT_MANAGED_OPENCODE_CWD?.trim() || workspace.path;
     await mkdir(managedOpencodeCwd, { recursive: true });

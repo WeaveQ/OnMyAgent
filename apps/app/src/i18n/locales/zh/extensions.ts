@@ -54,6 +54,17 @@ export default {
   "extensions.browser_primary_cta": "启用浏览器自动化",
   "extensions.browser_plugin_loaded": "浏览器插件已加载",
   "extensions.computer_use_connect_mcp": "连接 Computer Use MCP",
+  "extensions.computer_use_name": "Computer Use",
+  "extensions.computer_use_description":
+    "通过语义辅助功能、截图、后台安全输入和严格模式控制 macOS 应用。",
+  "extensions.computer_use_prompt": "使用 Computer Use 来",
+  "extensions.computer_use_suggestion_playlist": "播放一个能帮助我专注的歌单",
+  "extensions.computer_use_suggestion_xcode": "构建并运行我已打开的 Xcode 项目，然后测试其中的问题",
+  "extensions.computer_use_suggestion_chess": "在 Chess.app 里下一盘棋",
+  "extensions.computer_use_check_permissions": "检查 macOS 权限",
+  "extensions.computer_use_native_runtime": "macOS 辅助功能运行时",
+  "extensions.computer_use_builtin_setup":
+    "Computer Use 已通过 OnMyAgent 辅助功能运行时内置于本地 macOS 工作区。macOS 提示时，请授予辅助功能和屏幕录制权限。",
   "extensions.computer_use_mcp": "Computer Use MCP",
   "extensions.mcp_server_connected": "MCP 服务器已连接",
   "extensions.computer_use_permissions": "辅助功能和屏幕录制",

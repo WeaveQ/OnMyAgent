@@ -8,12 +8,18 @@ import {
   selectAutoOpenTarget,
   shouldAutoOpenTarget,
 } from "../src/react-app/domains/session/artifacts/open-target";
+import { selectTurnOpenTargets } from "../src/react-app/domains/session/surface/message-list";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {
   return { id, role, parts: [{ type: "text", text, state: "done" }] };
 }
 
-function toolMessage(id: string, toolName: string, input: Record<string, unknown>, output: unknown) {
+function toolMessage(
+  id: string,
+  toolName: string,
+  input: Record<string, unknown>,
+  output: unknown,
+): UIMessage {
   return {
     id,
     role: "assistant",
@@ -40,6 +46,31 @@ describe("open target classification", () => {
 });
 
 describe("deriveOpenTargets", () => {
+  it("collects verified artifacts across one request for the final assistant slot", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "reports/final.md" },
+        { filePath: "reports/final.md" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "Created the report and started http://localhost:4173 for preview.",
+      ),
+    ] satisfies UIMessage[];
+    const candidates = deriveOpenTargets(messages);
+    const verified = candidates.map((target) =>
+      target.kind === "file" ? { ...target, exists: true } : target,
+    );
+
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      "reports/final.md",
+      "http://localhost:4173",
+    ]);
+  });
+
   it("extracts file and localhost URL targets from recent assistant output", () => {
     const targets = deriveOpenTargets([
       toolMessage("msg_tool", "write", { filePath: "reports/revenue.xlsx" }, { filePath: "reports/revenue.xlsx" }),

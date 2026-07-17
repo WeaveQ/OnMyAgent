@@ -13,6 +13,18 @@ import { createPersonalAgentHeartbeatScheduler } from "./personal-agent-runtime/
 import { createPersonalAgentRuntime } from "./personal-agent-runtime/index.mjs";
 import { createPersonalAgentLegacyHarness } from "./personal-agent-runtime/legacy-harness.mjs";
 import { createPersonalAgentNativeSessionBridge } from "./personal-agent-runtime/native-sessions.mjs";
+import {
+  ARTIFACT_PLUGIN_SKILL_IDS,
+  artifactPluginEnablementPath,
+  materializeEnabledArtifactSkills,
+  materializeLegacySkillLinks,
+  readArtifactPluginEnablementSnapshot,
+  scanBundledArtifactPlugins,
+} from "./artifact-plugin-runtime.mjs";
+import {
+  resolveComputerUseRuntimeCommand,
+  writeComputerUseRuntimeConfig,
+} from "./computer-use-runtime-config.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -21,6 +33,7 @@ const ORCHESTRATOR_RUNTIME = "onmyagent-orchestrator";
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
+const BUNDLED_PLUGINS_RESOURCE_DIR = "bundled-plugins";
 const BUNDLED_EXTENSIONS_RESOURCE_DIR = "onmyagent-extensions";
 
 function bundledSkillsRootPath() {
@@ -29,6 +42,16 @@ function bundledSkillsRootPath() {
       ? path.resolve(process.resourcesPath, BUNDLED_SKILLS_RESOURCE_DIR)
       : null,
     path.resolve(__runtimeDir, "..", "resources", BUNDLED_SKILLS_RESOURCE_DIR),
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+export function bundledPluginsRootPath() {
+  const candidates = [
+    process.resourcesPath
+      ? path.resolve(process.resourcesPath, BUNDLED_PLUGINS_RESOURCE_DIR)
+      : null,
+    path.resolve(__runtimeDir, "..", "resources", BUNDLED_PLUGINS_RESOURCE_DIR),
   ].filter(Boolean);
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
@@ -130,7 +153,6 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
 
   const personalAgentLegacyHarness = createPersonalAgentLegacyHarness({
     runtimePathEntries: () => runtimeManager.runtimePathEntries(),
-    browserUseEnvironment: options.browserUseEnvironment,
   });
   const personalAgentRuntime = createPersonalAgentRuntime({
     userDataDir: app.getPath("userData"),
@@ -138,7 +160,6 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
     legacy: personalAgentLegacyHarness,
     bundledExtensionRoots: bundledExtensionRootPaths(),
-    browserUseEnvironment: options.browserUseEnvironment,
   });
   const personalAgentHeartbeatScheduler = createPersonalAgentHeartbeatScheduler({
     personalAgentRuntime,
@@ -571,7 +592,7 @@ export function createRuntimeManager({
   app,
   desktopRoot,
   listLocalWorkspacePaths,
-  browserUseEnvironment = undefined,
+  runtimeEnvironment = () => ({}),
 }) {
   const engineState = createEngineState();
   const onmyagentServerState = createOnMyAgentServerState();
@@ -692,23 +713,48 @@ export function createRuntimeManager({
 
   async function prepareOnMyAgentOpencodeConfigDir(configDir) {
     const skillsDir = path.join(configDir, "skills");
-    await rm(skillsDir, { recursive: true, force: true });
     await mkdir(skillsDir, { recursive: true });
+
+    const artifactSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS);
+    const pluginRoot = bundledPluginsRootPath();
+    if (pluginRoot) {
+      const catalog = await scanBundledArtifactPlugins(pluginRoot);
+      for (const plugin of catalog.items) {
+        for (const skill of plugin.skills) artifactSkillIds.add(skill.id);
+      }
+      const snapshot = await readArtifactPluginEnablementSnapshot({
+        enablementPath: artifactPluginEnablementPath(
+          process.env.ONMYAGENT_SERVER_CONFIG?.trim() || undefined,
+        ),
+        catalog,
+      });
+      const materialized = await materializeEnabledArtifactSkills({
+        pluginRoot,
+        managedSkillsRoot: skillsDir,
+        enabledSkillIds: snapshot.enabledSkillIds,
+      });
+      for (const diagnostic of [
+        ...snapshot.diagnostics,
+        ...materialized.diagnostics,
+      ]) {
+        console.warn("[runtime] Artifact plugin skill diagnostic:", diagnostic);
+      }
+    }
 
     const roots = [bundledSkillsRootPath(), onmyagentUserSkillsRoot()].filter(
       Boolean,
     );
-    const linked = new Set();
+    const legacySkillDirs = [];
     for (const root of roots) {
       for (const skillDir of collectSkillDirs(root)) {
-        const name = path.basename(skillDir);
-        if (linked.has(name)) continue;
-        linked.add(name);
-        await linkOrCopyDir(skillDir, path.join(skillsDir, name)).catch(
-          () => undefined,
-        );
+        legacySkillDirs.push(skillDir);
       }
     }
+    await materializeLegacySkillLinks({
+      skillDirs: legacySkillDirs,
+      managedSkillsRoot: skillsDir,
+      reservedSkillIds: artifactSkillIds,
+    });
     return configDir;
   }
 
@@ -860,13 +906,6 @@ export function createRuntimeManager({
   }
 
   async function buildChildEnv(extra = {}, options = {}) {
-    const browserUseContext =
-      typeof browserUseEnvironment === "function" && options.workspaceRoot
-        ? await browserUseEnvironment({
-            workspaceRoot: options.workspaceRoot,
-            conversationId: `workspace-runtime:${path.resolve(options.workspaceRoot)}`,
-          })
-        : { environment: {}, pathEntries: [] };
     /** @type {NodeJS.ProcessEnv} */
     // User env is layered first so process.env + any caller overrides always
     // win. See apps/server/src/env-file.ts; both loaders must agree on path
@@ -875,7 +914,7 @@ export function createRuntimeManager({
       ...loadUserEnvFile(),
       ...process.env,
       BUN_CONFIG_DNS_RESULT_ORDER: "verbatim",
-      ...browserUseContext.environment,
+      ...runtimeEnvironment(),
       ...extra,
     };
     const pathKey =
@@ -884,7 +923,7 @@ export function createRuntimeManager({
         ? "PATH"
         : "Path";
     const pathEnv = enrichedPath(
-      [...browserUseContext.pathEntries, ...runtimeBinDirs, ...sidecarDirs],
+      [...runtimeBinDirs, ...sidecarDirs],
       env[pathKey],
     );
     if (pathEnv) {
@@ -915,6 +954,21 @@ export function createRuntimeManager({
         ? env.OPENCODE_CONFIG_DIR
         : onmyagentOpencodeConfigDir();
     env.OPENCODE_CONFIG_DIR = await prepareOnMyAgentOpencodeConfigDir(configDir);
+    if (!env.OPENCODE_CONFIG?.trim()) {
+      const computerUseCommand = resolveComputerUseRuntimeCommand({
+        platform: process.platform,
+        desktopRoot,
+        resourcesPath: process.resourcesPath,
+        explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+        devMode: process.env.ONMYAGENT_DEV_MODE === "1",
+      });
+      if (computerUseCommand) {
+        env.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig(
+          env.OPENCODE_CONFIG_DIR,
+          computerUseCommand,
+        );
+      }
+    }
     return env;
   }
 
@@ -1368,6 +1422,7 @@ export function createRuntimeManager({
     const serverEnv = await buildChildEnv(
       {
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
+        ONMYAGENT_BUNDLED_PLUGINS_DIR: bundledPluginsRootPath() ?? undefined,
       },
       { workspaceRoot: activeWorkspace },
     );
