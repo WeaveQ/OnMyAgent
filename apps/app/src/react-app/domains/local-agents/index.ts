@@ -82,3 +82,5 @@ export {
   readWorkspaceOverride,
   writeWorkspaceOverride,
 } from "./workspace-picker/recent-workspaces";
+
+export { resolveAgentIconUrlFor, resolveAgentIconUrl } from "./agent-icon-map";
