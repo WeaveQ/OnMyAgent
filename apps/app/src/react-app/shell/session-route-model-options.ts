@@ -134,13 +134,17 @@ export function filterAllowedModelOptions(input: {
 }
 
 export function isSelectedModelUnavailable(input: {
-  defaultModel: ModelRef | null | undefined;
+  /** The model the composer is actually using (session override / agent / default). */
+  model: ModelRef | null | undefined;
   checkRestriction: DesktopAppRestrictionChecker;
   connectedProviderIds: string[];
   providerListData: ProviderListResponse | null | undefined;
+  /** When true, do not mark unavailable — list is still loading. */
+  providerListLoading?: boolean;
 }) {
-  const model = input.defaultModel;
-  if (!model) return false;
+  const model = input.model;
+  if (!model?.providerID || !model.modelID) return false;
+  if (input.providerListLoading) return false;
   if (
     isDesktopProviderBlocked({
       providerId: model.providerID,
@@ -149,18 +153,25 @@ export function isSelectedModelUnavailable(input: {
   ) {
     return true;
   }
-  if (
-    input.checkRestriction({ restriction: "allowCustomProviders" }) &&
-    !input.connectedProviderIds.some(
-      (providerId) => providerId.trim() === model.providerID.trim(),
-    )
-  ) {
-    return true;
+  const providerId = model.providerID.trim();
+  if (input.checkRestriction({ restriction: "allowCustomProviders" })) {
+    const knownConnected = new Set(
+      [
+        ...input.connectedProviderIds,
+        ...(input.providerListData?.connected ?? []).map((id) => String(id)),
+      ]
+        .map((id) => id.trim())
+        .filter(Boolean),
+    );
+    // Only enforce once we know at least one connected provider; otherwise we
+    // would flag every model unavailable before provider discovery finishes.
+    if (knownConnected.size > 0 && !knownConnected.has(providerId)) {
+      return true;
+    }
   }
-  return Boolean(
-    input.providerListData &&
-      !isModelAvailableInConnectedProviders(input.providerListData, model),
-  );
+  // No list yet: don't flash "unavailable" before the first successful fetch.
+  if (!input.providerListData) return false;
+  return !isModelAvailableInConnectedProviders(input.providerListData, model);
 }
 
 export function resolveProviderDefaultModel(input: {
