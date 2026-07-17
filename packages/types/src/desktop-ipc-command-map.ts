@@ -129,9 +129,19 @@ import type {
   WeixinSaveAccountInput,
   WeixinServiceStartInput,
   WeixinSimulateInboundInput,
+  LocalAgentComposerListFilesInput,
+  LocalAgentComposerListFilesResult,
+  LocalAgentComposerSaveAttachmentInput,
+  LocalAgentComposerSaveAttachmentResult,
+  PersonalLocalAgentAcpConfigOptionsInput,
+  PersonalLocalAgentAcpConfigOptionsResult,
+  PersonalLocalAgentAcpHealthInput,
+  PersonalLocalAgentAcpHealthResult,
+  WorkspaceCreateRemoteInput,
   WorkspaceExportSummary,
   WorkspaceList,
   WorkspaceOnMyAgentConfig,
+  WorkspaceUpdateRemoteInput,
 } from "./desktop-ipc";
 
 export type DesktopCommandContract<
@@ -154,8 +164,8 @@ type TypedDesktopCommandMap = {
     [string | { path?: string; name?: string; preset?: string }],
     WorkspaceList
   >;
-  workspaceCreateRemote: DesktopCommandContract<[Record<string, unknown>], WorkspaceList>;
-  workspaceUpdateRemote: DesktopCommandContract<[Record<string, unknown>], WorkspaceList>;
+  workspaceCreateRemote: DesktopCommandContract<[WorkspaceCreateRemoteInput], WorkspaceList>;
+  workspaceUpdateRemote: DesktopCommandContract<[WorkspaceUpdateRemoteInput], WorkspaceList>;
   workspaceUpdateDisplayName: DesktopCommandContract<
     [{ id: string; displayName: string }],
     WorkspaceList
@@ -302,6 +312,10 @@ type TypedDesktopCommandMap = {
     [{ workspaceRoot?: string }?],
     PersonalLocalAgentMetadataListResult
   >;
+  personalLocalAgentAcpHealth: DesktopCommandContract<
+    [PersonalLocalAgentAcpHealthInput?],
+    PersonalLocalAgentAcpHealthResult
+  >;
   personalLocalAgentAcpSend: DesktopCommandContract<
     [PersonalLocalAgentRunInput],
     PersonalLocalAgentRunResult
@@ -310,6 +324,10 @@ type TypedDesktopCommandMap = {
   personalLocalAgentAcpResolveApproval: DesktopCommandContract<
     [PersonalLocalAgentApprovalInput],
     OkResult
+  >;
+  personalLocalAgentAcpConfigOptions: DesktopCommandContract<
+    [PersonalLocalAgentAcpConfigOptionsInput?],
+    PersonalLocalAgentAcpConfigOptionsResult
   >;
   personalLocalAgentSetAcpConfigOption: DesktopCommandContract<
     [PersonalLocalAgentAcpConfigOptionInput],
@@ -532,12 +550,12 @@ type TypedDesktopCommandMap = {
     PersonalLocalAgentHeartbeatRunsResult
   >;
   localAgentComposerListFiles: DesktopCommandContract<
-    [{ workspaceRoot: string; relativePath?: string }],
-    { files: Array<{ name: string; path: string; kind: string; size?: number }> }
+    [LocalAgentComposerListFilesInput],
+    LocalAgentComposerListFilesResult
   >;
   localAgentComposerSaveAttachment: DesktopCommandContract<
-    [{ workspaceRoot: string; name: string; dataBase64: string }],
-    { path: string; relativePath: string; name: string; size: number }
+    [LocalAgentComposerSaveAttachmentInput],
+    LocalAgentComposerSaveAttachmentResult
   >;
 
   // messaging — weixin
