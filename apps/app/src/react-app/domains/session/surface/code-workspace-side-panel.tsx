@@ -582,37 +582,71 @@ export function CodeWorkspaceSidePanel(props: {
   const addTab = useCallback(
     async (kind: ToolKind) => {
       if (props.hiddenKinds?.includes(kind)) return;
+
+      // One browser/files/review tool surface per session side panel. Multiple
+      // page tabs live *inside* BrowserPanel, not as duplicate tool chips.
       if (kind !== "terminal") {
-        const existing = tabs.find((tab) => tab.kind === kind);
-        if (existing) {
-          setActiveId(existing.id);
-          return;
-        }
+        let existingId: string | null = null;
+        setTabs((current) => {
+          const existing = current.find((tab) => tab.kind === kind);
+          if (existing) {
+            existingId = existing.id;
+            return current;
+          }
+          const id = `${kind}-singleton`;
+          existingId = id;
+          return [
+            ...current,
+            {
+              id,
+              kind,
+              label: t(
+                toolItems.find((item) => item.kind === kind)?.labelKey ??
+                  "session.code_side_panel_files",
+              ),
+            },
+          ];
+        });
+        if (existingId) setActiveId(existingId);
+        return;
       }
-      const terminal =
-        kind === "terminal"
-          ? await createCodeWorkspaceTerminal({ workspacePath: props.workspacePath })
-          : undefined;
-      const id = terminal?.terminalId ?? `${kind}-${Date.now()}`;
+
+      const terminal = await createCodeWorkspaceTerminal({
+        workspacePath: props.workspacePath,
+      });
+      const id = terminal.terminalId;
       const next: ToolTab = {
         id,
         kind,
-        label: terminal?.title ?? t(toolItems.find((item) => item.kind === kind)?.labelKey ?? "session.code_side_panel_files"),
+        label: terminal.title,
         terminal,
       };
       setTabs((current) => [...current, next]);
       setActiveId(id);
     },
-    [props.hiddenKinds, props.workspacePath, tabs],
+    [props.hiddenKinds, props.workspacePath],
   );
 
+  // Ensure the requested tool tab exists once. Do not re-run addTab on every
+  // parent re-render when initialKind stays "browser" (agent state spam).
   useEffect(() => {
     const nextInitialKind = props.initialKind ?? null;
-    if (lastInitialKindRef.current === nextInitialKind) return;
-    lastInitialKindRef.current = nextInitialKind;
-    if (nextInitialKind && !props.hiddenKinds?.includes(nextInitialKind)) {
-      void addTab(nextInitialKind);
+    if (!nextInitialKind || props.hiddenKinds?.includes(nextInitialKind)) {
+      return;
     }
+    if (lastInitialKindRef.current === nextInitialKind) {
+      // Still focus existing singleton if present.
+      if (nextInitialKind !== "terminal") {
+        setTabs((current) => {
+          const existing = current.find((tab) => tab.kind === nextInitialKind);
+          if (existing) setActiveId(existing.id);
+          return current;
+        });
+      }
+      return;
+    }
+    lastInitialKindRef.current = nextInitialKind;
+    void addTab(nextInitialKind);
   }, [addTab, props.hiddenKinds, props.initialKind]);
 
   const closeTab = async (tab: ToolTab) => {
@@ -642,7 +676,14 @@ export function CodeWorkspaceSidePanel(props: {
     if (activeTab.kind === "terminal" && activeTab.terminal) {
       return <TerminalPanel terminal={activeTab.terminal} />;
     }
-    if (activeTab.kind === "browser") return <BrowserPanel onClose={() => void closeTab(activeTab)} />;
+    if (activeTab.kind === "browser") {
+      return (
+        <BrowserPanel
+          sessionId={props.sessionId}
+          onClose={() => void closeTab(activeTab)}
+        />
+      );
+    }
     if (activeTab.kind === "files") {
       return (
         <WorkspaceFilesPanel

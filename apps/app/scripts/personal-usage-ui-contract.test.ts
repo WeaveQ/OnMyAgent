@@ -37,8 +37,12 @@ describe("personal usage UI contract", () => {
     expect(page).toContain('"daily"');
     expect(page).toContain('"weekly"');
     expect(page).toContain('"cumulative"');
-    expect(page).toContain('"size-3 rounded-xs"');
+    expect(page).toContain("size-3");
+    expect(page).toContain("rounded-xs");
     expect(page).toContain("aria-label");
+    expect(page).toContain("usage_daily_tooltip");
+    expect(page).toContain("usage_weekly_tooltip");
+    expect(page).toContain("usage_cumulative_tooltip");
     expect(page).not.toContain("usage_scope_label");
     expect(page).not.toContain("SelectTrigger");
     expect(page).not.toContain("icon:");
@@ -93,6 +97,9 @@ describe("personal usage UI contract", () => {
       "session.usage_daily",
       "session.usage_weekly",
       "session.usage_cumulative",
+      "session.usage_daily_tooltip",
+      "session.usage_weekly_tooltip",
+      "session.usage_cumulative_tooltip",
     ] as const;
     for (const key of keys) {
       expect(enSession[key]).toBeTruthy();

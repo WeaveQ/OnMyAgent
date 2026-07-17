@@ -20,6 +20,10 @@ export type ArtifactPluginCardProps = {
 };
 
 const LOCALIZED_PLUGIN_COPY: Record<string, { nameKey: string; descKey: string }> = {
+  browser: {
+    nameKey: "plugins.artifact_plugin_browser_name",
+    descKey: "plugins.artifact_plugin_browser_desc",
+  },
   documents: {
     nameKey: "plugins.artifact_plugin_documents_name",
     descKey: "plugins.artifact_plugin_documents_desc",

@@ -15,6 +15,8 @@ import {
   writeHiddenAccessibleTargetIds,
 } from "./session-page-accessible-targets";
 import { GLOBAL_VOICE_SIDE_PANEL_KEY } from "./session-page-model";
+import { openInAppBrowser } from "../browser/open-in-app-browser";
+import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 
 type UseSessionPageSidePanelInput = {
   selectedWorkspaceId: string;
@@ -98,23 +100,14 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     [selectedSessionId, setSidePanelState, toggleSidePanelState],
   );
 
-  useEffect(() => {
-    if (!isElectronRuntime()) return;
-    const browser = (window as Window).__ONMYAGENT_ELECTRON__?.browser;
-    if (!browser) return;
-    const unsubOpen = browser.onPanelOpened?.(() => {
-      if (preserveSidePanelOnPanelOpenRef.current) {
-        preserveSidePanelOnPanelOpenRef.current = false;
-        return;
-      }
-      setCurrentSidePanel("browser");
-    });
-    const unsubClose = browser.onPanelClosed?.(() => setCurrentSidePanel(null));
-    return () => {
-      unsubOpen?.();
-      unsubClose?.();
-    };
+  const openBrowserPanelFromAgent = useCallback(() => {
+    if (preserveSidePanelOnPanelOpenRef.current) {
+      preserveSidePanelOnPanelOpenRef.current = false;
+      return;
+    }
+    setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
 
   const {
     rightSidebarExpandedWidth: browserPanelWidth,
@@ -181,14 +174,11 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     async (target: OpenTarget, options?: { auto?: boolean }) => {
       if (target.kind === "url" || target.preview === "browser") {
         const url = browserUrlForTarget(target);
-        if (isElectronRuntime()) {
-          setCurrentSidePanel("browser");
-          const createTab = window.__ONMYAGENT_ELECTRON__?.browser?.createTab;
-          if (!createTab) throw new Error("Browser bridge is unavailable.");
-          await createTab(url);
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
+        await openInAppBrowser({
+          openSidePanel: () => setCurrentSidePanel("browser"),
+          url,
+          sessionId: selectedSessionId,
+        });
         return;
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
@@ -196,7 +186,12 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
-    [artifactTarget?.id, browserUrlForTarget, setCurrentSidePanel],
+    [
+      artifactTarget?.id,
+      browserUrlForTarget,
+      selectedSessionId,
+      setCurrentSidePanel,
+    ],
   );
 
   const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {

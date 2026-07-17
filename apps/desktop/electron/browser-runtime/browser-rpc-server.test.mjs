@@ -46,6 +46,24 @@ test("browser RPC endpoint uses named pipes on Windows and sockets elsewhere", (
   );
 });
 
+test("browser RPC endpoint falls back to a short tmpdir path when the runtime dir is too long", () => {
+  const runtimeDir = path.join("/Users/someone/Library/Application Support", "com.differentai.onmyagent.dev", "browser-runtime");
+  const instanceId = "c221d438-e658-4bd1-8b4e-1d75511b15f9";
+  const endpoint = resolveBrowserRpcEndpoint({ platform: "darwin", runtimeDir, instanceId });
+  assert.ok(Buffer.byteLength(endpoint, "utf8") <= 100, `endpoint too long: ${endpoint}`);
+  assert.notEqual(endpoint, path.join(runtimeDir, `browser-${instanceId}.sock`));
+  assert.equal(
+    endpoint,
+    resolveBrowserRpcEndpoint({ platform: "darwin", runtimeDir, instanceId }),
+    "fallback must be deterministic",
+  );
+  assert.notEqual(
+    endpoint,
+    resolveBrowserRpcEndpoint({ platform: "darwin", runtimeDir, instanceId: "00000000-0000-4000-8000-000000000000" }),
+    "fallback must be unique per instance",
+  );
+});
+
 test("browser RPC server authenticates the peer-scoped capability before dispatch", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-browser-rpc-"));
   const endpoint = path.join(root, "browser.sock");

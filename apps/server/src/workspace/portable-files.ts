@@ -23,6 +23,7 @@ const EXCLUDED_PORTABLE_DIRS = new Set([".opencode/commands/", ".opencode/skills
 const MANAGED_PORTABLE_FILES = new Set([
   ".opencode/tools/get_design_spec.ts",
   ".opencode/tools/render_visual.ts",
+  ".opencode/tools/onmyagent_browser_node_repl.ts",
 ]);
 
 const RESERVED_PORTABLE_SEGMENTS = new Set([".DS_Store", "Thumbs.db", "node_modules"]);

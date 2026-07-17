@@ -128,14 +128,6 @@ async function waitForVite(url, timeoutMs = 60_000) {
   throw new Error(`Timed out waiting for Vite dev server at ${viteProbeUrls.join(", ")}`);
 }
 
-async function findFreePortNear(preferredPort, host = "127.0.0.1") {
-  const start = Number.isFinite(preferredPort) && preferredPort > 0 ? preferredPort : 9223;
-  for (let port = start; port < start + 20; port += 1) {
-    if (!(await probeHost(host, port))) return port;
-  }
-  return 0;
-}
-
 function signalTree(child, signal) {
   if (!child?.pid) return;
   if (process.platform === "win32") {
@@ -273,19 +265,6 @@ if (!viteReady) {
 
 const resolvedStartUrl = await waitForVite(startUrl);
 
-// Optional Electron CDP for external debugging / raw CDP clients.
-// NOT required for the built-in browser (uses native webContents APIs).
-// Set ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT=9823 to enable.
-const cdpPortRaw = process.env.ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT?.trim() ?? "";
-const requestedCdpPort = Number.parseInt(cdpPortRaw, 10);
-const resolvedCdpPort = cdpPortRaw === "" || cdpPortRaw === "0"
-  ? 0
-  : await findFreePortNear(requestedCdpPort);
-const cdpPort = resolvedCdpPort > 0 ? String(resolvedCdpPort) : "";
-if (cdpPortRaw && cdpPortRaw !== "0" && cdpPort && cdpPort !== cdpPortRaw) {
-  console.warn(`[onmyagent] Electron CDP port ${cdpPortRaw} is in use; using ${cdpPort} instead.`);
-}
-
 electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
   cwd: desktopRoot,
   env: {
@@ -293,13 +272,8 @@ electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
     ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE ?? "1",
     ONMYAGENT_DATA_DIR: process.env.ONMYAGENT_DATA_DIR ?? defaultDevDataDir,
     ONMYAGENT_ELECTRON_START_URL: resolvedStartUrl,
-    ...(cdpPort ? { ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT: cdpPort } : {}),
   },
 });
-
-if (cdpPort) {
-  console.log(`[onmyagent] Electron CDP exposed at http://127.0.0.1:${cdpPort}`);
-}
 
 electronChild.on("exit", (code) => {
   if (stopping) return;

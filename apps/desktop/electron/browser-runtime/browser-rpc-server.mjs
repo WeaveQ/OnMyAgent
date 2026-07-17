@@ -1,12 +1,22 @@
+import { createHash } from "node:crypto";
 import { mkdir, unlink } from "node:fs/promises";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 
 import { BrowserRpcFrameDecoder, encodeBrowserRpcFrame } from "./browser-rpc-protocol.mjs";
 
+// macOS limits Unix socket paths to 104 bytes including the NUL terminator
+// (Linux: 108). Longer paths are silently truncated by bind(), which leaves
+// clients unable to connect to the advertised endpoint. Keep a safety margin.
+const MAX_UNIX_SOCKET_PATH_BYTES = 100;
+
 export function resolveBrowserRpcEndpoint({ platform, runtimeDir, instanceId }) {
   if (platform === "win32") return `\\\\.\\pipe\\onmyagent-browser-${instanceId}`;
-  return path.join(runtimeDir, `browser-${instanceId}.sock`);
+  const candidate = path.join(runtimeDir, `browser-${instanceId}.sock`);
+  if (Buffer.byteLength(candidate, "utf8") <= MAX_UNIX_SOCKET_PATH_BYTES) return candidate;
+  const digest = createHash("sha256").update(candidate).digest("hex").slice(0, 16);
+  return path.join(os.tmpdir(), `onmyagent-browser-${digest}`, "browser.sock");
 }
 
 function rpcError(id, code, message) {

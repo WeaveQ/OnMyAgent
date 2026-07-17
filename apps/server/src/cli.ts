@@ -5,7 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { parseCliArgs, printHelp, resolveServerConfig } from "./config.js";
 import { createManagedOpencodeServer, type ManagedOpencodeServer } from "./managed-opencode.js";
 import { createServerLogger, startServer } from "./server.js";
-import { ensureWorkspaceFiles } from "./workspace/workspace-init.js";
+import { ensureAllWorkspaceFiles } from "./workspace/workspace-init.js";
 import { onmyagentExtensionsPreviewPluginPath } from "./onmyagent-extensions-plugin-path.js";
 import pkg from "../package.json" with { type: "json" };
 
@@ -27,8 +27,23 @@ const serverUrl = `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.hos
 let managedOpencode: ManagedOpencodeServer | null = null;
 
 if (!config.readOnly) {
-  for (const workspace of config.workspaces) {
-    await ensureWorkspaceFiles(workspace.path, workspace.preset ?? "starter");
+  const refresh = await ensureAllWorkspaceFiles(config.workspaces, {
+    log: (level, message, meta) => {
+      logger.log(level === "warn" ? "warn" : "info", message, meta);
+    },
+  });
+  if (refresh.failed > 0) {
+    logger.log(
+      "warn",
+      `Refreshed ${refresh.ok} workspace(s); ${refresh.failed} failed`,
+      { errors: refresh.errors },
+    );
+  } else if (refresh.ok > 0) {
+    logger.log(
+      "info",
+      `Refreshed managed .opencode files for ${refresh.ok} workspace(s)`,
+      { changed: refresh.changed },
+    );
   }
 }
 

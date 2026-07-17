@@ -1,0 +1,43 @@
+{
+  "name": "browser",
+  "version": "1.0.0",
+  "description": "Browser / browser-use plugin\n\nAliases: @browser, @browser-use, browser-use, Browser, in-app browser.\n\nUse Browser, OnMyAgent's built-in in-app browser, when the user asks to open, inspect, navigate, test, click, type, or screenshot local web targets such as localhost, 127.0.0.1, ::1, file:// URLs, or the current in-app browser tab.\n\nAfter significant frontend changes to a local app, use Browser to open the relevant local target when it is known or obvious, unless the user asks for another browser tool.\n\nFor requests like \"open localhost:3000\" or \"open to localhost:4000\", navigate the in-app browser to http://localhost:3000 or http://localhost:4000.\n\nDo not satisfy explicit @browser or @browser-use requests with macOS `open`, shell commands, or generic web browsing unless the user asks for another browser tool or approves a fallback.",
+  "author": {
+    "name": "OnMyAgent",
+    "url": "https://github.com/WeaveQ/onmyagent"
+  },
+  "homepage": "https://github.com/WeaveQ/onmyagent",
+  "repository": "https://github.com/WeaveQ/onmyagent",
+  "license": "Apache-2.0",
+  "keywords": [
+    "browser",
+    "automation",
+    "iab",
+    "in-app-browser",
+    "node-repl",
+    "browser-client"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Browser",
+    "shortDescription": "Control OnMyAgent's built-in in-app browser.",
+    "longDescription": "Browser lets OnMyAgent open and control the built-in in-app browser for local development pages, authenticated web apps, navigation, inspection, clicking, typing, and screenshots. It is a system plugin: always installed, enabled by default, and cannot be uninstalled. You can turn it off to disable in-app browser automation.",
+    "developerName": "OnMyAgent",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/WeaveQ/onmyagent",
+    "defaultPrompt": [
+      "Open localhost and verify the landing page.",
+      "Click through this checkout flow in the in-app browser.",
+      "Take a screenshot of the current in-app browser tab."
+    ],
+    "brandColor": "#0B6BCB",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}

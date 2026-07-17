@@ -32,9 +32,67 @@ context.nodeRepl = Object.freeze({
   },
 });
 
+function summarizeBrowserHandle(value) {
+  if (value == null || typeof value !== "object") return null;
+  // Browser handle from setupBrowserRuntime
+  if (typeof value.browserId === "string" && value.tabs && typeof value.tabs.new === "function") {
+    return {
+      __type: "Browser",
+      browserId: value.browserId,
+      name: value.name ?? value.browserId,
+    };
+  }
+  // Tab handle
+  if (typeof value.id === "string" && value.playwright && typeof value.goto === "function") {
+    return {
+      __type: "Tab",
+      id: value.id,
+      note: "Keep this Tab in a variable. Use await tab.url() / await tab.title() for live fields.",
+    };
+  }
+  return null;
+}
+
+const MAX_INLINE_IMAGE_CHARS = 80_000;
+
+function summarizeDataUrl(value) {
+  if (typeof value !== "string" || !value.startsWith("data:image/")) return null;
+  if (value.length <= MAX_INLINE_IMAGE_CHARS) return value;
+  return {
+    __type: "ImageDataUrl",
+    bytesApprox: value.length,
+    truncated: true,
+    note: "Screenshot payload too large for tool text. Prefer tab.screenshot({ maxWidth: 800, format: 'jpeg', quality: 50 }) then nodeRepl.emitImage(result.image), or inspect with tab.dom_cua.observe().",
+    preview: `${value.slice(0, 64)}…`,
+  };
+}
+
 function serialize(value) {
   if (value === undefined) return null;
-  return JSON.parse(JSON.stringify(value));
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "function") {
+    return { __type: "Function", name: value.name || "anonymous" };
+  }
+  const dataUrl = summarizeDataUrl(value);
+  if (dataUrl !== null && typeof dataUrl === "object") return dataUrl;
+  if (typeof dataUrl === "string") return dataUrl;
+  const handle = summarizeBrowserHandle(value);
+  if (handle) return handle;
+  try {
+    return JSON.parse(
+      JSON.stringify(value, (_key, current) => {
+        if (typeof current === "function") return undefined;
+        if (typeof current === "bigint") return current.toString();
+        const nestedImage = summarizeDataUrl(current);
+        if (nestedImage !== null && typeof nestedImage === "object") return nestedImage;
+        const nested = summarizeBrowserHandle(current);
+        if (nested) return nested;
+        return current;
+      }),
+    );
+  } catch {
+    return String(value);
+  }
 }
 
 const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -72,9 +130,15 @@ input.on("line", async (line) => {
       process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, value: true })}\n`);
       return;
     }
-    const source = `(async () => (${request.code}))()`;
-    const promise = new vm.Script(source, { filename: "onmyagent-node-repl.mjs" })
-      .runInContext(context, { timeout: request.syncTimeoutMs });
+    // Prefer the expression form so the value of `code` is returned; fall back
+    // to a block body so multi-statement code (const/await/return) is accepted.
+    let script;
+    try {
+      script = new vm.Script(`(async () => (${request.code}))()`, { filename: "onmyagent-node-repl.mjs" });
+    } catch {
+      script = new vm.Script(`(async () => { ${request.code} })()`, { filename: "onmyagent-node-repl.mjs" });
+    }
+    const promise = script.runInContext(context, { timeout: request.syncTimeoutMs });
     const value = await promise;
     process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, value: serialize(value) })}\n`);
   } catch (error) {

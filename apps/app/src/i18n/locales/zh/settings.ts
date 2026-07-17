@@ -739,4 +739,14 @@ export default {
   "settings.browser.protocol": "协议 {value}",
   "settings.browser.tabs": "标签页 {value}",
   "settings.browser.agent_tabs": "智能体标签页 {value}",
+  "settings.provider_edit_confirm_title": "保存对该模型服务商的修改？",
+  "settings.provider_edit_confirm_desc": "保存将写入 OpenCode 配置，需重新加载引擎后生效。",
+  "settings.provider_edit_confirm_button": "保存修改",
+  "settings.provider_delete_confirm_title": "删除该模型服务商？",
+  "settings.provider_delete_confirm_desc": "删除将从 OpenCode 配置移除该服务商，操作不可撤销，需重新加载引擎后生效。",
+  "settings.provider_more_actions": "更多操作",
+  "settings.provider_reload_required_title": "需要刷新引擎",
+  "settings.provider_reload_required_desc":
+    "新增或修改模型服务商需要刷新引擎（不用重启 App）以使修改立刻生效，请点击立刻刷新按钮。",
+  "settings.provider_reload_now": "立刻刷新",
 } as const;
