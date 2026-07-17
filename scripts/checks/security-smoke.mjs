@@ -4,8 +4,6 @@ import { readFile } from "node:fs/promises";
 
 const appRequire = createRequire(new URL("../../apps/app/package.json", import.meta.url));
 const { Marked } = await import(appRequire.resolve("marked"));
-const { default: markedShiki } = await import(appRequire.resolve("marked-shiki"));
-const { codeToHtml } = await import(appRequire.resolve("shiki"));
 
 const desktopMain = await readFile(new URL("../../apps/desktop/electron/main.mjs", import.meta.url), "utf8");
 const desktopBrowserController = await readFile(
@@ -28,37 +26,28 @@ assert.match(desktopApplicationMenu, /const fileSubmenu = isMac/);
 assert.match(desktopApplicationMenu, /label: "Settings\.\.\.",/);
 assert.doesNotMatch(desktopMain, /mainWindow\.on\("resize"/);
 
-assert.match(markdownSource, /function isSafeShikiHtml\(text: string\)/);
-assert.match(markdownSource, /return isSafeShikiHtml\(text\) \? text : "";/);
+// markdown.tsx must strip all raw HTML tokens: the `html` renderer returns an
+// empty string unconditionally, and the module must not opt back into raw HTML
+// (e.g. by re-enabling marked's default html renderer or importing sanitizers
+// that would allow arbitrary HTML through).
+assert.match(markdownSource, /renderer:\s*\{[\s\S]{0,120}?html\(\)\s*\{\s*return\s*""\s*;\s*\}/);
+assert.doesNotMatch(markdownSource, /dangerouslySetInnerHTML\s*=\s*\{\s*\{\s*__html:\s*rawMarkdown/);
 
 const parser = new Marked({
   async: false,
   gfm: true,
   silent: true,
   renderer: {
-    html({ text }) {
-      if (!text.includes('data-onmyagent-shiki="true"')) return "";
-      if (/<\s*(script|style|iframe|object|embed|link|meta|img|svg|math)\b/i.test(text)) return "";
-      return text;
+    html() {
+      return "";
     },
   },
-}).use(
-  markedShiki({
-    async highlight(code, lang) {
-      return codeToHtml(code, {
-        lang: lang || "text",
-        theme: "github-light",
-      });
-    },
-    container: '<div data-onmyagent-shiki="true">%s</div>',
-  }),
-);
+});
 
-const highlighted = await parser.parse("```js\nconsole.log(1)\n```", { async: true });
-assert.match(highlighted, /data-onmyagent-shiki="true"/);
-assert.match(highlighted, /console/);
+const stripped = parser.parse('<div><img src=x onerror=alert(1)></div>', { async: false });
+assert.doesNotMatch(stripped, /<img|<div|onerror/);
 
-const injected = await parser.parse('<div data-onmyagent-shiki="true"><img src=x onerror=alert(1)></div>', { async: true });
-assert.equal(injected.trim(), "");
+const scriptStripped = parser.parse('before<script>alert(1)</script>after', { async: false });
+assert.doesNotMatch(scriptStripped, /<script/);
 
 console.log("security smoke passed");
