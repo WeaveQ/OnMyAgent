@@ -79,6 +79,41 @@ export type WorkspaceList = {
   workspaces: WorkspaceInfo[];
 };
 
+/** Args for desktop `workspaceCreateRemote` (remote onmyagent / opencode mount). */
+export type WorkspaceCreateRemoteInput = {
+  baseUrl: string;
+  remoteType?: "onmyagent" | "opencode" | null;
+  directory?: string | null;
+  displayName?: string | null;
+  onmyagentHostUrl?: string | null;
+  onmyagentToken?: string | null;
+  onmyagentClientToken?: string | null;
+  onmyagentHostToken?: string | null;
+  onmyagentWorkspaceId?: string | null;
+  onmyagentWorkspaceName?: string | null;
+  sandboxBackend?: "docker" | "microsandbox" | null;
+  sandboxRunId?: string | null;
+  sandboxContainerName?: string | null;
+};
+
+/** Args for desktop `workspaceUpdateRemote` — patch remote connection fields by id. */
+export type WorkspaceUpdateRemoteInput = {
+  workspaceId: string;
+  baseUrl?: string | null;
+  remoteType?: "onmyagent" | "opencode" | null;
+  directory?: string | null;
+  displayName?: string | null;
+  onmyagentHostUrl?: string | null;
+  onmyagentToken?: string | null;
+  onmyagentClientToken?: string | null;
+  onmyagentHostToken?: string | null;
+  onmyagentWorkspaceId?: string | null;
+  onmyagentWorkspaceName?: string | null;
+  sandboxBackend?: "docker" | "microsandbox" | null;
+  sandboxRunId?: string | null;
+  sandboxContainerName?: string | null;
+};
+
 export type WorkspaceExportSummary = {
   outputPath: string;
   included: number;
@@ -676,6 +711,78 @@ export type PersonalLocalAgentAcpConfigOptionInput = {
     provider?: PersonalLocalAgentProvider;
     customArgs?: string[];
   };
+};
+
+/** Input for ACP agent health probe (`personalLocalAgentAcpHealth`). */
+export type PersonalLocalAgentAcpHealthInput = {
+  agents?: Array<Partial<PersonalLocalAgent>>;
+  workspaceRoot?: string;
+};
+
+export type PersonalLocalAgentAcpHealthAgent = {
+  id?: string;
+  backend?: string;
+  agent_type?: string;
+  available?: boolean;
+  connectionMode?: string | null;
+  error?: string | null;
+  [key: string]: unknown;
+};
+
+export type PersonalLocalAgentAcpHealthResult = {
+  ok: boolean;
+  agents: PersonalLocalAgentAcpHealthAgent[];
+};
+
+/** Input for listing ACP session config options / models / commands. */
+export type PersonalLocalAgentAcpConfigOptionsInput = {
+  agent?: Partial<PersonalLocalAgent>;
+  agentId?: string;
+  provider?: string;
+  workspaceRoot?: string;
+};
+
+export type PersonalLocalAgentAcpConfigOptionsResult = {
+  configOptions: unknown[];
+  availableModels: unknown[];
+  availableCommands: unknown[];
+  capabilities?: {
+    supportsConfigOptions?: boolean;
+    supportsModelOverride?: boolean;
+    supportsModeOverride?: boolean;
+    [key: string]: boolean | undefined;
+  };
+  unsupportedReason?: string | null;
+};
+
+export type LocalAgentComposerFileEntry = {
+  path: string;
+  relativePath: string;
+  name: string;
+  isDirectory: boolean;
+};
+
+export type LocalAgentComposerListFilesInput = {
+  workspaceRoot: string;
+  query?: string;
+  limit?: number;
+};
+
+export type LocalAgentComposerListFilesResult = {
+  files: LocalAgentComposerFileEntry[];
+};
+
+export type LocalAgentComposerSaveAttachmentInput = {
+  workspaceRoot: string;
+  name: string;
+  dataUrl: string;
+};
+
+export type LocalAgentComposerSaveAttachmentResult = {
+  path: string;
+  relativePath: string;
+  name: string;
+  size: number;
 };
 
 export type PersonalLocalAgentAcpConfigOptionResult = {
