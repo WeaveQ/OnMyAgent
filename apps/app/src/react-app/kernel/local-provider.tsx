@@ -13,6 +13,7 @@ import {
 import { THINKING_PREF_KEY } from "../../app/constants";
 import { coerceReleaseChannel } from "../../app/lib/release-channels";
 import type { ModelRef, ReleaseChannel, SettingsTab, View } from "../../app/types";
+import { canonicalizeProfileOptionValues } from "../domains/shared";
 import { readStoredDefaultModel } from "./model-config";
 
 export type LocalUIState = {
@@ -55,6 +56,11 @@ export const DEFAULT_CONVERSATION_MEMORY: ConversationMemoryState = {
   items: [],
 };
 
+function filterStringList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  return values.filter((v): v is string => typeof v === "string");
+}
+
 export function normalizeOnboardingProfile(
   input: Partial<OnboardingProfile> | null | undefined,
 ): OnboardingProfile | null {
@@ -63,10 +69,11 @@ export function normalizeOnboardingProfile(
     userName: typeof input.userName === "string" ? input.userName : "",
     assistantName: typeof input.assistantName === "string" ? input.assistantName : "",
     mbti: typeof input.mbti === "string" ? input.mbti : "",
-    roles: Array.isArray(input.roles) ? input.roles.filter((v): v is string => typeof v === "string") : [],
-    industries: Array.isArray(input.industries) ? input.industries.filter((v): v is string => typeof v === "string") : [],
-    tools: Array.isArray(input.tools) ? input.tools.filter((v): v is string => typeof v === "string") : [],
-    tasks: Array.isArray(input.tasks) ? input.tasks.filter((v): v is string => typeof v === "string") : [],
+    // Collapse fine-grained roles/industries so multi-select still matches options.
+    roles: canonicalizeProfileOptionValues(filterStringList(input.roles)),
+    industries: canonicalizeProfileOptionValues(filterStringList(input.industries)),
+    tools: canonicalizeProfileOptionValues(filterStringList(input.tools)),
+    tasks: canonicalizeProfileOptionValues(filterStringList(input.tasks)),
     docPreference:
       input.docPreference === "data" || input.docPreference === "narrative"
         ? input.docPreference

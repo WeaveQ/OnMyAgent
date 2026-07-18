@@ -7,17 +7,13 @@ import {
   Brain,
   CloudCog,
   Cog,
-  Container,
   FolderLock,
   Puzzle,
   RefreshCcw,
-  ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Store,
   Terminal,
   UserCircle,
-  Wrench,
   Zap,
 } from "lucide-react";
 
@@ -63,26 +59,16 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return SlidersHorizontal;
     case "permissions":
       return FolderLock;
-    case "cloud-account":
-      return UserCircle;
     case "cloud-marketplaces":
       return Store;
-    case "cloud-workers":
-      return Container;
     case "cloud-providers":
       return CloudCog;
-    case "skills":
-      return Sparkles;
     case "extensions":
       return Puzzle;
     case "environment":
       return Terminal;
-    case "advanced":
-      return Wrench;
     case "updates":
       return RefreshCcw;
-    case "recovery":
-      return ShieldCheck;
     case "memory":
       return UserCircle;
     case "conversation-memory":
@@ -104,26 +90,16 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.preferences");
     case "permissions":
       return t("settings.permissions");
-    case "cloud-account":
-      return t("settings.tab_cloud_account");
     case "cloud-marketplaces":
       return t("settings.tab_cloud_marketplaces");
-    case "cloud-workers":
-      return t("settings.tab_cloud_workers");
     case "cloud-providers":
       return t("settings.tab_cloud_providers");
-    case "skills":
-      return t("settings.tab_skills");
     case "extensions":
       return t("settings.tab_extensions");
     case "environment":
       return t("settings.tab_environment");
-    case "advanced":
-      return t("settings.tab_advanced");
     case "updates":
       return t("settings.tab_updates");
-    case "recovery":
-      return t("settings.tab_recovery");
     case "memory":
       return t("settings.tab_memory");
     case "conversation-memory":
@@ -147,26 +123,16 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.preferences_card_description");
     case "permissions":
       return t("settings.permissions_card_description");
-    case "cloud-account":
-      return t("settings.tab_description_cloud_account");
     case "cloud-marketplaces":
       return t("settings.tab_description_cloud_marketplaces");
-    case "cloud-workers":
-      return t("settings.tab_description_cloud_workers");
     case "cloud-providers":
       return t("settings.tab_description_cloud_providers");
-    case "skills":
-      return t("settings.tab_description_skills");
     case "extensions":
       return t("settings.tab_description_extensions");
     case "environment":
       return t("settings.tab_description_environment");
-    case "advanced":
-      return t("settings.tab_description_advanced");
     case "updates":
       return t("settings.tab_description_updates");
-    case "recovery":
-      return t("settings.tab_description_recovery");
     case "memory":
       return t("settings.tab_description_memory");
     case "conversation-memory":

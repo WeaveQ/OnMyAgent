@@ -63,8 +63,90 @@ describe("expert marketplace UI contract", () => {
         "ai-engineer",
         "gaokao-advisor",
         "viral-topic-master",
+        "logistics-ops-navigator",
+        "logistics-line-haul",
+        "logistics-urban-delivery",
+        "logistics-cold-chain",
       ]),
     );
+  });
+
+  test("ships Logistics marketplace category and four logistics expert packages under 14-Logistics", () => {
+    const categories = readMarketplaceFile("categories.ts");
+    expect(categories).toContain('id: "14-Logistics"');
+    expect(categories).toContain("session.expert_marketplace_category_logistics");
+    expect(categories).toMatch(/物流/);
+    expect(categories).toMatch(/logistics/i);
+
+    const localeRoots = [
+      join(repoRoot, "apps/app/src/i18n/locales/en/session.ts"),
+      join(repoRoot, "apps/app/src/i18n/locales/zh/session.ts"),
+      join(repoRoot, "apps/app/src/i18n/locales/zh-TW/session.ts"),
+    ];
+    for (const localePath of localeRoots) {
+      const text = readFileSync(localePath, "utf8");
+      expect(text).toContain("session.expert_marketplace_category_logistics");
+    }
+
+    const logisticsPackages = [
+      "logistics-ops-navigator",
+      "logistics-line-haul",
+      "logistics-urban-delivery",
+      "logistics-cold-chain",
+    ] as const;
+    const verticalSkillMarkers: Record<string, string> = {
+      "logistics-line-haul": "throw-weight",
+      "logistics-urban-delivery": "day-clear",
+      "logistics-cold-chain": "break-chain",
+    };
+
+    for (const packageName of logisticsPackages) {
+      const packageRoot = join(builtinPluginsRoot, packageName);
+      const pluginPath = join(packageRoot, ".expert-plugin/plugin.json");
+      expect(existsSync(pluginPath)).toBe(true);
+      expect(existsSync(join(packageRoot, "agents"))).toBe(true);
+      const plugin = JSON.parse(readFileSync(pluginPath, "utf8")) as {
+        categoryId?: string;
+        categoryIds?: string[];
+        skills?: string[];
+      };
+      const categoryIds = [
+        ...(plugin.categoryId ? [plugin.categoryId] : []),
+        ...(Array.isArray(plugin.categoryIds) ? plugin.categoryIds : []),
+      ];
+      expect(categoryIds).toContain("14-Logistics");
+      if (packageName in verticalSkillMarkers) {
+        const marker = verticalSkillMarkers[packageName];
+        const skillTree = join(packageRoot, "skills");
+        expect(existsSync(skillTree)).toBe(true);
+        const skillBlob = readdirSync(skillTree, { recursive: true })
+          .map((rel) => {
+            const full = join(skillTree, String(rel));
+            return statSync(full).isFile() ? readFileSync(full, "utf8") : "";
+          })
+          .join("\n");
+        expect(skillBlob.toLowerCase()).toContain(marker);
+      }
+    }
+
+    const expertManifest = JSON.parse(
+      readMarketplaceFile("builtin-experts.manifest.json"),
+    ) as { experts?: Array<{ packageName?: string; manifest?: { categoryId?: string; categoryIds?: string[] } }> };
+    const manifestNames = (expertManifest.experts ?? []).map((entry) => entry.packageName);
+    for (const packageName of logisticsPackages) {
+      expect(manifestNames).toContain(packageName);
+      const entry = (expertManifest.experts ?? []).find((item) => item.packageName === packageName);
+      const cats = [
+        ...(entry?.manifest?.categoryId ? [entry.manifest.categoryId] : []),
+        ...(Array.isArray(entry?.manifest?.categoryIds) ? entry.manifest.categoryIds : []),
+      ];
+      expect(cats).toContain("14-Logistics");
+    }
+
+    const assetMap = readMarketplaceFile("builtin-expert-assets.ts");
+    for (const packageName of logisticsPackages) {
+      expect(assetMap).toContain(`"${packageName}"`);
+    }
   });
 
   test("parses details from package files with folder-name fallback and duplicate-safe ids", () => {

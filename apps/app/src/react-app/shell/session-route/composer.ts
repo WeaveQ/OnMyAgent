@@ -14,7 +14,7 @@ import { t, type Language } from "../../../i18n";
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
 
 export function routeForSettingsSection(section: SettingsSection) {
-  if (section === "skills") return "/settings/skills";
+  if (section === "skills") return "/settings/extensions";
   if (section === "mcps") return "/settings/extensions/mcp";
   if (section === "plugins") return "/settings/extensions/plugins";
   return "/settings/general";

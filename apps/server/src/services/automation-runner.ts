@@ -178,11 +178,35 @@ async function executeClaimedAutomation(
   }
 }
 
+export async function resolveAutomationRunModel(
+  task: Pick<AutomationTaskItem, "model" | "agent">,
+): Promise<AutomationModel | undefined> {
+  const direct = task.model ?? task.agent?.model;
+  if (direct?.providerID?.trim() && direct?.modelID?.trim()) {
+    return {
+      providerID: direct.providerID.trim(),
+      modelID: direct.modelID.trim(),
+    };
+  }
+  return readAutomationModel();
+}
+
 export async function startAutomationTask(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   task: Pick<AutomationTaskItem, "title" | "prompt" | "workspaceDirectory" | "model" | "agent" | "accessMode">,
 ): Promise<AutomationExecution> {
+  // Resolve model before creating a session so empty-model runs fail fast
+  // without leaving orphan sessions that only show the user prompt.
+  const model = await resolveAutomationRunModel(task);
+  if (!model) {
+    throw new ApiError(
+      400,
+      "automation_model_missing",
+      "Automation requires a model. Select a model in the automation task, or set a default model in OpenCode / app settings.",
+    );
+  }
+
   const workspaceRoot = task.workspaceDirectory?.trim() || workspace.path;
   const { groupName, outputDirectory } = await createAutomationOutputDirectory(workspaceRoot);
   const opencode = createWorkspaceOpencodeClient(config, workspace, outputDirectory);
@@ -206,7 +230,6 @@ export async function startAutomationTask(
     throw new ApiError(502, "opencode_failed", "OpenCode session did not return an id");
   }
 
-  const model = task.model ?? task.agent?.model ?? await readAutomationModel();
   const system = automationSystemPrompt(task);
   const executionPrompt = [
     task.prompt,
@@ -227,7 +250,7 @@ export async function startAutomationTask(
           "请将本次任务生成的报告、文档、图片和其他文件全部保存到当前工作目录。",
           "请至少把最终结果保存为“执行结果.md”，不要把生成文件写到工作区的其他目录。",
         ].filter(Boolean).join("\n"),
-        ...(model ? { model: `${model.providerID}/${model.modelID}` } : {}),
+        model: `${model.providerID}/${model.modelID}`,
       }),
       `/session/${encodeURIComponent(sessionId)}/command`,
     );
@@ -235,7 +258,7 @@ export async function startAutomationTask(
     ensureOpencodeRequestSucceeded(
       await opencode.session.promptAsync({
         sessionID: sessionId,
-        ...(model ? { model } : {}),
+        model,
         ...(task.agent?.tools ? { tools: task.agent.tools } : {}),
         ...(system ? { system } : {}),
         parts: [{ type: "text", text: executionPrompt }],
@@ -292,7 +315,7 @@ export async function waitForAutomationSession(
         throw new ApiError(
           502,
           "automation_empty_output",
-          "OpenCode completed without assistant output",
+          "OpenCode completed without assistant output. Check that the selected model is available, then re-run the automation.",
         );
       }
     }

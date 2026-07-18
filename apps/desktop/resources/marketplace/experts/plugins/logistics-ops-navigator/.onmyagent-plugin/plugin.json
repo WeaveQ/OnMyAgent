@@ -1,0 +1,81 @@
+{
+  "name": "logistics-ops-navigator",
+  "version": "1.0.0",
+  "description": "Logistics operations navigator for China 3PL and dedicated-line operators: recon, claims, quotes, dispatch-style task cards",
+  "author": {
+    "name": "Expert Marketplace"
+  },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "logistics-ops-navigator",
+  "agents": [
+    "./agents/logistics-ops-navigator.md"
+  ],
+  "skills": [
+    "./skills/recon-ap-ar",
+    "./skills/exception-claim-handler",
+    "./skills/freight-quote-desk"
+  ],
+  "displayName": {
+    "en": "Logistics Ops Navigator",
+    "zh": "物流作业领航"
+  },
+  "profession": {
+    "en": "Logistics Operations Lead",
+    "zh": "物流作业领航"
+  },
+  "displayDescription": {
+    "en": "Chat like WeChat with finance, dispatch, sales and claims. Drop bills and screenshots, get variance tables and reply scripts.",
+    "zh": "像微信一样给财务、调度、业务、异常派活。丢账单、丢截图，直接出差异表、报价单和话术。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
+  "defaultInitPrompt": {
+    "zh": "这是承运商上周账单 PDF，帮我跟应付表对一下，差超过 50 块的标红。",
+    "en": "Here is last week's carrier bill PDF — reconcile it against our AP sheet and flag gaps over 50."
+  },
+  "tags": [
+    {
+      "zh": "对账",
+      "en": "Reconciliation"
+    },
+    {
+      "zh": "专线3PL",
+      "en": "3PL / Line Haul"
+    },
+    {
+      "zh": "异常索赔",
+      "en": "Claims"
+    },
+    {
+      "zh": "报价",
+      "en": "Quoting"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这是承运商上周账单 PDF，帮我跟应付表对一下，差超过 50 块的标红。",
+      "en": "Reconcile this carrier bill PDF against our AP sheet; flag gaps over 50."
+    },
+    {
+      "zh": "上海到成都泡货 12 方约 1.8 吨，要 48 小时专线，给个报价结构和底价建议。",
+      "en": "Quote Shanghai→Chengdu LTL, 12 CBM / 1.8t, 48h dedicated line, with floor price."
+    },
+    {
+      "zh": "货主说破损司机说没破，运单摘要和聊天记录如下，帮我责任初判和回复话术。",
+      "en": "Shipper claims damage, driver denies. Give liability draft and reply scripts."
+    },
+    {
+      "zh": "今天待发和在途大概这些，帮我写一份调度早报，标出风险单。",
+      "en": "Draft today's dispatch board from these pending/in-transit loads; flag risks."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【物流作业领航】——你的作业台班长。\n\n下面这几位在岗，直接点名或丢文件就行：\n· **财务小账** — 对账、回单、票差\n· **调度阿强** — 派车复述、今日看板\n· **业务报价** — 专线/整车报价与话术\n· **异常台** — 破损延误拒收、索赔闭环\n\n做冷链找【冷运作业专家】；同城多点找【短途城配专家】；专线网点加深找【专线干线专家】；说不清就留在我这。\n\n今天派什么活？把账单 PDF、Excel 或聊天截图丢过来。",
+    "en": "Boss, I'm Logistics Ops Navigator — your ops desk lead.\n\nOn duty:\n· **Finance** — recon, POD, invoice gaps\n· **Dispatch** — load brief, daily board\n· **Sales quote** — line-haul / FTL structure\n· **Claims desk** — damage delay refusal scripts\n\nCold chain → Cold-Chain Ops; multi-stop city → Urban Delivery; deep line-haul hubs → Line-Haul Ops; stay here if unsure.\n\nWhat should we run? Drop a bill PDF, Excel, or chat screenshot."
+  }
+}

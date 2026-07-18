@@ -431,13 +431,6 @@ export function OnMyAgentRouteControlActions() {
       execute: () => navigate("/settings/extensions"),
     },
     {
-      id: "route.settings.skills",
-      label: t("system.control_open_skills_settings"),
-      description: t("system.control_open_skills_settings_desc"),
-      sideEffect: "navigation",
-      execute: () => navigate("/settings/skills"),
-    },
-    {
       id: "route.settings.providers",
       label: t("system.control_open_provider_settings"),
       description: t("system.control_open_ai_settings_desc"),
@@ -458,7 +451,5 @@ export function OnMyAgentRouteControlActions() {
   useControlAction(actions[2]);
   useControlAction(actions[3]);
   useControlAction(actions[4]);
-  useControlAction(actions[5]);
-  useControlAction(actions[6]);
   return null;
 }
