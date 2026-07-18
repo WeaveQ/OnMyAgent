@@ -20,6 +20,15 @@ import {
   FORBIDDEN_VERTICAL_IDS,
   isForbiddenVerticalId,
 } from "../src/react-app/domains/shared/personalization/verticals";
+import {
+  automationPayloadFromTemplate,
+  selectTemplatesToCreate,
+} from "../src/react-app/domains/shared/personalization/apply-automations";
+import {
+  planFingerprint,
+  rankTemplatesForPlan,
+  shouldOfferPersonalizationApply,
+} from "../src/react-app/domains/shared/personalization/rank";
 
 const repoRoot = join(import.meta.dir, "../../..");
 
@@ -176,5 +185,72 @@ describe("automation template tags (shipped)", () => {
     const planIds = plan.automations.map((a) => a.templateId);
     const intersection = planIds.filter((id) => taggedLogistics.has(id));
     expect(intersection.length).toBeGreaterThan(0);
+  });
+});
+
+describe("personalization apply helpers (shipped)", () => {
+  test("rankTemplatesForPlan puts plan automations first", () => {
+    const plan = buildPersonalizationPlan({
+      industries: ["logistics"],
+      roles: ["operations"],
+      tasks: ["dispatch"],
+    });
+    const office = AUTOMATION_TEMPLATES.filter(
+      (row) => row.category === "office" || row.category === "shared",
+    );
+    const { recommended, rest } = rankTemplatesForPlan(office, plan);
+    expect(recommended.length).toBeGreaterThan(0);
+    expect(recommended[0]?.id).toBe(plan.automations[0]?.templateId);
+    const recIds = new Set(recommended.map((r) => r.id));
+    for (const item of rest) {
+      expect(recIds.has(item.id)).toBe(false);
+    }
+  });
+
+  test("automationPayloadFromTemplate uses resolveText for title/prompt", () => {
+    const template = AUTOMATION_TEMPLATES.find(
+      (row) => row.id === "logistics-dispatch-brief",
+    );
+    expect(template).toBeTruthy();
+    const payload = automationPayloadFromTemplate("office", template!, (key) =>
+      key === template!.titleKey ? "调度早报" : key === template!.promptKey ? "PROMPT" : key,
+    );
+    expect(payload.title).toBe("调度早报");
+    expect(payload.prompt).toBe("PROMPT");
+    expect(payload.scene).toBe("office");
+    expect(payload.enabled).toBe(true);
+    expect(payload.schedule.time).toBe(template!.defaultSchedule.time);
+  });
+
+  test("selectTemplatesToCreate respects plan auto-create list and skips existing ids", () => {
+    const plan = buildPersonalizationPlan({
+      industries: ["logistics"],
+      roles: ["operations"],
+      tasks: ["dispatch"],
+    });
+    const firstId = plan.defaultAutoCreateTemplateIds[0];
+    expect(firstId).toBeTruthy();
+    const selected = selectTemplatesToCreate(
+      plan,
+      AUTOMATION_TEMPLATES,
+      new Set([firstId!]),
+    );
+    expect(selected.some((row) => row.id === firstId)).toBe(false);
+    expect(selected.length).toBeLessThanOrEqual(
+      plan.defaultAutoCreateTemplateIds.length,
+    );
+  });
+
+  test("shouldOfferPersonalizationApply is true for fresh workspace fingerprint", () => {
+    const plan = buildPersonalizationPlan({
+      industries: ["internet"],
+      roles: ["technology"],
+      tasks: ["code"],
+    });
+    expect(planFingerprint(plan).length).toBeGreaterThan(0);
+    // Without window localStorage written for this workspace, offer is true.
+    expect(shouldOfferPersonalizationApply("test-workspace-fresh", plan)).toBe(
+      true,
+    );
   });
 });
