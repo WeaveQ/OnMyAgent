@@ -160,7 +160,7 @@ function CollapsibleChannelContent(props: {
   onDiscordStatusChange?: (status: MessagingChannelStatus) => void;
 }) {
   return (
-    <div className="space-y-5 border-t border-dls-border px-4 pb-4 pt-3">
+    <div className="space-y-3 border-t border-dls-border bg-dls-background/40 px-4 pb-4 pt-3">
       {props.channel.id === "wechat" ? (
         <WeixinChannelPanel
           workspaceRoot={props.workspaceRoot}
@@ -188,7 +188,7 @@ function CollapsibleChannelContent(props: {
         />
       ) : null}
 
-      <section className="space-y-2.5 border-t border-dls-border pt-4">
+      <section className="space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4">
         <h4 className="text-sm font-medium text-dls-text">
           {t("messaging.pairing_management")}
         </h4>
