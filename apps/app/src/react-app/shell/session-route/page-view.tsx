@@ -3,10 +3,12 @@
  * Presentational shell for SessionRouteRender: CloudSessionProvider,
  * WorkspaceProvider, ReactSessionRuntime, SessionPage, and SessionRouteModals.
  */
-import type {
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
+import {
+  lazy,
+  Suspense,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
 } from "react";
 import type { NavigateFunction } from "react-router-dom";
 
@@ -40,7 +42,16 @@ import {
   type SessionAgentManagementIntent,
 } from "../../domains/session";
 import type { SessionPageSurfaceProps } from "../../domains/session";
-import { AgentsPage } from "../../domains/agents";
+
+import { loadAgentsPage } from "../../domains/agents";
+
+// Agents registry UI is heavy and non-critical for the live chat path —
+// code-split so it does not ride the main session graph.
+const AgentsPage = lazy(() =>
+  loadAgentsPage().then((module) => ({
+    default: module.AgentsPage,
+  })),
+);
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import type { DesktopAppRestrictionChecker } from "../../../app/cloud/desktop-app-restrictions";
 import { ReactSessionRuntime, useSessionActivityStore } from "../../domains/session";
@@ -443,7 +454,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           providerConnectedIds={providerConnectedIds}
           providers={providers}
           renderAgentsPage={(agentsPageProps) => (
-            <AgentsPage {...agentsPageProps} />
+            <Suspense fallback={null}>
+              <AgentsPage {...agentsPageProps} />
+            </Suspense>
           )}
           mcpConnectedCount={0}
           onSendFeedback={() => {
