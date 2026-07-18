@@ -55,6 +55,10 @@ export type SessionSurfaceProps = {
   onOpenAgentSettings?: () => void;
   headerActions?: ReactNode;
   conversationTabs?: ReactNode;
+  /** In-conversation find: highlight + navigate matches in the transcript. */
+  searchQuery?: string;
+  searchActiveMatchIndex?: number;
+  onSearchMatchCountChange?: (count: number) => void;
   selectedAgent: string | null;
   listAgents: () => Promise<import("@opencode-ai/sdk/v2/client").Agent[]>;
   onSelectAgent: (agent: string | null) => void;
