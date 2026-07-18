@@ -55,3 +55,15 @@ export {
   isForbiddenVerticalId,
   type PersonalizationVerticalId,
 } from "./personalization/verticals";
+export {
+  PERSONALIZATION_APPLIED_STORAGE_KEY,
+  planFingerprint,
+  rankTemplatesForPlan,
+  readAppliedPlanFingerprint,
+  shouldOfferPersonalizationApply,
+  writeAppliedPlanFingerprint,
+} from "./personalization/rank";
+export {
+  automationPayloadFromTemplate,
+  selectTemplatesToCreate,
+} from "./personalization/apply-automations";

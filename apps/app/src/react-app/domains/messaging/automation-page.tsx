@@ -57,6 +57,18 @@ import type {
   OnMyAgentServerClient,
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
+import { useLocal } from "../../kernel/local-provider";
+import {
+  automationPayloadFromTemplate,
+  buildPersonalizationPlan,
+  planFingerprint,
+  rankTemplatesForPlan,
+  selectTemplatesToCreate,
+  shouldOfferPersonalizationApply,
+  writeAppliedPlanFingerprint,
+} from "../../shared";
+import { installExpertPackage } from "../../../app/lib/desktop";
+import { isElectronRuntime } from "../../../app/utils";
 import {
   getAutomationTemplatesForScene,
   isAutomationScheduleTime,
@@ -927,6 +939,7 @@ export function AutomationPage(props: {
   onOpenSession: (workspaceId: string, sessionId: string) => void;
 }) {
   const workspace = useWorkspace();
+  const local = useLocal();
   const registry = useAgentRegistryStore((state) => state.registry) ?? createDefaultAgentRegistry();
   const [automations, setAutomations] = useState<OnMyAgentAutomationTaskItem[]>([]);
   const [templateViewOpen, setTemplateViewOpen] = useState(false);
@@ -940,8 +953,49 @@ export function AutomationPage(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeStatusTab, setActiveStatusTab] = useState<AutomationStatusTab>("scheduled");
+  const [personalizationBannerDismissed, setPersonalizationBannerDismissed] = useState(false);
+  const [personalizationNotice, setPersonalizationNotice] = useState<string | null>(null);
 
-  const visibleTemplates = useMemo(() => getAutomationTemplatesForScene(props.scene), [props.scene]);
+  const personalizationPlan = useMemo(() => {
+    const profile = local.prefs.onboardingProfile;
+    if (!profile || profile.skipped) return null;
+    if (
+      !profile.roles.length &&
+      !profile.industries.length &&
+      !profile.tasks.length &&
+      !profile.tools.length
+    ) {
+      return null;
+    }
+    return buildPersonalizationPlan({
+      roles: profile.roles,
+      industries: profile.industries,
+      tools: profile.tools,
+      tasks: profile.tasks,
+    });
+  }, [local.prefs.onboardingProfile]);
+
+  const sceneTemplates = useMemo(
+    () => getAutomationTemplatesForScene(props.scene),
+    [props.scene],
+  );
+  const { recommended: recommendedTemplates, rest: restTemplates } = useMemo(
+    () => rankTemplatesForPlan(sceneTemplates, personalizationPlan),
+    [sceneTemplates, personalizationPlan],
+  );
+  const visibleTemplates = useMemo(
+    () => [...recommendedTemplates, ...restTemplates],
+    [recommendedTemplates, restTemplates],
+  );
+  const recommendedIdSet = useMemo(
+    () => new Set(recommendedTemplates.map((item) => item.id)),
+    [recommendedTemplates],
+  );
+  const showPersonalizationOffer =
+    !personalizationBannerDismissed &&
+    shouldOfferPersonalizationApply(props.workspaceId, personalizationPlan) &&
+    Boolean(personalizationPlan);
+
   const visibleAutomations = automations.filter((item) => item.scene === props.scene);
   const scheduled = visibleAutomations.filter((item) => (
     !item.running &&
@@ -1135,6 +1189,64 @@ export function AutomationPage(props: {
   const openSession = (sessionId: string) => props.onOpenSession(props.workspaceId, sessionId);
   const showTemplates = !hasAutomations || templateViewOpen;
 
+  const applyPersonalization = async () => {
+    const plan = personalizationPlan;
+    const workspaceId = props.workspaceId.trim();
+    if (!plan || !props.client || !workspaceId) return;
+    setBusy(true);
+    setError(null);
+    setPersonalizationNotice(null);
+    try {
+      const existingTitles = new Set(
+        visibleAutomations.map((item) => item.title.trim()).filter(Boolean),
+      );
+      const toCreate = selectTemplatesToCreate(plan, sceneTemplates, existingTitles)
+        .map((template) => {
+          const title = t(template.titleKey);
+          if (existingTitles.has(title)) return null;
+          return template;
+        })
+        .filter((item): item is AutomationTemplate => Boolean(item));
+
+      let created = 0;
+      let lastItems = automations;
+      for (const template of toCreate) {
+        const payload = automationPayloadFromTemplate(props.scene, template, t);
+        const result = await props.client.createAutomation(workspaceId, payload);
+        lastItems = result.items;
+        created += 1;
+        existingTitles.add(t(template.titleKey));
+      }
+      if (lastItems !== automations) {
+        setAutomations(lastItems);
+        syncAutomationSessionRecords(workspaceId, lastItems);
+      }
+
+      if (plan.defaultAutoInstallExpert && isElectronRuntime()) {
+        try {
+          await installExpertPackage({
+            source: "builtin",
+            marketplace: "experts",
+            packageName: plan.defaultAutoInstallExpert,
+          });
+        } catch {
+          // Expert install is best-effort (desktop only); automations still apply.
+        }
+      }
+
+      writeAppliedPlanFingerprint(workspaceId, planFingerprint(plan));
+      setPersonalizationBannerDismissed(true);
+      setTemplateViewOpen(false);
+      setPersonalizationNotice(
+        t("automation.personalization_applied", { count: created }),
+      );
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-6">
@@ -1159,6 +1271,61 @@ export function AutomationPage(props: {
             {error}
           </NoticeBox>
         ) : null}
+        {personalizationNotice ? (
+          <NoticeBox tone="info" size="content" className="mb-4">
+            {personalizationNotice}
+          </NoticeBox>
+        ) : null}
+        {showPersonalizationOffer && personalizationPlan ? (
+          <NoticeBox tone="info" size="content" className="mb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="text-sm font-medium text-dls-text">
+                  {t("automation.personalization_title")}
+                </div>
+                <p className="text-xs leading-5 text-dls-secondary">
+                  {t("automation.personalization_desc", {
+                    count: personalizationPlan.defaultAutoCreateTemplateIds.length,
+                  })}
+                </p>
+                {personalizationPlan.defaultAutoInstallExpert ? (
+                  <p className="text-xs text-dls-secondary">
+                    {t("automation.personalization_expert", {
+                      name: personalizationPlan.defaultAutoInstallExpert,
+                    })}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void applyPersonalization()}
+                  disabled={busy || !props.client}
+                >
+                  {busy ? <LoadingSpinner /> : null}
+                  {t("automation.personalization_apply")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPersonalizationBannerDismissed(true);
+                    if (personalizationPlan) {
+                      writeAppliedPlanFingerprint(
+                        props.workspaceId,
+                        planFingerprint(personalizationPlan),
+                      );
+                    }
+                  }}
+                >
+                  {t("automation.personalization_dismiss")}
+                </Button>
+              </div>
+            </div>
+          </NoticeBox>
+        ) : null}
         {loading && automations.length === 0 ? (
           <div className="mb-4 flex items-center gap-2 text-sm text-dls-secondary">
             <LoadingSpinner />
@@ -1173,11 +1340,37 @@ export function AutomationPage(props: {
                 {t("automation.back")}
               </Button>
             ) : null}
+            {recommendedTemplates.length > 0 ? (
+              <section>
+                <h2 className="text-sm font-medium text-dls-text">
+                  {t("automation.personalization_recommended")}
+                </h2>
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                  {recommendedTemplates.map((template) => (
+                    <AutomationTemplateCard
+                      key={template.id}
+                      template={template}
+                      recommended
+                      onSelect={openTemplateDialog}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
             <section>
-              <h2 className="text-sm font-medium text-dls-text">{t("automation.start_from_template")}</h2>
+              <h2 className="text-sm font-medium text-dls-text">
+                {recommendedTemplates.length > 0
+                  ? t("automation.personalization_all_templates")
+                  : t("automation.start_from_template")}
+              </h2>
               <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                {visibleTemplates.map((template) => (
-                  <AutomationTemplateCard key={template.id} template={template} onSelect={openTemplateDialog} />
+                {(recommendedTemplates.length > 0 ? restTemplates : visibleTemplates).map((template) => (
+                  <AutomationTemplateCard
+                    key={template.id}
+                    template={template}
+                    recommended={recommendedIdSet.has(template.id)}
+                    onSelect={openTemplateDialog}
+                  />
                 ))}
               </div>
             </section>
