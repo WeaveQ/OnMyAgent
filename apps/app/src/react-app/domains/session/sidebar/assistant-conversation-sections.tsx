@@ -341,7 +341,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
               onClick={(event) => event.stopPropagation()}
               side="bottom"
               align="end"
-              className="w-40 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-1"
+              className="w-40 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1 shadow-lg"
             >
               <div className="flex flex-col gap-0.5">
                 {filterItems.map((item) => (

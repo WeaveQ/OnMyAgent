@@ -20,12 +20,13 @@ import {
 } from "./conversation-model";
 import { resolveOpenFolderPath } from "../../shared";
 
-/** Shared chrome for assistant task + expert strip context menus. */
+/** Shared chrome for assistant task + expert strip context menus.
+ * surface-solid: opaque on macOS Electron glass (bg-dls-surface is translucent). */
 export const TASK_CONTEXT_MENU_CLASS =
-  "fixed z-[100] w-44 overflow-hidden rounded-xl border border-dls-border bg-dls-surface py-1 text-sm";
+  "fixed z-[100] w-44 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid py-1 text-sm text-dls-text shadow-lg";
 
 export const TASK_CONTEXT_MENU_SEPARATOR_CLASS =
-  "my-1 h-px bg-dls-border/80";
+  "my-1 h-px bg-dls-border";
 
 type AssistantTaskItemProps = {
   group: AgentConversationGroup;
