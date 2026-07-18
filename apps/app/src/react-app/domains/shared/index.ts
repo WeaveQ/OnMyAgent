@@ -42,3 +42,16 @@ export {
   restoreTaskFromList,
   writeAssistantArchivedTasks,
 } from "./assistant-archived-tasks";
+export {
+  assertNoForbiddenVerticalsInCatalog,
+  buildPersonalizationPlan,
+  listPersonalizationVerticalIds,
+  type PersonalizationPlan,
+  type PersonalizationProfileSnapshot,
+} from "./personalization/plan";
+export {
+  FORBIDDEN_VERTICAL_IDS,
+  PERSONALIZATION_VERTICALS,
+  isForbiddenVerticalId,
+  type PersonalizationVerticalId,
+} from "./personalization/verticals";
