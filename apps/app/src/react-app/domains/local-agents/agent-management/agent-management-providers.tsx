@@ -417,11 +417,14 @@ export function AgentManagementProviderModal(props: {
   const canSubmit = props.draft.name.trim() && (props.draft.id.trim() || props.draft.name.trim());
   const editing = Boolean(props.draft.editingId);
   const providerKeyInvalid = props.draft.id.trim() !== "" && !/^[a-z0-9]+(?:[-_.][a-z0-9]+)*$/.test(props.draft.id.trim());
-  const fieldClass = "h-10 bg-dls-surface placeholder:text-dls-secondary disabled:bg-dls-hover disabled:text-dls-secondary";
+  const fieldClass = "h-9 bg-dls-surface placeholder:text-dls-secondary disabled:bg-dls-hover disabled:text-dls-secondary";
   const textareaClass = "resize-y bg-dls-surface py-2.5 leading-5 placeholder:text-dls-secondary";
-  const jsonTextareaClass = `${textareaClass} min-h-64 font-mono text-xs leading-5`;
+  // Compact default height so empty JSON does not dominate the modal.
+  const jsonTextareaClass = `${textareaClass} min-h-36 max-h-56 font-mono text-xs leading-5`;
   const labelClass = "text-xs font-medium text-dls-text";
   const hintClass = "text-xs leading-4 text-dls-secondary";
+  const panelClass =
+    "flex h-full min-h-0 flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-4";
   const modelSelectButtonClass = "relative flex h-9 w-9 items-center justify-center rounded-lg border border-dls-border bg-dls-surface text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text focus-within:border-dls-border";
   const requiredMark = <span className="ml-1 text-dls-status-danger-fg">*</span>;
 
@@ -512,73 +515,76 @@ export function AgentManagementProviderModal(props: {
   };
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-h-[86vh] !w-[min(960px,calc(100vw-32px))] !max-w-none gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
-        <DialogHeader className="border-b border-dls-border bg-dls-surface px-5 py-4">
+      <DialogContent className="flex max-h-[90vh] !w-[min(920px,calc(100vw-32px))] !max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
+        <DialogHeader className="shrink-0 border-b border-dls-border bg-dls-surface px-5 py-3.5">
           <div className="flex items-center gap-3">
             <IconTile size="md" shape="lg" border><ProviderBrandIcon appType={props.appType} /></IconTile>
             <div className="min-w-0">
               <DialogTitle className="truncate text-base font-medium text-dls-text">{editing ? t("agent_manager.provider_modal.edit_provider") : t("agent_manager.provider_modal.add_provider")}</DialogTitle>
-              <div className="mt-1 text-xs text-dls-secondary">{skillAgentLabel(props.appType)}{editing ? ` / ${props.draft.editingId}` : ""}</div>
+              <div className="mt-0.5 text-xs text-dls-secondary">{skillAgentLabel(props.appType)}{editing ? ` / ${props.draft.editingId}` : ""}</div>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="max-h-[calc(86vh-132px)] overflow-y-auto bg-dls-background px-5 py-4">
-          <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
-            <section className="space-y-4 rounded-lg border border-dls-border bg-dls-surface p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-dls-background px-5 py-4">
+          <div className="flex flex-col gap-4">
+            <div className="grid items-stretch gap-4 lg:grid-cols-2">
+            <section className={panelClass}>
               <div>
                 <h3 className={providerTextClass.sectionTitle}>{t("agent_manager.provider_modal.basic_config")}</h3>
-                <p className="mt-1 text-xs text-dls-secondary">{t("agent_manager.provider_modal.basic_config_desc")}</p>
+                <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.basic_config_desc")}</p>
               </div>
 
-              <label className="block space-y-1.5">
-                <span className={labelClass}>Provider Key{requiredMark}</span>
-                <Input
-                  value={props.draft.id}
-                  onChange={(event) => updateDraft({ id: event.currentTarget.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "") })}
-                  disabled={editing}
-                  placeholder="token-plan"
-                  className={cn(fieldClass, providerKeyInvalid && "border-dls-status-danger-border focus:border-dls-status-danger")}
-                />
-                <span className={cn(hintClass, providerKeyInvalid && "text-dls-status-danger-fg")}>{editing ? t("agent_manager.provider_modal.provider_key_locked") : providerKeyInvalid ? t("agent_manager.provider_modal.provider_key_invalid") : t("agent_manager.provider_modal.provider_key_hint")}</span>
-              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5 sm:col-span-2">
+                  <span className={labelClass}>Provider Key{requiredMark}</span>
+                  <Input
+                    value={props.draft.id}
+                    onChange={(event) => updateDraft({ id: event.currentTarget.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "") })}
+                    disabled={editing}
+                    placeholder="token-plan"
+                    className={cn(fieldClass, providerKeyInvalid && "border-dls-status-danger-border focus:border-dls-status-danger")}
+                  />
+                  <span className={cn(hintClass, providerKeyInvalid && "text-dls-status-danger-fg")}>{editing ? t("agent_manager.provider_modal.provider_key_locked") : providerKeyInvalid ? t("agent_manager.provider_modal.provider_key_invalid") : t("agent_manager.provider_modal.provider_key_hint")}</span>
+                </label>
 
-              <label className="block space-y-1.5">
-                <span className={labelClass}>{t("agent_manager.provider_modal.display_name")}{requiredMark}</span>
-                <Input
-                  value={props.draft.name}
-                  onChange={(event) => updateDraft({ name: event.currentTarget.value })}
-                  placeholder={t("agent_manager.provider_modal.provider_name_placeholder")}
-                  className={fieldClass}
-                />
-              </label>
+                <label className="block space-y-1.5 sm:col-span-2">
+                  <span className={labelClass}>{t("agent_manager.provider_modal.display_name")}{requiredMark}</span>
+                  <Input
+                    value={props.draft.name}
+                    onChange={(event) => updateDraft({ name: event.currentTarget.value })}
+                    placeholder={t("agent_manager.provider_modal.provider_name_placeholder")}
+                    className={fieldClass}
+                  />
+                </label>
 
-              <label className="block space-y-1.5">
-                <span className={labelClass}>API Endpoint</span>
-                <Input
-                  value={props.draft.baseUrl}
-                  onChange={(event) => updateDraft({ baseUrl: event.currentTarget.value })}
-                  placeholder="https://api.example.com/v1"
-                  className={fieldClass}
-                />
-              </label>
+                <label className="block space-y-1.5 sm:col-span-2">
+                  <span className={labelClass}>API Endpoint</span>
+                  <Input
+                    value={props.draft.baseUrl}
+                    onChange={(event) => updateDraft({ baseUrl: event.currentTarget.value })}
+                    placeholder="https://api.example.com/v1"
+                    className={fieldClass}
+                  />
+                </label>
 
-              <label className="block space-y-1.5">
-                <span className={labelClass}>API Key</span>
-                <Input
-                  value={props.draft.apiKey}
-                  onChange={(event) => updateDraft({ apiKey: event.currentTarget.value })}
-                  placeholder="sk-..."
-                  type="password"
-                  className={fieldClass}
-                />
-              </label>
+                <label className="block space-y-1.5 sm:col-span-2">
+                  <span className={labelClass}>API Key</span>
+                  <Input
+                    value={props.draft.apiKey}
+                    onChange={(event) => updateDraft({ apiKey: event.currentTarget.value })}
+                    placeholder="sk-..."
+                    type="password"
+                    className={fieldClass}
+                  />
+                </label>
+              </div>
             </section>
 
-            <section className="space-y-4 rounded-lg border border-dls-border bg-dls-surface p-4">
+            <section className={panelClass}>
               <div>
                 <h3 className={providerTextClass.sectionTitle}>{t("agent_manager.provider_modal.models_config")}</h3>
-                <p className="mt-1 text-xs text-dls-secondary">{t("agent_manager.provider_modal.models_config_desc")}</p>
+                <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.models_config_desc")}</p>
               </div>
 
               {props.appType === "claude" ? (
@@ -829,13 +835,26 @@ export function AgentManagementProviderModal(props: {
                   <span className={hintClass}>{props.appType === "codex" ? t("agent_manager.provider_modal.default_model_codex_hint") : t("agent_manager.provider_modal.default_model_claude_hint")}</span>
                 </label>
               )}
+            </section>
+            </div>
 
+            <section className="rounded-xl border border-dls-border bg-dls-surface p-4">
               <label className="block space-y-1.5">
-                <span className={labelClass}>{t("agent_manager.provider_modal.advanced_json_config")}</span>
+                <span className={labelClass}>
+                  {t("agent_manager.provider_modal.advanced_json_config")}
+                </span>
                 <Textarea
                   value={props.draft.settingsJson}
-                  onChange={(event) => updateDraft({ settingsJson: event.currentTarget.value })}
-                  placeholder={props.appType === "opencode" ? '{\n  "npm": "@ai-sdk/openai-compatible",\n  "options": {\n    "baseURL": "https://api.example.com/v1",\n    "apiKey": ""\n  },\n  "models": {}\n}' : props.appType === "openclaw" ? '{\n  "baseUrl": "https://api.example.com/v1",\n  "apiKey": "",\n  "api": "openai-completions",\n  "models": []\n}' : '{\n  "base_url": "https://api.example.com/v1",\n  "api_key": "",\n  "model": "qwen3.6-plus"\n}'}
+                  onChange={(event) =>
+                    updateDraft({ settingsJson: event.currentTarget.value })
+                  }
+                  placeholder={
+                    props.appType === "opencode"
+                      ? '{\n  "npm": "@ai-sdk/openai-compatible",\n  "options": {\n    "baseURL": "https://api.example.com/v1",\n    "apiKey": ""\n  },\n  "models": {}\n}'
+                      : props.appType === "openclaw"
+                        ? '{\n  "baseUrl": "https://api.example.com/v1",\n  "apiKey": "",\n  "api": "openai-completions",\n  "models": []\n}'
+                        : '{\n  "base_url": "https://api.example.com/v1",\n  "api_key": "",\n  "model": "qwen3.6-plus"\n}'
+                  }
                   className={jsonTextareaClass}
                   spellCheck={false}
                 />
@@ -845,7 +864,7 @@ export function AgentManagementProviderModal(props: {
         </div>
 
         {props.error ? (
-          <div className="border-t border-dls-border bg-dls-surface px-5 py-3">
+          <div className="shrink-0 border-t border-dls-border bg-dls-surface px-5 py-3">
             <ProviderModelNotice tone="danger">{props.error}</ProviderModelNotice>
           </div>
         ) : null}

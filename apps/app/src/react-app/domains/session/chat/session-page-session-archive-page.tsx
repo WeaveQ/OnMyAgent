@@ -224,11 +224,15 @@ export function SessionArchivePage(props: Props) {
     return role;
   }, []);
 
+  const sessionTitle = useCallback((session: OnMyAgentSessionArchiveSession) => {
+    return session.display_name || session.first_message || session.id;
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-dls-background">
-      {/* Toolbar: search + agent chips (single strip, no nested card) */}
-      <div className="flex shrink-0 flex-col gap-2.5 border-b border-dls-border px-4 py-3">
-        <div className="flex items-center gap-2">
+      {/* Toolbar */}
+      <div className="flex shrink-0 flex-col gap-3 border-b border-dls-border px-4 py-3">
+        <div className="flex items-center gap-3">
           <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
               <Search aria-hidden="true" className="size-3.5" />
@@ -259,7 +263,7 @@ export function SessionArchivePage(props: Props) {
         </div>
 
         {groups.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
             <FilterChip
               type="button"
               selected={!agentFilter}
@@ -289,54 +293,68 @@ export function SessionArchivePage(props: Props) {
         {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
       </div>
 
-      {/* Master–detail: one surface, center split only */}
+      {/* Master–detail */}
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[min(22rem,36%)] min-w-60 shrink-0 flex-col border-r border-dls-border bg-dls-background">
+        <aside className="flex w-80 shrink-0 flex-col border-r border-dls-border bg-dls-surface/40">
           <div className="min-h-0 flex-1 overflow-y-auto">
             {loadingList && flatSessions.length === 0 ? (
-              <div className="flex items-center gap-2 px-4 py-6 text-xs text-dls-secondary">
+              <div className="flex items-center gap-2 px-4 py-8 text-xs text-dls-secondary">
                 <LoadingSpinner size="sm" />
                 {t("session_archive.loading")}
               </div>
             ) : null}
             {!loadingList && flatSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center text-xs text-dls-secondary">
+              <div className="flex flex-col items-center justify-center gap-2 px-4 py-20 text-center text-xs text-dls-secondary">
                 <MessageSquare className="size-8 opacity-30" />
                 <span>{t("session_archive.empty")}</span>
               </div>
             ) : null}
-            <ul className="flex flex-col gap-0.5 p-2">
+            <ul className="flex flex-col p-1.5">
               {flatSessions.map((session) => {
                 const active = session.id === selectedSessionId;
-                const title = session.display_name || session.first_message || session.id;
-                const metaParts = [
-                  agentLabel(session.agent),
-                  session.project || null,
-                  t("session_archive.message_count", { count: session.message_count }),
-                  session.file_mtime ? formatRelativeTime(session.file_mtime) : null,
-                ].filter(Boolean);
+                const title = sessionTitle(session);
+                const project = shortProjectLabel(session.project);
+                const timeLabel = session.file_mtime
+                  ? formatRelativeTime(session.file_mtime)
+                  : null;
                 return (
                   <li key={session.id}>
                     <button
                       type="button"
                       onClick={() => setSelectedSessionId(session.id)}
+                      aria-current={active ? "true" : undefined}
                       className={cn(
-                        "flex w-full min-w-0 flex-col gap-1 rounded-xl px-3 py-2.5 text-left transition-colors",
+                        "flex w-full min-w-0 flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors",
                         active
                           ? "bg-dls-list-selected text-dls-text"
                           : "text-dls-text hover:bg-dls-list-hover/60",
                       )}
                     >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="flex size-5 shrink-0 items-center justify-center">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
                           <AgentSkillIcon agent={session.agent as AgentManagementSkillAgent} />
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">
                           {title}
                         </span>
+                        {timeLabel ? (
+                          <span className="mt-0.5 shrink-0 text-xs tabular-nums text-dls-secondary">
+                            {timeLabel}
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="truncate pl-7 text-xs text-dls-secondary">
-                        {metaParts.join(" · ")}
+                      <div className="flex min-w-0 items-center gap-1.5 pl-6 text-xs text-dls-secondary">
+                        <span className="shrink-0">{agentLabel(session.agent)}</span>
+                        {project ? (
+                          <>
+                            <span className="opacity-40" aria-hidden="true">·</span>
+                            <span className="min-w-0 truncate">{project}</span>
+                          </>
+                        ) : null}
+                        <span className="opacity-40" aria-hidden="true">·</span>
+                        <span className="shrink-0 tabular-nums">
+                          {t("session_archive.message_count", { count: session.message_count })}
+                        </span>
                       </div>
                     </button>
                   </li>
@@ -349,27 +367,40 @@ export function SessionArchivePage(props: Props) {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-dls-background">
           {selectedSession ? (
             <>
-              <header className="flex shrink-0 items-start justify-between gap-3 border-b border-dls-border px-5 py-3.5">
-                <div className="min-w-0">
+              <header className="flex shrink-0 items-center justify-between gap-4 border-b border-dls-border px-5 py-3">
+                <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex size-5 shrink-0 items-center justify-center">
                       <AgentSkillIcon agent={selectedSession.agent as AgentManagementSkillAgent} />
                     </span>
                     <h2 className="min-w-0 truncate text-sm font-semibold text-dls-text">
-                      {selectedSession.display_name || selectedSession.first_message || selectedSession.id}
+                      {sessionTitle(selectedSession)}
                     </h2>
                   </div>
-                  <div className="mt-1 truncate pl-7 text-xs text-dls-secondary">
-                    {[
-                      agentLabel(selectedSession.agent),
-                      selectedSession.project || null,
-                      t("session_archive.message_count", { count: selectedSession.message_count }),
-                      selectedSession.file_mtime
-                        ? formatRelativeTime(selectedSession.file_mtime)
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pl-7 text-xs text-dls-secondary">
+                    <span>{agentLabel(selectedSession.agent)}</span>
+                    {shortProjectLabel(selectedSession.project) ? (
+                      <>
+                        <span className="opacity-40" aria-hidden="true">·</span>
+                        <span className="min-w-0 truncate">
+                          {shortProjectLabel(selectedSession.project)}
+                        </span>
+                      </>
+                    ) : null}
+                    <span className="opacity-40" aria-hidden="true">·</span>
+                    <span className="tabular-nums">
+                      {t("session_archive.message_count", {
+                        count: selectedSession.message_count,
+                      })}
+                    </span>
+                    {selectedSession.file_mtime ? (
+                      <>
+                        <span className="opacity-40" aria-hidden="true">·</span>
+                        <span className="tabular-nums">
+                          {formatRelativeTime(selectedSession.file_mtime)}
+                        </span>
+                      </>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -396,43 +427,47 @@ export function SessionArchivePage(props: Props) {
                   </Button>
                 </div>
               </header>
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 {loadingMessages ? (
-                  <div className="flex items-center gap-2 text-xs text-dls-secondary">
+                  <div className="flex items-center gap-2 px-5 py-8 text-xs text-dls-secondary">
                     <LoadingSpinner size="sm" />
                     {t("session_archive.loading_messages")}
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 py-16 text-xs text-dls-secondary">
+                  <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-xs text-dls-secondary">
                     <MessageSquare className="size-8 opacity-30" />
                     <span>{t("session_archive.no_messages")}</span>
                   </div>
                 ) : (
-                  <ol className="mx-auto flex max-w-3xl flex-col gap-3">
-                    {messages.map((message) => {
+                  <ol className="mx-auto flex w-full max-w-3xl flex-col px-5 py-4">
+                    {messages.map((message, index) => {
                       const isUser = message.role === "user";
                       return (
                         <li
                           key={message.id}
                           className={cn(
-                            "flex flex-col gap-1.5",
-                            isUser ? "items-end" : "items-start",
+                            "flex flex-col gap-2 py-4",
+                            index > 0 && "border-t border-dls-border/70",
                           )}
                         >
-                          <span
-                            className={cn(
-                              "px-1 text-[11px] font-medium tracking-wide",
-                              isUser ? "text-dls-accent" : "text-dls-secondary",
-                            )}
-                          >
-                            {roleLabel(message.role)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "inline-flex h-5 items-center rounded-md px-1.5 text-xs font-medium",
+                                isUser
+                                  ? "bg-dls-accent/10 text-dls-accent"
+                                  : message.role === "tool"
+                                    ? "bg-dls-surface-muted text-dls-secondary"
+                                    : "bg-dls-surface-muted text-dls-text",
+                              )}
+                            >
+                              {roleLabel(message.role)}
+                            </span>
+                          </div>
                           <div
                             className={cn(
-                              "max-w-[min(100%,42rem)] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed text-dls-text",
-                              isUser
-                                ? "bg-dls-accent/10 dark:bg-dls-accent/15"
-                                : "bg-dls-surface-muted",
+                              "whitespace-pre-wrap break-words text-sm leading-relaxed text-dls-text",
+                              isUser && "rounded-xl bg-dls-surface-muted/70 px-3.5 py-3",
                             )}
                           >
                             {message.content}
@@ -455,4 +490,12 @@ export function SessionArchivePage(props: Props) {
       </div>
     </div>
   );
+}
+
+function shortProjectLabel(project: string | null | undefined): string | null {
+  if (!project) return null;
+  const normalized = project.replace(/\\/g, "/").replace(/\/+$/, "");
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length === 0) return project;
+  return parts[parts.length - 1] ?? project;
 }

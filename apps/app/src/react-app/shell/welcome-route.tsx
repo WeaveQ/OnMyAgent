@@ -158,6 +158,8 @@ function toProfile(draft: ProfileDraft, skipped: boolean): OnboardingProfile {
     industries: normalizeProfileOptionValues(draft.industries),
     tools: normalizeProfileOptionValues(draft.tools),
     tasks: normalizeProfileOptionValues(draft.tasks),
+    docPreference: "",
+    terminology: "",
     skipped,
     updatedAt: Date.now(),
   };

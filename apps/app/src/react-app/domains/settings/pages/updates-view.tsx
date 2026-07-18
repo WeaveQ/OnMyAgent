@@ -1,22 +1,18 @@
 /** @jsxImportSource react */
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, ExternalLink } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { formatRelativeTime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import type { ReleaseChannel } from "../../../../app/types";
 import type { SettingsUpdateStatus } from "../state/electron-updater-state";
+import { SelectMenu } from "../../../design-system/select-menu";
 import {
-  LayoutSectionItem,
-  LayoutSectionItemDescription,
-  LayoutSectionItemHeader,
-  LayoutSectionItemHeaderActions,
-  LayoutSectionItemTitle,
-  LayoutStack,
-} from "../settings-layout";
-import { Separator } from "@/components/ui/separator";
+  SettingsBlock,
+  SettingsBlockRow,
+} from "../settings-section";
+import { LayoutStack } from "../settings-layout";
 
 export type UpdatesViewProps = {
   busy: boolean;
@@ -55,7 +51,6 @@ export function UpdatesView(props: UpdatesViewProps) {
   const updateDate = props.updateStatus?.date ?? null;
   const updateLastCheckedAt = props.updateStatus?.lastCheckedAt ?? null;
   const updateErrorMessage = props.updateStatus?.message ?? null;
-  const updateNotes = props.updateStatus?.notes ?? null;
   const softNotice =
     (updateState === "idle" || updateState === "error") &&
     updateErrorMessage &&
@@ -69,66 +64,21 @@ export function UpdatesView(props: UpdatesViewProps) {
   const showOpenReleaseWithSoft =
     Boolean(softNotice) && props.updateStatus?.showOpenReleasePage !== false;
 
+  const envBlocked =
+    props.webDeployment ||
+    (props.updateEnv != null && props.updateEnv.supported === false);
+
+  const versionDescription = (() => {
+    if (!props.appVersion) return t("settings.updates_not_supported");
+    const version = `v${props.appVersion}`;
+    if (!updateLastCheckedAt) return version;
+    return `${version} · ${t("settings.update_last_checked", undefined, {
+      time: formatRelativeTime(updateLastCheckedAt),
+    })}`;
+  })();
+
   return (
     <LayoutStack>
-      {props.appVersion ? (
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>
-              {t("settings.shell_view_current_version_description")}
-            </LayoutSectionItemTitle>
-            <LayoutSectionItemDescription className="font-mono">
-              v{props.appVersion}
-              {updateLastCheckedAt ? (
-                <span className="ml-2 font-sans text-xs text-dls-secondary">
-                  {t("settings.update_last_checked", undefined, {
-                    time: formatRelativeTime(updateLastCheckedAt),
-                  })}
-                </span>
-              ) : null}
-            </LayoutSectionItemDescription>
-            <LayoutSectionItemHeaderActions>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void props.checkForUpdates()}
-                disabled={props.busy || updateState === "checking"}
-              >
-                {updateState === "checking"
-                  ? t("settings.checking_for_updates")
-                  : t("settings.check_for_updates")}
-              </Button>
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-      ) : null}
-
-      {updateState === "available" && updateVersion ? (
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>
-              {t("settings.update_available_version", undefined, {
-                version: updateVersion,
-              })}
-            </LayoutSectionItemTitle>
-            {updateDate ? (
-              <LayoutSectionItemDescription>
-                {t("settings.update_published", undefined, { date: updateDate })}
-              </LayoutSectionItemDescription>
-            ) : null}
-            <LayoutSectionItemHeaderActions>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => void props.downloadUpdate()}
-              >
-                {t("settings.open_release_page")}
-              </Button>
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-      ) : null}
-
       {hardError ? (
         <Alert variant="destructive">
           <CircleAlert />
@@ -154,12 +104,6 @@ export function UpdatesView(props: UpdatesViewProps) {
         </Alert>
       ) : null}
 
-      {updateState === "available" && updateNotes ? (
-        <LayoutSectionItem className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-dls-secondary">
-          {updateNotes}
-        </LayoutSectionItem>
-      ) : null}
-
       {props.webDeployment ? (
         <Alert>
           <AlertDescription>
@@ -172,39 +116,97 @@ export function UpdatesView(props: UpdatesViewProps) {
             {props.updateEnv.reason ?? t("settings.updates_not_supported")}
           </AlertDescription>
         </Alert>
-      ) : (
-        <>
-          <Separator />
-          <LayoutSectionItem>
-            <LayoutSectionItemHeader>
-              <LayoutSectionItemTitle>
-                {t("settings.background_checks_title")}
-              </LayoutSectionItemTitle>
-              <LayoutSectionItemDescription>
-                {t("settings.background_checks_desc_notify")}
-              </LayoutSectionItemDescription>
-              <LayoutSectionItemHeaderActions>
-                <Switch
-                  aria-label={t("settings.background_checks_title")}
-                  checked={props.updateAutoCheck}
-                  onCheckedChange={props.toggleUpdateAutoCheck}
-                />
-              </LayoutSectionItemHeaderActions>
-            </LayoutSectionItemHeader>
-          </LayoutSectionItem>
+      ) : null}
 
-          <LayoutSectionItem>
-            <LayoutSectionItemHeader>
-              <LayoutSectionItemTitle>
-                {t("settings.update_install_title")}
-              </LayoutSectionItemTitle>
-              <LayoutSectionItemDescription>
-                {t("settings.update_install_desc")}
-              </LayoutSectionItemDescription>
-            </LayoutSectionItemHeader>
-          </LayoutSectionItem>
-        </>
-      )}
+      <SettingsBlock>
+        <SettingsBlockRow
+          title={t("settings.shell_view_current_version_description")}
+          description={versionDescription}
+          actions={
+            envBlocked ? undefined : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void props.checkForUpdates()}
+                disabled={props.busy || updateState === "checking"}
+              >
+                {updateState === "checking"
+                  ? t("settings.checking_for_updates")
+                  : t("settings.check_for_updates")}
+              </Button>
+            )
+          }
+        />
+
+        {updateState === "available" && updateVersion ? (
+          <SettingsBlockRow
+            title={t("settings.update_available_version", undefined, {
+              version: updateVersion,
+            })}
+            description={
+              updateDate
+                ? t("settings.update_published", undefined, {
+                    date: updateDate,
+                  })
+                : t("settings.open_release_page")
+            }
+            actions={
+              <Button
+                type="button"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => void props.downloadUpdate()}
+              >
+                {t("settings.open_release_page")}
+                <ExternalLink className="size-3.5" />
+              </Button>
+            }
+          />
+        ) : null}
+
+        {props.alphaChannelSupported && props.releaseChannel ? (
+          <SettingsBlockRow
+            title={t("settings.shell_view_release_channel")}
+            description={t("settings.shell_view_release_channel_description")}
+            actions={
+              props.onReleaseChannelChange ? (
+                <SelectMenu
+                  ariaLabel={t("settings.shell_view_release_channel")}
+                  options={[
+                    {
+                      value: "stable",
+                      label: t("settings.shell_view_release_channel_stable"),
+                    },
+                    {
+                      value: "alpha",
+                      label: t("settings.shell_view_release_channel_alpha"),
+                    },
+                  ]}
+                  value={props.releaseChannel}
+                  disabled={props.busy}
+                  onChange={(value) =>
+                    props.onReleaseChannelChange?.(
+                      value === "alpha" ? "alpha" : "stable",
+                    )
+                  }
+                />
+              ) : (
+                <span className="text-sm text-dls-secondary">
+                  {props.releaseChannel === "alpha"
+                    ? t("settings.shell_view_release_channel_alpha")
+                    : t("settings.shell_view_release_channel_stable")}
+                </span>
+              )
+            }
+          />
+        ) : null}
+
+        <SettingsBlockRow
+          title={t("settings.update_install_title")}
+          description={t("settings.update_install_desc")}
+        />
+      </SettingsBlock>
     </LayoutStack>
   );
 }

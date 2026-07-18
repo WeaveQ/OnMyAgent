@@ -115,3 +115,21 @@ export function ManageRailIcon(props: PrimaryRailIconProps) {
     </svg>
   );
 }
+
+/** Message channels / IM — chat bubble with hollow body (same fill language as other rail icons). */
+export function ChannelsRailIcon(props: PrimaryRailIconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M1.5 6.85C1.5 3.85 4.36 1.5 8 1.5s6.5 2.35 6.5 5.35S11.64 12.2 8 12.2c-.58 0-1.14-.06-1.67-.18l-2.55 1.3a.65.65 0 0 1-.93-.72l.58-2.25C2.22 9.7 1.5 8.36 1.5 6.85Zm1.5 0c0 1.15.55 2.2 1.5 2.95a.75.75 0 0 1 .28.7l-.3 1.18 1.5-.76a.75.75 0 0 1 .52-.05c.48.12 1 .18 1.5.18 2.9 0 5-1.9 5-4.2S10.9 3 8 3 3 4.9 3 6.85Zm2.15-.1a.85.85 0 1 1 1.7 0 .85.85 0 0 1-1.7 0Zm2.5 0a.85.85 0 1 1 1.7 0 .85.85 0 0 1-1.7 0Zm2.5 0a.85.85 0 1 1 1.7 0 .85.85 0 0 1-1.7 0Z"
+      />
+    </svg>
+  );
+}

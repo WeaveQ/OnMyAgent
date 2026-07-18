@@ -285,7 +285,7 @@ function EnvironmentItemsTable(props: EnvironmentItemsTableProps) {
     return <EnvironmentVariableTableLoading />;
   }
   if (props.items.length === 0) {
-    return <EnvironmentVariableTableEmpty canAdd={props.canEdit} onAdd={props.onAdd} />;
+    return <EnvironmentVariableTableEmpty />;
   }
   return (
     <>

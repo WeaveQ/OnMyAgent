@@ -22,6 +22,7 @@ import type { SettingsTab } from "../../../../app/types";
 import {
   SettingsPage,
   SettingsSidebar,
+  getArchivedSettingsTabs,
   getGlobalSettingsTabs,
   getSettingsTabDescription,
   getSettingsTabIcon,
@@ -231,6 +232,7 @@ function SettingsSectionMenu(
       label: t("settings.group_global"),
       tabs: getGlobalSettingsTabs(props.developerMode),
     },
+    { label: t("settings.group_archived"), tabs: getArchivedSettingsTabs() },
   ];
   const ActiveIcon = getSettingsTabIcon(props.activeTab);
 

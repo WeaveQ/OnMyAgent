@@ -253,10 +253,11 @@ const sessionRowButtonVariants = cva(
       },
       size: {
         conversation: "flex h-[68px] items-center gap-3 px-4",
-        tab: "flex h-7 w-[116px] items-center gap-1 rounded-md border px-3 pr-7 text-xs",
+        // Agent session strip: soft chip look (like archive filters), tighter radius.
+        tab: "flex h-7 w-[116px] items-center gap-1 rounded border-0 px-3 pr-7 text-xs",
       },
       muted: {
-        true: "border-dls-border bg-dls-surface text-dls-secondary",
+        true: "bg-transparent text-dls-secondary",
         false: "",
       },
     },
@@ -264,13 +265,14 @@ const sessionRowButtonVariants = cva(
       {
         size: "tab",
         active: true,
-        className: "border-dls-accent bg-dls-decision-soft font-medium text-dls-accent",
+        className: "bg-dls-list-selected font-medium text-dls-text shadow-none",
       },
       {
         size: "tab",
         active: false,
         muted: false,
-        className: "border-dls-border bg-dls-surface text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+        className:
+          "bg-transparent text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
       },
     ],
     defaultVariants: {

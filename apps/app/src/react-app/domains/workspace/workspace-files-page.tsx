@@ -27,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
@@ -44,8 +43,6 @@ import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-
 const workspaceFilesTextClass = {
   pageTitle: "text-lg font-medium text-dls-text",
 };
-
-const CLOUD_DRIVE_PLACEHOLDER_ASSET = "/empty-states/cloud-drive-placeholder.png";
 
 function formatWorkspaceFileSize(size: number) {
   if (!Number.isFinite(size) || size <= 0) return "0 B";
@@ -161,17 +158,68 @@ function fileCategoryLabel(category: FileCategory) {
   }
 }
 
+/** Cloud + docs — monochrome line icon, same language as devices empty state. */
+function CloudDriveIllustration() {
+  return (
+    <div className="flex h-36 w-full max-w-[240px] items-center justify-center">
+      <svg
+        viewBox="0 0 96 80"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        className="h-24 w-28 text-dls-secondary"
+      >
+        {/* Cloud outline */}
+        <path
+          d="M28 52h42c7.2 0 13-5.8 13-13 0-6.4-4.7-11.8-10.9-12.8A16 16 0 0 0 48 12c-7.5 0-13.8 5.1-15.6 12A12 12 0 0 0 16 36c0 8.8 7.2 16 16 16Z"
+          fill="currentColor"
+          fillOpacity="0.1"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        {/* Back sheet */}
+        <rect
+          x="52"
+          y="36"
+          width="22"
+          height="28"
+          rx="3"
+          fill="currentColor"
+          fillOpacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          transform="rotate(6 63 50)"
+        />
+        {/* Front sheet */}
+        <rect
+          x="38"
+          y="38"
+          width="24"
+          height="30"
+          rx="3"
+          fill="var(--dls-background, #fff)"
+          stroke="currentColor"
+          strokeWidth="1.75"
+        />
+        <path
+          d="M44 48h12M44 54h12M44 60h8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          opacity="0.5"
+        />
+      </svg>
+    </div>
+  );
+}
+
 function CloudDriveEmptyState() {
   return (
     <div className="flex h-full min-h-[420px] items-center justify-center px-6 py-12 text-center">
       <div className="flex w-full max-w-xl flex-col items-center">
-        <img
-          src={resolvePublicAssetUrl(CLOUD_DRIVE_PLACEHOLDER_ASSET)}
-          alt=""
-          loading="lazy"
-          className="h-auto w-full max-w-[360px]"
-        />
-        <h1 className="mt-7 text-lg font-medium text-dls-text">
+        <CloudDriveIllustration />
+        <h1 className="mt-6 text-lg font-medium text-dls-text">
           {t("files.cloud_empty_title")}
         </h1>
         <p className="mt-2 max-w-md text-sm leading-6 text-dls-secondary">
