@@ -42,3 +42,34 @@ export {
   restoreTaskFromList,
   writeAssistantArchivedTasks,
 } from "./assistant-archived-tasks";
+export {
+  assertNoForbiddenVerticalsInCatalog,
+  buildPersonalizationPlan,
+  listPersonalizationVerticalIds,
+  type PersonalizationPlan,
+  type PersonalizationProfileSnapshot,
+} from "./personalization/plan";
+export {
+  FORBIDDEN_VERTICAL_IDS,
+  PERSONALIZATION_VERTICALS,
+  isForbiddenVerticalId,
+  type PersonalizationVerticalId,
+} from "./personalization/verticals";
+export {
+  PERSONALIZATION_APPLIED_STORAGE_KEY,
+  planFingerprint,
+  rankTemplatesForPlan,
+  readAppliedPlanFingerprint,
+  shouldOfferPersonalizationApply,
+  writeAppliedPlanFingerprint,
+} from "./personalization/rank";
+export {
+  automationPayloadFromTemplate,
+  selectTemplatesToCreate,
+} from "./personalization/apply-automations";
+export {
+  PROFILE_INDUSTRY_ALIASES,
+  PROFILE_ROLE_ALIASES,
+  canonicalizeProfileOptionValue,
+  canonicalizeProfileOptionValues,
+} from "./personalization/profile-option-aliases";

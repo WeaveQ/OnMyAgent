@@ -74,6 +74,7 @@ export function SelectLikeField(props: { label: string }) {
 export function AutomationTemplateCard(props: {
   template: AutomationTemplate;
   onSelect: (template: AutomationTemplate) => void;
+  recommended?: boolean;
 }) {
   const Icon = props.template.icon;
   return (
@@ -84,7 +85,14 @@ export function AutomationTemplateCard(props: {
     >
       <Icon className="size-5 shrink-0 text-dls-secondary group-hover:text-dls-text" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-dls-text">{t(props.template.titleKey)}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="block truncate text-sm font-medium text-dls-text">{t(props.template.titleKey)}</span>
+          {props.recommended ? (
+            <StatusBadge tone="accent" size="tiny" shape="soft" className="shrink-0">
+              {t("automation.personalization_recommended")}
+            </StatusBadge>
+          ) : null}
+        </span>
         <span className="mt-0.5 block truncate text-xs text-dls-secondary">{t(props.template.descriptionKey)}</span>
       </span>
     </button>

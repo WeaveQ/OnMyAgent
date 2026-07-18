@@ -37,13 +37,11 @@ import { OpenCodeProviderConfigDialog } from "../../domains/session";
 import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../../domains/settings";
 import { isOnMyAgentExtensionEnabled } from "../../domains/shared";
 import {
-  AdvancedView,
   ArchivedTasksView,
   AuthorizedFoldersPanel,
   CloudMarketplacesView,
   CloudProvidersView,
   CloudSessionProvider,
-  CloudWorkersView,
   DebugView,
   EnvironmentView,
   ExtensionsView,
@@ -53,9 +51,7 @@ import {
   MemoryView,
   MessagingView,
   PreferencesView,
-  RecoveryView,
   SettingsStack,
-  SkillsView,
   SystemAuthorizationsView,
   UpdatesView,
   useCloudSession,
@@ -623,8 +619,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const subscribeToOnMyAgentModels = useCallback(() => {
     providerAuthStore.closeProviderAuthModal();
     const accountPath = selectedWorkspaceId
-      ? workspaceSettingsRoute(selectedWorkspaceId, "cloud-workers")
-      : "/settings/cloud-workers";
+      ? workspaceSettingsRoute(selectedWorkspaceId, "ai")
+      : "/settings/ai";
     navigate(accountPath);
     window.setTimeout(() => {
       platform.openLink(getDenInferenceUrl(cloudSession.baseUrl));
@@ -1268,12 +1264,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const selectedWorkspaceColor = workspaceSwatchColor(selectedWorkspaceId);
   const workspaceType = selectedWorkspace?.workspaceType ?? "local";
   const isRemoteWorkspace = workspaceType === "remote";
-  const canWriteWorkspaceSkills =
-    !isRemoteWorkspace || onmyagentServerSnapshot.onmyagentServerCanWriteSkills;
   const canWriteWorkspacePlugins =
     !isRemoteWorkspace || onmyagentServerSnapshot.onmyagentServerCanWritePlugins;
-  const skillsAccessHint =
-    isRemoteWorkspace && !canWriteWorkspaceSkills ? t("app.skills_hint_readonly") : null;
   const pluginsAccessHint =
     isRemoteWorkspace && !canWriteWorkspacePlugins ? t("app.plugins_hint_readonly") : null;
   const defaultModelLabel = local.prefs.defaultModel
@@ -1500,7 +1492,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     });
   }, [onmyagentServerStore, refreshRouteState]);
 
-  const handleRestartLocalServer = handleRestartOnMyAgentServerAndRefresh;
   const handleRestartMessagingWorker = handleRestartOnMyAgentServerAndRefresh;
 
   const messagingViewProps = useMessagingViewProps({
@@ -1528,7 +1519,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }
 
   const openCloudAccountSettings = () => {
-    navigateSettingsPath("cloud-workers");
+    navigateSettingsPath("ai");
   };
 
   const settingsView = (() => {
@@ -1671,23 +1662,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             }}
           />
         );
-      case "skills":
-        return (
-          <SkillsView
-            workspaceName={selectedWorkspaceName}
-            busy={busy}
-            canInstallSkillCreator={canWriteWorkspaceSkills}
-            canUseDesktopTools={!isRemoteWorkspace}
-            accessHint={skillsAccessHint}
-            extensions={extensionsStore}
-            onOpenLink={(url) => platform.openLink(url)}
-            createSessionAndOpen={async (_command?: string): Promise<string | undefined> => {
-              props.onClose?.();
-              navigate(selectedWorkspaceId ? workspaceSessionRoute(selectedWorkspaceId) : "/session");
-              return undefined;
-            }}
-          />
-        );
       case "extensions":
         return (
           <ExtensionsView
@@ -1804,19 +1778,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             }
           />
         );
-      case "cloud-account":
-        return null;
       case "cloud-marketplaces":
         return (
           <CloudMarketplacesView
             extensions={extensionsStore}
             session={denSession}
-          />
-        );
-      case "cloud-workers":
-        return (
-          <CloudWorkersView
-            connectRemoteWorkspace={async () => false}
           />
         );
       case "cloud-providers":
@@ -1828,61 +1794,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
             removeCloudProvider={providerAuthStore.removeCloudProvider}
             session={denSession}
-          />
-        );
-      case "advanced":
-        return (
-          <AdvancedView
-            busy={busy}
-            baseUrl={opencodeBaseUrl}
-            headerStatus={onmyagentServerSnapshot.onmyagentServerStatus}
-            clientConnected={Boolean(opencodeClient)}
-            opencodeConnectStatus={null}
-            onmyagentServerStatus={onmyagentServerSnapshot.onmyagentServerStatus}
-            onmyagentServerUrl={onmyagentServerSnapshot.onmyagentServerUrl}
-            onmyagentReconnectBusy={onmyagentServerSnapshot.onmyagentReconnectBusy}
-            reconnectOnMyAgentServer={onmyagentServerStore.reconnectOnMyAgentServer}
-            engineInfo={null}
-            restartLocalServer={handleRestartLocalServer}
-            stopHost={() => {}}
-            developerMode={developerMode}
-            toggleDeveloperMode={() => setDeveloperMode((current) => {
-              const next = !current;
-              writeStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, next);
-              return next;
-            })}
-            opencodeDevModeEnabled={false}
-            openDebugDeepLink={async () => ({ ok: false, message: t("settings.debug_deep_links_unavailable") })}
-            opencodeEnableExa={true}
-            toggleOpencodeEnableExa={() => {}}
-            microsandboxCreateSandboxEnabled={local.prefs.featureFlags.microsandboxCreateSandbox}
-            toggleMicrosandboxCreateSandbox={() => {
-              local.setPrefs((previous) => ({
-                ...previous,
-                featureFlags: {
-                  ...previous.featureFlags,
-                  microsandboxCreateSandbox: !previous.featureFlags.microsandboxCreateSandbox,
-                },
-              }));
-            }}
-            configView={{
-              busy,
-              clientConnected: Boolean(opencodeClient),
-              anyActiveRuns: false,
-              onmyagentServerStatus: onmyagentServerSnapshot.onmyagentServerStatus,
-              onmyagentServerUrl: onmyagentServerSnapshot.onmyagentServerUrl,
-              onmyagentServerSettings: onmyagentServerSnapshot.onmyagentServerSettings,
-              onmyagentServerHostInfo: onmyagentServerSnapshot.onmyagentServerHostInfo,
-              runtimeWorkspaceId,
-              updateOnMyAgentServerSettings: onmyagentServerStore.updateOnMyAgentServerSettings,
-              resetOnMyAgentServerSettings: onmyagentServerStore.resetOnMyAgentServerSettings,
-              testOnMyAgentServerConnection: onmyagentServerStore.testOnMyAgentServerConnection,
-              canReloadWorkspace: reloadCoordinator.canReloadWorkspaceEngine,
-              reloadWorkspaceEngine: reloadCoordinator.reloadWorkspaceEngine,
-              reloadBusy: false,
-              reloadError: routeError,
-              developerMode,
-            }}
           />
         );
       case "updates":
@@ -1906,15 +1817,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             // Lightweight GitHub Releases checker is stable-only; main reports
             // alphaSupported=false. Prefer that over platform heuristics.
             alphaChannelSupported={electronUpdaterState.alphaSupported === true}
-          />
-        );
-      case "recovery":
-        return (
-          <RecoveryView
-            workspaceConfigPath={selectedWorkspaceRoot ? `${selectedWorkspaceRoot}/.opencode/onmyagent.json` : ""}
-            configActionStatus={configActionStatus}
-            cacheRepairResult={null}
-            dockerCleanupResult={null}
           />
         );
       case "archived-tasks":

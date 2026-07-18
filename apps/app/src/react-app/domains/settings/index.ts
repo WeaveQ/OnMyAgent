@@ -13,14 +13,10 @@ export { GeneralSettingsView } from "./pages/general-view";
 export type { GeneralSettingsViewProps } from "./pages/general-view";
 export { SystemAuthorizationsView } from "./pages/system-authorizations-view";
 export type { SystemAuthorizationsViewProps } from "./pages/system-authorizations-view";
-export { AdvancedView } from "./pages/advanced-view";
-export type { AdvancedViewProps } from "./pages/advanced-view";
 export { CloudMarketplacesView } from "./pages/cloud-marketplaces-view";
 export type { CloudMarketplacesViewProps } from "./pages/cloud-marketplaces-view";
 export { CloudProvidersView } from "./pages/cloud-providers-view";
 export type { CloudProvidersViewProps } from "./pages/cloud-providers-view";
-export { CloudWorkersView } from "./pages/cloud-workers-view";
-export type { CloudWorkersViewProps } from "./pages/cloud-workers-view";
 export { DebugView } from "./pages/debug-view";
 export type { DebugViewProps } from "./pages/debug-view";
 export {
@@ -33,8 +29,6 @@ export { ExtensionsView } from "./pages/extensions-view";
 export type { ExtensionsSection, ExtensionsViewProps } from "./pages/extensions-view";
 export { McpView } from "./pages/mcp-view";
 export type { McpViewProps, ReactMcpStatus, SkillItem } from "./pages/mcp-view";
-export { RecoveryView } from "./pages/recovery-view";
-export type { RecoveryViewProps } from "./pages/recovery-view";
 export { ArchivedTasksView } from "./pages/archived-tasks-view";
 export type { ArchivedTasksViewProps } from "./pages/archived-tasks-view";
 export { MessagingView } from "./pages/messaging-view";
@@ -44,12 +38,6 @@ export type {
   MessagingViewProps,
   MessagingViewTab,
 } from "./pages/messaging-view";
-export { SkillsView } from "./pages/skills-view";
-export type {
-  ImportedCloudSkillRecord,
-  SkillsExtensionsStore,
-  SkillsViewProps,
-} from "./pages/skills-view";
 export { UpdatesView } from "./pages/updates-view";
 export type { UpdatesViewProps } from "./pages/updates-view";
 export {

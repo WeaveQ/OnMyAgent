@@ -22,6 +22,9 @@ graphify-out/
 # Local git worktrees
 _worktrees/
 
+# Internal BP / strategy deck materials (do not commit)
+docs/x-project-bp/
+
 # Desktop local runtime artifacts (do not commit)
 apps/desktop/resources/sidecars/
 apps/desktop/resources/runtimes/

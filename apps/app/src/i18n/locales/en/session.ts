@@ -56,6 +56,7 @@ export default {
   "session.expert_marketplace_category_finance_investment": "Finance investment",
   "session.expert_marketplace_category_hr_legal": "HR & legal",
   "session.expert_marketplace_category_industry_consultant": "Industry consulting",
+  "session.expert_marketplace_category_logistics": "Logistics",
   "session.artifact_discard_changes": "Discard changes",
   "session.artifact_save_changes": "Save changes",
   "session.artifact_edit": "Edit artifact",
