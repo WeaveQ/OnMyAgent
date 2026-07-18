@@ -44,8 +44,8 @@ const navTabButtonVariants = cva(
         default: "px-3.5 py-1 text-xs",
         // Compact filter chip (store/assistant/management primary filters)
         filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
-        // Fill track height; horizontal padding keeps long hit targets comfortable.
-        tab: "h-full min-h-8 gap-1.5 px-3 text-sm",
+        // Default page/header tab height (store / files / management).
+        tab: "h-8 gap-1.5 px-3 text-sm",
         messaging: "h-10 px-4 text-base font-semibold",
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
       },
@@ -414,17 +414,17 @@ function FilterChip({
   )
 }
 
-const segmentedTabGroupVariants = cva("inline-flex items-stretch", {
+const segmentedTabGroupVariants = cva("inline-flex items-center", {
   variants: {
     density: {
-      // Compact filter strip (store tabs, assistant office/code, management)
+      // Compact filter strip (assistant office/code track)
       filter:
-        "h-9 w-fit shrink-0 gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+        "h-8 w-fit shrink-0 gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
       // In-page multi-tab (may wrap; slightly taller track)
       panel:
         "h-9 max-w-full flex-wrap gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
-      // Header tabs without track — free-floating active pill only
-      bare: "h-9 w-fit shrink-0 gap-1 border-0 bg-transparent p-0",
+      // Header tabs without track — free-floating active pill only (store/files/management)
+      bare: "h-8 w-fit shrink-0 gap-1 border-0 bg-transparent p-0",
     },
   },
   defaultVariants: {

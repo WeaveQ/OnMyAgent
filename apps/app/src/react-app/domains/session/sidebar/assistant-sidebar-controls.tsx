@@ -72,7 +72,7 @@ export function AssistantCategorySwitch(props: {
               active={active}
               size="tab"
               shape="tab"
-              className="relative z-10 min-h-8 min-w-0 flex-1 justify-center gap-1.5 px-4"
+              className="relative z-10 h-full min-w-0 flex-1 justify-center gap-1.5 px-4"
             >
               <Icon className="size-3.5 shrink-0" />
               <span className="leading-none">{item.label}</span>
