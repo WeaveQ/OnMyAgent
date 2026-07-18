@@ -268,13 +268,12 @@ export function listPersonalizationVerticalIds(): PersonalizationVerticalId[] {
 }
 
 export function assertNoForbiddenVerticalsInCatalog(): void {
-  for (const vertical of PERSONALIZATION_VERTICALS) {
-    if (isForbiddenVerticalId(vertical.id)) {
-      throw new Error(`Catalog contains forbidden vertical: ${vertical.id}`);
-    }
-  }
   for (const forbidden of FORBIDDEN_VERTICAL_IDS) {
-    if (PERSONALIZATION_VERTICALS.some((v) => v.id === forbidden)) {
+    if (
+      PERSONALIZATION_VERTICALS.some(
+        (v) => (v.id as string) === (forbidden as string),
+      )
+    ) {
       throw new Error(`Forbidden id present: ${forbidden}`);
     }
   }
