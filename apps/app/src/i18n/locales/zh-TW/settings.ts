@@ -639,6 +639,12 @@ export default {
   "settings.memory_conversation_source_manual": "手動新增",
   "settings.memory_conversation_updated": "{time}更新",
   "settings.memory_conversation_delete": "刪除記憶",
+  "settings.memory_conversation_pending_title": "待確認記憶",
+  "settings.memory_conversation_pending_desc":
+    "從對話中識別出 {count} 條，確認後才會注入後續會話。",
+  "settings.memory_conversation_accept": "確認記住",
+  "settings.memory_conversation_reject": "忽略",
+  "settings.memory_conversation_accept_all": "全部確認",
 
   "settings.tab_skills": "技能",
   "settings.tab_updates": "更新",
