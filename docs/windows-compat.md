@@ -161,10 +161,25 @@ Windows roadmap.
 - [ ] Recovery panel copy pass for Windows-specific paths
 - [ ] Investigate WSL2 fallback for `sandbox-exec` equivalent
 
+## Fixed recently (kill tree + open terminal)
+
+- **Adapter child-process cleanup**: personal-agent adapters and the legacy harness go through shared `terminateProcessTree` / `terminateProcessTreeByPid` in `apps/desktop/electron/personal-agent-runtime/utils.mjs`. On Windows that issues `taskkill /T /F` so agent CLI grandchildren are reaped; on POSIX it signals the process group (`SIGTERM` → grace → `SIGKILL`). Pure plan helper: `resolveProcessTreeKillPlan`.
+- **"Open terminal" for workspace target**: `resolveWindowsTerminalLaunch` in `apps/desktop/electron/code-workspace-actions.mjs` cascades `wt.exe -d <path>` → `powershell.exe -NoExit -Command Set-Location` → `cmd.exe /K cd /D <path>`. It no longer uses `cmd /c start "" <path>` (Explorer file association).
+
+### How to run Windows runtime checks
+
+```bash
+# Any host (macOS/Linux CI included) — unit tests mock win32:
+pnpm --filter @onmyagent/desktop test:windows-runtime
+# or:
+node scripts/dev/windows-runtime-test.mjs
+
+# On a Windows machine, also run env preflight:
+node scripts/dev/windows-preflight.mjs
+```
+
 ## Known gaps not yet fixed
 
 These are tracked, but each needs a follow-up PR:
 
-- **Adapter child-process cleanup**: `apps/desktop/electron/personal-agent-runtime/adapters/{claude,codex,hermes,openclaw}.mjs` call `child.kill("SIGTERM")` directly. On Windows this reliably terminates only the immediate child, not its subprocess tree. The `acp-generic.mjs` adapter has a working `taskkill /T /F` fallback that should be extracted into a shared helper.
-- **"Open terminal" for workspace target**: `apps/desktop/electron/code-workspace-actions.mjs` uses `cmd.exe /c start "" <path>` for the terminal target on Windows, which opens the default file-association for the path (Explorer) rather than launching a terminal in that directory. Preferred: try `wt.exe -d <path>` (Windows Terminal), then `powershell.exe -NoExit -Command "Set-Location <path>"`, then fall back to `cmd.exe /K cd /D <path>`.
 - **opencode binary discovery on Windows**: the runtime now looks under `%LOCALAPPDATA%\opencode\bin\opencode.exe` and `%LOCALAPPDATA%\Programs\opencode\opencode.exe` as well as PATH. If your install lives elsewhere, set `OPENCODE_BIN` or `ONMYAGENT_LOCAL_OPENCODE_BIN`.
