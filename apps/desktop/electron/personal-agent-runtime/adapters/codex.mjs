@@ -86,29 +86,6 @@ function extractErrorMessage(error) {
   return String(error.message ?? error.data?.message ?? JSON.stringify(error));
 }
 
-function waitForExit(child, timeoutMs = 10_000) {
-  return new Promise((resolve) => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      resolve();
-      return;
-    }
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill("SIGKILL");
-      resolve();
-    }, timeoutMs);
-    timer.unref?.();
-    child.once("close", () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
 function codexApprovalResponseForRequest(method, params = {}) {
   if (method === "item/commandExecution/requestApproval") return { decision: "acceptForSession" };
   if (method === "item/fileChange/requestApproval") return { decision: "acceptForSession" };

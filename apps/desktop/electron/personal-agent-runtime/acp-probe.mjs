@@ -1,4 +1,5 @@
 import { extractAcpSessionId, spawnAcpClient } from "./acp-client.mjs";
+import { terminateProcessTree } from "./utils.mjs";
 
 const AUTH_ERROR_PATTERN = /auth|login|unauthorized|forbidden|api key|credential|sign in|not logged in|认证|登录|未授权|凭证/i;
 
@@ -105,6 +106,8 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
     }
   } finally {
     client.dispose();
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+    if (child.exitCode === null && child.signalCode === null) {
+      await terminateProcessTree(child);
+    }
   }
 }

@@ -3,7 +3,7 @@ import { createInterface } from "node:readline";
 
 import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
-import { createExecHelpers, stringifyAgentCommand, terminateProcessTree } from "../utils.mjs";
+import { createExecHelpers, stringifyAgentCommand, terminateProcessTree, waitForExit } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
 import { unregisterAgentProcess } from "../process-registry.mjs";
 
@@ -154,29 +154,6 @@ function isReadOnlyHermesPermission(params = {}) {
   if (!name) return false;
   if (/write|edit|patch|delete|move|rename|bash|shell|exec|command|terminal/.test(name)) return false;
   return /read|grep|glob|search|list|ls|view/.test(name);
-}
-
-function waitForExit(child, timeoutMs = 10_000) {
-  return new Promise((resolve) => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      resolve();
-      return;
-    }
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill("SIGKILL");
-      resolve();
-    }, timeoutMs);
-    timer.unref?.();
-    child.once("close", () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve();
-    });
-  });
 }
 
 class HermesAcpClient {
