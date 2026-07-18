@@ -950,15 +950,18 @@ export function AgentManagementProviderPanel(props: {
   const appLabel = skillAgentLabel(props.selectedApp);
 
   return (
-    <section className="grid min-h-0 gap-3 lg:grid-cols-[200px_minmax(0,1fr)]">
-      <aside className="flex min-h-0 flex-col rounded-xl border border-dls-border bg-dls-surface p-2.5">
-        <div className="mb-2 flex items-center justify-between px-1.5">
-          <span className="text-xs font-medium text-dls-secondary">Agent</span>
-          <span className="text-xs tabular-nums text-dls-secondary">
-            {props.snapshot?.providers.total ?? 0}
+    <section className="grid h-full min-h-0 gap-4 lg:grid-cols-[232px_minmax(0,1fr)]">
+      {/* Agent runtime picker */}
+      <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+        <div className="flex shrink-0 items-center justify-between border-b border-dls-border px-3 py-2.5">
+          <span className="text-xs font-medium uppercase tracking-[0.06em] text-dls-secondary">
+            Agent
           </span>
+          <CountBadge size="dot" className="bg-dls-hover text-dls-secondary">
+            {props.snapshot?.providers.total ?? 0}
+          </CountBadge>
         </div>
-        <div className="space-y-0.5">
+        <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
           {PROVIDER_APP_OPTIONS.map((app) => {
             const count = props.snapshot?.providers.byAgent[app]?.length ?? 0;
             const selected = props.selectedApp === app;
@@ -972,23 +975,28 @@ export function AgentManagementProviderPanel(props: {
                       onClick={() => props.onSelectApp(app)}
                       active={selected}
                       className={cn(
-                        "gap-2 rounded-lg px-2 py-1.5",
+                        "w-full cursor-pointer gap-2.5 rounded-lg px-2 py-2 titlebar-no-drag",
                         selected
                           ? "bg-dls-list-selected text-dls-text"
                           : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
                       )}
                     >
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted">
+                      <span
+                        className={cn(
+                          "flex size-7 shrink-0 items-center justify-center rounded-md",
+                          selected ? "bg-dls-surface" : "bg-dls-surface-muted",
+                        )}
+                      >
                         <ProviderBrandIcon appType={app} />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
                         {skillAgentLabel(app)}
                       </span>
                       <CountBadge
                         size="dot"
                         className={
                           selected
-                            ? "bg-dls-surface-muted text-dls-secondary"
+                            ? "bg-dls-surface text-dls-secondary"
                             : "bg-dls-hover text-dls-secondary"
                         }
                       >
@@ -1005,12 +1013,12 @@ export function AgentManagementProviderPanel(props: {
           })}
         </div>
         {props.snapshot?.providers.databasePath ? (
-          <div className="mt-auto border-t border-dls-border px-1.5 pt-2.5">
-            <div className="text-xs font-medium text-dls-secondary">
+          <div className="shrink-0 border-t border-dls-border px-3 py-2.5">
+            <div className="text-2xs font-medium uppercase tracking-[0.06em] text-dls-secondary">
               {t("agent_manager.provider_studio_db_title")}
             </div>
             <div
-              className="mt-0.5 truncate font-mono text-xs leading-4 text-dls-secondary/80"
+              className="mt-1 truncate font-mono text-2xs leading-4 text-dls-secondary/80"
               title={props.snapshot.providers.databasePath}
             >
               {props.snapshot.providers.databasePath}
@@ -1019,10 +1027,11 @@ export function AgentManagementProviderPanel(props: {
         ) : null}
       </aside>
 
-      <div className="min-w-0 rounded-xl border border-dls-border bg-dls-surface">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dls-border px-4 py-3">
+      {/* Selected agent provider workspace */}
+      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dls-border px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted ring-1 ring-dls-border/60">
               <ProviderBrandIcon appType={props.selectedApp} />
             </span>
             <div className="min-w-0">
@@ -1036,7 +1045,7 @@ export function AgentManagementProviderPanel(props: {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -1062,155 +1071,187 @@ export function AgentManagementProviderPanel(props: {
           </div>
         </div>
 
-        <div className="divide-y divide-dls-border">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {providers.length ? (
-            providers.map((provider) => {
-              const busy = props.busyKey?.startsWith(
-                `provider:${provider.appType}:${provider.id}:`,
-              );
-              return (
-                <div
-                  key={`${provider.appType}:${provider.id}`}
-                  className="px-4 py-3 transition-colors hover:bg-dls-list-hover/40"
-                >
-                  <div className="flex items-start gap-3">
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted ring-1 ring-dls-border">
-                            <ProviderBrandIcon
-                              provider={provider}
-                              appType={provider.appType}
-                            />
+            <div className="divide-y divide-dls-border">
+              {providers.map((provider) => {
+                const busy = props.busyKey?.startsWith(
+                  `provider:${provider.appType}:${provider.id}:`,
+                );
+                return (
+                  <div
+                    key={`${provider.appType}:${provider.id}`}
+                    className="px-4 py-3.5 transition-colors hover:bg-dls-list-hover/40"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted ring-1 ring-dls-border">
+                              <ProviderBrandIcon
+                                provider={provider}
+                                appType={provider.appType}
+                              />
+                            </span>
+                          }
+                        />
+                        <TooltipContent side="bottom">
+                          <span>{provider.name}</span>
+                        </TooltipContent>
+                      </Tooltip>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span className="truncate text-sm font-medium text-dls-text">
+                            {provider.name}
                           </span>
-                        }
-                      />
-                      <TooltipContent side="bottom">
-                        <span>{provider.name}</span>
-                      </TooltipContent>
-                    </Tooltip>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="truncate text-sm font-medium text-dls-text">
-                          {provider.name}
-                        </span>
-                        {provider.isCurrent ? (
-                          <StatusBadge size="tiny" tone="success">
-                            {t("agent_manager.current")}
+                          {provider.isCurrent ? (
+                            <StatusBadge size="tiny" tone="success">
+                              {t("agent_manager.current")}
+                            </StatusBadge>
+                          ) : null}
+                          {provider.livePresent ? (
+                            <StatusBadge size="tiny" tone="accent">
+                              {t("agent_manager.written")}
+                            </StatusBadge>
+                          ) : null}
+                          <StatusBadge size="tiny" tone="surface">
+                            {provider.id}
                           </StatusBadge>
-                        ) : null}
-                        {provider.livePresent ? (
-                          <StatusBadge size="tiny" tone="accent">
-                            {t("agent_manager.written")}
-                          </StatusBadge>
-                        ) : null}
-                        <StatusBadge size="tiny" tone="surface">
-                          {provider.id}
-                        </StatusBadge>
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-dls-secondary">
+                          {providerModelSummary(provider)}
+                        </div>
+                        <div
+                          className="mt-0.5 truncate font-mono text-xs text-dls-secondary/75"
+                          title={provider.configPath}
+                        >
+                          {provider.configPath}
+                        </div>
                       </div>
-                      <div className="mt-0.5 truncate text-xs text-dls-secondary">
-                        {providerModelSummary(provider)}
-                      </div>
-                      <div
-                        className="mt-0.5 truncate font-mono text-xs text-dls-secondary/75"
-                        title={provider.configPath}
-                      >
-                        {provider.configPath}
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <ProviderActionIconButton
+                          label={t("agent_manager.provider_modal.edit_provider")}
+                          disabled={busy}
+                          onClick={() => props.onEditProvider(provider)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </ProviderActionIconButton>
+                        <ProviderActionIconButton
+                          label={t("agent_manager.provider_modal.enable_provider")}
+                          disabled={busy}
+                          onClick={() =>
+                            props.onProviderAction(
+                              {
+                                action: "switch",
+                                appType: provider.appType,
+                                providerId: provider.id,
+                              },
+                              `provider:${provider.appType}:${provider.id}:switch`,
+                            )
+                          }
+                        >
+                          {props.busyKey ===
+                          `provider:${provider.appType}:${provider.id}:switch` ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <Zap className="size-3.5" />
+                          )}
+                        </ProviderActionIconButton>
+                        <ProviderActionIconButton
+                          label={t("agent_manager.provider_modal.write_config")}
+                          disabled={busy}
+                          onClick={() =>
+                            props.onProviderAction(
+                              {
+                                action: "syncLive",
+                                appType: provider.appType,
+                                providerId: provider.id,
+                              },
+                              `provider:${provider.appType}:${provider.id}:sync`,
+                            )
+                          }
+                        >
+                          {props.busyKey ===
+                          `provider:${provider.appType}:${provider.id}:sync` ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <RefreshCw className="size-3.5" />
+                          )}
+                        </ProviderActionIconButton>
+                        <ProviderActionIconButton
+                          label={t("agent_manager.provider_modal.delete_provider")}
+                          tooltipLabel={
+                            provider.isCurrent
+                              ? t("agent_manager.provider_modal.current_provider_cannot_delete")
+                              : t("agent_manager.provider_modal.delete_provider")
+                          }
+                          disabled={busy || provider.isCurrent}
+                          danger
+                          onClick={() =>
+                            props.onProviderAction(
+                              {
+                                action: "delete",
+                                appType: provider.appType,
+                                providerId: provider.id,
+                              },
+                              `provider:${provider.appType}:${provider.id}:delete`,
+                            )
+                          }
+                        >
+                          {props.busyKey ===
+                          `provider:${provider.appType}:${provider.id}:delete` ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <Trash2 className="size-3.5" />
+                          )}
+                        </ProviderActionIconButton>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      <ProviderActionIconButton
-                        label={t("agent_manager.provider_modal.edit_provider")}
-                        disabled={busy}
-                        onClick={() => props.onEditProvider(provider)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </ProviderActionIconButton>
-                      <ProviderActionIconButton
-                        label={t("agent_manager.provider_modal.enable_provider")}
-                        disabled={busy}
-                        onClick={() =>
-                          props.onProviderAction(
-                            {
-                              action: "switch",
-                              appType: provider.appType,
-                              providerId: provider.id,
-                            },
-                            `provider:${provider.appType}:${provider.id}:switch`,
-                          )
-                        }
-                      >
-                        {props.busyKey ===
-                        `provider:${provider.appType}:${provider.id}:switch` ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <Zap className="size-3.5" />
-                        )}
-                      </ProviderActionIconButton>
-                      <ProviderActionIconButton
-                        label={t("agent_manager.provider_modal.write_config")}
-                        disabled={busy}
-                        onClick={() =>
-                          props.onProviderAction(
-                            {
-                              action: "syncLive",
-                              appType: provider.appType,
-                              providerId: provider.id,
-                            },
-                            `provider:${provider.appType}:${provider.id}:sync`,
-                          )
-                        }
-                      >
-                        {props.busyKey ===
-                        `provider:${provider.appType}:${provider.id}:sync` ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <RefreshCw className="size-3.5" />
-                        )}
-                      </ProviderActionIconButton>
-                      <ProviderActionIconButton
-                        label={t("agent_manager.provider_modal.delete_provider")}
-                        tooltipLabel={
-                          provider.isCurrent
-                            ? t("agent_manager.provider_modal.current_provider_cannot_delete")
-                            : t("agent_manager.provider_modal.delete_provider")
-                        }
-                        disabled={busy || provider.isCurrent}
-                        danger
-                        onClick={() =>
-                          props.onProviderAction(
-                            {
-                              action: "delete",
-                              appType: provider.appType,
-                              providerId: provider.id,
-                            },
-                            `provider:${provider.appType}:${provider.id}:delete`,
-                          )
-                        }
-                      >
-                        {props.busyKey ===
-                        `provider:${provider.appType}:${provider.id}:delete` ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <Trash2 className="size-3.5" />
-                        )}
-                      </ProviderActionIconButton>
-                    </div>
+                    <details className="mt-2.5 rounded-lg border border-dls-border bg-dls-background px-3 py-2 text-xs text-dls-secondary">
+                      <summary className="cursor-pointer font-medium text-dls-secondary hover:text-dls-text">
+                        {t("agent_manager.config_preview")}
+                      </summary>
+                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs leading-4 text-dls-secondary">
+                        {redactProviderText(provider.settingsConfig)}
+                      </pre>
+                    </details>
                   </div>
-                  <details className="mt-2 rounded-lg border border-dls-border bg-dls-background px-3 py-2 text-xs text-dls-secondary">
-                    <summary className="cursor-pointer font-medium text-dls-secondary hover:text-dls-text">
-                      {t("agent_manager.config_preview")}
-                    </summary>
-                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs leading-4 text-dls-secondary">
-                      {redactProviderText(provider.settingsConfig)}
-                    </pre>
-                  </details>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           ) : (
-            <div className="p-4">
-              <EmptyStateBox>{t("agent_manager.no_managed_providers")}</EmptyStateBox>
+            <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-5 px-6 py-12">
+              <EmptyStateBox
+                size="spacious"
+                tone="surface"
+                className="max-w-md border-dashed text-center text-sm leading-6"
+              >
+                {t("agent_manager.no_managed_providers")}
+              </EmptyStateBox>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={props.busyKey === `provider:${props.selectedApp}:import`}
+                  onClick={() =>
+                    props.onProviderAction(
+                      { action: "importLive", appType: props.selectedApp },
+                      `provider:${props.selectedApp}:import`,
+                    )
+                  }
+                >
+                  {props.busyKey === `provider:${props.selectedApp}:import` ? (
+                    <LoadingSpinner size="sm" className="mr-1.5" />
+                  ) : (
+                    <Download className="mr-1.5 size-3.5" />
+                  )}
+                  {t("agent_manager.import_current")}
+                </Button>
+                <Button size="sm" onClick={props.onCreateProvider}>
+                  <Plus className="mr-1.5 size-3.5" />
+                  {t("agent_manager.add_provider")}
+                </Button>
+              </div>
             </div>
           )}
         </div>

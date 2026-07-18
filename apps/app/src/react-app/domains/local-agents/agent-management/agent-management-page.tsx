@@ -645,12 +645,14 @@ export function AgentManagementPage(props: {
       <div
         className={cn(
           "min-h-0 flex-1",
-          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto px-6 py-4",
+          activePanel === "archive" || activePanel === "providers"
+            ? "overflow-hidden px-6 py-4"
+            : "overflow-y-auto px-6 py-4",
         )}
       >
         <div
           className={cn(
-            activePanel === "archive"
+            activePanel === "archive" || activePanel === "providers"
               ? "flex h-full min-h-0 w-full flex-col"
               : "mx-auto w-full max-w-6xl space-y-4",
           )}
