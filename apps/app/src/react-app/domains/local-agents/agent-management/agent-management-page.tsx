@@ -168,11 +168,11 @@ const PANEL_TABS: Array<{
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  { id: "providers", icon: Zap, labelKey: "agent_manager.providers" },
-  { id: "agents", icon: UserRound, labelKey: "agent_manager.agent_check" },
-  { id: "skills", icon: Puzzle, labelKey: "agent_manager.skill_management" },
-  { id: "mcp", icon: Plug, labelKey: "agent_manager.mcp.tab" },
-  { id: "archive", icon: Archive, labelKey: "nav.session_archive", archiveOnly: true },
+  { id: "providers", icon: Zap, labelKey: "agent_manager.tab_providers" },
+  { id: "agents", icon: UserRound, labelKey: "agent_manager.tab_agents" },
+  { id: "skills", icon: Puzzle, labelKey: "agent_manager.tab_skills" },
+  { id: "mcp", icon: Plug, labelKey: "agent_manager.tab_mcp" },
+  { id: "archive", icon: Archive, labelKey: "agent_manager.tab_archive", archiveOnly: true },
 ];
 
 export function AgentManagementPage(props: {

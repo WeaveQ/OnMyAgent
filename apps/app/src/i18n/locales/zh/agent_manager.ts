@@ -2,6 +2,11 @@ import { APP_NAME } from "../brand";
 
 export default {
   "agent_manager.add_provider": "新增模型服务商",
+  "agent_manager.tab_providers": "模型",
+  "agent_manager.tab_agents": "本地",
+  "agent_manager.tab_skills": "技能",
+  "agent_manager.tab_mcp": "MCP",
+  "agent_manager.tab_archive": "会话",
   "agent_manager.agent_check": "AI 同事",
   "agent_manager.agents_desc": "本机编程 Agent 的状态、连接检查与运行信息",
   "agent_manager.config_preview": "配置预览",
