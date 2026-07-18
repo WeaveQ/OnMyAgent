@@ -361,7 +361,7 @@ async function ensureOpenClawGateway({ executablePath, workdir, env, appendEvent
   });
   const ready = await waitForPort(OPENCLAW_DEFAULT_GATEWAY_PORT);
   if (!ready) {
-    child.kill("SIGTERM");
+    await terminateProcessTree(child);
     await waitForExit(child, 2_000);
     throw new Error(`OpenClaw gateway did not become ready on 127.0.0.1:${OPENCLAW_DEFAULT_GATEWAY_PORT}`);
   }

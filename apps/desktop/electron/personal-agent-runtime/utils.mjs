@@ -201,6 +201,60 @@ export function appendRunEvent(events, event) {
 // Mirrors AionUi's `backend-launcher.ts` / `acp-generic.mjs` kill semantics:
 // escalate SIGTERM -> grace -> SIGKILL, and target the whole process group
 // (negative pid) so a detached child plus everything it forked is reaped.
+//
+// On Windows, bare `child.kill("SIGTERM")` only reaps the immediate child and
+// leaves agent CLI grandchildren alive. Always go through terminateProcessTree
+// / terminateProcessTreeByPid so win32 uses `taskkill /T /F`.
+
+/**
+ * Pure decision helper: how should we kill a process tree on this platform?
+ * Unit tests assert this without spawning real processes.
+ *
+ * @param {{ platform?: string; pid?: number | string; force?: boolean }} [options]
+ * @returns {{ kind: "taskkill"; command: string; args: string[] } | { kind: "posix-group"; signals: string[] } | { kind: "noop" }}
+ */
+export function resolveProcessTreeKillPlan({ platform = process.platform, pid, force = true } = {}) {
+  const nPid = Number(pid);
+  if (!nPid) return { kind: "noop" };
+  if (platform === "win32") {
+    const args = force
+      ? ["/pid", String(nPid), "/T", "/F"]
+      : ["/pid", String(nPid), "/T"];
+    return { kind: "taskkill", command: "taskkill", args };
+  }
+  return { kind: "posix-group", signals: ["SIGTERM", "SIGKILL"] };
+}
+
+/**
+ * Best-effort force kill of a ChildProcess tree (no grace). Used by waitForExit
+ * timeout escalation and as a fallback when taskkill spawn fails.
+ */
+export function forceKillProcessTree(child, { platform = process.platform } = {}) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const pid = child.pid;
+  const plan = resolveProcessTreeKillPlan({ platform, pid, force: true });
+  if (plan.kind === "taskkill") {
+    try {
+      spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+      return;
+    } catch {
+      // Fall through to direct kill.
+    }
+  }
+  if (plan.kind === "posix-group" && pid) {
+    try {
+      process.kill(-pid, "SIGKILL");
+      return;
+    } catch {
+      // Fall through to direct kill.
+    }
+  }
+  try {
+    child.kill("SIGKILL");
+  } catch {
+    // Already gone.
+  }
+}
 
 export function isProcessAlive(pid) {
   const n = Number(pid);
@@ -232,18 +286,19 @@ export function isProcessTreeAlive(record) {
   return isProcessAlive(nPid);
 }
 
+/**
+ * Wait for a child to exit. On timeout, force-kill the whole process tree
+ * (taskkill /T /F on Windows; process-group SIGKILL on POSIX) so hung agent
+ * grandchildren cannot linger.
+ */
 export function waitForExit(child, timeoutMs = 10_000) {
   return new Promise((resolve) => {
-    if (child.exitCode !== null || child.signalCode !== null) {
+    if (!child || child.exitCode !== null || child.signalCode !== null) {
       resolve();
       return;
     }
     const timer = setTimeout(() => {
-      try {
-        child.kill("SIGKILL");
-      } catch {
-        // Already gone.
-      }
+      forceKillProcessTree(child);
       resolve();
     }, timeoutMs);
     timer.unref?.();
@@ -261,13 +316,12 @@ export async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
   const pid = child.pid;
   if (process.platform === "win32") {
     if (pid) {
-      try {
-        spawn("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-      } catch {
+      const plan = resolveProcessTreeKillPlan({ platform: "win32", pid, force: true });
+      if (plan.kind === "taskkill") {
         try {
-          child.kill("SIGKILL");
+          spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
         } catch {
-          // Already gone.
+          forceKillProcessTree(child);
         }
       }
     }
@@ -308,7 +362,8 @@ export async function terminateProcessTreeByPid({ pid, pgid, graceMs = 1_000 } =
   const nPid = Number(pid);
   if (!nPid) return;
   if (process.platform === "win32") {
-    await runTaskkill(nPid, false);
+    // Force-kill the whole tree; soft /T without /F leaves hung children.
+    await runTaskkill(nPid, true);
     return;
   }
   const target = Number(pgid) > 1 ? -Number(pgid) : -nPid;
@@ -332,10 +387,13 @@ export async function terminateProcessTreeByPid({ pid, pgid, graceMs = 1_000 } =
 
 function runTaskkill(pid, force = false) {
   return new Promise((resolve) => {
-    const args = ["/PID", String(pid), "/T"];
-    if (force) args.unshift("/F");
+    const plan = resolveProcessTreeKillPlan({ platform: "win32", pid, force });
+    if (plan.kind !== "taskkill") {
+      resolve();
+      return;
+    }
     try {
-      const child = spawn("taskkill", args, { stdio: "ignore", windowsHide: true });
+      const child = spawn(plan.command, plan.args, { stdio: "ignore", windowsHide: true });
       child.once("error", () => resolve());
       child.once("exit", () => resolve());
     } catch {

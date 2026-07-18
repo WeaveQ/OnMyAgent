@@ -29,6 +29,7 @@ import {
   runId,
   stableKey,
   stringifyAgentCommand,
+  terminateProcessTree,
   uniqueModelOptions,
 } from "./utils.mjs";
 import { legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
@@ -685,7 +686,7 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     state.error = state.error || "用户取消";
     appendRunEvent(state.events, { type: "log", text: "cancel requested" });
     void persistRun(state);
-    child.kill("SIGTERM");
+    void terminateProcessTree(child).catch(() => undefined);
     return { ok: true };
   }
 
