@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Bug,
   Brain,
+  ChartNoAxesCombined,
   CloudCog,
   Cog,
   FolderLock,
@@ -69,6 +70,8 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return Terminal;
     case "updates":
       return RefreshCcw;
+    case "usage":
+      return ChartNoAxesCombined;
     case "memory":
       return UserCircle;
     case "conversation-memory":
@@ -100,6 +103,8 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.tab_environment");
     case "updates":
       return t("settings.tab_updates");
+    case "usage":
+      return t("settings.tab_usage");
     case "memory":
       return t("settings.tab_memory");
     case "conversation-memory":
@@ -133,6 +138,8 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.tab_description_environment");
     case "updates":
       return t("settings.tab_description_updates");
+    case "usage":
+      return t("settings.tab_description_usage");
     case "memory":
       return t("settings.tab_description_memory");
     case "conversation-memory":
@@ -148,9 +155,13 @@ export function getSettingsTabDescription(tab: SettingsTab) {
   }
 }
 
+/** Top-level overview — not nested under workspace/global groups. */
+export function getOverviewSettingsTabs(): SettingsTab[] {
+  return ["general"];
+}
+
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
   return [
-    "general",
     "preferences",
     "memory",
     "conversation-memory",
@@ -163,7 +174,7 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  const tabs: SettingsTab[] = ["ai", "environment", "updates"];
+  const tabs: SettingsTab[] = ["ai", "environment", "updates", "usage"];
   if (developerMode) tabs.push("debug");
   return tabs;
 }
@@ -193,17 +204,21 @@ type SettingsSidebarProps = Pick<
 };
 
 function SettingsNavGroup(props: {
-  label: string;
+  /** When null/empty, render tabs without a section label (standalone row). */
+  label?: string | null;
   tabs: SettingsTab[];
   activeTab: SettingsTab;
   onSelectTab: (tab: SettingsTab) => void;
 }) {
   if (props.tabs.length === 0) return null;
+  const label = props.label?.trim() || null;
   return (
-    <SidebarGroup className="px-0 py-2">
-      <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>
-        {props.label}
-      </SidebarGroupLabel>
+    <SidebarGroup className={label ? "px-0 py-2" : "px-0 py-1"}>
+      {label ? (
+        <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>
+          {label}
+        </SidebarGroupLabel>
+      ) : null}
       <SidebarGroupContent>
         <SidebarMenu className="gap-0.5">
           {props.tabs.map((tab) => {
@@ -230,6 +245,7 @@ function SettingsNavGroup(props: {
 }
 
 export function SettingsSidebar(props: SettingsSidebarProps) {
+  const overviewTabs = getOverviewSettingsTabs();
   const workspaceTabs = getWorkspaceSettingsTabs();
   const archivedTabs = getArchivedSettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
@@ -253,6 +269,11 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="px-2 pb-4">
+        <SettingsNavGroup
+          tabs={overviewTabs}
+          activeTab={props.activeTab}
+          onSelectTab={props.onSelectTab}
+        />
         <SettingsNavGroup
           label={t("settings.group_workspace")}
           tabs={workspaceTabs}

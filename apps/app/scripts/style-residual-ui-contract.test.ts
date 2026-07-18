@@ -121,4 +121,104 @@ describe("residual UI style dialect contract", () => {
     expect(actionRow!.source).toContain("function FilterChip(");
     expect(actionRow!.source).toContain("bg-dls-list-selected text-dls-text shadow-none");
   });
+
+  test("no arbitrary text-[Npx] font sizes in shipped UI trees", () => {
+    // DESIGN / frontend-primitive-refactor hard rule: no new text-[Npx].
+    const hits = sources.flatMap((s) => {
+      const re = /text-\[[0-9]+px\]/g;
+      const lines: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(s.source)) !== null) {
+        const line = s.source.slice(0, m.index).split("\n").length;
+        lines.push(`${s.rel}:${line}: ${m[0]}`);
+      }
+      return lines;
+    });
+    expect(hits).toEqual([]);
+  });
+
+  test("assistant list rows keep strict h-8 min/max rhythm", () => {
+    const sections = sources.find((s) =>
+      s.rel.endsWith("sidebar/assistant-conversation-sections.tsx"),
+    );
+    const taskItem = sources.find((s) =>
+      s.rel.endsWith("sidebar/assistant-task-item.tsx"),
+    );
+    expect(sections).toBeDefined();
+    expect(taskItem).toBeDefined();
+    expect(sections!.source).toMatch(/h-8 min-h-8 max-h-8/);
+    expect(taskItem!.source).toMatch(/h-8 min-h-8 max-h-8/);
+  });
+
+  test("SendButton is the only workbench rounded-full decision CTA primitive", () => {
+    const send = sources.find((s) => s.rel.endsWith("components/ui/send-button.tsx"));
+    expect(send).toBeDefined();
+    expect(send!.source).toContain("rounded-full");
+    // Default Button primitive must not ship a full pill CTA size except pill-xs chips.
+    const button = sources.find((s) => s.rel.endsWith("components/ui/button.tsx"));
+    expect(button).toBeDefined();
+    expect(button!.source).toContain('"pill-xs"');
+    // size=default / sm / lg stay rectangular (no rounded-full on those size keys).
+    expect(button!.source).not.toMatch(
+      /default:\s*"[^"]*rounded-full/,
+    );
+    expect(button!.source).not.toMatch(
+      /sm:\s*"[^"]*rounded-full/,
+    );
+    expect(button!.source).not.toMatch(
+      /lg:\s*"[^"]*rounded-full/,
+    );
+  });
+
+  /**
+   * DESIGN §11: ordinary full-width *Button* CTAs must not use rounded-full
+   * outside known pre-app / transitional surfaces. Ignores progress tracks,
+   * avatars (h-full w-full object-cover), and SegmentedTabGroup density strings.
+   */
+  test("w-full rounded-full Button CTAs are confined to the allowlisted set", () => {
+    const allowRelSubstrings = [
+      "domains/cloud/den-signin-surface.tsx",
+      "domains/workspace/create-workspace-modal.tsx",
+      "domains/workspace/remote-workspace-fields.tsx",
+      "shell/architecture-mismatch-gate.tsx",
+      "domains/session/voice/voice-panel.tsx",
+      // Composer notice is known debt (global-style-audit P0); allow until Round 1.
+      "domains/session/surface/composer/notice.tsx",
+    ];
+    const nonCtaLine =
+      /\b(object-cover|overflow-x-hidden|flex-wrap|ProgressTrack|progress-track|gap-0\.5 rounded-full border|h-full w-full rounded-full)\b/;
+    const hits = sources.flatMap((s) => {
+      const lineHits: string[] = [];
+      s.source.split("\n").forEach((line, idx) => {
+        if (!/\bw-full\b/.test(line) || !/\brounded-full\b/.test(line)) return;
+        if (nonCtaLine.test(line)) return;
+        // Prefer Button-adjacent className strings (jsx className=… with both tokens).
+        if (!/className=/.test(line) && !/^\s*["'`]/.test(line.trim())) return;
+        lineHits.push(`${s.rel}:${idx + 1}`);
+      });
+      if (lineHits.length === 0) return [];
+      const allowed = allowRelSubstrings.some((part) => s.rel.includes(part));
+      if (allowed) return [];
+      return lineHits.map((h) => `${h}: w-full rounded-full CTA outside allowlist`);
+    });
+    expect(hits).toEqual([]);
+  });
+
+  test("LoadingSpinner primitive remains the shared spin ring", () => {
+    const spinner = sources.find((s) =>
+      s.rel.endsWith("components/ui/loading-spinner.tsx"),
+    );
+    expect(spinner).toBeDefined();
+    expect(spinner!.source).toContain("animate-spin");
+    expect(spinner!.source).toContain("function LoadingSpinner");
+  });
+
+  test("floating task menu uses opaque surface-solid (not glass surface alone)", () => {
+    const taskItem = sources.find((s) =>
+      s.rel.endsWith("sidebar/assistant-task-item.tsx"),
+    );
+    expect(taskItem).toBeDefined();
+    expect(taskItem!.source).toContain("bg-dls-surface-solid");
+    expect(taskItem!.source).toContain("TASK_CONTEXT_MENU_CLASS");
+  });
 });

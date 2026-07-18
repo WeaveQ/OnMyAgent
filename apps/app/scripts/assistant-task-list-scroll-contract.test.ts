@@ -17,7 +17,7 @@ describe("assistant task list scroll contract", () => {
     expect(source).toContain("const ASSISTANT_TASK_PREVIEW_LIMIT = 20;");
   });
 
-  test("keeps the task list controls fixed above scrolling rows", () => {
+  test("splits the list into three collapsible sections", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -26,8 +26,12 @@ describe("assistant task list scroll contract", () => {
       "utf8",
     );
 
-    expect(source).toContain('data-assistant-task-list-header="true"');
-    expect(source).toContain("sticky top-0 z-10");
+    expect(source).toContain('data-assistant-section="tasks"');
+    expect(source).toContain('data-assistant-section="spaces"');
+    expect(source).toContain('data-assistant-section="automations"');
+    expect(source).toContain('data-assistant-section-header="true"');
+    expect(source).not.toContain("Popover");
+    expect(source).not.toContain("activeFilter");
   });
 
   test("keeps the task list disclosure action visually quiet", () => {
@@ -41,7 +45,7 @@ describe("assistant task list scroll contract", () => {
 
     expect(source).toContain('data-assistant-task-list-disclosure="true"');
     expect(source).toContain(
-      "bg-dls-sidebar text-xs text-dls-secondary font-normal hover:bg-dls-list-hover hover:text-dls-text",
+      "bg-dls-sidebar text-xs font-normal text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
     );
   });
 });

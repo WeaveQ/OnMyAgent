@@ -23,6 +23,7 @@ export type {
   MessagingViewTab,
 } from "./pages/messaging-view";
 export type { UpdatesViewProps } from "./pages/updates-view";
+export type { UsageSettingsViewProps } from "./pages/usage-view";
 
 /** Deferred page loaders — shell hosts must use these (not static page imports). */
 export {
@@ -42,6 +43,7 @@ export {
   loadPreferencesView,
   loadSystemAuthorizationsView,
   loadUpdatesView,
+  loadUsageView,
 } from "./lazy-pages";
 export {
   FieldLabel,

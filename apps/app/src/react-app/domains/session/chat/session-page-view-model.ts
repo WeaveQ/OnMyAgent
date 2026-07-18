@@ -104,7 +104,6 @@ export function buildSessionPageViewModel(input: BuildSessionPageViewModelInput)
     input.activeSidebarView === "files" ||
     input.activeSidebarView === "store" ||
     input.activeSidebarView === "projects" ||
-    input.activeSidebarView === "usage" ||
     input.activeSidebarView === "skills" ||
     input.activeSidebarView === "connectors" ||
     input.activeSidebarView === "localAgent"

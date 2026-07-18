@@ -16,6 +16,7 @@ export const loadSystemAuthorizationsView = () =>
 export const loadAiSettingsView = () => import("./pages/ai-view");
 export const loadEnvironmentView = () => import("./pages/environment-view");
 export const loadUpdatesView = () => import("./pages/updates-view");
+export const loadUsageView = () => import("./pages/usage-view");
 export const loadDebugView = () => import("./pages/debug-view");
 export const loadArchivedTasksView = () => import("./pages/archived-tasks-view");
 export const loadAuthorizedFoldersPanel = () =>

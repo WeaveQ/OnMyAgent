@@ -6,9 +6,6 @@ import {
   Check,
   ChevronDown,
   Copy,
-  GitFork,
-  MessageSquareWarning,
-  MoreHorizontal,
   RotateCcw,
   Share2,
   Square,
@@ -19,19 +16,10 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { buildFeedbackUrl } from "../../../../../app/lib/feedback";
-import { usePlatform } from "../../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../../sync/message-metadata";
 import {
   formatTranscriptDuration,
@@ -345,52 +333,6 @@ export function TranscriptFeedbackControls(props: { messageId: string }) {
   );
 }
 
-export function TranscriptMoreMenu(props: {
-  requestId: string;
-  actionMessageId: string | null;
-  onForkAtMessage?: (messageId: string) => void;
-}) {
-  const platform = usePlatform();
-  const onForkAtMessage = props.onForkAtMessage;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            title={t("session.transcript_more")}
-            aria-label={t("session.transcript_more")}
-          >
-            <MoreHorizontal size={14} />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="start" className="w-52">
-        {props.actionMessageId && onForkAtMessage ? (
-          <DropdownMenuItem onClick={() => onForkAtMessage(props.actionMessageId ?? "")}>
-            <GitFork />
-            {t("session.fork_message")}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          onClick={() => platform.openLink(buildFeedbackUrl({ entrypoint: "transcript-message" }))}
-        >
-          <MessageSquareWarning />
-          {t("session.support_feedback")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(props.requestId)}>
-          <Copy />
-          {t("session.transcript_copy_request_id")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function transcriptTurnStatusLabel(state: TranscriptTurnPresentation["state"]) {
   switch (state) {
     case "pending":
@@ -509,7 +451,6 @@ export function TranscriptCancelledIndicator(props: {
 
 export function TranscriptTurnActions(props: {
   presentation: TranscriptBlockTurnPresentation;
-  onForkAtMessage?: (messageId: string) => void;
 }) {
   if (
     !props.presentation.isActionBlock ||
@@ -543,11 +484,6 @@ export function TranscriptTurnActions(props: {
       {props.presentation.copyText ? (
         <TranscriptShareButton text={props.presentation.copyText} />
       ) : null}
-      <TranscriptMoreMenu
-        requestId={props.presentation.requestId}
-        actionMessageId={actionMessageId}
-        onForkAtMessage={props.onForkAtMessage}
-      />
       {inputTokens && cacheTokens && outputTokens ? (
         <span
           aria-label={t("session.transcript_token_usage_label", {

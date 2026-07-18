@@ -49,7 +49,6 @@ export {
   TranscriptSpeechButton,
   TranscriptShareButton,
   TranscriptFeedbackControls,
-  TranscriptMoreMenu,
   TranscriptTurnStatus,
   TranscriptAssistantHeader,
   TranscriptCancelledIndicator,
@@ -174,7 +173,6 @@ export function MessageBlockRow(props: {
         <TranscriptCancelledIndicator presentation={turnPresentation} />
         <TranscriptTurnActions
           presentation={turnPresentation}
-          onForkAtMessage={props.onForkAtMessage}
         />
       </div>
     );
@@ -235,8 +233,7 @@ export function MessageBlockRow(props: {
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
-            onForkAtMessage={props.onForkAtMessage}
-          />
+            />
         ) : null}
       </div>
     );
@@ -308,8 +305,7 @@ export function MessageBlockRow(props: {
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
-            onForkAtMessage={props.onForkAtMessage}
-          />
+            />
         ) : null}
       </div>
     );
@@ -482,7 +478,6 @@ export function MessageBlockRow(props: {
       {turnPresentation ? (
         <TranscriptTurnActions
           presentation={turnPresentation}
-          onForkAtMessage={props.onForkAtMessage}
         />
       ) : null}
     </div>

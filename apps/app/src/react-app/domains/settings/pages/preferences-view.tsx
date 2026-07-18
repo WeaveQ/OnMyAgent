@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { SelectMenu } from "../../../design-system/select-menu";
 import { normalizeIdleHours } from "../../../kernel/local-provider";
 
 import { t } from "@/i18n";
@@ -21,10 +19,6 @@ export type PreferencesViewProps = {
   busy: boolean;
   showThinking: boolean;
   onToggleShowThinking: () => void;
-  responseTone: "friendly" | "business";
-  onResponseToneChange: (tone: "friendly" | "business") => void;
-  customInstructions: string;
-  onCustomInstructionsChange: (instructions: string) => void;
   autoCompactContext: boolean;
   autoCompactContextBusy: boolean;
   onToggleAutoCompactContext: () => void;
@@ -35,24 +29,12 @@ export type PreferencesViewProps = {
 };
 
 export function PreferencesView(props: PreferencesViewProps) {
-  const [instructionsDraft, setInstructionsDraft] = useState(
-    props.customInstructions,
-  );
-  const [instructionsSaved, setInstructionsSaved] = useState(false);
   const [idleHoursDraft, setIdleHoursDraft] = useState(
     props.autoNewSessionIdleHours,
   );
   const [idleHoursSaved, setIdleHoursSaved] = useState(false);
 
-  const instructionsDirty = instructionsDraft !== props.customInstructions;
   const idleHoursDirty = idleHoursDraft !== props.autoNewSessionIdleHours;
-
-  useEffect(() => {
-    // External prefs updates (reload / reset) re-sync the draft when clean.
-    if (!instructionsDirty) {
-      setInstructionsDraft(props.customInstructions);
-    }
-  }, [props.customInstructions, instructionsDirty]);
 
   useEffect(() => {
     if (!idleHoursDirty) {
@@ -61,27 +43,10 @@ export function PreferencesView(props: PreferencesViewProps) {
   }, [props.autoNewSessionIdleHours, idleHoursDirty]);
 
   useEffect(() => {
-    if (!instructionsSaved) return;
-    const timer = window.setTimeout(() => setInstructionsSaved(false), 2000);
-    return () => window.clearTimeout(timer);
-  }, [instructionsSaved]);
-
-  useEffect(() => {
     if (!idleHoursSaved) return;
     const timer = window.setTimeout(() => setIdleHoursSaved(false), 2000);
     return () => window.clearTimeout(timer);
   }, [idleHoursSaved]);
-
-  const handleSaveInstructions = useCallback(() => {
-    if (!instructionsDirty || props.busy) return;
-    props.onCustomInstructionsChange(instructionsDraft);
-    setInstructionsSaved(true);
-  }, [
-    instructionsDirty,
-    instructionsDraft,
-    props.busy,
-    props.onCustomInstructionsChange,
-  ]);
 
   const handleSaveIdleHours = useCallback(() => {
     if (!idleHoursDirty || props.busy) return;
@@ -191,65 +156,6 @@ export function PreferencesView(props: PreferencesViewProps) {
                 <span>{t("settings.auto_new_session_hint")}</span>
               </p>
             )}
-          </SettingsBlockRow>
-        </SettingsBlock>
-      </SettingsPageSection>
-
-      <SettingsPageSection title={t("settings.personalization_title")}>
-        <SettingsBlock>
-          <SettingsBlockRow
-            title={t("settings.response_tone")}
-            description={t("settings.response_tone_desc")}
-            actions={
-              <SelectMenu
-                ariaLabel={t("settings.response_tone")}
-                options={[
-                  {
-                    value: "friendly",
-                    label: t("settings.response_tone_friendly"),
-                  },
-                  {
-                    value: "business",
-                    label: t("settings.response_tone_business"),
-                  },
-                ]}
-                value={props.responseTone}
-                disabled={props.busy}
-                onChange={(value) =>
-                  props.onResponseToneChange(
-                    value === "friendly" ? "friendly" : "business",
-                  )
-                }
-              />
-            }
-          />
-          <SettingsBlockRow
-            title={t("settings.custom_instructions")}
-            description={t("settings.custom_instructions_desc")}
-            align="start"
-            actions={
-              <Button
-                type="button"
-                size="sm"
-                disabled={props.busy || !instructionsDirty}
-                onClick={handleSaveInstructions}
-              >
-                {instructionsSaved && !instructionsDirty
-                  ? t("settings.memory_saved")
-                  : t("settings.memory_save")}
-              </Button>
-            }
-          >
-            <Textarea
-              className="min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
-              value={instructionsDraft}
-              disabled={props.busy}
-              placeholder={t("settings.custom_instructions_placeholder")}
-              onChange={(event) => {
-                setInstructionsDraft(event.target.value);
-                setInstructionsSaved(false);
-              }}
-            />
           </SettingsBlockRow>
         </SettingsBlock>
       </SettingsPageSection>

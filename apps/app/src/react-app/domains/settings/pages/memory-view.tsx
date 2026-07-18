@@ -1,9 +1,10 @@
 /** @jsxImportSource react */
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SelectMenu } from "../../../design-system/select-menu";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnboardingProfile } from "../../../kernel/local-provider";
@@ -48,10 +50,44 @@ const fieldInputClass = cn("h-9 text-sm", fieldControlWidthClass);
 export type MemoryViewProps = {
   draft: OnboardingProfile;
   onDraftChange: (draft: OnboardingProfile) => void;
+  busy?: boolean;
+  responseTone: "friendly" | "business";
+  onResponseToneChange: (tone: "friendly" | "business") => void;
+  customInstructions: string;
+  onCustomInstructionsChange: (instructions: string) => void;
 };
 
 export function MemoryView(props: MemoryViewProps) {
   const { draft, onDraftChange } = props;
+  const busy = props.busy === true;
+  const [instructionsDraft, setInstructionsDraft] = useState(
+    props.customInstructions,
+  );
+  const [instructionsSaved, setInstructionsSaved] = useState(false);
+  const instructionsDirty = instructionsDraft !== props.customInstructions;
+
+  useEffect(() => {
+    if (!instructionsDirty) {
+      setInstructionsDraft(props.customInstructions);
+    }
+  }, [props.customInstructions, instructionsDirty]);
+
+  useEffect(() => {
+    if (!instructionsSaved) return;
+    const timer = window.setTimeout(() => setInstructionsSaved(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [instructionsSaved]);
+
+  const handleSaveInstructions = useCallback(() => {
+    if (!instructionsDirty || busy) return;
+    props.onCustomInstructionsChange(instructionsDraft);
+    setInstructionsSaved(true);
+  }, [
+    busy,
+    instructionsDirty,
+    instructionsDraft,
+    props.onCustomInstructionsChange,
+  ]);
 
   const setListValue = useCallback(
     (key: "roles" | "industries" | "tools" | "tasks", next: string[]) => {
@@ -69,6 +105,65 @@ export function MemoryView(props: MemoryViewProps) {
 
   return (
     <LayoutStack className="gap-y-8">
+      <SettingsPageSection title={t("settings.personalization_title")}>
+        <SettingsBlock>
+          <SettingsBlockRow
+            title={t("settings.response_tone")}
+            description={t("settings.response_tone_desc")}
+            actions={
+              <SelectMenu
+                ariaLabel={t("settings.response_tone")}
+                options={[
+                  {
+                    value: "friendly",
+                    label: t("settings.response_tone_friendly"),
+                  },
+                  {
+                    value: "business",
+                    label: t("settings.response_tone_business"),
+                  },
+                ]}
+                value={props.responseTone}
+                disabled={busy}
+                onChange={(value) =>
+                  props.onResponseToneChange(
+                    value === "friendly" ? "friendly" : "business",
+                  )
+                }
+              />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.custom_instructions")}
+            description={t("settings.custom_instructions_desc")}
+            align="start"
+            actions={
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy || !instructionsDirty}
+                onClick={handleSaveInstructions}
+              >
+                {instructionsSaved && !instructionsDirty
+                  ? t("settings.memory_saved")
+                  : t("settings.memory_save")}
+              </Button>
+            }
+          >
+            <Textarea
+              className="min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
+              value={instructionsDraft}
+              disabled={busy}
+              placeholder={t("settings.custom_instructions_placeholder")}
+              onChange={(event) => {
+                setInstructionsDraft(event.target.value);
+                setInstructionsSaved(false);
+              }}
+            />
+          </SettingsBlockRow>
+        </SettingsBlock>
+      </SettingsPageSection>
+
       <SettingsPageSection
         title={t("settings.memory_personal_info")}
         description={t("settings.memory_personal_info_desc")}

@@ -15,6 +15,7 @@ import {
   formatPersonalTokenCount,
   formatTaskDuration,
   monthLabelColumns,
+  trimLeadingEmptyActivityColumns,
   type PersonalUsageClient,
   type TokenActivityCell,
   type TokenActivityColumn,
@@ -42,14 +43,6 @@ const activityLevelClass: Record<number, string> = {
   4: "bg-dls-accent",
 };
 
-const columnHoverLevelClass: Record<number, string> = {
-  0: "group-hover:bg-dls-accent/15",
-  1: "group-hover:bg-dls-accent/40",
-  2: "group-hover:bg-dls-accent/60",
-  3: "group-hover:bg-dls-accent/85",
-  4: "group-hover:bg-dls-accent-hover",
-};
-
 function usageActivityModeLabel(mode: TokenActivityMode): string {
   switch (mode) {
     case "daily":
@@ -61,9 +54,33 @@ function usageActivityModeLabel(mode: TokenActivityMode): string {
   }
 }
 
+function isGenericDisplayName(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  // Default fallback from i18n (`session.current_user` → 我 / Me / etc.).
+  const generic = new Set(["我", "me", "you", "user", "anonymous"]);
+  return generic.has(trimmed.toLowerCase());
+}
+
+function resolveProfileIdentity(identity: PersonalUsagePageProps["identity"]) {
+  const rawName = identity.name?.trim() || "";
+  const email = identity.email?.trim() || "";
+  const emailLocal = email.includes("@") ? email.split("@")[0]?.trim() || "" : "";
+  const generic = isGenericDisplayName(rawName);
+  const displayName = !generic
+    ? rawName
+    : emailLocal || email || t("session.usage_profile_default_name");
+  const showEmail = Boolean(email) && displayName !== email && displayName !== emailLocal;
+  return { displayName, email, showEmail, generic };
+}
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
+  // CJK / single-token names: one character is enough for the avatar.
+  if (parts.length === 1 && parts[0] && /[\u4e00-\u9fff]/.test(parts[0])) {
+    return parts[0].slice(0, 1);
+  }
   return parts
     .slice(0, 2)
     .map((part) => part.slice(0, 1).toUpperCase())
@@ -156,6 +173,25 @@ function Metric(props: { label: string; value: string }) {
   );
 }
 
+function columnHasActivity(
+  mode: TokenActivityMode,
+  column: TokenActivityColumn,
+) {
+  if (mode === "daily") return column.cells.some((cell) => cell.value > 0);
+  if (mode === "weekly") return column.weeklyValue > 0;
+  return column.cumulativeValue > 0;
+}
+
+function weekCellForMode(
+  mode: Exclude<TokenActivityMode, "daily">,
+  column: TokenActivityColumn,
+): TokenActivityCell {
+  // Weekly / cumulative paint one square per week (not 7 identical day cells).
+  const value = mode === "weekly" ? column.weeklyValue : column.cumulativeValue;
+  const level = column.cells[0]?.level ?? 0;
+  return { date: column.weekStart, value, level };
+}
+
 function ActivityGrid(props: {
   columns: TokenActivityColumn[];
   mode: TokenActivityMode;
@@ -167,6 +203,24 @@ function ActivityGrid(props: {
     y: number;
   } | null>(null);
 
+  const showHover = (
+    event: { clientX: number; clientY: number },
+    column: TokenActivityColumn,
+    cell: TokenActivityCell,
+    active: boolean,
+  ) => {
+    if (!active) {
+      setHovered(null);
+      return;
+    }
+    setHovered({
+      column,
+      cell,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
   return (
     <div
       className="relative"
@@ -174,44 +228,85 @@ function ActivityGrid(props: {
       aria-label={t("session.usage_activity_grid_label")}
       onMouseLeave={() => setHovered(null)}
     >
-      <div className="flex justify-end gap-1 overflow-hidden">
-        {props.columns.map((column) => (
-          <div
-            key={column.weekStart}
-            className="group flex shrink-0 flex-col gap-1"
-          >
-            {column.cells.map((cell, index) => (
+      {props.mode === "daily" ? (
+        <div className="flex justify-end gap-1 overflow-x-auto pb-1">
+          {props.columns.map((column) => (
+            <div
+              key={column.weekStart}
+              className="group flex shrink-0 flex-col gap-1"
+            >
+              {column.cells.map((cell, index) => {
+                const active = cell.value > 0;
+                return (
+                  <div
+                    key={index}
+                    role="gridcell"
+                    tabIndex={active ? 0 : -1}
+                    className={cn(
+                      "size-3 shrink-0 rounded-xs",
+                      "transition-colors outline-none",
+                      "focus-visible:ring-2 focus-visible:ring-dls-accent",
+                      activityLevelClass[cell.level],
+                      active ? "hover:ring-1 hover:ring-dls-text/40" : null,
+                    )}
+                    aria-label={
+                      active
+                        ? activityTooltip({
+                            mode: "daily",
+                            column,
+                            cell,
+                          })
+                        : t("session.usage_daily_empty_tooltip", {
+                            date: formatActivityDate(cell.date, "daily"),
+                          })
+                    }
+                    onMouseEnter={(event) =>
+                      showHover(event, column, cell, active)
+                    }
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        // Weekly / cumulative: one square per week so active weeks don't
+        // render as solid 7-cell "towers".
+        <div className="flex justify-end gap-1.5 overflow-x-auto py-1">
+          {props.columns.map((column) => {
+            const cell = weekCellForMode(props.mode, column);
+            const active = columnHasActivity(props.mode, column);
+            return (
               <div
-                key={index}
+                key={column.weekStart}
                 role="gridcell"
-                tabIndex={0}
+                tabIndex={active ? 0 : -1}
                 className={cn(
-                  "size-3 shrink-0 rounded-xs",
+                  "size-3.5 shrink-0 rounded-sm",
                   "transition-colors outline-none",
                   "focus-visible:ring-2 focus-visible:ring-dls-accent",
                   activityLevelClass[cell.level],
-                  props.mode === "daily"
-                    ? "hover:ring-1 hover:ring-dls-text/40"
-                    : columnHoverLevelClass[cell.level],
+                  active ? "hover:ring-1 hover:ring-dls-text/40" : null,
                 )}
-                aria-label={activityTooltip({
-                  mode: props.mode,
-                  column,
-                  cell,
-                })}
+                aria-label={
+                  active
+                    ? activityTooltip({
+                        mode: props.mode,
+                        column,
+                        cell,
+                      })
+                    : t("session.usage_daily_empty_tooltip", {
+                        date: formatActivityDate(column.weekStart, "weekly"),
+                      })
+                }
                 onMouseEnter={(event) =>
-                  setHovered({
-                    column,
-                    cell,
-                    x: event.clientX,
-                    y: event.clientY,
-                  })
+                  showHover(event, column, cell, active)
                 }
               />
-            ))}
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
       {hovered ? (
         <div
           className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-dls-border bg-dls-surface px-3 py-1.5 text-xs text-dls-text shadow-md"
@@ -238,10 +333,18 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
     workspaces: props.workspaces,
     scopeId: "all",
   });
-  const activity = useMemo(
-    () => buildTokenActivitySeries(usage.summary.daily, activityMode, today),
-    [activityMode, today, usage.summary.daily],
+  const profile = useMemo(
+    () => resolveProfileIdentity(props.identity),
+    [props.identity],
   );
+  const activity = useMemo(() => {
+    const series = buildTokenActivitySeries(
+      usage.summary.daily,
+      activityMode,
+      today,
+    );
+    return trimLeadingEmptyActivityColumns(series);
+  }, [activityMode, today, usage.summary.daily]);
   const monthLabels = useMemo(
     () => monthLabelColumns(activity, today, currentLocale()),
     [activity, today],
@@ -275,31 +378,25 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
   return (
     <main
       data-personal-usage-page="true"
-      className="h-full min-h-0 overflow-y-auto bg-dls-background"
+      className="flex h-full min-h-0 w-full justify-center overflow-y-auto bg-transparent"
     >
-      <header className="flex h-14 items-center px-5">
-        <h1 className="text-base font-medium text-dls-text">
-          {t("session.usage_profile_title")}
-        </h1>
-      </header>
-
       <div
         data-usage-profile="true"
-        className="mx-auto w-full max-w-4xl px-4 pb-12 pt-10 sm:px-10 sm:pt-14"
+        className="mx-auto w-full max-w-3xl px-2 pb-12 pt-2 sm:px-4 sm:pt-4"
       >
-        <section className="text-center" aria-label={props.identity.name}>
+        <section className="text-center" aria-label={profile.displayName}>
           <div
             className="mx-auto flex size-20 items-center justify-center rounded-full bg-dls-decision text-2xl font-medium text-white"
             aria-hidden="true"
           >
-            {initials(props.identity.name)}
+            {initials(profile.displayName)}
           </div>
           <h2 className="mt-4 truncate text-lg font-medium leading-7 tracking-tight text-dls-text">
-            {props.identity.name}
+            {profile.displayName}
           </h2>
           <div className="mt-2 flex min-w-0 flex-wrap items-center justify-center gap-2 text-sm text-dls-secondary">
-            {props.identity.email ? (
-              <span className="max-w-80 truncate">{props.identity.email}</span>
+            {profile.showEmail ? (
+              <span className="max-w-80 truncate">{profile.email}</span>
             ) : null}
             <StatusBadge tone="neutral" shape="soft" size="sm">
               {t("session.usage_profile_plan")}
@@ -351,13 +448,21 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   <Metric key={metric.label} {...metric} />
                 ))}
               </section>
+              <p className="mt-2 text-center text-xs text-dls-secondary">
+                {t("session.usage_metrics_hint")}
+              </p>
             </div>
 
             <section data-token-activity="true" className="mt-10">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-medium text-dls-text">
-                  {t("session.usage_activity")}
-                </h2>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-base font-medium text-dls-text">
+                    {t("session.usage_activity")}
+                  </h2>
+                  <p className="mt-1 text-xs text-dls-secondary">
+                    {t("session.usage_activity_description")}
+                  </p>
+                </div>
                 <SegmentedTabGroup
                   density="filter"
                   role="tablist"
@@ -393,7 +498,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                         key={`${label}-${columnIndex}`}
                         className="absolute top-0 text-sm text-dls-secondary"
                         style={{
-                          right: `${(1 - (columnIndex + 1) / activity.length) * 100}%`,
+                          left: `${(columnIndex / Math.max(activity.length, 1)) * 100}%`,
                         }}
                       >
                         {label}

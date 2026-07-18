@@ -6,8 +6,11 @@ import {
   formatTaskDuration,
   loadPersonalUsageSnapshots,
   summarizePersonalUsage,
+  trimLeadingEmptyActivityColumns,
+  workspaceUsageGeneratedTokens,
   workspaceUsageTotal,
   type PersonalUsageWorkspaceSnapshot,
+  type TokenActivityColumn,
 } from "../src/react-app/domains/session/usage/personal-usage-model";
 
 function snapshot(
@@ -25,13 +28,15 @@ function snapshot(
 }
 
 describe("personal usage model", () => {
-  test("counts normalized input, cache, and reasoning-inclusive output once", () => {
-    expect(workspaceUsageTotal({
+  test("counts all buckets vs generated (input+output) tokens", () => {
+    const usage = {
       inputTokens: 10,
       outputTokens: 20,
       cacheCreationTokens: 30,
       cacheReadTokens: 40,
-    })).toBe(100);
+    };
+    expect(workspaceUsageTotal(usage)).toBe(100);
+    expect(workspaceUsageGeneratedTokens(usage)).toBe(30);
   });
 
   test("merges personal usage across workspaces and supports one workspace scope", () => {
@@ -55,18 +60,58 @@ describe("personal usage model", () => {
       }),
     ];
 
+    // Profile totals use input+output only (cache excluded).
     const personal = summarizePersonalUsage(workspaces, "all", "2026-07-16");
-    expect(personal.totalTokens).toBe(240);
+    expect(personal.totalTokens).toBe(225);
     expect(personal.peakSessionTokens).toBe(120);
     expect(personal.longestSessionMinutes).toBe(118);
     expect(personal.currentStreakDays).toBe(3);
     expect(personal.longestStreakDays).toBe(3);
-    expect(personal.daily).toContainEqual({ date: "2026-07-15", tokens: 80 });
+    expect(personal.daily).toContainEqual({ date: "2026-07-15", tokens: 75 });
 
     const alpha = summarizePersonalUsage(workspaces, "alpha", "2026-07-16");
-    expect(alpha.totalTokens).toBe(90);
+    expect(alpha.totalTokens).toBe(75);
     expect(alpha.peakSessionTokens).toBe(80);
-    expect(alpha.daily).toContainEqual({ date: "2026-07-15", tokens: 30 });
+    expect(alpha.daily).toContainEqual({ date: "2026-07-15", tokens: 25 });
+  });
+
+  test("trims leading empty weeks without padding a ghost window", () => {
+    const emptyWeek = (weekStart: string): TokenActivityColumn => ({
+      weekStart,
+      weeklyValue: 0,
+      cumulativeValue: 0,
+      cells: Array.from({ length: 7 }, (_, index) => ({
+        date: `${weekStart}+${index}`,
+        value: 0,
+        level: 0,
+      })),
+    });
+    const activeWeek: TokenActivityColumn = {
+      weekStart: "2026-07-06",
+      weeklyValue: 10,
+      cumulativeValue: 10,
+      cells: [
+        { date: "2026-07-06", value: 10, level: 2 },
+        ...Array.from({ length: 6 }, (_, index) => ({
+          date: `2026-07-0${7 + index}`,
+          value: 0,
+          level: 0,
+        })),
+      ],
+    };
+    const columns = [
+      ...Array.from({ length: 40 }, (_, index) => emptyWeek(`2025-w${index}`)),
+      activeWeek,
+    ];
+    // One empty context week + the active week — not a long empty pad.
+    const trimmed = trimLeadingEmptyActivityColumns(columns, 13);
+    expect(trimmed).toHaveLength(2);
+    expect(trimmed.at(-1)?.weekStart).toBe("2026-07-06");
+    expect(trimmed.some((column) => column.weeklyValue > 0)).toBe(true);
+
+    const allEmpty = Array.from({ length: 40 }, (_, index) => emptyWeek(`2025-w${index}`));
+    const emptyTrimmed = trimLeadingEmptyActivityColumns(allEmpty, 8);
+    expect(emptyTrimmed).toHaveLength(8);
   });
 
   test("returns zero metrics when providers reported no usage", () => {
