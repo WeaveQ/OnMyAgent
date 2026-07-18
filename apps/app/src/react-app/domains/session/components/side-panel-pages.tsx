@@ -301,7 +301,7 @@ function StorePrimaryTabs(props: {
   ];
 
   return (
-    <SegmentedTabGroup density="filter" className="mac:titlebar-no-drag">
+    <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
       {items.map((item) => {
         const Icon = item.icon;
         const active = props.value === item.id;
@@ -316,8 +316,8 @@ function StorePrimaryTabs(props: {
             className="mac:titlebar-no-drag"
             aria-pressed={active}
           >
-            <Icon className="size-3.5 shrink-0 opacity-80" />
-            <span>{item.label}</span>
+            <Icon className="size-3.5 opacity-80" />
+            <span className="leading-none">{item.label}</span>
           </NavTabButton>
         );
       })}

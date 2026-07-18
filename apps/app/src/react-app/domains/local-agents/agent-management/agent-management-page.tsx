@@ -590,7 +590,7 @@ export function AgentManagementPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Store-style top chrome: segmented switch only (no page title). */}
       <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3")}>
-        <SegmentedTabGroup density="filter">
+        <SegmentedTabGroup density="bare">
           {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
             (tab) => {
               const Icon = tab.icon;
@@ -604,8 +604,8 @@ export function AgentManagementPage(props: {
                   size="tab"
                   shape="tab"
                 >
-                  <Icon className="size-3.5 shrink-0 opacity-80" />
-                  <span>{t(tab.labelKey)}</span>
+                  <Icon className="size-3.5 opacity-80" />
+                  <span className="leading-none">{t(tab.labelKey)}</span>
                 </NavTabButton>
               );
             },

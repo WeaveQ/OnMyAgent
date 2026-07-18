@@ -31,7 +31,7 @@ const menuRowButtonVariants = cva(
 )
 
 const navTabButtonVariants = cva(
-  "inline-flex items-center justify-center gap-2 font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:block [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -43,7 +43,7 @@ const navTabButtonVariants = cva(
         default: "px-3.5 py-1 text-xs",
         // Compact filter chip (store/assistant/management primary filters)
         filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
-        tab: "h-8 px-3.5 text-sm",
+        tab: "h-8 gap-1.5 px-3 text-sm",
         messaging: "h-10 px-4 text-base font-semibold",
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
       },
@@ -410,22 +410,23 @@ function FilterChip({
   )
 }
 
-const segmentedTabGroupVariants = cva(
-  "inline-flex border border-dls-border/50 bg-dls-surface-muted p-0.5",
-  {
-    variants: {
-      density: {
-        // Compact filter strip (store tabs, assistant office/code, management)
-        filter: "h-8 w-fit shrink-0 gap-0.5 rounded-full",
-        // In-page multi-tab (may wrap; slightly taller track)
-        panel: "h-9 max-w-full flex-wrap items-center gap-0.5 rounded-full",
-      },
-    },
-    defaultVariants: {
-      density: "filter",
+const segmentedTabGroupVariants = cva("inline-flex items-center", {
+  variants: {
+    density: {
+      // Compact filter strip (store tabs, assistant office/code, management)
+      filter:
+        "h-8 w-fit shrink-0 gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+      // In-page multi-tab (may wrap; slightly taller track)
+      panel:
+        "h-9 max-w-full flex-wrap gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+      // Header tabs without track — free-floating active pill only
+      bare: "h-8 w-fit shrink-0 gap-1 border-0 bg-transparent p-0",
     },
   },
-)
+  defaultVariants: {
+    density: "filter",
+  },
+})
 
 function SegmentedTabGroup({
   className,
