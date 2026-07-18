@@ -331,7 +331,6 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     industries: [
       "travel",
       "hospitality",
-      "fnb",
       "local-life",
       "transport-passenger",
       "aviation",

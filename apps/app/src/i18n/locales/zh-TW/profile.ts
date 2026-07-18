@@ -19,7 +19,6 @@ export default {
   "profile.industry_fashion": "服飾鞋包",
   "profile.industry_beauty": "美妝個護",
   "profile.industry_local_life": "本地生活",
-  "profile.industry_fnb": "餐飲",
   "profile.industry_hospitality": "酒店住宿",
   "profile.industry_logistics": "物流與供應鏈",
   "profile.industry_warehousing": "倉儲 / 3PL",

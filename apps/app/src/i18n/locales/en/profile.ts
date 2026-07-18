@@ -19,7 +19,6 @@ export default {
   "profile.industry_fashion": "Fashion",
   "profile.industry_beauty": "Beauty",
   "profile.industry_local_life": "Local services",
-  "profile.industry_fnb": "Food & beverage (dining)",
   "profile.industry_hospitality": "Hospitality",
   "profile.industry_logistics": "Logistics & supply chain",
   "profile.industry_warehousing": "Warehousing / 3PL",

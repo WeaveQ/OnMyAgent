@@ -33,6 +33,7 @@ const FORBIDDEN_INDUSTRY_VALUES = [
   "agriculture",
   "aquaculture",
   "food-beverage",
+  "fnb",
 ] as const;
 
 describe("personalization plan (shipped)", () => {
@@ -147,6 +148,7 @@ describe("profile industry options (shipped)", () => {
     expect(source).not.toMatch(/value:\s*"energy"/);
     expect(source).not.toMatch(/value:\s*"real-estate"/);
     expect(source).not.toMatch(/value:\s*"food-beverage"/);
+    expect(source).not.toMatch(/value:\s*"fnb"/);
     expect(source).toContain('value: "logistics"');
   });
 });

@@ -76,7 +76,8 @@ function normalizeList(values: string[] | null | undefined): string[] {
       v === "construction" ||
       v === "agriculture" ||
       v === "aquaculture" ||
-      v === "food-beverage"
+      v === "food-beverage" ||
+      v === "fnb"
     ) {
       continue;
     }

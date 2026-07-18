@@ -64,7 +64,6 @@ export const industryOptions: ProfileOption[] = [
   { value: "fashion", get label() { return t("profile.industry_fashion"); } },
   { value: "beauty", get label() { return t("profile.industry_beauty"); } },
   { value: "local-life", get label() { return t("profile.industry_local_life"); } },
-  { value: "fnb", get label() { return t("profile.industry_fnb"); } },
   { value: "hospitality", get label() { return t("profile.industry_hospitality"); } },
   // Logistics & manufacturing
   { value: "logistics", get label() { return t("profile.industry_logistics"); } },
