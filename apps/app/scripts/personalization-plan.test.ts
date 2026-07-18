@@ -269,3 +269,21 @@ describe("personalization apply helpers (shipped)", () => {
     );
   });
 });
+
+describe("legacy profile option map (shipped)", () => {
+  test("legacyProfileOptionValues has unique keys (no TS1117 duplicates)", async () => {
+    // Drive real module: object keys must be unique after load.
+    const { legacyProfileOptionValues } = await import(
+      "../src/react-app/domains/settings/pages/legacy-profile-options"
+    );
+    const keys = Object.keys(legacyProfileOptionValues);
+    expect(new Set(keys).size).toBe(keys.length);
+    // CJK labels still normalize through the public API
+    const { normalizeProfileOptionValue } = await import(
+      "../src/react-app/domains/settings/pages/legacy-profile-options"
+    );
+    expect(normalizeProfileOptionValue("数据")).toBe("technology");
+    expect(normalizeProfileOptionValue("技术 / 开发 / 数据")).toBe("technology");
+    expect(normalizeProfileOptionValue("design")).toBe("product");
+  });
+});
