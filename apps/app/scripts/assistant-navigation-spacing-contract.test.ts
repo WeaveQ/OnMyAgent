@@ -20,7 +20,7 @@ describe("assistant navigation spacing contract", () => {
     expect(source).toContain('className="space-y-0 pb-1 pt-3"');
   });
 
-  test("keeps category tabs on filter track with equal wide centered chips", () => {
+  test("keeps category tabs on compact h-8 filter track with equal wide chips", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -29,16 +29,16 @@ describe("assistant navigation spacing contract", () => {
       "utf8",
     );
 
-    // Track strip stays density="filter"; equal-width centered tabs (longer chips).
+    // Compact h-8 track; equal-width centered chips (filter size fits track padding).
     expect(source).toContain('density="filter"');
-    expect(source).toContain('size="tab"');
+    expect(source).toContain('size="filter"');
     expect(source).toContain('shape="tab"');
-    expect(source).toContain('className="w-full max-w-none"');
+    expect(source).toContain('className="h-8 w-full max-w-none"');
     expect(source).toContain(
-      "relative z-10 h-full min-w-0 flex-1 justify-center gap-1.5 px-4",
+      "relative z-10 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm",
     );
     expect(source).toContain("justify-center mac:titlebar-no-drag");
-    expect(source).not.toContain('size="filter"');
+    expect(source).not.toContain('size="tab"');
   });
 
   test("keeps the task list close to the primary actions", () => {
