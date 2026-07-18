@@ -35,9 +35,10 @@ const navTabButtonVariants = cva(
   {
     variants: {
       active: {
-        // Light: solid white elevated pill (WorkBuddy-style). Dark: solid surface.
-        true: "bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
-        false: "bg-transparent text-dls-secondary hover:text-dls-text",
+        // Light: inverted dark pill (ink fill + light label). Dark: elevated solid surface.
+        true: "bg-dls-text text-dls-background shadow-none [&_svg]:opacity-100 dark:bg-dls-surface-solid dark:text-dls-text",
+        false:
+          "bg-transparent text-dls-secondary hover:text-dls-text [&_svg]:opacity-80",
       },
       size: {
         default: "px-3.5 py-1 text-xs",
@@ -57,7 +58,8 @@ const navTabButtonVariants = cva(
       {
         active: true,
         shape: "underline",
-        className: "border-dls-accent bg-transparent shadow-none",
+        className:
+          "border-dls-accent bg-transparent text-dls-text shadow-none dark:bg-transparent dark:text-dls-text",
       },
       {
         active: false,
@@ -100,11 +102,11 @@ const segmentedTabButtonVariants = cva(
     },
     compoundVariants: [
       {
-        // Soft elevated selected — same light-theme language as NavTab.
+        // Match NavTab: light inverted dark pill; dark elevated solid.
         tone: "default",
         active: true,
         className:
-          "bg-dls-surface-solid text-dls-text shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:shadow-none",
+          "bg-dls-text text-dls-background shadow-none dark:bg-dls-surface-solid dark:text-dls-text",
       },
       {
         tone: "default",

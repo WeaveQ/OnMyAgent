@@ -316,7 +316,7 @@ function StorePrimaryTabs(props: {
             className="mac:titlebar-no-drag"
             aria-pressed={active}
           >
-            <Icon className="size-3.5 opacity-80" />
+            <Icon className="size-3.5" />
             <span className="leading-none">{item.label}</span>
           </NavTabButton>
         );
