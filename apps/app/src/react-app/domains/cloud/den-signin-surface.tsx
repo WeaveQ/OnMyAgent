@@ -347,7 +347,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
               <Button
                 type="button"
                 size="lg"
-                className="w-full rounded-full"
+                className="w-full"
                 onClick={() => props.onOpenBrowserAuth("sign-in")}
                 disabled={props.authBusy || props.sessionBusy}
               >
@@ -395,7 +395,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                     />
                     <Button
                       type="button"
-                      className="w-full rounded-full"
+                      className="w-full"
                       onClick={props.onSubmitManualAuth}
                       disabled={
                         props.authBusy ||

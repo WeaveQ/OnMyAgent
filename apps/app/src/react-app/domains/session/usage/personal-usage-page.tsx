@@ -15,7 +15,6 @@ import {
   formatPersonalTokenCount,
   formatTaskDuration,
   monthLabelColumns,
-  trimLeadingEmptyActivityColumns,
   type PersonalUsageClient,
   type TokenActivityCell,
   type TokenActivityColumn,
@@ -164,11 +163,13 @@ function activityTooltip(props: {
 
 function Metric(props: { label: string; value: string }) {
   return (
-    <div className="min-w-0 px-3 py-3 text-center">
-      <div className="truncate text-base font-medium tabular-nums text-dls-text">
+    <div className="min-w-0 px-2 py-3 text-center sm:px-3">
+      <div className="truncate text-sm font-medium tabular-nums text-dls-text sm:text-base">
         {props.value}
       </div>
-      <div className="mt-1 truncate text-xs text-dls-secondary">{props.label}</div>
+      <div className="mt-1 truncate text-[11px] text-dls-secondary sm:text-xs">
+        {props.label}
+      </div>
     </div>
   );
 }
@@ -221,19 +222,25 @@ function ActivityGrid(props: {
     });
   };
 
+  const columnCount = Math.max(props.columns.length, 1);
+  // Full trailing-year grid: share width evenly so we never need a scrollbar.
+  const weekGridStyle = {
+    gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+  } as const;
+
   return (
     <div
-      className="relative"
+      className="relative w-full"
       role="grid"
       aria-label={t("session.usage_activity_grid_label")}
       onMouseLeave={() => setHovered(null)}
     >
       {props.mode === "daily" ? (
-        <div className="flex justify-end gap-1 overflow-x-auto pb-1">
+        <div className="grid w-full gap-1" style={weekGridStyle}>
           {props.columns.map((column) => (
             <div
               key={column.weekStart}
-              className="group flex shrink-0 flex-col gap-1"
+              className="group flex min-w-0 flex-col gap-1"
             >
               {column.cells.map((cell, index) => {
                 const active = cell.value > 0;
@@ -243,7 +250,7 @@ function ActivityGrid(props: {
                     role="gridcell"
                     tabIndex={active ? 0 : -1}
                     className={cn(
-                      "size-3 shrink-0 rounded-xs",
+                      "aspect-square w-full min-w-0 rounded-xs",
                       "transition-colors outline-none",
                       "focus-visible:ring-2 focus-visible:ring-dls-accent",
                       activityLevelClass[cell.level],
@@ -272,7 +279,7 @@ function ActivityGrid(props: {
       ) : (
         // Weekly / cumulative: one square per week so active weeks don't
         // render as solid 7-cell "towers".
-        <div className="flex justify-end gap-1.5 overflow-x-auto py-1">
+        <div className="grid w-full gap-1 py-0.5" style={weekGridStyle}>
           {props.columns.map((column) => {
             const cell = weekCellForMode(props.mode, column);
             const active = columnHasActivity(props.mode, column);
@@ -282,7 +289,7 @@ function ActivityGrid(props: {
                 role="gridcell"
                 tabIndex={active ? 0 : -1}
                 className={cn(
-                  "size-3.5 shrink-0 rounded-sm",
+                  "aspect-square w-full min-w-0 rounded-sm",
                   "transition-colors outline-none",
                   "focus-visible:ring-2 focus-visible:ring-dls-accent",
                   activityLevelClass[cell.level],
@@ -337,14 +344,13 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
     () => resolveProfileIdentity(props.identity),
     [props.identity],
   );
-  const activity = useMemo(() => {
-    const series = buildTokenActivitySeries(
-      usage.summary.daily,
-      activityMode,
-      today,
-    );
-    return trimLeadingEmptyActivityColumns(series);
-  }, [activityMode, today, usage.summary.daily]);
+  // Full trailing-year window (~53 weeks). Do not trim leading empty weeks —
+  // that left a blank gap on the left and only a short right-aligned strip.
+  const activity = useMemo(
+    () =>
+      buildTokenActivitySeries(usage.summary.daily, activityMode, today),
+    [activityMode, today, usage.summary.daily],
+  );
   const monthLabels = useMemo(
     () => monthLabelColumns(activity, today, currentLocale()),
     [activity, today],
@@ -439,10 +445,10 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
               </NoticeBox>
             ) : null}
 
-            <div className="mt-10 overflow-x-auto pb-1">
+            <div className="mt-10">
               <section
                 aria-label={t("session.usage_summary_label")}
-                className="grid min-w-3xl grid-cols-5 overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-dls-border"
+                className="grid grid-cols-2 overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid sm:grid-cols-5 [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-dls-border max-sm:[&>*:nth-child(2n)]:border-r-0 max-sm:[&>*:nth-child(n+3)]:border-t max-sm:[&>*:nth-child(n+3)]:border-dls-border"
               >
                 {metrics.map((metric) => (
                   <Metric key={metric.label} {...metric} />
@@ -490,13 +496,13 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   {t("session.usage_empty")}
                 </EmptyStateBox>
               ) : (
-                <div className="mt-4 overflow-hidden pb-2">
+                <div className="mt-4 w-full pb-2">
                   <ActivityGrid columns={activity} mode={activityMode} />
-                  <div className="relative mt-2 h-5" aria-hidden="true">
+                  <div className="relative mt-2 h-5 w-full" aria-hidden="true">
                     {monthLabels.map(({ label, columnIndex }) => (
                       <span
                         key={`${label}-${columnIndex}`}
-                        className="absolute top-0 text-sm text-dls-secondary"
+                        className="absolute top-0 text-xs text-dls-secondary sm:text-sm"
                         style={{
                           left: `${(columnIndex / Math.max(activity.length, 1)) * 100}%`,
                         }}

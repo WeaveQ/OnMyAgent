@@ -390,13 +390,9 @@ export function formatTaskDuration(minutes: number) {
 }
 
 /**
- * Drop leading all-zero weeks so a sparse heatmap is not mostly empty grey.
- *
- * When there is real activity, start one week before the first active column —
- * do **not** pad with earlier empty weeks just to hit a minimum width (that
- * produced a long ghost grid on the left).
- *
- * When everything is empty, keep only a short recent window.
+ * @deprecated Prefer the full trailing-year series from `buildTokenActivitySeries`.
+ * Kept for unit tests / call-site compatibility. Leading empty weeks are part of
+ * the year view and should not be trimmed in the personal usage UI.
  */
 export function trimLeadingEmptyActivityColumns(
   columns: TokenActivityColumn[],

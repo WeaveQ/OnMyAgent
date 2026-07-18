@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { SessionRowButton } from "@/components/ui/action-row";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import type {
@@ -8,6 +9,19 @@ import type {
   TaskStatusIndicator,
 } from "./conversation-model";
 import { AgentConversationItem } from "./agent-conversation-item";
+
+function starterPresenceTone(
+  variant: TaskStatusIndicator["variant"],
+): "warning" | "danger" | "muted" {
+  if (variant === "loading" || variant === "limited") return "warning";
+  if (variant === "offline") return "danger";
+  return "muted";
+}
+
+function starterPresenceClass(variant: TaskStatusIndicator["variant"]) {
+  if (variant === "available") return "bg-dls-online";
+  return undefined;
+}
 
 type AgentConversationListProps = {
   groups: AgentConversationGroup[];
@@ -55,13 +69,12 @@ function AgentStarterRow(props: {
             props.item.name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
-        <span
+        <StatusDot
+          size="sm"
+          tone={starterPresenceTone(props.taskStatusVariant)}
           className={cn(
-            "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2 border-dls-surface",
-            props.taskStatusVariant === "available" && "bg-dls-online",
-            props.taskStatusVariant === "loading" && "bg-dls-status-warning",
-            props.taskStatusVariant === "limited" && "bg-dls-status-warning",
-            props.taskStatusVariant === "offline" && "bg-dls-status-danger",
+            "absolute -right-0.5 bottom-0 border-2 border-dls-surface",
+            starterPresenceClass(props.taskStatusVariant),
           )}
         />
       </div>

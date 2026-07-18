@@ -100,7 +100,6 @@ export function RemoteWorkspaceFields({
               type="button"
               variant="secondary"
               size="sm"
-              className="rounded-full"
               onClick={onToggleTokenVisible}
               disabled={submitting}
             >

@@ -171,22 +171,18 @@ describe("residual UI style dialect contract", () => {
   });
 
   /**
-   * DESIGN §11: ordinary full-width *Button* CTAs must not use rounded-full
-   * outside known pre-app / transitional surfaces. Ignores progress tracks,
-   * avatars (h-full w-full object-cover), and SegmentedTabGroup density strings.
+   * DESIGN §11: ordinary full-width *Button* CTAs must not use rounded-full.
+   * True whitelist exceptions only (pre-app architecture gate). Ignores
+   * progress tracks, avatars (object-cover), SegmentedTabGroup density strings,
+   * and decorative blur orbs (h-% w-% rounded-full without Button className).
    */
-  test("w-full rounded-full Button CTAs are confined to the allowlisted set", () => {
+  test("w-full rounded-full Button CTAs are confined to DESIGN exceptions", () => {
     const allowRelSubstrings = [
-      "domains/cloud/den-signin-surface.tsx",
-      "domains/workspace/create-workspace-modal.tsx",
-      "domains/workspace/remote-workspace-fields.tsx",
+      // DESIGN §11 intentional exception (pre-app mismatch gate).
       "shell/architecture-mismatch-gate.tsx",
-      "domains/session/voice/voice-panel.tsx",
-      // Composer notice is known debt (global-style-audit P0); allow until Round 1.
-      "domains/session/surface/composer/notice.tsx",
     ];
     const nonCtaLine =
-      /\b(object-cover|overflow-x-hidden|flex-wrap|ProgressTrack|progress-track|gap-0\.5 rounded-full border|h-full w-full rounded-full)\b/;
+      /\b(object-cover|overflow-x-hidden|flex-wrap|ProgressTrack|progress-track|gap-0\.5 rounded-full border|h-full w-full rounded-full|blur-3xl|soft-blue-glow|soft-orange-glow|soft-signal-glow)\b/;
     const hits = sources.flatMap((s) => {
       const lineHits: string[] = [];
       s.source.split("\n").forEach((line, idx) => {
@@ -204,6 +200,43 @@ describe("residual UI style dialect contract", () => {
     expect(hits).toEqual([]);
   });
 
+  test("Round-1 debt CTAs no longer use rounded-full on Buttons", () => {
+    const debtRels = [
+      "domains/cloud/den-signin-surface.tsx",
+      "domains/workspace/create-workspace-modal.tsx",
+      "domains/workspace/remote-workspace-fields.tsx",
+      "domains/session/surface/composer/notice.tsx",
+    ];
+    const hits: string[] = [];
+    for (const part of debtRels) {
+      const file = sources.find((s) => s.rel.includes(part));
+      expect(file, `missing ${part}`).toBeDefined();
+      const lines = file!.source.split("\n");
+      lines.forEach((line, idx) => {
+        if (!line.includes("rounded-full")) return;
+        // Decorative glows / non-button chrome may remain.
+        if (/\b(blur-3xl|soft-blue-glow|soft-orange-glow|soft-signal-glow)\b/.test(line)) {
+          return;
+        }
+        // Any remaining rounded-full on a className line in these files is debt.
+        if (/className=/.test(line) || /className=\{/.test(line)) {
+          hits.push(`${file!.rel}:${idx + 1}: ${line.trim()}`);
+        }
+      });
+    }
+    expect(hits).toEqual([]);
+  });
+
+  test("den-signin primary actions stay full-width rectangular Buttons", () => {
+    const den = sources.find((s) =>
+      s.rel.endsWith("domains/cloud/den-signin-surface.tsx"),
+    );
+    expect(den).toBeDefined();
+    expect(den!.source).toContain('className="w-full"');
+    expect(den!.source).not.toContain('className="w-full rounded-full"');
+    expect(den!.source).toContain("Sign in with");
+  });
+
   test("LoadingSpinner primitive remains the shared spin ring", () => {
     const spinner = sources.find((s) =>
       s.rel.endsWith("components/ui/loading-spinner.tsx"),
@@ -211,6 +244,79 @@ describe("residual UI style dialect contract", () => {
     expect(spinner).toBeDefined();
     expect(spinner!.source).toContain("animate-spin");
     expect(spinner!.source).toContain("function LoadingSpinner");
+  });
+
+  test("PageLoadingSpinner uses LoadingSpinner, not bare Loader2 animate-spin", () => {
+    const page = sources.find((s) => s.rel.endsWith("components/page.tsx"));
+    expect(page).toBeDefined();
+    expect(page!.source).toContain('from "@/components/ui/loading-spinner"');
+    expect(page!.source).toContain("function PageLoadingSpinner");
+    expect(page!.source).toContain("<LoadingSpinner");
+    expect(page!.source).not.toContain("Loader2");
+    expect(page!.source).not.toMatch(/PageLoadingSpinner[\s\S]{0,200}animate-spin/);
+  });
+
+  test("converted session presence dots import StatusDot and drop hand-roll size-N rounded-full", () => {
+    const convertedRels = [
+      "sidebar/agent-conversation-item.tsx",
+      "sidebar/agent-conversation-list.tsx",
+      "sidebar/app-sidebar.tsx",
+      "chat/session-page-agent-conversation-panel.tsx",
+      "components/status-bar/index.tsx",
+      "components/side-panel-pages.tsx",
+      "chat/session-page-billing-page.tsx",
+      "voice/voice-panel.tsx",
+      "surface/session-surface-components.tsx",
+      "surface/plan-goal/panels.tsx",
+    ];
+    // Match size-N … rounded-full even with intermediate classes (e.g. size-1.5 shrink-0 rounded-full).
+    const hasSizeToken = /\bsize-(1\.5|2|2\.5)\b/;
+    const hasRoundedFull = /\brounded-full\b/;
+    const hits: string[] = [];
+    for (const part of convertedRels) {
+      const file = sources.find((s) => s.rel.includes(part));
+      expect(file, `missing ${part}`).toBeDefined();
+      expect(file!.source).toMatch(/StatusDot|StatusPing/);
+      file!.source.split("\n").forEach((line, idx) => {
+        if (!hasSizeToken.test(line) || !hasRoundedFull.test(line)) return;
+        if (line.includes("StatusDot") || line.includes("statusDotVariants")) return;
+        // Allow progress-bar tracks and avatar chrome, not presence dots.
+        if (
+          /\bh-1\b|\bw-\[|object-cover|overflow-hidden|h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dls-status/.test(
+            line,
+          )
+        ) {
+          return;
+        }
+        hits.push(`${file!.rel}:${idx + 1}: ${line.trim()}`);
+      });
+    }
+    expect(hits).toEqual([]);
+  });
+
+  test("app-sidebar SessionStatusIndicator uses StatusDot for active presence", () => {
+    const sidebar = sources.find((s) =>
+      s.rel.endsWith("sidebar/app-sidebar.tsx"),
+    );
+    expect(sidebar).toBeDefined();
+    expect(sidebar!.source).toContain('from "@/components/ui/status-dot"');
+    expect(sidebar!.source).toContain("function SessionStatusIndicator");
+    expect(sidebar!.source).toContain("<StatusDot");
+    expect(sidebar!.source).not.toMatch(
+      /size-1\.5\s+shrink-0\s+rounded-full/,
+    );
+  });
+
+  test("voice-panel has exactly one StatusDot import (no TS2300 duplicate)", () => {
+    const voice = sources.find((s) => s.rel.endsWith("voice/voice-panel.tsx"));
+    expect(voice).toBeDefined();
+    const matches = [
+      ...voice!.source.matchAll(
+        /import\s*\{[^}]*\bStatusDot\b[^}]*\}\s*from\s*["']@\/components\/ui\/status-dot["']/g,
+      ),
+    ];
+    expect(matches.map((m) => m[0])).toHaveLength(1);
+    expect(voice!.source).toContain("<StatusDot");
   });
 
   test("floating task menu uses opaque surface-solid (not glass surface alone)", () => {

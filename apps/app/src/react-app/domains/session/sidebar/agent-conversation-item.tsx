@@ -1,9 +1,23 @@
 /** @jsxImportSource react */
 import { SessionRowButton } from "@/components/ui/action-row";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import { isStreamingSessionStatus } from "./utils";
 import { formatConversationTime, type AgentConversationGroup, type TaskStatusIndicator } from "./conversation-model";
+
+function taskPresenceTone(
+  variant: TaskStatusIndicator["variant"],
+): "warning" | "danger" | "muted" {
+  if (variant === "loading" || variant === "limited") return "warning";
+  if (variant === "offline") return "danger";
+  return "muted";
+}
+
+function taskPresenceClass(variant: TaskStatusIndicator["variant"]) {
+  if (variant === "available") return "bg-dls-online";
+  return undefined;
+}
 
 const agentConversationTextClass = {
   itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text",
@@ -70,14 +84,13 @@ export function AgentConversationItem(props: {
             props.group.name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
-        <span
+        <StatusDot
+          size="sm"
+          tone={taskPresenceTone(props.taskStatusVariant)}
           className={cn(
-            "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
+            "absolute -right-0.5 bottom-0 border-2",
             props.selected ? "border-dls-list-selected" : "border-dls-surface",
-            props.taskStatusVariant === "available" && "bg-dls-online",
-            props.taskStatusVariant === "loading" && "bg-dls-status-warning",
-            props.taskStatusVariant === "limited" && "bg-dls-status-warning",
-            props.taskStatusVariant === "offline" && "bg-dls-status-danger",
+            taskPresenceClass(props.taskStatusVariant),
           )}
         />
       </div>
@@ -99,9 +112,7 @@ export function AgentConversationItem(props: {
           <div className={agentConversationTextClass.itemDescription}>
             {props.group.description}
           </div>
-          {badge ? (
-            <span className="size-2 shrink-0 rounded-full bg-dls-status-warning" />
-          ) : null}
+          {badge ? <StatusDot size="md" tone="warning" className="shrink-0" /> : null}
         </div>
       </div>
     </SessionRowButton>

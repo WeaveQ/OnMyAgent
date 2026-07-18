@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { NavTabButton } from "@/components/ui/action-row";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
 
 import { t } from "../../../../i18n";
@@ -166,7 +167,7 @@ function BillingUsagePanel() {
 function BillingMetric(props: { color: string; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className={cn("size-1.5 rounded-full", props.color)} />
+      <StatusDot size="xs" tone="current" className={props.color} />
       <span className="flex-1">{props.label}</span>
       <span className="font-medium">{props.value}</span>
     </div>
