@@ -4,8 +4,10 @@ import { createPortal } from "react-dom";
 import {
   ChevronDown,
   ChevronRight,
+  Cloud,
   Copy,
   ExternalLink,
+  FileStack,
   FileText,
   Folder,
   MoreHorizontal,
@@ -667,7 +669,8 @@ export function WorkspaceFilesPage(props: {
             size="tab"
             shape="tab"
           >
-            {t("files.task_results")}
+            <FileStack className="size-3.5 shrink-0 opacity-80" />
+            <span>{t("files.task_results")}</span>
           </NavTabButton>
           <NavTabButton
             active={activeTab === "cloud"}
@@ -676,7 +679,8 @@ export function WorkspaceFilesPage(props: {
             size="tab"
             shape="tab"
           >
-            {t("files.cloud_drive")}
+            <Cloud className="size-3.5 shrink-0 opacity-80" />
+            <span>{t("files.cloud_drive")}</span>
           </NavTabButton>
         </SegmentedTabGroup>
       </div>
