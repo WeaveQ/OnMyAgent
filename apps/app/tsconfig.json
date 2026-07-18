@@ -11,7 +11,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "moduleResolution": "Bundler",
-    "baseUrl": ".",
+    // baseUrl is deprecated (removed in TS 7). paths resolve relative to this file.
     "paths": {
       "@/*": [
         "./src/*"
