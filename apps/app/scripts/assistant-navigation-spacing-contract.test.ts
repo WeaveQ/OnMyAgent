@@ -35,7 +35,7 @@ describe("assistant navigation spacing contract", () => {
     expect(source).toContain('shape="tab"');
     expect(source).toContain('className="w-full max-w-none"');
     expect(source).toContain(
-      "relative z-10 min-h-8 min-w-0 flex-1 justify-center gap-1.5 px-4",
+      "relative z-10 h-full min-w-0 flex-1 justify-center gap-1.5 px-4",
     );
     expect(source).toContain("justify-center mac:titlebar-no-drag");
     expect(source).not.toContain('size="filter"');
