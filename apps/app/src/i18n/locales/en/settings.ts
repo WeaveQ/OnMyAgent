@@ -765,6 +765,12 @@ export default {
   "settings.memory_conversation_source_manual": "Added manually",
   "settings.memory_conversation_updated": "Updated {time}",
   "settings.memory_conversation_delete": "Delete memory",
+  "settings.memory_conversation_pending_title": "Pending memories",
+  "settings.memory_conversation_pending_desc":
+    "{count} suggestion(s) from chat. Confirm before they apply to future sessions.",
+  "settings.memory_conversation_accept": "Remember",
+  "settings.memory_conversation_reject": "Dismiss",
+  "settings.memory_conversation_accept_all": "Confirm all",
 
   "settings.tab_skills": "Skills",
   "settings.tab_updates": "Updates",

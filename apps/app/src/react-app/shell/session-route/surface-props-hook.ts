@@ -49,7 +49,12 @@ import {
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
 import { useSessionActivityStore } from "../../domains/session";
-import { buildOnMyAgentEnvSystemContext } from "../../domains/shared";
+import {
+  buildOnMyAgentEnvSystemContext,
+  extractMemoryCandidatesFromUserText,
+  mergePendingMemoryCandidates,
+  shouldAttemptMemoryExtract,
+} from "../../domains/shared";
 import { getReactQueryClient } from "../../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "../onboarding-profile";
 import {
@@ -773,6 +778,28 @@ export function useSessionRouteSurfaceProps(
         );
         if (result.error) {
           throw new Error(serializeSDKError(result.error));
+        }
+        // Opt-in conversation memory: rule-extract candidates into pending
+        // (never injected until the user confirms in settings).
+        const memoryState = local.prefs.conversationMemory;
+        const userTurnText = resolveDraftText(promptDraft);
+        if (
+          memoryState?.enabled &&
+          userTurnText &&
+          shouldAttemptMemoryExtract(userTurnText)
+        ) {
+          const candidates = extractMemoryCandidatesFromUserText(userTurnText, {
+            sessionId,
+          });
+          if (candidates.length > 0) {
+            local.setPrefs((previous) => ({
+              ...previous,
+              conversationMemory: mergePendingMemoryCandidates(
+                previous.conversationMemory,
+                candidates,
+              ),
+            }));
+          }
         }
         if (createdSession) {
           refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);

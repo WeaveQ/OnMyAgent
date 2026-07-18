@@ -48,12 +48,19 @@ export type ConversationMemoryItem = {
 export type ConversationMemoryState = {
   /** Default false — opt-in only. */
   enabled: boolean;
+  /** Confirmed facts injected into personal assistant system prompt. */
   items: ConversationMemoryItem[];
+  /**
+   * Extracted candidates awaiting user accept/reject.
+   * Never injected until moved into `items`.
+   */
+  pending: ConversationMemoryItem[];
 };
 
 export const DEFAULT_CONVERSATION_MEMORY: ConversationMemoryState = {
   enabled: false,
   items: [],
+  pending: [],
 };
 
 function filterStringList(values: unknown): string[] {
@@ -90,33 +97,38 @@ export function normalizeIdleHours(value: unknown): number {
   return Math.min(168, Math.max(1, Math.round(n)));
 }
 
+function normalizeMemoryItemList(value: unknown): ConversationMemoryItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is ConversationMemoryItem =>
+      Boolean(
+        item &&
+          typeof item === "object" &&
+          typeof item.id === "string" &&
+          typeof item.text === "string" &&
+          (item.source === "dialog" || item.source === "manual") &&
+          typeof item.updatedAt === "number",
+      ),
+    )
+    .map((item) => ({
+      id: item.id,
+      text: item.text,
+      source: item.source,
+      updatedAt: item.updatedAt,
+      sessionId: typeof item.sessionId === "string" ? item.sessionId : undefined,
+    }));
+}
+
 export function normalizeConversationMemory(
   input: Partial<ConversationMemoryState> | null | undefined,
 ): ConversationMemoryState {
-  if (!input || typeof input !== "object") return { ...DEFAULT_CONVERSATION_MEMORY, items: [] };
-  const items = Array.isArray(input.items)
-    ? input.items
-        .filter((item): item is ConversationMemoryItem =>
-          Boolean(
-            item &&
-              typeof item === "object" &&
-              typeof item.id === "string" &&
-              typeof item.text === "string" &&
-              (item.source === "dialog" || item.source === "manual") &&
-              typeof item.updatedAt === "number",
-          ),
-        )
-        .map((item) => ({
-          id: item.id,
-          text: item.text,
-          source: item.source,
-          updatedAt: item.updatedAt,
-          sessionId: typeof item.sessionId === "string" ? item.sessionId : undefined,
-        }))
-    : [];
+  if (!input || typeof input !== "object") {
+    return { ...DEFAULT_CONVERSATION_MEMORY, items: [], pending: [] };
+  }
   return {
     enabled: Boolean(input.enabled),
-    items,
+    items: normalizeMemoryItemList(input.items),
+    pending: normalizeMemoryItemList(input.pending),
   };
 }
 
@@ -184,7 +196,7 @@ const INITIAL_PREFS: LocalPreferences = {
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,
   onboardingProfile: null,
-  conversationMemory: { enabled: false, items: [] },
+  conversationMemory: { enabled: false, items: [], pending: [] },
   autoNewSessionOnIdle: false,
   autoNewSessionIdleHours: 6,
 };

@@ -73,3 +73,18 @@ export {
   canonicalizeProfileOptionValue,
   canonicalizeProfileOptionValues,
 } from "./personalization/profile-option-aliases";
+export {
+  MAX_CONVERSATION_MEMORY_ITEMS,
+  MAX_CONVERSATION_MEMORY_TEXT_CHARS,
+  MAX_EXTRACT_CANDIDATES_PER_TURN,
+  MAX_PENDING_MEMORY_ITEMS,
+  acceptAllPendingMemory,
+  acceptPendingMemory,
+  createConversationMemoryId,
+  extractMemoryCandidatesFromUserText,
+  isSensitiveMemoryText,
+  mergePendingMemoryCandidates,
+  normalizeMemoryFingerprint,
+  rejectPendingMemory,
+  shouldAttemptMemoryExtract,
+} from "./memory/conversation-memory";
