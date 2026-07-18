@@ -46,6 +46,7 @@ import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
+import { ConversationHistoryPanel } from "../sidebar/conversation-history-panel";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
@@ -473,8 +474,18 @@ export function AssistantPage(props: AssistantPageProps) {
   const openAssistantSidePanelMenu = useCallback(() => {
     assistantSidePanelWidthRef.current = ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH;
     setBrowserPanelWidth(ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH);
-    setCurrentSidePanel("codeMenu");
+    // Default right pane for assistant: conversation history.
+    setCurrentSidePanel("history");
   }, [setBrowserPanelWidth, setCurrentSidePanel]);
+
+  const handleHistorySelectPrompt = useCallback(
+    (text: string) => {
+      const sessionId = props.selectedSessionId;
+      if (!sessionId || !text.trim()) return;
+      useComposerStateStore.getState().setDraft(sessionId, text);
+    },
+    [props.selectedSessionId],
+  );
   useEffect(() => {
     loadedHiddenTargetsKeyRef.current = hiddenAccessibleTargetsStorageKey(
       props.selectedWorkspaceId,
@@ -834,8 +845,8 @@ export function AssistantPage(props: AssistantPageProps) {
         onClick={() => {
           openAssistantSidePanelMenu();
         }}
-        title={t("session.code_side_panel_toggle")}
-        aria-label={t("session.code_side_panel_toggle")}
+        title={t("session.conversation_history_toggle")}
+        aria-label={t("session.conversation_history_toggle")}
         aria-expanded={sidePanelOpen}
       >
         <PanelRight className="size-3.5" />
@@ -1325,6 +1336,17 @@ export function AssistantPage(props: AssistantPageProps) {
                         client={props.onmyagentServerClient}
                         sessionId={props.selectedSessionId}
                         onClose={closeRightPane}
+                      />
+                    ) : activeSidePanel === "history" ||
+                      activeSidePanel === "codeMenu" ? (
+                      <ConversationHistoryPanel
+                        client={props.onmyagentServerClient}
+                        workspaceId={
+                          props.runtimeWorkspaceId ?? props.selectedWorkspaceId
+                        }
+                        sessionId={props.selectedSessionId}
+                        onClose={closeRightPane}
+                        onSelectPrompt={handleHistorySelectPrompt}
                       />
                     ) : (
                       <CodeWorkspaceSidePanel
