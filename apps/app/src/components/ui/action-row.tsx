@@ -31,20 +31,21 @@ const menuRowButtonVariants = cva(
 )
 
 const navTabButtonVariants = cva(
-  "inline-flex items-center justify-center gap-2 font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:block [&_svg]:shrink-0",
+  "inline-flex cursor-pointer items-center justify-center gap-2 font-medium transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:block [&_svg]:shrink-0",
   {
     variants: {
       active: {
         // Light: inverted dark pill (ink fill + light label). Dark: elevated solid surface.
         true: "bg-dls-text text-dls-background shadow-none [&_svg]:opacity-100 dark:bg-dls-surface-solid dark:text-dls-text",
         false:
-          "bg-transparent text-dls-secondary hover:text-dls-text [&_svg]:opacity-80",
+          "bg-transparent text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text [&_svg]:opacity-80",
       },
       size: {
         default: "px-3.5 py-1 text-xs",
         // Compact filter chip (store/assistant/management primary filters)
         filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
-        tab: "h-8 gap-1.5 px-3 text-sm",
+        // Fill track height; horizontal padding keeps long hit targets comfortable.
+        tab: "h-full min-h-8 gap-1.5 px-3 text-sm",
         messaging: "h-10 px-4 text-base font-semibold",
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
       },
@@ -60,7 +61,7 @@ const navTabButtonVariants = cva(
         active: true,
         shape: "underline",
         className:
-          "border-dls-accent bg-transparent text-dls-text shadow-none dark:bg-transparent dark:text-dls-text",
+          "border-dls-accent bg-transparent text-dls-text shadow-none hover:bg-transparent dark:bg-transparent dark:text-dls-text",
       },
       {
         active: false,
@@ -77,7 +78,7 @@ const navTabButtonVariants = cva(
 )
 
 const segmentedTabButtonVariants = cva(
-  "rounded-lg font-semibold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
+  "cursor-pointer rounded-lg font-semibold transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
   {
     variants: {
       active: {
@@ -413,17 +414,17 @@ function FilterChip({
   )
 }
 
-const segmentedTabGroupVariants = cva("inline-flex items-center", {
+const segmentedTabGroupVariants = cva("inline-flex items-stretch", {
   variants: {
     density: {
       // Compact filter strip (store tabs, assistant office/code, management)
       filter:
-        "h-8 w-fit shrink-0 gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+        "h-9 w-fit shrink-0 gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
       // In-page multi-tab (may wrap; slightly taller track)
       panel:
         "h-9 max-w-full flex-wrap gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
       // Header tabs without track — free-floating active pill only
-      bare: "h-8 w-fit shrink-0 gap-1 border-0 bg-transparent p-0",
+      bare: "h-9 w-fit shrink-0 gap-1 border-0 bg-transparent p-0",
     },
   },
   defaultVariants: {
