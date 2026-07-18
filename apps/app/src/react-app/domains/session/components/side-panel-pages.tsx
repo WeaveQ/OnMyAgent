@@ -372,7 +372,7 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className={cn(shellChrome.pageHeader, "mac:titlebar-drag")}>
+      <div className={cn(shellChrome.pageHeader, "border-b-0 mac:titlebar-drag")}>
         {activeTab === "experts" && expertView === "mine" ? (
           <Button
             type="button"

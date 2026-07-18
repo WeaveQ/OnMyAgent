@@ -589,7 +589,7 @@ export function AgentManagementPage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Store-style top chrome: segmented switch only (no page title). */}
-      <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3")}>
+      <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3 border-b-0")}>
         <SegmentedTabGroup density="bare">
           {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
             (tab) => {
