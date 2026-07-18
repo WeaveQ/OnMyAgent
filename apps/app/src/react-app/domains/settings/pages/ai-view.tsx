@@ -135,7 +135,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                     <span className="inline-flex min-w-0 items-center gap-2.5">
                       <ProviderIcon
                         providerId={provider.id}
-                        size={18}
+                        size={16}
                         className="shrink-0 text-dls-text"
                       />
                       <span className="truncate">{provider.name}</span>
