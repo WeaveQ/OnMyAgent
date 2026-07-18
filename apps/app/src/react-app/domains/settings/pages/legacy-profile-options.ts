@@ -29,7 +29,6 @@ export const legacyProfileOptionValues: Record<string, string> = {
   "数据 / 智能": "technology",
   数据: "technology",
   "技术 / 开发 / 数据": "technology",
-  "技术 / 开发": "technology",
   "供应链 / 物流": "supply-chain",
   供应链: "supply-chain",
   "财务 / 合规": "finance",
