@@ -105,28 +105,89 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           </span>
         ) : null}
       </Button>
-      <div className="shrink-0 self-start pt-0.5 text-xs leading-5 text-dls-text/30 group-hover:hidden">
-        {summaryTime}
-      </div>
-      <Button
-        ref={anchorRef}
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (anchorRef.current) {
-            const rect = anchorRef.current.getBoundingClientRect();
-            setMenuPosition({ left: rect.right - 176, top: rect.bottom + 4 });
-          }
-          setMenuOpen((value) => !value);
-        }}
-        className="hidden shrink-0 text-dls-secondary group-hover:flex"
-        title={t("session.task_actions")}
-        aria-label={t("session.task_actions")}
+      {/* Idle: time (or pin mark if pinned). Hover: ⋯ / archive / pin. */}
+      <div
+        className={cn(
+          "shrink-0 self-start pt-0.5 text-xs leading-5 text-dls-text/30 group-hover:hidden",
+          menuOpen && "hidden",
+        )}
       >
-        <MoreHorizontal className="size-4" />
-      </Button>
+        {props.pinned ? (
+          <Pin className="size-3.5 text-dls-accent" aria-hidden />
+        ) : (
+          summaryTime
+        )}
+      </div>
+      <div
+        className={cn(
+          "hidden shrink-0 items-center gap-0.5 self-start group-hover:flex",
+          menuOpen && "flex",
+        )}
+      >
+        <Button
+          ref={anchorRef}
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (anchorRef.current) {
+              const rect = anchorRef.current.getBoundingClientRect();
+              setMenuPosition({ left: rect.right - 176, top: rect.bottom + 4 });
+            }
+            setMenuOpen((value) => !value);
+          }}
+          className="text-dls-secondary hover:text-dls-text"
+          title={t("session.task_actions")}
+          aria-label={t("session.task_actions")}
+        >
+          <MoreHorizontal className="size-3.5" />
+        </Button>
+        {props.onArchiveSession ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen(false);
+              props.onArchiveSession?.(
+                latestSession.id,
+                props.group.description,
+              );
+            }}
+            className="text-dls-secondary hover:text-dls-text"
+            title={t("session.archive_task")}
+            aria-label={t("session.archive_task")}
+          >
+            <Archive className="size-3.5" />
+          </Button>
+        ) : null}
+        {pinnable && props.onTogglePinned ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen(false);
+              props.onTogglePinned?.(latestSession.id);
+            }}
+            className={cn(
+              "text-dls-secondary hover:text-dls-text",
+              props.pinned && "text-dls-accent",
+            )}
+            title={props.pinned ? t("session.unpin") : t("session.pin")}
+            aria-label={props.pinned ? t("session.unpin") : t("session.pin")}
+          >
+            {props.pinned ? (
+              <PinOff className="size-3.5" />
+            ) : (
+              <Pin className="size-3.5" />
+            )}
+          </Button>
+        ) : null}
+      </div>
 
       {menuOpen && menuPosition ? (
         <div
