@@ -498,7 +498,9 @@ export function AssistantPage(props: AssistantPageProps) {
     [props.selectedSessionId],
   );
 
-  const openHistorySearch = useCallback(() => {
+  /** Header find only — never opens the right workspace / history panel. */
+  const openHistorySearch = useCallback((event?: { stopPropagation?: () => void }) => {
+    event?.stopPropagation?.();
     setHistorySearchOpen(true);
     window.setTimeout(() => historySearchInputRef.current?.focus(), 0);
   }, []);
@@ -979,8 +981,14 @@ export function AssistantPage(props: AssistantPageProps) {
           variant="ghost"
           size="icon-xs"
           className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={openHistorySearch}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            openHistorySearch(event);
+          }}
           title={t("session.conversation_history_search_tooltip", {
             shortcut: historySearchShortcut,
           })}
@@ -998,11 +1006,12 @@ export function AssistantPage(props: AssistantPageProps) {
         size="icon-xs"
         className={cn(
           "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-          sidePanelOpen && activeSidePanel === "history" && "bg-dls-hover text-dls-text",
+          sidePanelOpen && "bg-dls-hover text-dls-text",
         )}
         onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          if (sidePanelOpen && activeSidePanel === "history") {
+        onClick={(event) => {
+          event.stopPropagation();
+          if (sidePanelOpen) {
             closeRightPane();
           } else {
             openAssistantSidePanelMenu();
@@ -1010,7 +1019,7 @@ export function AssistantPage(props: AssistantPageProps) {
         }}
         title={t("session.conversation_history_toggle")}
         aria-label={t("session.conversation_history_toggle")}
-        aria-expanded={sidePanelOpen && activeSidePanel === "history"}
+        aria-expanded={sidePanelOpen}
       >
         <PanelRight className="size-3.5" />
       </Button>
@@ -1513,9 +1522,12 @@ export function AssistantPage(props: AssistantPageProps) {
                         sessionId={props.selectedSessionId}
                         onClose={closeRightPane}
                         onSelectPrompt={handleHistorySelectPrompt}
-                        searchQuery={historySearchQuery}
+                        // Header find owns match count via SessionSurface;
+                        // list may mirror the query but must not overwrite n/m.
+                        searchQuery={
+                          historySearchOpen ? historySearchQuery : undefined
+                        }
                         activeMatchIndex={historyActiveMatch}
-                        onMatchCountChange={setHistoryMatchCount}
                       />
                     ) : (
                       <CodeWorkspaceSidePanel
