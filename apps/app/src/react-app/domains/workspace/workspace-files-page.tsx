@@ -660,7 +660,7 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className={shellChrome.pageHeaderSimple}>
+      <div className={cn(shellChrome.pageHeaderSimple, "border-b-0")}>
         <SegmentedTabGroup density="bare">
           <NavTabButton
             active={activeTab === "task"}

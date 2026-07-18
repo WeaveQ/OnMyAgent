@@ -5,6 +5,7 @@ import { Puzzle, UserRound } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 
 type StorePrimaryTab = "experts" | "skills";
@@ -30,7 +31,7 @@ export function StorePage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className={shellChrome.pageHeaderSimple}>
+      <div className={cn(shellChrome.pageHeaderSimple, "border-b-0")}>
         <SegmentedTabGroup density="bare">
           {tabs.map((tab) => {
             const Icon = tab.icon;
