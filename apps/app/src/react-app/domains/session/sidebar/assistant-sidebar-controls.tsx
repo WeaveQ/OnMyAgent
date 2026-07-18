@@ -53,8 +53,12 @@ export function AssistantCategorySwitch(props: {
   ];
 
   return (
-    <div className="mb-3 flex w-full justify-start mac:titlebar-no-drag">
-      <SegmentedTabGroup density="filter" role="tablist">
+    <div className="mb-3 flex w-full justify-center mac:titlebar-no-drag">
+      <SegmentedTabGroup
+        density="filter"
+        role="tablist"
+        className="w-full max-w-none"
+      >
         {items.map((item) => {
           const Icon = item.icon;
           const active = props.value === item.id;
@@ -68,6 +72,7 @@ export function AssistantCategorySwitch(props: {
               active={active}
               size="tab"
               shape="tab"
+              className="min-w-0 flex-1 justify-center gap-1.5 px-4"
             >
               <Icon className="size-3.5 shrink-0" />
               <span className="leading-none">{item.label}</span>
