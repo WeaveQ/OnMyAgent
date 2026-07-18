@@ -661,7 +661,7 @@ export function WorkspaceFilesPage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className={shellChrome.pageHeaderSimple}>
-        <SegmentedTabGroup density="filter">
+        <SegmentedTabGroup density="bare">
           <NavTabButton
             active={activeTab === "task"}
             type="button"
@@ -669,8 +669,8 @@ export function WorkspaceFilesPage(props: {
             size="tab"
             shape="tab"
           >
-            <FileStack className="size-3.5 shrink-0 opacity-80" />
-            <span>{t("files.task_results")}</span>
+            <FileStack className="size-3.5 opacity-80" />
+            <span className="leading-none">{t("files.task_results")}</span>
           </NavTabButton>
           <NavTabButton
             active={activeTab === "cloud"}
@@ -679,8 +679,8 @@ export function WorkspaceFilesPage(props: {
             size="tab"
             shape="tab"
           >
-            <Cloud className="size-3.5 shrink-0 opacity-80" />
-            <span>{t("files.cloud_drive")}</span>
+            <Cloud className="size-3.5 opacity-80" />
+            <span className="leading-none">{t("files.cloud_drive")}</span>
           </NavTabButton>
         </SegmentedTabGroup>
       </div>

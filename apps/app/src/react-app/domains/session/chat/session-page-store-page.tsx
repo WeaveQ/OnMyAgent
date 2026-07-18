@@ -31,7 +31,7 @@ export function StorePage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div className={shellChrome.pageHeaderSimple}>
-        <SegmentedTabGroup density="filter">
+        <SegmentedTabGroup density="bare">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -43,8 +43,8 @@ export function StorePage(props: {
                 size="tab"
                 shape="tab"
               >
-                <Icon className="size-3.5 shrink-0 opacity-80" />
-                <span>{tab.label}</span>
+                <Icon className="size-3.5 opacity-80" />
+                <span className="leading-none">{tab.label}</span>
               </NavTabButton>
             );
           })}
