@@ -7,11 +7,15 @@ import {
   LayoutDashboard,
   MonitorSmartphone,
   Network,
+  Package,
+  Puzzle,
   Search,
   Sparkles,
   Plus,
+  UserRound,
   Zap,
 } from "lucide-react";
+import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
@@ -286,15 +290,20 @@ function StorePrimaryTabs(props: {
   value: StorePrimaryTab;
   onChange: (tab: StorePrimaryTab) => void;
 }) {
-  const items: Array<{ id: StorePrimaryTab; label: string }> = [
-    { id: "experts", label: t("store.experts_tab") },
-    { id: "skills", label: t("store.skills_tab") },
-    { id: "plugins", label: t("plugins.artifact_tab") },
+  const items: Array<{
+    id: StorePrimaryTab;
+    label: string;
+    icon: ComponentType<{ className?: string }>;
+  }> = [
+    { id: "experts", label: t("store.experts_tab"), icon: UserRound },
+    { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
+    { id: "plugins", label: t("plugins.artifact_tab"), icon: Package },
   ];
 
   return (
     <SegmentedTabGroup density="filter" className="mac:titlebar-no-drag">
       {items.map((item) => {
+        const Icon = item.icon;
         const active = props.value === item.id;
         return (
           <NavTabButton
@@ -307,6 +316,7 @@ function StorePrimaryTabs(props: {
             className="mac:titlebar-no-drag"
             aria-pressed={active}
           >
+            <Icon className="size-3.5 shrink-0 opacity-80" />
             <span>{item.label}</span>
           </NavTabButton>
         );

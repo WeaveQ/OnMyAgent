@@ -1,12 +1,12 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, Plus, RefreshCw, ShoppingBag, Sparkles, Wrench } from "lucide-react";
+import { Archive, Bot, Cpu, Plug, Plus, Puzzle, RefreshCw, UserRound, Zap } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { FilterChip, IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { shellChrome } from "@/react-app/design-system/type-scale";
@@ -164,13 +164,13 @@ function AgentManagementMetric(props: { label: string; value: string | number })
 
 const PANEL_TABS: Array<{
   id: AgentManagementPanel;
-  icon: typeof ShoppingBag;
+  icon: typeof Zap;
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  { id: "providers", icon: ShoppingBag, labelKey: "agent_manager.providers" },
-  { id: "agents", icon: Cpu, labelKey: "agent_manager.agent_check" },
-  { id: "skills", icon: FileText, labelKey: "agent_manager.skill_management" },
+  { id: "providers", icon: Zap, labelKey: "agent_manager.providers" },
+  { id: "agents", icon: UserRound, labelKey: "agent_manager.agent_check" },
+  { id: "skills", icon: Puzzle, labelKey: "agent_manager.skill_management" },
   { id: "mcp", icon: Plug, labelKey: "agent_manager.mcp.tab" },
   { id: "archive", icon: Archive, labelKey: "nav.session_archive", archiveOnly: true },
 ];
@@ -604,8 +604,8 @@ export function AgentManagementPage(props: {
                   size="tab"
                   shape="tab"
                 >
-                  <Icon className="size-3.5 shrink-0" />
-                  {t(tab.labelKey)}
+                  <Icon className="size-3.5 shrink-0 opacity-80" />
+                  <span>{t(tab.labelKey)}</span>
                 </NavTabButton>
               );
             },
