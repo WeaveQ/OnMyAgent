@@ -843,23 +843,32 @@ function FrequencyFields(props: {
 function optimizeAutomationPrompt(raw: string): string {
   const text = raw.trim();
   if (!text) return text;
-  if (/^#\s*自动化任务/m.test(text) || text.includes("## 目标") || text.includes("## Goal")) {
+  const heading = t("automation.optimize_heading");
+  const sectionGoal = t("automation.optimize_section_goal");
+  const alreadyMarker = t("automation.optimize_already_marker");
+  // Skip if already structured (current locale or common English goal header).
+  if (
+    text.includes(heading) ||
+    text.includes(sectionGoal) ||
+    text.includes("## Goal") ||
+    new RegExp(`^#\\s*${alreadyMarker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m").test(text)
+  ) {
     return text;
   }
   return [
-    "# 自动化任务（优化稿）",
+    heading,
     "",
-    "## 目标",
+    sectionGoal,
     text,
     "",
-    "## 输出要求",
-    "- 结构清晰，优先表格或清单",
-    "- 缺数据时用占位并标注「示意」",
-    "- 结尾给出可执行的下一步（不超过 5 条）",
+    t("automation.optimize_section_output"),
+    t("automation.optimize_output_structure"),
+    t("automation.optimize_output_placeholder"),
+    t("automation.optimize_output_next_steps"),
     "",
-    "## 约束",
-    "- 不编造未提供的数据",
-    "- 高危操作需人工确认",
+    t("automation.optimize_section_constraints"),
+    t("automation.optimize_constraint_no_fabricate"),
+    t("automation.optimize_constraint_confirm_risk"),
   ].join("\n");
 }
 
