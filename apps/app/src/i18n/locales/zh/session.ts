@@ -84,6 +84,8 @@ export default {
   "session.conversation_history_toggle": "对话历史",
   "session.conversation_history_reuse": "填入输入框",
   "session.conversation_history_search_placeholder": "搜索历史提问…",
+  "session.conversation_history_search_header_placeholder": "搜索对话内容",
+  "session.conversation_history_search_tooltip": "对话内搜索（{shortcut}）",
   "session.conversation_history_search_prev": "上一个匹配",
   "session.conversation_history_search_next": "下一个匹配",
   "session.conversation_history_search_clear": "清除搜索",

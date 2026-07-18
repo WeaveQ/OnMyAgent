@@ -3,11 +3,16 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
+  ChevronDown,
+  ChevronUp,
   PanelRight,
+  Search,
+  X,
   Zap,
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
+import { formatShortcut } from "../../../../lib/format-shortcut";
 import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft } from "../../../../app/types";
@@ -411,6 +416,12 @@ export function AssistantPage(props: AssistantPageProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [sessionActionId, setSessionActionId] = useState<string | null>(null);
+  /** Header find bar (expands in chrome like in-chat search). */
+  const [historySearchOpen, setHistorySearchOpen] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyMatchCount, setHistoryMatchCount] = useState(0);
+  const [historyActiveMatch, setHistoryActiveMatch] = useState(0);
+  const historySearchInputRef = useRef<HTMLInputElement>(null);
   const browserPanelRef = usePanelRef();
   const preserveSidePanelOnPanelOpenRef = useRef(false);
 
@@ -486,6 +497,46 @@ export function AssistantPage(props: AssistantPageProps) {
     },
     [props.selectedSessionId],
   );
+
+  const openHistorySearch = useCallback(() => {
+    setHistorySearchOpen(true);
+    // Ensure history panel is open so results are visible.
+    if (sessionSidePanel !== "history") {
+      assistantSidePanelWidthRef.current = ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH;
+      setBrowserPanelWidth(ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH);
+      setCurrentSidePanel("history");
+    }
+    window.setTimeout(() => historySearchInputRef.current?.focus(), 0);
+  }, [sessionSidePanel, setBrowserPanelWidth, setCurrentSidePanel]);
+
+  const closeHistorySearch = useCallback(() => {
+    setHistorySearchOpen(false);
+    setHistorySearchQuery("");
+    setHistoryActiveMatch(0);
+    setHistoryMatchCount(0);
+  }, []);
+
+  useEffect(() => {
+    setHistoryActiveMatch(0);
+  }, [historySearchQuery, props.selectedSessionId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+        // Prefer header history search when assistant chat is active.
+        if (
+          activeSidebarView === "assistant" ||
+          activeSidebarView === "chat" ||
+          activeSidebarView === "scheduledTasks"
+        ) {
+          event.preventDefault();
+          openHistorySearch();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeSidebarView, openHistorySearch]);
   useEffect(() => {
     loadedHiddenTargetsKeyRef.current = hiddenAccessibleTargetsStorageKey(
       props.selectedWorkspaceId,
@@ -833,26 +884,144 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   };
 
-  const headerPanelControls = !sidePanelOpen ? (
+  const historySearchShortcut = formatShortcut(["Mod", "F"]);
+  const historyMatchLabel =
+    historySearchQuery.trim() && historyMatchCount > 0
+      ? `${(historyActiveMatch % historyMatchCount) + 1}/${historyMatchCount}`
+      : historySearchQuery.trim()
+        ? "0/0"
+        : "";
+
+  // Search expands in the main header (same chrome as in-chat find), not inside
+  // the history side panel body.
+  const headerPanelControls = (
     <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historySearchOpen ? (
+        <div
+          className={cn(
+            "flex h-8 items-center gap-1 rounded-full border border-dls-border",
+            "bg-dls-surface-muted/70 px-2 shadow-sm",
+            "focus-within:border-dls-accent/40 focus-within:bg-dls-surface-solid",
+          )}
+        >
+          <Search className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
+          <input
+            ref={historySearchInputRef}
+            type="search"
+            value={historySearchQuery}
+            onChange={(event) => setHistorySearchQuery(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (!historyMatchCount) return;
+                setHistoryActiveMatch((i) =>
+                  event.shiftKey
+                    ? (i - 1 + historyMatchCount) % historyMatchCount
+                    : (i + 1) % historyMatchCount,
+                );
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                closeHistorySearch();
+              }
+            }}
+            placeholder={t("session.conversation_history_search_header_placeholder")}
+            className="w-40 min-w-0 bg-transparent text-sm text-dls-text outline-none placeholder:text-dls-secondary/70 sm:w-52"
+            aria-label={t("session.conversation_history_search_header_placeholder")}
+          />
+          {historyMatchLabel ? (
+            <span className="shrink-0 tabular-nums text-xs text-dls-secondary">
+              {historyMatchLabel}
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-dls-secondary hover:text-dls-text"
+            disabled={!historyMatchCount}
+            onClick={() =>
+              setHistoryActiveMatch((i) =>
+                historyMatchCount
+                  ? (i - 1 + historyMatchCount) % historyMatchCount
+                  : 0,
+              )
+            }
+            title={t("session.conversation_history_search_prev")}
+            aria-label={t("session.conversation_history_search_prev")}
+          >
+            <ChevronUp className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-dls-secondary hover:text-dls-text"
+            disabled={!historyMatchCount}
+            onClick={() =>
+              setHistoryActiveMatch((i) =>
+                historyMatchCount ? (i + 1) % historyMatchCount : 0,
+              )
+            }
+            title={t("session.conversation_history_search_next")}
+            aria-label={t("session.conversation_history_search_next")}
+          >
+            <ChevronDown className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-dls-secondary hover:text-dls-text"
+            onClick={closeHistorySearch}
+            title={t("session.conversation_history_search_clear")}
+            aria-label={t("session.conversation_history_search_clear")}
+          >
+            <X className="size-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={openHistorySearch}
+          title={t("session.conversation_history_search_tooltip", {
+            shortcut: historySearchShortcut,
+          })}
+          aria-label={t("session.conversation_history_search_tooltip", {
+            shortcut: historySearchShortcut,
+          })}
+        >
+          <Search className="size-3.5" />
+        </Button>
+      )}
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
         size="icon-xs"
-        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+        className={cn(
+          "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+          sidePanelOpen && activeSidePanel === "history" && "bg-dls-hover text-dls-text",
+        )}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
-          openAssistantSidePanelMenu();
+          if (sidePanelOpen && activeSidePanel === "history") {
+            closeRightPane();
+          } else {
+            openAssistantSidePanelMenu();
+          }
         }}
         title={t("session.conversation_history_toggle")}
         aria-label={t("session.conversation_history_toggle")}
-        aria-expanded={sidePanelOpen}
+        aria-expanded={sidePanelOpen && activeSidePanel === "history"}
       >
         <PanelRight className="size-3.5" />
       </Button>
     </div>
-  ) : null;
+  );
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
@@ -1347,6 +1516,9 @@ export function AssistantPage(props: AssistantPageProps) {
                         sessionId={props.selectedSessionId}
                         onClose={closeRightPane}
                         onSelectPrompt={handleHistorySelectPrompt}
+                        searchQuery={historySearchQuery}
+                        activeMatchIndex={historyActiveMatch}
+                        onMatchCountChange={setHistoryMatchCount}
                       />
                     ) : (
                       <CodeWorkspaceSidePanel

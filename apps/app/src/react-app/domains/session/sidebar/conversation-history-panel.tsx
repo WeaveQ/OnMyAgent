@@ -1,14 +1,10 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ChevronDown,
-  ChevronUp,
   History,
   MessageSquareText,
   PanelRightClose,
-  Search,
-  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -63,7 +59,6 @@ export function extractUserHistoryEntries(
             : null,
     });
   }
-  // Newest first for quick resend of recent asks.
   return out.reverse();
 }
 
@@ -119,11 +114,14 @@ export function ConversationHistoryPanel(props: {
   sessionId: string | null;
   onClose: () => void;
   onSelectPrompt?: (text: string, messageId: string) => void;
+  /** Driven by header find bar (not embedded in this panel). */
+  searchQuery?: string;
+  activeMatchIndex?: number;
+  onMatchCountChange?: (count: number) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [activeMatch, setActiveMatch] = useState(0);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const searchQuery = props.searchQuery?.trim() ?? "";
+  const activeMatchIndex = props.activeMatchIndex ?? 0;
 
   const snapshotQuery = useQuery({
     queryKey: [
@@ -151,49 +149,25 @@ export function ConversationHistoryPanel(props: {
     [snapshotQuery.data?.messages],
   );
 
-  const trimmedQuery = query.trim();
   const filtered = useMemo(() => {
-    if (!trimmedQuery) return entries;
-    const needle = trimmedQuery.toLowerCase();
+    if (!searchQuery) return entries;
+    const needle = searchQuery.toLowerCase();
     return entries.filter((entry) => entry.text.toLowerCase().includes(needle));
-  }, [entries, trimmedQuery]);
-
-  // Reset active match when filter set changes.
-  useEffect(() => {
-    setActiveMatch(0);
-  }, [trimmedQuery, props.sessionId, filtered.length]);
+  }, [entries, searchQuery]);
 
   useEffect(() => {
-    if (!filtered.length) return;
-    const entry = filtered[activeMatch];
+    props.onMatchCountChange?.(searchQuery ? filtered.length : 0);
+  }, [filtered.length, props, searchQuery]);
+
+  useEffect(() => {
+    if (!filtered.length || !searchQuery) return;
+    const entry = filtered[activeMatchIndex % filtered.length];
     if (!entry) return;
     itemRefs.current.get(entry.id)?.scrollIntoView({
       block: "nearest",
       behavior: "smooth",
     });
-  }, [activeMatch, filtered]);
-
-  const goPrev = () => {
-    if (!filtered.length) return;
-    setActiveMatch((i) => (i - 1 + filtered.length) % filtered.length);
-  };
-  const goNext = () => {
-    if (!filtered.length) return;
-    setActiveMatch((i) => (i + 1) % filtered.length);
-  };
-
-  const clearSearch = () => {
-    setQuery("");
-    setActiveMatch(0);
-    searchInputRef.current?.focus();
-  };
-
-  const matchLabel =
-    trimmedQuery && filtered.length > 0
-      ? `${activeMatch + 1}/${filtered.length}`
-      : trimmedQuery
-        ? "0/0"
-        : "";
+  }, [activeMatchIndex, filtered, searchQuery]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-surface-solid">
@@ -220,80 +194,6 @@ export function ConversationHistoryPanel(props: {
         >
           <PanelRightClose className="size-3.5" />
         </Button>
-      </div>
-
-      {/* Find bar — mirrors in-chat search chrome (query + n/m + prev/next + clear). */}
-      <div className="shrink-0 border-b border-dls-border px-2 py-2">
-        <div
-          className={cn(
-            "flex h-9 items-center gap-1 rounded-full border border-dls-border",
-            "bg-dls-surface-muted/60 px-2.5",
-            "focus-within:border-dls-accent/40 focus-within:bg-dls-surface-solid",
-          )}
-        >
-          <Search className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
-          <input
-            ref={searchInputRef}
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                if (event.shiftKey) goPrev();
-                else goNext();
-              } else if (event.key === "Escape") {
-                event.preventDefault();
-                if (query) clearSearch();
-              }
-            }}
-            placeholder={t("session.conversation_history_search_placeholder")}
-            className="min-w-0 flex-1 bg-transparent text-sm text-dls-text outline-none placeholder:text-dls-secondary/70"
-            aria-label={t("session.conversation_history_search_placeholder")}
-          />
-          {matchLabel ? (
-            <span className="shrink-0 tabular-nums text-xs text-dls-secondary">
-              {matchLabel}
-            </span>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-dls-secondary hover:text-dls-text"
-            onClick={goPrev}
-            disabled={!filtered.length || !trimmedQuery}
-            title={t("session.conversation_history_search_prev")}
-            aria-label={t("session.conversation_history_search_prev")}
-          >
-            <ChevronUp className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-dls-secondary hover:text-dls-text"
-            onClick={goNext}
-            disabled={!filtered.length || !trimmedQuery}
-            title={t("session.conversation_history_search_next")}
-            aria-label={t("session.conversation_history_search_next")}
-          >
-            <ChevronDown className="size-3.5" />
-          </Button>
-          {query ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="shrink-0 text-dls-secondary hover:text-dls-text"
-              onClick={clearSearch}
-              title={t("session.conversation_history_search_clear")}
-              aria-label={t("session.conversation_history_search_clear")}
-            >
-              <X className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
@@ -323,7 +223,9 @@ export function ConversationHistoryPanel(props: {
           ) : (
             filtered.map((entry, index) => {
               const timeLabel = formatConversationTime(entry.createdAt);
-              const isActive = trimmedQuery.length > 0 && index === activeMatch;
+              const isActive =
+                searchQuery.length > 0 &&
+                index === activeMatchIndex % filtered.length;
               return (
                 <button
                   key={entry.id}
@@ -344,8 +246,8 @@ export function ConversationHistoryPanel(props: {
                   <div className="flex items-start gap-2">
                     <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-dls-secondary opacity-70" />
                     <span className="min-w-0 flex-1 text-sm leading-5 text-dls-text line-clamp-3">
-                      {trimmedQuery ? (
-                        <HighlightedText text={entry.text} query={trimmedQuery} />
+                      {searchQuery ? (
+                        <HighlightedText text={entry.text} query={searchQuery} />
                       ) : (
                         entry.text
                       )}
