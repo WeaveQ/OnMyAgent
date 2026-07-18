@@ -38,6 +38,13 @@ import type {
 } from "./types";
 import { MESSAGE_LIST_CONTAIN_STYLE } from "./styles";
 import {
+  selectVirtualRenderWindow,
+  shouldVirtualizeTranscript,
+  resolveVirtualItemKey,
+  TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
+  TRANSCRIPT_VIRTUAL_OVERSCAN,
+} from "./virtual-window";
+import {
   attachmentsForParts,
   blockIdentityKey,
   canMergeStepClusters,
@@ -58,13 +65,6 @@ import {
   TranscriptAssistantHeader,
   TranscriptDividerRow,
 } from "./message-item";
-
-// Virtualize aggressively. A session with 20+ message blocks already pays
-// more to render eagerly than to run the virtualizer, so there is no reason
-// to defer. The only reason the threshold exists at all is to avoid the
-// virtualizer baseline overhead for tiny sessions.
-const VIRTUALIZATION_THRESHOLD = 20;
-const VIRTUAL_OVERSCAN = 4;
 
 function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? DEFAULT_SHOW_THINKING;
@@ -517,19 +517,19 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // render of a session, which used to make us render every message
   // eagerly (freezing the UI on large sessions) for one tick before
   // switching to virtualization.
-  const shouldVirtualize =
-    renderItems.length >= VIRTUALIZATION_THRESHOLD ||
-    messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
+  const shouldVirtualize = shouldVirtualizeTranscript(
+    renderItems.length,
+    messageBlocks.length,
+    TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
+  );
   // Keep the newest turn in normal document flow even after streaming ends.
   // Re-inserting a just-grown row into the virtualizer on completion causes a
   // visible measurement correction before sticky-bottom catches up.
-  const detachedTailRenderItemIndex = shouldVirtualize ? renderItems.length - 1 : -1;
-  const detachedTailRenderItem = detachedTailRenderItemIndex >= 0
-    ? renderItems[detachedTailRenderItemIndex]
-    : null;
-  const virtualRenderItems = detachedTailRenderItem
-    ? renderItems.slice(0, detachedTailRenderItemIndex)
-    : renderItems;
+  const {
+    virtualItems: virtualRenderItems,
+    detachedTail: detachedTailRenderItem,
+    detachedIndex: detachedTailRenderItemIndex,
+  } = selectVirtualRenderWindow(renderItems, shouldVirtualize);
 
   const estimateVirtualItemSize = useCallback(
     (index: number) => {
@@ -542,9 +542,10 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     [activeRenderItemId, activeTurnMinHeight, virtualRenderItems],
   );
 
-  const getVirtualItemKey = useCallback((index: number) => {
-    return virtualRenderItems[index]?.id ?? `item-${index}`;
-  }, [virtualRenderItems]);
+  const getVirtualItemKey = useCallback(
+    (index: number) => resolveVirtualItemKey(virtualRenderItems, index),
+    [virtualRenderItems],
+  );
 
   const virtualizer = useVirtualizer({
     count: virtualRenderItems.length,
@@ -553,7 +554,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     // Content-aware estimates reduce the measurement corrections that cause
     // long transcripts to jitter as previously-unmeasured rows enter view.
     estimateSize: estimateVirtualItemSize,
-    overscan: VIRTUAL_OVERSCAN,
+    overscan: TRANSCRIPT_VIRTUAL_OVERSCAN,
     getItemKey: getVirtualItemKey,
   });
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
