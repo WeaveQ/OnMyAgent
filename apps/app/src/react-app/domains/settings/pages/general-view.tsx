@@ -190,7 +190,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
           <div className="space-y-3">
             <div>
               <div className="flex items-center gap-2">
-                <LifeBuoy size={15} className="shrink-0 text-dls-secondary" />
+                <LifeBuoy size={14} className="shrink-0 text-dls-secondary" />
                 <div className={settingsOverviewTextClass.cardTitle}>
                   {t("settings.feedback_title")}
                 </div>

@@ -81,7 +81,7 @@ export function FilesRailIcon(props: PrimaryRailIconProps) {
   );
 }
 
-/** Marketplace / store — shopping bag (reads clearly as 市场, not a home). */
+/** Marketplace / store — shopping bag (reads as a store, not a home). */
 export function StoreRailIcon(props: PrimaryRailIconProps) {
   return (
     <svg
