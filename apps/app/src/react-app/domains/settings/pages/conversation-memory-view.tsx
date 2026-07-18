@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useMemo, useState } from "react";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Copy, Plus, Trash2 } from "lucide-react";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,12 @@ import type {
 import {
   MAX_CONVERSATION_MEMORY_ITEMS,
   MAX_CONVERSATION_MEMORY_TEXT_CHARS,
-  acceptAllPendingMemory,
-  acceptPendingMemory,
+  appendMemoryItems,
+  buildPersonalProfileInsightPrompt,
   createConversationMemoryId,
-  rejectPendingMemory,
+  importProfileBlockToItems,
+  parseProfileMemoryLine,
+  type MemoryProfileCategory,
 } from "../../shared";
 import {
   SettingsBlock,
@@ -32,15 +34,28 @@ export type ConversationMemoryViewProps = {
   onConversationMemoryChange: (next: ConversationMemoryState) => void;
 };
 
+function categoryLabel(category: MemoryProfileCategory | null): string {
+  switch (category) {
+    case "instruction":
+      return t("settings.memory_category_instruction");
+    case "identity":
+      return t("settings.memory_category_identity");
+    case "career":
+      return t("settings.memory_category_career");
+    case "project":
+      return t("settings.memory_category_project");
+    case "preference":
+      return t("settings.memory_category_preference");
+    default:
+      return t("settings.memory_conversation_source_manual");
+  }
+}
+
 export function ConversationMemoryView(props: ConversationMemoryViewProps) {
   const { conversationMemory, onConversationMemoryChange } = props;
   const [manualText, setManualText] = useState("");
+  const [copyHint, setCopyHint] = useState(false);
 
-  const pending = conversationMemory.pending ?? [];
-  const sortedPending = useMemo(
-    () => [...pending].sort((a, b) => b.updatedAt - a.updatedAt),
-    [pending],
-  );
   const sortedItems = useMemo(
     () =>
       [...conversationMemory.items].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -48,8 +63,22 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
   );
 
   const addManualMemory = useCallback(() => {
-    const text = manualText.trim().slice(0, MAX_CONVERSATION_MEMORY_TEXT_CHARS);
-    if (!text) return;
+    const raw = manualText.trim();
+    if (!raw) return;
+
+    // Multi-line / profile paste → split into category lines when possible.
+    if (raw.includes("\n") || /^#{0,3}\s*\S+/m.test(raw)) {
+      const imported = importProfileBlockToItems(raw);
+      if (imported.length > 0) {
+        onConversationMemoryChange(
+          appendMemoryItems(conversationMemory, imported),
+        );
+        setManualText("");
+        return;
+      }
+    }
+
+    const text = raw.slice(0, MAX_CONVERSATION_MEMORY_TEXT_CHARS);
     const item: ConversationMemoryItem = {
       id: createConversationMemoryId("mem"),
       text,
@@ -60,7 +89,11 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
       0,
       MAX_CONVERSATION_MEMORY_ITEMS,
     );
-    onConversationMemoryChange({ ...conversationMemory, items });
+    onConversationMemoryChange({
+      ...conversationMemory,
+      items,
+      pending: conversationMemory.pending ?? [],
+    });
     setManualText("");
   }, [conversationMemory, manualText, onConversationMemoryChange]);
 
@@ -69,28 +102,22 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
       onConversationMemoryChange({
         ...conversationMemory,
         items: conversationMemory.items.filter((item) => item.id !== id),
+        pending: conversationMemory.pending ?? [],
       });
     },
     [conversationMemory, onConversationMemoryChange],
   );
 
-  const acceptOne = useCallback(
-    (id: string) => {
-      onConversationMemoryChange(acceptPendingMemory(conversationMemory, id));
-    },
-    [conversationMemory, onConversationMemoryChange],
-  );
-
-  const rejectOne = useCallback(
-    (id: string) => {
-      onConversationMemoryChange(rejectPendingMemory(conversationMemory, id));
-    },
-    [conversationMemory, onConversationMemoryChange],
-  );
-
-  const acceptAll = useCallback(() => {
-    onConversationMemoryChange(acceptAllPendingMemory(conversationMemory));
-  }, [conversationMemory, onConversationMemoryChange]);
+  const copyInsightPrompt = useCallback(async () => {
+    const prompt = buildPersonalProfileInsightPrompt();
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopyHint(true);
+      window.setTimeout(() => setCopyHint(false), 2000);
+    } catch {
+      setManualText(prompt);
+    }
+  }, []);
 
   return (
     <LayoutStack className="gap-y-8">
@@ -110,10 +137,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
                   onConversationMemoryChange({
                     ...conversationMemory,
                     enabled: checked === true,
-                    pending:
-                      checked === true
-                        ? (conversationMemory.pending ?? [])
-                        : [],
+                    pending: conversationMemory.pending ?? [],
                   })
                 }
                 aria-label={t("settings.memory_conversation_toggle")}
@@ -123,91 +147,33 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
 
           {conversationMemory.enabled ? (
             <>
-              {sortedPending.length > 0 ? (
-                <div className="border-b border-dls-border">
-                  <SettingsBlockRow
-                    align="start"
-                    title={t("settings.memory_conversation_pending_title")}
-                    description={t(
-                      "settings.memory_conversation_pending_desc",
-                      { count: sortedPending.length },
-                    )}
-                    actions={
-                      <Button type="button" size="sm" variant="outline" onClick={acceptAll}>
-                        {t("settings.memory_conversation_accept_all")}
-                      </Button>
-                    }
-                  />
-                  <ul className="divide-y divide-dls-border">
-                    {sortedPending.map((item) => (
-                      <li key={item.id}>
-                        <SettingsBlockRow
-                          align="start"
-                          title={
-                            <span className="whitespace-pre-wrap break-words font-normal leading-6">
-                              {item.text}
-                            </span>
-                          }
-                          description={
-                            <span>
-                              {t("settings.memory_conversation_source_dialog")}
-                              {" · "}
-                              {t("settings.memory_conversation_updated", {
-                                time: formatRelativeTime(item.updatedAt),
-                              })}
-                            </span>
-                          }
-                          actions={
-                            <div className="flex items-center gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="text-dls-secondary hover:text-dls-status-success-fg"
-                                onClick={() => acceptOne(item.id)}
-                                aria-label={t(
-                                  "settings.memory_conversation_accept",
-                                )}
-                                title={t("settings.memory_conversation_accept")}
-                              >
-                                <Check className="size-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="text-dls-secondary hover:text-dls-status-danger-fg"
-                                onClick={() => rejectOne(item.id)}
-                                aria-label={t(
-                                  "settings.memory_conversation_reject",
-                                )}
-                                title={t("settings.memory_conversation_reject")}
-                              >
-                                <X className="size-4" />
-                              </Button>
-                            </div>
-                          }
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
               <SettingsBlockRow
                 align="start"
                 title={t("settings.memory_conversation_add_label")}
-                description={t("settings.memory_conversation_add_placeholder")}
+                description={t("settings.memory_conversation_add_hint")}
                 actions={
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={!manualText.trim()}
-                    onClick={addManualMemory}
-                  >
-                    <Plus className="size-4" />
-                    {t("settings.memory_conversation_add")}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void copyInsightPrompt()}
+                    >
+                      <Copy className="size-4" />
+                      {copyHint
+                        ? t("settings.memory_conversation_prompt_copied")
+                        : t("settings.memory_conversation_copy_prompt")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!manualText.trim()}
+                      onClick={addManualMemory}
+                    >
+                      <Plus className="size-4" />
+                      {t("settings.memory_conversation_add")}
+                    </Button>
+                  </div>
                 }
               >
                 <Textarea
@@ -217,7 +183,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
                     "settings.memory_conversation_add_placeholder",
                   )}
                   className="min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 text-sm leading-6 placeholder:text-dls-secondary/70"
-                  maxLength={MAX_CONVERSATION_MEMORY_TEXT_CHARS}
+                  maxLength={4000}
                   onKeyDown={(event) => {
                     if (
                       (event.metaKey || event.ctrlKey) &&
@@ -243,44 +209,48 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
                 </div>
               ) : (
                 <ul className="divide-y divide-dls-border">
-                  {sortedItems.map((item) => (
-                    <li key={item.id}>
-                      <SettingsBlockRow
-                        align="start"
-                        title={
-                          <span className="whitespace-pre-wrap break-words font-normal leading-6">
-                            {item.text}
-                          </span>
-                        }
-                        description={
-                          <span>
-                            {item.source === "manual"
-                              ? t("settings.memory_conversation_source_manual")
-                              : t("settings.memory_conversation_source_dialog")}
-                            {" · "}
-                            {t("settings.memory_conversation_updated", {
-                              time: formatRelativeTime(item.updatedAt),
-                            })}
-                          </span>
-                        }
-                        actions={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-dls-secondary hover:text-dls-status-danger-fg"
-                            onClick={() => removeMemory(item.id)}
-                            aria-label={t(
-                              "settings.memory_conversation_delete",
-                            )}
-                            title={t("settings.memory_conversation_delete")}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        }
-                      />
-                    </li>
-                  ))}
+                  {sortedItems.map((item) => {
+                    const parsed = parseProfileMemoryLine(item.text);
+                    const title = parsed.content || item.text;
+                    const metaParts = [
+                      item.source === "manual"
+                        ? t("settings.memory_conversation_source_manual")
+                        : t("settings.memory_conversation_source_dialog"),
+                      categoryLabel(parsed.category),
+                      parsed.date !== "unknown" ? parsed.date : null,
+                      t("settings.memory_conversation_updated", {
+                        time: formatRelativeTime(item.updatedAt),
+                      }),
+                    ].filter(Boolean);
+                    return (
+                      <li key={item.id}>
+                        <SettingsBlockRow
+                          align="start"
+                          title={
+                            <span className="whitespace-pre-wrap break-words font-normal leading-6">
+                              {title}
+                            </span>
+                          }
+                          description={<span>{metaParts.join(" · ")}</span>}
+                          actions={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-dls-secondary hover:text-dls-status-danger-fg"
+                              onClick={() => removeMemory(item.id)}
+                              aria-label={t(
+                                "settings.memory_conversation_delete",
+                              )}
+                              title={t("settings.memory_conversation_delete")}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          }
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </>

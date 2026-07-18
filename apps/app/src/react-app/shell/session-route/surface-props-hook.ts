@@ -51,8 +51,8 @@ import {
 import { useSessionActivityStore } from "../../domains/session";
 import {
   buildOnMyAgentEnvSystemContext,
+  appendMemoryItems,
   extractMemoryCandidatesFromUserText,
-  mergePendingMemoryCandidates,
   shouldAttemptMemoryExtract,
 } from "../../domains/shared";
 import { getReactQueryClient } from "../../infra/query-client";
@@ -779,8 +779,8 @@ export function useSessionRouteSurfaceProps(
         if (result.error) {
           throw new Error(serializeSDKError(result.error));
         }
-        // Opt-in conversation memory: rule-extract candidates into pending
-        // (never injected until the user confirms in settings).
+        // Opt-in conversation memory: rule-extract profile lines and write
+        // straight into items (list UI). User can delete any row anytime.
         const memoryState = local.prefs.conversationMemory;
         const userTurnText = resolveDraftText(promptDraft);
         if (
@@ -794,7 +794,7 @@ export function useSessionRouteSurfaceProps(
           if (candidates.length > 0) {
             local.setPrefs((previous) => ({
               ...previous,
-              conversationMemory: mergePendingMemoryCandidates(
+              conversationMemory: appendMemoryItems(
                 previous.conversationMemory,
                 candidates,
               ),
