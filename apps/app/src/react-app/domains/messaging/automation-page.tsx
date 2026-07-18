@@ -1,12 +1,16 @@
 /** @jsxImportSource react */
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   Folder,
+  MoreHorizontal,
   Pause,
+  Pencil,
   Play,
   Plus,
   ShieldAlert,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -41,6 +45,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -195,12 +200,12 @@ function defaultOnceDate() {
   return localDateValue(tomorrow.getTime());
 }
 
-function createEmptyFormState(): AutomationFormState {
+function createEmptyFormState(defaultModel: ModelRef | null = null): AutomationFormState {
   return {
     title: "",
     prompt: "",
     workspaceDirectory: "",
-    model: null,
+    model: defaultModel,
     agentId: "",
     accessMode: "default",
     frequencyMode: "weekly",
@@ -215,6 +220,10 @@ function createEmptyFormState(): AutomationFormState {
   };
 }
 
+function hasAutomationModel(model: ModelRef | null | undefined): model is ModelRef {
+  return Boolean(model?.providerID?.trim() && model?.modelID?.trim());
+}
+
 function intervalParts(intervalMinutes?: number): Pick<AutomationFormState, "intervalValue" | "intervalUnit"> {
   if (!intervalMinutes || intervalMinutes % 60 !== 0) {
     return { intervalValue: String(intervalMinutes ?? 60), intervalUnit: "minutes" };
@@ -225,9 +234,12 @@ function intervalParts(intervalMinutes?: number): Pick<AutomationFormState, "int
   return { intervalValue: String(intervalMinutes / 60), intervalUnit: "hours" };
 }
 
-function formStateFromTemplate(template: AutomationTemplate): AutomationFormState {
+function formStateFromTemplate(
+  template: AutomationTemplate,
+  defaultModel: ModelRef | null = null,
+): AutomationFormState {
   return {
-    ...createEmptyFormState(),
+    ...createEmptyFormState(defaultModel),
     title: t(template.titleKey),
     prompt: t(template.promptKey),
     frequencyMode: template.defaultSchedule.mode,
@@ -236,12 +248,15 @@ function formStateFromTemplate(template: AutomationTemplate): AutomationFormStat
   };
 }
 
-function formStateFromAutomation(item: OnMyAgentAutomationTaskItem): AutomationFormState {
+function formStateFromAutomation(
+  item: OnMyAgentAutomationTaskItem,
+  fallbackModel: ModelRef | null = null,
+): AutomationFormState {
   return {
     title: item.title,
     prompt: item.prompt,
     workspaceDirectory: item.workspaceDirectory ?? "",
-    model: item.model ?? null,
+    model: item.model ?? item.agent?.model ?? fallbackModel,
     agentId: item.agent?.id ?? "",
     accessMode: item.accessMode ?? "default",
     frequencyMode: item.schedule.mode,
@@ -280,6 +295,7 @@ function isEffectiveRangeValid(form: AutomationFormState) {
 
 function isFormValid(form: AutomationFormState) {
   if (!form.title.trim() || !form.prompt.trim() || !isAutomationScheduleTime(form.time)) return false;
+  if (!hasAutomationModel(form.model)) return false;
   if (!isEffectiveRangeValid(form)) return false;
   return isScheduleValid(form);
 }
@@ -492,30 +508,100 @@ function AutomationTaskMeta(props: {
 
 function ScheduledAutomationRow(props: {
   item: OnMyAgentAutomationTaskItem;
+  busy?: boolean;
   onEdit: (item: OnMyAgentAutomationTaskItem) => void;
+  onRunNow: (item: OnMyAgentAutomationTaskItem) => void;
+  onToggleEnabled: (item: OnMyAgentAutomationTaskItem) => void;
+  onDelete: (item: OnMyAgentAutomationTaskItem) => void;
 }) {
   const rangeLabel = effectiveRangeLabel(props.item);
+  const enabled = props.item.enabled;
   return (
-    <button
-      type="button"
-      onClick={() => props.onEdit(props.item)}
-      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-    >
-      <StatusDot size="md" tone={props.item.enabled ? "muted" : "danger"} />
-      <span className="min-w-0 flex flex-1 items-center gap-2">
-        <span className="truncate text-sm font-medium">{props.item.title}</span>
-        <AutomationTaskMeta item={props.item} groupName={props.item.running?.groupName} />
-        {rangeLabel ? (
-          <span className="shrink-0 text-xs text-dls-secondary">
-            {t("automation.effective_range_list", { range: rangeLabel })}
-          </span>
-        ) : null}
-        {!props.item.enabled ? (
-          <StatusBadge tone="surface" size="tiny" shape="soft">{t("automation.status_paused")}</StatusBadge>
-        ) : null}
-      </span>
-      <span className="shrink-0 text-xs text-dls-secondary">{nextRunLabel(props.item)}</span>
-    </button>
+    <div className="group flex min-h-14 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-dls-hover">
+      <button
+        type="button"
+        onClick={() => props.onEdit(props.item)}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1.5 text-left text-sm text-dls-text focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      >
+        <StatusDot size="md" tone={enabled ? "muted" : "warning"} />
+        <span className="min-w-0 flex flex-1 items-center gap-2">
+          <span className="truncate text-sm font-medium">{props.item.title}</span>
+          <AutomationTaskMeta item={props.item} groupName={props.item.running?.groupName} />
+          {rangeLabel ? (
+            <span className="shrink-0 text-xs text-dls-secondary">
+              {t("automation.effective_range_list", { range: rangeLabel })}
+            </span>
+          ) : null}
+          {!enabled ? (
+            <StatusBadge tone="warning" size="tiny" shape="soft">
+              {t("automation.status_paused")}
+            </StatusBadge>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-xs text-dls-secondary group-hover:hidden">
+          {nextRunLabel(props.item)}
+        </span>
+      </button>
+      <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          disabled={props.busy}
+          title={t("automation.test_run")}
+          aria-label={t("automation.test_run")}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onRunNow(props.item);
+          }}
+        >
+          <Play className="size-3.5" />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                disabled={props.busy}
+                title={t("automation.task_actions")}
+                aria-label={t("automation.task_actions")}
+                onClick={(event) => event.stopPropagation()}
+              />
+            }
+          >
+            <MoreHorizontal className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={6}
+            className="min-w-40 rounded-xl border border-dls-border bg-dls-surface p-1 text-dls-text shadow-md"
+          >
+            <DropdownMenuItem
+              className="rounded-lg gap-2"
+              onClick={() => props.onToggleEnabled(props.item)}
+            >
+              {enabled ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+              {enabled ? t("automation.pause") : t("automation.resume")}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => props.onEdit(props.item)}>
+              <Pencil className="size-3.5" />
+              {t("automation.edit")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              className="rounded-lg gap-2"
+              onClick={() => props.onDelete(props.item)}
+            >
+              <Trash2 className="size-3.5" />
+              {t("automation.delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   );
 }
 
@@ -558,14 +644,16 @@ function CompletedAutomationRow(props: {
     : run.status === "skipped"
       ? "text-dls-status-warning-fg"
       : "text-dls-status-danger-fg";
+  const failureMessage = !successful && run.status !== "skipped" ? run.error?.trim() : "";
   return (
     <button
       type="button"
-      disabled={!run.sessionId}
+      disabled={!run.sessionId && !failureMessage}
       onClick={() => {
         if (run.sessionId) props.onOpenSession(run.sessionId);
       }}
       className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-dls-text transition-colors enabled:hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-default"
+      title={failureMessage || undefined}
     >
       <StatusDot size="md" tone={successful ? "success" : run.status === "skipped" ? "warning" : "danger"} />
       <span className="min-w-0 flex-1">
@@ -584,6 +672,11 @@ function CompletedAutomationRow(props: {
                 : t("automation.run_failed")}
           </span>
         </span>
+        {failureMessage ? (
+          <span className="mt-0.5 block truncate text-xs text-dls-status-danger-fg">
+            {failureMessage}
+          </span>
+        ) : null}
       </span>
       <span className="flex shrink-0 items-center gap-2 text-xs text-dls-secondary">
         {relativeRunTime(run.ranAt)}
@@ -747,6 +840,29 @@ function FrequencyFields(props: {
   );
 }
 
+function optimizeAutomationPrompt(raw: string): string {
+  const text = raw.trim();
+  if (!text) return text;
+  if (/^#\s*自动化任务/m.test(text) || text.includes("## 目标") || text.includes("## Goal")) {
+    return text;
+  }
+  return [
+    "# 自动化任务（优化稿）",
+    "",
+    "## 目标",
+    text,
+    "",
+    "## 输出要求",
+    "- 结构清晰，优先表格或清单",
+    "- 缺数据时用占位并标注「示意」",
+    "- 结尾给出可执行的下一步（不超过 5 条）",
+    "",
+    "## 约束",
+    "- 不编造未提供的数据",
+    "- 高危操作需人工确认",
+  ].join("\n");
+}
+
 function AutomationDialog(props: {
   open: boolean;
   mode: AutomationDialogMode;
@@ -770,20 +886,25 @@ function AutomationDialog(props: {
     : props.item?.enabled
       ? t("automation.status_scheduled")
       : t("automation.status_paused");
+  const canOptimizePrompt = props.form.prompt.trim().length > 0;
+  const lastRunError = props.item?.lastRun?.status === "failed"
+    ? props.item.lastRun.error?.trim()
+    : "";
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent
-        showCloseButton={false}
-        className="flex max-h-[calc(100vh-2rem)] w-full max-w-[880px] flex-col gap-4 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-7 text-dls-text sm:max-w-[880px]"
+        showCloseButton
+        className="flex max-h-[min(640px,calc(100vh-4rem))] w-full max-w-[480px] flex-col gap-3 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-5 text-dls-text sm:max-w-[480px]"
       >
-        <DialogHeader className="flex-row items-center justify-between gap-4">
-          <DialogTitle className="text-base font-medium leading-6 text-dls-text">
+        <DialogHeader className="flex-row items-center justify-between gap-3 pe-9">
+          <DialogTitle className="min-w-0 truncate text-base font-medium leading-6 text-dls-text">
             {props.mode === "edit" ? t("automation.edit_task_title") : t("automation.add_task_title")}
           </DialogTitle>
           {props.mode === "edit" && props.item ? (
-            <div className="flex shrink-0 items-center gap-3 text-sm text-dls-secondary">
-              <span>{t("automation.created_at", { date: automationCreatedDate(props.item.createdAt) })}</span>
-              <span>{t("automation.run_count", { count: props.item.runs.length })}</span>
+            <div className="flex min-w-0 shrink items-center gap-2 text-xs text-dls-secondary">
+              <span className="hidden truncate sm:inline">
+                {t("automation.created_at", { date: automationCreatedDate(props.item.createdAt) })}
+              </span>
               <span className="flex items-center gap-1.5">
                 <StatusDot
                   tone={props.item.running ? "success" : props.item.enabled ? "muted" : "warning"}
@@ -795,7 +916,17 @@ function AutomationDialog(props: {
           ) : null}
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden [scrollbar-gutter:auto] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-dls-border [&::-webkit-scrollbar-track]:bg-transparent">
+          {lastRunError ? (
+            <NoticeBox tone="error" size="content">
+              {t("automation.last_run_error", { error: lastRunError })}
+            </NoticeBox>
+          ) : null}
+          {!hasAutomationModel(props.form.model) ? (
+            <NoticeBox tone="warning" size="content">
+              {t("automation.model_required_hint")}
+            </NoticeBox>
+          ) : null}
           <AutomationField label={t("automation.field_name")} required>
             <Input
               name="automation-title"
@@ -818,9 +949,9 @@ function AutomationDialog(props: {
               <Textarea
                 value={props.form.prompt}
                 onChange={(event) => props.onFormChange({ ...props.form, prompt: event.currentTarget.value })}
-                className="min-h-48 border-0 bg-transparent text-sm text-dls-text focus-visible:ring-0"
+                className="min-h-28 max-h-48 resize-y border-0 bg-transparent text-sm text-dls-text focus-visible:ring-0"
               />
-              <div className="flex flex-nowrap items-center gap-2 border-t border-dls-border px-3 py-2 text-sm text-dls-secondary">
+              <div className="flex flex-nowrap items-center gap-1 border-t border-dls-border px-2 py-1.5 text-sm text-dls-secondary">
                 <AutomationPromptTools
                   client={props.client}
                   workspaceId={props.workspaceId}
@@ -832,7 +963,28 @@ function AutomationDialog(props: {
                   value={props.form.accessMode}
                   onChange={(accessMode) => props.onFormChange({ ...props.form, accessMode })}
                 />
-                <div className="ml-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="shrink-0 text-dls-secondary hover:text-dls-text"
+                  disabled={!canOptimizePrompt || props.busy}
+                  title={
+                    canOptimizePrompt
+                      ? t("automation.optimize_prompt")
+                      : t("automation.optimize_prompt_empty")
+                  }
+                  aria-label={t("automation.optimize_prompt")}
+                  onClick={() => {
+                    const next = optimizeAutomationPrompt(props.form.prompt);
+                    if (next !== props.form.prompt) {
+                      props.onFormChange({ ...props.form, prompt: next });
+                    }
+                  }}
+                >
+                  <Sparkles className="size-3.5" />
+                </Button>
+                <div className="ml-auto min-w-0 shrink">
                   <ModelSelectContainer
                     open={modelPickerOpen}
                     value={props.form.model ?? { providerID: "", modelID: "" }}
@@ -864,30 +1016,34 @@ function AutomationDialog(props: {
           </AutomationField>
         </div>
 
-        <DialogFooter className="mt-4 shrink-0 flex-row items-center justify-between border-t border-dls-border pt-4">
-          <div className="flex flex-nowrap items-center gap-2">
-            {props.mode === "edit" ? (
-              <>
-                <Button type="button" variant="destructive" size="lg" onClick={props.onDelete} disabled={props.busy}>
-                  <Trash2 className="size-4" />
-                  {t("automation.delete")}
-                </Button>
-                <Button type="button" variant="outline" size="lg" onClick={props.onRunNow} disabled={props.busy}>
-                  <Play className="size-4" />
-                  {t("automation.test_run")}
-                </Button>
-                <Button type="button" variant="outline" size="lg" onClick={props.onToggleEnabled} disabled={props.busy}>
-                  <Pause className="size-4" />
-                  {props.item?.enabled ? t("automation.pause") : t("automation.resume")}
-                </Button>
-              </>
-            ) : null}
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="lg" onClick={() => props.onOpenChange(false)}>
+        <DialogFooter
+          className={
+            props.mode === "edit"
+              ? "mt-3 shrink-0 flex-row items-center justify-between gap-2 border-t border-dls-border pt-3"
+              : "mt-3 shrink-0 flex-row items-center justify-end gap-2 border-t border-dls-border pt-3"
+          }
+        >
+          {props.mode === "edit" ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <Button type="button" variant="destructive" size="sm" onClick={props.onDelete} disabled={props.busy}>
+                <Trash2 className="size-3.5" />
+                {t("automation.delete")}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={props.onRunNow} disabled={props.busy}>
+                <Play className="size-3.5" />
+                {t("automation.test_run")}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={props.onToggleEnabled} disabled={props.busy}>
+                {props.item?.enabled ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+                {props.item?.enabled ? t("automation.pause") : t("automation.resume")}
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex shrink-0 gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => props.onOpenChange(false)}>
               {t("automation.cancel")}
             </Button>
-            <Button type="button" size="lg" disabled={!isFormValid(props.form) || props.busy} onClick={props.onSubmit}>
+            <Button type="button" size="sm" disabled={!isFormValid(props.form) || props.busy} onClick={props.onSubmit}>
               {props.mode === "edit" ? t("automation.save") : t("automation.add")}
             </Button>
           </div>
@@ -954,7 +1110,8 @@ export function AutomationPage(props: {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<AutomationDialogMode>("create");
   const [editingAutomationId, setEditingAutomationId] = useState<string | null>(null);
-  const [form, setForm] = useState<AutomationFormState>(() => createEmptyFormState());
+  const defaultModel = local.prefs.defaultModel ?? null;
+  const [form, setForm] = useState<AutomationFormState>(() => createEmptyFormState(defaultModel));
   const [riskOpen, setRiskOpen] = useState(false);
   const [riskAccepted, setRiskAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1054,21 +1211,21 @@ export function AutomationPage(props: {
   const openBlankDialog = () => {
     setDialogMode("create");
     setEditingAutomationId(null);
-    setForm(createEmptyFormState());
+    setForm(createEmptyFormState(local.prefs.defaultModel ?? null));
     setDialogOpen(true);
   };
 
   const openTemplateDialog = (template: AutomationTemplate) => {
     setDialogMode("create");
     setEditingAutomationId(null);
-    setForm(formStateFromTemplate(template));
+    setForm(formStateFromTemplate(template, local.prefs.defaultModel ?? null));
     setDialogOpen(true);
   };
 
   const openEditDialog = (item: OnMyAgentAutomationTaskItem) => {
     setDialogMode("edit");
     setEditingAutomationId(item.id);
-    setForm(formStateFromAutomation(item));
+    setForm(formStateFromAutomation(item, local.prefs.defaultModel ?? null));
     setDialogOpen(true);
   };
 
@@ -1176,18 +1333,37 @@ export function AutomationPage(props: {
 
   const runNow = (item: OnMyAgentAutomationTaskItem) => {
     if (!props.client || !props.workspaceId.trim()) return;
+    if (!hasAutomationModel(item.model) && !hasAutomationModel(item.agent?.model ?? null)) {
+      setError(t("automation.model_required_run"));
+      setActiveStatusTab("scheduled");
+      openEditDialog({
+        ...item,
+        model: item.model ?? local.prefs.defaultModel ?? undefined,
+      });
+      return;
+    }
     setBusy(true);
+    setError(null);
     setDialogOpen(false);
+    setActiveStatusTab("running");
     window.setTimeout(refreshAutomations, 300);
     window.setTimeout(refreshAutomations, 1_200);
     void props.client.runAutomation(props.workspaceId, item.id)
       .then((result) => {
         setAutomations(result.items);
         syncAutomationSessionRecords(props.workspaceId, result.items);
-        const sessionId = result.item.lastRun?.sessionId;
+        const lastRun = result.item.lastRun;
+        if (lastRun?.status === "failed") {
+          setActiveStatusTab("completed");
+          setError(lastRun.error?.trim() || t("automation.run_failed"));
+          return;
+        }
+        const sessionId = lastRun?.sessionId;
         if (sessionId) props.onOpenSession(props.workspaceId, sessionId);
+        setActiveStatusTab("completed");
       })
       .catch((cause: unknown) => {
+        setActiveStatusTab("completed");
         setError(cause instanceof Error ? cause.message : String(cause));
         refreshAutomations();
       })
@@ -1258,9 +1434,24 @@ export function AutomationPage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-6">
-        <h1 className="min-w-0 truncate text-lg font-medium leading-7 text-dls-text">
-          {t("automation.title")}
-        </h1>
+        <div className="flex min-w-0 items-center gap-2">
+          {hasAutomations && templateViewOpen ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 text-dls-secondary hover:text-dls-text"
+              onClick={() => setTemplateViewOpen(false)}
+              title={t("automation.back")}
+              aria-label={t("automation.back")}
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+          ) : null}
+          <h1 className="min-w-0 truncate text-lg font-medium leading-7 text-dls-text">
+            {t("automation.title")}
+          </h1>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={openBlankDialog}>
             {t("automation.add_with_plus")}
@@ -1343,11 +1534,6 @@ export function AutomationPage(props: {
 
         {showTemplates ? (
           <div className="space-y-5">
-            {hasAutomations ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setTemplateViewOpen(false)}>
-                {t("automation.back")}
-              </Button>
-            ) : null}
             {recommendedTemplates.length > 0 ? (
               <section>
                 <h2 className="text-sm font-medium text-dls-text">
@@ -1409,7 +1595,17 @@ export function AutomationPage(props: {
             </div>
             <div className="space-y-1">
               {activeStatusTab === "scheduled"
-                ? scheduled.map((item) => <ScheduledAutomationRow key={item.id} item={item} onEdit={openEditDialog} />)
+                ? scheduled.map((item) => (
+                    <ScheduledAutomationRow
+                      key={item.id}
+                      item={item}
+                      busy={busy}
+                      onEdit={openEditDialog}
+                      onRunNow={runNow}
+                      onToggleEnabled={(task) => updateItem(task, { enabled: !task.enabled })}
+                      onDelete={deleteItem}
+                    />
+                  ))
                 : null}
               {activeStatusTab === "running"
                 ? running.map((item) => <RunningAutomationRow key={item.id} item={item} onOpenSession={openSession} />)

@@ -278,23 +278,24 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "ai":
     case "preferences":
     case "permissions":
-    case "advanced":
     case "environment":
     case "updates":
-    case "recovery":
     case "memory":
     case "conversation-memory":
     case "archived-tasks":
     case "debug":
-    case "skills":
       return { tab: head, redirectPath: null };
     case "cloud-marketplaces":
-    case "cloud-workers":
     case "cloud-providers":
       return { tab: head, redirectPath: null };
+    // Removed stub settings pages — keep old deep links from 404ing.
+    case "advanced":
+    case "recovery":
+    case "skills":
+    case "cloud-workers":
     case "cloud-account":
     case "den":
-      return { tab: "cloud-workers", redirectPath: "cloud-workers" };
+      return { tab: "general", redirectPath: "general" };
     case "extensions":
       if (tail === "mcp") return { tab: "extensions", redirectPath: null, extensionsSection: "mcp" };
       if (tail === "skills") return { tab: "extensions", redirectPath: null, extensionsSection: "all" };

@@ -15,6 +15,7 @@ export const EXPERT_MARKETPLACE_CATEGORIES: ExpertMarketplaceCategory[] = [
   { id: "07-SalesCommerce", labelKey: "session.expert_marketplace_category_sales_commerce", searchLabel: "销售商务 sales commerce" },
   { id: "hr-legal", labelKey: "session.expert_marketplace_category_hr_legal", searchLabel: "人力法务 hr legal security compliance" },
   { id: "12-IndustryConsultant", labelKey: "session.expert_marketplace_category_industry_consultant", searchLabel: "行业顾问 industry consultant" },
+  { id: "14-Logistics", labelKey: "session.expert_marketplace_category_logistics", searchLabel: "物流 logistics 货运 专线 冷运 3PL 城配 干线 冷链" },
 ];
 
 export function normalizeExpertMarketplaceCategoryId(

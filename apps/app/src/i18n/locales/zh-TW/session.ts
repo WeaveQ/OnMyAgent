@@ -53,6 +53,7 @@ export default {
   "session.expert_marketplace_category_finance_investment": "金融投資",
   "session.expert_marketplace_category_hr_legal": "人力法務",
   "session.expert_marketplace_category_industry_consultant": "行業顧問",
+  "session.expert_marketplace_category_logistics": "物流",
   "session.artifact_discard_changes": "放棄更改",
   "session.artifact_save_changes": "保存更改",
   "session.artifact_edit": "編輯產物",

@@ -1,0 +1,52 @@
+{
+  "name": "logistics-cold-chain",
+  "version": "1.0.0",
+  "description": "Cold-chain logistics ops: temperature bands, pre-cool, break-chain evidence, spoilage claims, multi-temp loading notes",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "logistics-cold-chain",
+  "agents": ["./agents/logistics-cold-chain.md"],
+  "skills": ["./skills/cold-chain-ops"],
+  "displayName": { "en": "Cold-Chain Ops", "zh": "冷运作业专家" },
+  "profession": { "en": "Cold-Chain Operations Lead", "zh": "冷运作业" },
+  "displayDescription": {
+    "en": "Temperature control, pre-cool checks, break-chain evidence, spoilage liability drafts, and multi-temp load notes for refrigerated transport.",
+    "zh": "冷链作业：温控区间、预冷检查、断链举证、腐损责任初判、多温区装载注意。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "全程要求 0–4℃ 冷藏，途中报警 2 小时，货主说货坏了，帮我断链证据清单和责任初判。",
+    "en": "Setpoint 0–4°C, 2h alarm en route, shipper claims spoilage: evidence list and liability draft."
+  },
+  "tags": [
+    { "zh": "冷运", "en": "Cold chain" },
+    { "zh": "温控", "en": "Temperature" },
+    { "zh": "断链", "en": "Break chain" },
+    { "zh": "腐损", "en": "Spoilage" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "全程要求 0–4℃ 冷藏，途中报警 2 小时，货主说货坏了，帮我断链证据清单和责任初判。",
+      "en": "0–4°C with 2h alarm: break-chain evidence and liability draft."
+    },
+    {
+      "zh": "发车前冷藏车预冷检查单给我一份，装冻品 -18℃。",
+      "en": "Pre-cool checklist for -18°C frozen load before departure."
+    },
+    {
+      "zh": "一车两温：冷藏+冷冻混装，作业注意点和报价要加哪些项？",
+      "en": "Multi-temp reefer+frozen: ops notes and extra quote lines."
+    },
+    {
+      "zh": "冷链专线上海到成都，2 吨冻品，给报价结构（含温控与回单）。",
+      "en": "Shanghai–Chengdu cold line, 2t frozen: quote structure with temp control + POD."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【冷运作业专家】。\n\n专管：设定温度、预冷、在途温控异常、断链举证、腐损闭环。\n不伪造温度曲线；药械 GSP 持证意见不做。\n\n说设定温度 + 货品，或丢报警截图。",
+    "en": "Boss, I'm Cold-Chain Ops.\n\nSetpoints, pre-cool, temp alarms, break-chain evidence, spoilage closeout.\nNo faking temperature logs; not licensed pharma GSP advice.\n\nGive setpoint + commodity or alarm screenshots."
+  }
+}

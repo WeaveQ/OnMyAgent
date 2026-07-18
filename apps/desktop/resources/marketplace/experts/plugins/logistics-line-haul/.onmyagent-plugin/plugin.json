@@ -1,0 +1,52 @@
+{
+  "name": "logistics-line-haul",
+  "version": "1.0.0",
+  "description": "China dedicated line-haul ops: hub transfer, density/throw-weight, co-load, POD cycles, hired vs owned trucks",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "logistics-line-haul",
+  "agents": ["./agents/logistics-line-haul.md"],
+  "skills": ["./skills/line-haul-ops"],
+  "displayName": { "en": "Line-Haul Ops", "zh": "专线干线专家" },
+  "profession": { "en": "Dedicated Line-Haul Operator", "zh": "专线干线作业" },
+  "displayDescription": {
+    "en": "Hub transfer, throw-weight quoting, co-load plans, POD cycles, and hired-truck rules for dedicated line companies.",
+    "zh": "专线公司作业台：网点中转、抛重报价、配载拼载、回单账期、外请与自有车规则。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "沪蓉专线，泡货 12 方约 1.8 吨，要过武汉中转，给抛重计费报价和配载注意点。",
+    "en": "Shanghai–Chengdu line, 12 CBM / 1.8t via Wuhan hub: throw-weight quote and co-load notes."
+  },
+  "tags": [
+    { "zh": "专线", "en": "Line haul" },
+    { "zh": "抛重", "en": "Throw weight" },
+    { "zh": "中转", "en": "Hub transfer" },
+    { "zh": "配载", "en": "Co-load" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "沪蓉专线，泡货 12 方约 1.8 吨，要过武汉中转，给抛重计费报价和配载注意点。",
+      "en": "Shanghai–Chengdu via Wuhan hub: throw-weight quote and co-load notes."
+    },
+    {
+      "zh": "外请车跑广州线，回单 7 天，帮我列对外请的约束和结算检查单。",
+      "en": "Hired truck on Guangzhou lane, POD in 7 days: constraints and settlement checklist."
+    },
+    {
+      "zh": "今晚待发 8 票专线货，吨方如下，帮我给一版拼载建议和风险单。",
+      "en": "8 line-haul loads tonight — draft co-load plan and risk tickets."
+    },
+    {
+      "zh": "中转延误两天，货主要索赔，按专线中转责任给我初判和话术。",
+      "en": "Hub delay 2 days, shipper claims — line-haul liability draft and scripts."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【专线干线专家】。\n\n专管：网点中转、抛重/重货计费、配载拼载、回单账期、外请车。\n通用对账/异常仍用四段回执；需要全能台可召唤【物流作业领航】。\n\n丢线路+吨方，或说今晚待发清单。",
+    "en": "Boss, I'm Line-Haul Ops.\n\nHubs, throw-weight, co-load, POD cycles, hired trucks.\nSame four-block task cards; for general recon desk use Logistics Ops Navigator.\n\nDrop lane + ton/CBM or tonight's load list."
+  }
+}

@@ -137,12 +137,27 @@ describe("profile industry options (shipped)", () => {
     const values = industryOptions.map((o) => o.value);
     expect(values).toContain("logistics");
     expect(values).toContain("ecommerce");
-    expect(values).toContain("software");
+    expect(values).toContain("internet");
     expect(values).toContain("gaming");
     expect(values).toContain("government");
+    // Collapsed taxonomy: fine-grained ids no longer appear as options
+    expect(values).not.toContain("software");
+    expect(values).not.toContain("warehousing");
+    expect(values).not.toContain("banking");
     for (const forbidden of FORBIDDEN_INDUSTRY_VALUES) {
       expect(values).not.toContain(forbidden);
     }
+  });
+
+  test("legacy fine-grained industries still score via aliases", () => {
+    const plan = buildPersonalizationPlan({
+      industries: ["software", "warehousing"],
+      roles: ["design", "logistics-ops"],
+    });
+    // software → internet → software-product; but logistics+ops may compete
+    expect(["software-product", "logistics-supply"]).toContain(
+      plan.primaryVerticalId,
+    );
   });
 
   test("source file does not export healthcare industry option", () => {

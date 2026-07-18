@@ -182,7 +182,11 @@ describe("settings route workspace model", () => {
       redirectPath: null,
       extensionsSection: "all",
     });
-    expect(parseSettingsPath("/settings/den")).toEqual({ tab: "cloud-workers", redirectPath: "cloud-workers" });
+    expect(parseSettingsPath("/settings/den")).toEqual({ tab: "general", redirectPath: "general" });
+    expect(parseSettingsPath("/settings/recovery")).toEqual({ tab: "general", redirectPath: "general" });
+    expect(parseSettingsPath("/settings/advanced")).toEqual({ tab: "general", redirectPath: "general" });
+    expect(parseSettingsPath("/settings/skills")).toEqual({ tab: "general", redirectPath: "general" });
+    expect(parseSettingsPath("/settings/cloud-workers")).toEqual({ tab: "general", redirectPath: "general" });
     expect(parseSettingsPath("/settings/archived-tasks")).toEqual({
       tab: "archived-tasks",
       redirectPath: null,

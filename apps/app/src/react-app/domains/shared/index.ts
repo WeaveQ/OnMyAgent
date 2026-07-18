@@ -67,3 +67,9 @@ export {
   automationPayloadFromTemplate,
   selectTemplatesToCreate,
 } from "./personalization/apply-automations";
+export {
+  PROFILE_INDUSTRY_ALIASES,
+  PROFILE_ROLE_ALIASES,
+  canonicalizeProfileOptionValue,
+  canonicalizeProfileOptionValues,
+} from "./personalization/profile-option-aliases";

@@ -3,6 +3,7 @@
  * Scoring: industry > role > task > tool.
  */
 
+import { canonicalizeProfileOptionValue } from "./profile-option-aliases";
 import {
   FORBIDDEN_VERTICAL_IDS,
   PERSONALIZATION_VERTICALS,
@@ -45,16 +46,15 @@ export type PersonalizationPlan = {
 
 const DEFAULT_VERTICAL: PersonalizationVerticalId = "software-product";
 
-/** Manufacturing + operations (or logistics-ops roles) may surface logistics. */
+/** Manufacturing + operations / supply-chain roles may surface logistics. */
 function manufacturingBoostsLogistics(profile: PersonalizationProfileSnapshot): boolean {
   const industries = normalizeList(profile.industries);
   const roles = normalizeList(profile.roles);
   const tasks = normalizeList(profile.tasks);
   if (!industries.includes("manufacturing")) return false;
   return (
-    roles.some((r) =>
-      ["operations", "logistics-ops", "supply-chain", "warehouse", "procurement"].includes(r),
-    ) || tasks.some((t) => ["dispatch", "recon", "inventory", "daily-brief"].includes(t))
+    roles.some((r) => ["operations", "supply-chain", "manufacturing-eng"].includes(r)) ||
+    tasks.some((t) => ["dispatch", "recon", "inventory", "daily-brief"].includes(t))
   );
 }
 
@@ -63,7 +63,7 @@ function normalizeList(values: string[] | null | undefined): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of values) {
-    const v = String(raw ?? "").trim();
+    const v = canonicalizeProfileOptionValue(String(raw ?? "").trim());
     if (!v || seen.has(v)) continue;
     // Never accept forbidden industry tokens as profile input for scoring paths
     // that only exist for removed verticals.
