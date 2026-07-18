@@ -69,8 +69,8 @@ export function AssistantCategorySwitch(props: {
               size="tab"
               shape="tab"
             >
-              <Icon className="size-3.5 shrink-0 opacity-80" />
-              <span>{item.label}</span>
+              <Icon className="size-3.5 shrink-0" />
+              <span className="leading-none">{item.label}</span>
             </NavTabButton>
           );
         })}

@@ -43,7 +43,7 @@ export function StorePage(props: {
                 size="tab"
                 shape="tab"
               >
-                <Icon className="size-3.5 opacity-80" />
+                <Icon className="size-3.5" />
                 <span className="leading-none">{tab.label}</span>
               </NavTabButton>
             );

@@ -604,7 +604,7 @@ export function AgentManagementPage(props: {
                   size="tab"
                   shape="tab"
                 >
-                  <Icon className="size-3.5 opacity-80" />
+                  <Icon className="size-3.5" />
                   <span className="leading-none">{t(tab.labelKey)}</span>
                 </NavTabButton>
               );

@@ -669,7 +669,7 @@ export function WorkspaceFilesPage(props: {
             size="tab"
             shape="tab"
           >
-            <FileStack className="size-3.5 opacity-80" />
+            <FileStack className="size-3.5" />
             <span className="leading-none">{t("files.task_results")}</span>
           </NavTabButton>
           <NavTabButton
@@ -679,7 +679,7 @@ export function WorkspaceFilesPage(props: {
             size="tab"
             shape="tab"
           >
-            <Cloud className="size-3.5 opacity-80" />
+            <Cloud className="size-3.5" />
             <span className="leading-none">{t("files.cloud_drive")}</span>
           </NavTabButton>
         </SegmentedTabGroup>
