@@ -38,7 +38,7 @@ import {
   assistantArchivedTasksChangedEvent,
   filterGroupsExcludingArchived,
   readAssistantArchivedTasks,
-} from "./assistant-archived-tasks";
+} from "../../shared";
 import { isDesktopRuntime } from "../../../../app/utils";
 import { revealDesktopItemInDir } from "../../../../app/lib/desktop";
 import {

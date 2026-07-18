@@ -8,7 +8,7 @@ import {
   resolveOpenFolderPath,
   restoreTaskFromList,
   type AssistantArchivedTask,
-} from "../src/react-app/domains/session/sidebar/assistant-archived-tasks";
+} from "../src/react-app/domains/shared/assistant-archived-tasks";
 
 function task(
   sessionId: string,

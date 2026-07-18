@@ -18,7 +18,7 @@ import {
   formatConversationTime,
   type AgentConversationGroup,
 } from "./conversation-model";
-import { resolveOpenFolderPath } from "./assistant-archived-tasks";
+import { resolveOpenFolderPath } from "../../shared";
 
 /** Shared chrome for assistant task + expert strip context menus. */
 export const TASK_CONTEXT_MENU_CLASS =
