@@ -29,7 +29,7 @@ colors:
     app-bg: "#F5F5F5"
     sidebar: "#F0F0F0"
     rail-bg: "#E8E8E8"
-    rail-active: "#DEDEDE"
+    rail-active: "#EAF2FF"  # soft brand wash for selected sidebar rows
     rail-hover: "#E2E2E2"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"

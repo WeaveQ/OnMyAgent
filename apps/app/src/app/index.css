@@ -353,7 +353,9 @@ select:disabled {
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
   --dls-rail-bg: #E8E8E8;
-  --dls-rail-active: #DEDEDE;
+  /* Soft brand wash — selected sidebar rows (e.g. 新建任务) should read as
+     highlighted, not a muddy mid-gray on the gray sidebar. */
+  --dls-rail-active: #EAF2FF;
   --dls-rail-hover: #E2E2E2;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
      public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
@@ -1421,7 +1423,7 @@ html.onmyagent-electron.onmyagent-platform-mac:not([data-theme="dark"]) {
   --background: transparent;
   --dls-list-selected: color-mix(in srgb, #e4e4e4 82%, transparent);
   --dls-list-hover: color-mix(in srgb, #e8e8e8 70%, transparent);
-  --dls-rail-active: color-mix(in srgb, #dedede 78%, transparent);
+  --dls-rail-active: color-mix(in srgb, #eaf2ff 86%, transparent);
   --dls-rail-hover: color-mix(in srgb, #e2e2e2 68%, transparent);
 }
 

@@ -1148,7 +1148,7 @@ function PrimaryMenuItem(props: {
         isActive={props.active}
         disabled={props.disabled}
         onClick={props.onClick}
-        className="h-9 rounded-lg px-3.5 text-sm text-sidebar-foreground/80 data-[active=true]:bg-dls-rail-active data-[active=true]:text-sidebar-foreground dark:data-[active=true]:bg-dls-rail-active"
+        className="h-9 rounded-lg px-3.5 text-sm text-sidebar-foreground/80 data-[active=true]:bg-dls-rail-active data-[active=true]:font-medium data-[active=true]:text-dls-text dark:data-[active=true]:bg-dls-rail-active dark:data-[active=true]:text-sidebar-foreground"
       >
         <Icon className="size-4 shrink-0" />
         <span className="shrink-0">{props.item.label}</span>
