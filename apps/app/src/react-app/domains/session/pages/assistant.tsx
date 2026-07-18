@@ -500,14 +500,8 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const openHistorySearch = useCallback(() => {
     setHistorySearchOpen(true);
-    // Ensure history panel is open so results are visible.
-    if (sessionSidePanel !== "history") {
-      assistantSidePanelWidthRef.current = ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH;
-      setBrowserPanelWidth(ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH);
-      setCurrentSidePanel("history");
-    }
     window.setTimeout(() => historySearchInputRef.current?.focus(), 0);
-  }, [sessionSidePanel, setBrowserPanelWidth, setCurrentSidePanel]);
+  }, []);
 
   const closeHistorySearch = useCallback(() => {
     setHistorySearchOpen(false);
@@ -1348,6 +1342,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           }}
                           headerActions={headerPanelControls}
                           conversationTabs={null}
+                          searchQuery={historySearchOpen ? historySearchQuery : ""}
+                          searchActiveMatchIndex={historyActiveMatch}
+                          onSearchMatchCountChange={setHistoryMatchCount}
                           onOpenTarget={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                           personalAssistantHome={true}
