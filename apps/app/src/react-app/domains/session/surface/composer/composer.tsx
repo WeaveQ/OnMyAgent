@@ -784,10 +784,15 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
+  const hasBottomAccessory = Boolean(props.bottomAccessory);
+  // When workspace/permission bar sits under the card, share the outer silhouette:
+  // full width + square joint (no top corners on the bar, no bottom corners on the card).
   const panelRoundedClass =
     mentionOpen || slashOpen
       ? "rounded-t-[18px] border-t-transparent"
-      : "";
+      : hasBottomAccessory
+        ? "rounded-t-xl rounded-b-none"
+        : "rounded-xl";
 
   return (
     <div
@@ -805,7 +810,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
-          className={`relative overflow-visible rounded-xl bg-dls-surface ${props.showOuterBorder ? "border border-dls-mist" : ""} ${panelRoundedClass}`}
+          className={`relative overflow-visible bg-dls-surface ${props.showOuterBorder ? `border border-dls-mist${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
@@ -1618,9 +1623,13 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           </div>
         </div>
-        {/* Secondary chrome under the card (workspace / permission), not inside it. */}
+        {/* Secondary chrome: full-width bar flush under card, square top corners. */}
         {props.bottomAccessory ? (
-          <div className="relative z-10 mt-1.5 flex min-h-8 items-center rounded-xl bg-dls-surface-muted/40 px-2 py-0.5 text-xs font-normal leading-none text-dls-secondary">
+          <div
+            className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
+              props.showOuterBorder ? " border border-t-0 border-dls-mist" : ""
+            }`}
+          >
             {props.bottomAccessory}
           </div>
         ) : null}

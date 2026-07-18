@@ -33,6 +33,15 @@ import {
 } from "./conversation-model";
 import { readAssistantSessionWorkspaces } from "../sync/assistant-session-workspaces";
 import {
+  archiveAssistantTask,
+  archivedSessionIdSet,
+  assistantArchivedTasksChangedEvent,
+  filterGroupsExcludingArchived,
+  readAssistantArchivedTasks,
+} from "./assistant-archived-tasks";
+import { isDesktopRuntime } from "../../../../app/utils";
+import { revealDesktopItemInDir } from "../../../../app/lib/desktop";
+import {
   type AutomationSessionRecord,
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
@@ -311,7 +320,9 @@ export function AgentConversationPanel(props: {
             activeAssistantCategoryId,
         )
       : filteredAgentGroups;
-  const automationGroups = groupAssistantAutomationItems(
+  // Note: archivedIdSet is applied after this block via filtering each group’s items
+  // once assistantArchivedIdSet is ready (see visible automation handling below).
+  const automationGroupsRaw = groupAssistantAutomationItems(
     assistantCategoryGroups.flatMap((item) => {
       const record = automationSessionRecordById.get(item.latestSession.id);
       if (!record || record.category !== activeAssistantCategoryId) return [];
@@ -332,11 +343,41 @@ export function AgentConversationPanel(props: {
   const [assistantPinnedSessionIds, setAssistantPinnedSessionIds] = useState(() =>
     readAssistantPinnedSessionIds(props.selectedWorkspaceId),
   );
+  const [archivedRevision, setArchivedRevision] = useState(0);
+  const assistantArchivedTasks = useMemo(
+    () => readAssistantArchivedTasks(props.selectedWorkspaceId),
+    [props.selectedWorkspaceId, archivedRevision],
+  );
+  const assistantArchivedIdSet = useMemo(
+    () => archivedSessionIdSet(assistantArchivedTasks),
+    [assistantArchivedTasks],
+  );
+  const visibleRegularAssistantGroups = useMemo(
+    () =>
+      filterGroupsExcludingArchived(
+        regularAssistantGroups,
+        assistantArchivedIdSet,
+      ),
+    [regularAssistantGroups, assistantArchivedIdSet],
+  );
+  const automationGroups = useMemo(
+    () =>
+      automationGroupsRaw
+        .map((group) => ({
+          ...group,
+          items: filterGroupsExcludingArchived(
+            group.items,
+            assistantArchivedIdSet,
+          ),
+        }))
+        .filter((group) => group.items.length > 0),
+    [automationGroupsRaw, assistantArchivedIdSet],
+  );
   const assistantPinnedSessionIdSet = new Set(assistantPinnedSessionIds);
-  const assistantPinnedGroups = regularAssistantGroups.filter((item) =>
+  const assistantPinnedGroups = visibleRegularAssistantGroups.filter((item) =>
     assistantPinnedSessionIdSet.has(item.latestSession.id),
   );
-  const unpinnedAgentGroups = regularAssistantGroups.filter(
+  const unpinnedAgentGroups = visibleRegularAssistantGroups.filter(
     (item) => !assistantPinnedSessionIdSet.has(item.latestSession.id),
   );
   const assistantTaskGroups = unpinnedAgentGroups.filter(
@@ -380,6 +421,18 @@ export function AgentConversationPanel(props: {
   }, [props.selectedWorkspaceId]);
 
   useEffect(() => {
+    if (mode !== "assistant") return;
+    const onArchivedChanged = () => setArchivedRevision((value) => value + 1);
+    window.addEventListener(assistantArchivedTasksChangedEvent, onArchivedChanged);
+    return () => {
+      window.removeEventListener(
+        assistantArchivedTasksChangedEvent,
+        onArchivedChanged,
+      );
+    };
+  }, [mode]);
+
+  useEffect(() => {
     if (mode !== "assistant" || agentGroups.length === 0) return;
     const availableSessionIds = new Set(agentGroups.map((item) => item.latestSession.id));
     setAssistantPinnedSessionIds((current) => {
@@ -402,6 +455,62 @@ export function AgentConversationPanel(props: {
     },
     [props.selectedWorkspaceId],
   );
+
+  const folderPathBySessionId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const record of assistantWorkspaceRecords) {
+      if (record.directory?.trim()) {
+        map.set(record.sessionId, record.directory.trim());
+      }
+    }
+    return map;
+  }, [assistantWorkspaceRecords]);
+
+  const handleArchiveAssistantSession = useCallback(
+    (sessionId: string, title: string) => {
+      archiveAssistantTask(props.selectedWorkspaceId, {
+        sessionId,
+        title,
+        directory: folderPathBySessionId.get(sessionId) ?? null,
+        archivedAt: Date.now(),
+        category: props.assistantCategoryId ?? null,
+      });
+      setArchivedRevision((value) => value + 1);
+      // Drop pin membership when archiving so restore lands in the main list.
+      setAssistantPinnedSessionIds((current) => {
+        if (!current.includes(sessionId)) return current;
+        const next = current.filter((item) => item !== sessionId);
+        writeAssistantPinnedSessionIds(props.selectedWorkspaceId, next);
+        return next;
+      });
+    },
+    [
+      folderPathBySessionId,
+      props.assistantCategoryId,
+      props.selectedWorkspaceId,
+    ],
+  );
+
+  const handleOpenFolder = useCallback((path: string) => {
+    if (!isDesktopRuntime()) {
+      showToast({
+        tone: "warning",
+        title: t("session.open_folder_desktop_only"),
+      });
+      return;
+    }
+    void revealDesktopItemInDir(path).catch((error: unknown) => {
+      showToast({
+        tone: "error",
+        title:
+          error instanceof Error
+            ? error.message
+            : t("session.open_folder_failed"),
+      });
+    });
+  }, [showToast]);
+
+
 
   useEffect(() => {
     setExpandedAssistantDirectories((current) => {
@@ -461,7 +570,10 @@ export function AgentConversationPanel(props: {
             onPrefetchSession={props.onPrefetchSession}
             onTogglePinned={toggleAssistantPinnedSession}
             onRenameSession={props.onRenameSession}
+            onArchiveSession={handleArchiveAssistantSession}
             onDeleteSession={props.onDeleteSession}
+            onOpenFolder={handleOpenFolder}
+            folderPathBySessionId={folderPathBySessionId}
           />
         ) : (
           <AgentConversationList

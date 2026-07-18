@@ -1,27 +1,25 @@
 /** @jsxImportSource react */
+import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
   ArrowUpRight,
-  Brain,
-  Cog,
-  FolderLock,
   LifeBuoy,
   MessageCircle,
-  RefreshCcw,
-  Sparkles,
-  Terminal,
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
+import { getSettingsTabIcon } from "../shell/settings-page";
 
 const settingsOverviewTextClass = {
   groupLabel: "text-sm font-medium text-dls-secondary",
   cardTitle: "text-sm font-medium leading-5 text-dls-text",
-  cardDescription: "line-clamp-1 text-xs leading-5 text-dls-secondary",
+  cardDescription: "line-clamp-2 text-xs leading-5 text-dls-secondary",
 };
 
 export type GeneralSettingsViewProps = {
@@ -31,141 +29,181 @@ export type GeneralSettingsViewProps = {
   onReportIssue: () => void;
 };
 
-function SettingsCard(props: {
-  icon: typeof Sparkles;
+function OverviewNavCard(props: {
+  icon: LucideIcon;
   title: string;
   desc: string;
   onClick: () => void;
+  className?: string;
 }) {
+  const Icon = props.icon;
   return (
     <ActionRowButton
-      density="compact"
+      density="settingsCard"
       type="button"
       onClick={props.onClick}
-      className="min-h-18 items-center"
+      className={cn(
+        "h-auto min-h-[4.5rem] items-center gap-3 hover:bg-dls-surface-muted/60",
+        props.className,
+      )}
     >
-      <IconTile border>
-        <props.icon size={16} className="text-dls-secondary" />
+      <IconTile border className="size-9 shrink-0">
+        <Icon size={16} className="text-dls-secondary" />
       </IconTile>
-      <div className="min-w-0 flex-1">
-        <div className={settingsOverviewTextClass.cardTitle}>
-          {props.title}
+      <div className="min-w-0 flex-1 text-left">
+        <div className={settingsOverviewTextClass.cardTitle}>{props.title}</div>
+        <div className={settingsOverviewTextClass.cardDescription}>
+          {props.desc}
         </div>
-        <div className={settingsOverviewTextClass.cardDescription}>{props.desc}</div>
       </div>
       <ArrowRight size={14} className="shrink-0 text-dls-secondary" />
     </ActionRowButton>
   );
 }
 
+function OverviewSection(props: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-2.5">
+      <h3 className={settingsOverviewTextClass.groupLabel}>{props.label}</h3>
+      {props.children}
+    </section>
+  );
+}
+
 export function GeneralSettingsView(props: GeneralSettingsViewProps) {
-  const workspaceCards: {
+  const workspaceCards: Array<{
     tab: SettingsTab;
-    icon: typeof Sparkles;
     title: string;
     desc: string;
-  }[] = [
+  }> = [
     {
       tab: "preferences",
-      icon: Cog,
       title: t("settings.preferences"),
       desc: t("settings.preferences_card_description"),
     },
     {
       tab: "memory",
-      icon: Brain,
       title: t("settings.tab_memory"),
       desc: t("settings.tab_description_memory"),
     },
     {
+      tab: "conversation-memory",
+      title: t("settings.tab_conversation_memory"),
+      desc: t("settings.tab_description_conversation_memory"),
+    },
+    {
       tab: "permissions",
-      icon: FolderLock,
       title: t("settings.permissions"),
       desc: t("settings.permissions_card_description"),
     },
   ];
 
-  const globalCards: {
+  const globalCards: Array<{
     tab: SettingsTab;
-    icon: typeof Sparkles;
     title: string;
     desc: string;
-  }[] = [
+  }> = [
     {
       tab: "ai",
-      icon: Sparkles,
       title: t("settings.ai_providers"),
       desc: t("settings.ai_providers_card_description"),
     },
     {
       tab: "environment",
-      icon: Terminal,
       title: t("settings.tab_environment"),
       desc: t("settings.tab_environment_description"),
     },
     {
       tab: "updates",
-      icon: RefreshCcw,
       title: t("settings.tab_updates"),
       desc: t("settings.tab_updates_description"),
     },
   ];
 
+  const archivedCards: Array<{
+    tab: SettingsTab;
+    title: string;
+    desc: string;
+  }> = [
+    {
+      tab: "archived-tasks",
+      title: t("settings.tab_archived_tasks"),
+      desc: t("settings.tab_description_archived_tasks"),
+    },
+  ];
+
   return (
-    <div className="w-full max-w-3xl space-y-6">
-      {/* Workspace settings */}
-      <div className="space-y-3">
-        <div className={settingsOverviewTextClass.groupLabel}>
-          {t("settings.workspace_title")}
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      <OverviewSection label={t("settings.workspace_title")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {workspaceCards.map((card) => (
-            <SettingsCard
+            <OverviewNavCard
               key={card.tab}
-              icon={card.icon}
+              icon={getSettingsTabIcon(card.tab)}
               title={card.title}
               desc={card.desc}
               onClick={() => props.onNavigateTab(card.tab)}
             />
           ))}
         </div>
-      </div>
+      </OverviewSection>
 
-      {/* Global settings */}
-      <div className="space-y-3">
-        <div className={settingsOverviewTextClass.groupLabel}>
-          {t("settings.global_title")}
+      <OverviewSection label={t("settings.global_title")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {globalCards.map((card, index) => {
+            const isLastOdd =
+              globalCards.length % 2 === 1 && index === globalCards.length - 1;
+            return (
+              <OverviewNavCard
+                key={card.tab}
+                icon={getSettingsTabIcon(card.tab)}
+                title={card.title}
+                desc={card.desc}
+                onClick={() => props.onNavigateTab(card.tab)}
+                className={isLastOdd ? "sm:col-span-2" : undefined}
+              />
+            );
+          })}
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          {globalCards.map((card) => (
-            <SettingsCard
+      </OverviewSection>
+
+      <OverviewSection label={t("settings.group_archived")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {archivedCards.map((card) => (
+            <OverviewNavCard
               key={card.tab}
-              icon={card.icon}
+              icon={getSettingsTabIcon(card.tab)}
               title={card.title}
               desc={card.desc}
               onClick={() => props.onNavigateTab(card.tab)}
+              className="sm:col-span-2"
             />
           ))}
         </div>
-      </div>
+      </OverviewSection>
 
-      {/* Feedback */}
-      <div className="space-y-3">
-        <div className={settingsOverviewTextClass.groupLabel}>
-          {t("settings.help_title")}
-        </div>
-        <SettingsSurfaceCard size="compact" tone="surface">
+      <OverviewSection label={t("settings.help_title")}>
+        <SettingsSurfaceCard size="compact" tone="surface" className="p-4">
           <div className="space-y-3">
             <div>
               <div className="flex items-center gap-2">
-                <LifeBuoy size={14} className="text-dls-secondary" />
+                <LifeBuoy size={15} className="shrink-0 text-dls-secondary" />
                 <div className={settingsOverviewTextClass.cardTitle}>
                   {t("settings.feedback_title")}
                 </div>
               </div>
-              <div className={`mt-1 ${settingsOverviewTextClass.cardDescription}`}>
+              <p
+                className={cn(
+                  "mt-1.5 max-w-[52ch]",
+                  settingsOverviewTextClass.cardDescription,
+                  "line-clamp-none",
+                )}
+              >
                 {t("settings.feedback_desc")}
-              </div>
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -188,7 +226,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
             </div>
           </div>
         </SettingsSurfaceCard>
-      </div>
+      </OverviewSection>
     </div>
   );
 }

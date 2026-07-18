@@ -75,6 +75,7 @@ import {
   routeForSettingsSection,
   type SettingsSection,
 } from "./composer";
+import { shouldForceNewSessionOnIdle } from "./auto-new-session";
 import {
   bindPendingAgentToSession,
   registerCreatedSessionStartIntent,
@@ -376,10 +377,17 @@ export function useSessionRouteSurfaceProps(
         // Honor the "click +新会话 then send" flow: if the user activated
         // draft mode in `SessionPage`, `forceNewSessionOnNextSendRef` is
         // true — always create a new session even when a real session is
-        // currently selected.
+        // currently selected. Also auto-new when idle past the prefs threshold.
+        const idleForceNew = shouldForceNewSessionOnIdle({
+          enabled: local.prefs.autoNewSessionOnIdle === true,
+          idleHours: local.prefs.autoNewSessionIdleHours,
+          selectedSessionId,
+          sessions: sessionsByWorkspaceId[selectedWorkspaceId] ?? [],
+        });
         const sendPlan = resolveDraftSendPlan({
           selectedSessionId,
-          forceNewSession: forceNewSessionOnNextSendRef.current,
+          forceNewSession:
+            forceNewSessionOnNextSendRef.current || idleForceNew,
           pageMode,
           assistantDraftWorkspaceRoot,
           sessionWorkspaceRoot,
@@ -730,7 +738,10 @@ export function useSessionRouteSurfaceProps(
         const combinedSystem = joinSystemParts([
           envSystemContext,
           skillCommandPrompt?.systemPrompt,
-          buildOnboardingProfileSystemPrompt(local.prefs.onboardingProfile) ||
+          buildOnboardingProfileSystemPrompt(
+            local.prefs.onboardingProfile,
+            local.prefs.conversationMemory,
+          ) ||
             undefined,
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||

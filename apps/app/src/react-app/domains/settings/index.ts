@@ -7,9 +7,12 @@ export { PreferencesView } from "./pages/preferences-view";
 export type { PreferencesViewProps } from "./pages/preferences-view";
 export { MemoryView } from "./pages/memory-view";
 export type { MemoryViewProps } from "./pages/memory-view";
+export { ConversationMemoryView } from "./pages/conversation-memory-view";
+export type { ConversationMemoryViewProps } from "./pages/conversation-memory-view";
 export { GeneralSettingsView } from "./pages/general-view";
 export type { GeneralSettingsViewProps } from "./pages/general-view";
 export { SystemAuthorizationsView } from "./pages/system-authorizations-view";
+export type { SystemAuthorizationsViewProps } from "./pages/system-authorizations-view";
 export { AdvancedView } from "./pages/advanced-view";
 export type { AdvancedViewProps } from "./pages/advanced-view";
 export { CloudMarketplacesView } from "./pages/cloud-marketplaces-view";
@@ -32,6 +35,8 @@ export { McpView } from "./pages/mcp-view";
 export type { McpViewProps, ReactMcpStatus, SkillItem } from "./pages/mcp-view";
 export { RecoveryView } from "./pages/recovery-view";
 export type { RecoveryViewProps } from "./pages/recovery-view";
+export { ArchivedTasksView } from "./pages/archived-tasks-view";
+export type { ArchivedTasksViewProps } from "./pages/archived-tasks-view";
 export { MessagingView } from "./pages/messaging-view";
 export type {
   MessagingChannel,

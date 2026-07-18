@@ -57,7 +57,7 @@ export function AssistantCategorySwitch(props: {
       <SegmentedTabGroup
         density="filter"
         role="tablist"
-        className="h-8 w-full max-w-none"
+        className="h-10 w-full max-w-none"
       >
         {items.map((item) => {
           const Icon = item.icon;
@@ -72,9 +72,9 @@ export function AssistantCategorySwitch(props: {
               active={active}
               size="filter"
               shape="tab"
-              className="relative z-10 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm"
+              className="relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm"
             >
-              <Icon className="size-3.5 shrink-0" />
+              <Icon className="size-4 shrink-0" />
               <span className="leading-none">{item.label}</span>
             </NavTabButton>
           );

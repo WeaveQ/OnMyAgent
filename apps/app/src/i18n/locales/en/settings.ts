@@ -9,6 +9,7 @@ export default {
   "settings.appearance_title": "Appearance",
 
   "settings.font_size_title": "Display size",
+  "settings.display_settings_title": "Display",
   "settings.font_size_desc": "Scale the whole interface. You can also use ⌘/Ctrl + and −, or ⌘/Ctrl + 0 to reset.",
   "settings.font_size_label": "Font size",
   "settings.font_size_hint": "Applies to the entire app, including chat and settings.",
@@ -39,6 +40,7 @@ export default {
     "Also refresh this page when the desktop app finds a new version in the background. System notifications are always handled by the desktop process.",
   "settings.background_checks_title": "Check automatically",
   "settings.update_install_title": "How updates install",
+  "settings.update_notes_title": "Release notes",
   "settings.update_install_desc":
     "OnMyAgent opens the GitHub release page so you can download the installer for your platform. There is no in-app download or silent install.",
   "settings.update_check_timeout":
@@ -163,6 +165,26 @@ export default {
   "settings.group_cloud_description": "Cloud account and organization",
   "settings.group_global": "Global",
   "settings.group_workspace": "Workspace",
+  "settings.group_archived": "Archive",
+  "settings.tab_archived_tasks": "Archive management",
+  "settings.tab_description_archived_tasks":
+    "Manage session archive policy and restore or permanently delete archived tasks",
+  "settings.archived_tasks_list_title": "Archived tasks",
+  "settings.archived_tasks_list_desc":
+    "Review, restore, or permanently delete archived session tasks",
+  "settings.archived_tasks_search_placeholder": "Search archived tasks",
+  "settings.archived_tasks_all_projects": "All projects",
+  "settings.archived_tasks_delete_all": "Delete all",
+  "settings.archived_tasks_delete": "Delete permanently",
+  "settings.archived_tasks_unarchive": "Unarchive",
+  "settings.archived_tasks_loading": "Loading archived tasks…",
+  "settings.archived_tasks_empty": "No archived tasks",
+  "settings.archived_tasks_empty_filtered": "No matching archived tasks",
+  "settings.archived_tasks_empty_hint": "Assistant tasks you archive from the task list appear here for restore or permanent delete.",
+  "settings.archived_tasks_assistant_section": "Assistant tasks",
+  "settings.archived_tasks_no_workspace": "Select a workspace to manage archived tasks.",
+  "settings.archived_tasks_unknown_project": "Unknown project",
+  "settings.archived_tasks_count": "{count} tasks",
   "settings.hide_titlebar": "Hide titlebar",
   "settings.hide_titlebar_desc":
     "Hide the window titlebar. Useful for tiling window",
@@ -322,6 +344,8 @@ export default {
   "settings.model_title": "Model",
   "settings.no_active_workspace": "No active local workspace.",
   "settings.no_providers_connected": "No providers connected yet.",
+  "settings.connect_provider_empty_hint":
+    "Use “Connect model provider” above to add one.",
   "settings.no_audit_entries": "No audit entries yet.",
   "settings.no_custom_path_set": "No custom path set",
   "settings.personalization_title": "Personality",
@@ -368,7 +392,7 @@ export default {
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
   "settings.providers_desc": "Connect model and tool services",
-  "settings.providers_title": "Models & Config",
+  "settings.providers_title": "Models",
   "settings.providers_dialog_title": "Connect providers",
   "settings.providers_dialog_description":
     "Select the model provider you want to use and enter the corresponding key. These keys will only be stored locally",
@@ -516,7 +540,7 @@ export default {
   "settings.system_authorizations_description":
     "Manage system permissions required for the app to run",
   "settings.system_authorizations_go_configure": "Go to settings",
-  "settings.ai_providers": "Models & Config",
+  "settings.ai_providers": "Models",
   "settings.ai_providers_card_description":
     "Connect AI model providers",
   "settings.shell_view_current_version_description": "Current version",
@@ -525,6 +549,14 @@ export default {
     "Stable gets fully tested releases. Alpha includes the very latest changes but may be less polished (macOS only)",
   "settings.shell_view_release_channel_stable": "Stable",
   "settings.shell_view_release_channel_alpha": "Alpha",
+  "settings.session_management_title": "Session management",
+  "settings.auto_new_session_title": "Auto-start new session",
+  "settings.auto_new_session_desc": "Start a new chat after a period of inactivity",
+  "settings.auto_new_session_threshold_prefix": "After",
+  "settings.auto_new_session_threshold_suffix": "hours without a reply, start a new session",
+  "settings.auto_new_session_hours_aria": "Idle hours before auto new session",
+  "settings.auto_new_session_hint":
+    "When enabled, long-idle history is not sent to the model again — lower token use and faster responses.",
   "settings.notifications_section_title": "Notifications",
   "settings.notifications_section_desc":
     "Manage system desktop notification permission and whether to alert you when a turn finishes.",
@@ -536,8 +568,9 @@ export default {
     "When on, send a desktop notification after the assistant finishes a turn and the app is in the background. Off by default; the first time you enable it, the app will request system notification permission.",
   "settings.agent_ready_notification_title": "Assistant is ready",
   "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
-  "settings.preferences": "Preferences",
-  "settings.preferences_card_description": "Manage default model and reasoning preferences",
+  "settings.preferences": "Personalization",
+  "settings.preferences_card_description":
+    "Font size, tone, custom instructions, and session habits",
   "settings.tab_description_advanced":
     "Inspect runtime, connection state, and developer controls",
   "settings.tab_description_appearance": `Adjust how ${APP_NAME} looks across desktop, system theme, and app frame`,
@@ -627,7 +660,7 @@ export default {
     "Browse, edit, and install skills",
   "settings.tab_description_updates":
     "Check updates and manage installs",
-  "settings.tab_environment": "Software",
+  "settings.tab_environment": "Environment",
   "settings.tab_environment_description":
     "Manage software environment and variables",
   "settings.software_env.title": "Software Environment",
@@ -660,8 +693,12 @@ export default {
   "settings.tab_general": "Overview",
   "settings.tab_recovery": "Recovery",
   "settings.tab_recovery_description": "Reset onboarding and clear data",
-  "settings.tab_memory": "Memory",
-  "settings.tab_description_memory": "Manage personal memory and assistant preferences",
+  "settings.tab_memory": "Preferences",
+  "settings.tab_description_memory":
+    "Manage personal info, roles, and work habits",
+  "settings.tab_conversation_memory": "Memory",
+  "settings.tab_description_conversation_memory":
+    "Manage facts from conversations or notes you add manually",
   "settings.memory_personal_info": "Personal Info",
   "settings.memory_personal_info_desc":
     "Basic information helps the AI assistant understand you better",
@@ -675,6 +712,8 @@ export default {
   "settings.memory_mbti": "MBTI",
   "settings.memory_mbti_desc":
     "Your MBTI personality type helps the assistant adapt its communication style",
+  "settings.memory_select_placeholder": "Select",
+  "settings.memory_selected_count": "{count} selected",
   "settings.memory_work_profile": "About You",
   "settings.memory_work_profile_desc":
     "Describe your role, industry, and habits to help the assistant fit your work context",
@@ -708,6 +747,25 @@ export default {
   "settings.memory_save": "Save",
   "settings.memory_saved": "Saved",
   "settings.memory_reset": "Reset",
+
+  "settings.memory_conversation_section": "Conversation memory",
+  "settings.memory_conversation_section_desc":
+    "Facts saved from chats or added manually, used to personalize future replies",
+  "settings.memory_conversation_toggle": "Generate conversation memory",
+  "settings.memory_conversation_toggle_desc":
+    "Allow OnMyAgent to keep user-confirmed notes and dialog-derived facts for more personal responses. Stored only on this device.",
+  "settings.memory_conversation_disabled_hint":
+    "Turn on the switch to add notes and include them in personal assistant context.",
+  "settings.memory_conversation_add_label": "Add a note",
+  "settings.memory_conversation_add_placeholder":
+    "e.g. Prefers concise bullets; works across three companies…",
+  "settings.memory_conversation_add": "Add",
+  "settings.memory_conversation_empty": "No conversation memories yet. Add one manually above.",
+  "settings.memory_conversation_source_dialog": "From conversation",
+  "settings.memory_conversation_source_manual": "Added manually",
+  "settings.memory_conversation_updated": "Updated {time}",
+  "settings.memory_conversation_delete": "Delete memory",
+
   "settings.tab_skills": "Skills",
   "settings.tab_updates": "Updates",
   "settings.tab_updates_description": "App version and update channel",
@@ -756,6 +814,8 @@ export default {
     "Allow commands to other apps, such as Calendar, Reminders, and Notes",
   "settings.permission_automation_label": "Automation",
   "settings.permission_checking": "Checking",
+  "settings.permission_refresh": "Refresh",
+  "settings.permission_refresh_success": "Updated",
   "settings.permission_done": "I've authorized it",
   "settings.permission_follow_steps":
     "System Settings is open. Follow these steps:",

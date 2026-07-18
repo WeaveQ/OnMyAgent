@@ -68,6 +68,7 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import { AgentManagementPage } from "../../local-agents";
 import { AutomationPage, MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
+import { permanentlyRemoveAssistantArchivedTask } from "../sidebar/assistant-archived-tasks";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
@@ -812,6 +813,10 @@ export function AssistantPage(props: AssistantPageProps) {
     if (!sessionId || !props.onDeleteSession) return;
     setDeleteBusy(true);
     try {
+      permanentlyRemoveAssistantArchivedTask(
+        props.selectedWorkspaceId,
+        sessionId,
+      );
       await props.onDeleteSession(sessionId);
       setDeleteOpen(false);
     } finally {
@@ -1397,16 +1402,16 @@ export function AssistantPage(props: AssistantPageProps) {
       {props.onDeleteSession ? (
         <ConfirmModal
           open={deleteOpen}
-          title={t("session.delete_session_title")}
+          title={t("session.delete_task_title")}
           message={
             sessionActionTitle.trim()
-              ? t("session.delete_named_session_message", {
+              ? t("session.delete_named_task_message", {
                   title: sessionActionTitle.trim(),
                 })
-              : t("session.delete_session_generic")
+              : t("session.delete_task_generic")
           }
           confirmLabel={
-            deleteBusy ? t("session.deleting") : t("session.delete")
+            deleteBusy ? t("session.deleting") : t("session.delete_task")
           }
           cancelLabel={t("common.cancel")}
           variant="danger"

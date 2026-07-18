@@ -200,6 +200,47 @@ export function SettingsBlockRow({
   className,
   align = "center",
 }: SettingsBlockRowProps) {
+  // When children exist (e.g. full-width textarea), stack: header row then body,
+  // so extra content spans the full card width under the trailing action.
+  if (children) {
+    return (
+      <div
+        data-slot="settings-block-row"
+        className={cn("flex w-full flex-col gap-3 px-4 py-3.5", className)}
+      >
+        <div
+          className={cn(
+            "flex w-full gap-4",
+            align === "center" ? "items-center" : "items-start",
+          )}
+        >
+          <div className="min-w-0 flex-1 space-y-1 pr-2">
+            <div className="text-sm font-medium leading-5 text-dls-text">
+              {title}
+            </div>
+            {description ? (
+              <div className="text-sm leading-5 text-dls-secondary">
+                {description}
+              </div>
+            ) : null}
+          </div>
+          {actions ? (
+            <div
+              className={cn(
+                "ml-auto flex shrink-0 items-center justify-end",
+                "min-w-[7.5rem] [&_button]:justify-end",
+                align === "start" ? "pt-0.5 self-start" : "self-center",
+              )}
+            >
+              {actions}
+            </div>
+          ) : null}
+        </div>
+        <div className="w-full min-w-0">{children}</div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-slot="settings-block-row"
@@ -214,7 +255,6 @@ export function SettingsBlockRow({
         {description ? (
           <div className="text-sm leading-5 text-dls-secondary">{description}</div>
         ) : null}
-        {children}
       </div>
       {actions ? (
         <div

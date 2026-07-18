@@ -11,6 +11,7 @@ import {
 } from "./app-sidebar";
 import {
   AssistantRailIcon,
+  ChannelsRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
   LocalAgentRailIcon,
@@ -42,46 +43,6 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-function WeChatBubblesIcon(props: { active?: boolean; className?: string }) {
-  const active = props.active === true;
-  const bubbleClassName = active
-    ? "fill-current"
-    : "fill-none stroke-current transition-colors";
-  const eyeClassName = active
-    ? "fill-dls-rail"
-    : "fill-current transition-colors";
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={props.className}
-    >
-      {/* Rear (left) bubble */}
-      <path
-        className={bubbleClassName}
-        strokeWidth={active ? 0 : 1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.6 3.4C5.55 3.4 2.3 6.05 2.3 9.35c0 1.88 1.05 3.55 2.7 4.6l-.7 2.35 2.7-1.3c.7.16 1.44.24 2.2.24.18 0 .36 0 .54-.02A5.9 5.9 0 0 1 9.2 13c0-3.55 3.2-6.4 7.15-6.4.18 0 .36.01.53.02C15.7 4.55 12.95 3.4 9.6 3.4Z"
-      />
-      <circle cx="7.05" cy="8.15" r="0.95" className={eyeClassName} />
-      <circle cx="11.35" cy="8.15" r="0.95" className={eyeClassName} />
-      {/* Front (right) bubble — WeChat dual-bubble mark */}
-      <path
-        className={bubbleClassName}
-        strokeWidth={active ? 0 : 1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21.7 13.65c0-3.15-3-5.7-6.7-5.7s-6.7 2.55-6.7 5.7 3 5.7 6.7 5.7c.72 0 1.42-.09 2.07-.26l2.55 1.22-.65-2.2c1.7-1.05 2.73-2.7 2.73-4.46Z"
-      />
-      <circle cx="12.55" cy="12.75" r="0.85" className={eyeClassName} />
-      <circle cx="16.85" cy="12.75" r="0.85" className={eyeClassName} />
-    </svg>
-  );
-}
-
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
@@ -99,7 +60,7 @@ const BOTTOM_RAIL_ITEMS: BottomRailItem[] = [
   {
     id: "channels",
     get label() { return t("nav.channels"); },
-    icon: WeChatBubblesIcon,
+    icon: ChannelsRailIcon,
   },
   {
     id: "devices",
@@ -143,7 +104,6 @@ function BottomRailButton(props: {
       data-view-id={props.item.id}
       size="bottom"
       active={props.active}
-      className={props.item.id === "channels" ? "group/channel" : undefined}
       title={props.item.label}
       aria-label={props.item.label}
       aria-pressed={props.active}

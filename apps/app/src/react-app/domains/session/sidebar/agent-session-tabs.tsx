@@ -6,6 +6,10 @@ import { useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { MenuRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
+import {
+  TASK_CONTEXT_MENU_CLASS,
+  TASK_CONTEXT_MENU_SEPARATOR_CLASS,
+} from "./assistant-task-item";
 import type {
   OnMyAgentServerClient,
   OnMyAgentSessionSnapshot,
@@ -212,10 +216,10 @@ export function AgentSessionTabs(props: {
         <div className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto">
           <Button
             type="button"
-            variant="dashed"
+            variant="ghost"
             size="xs"
             onClick={props.onCreateSession}
-            className="shrink-0"
+            className="h-7 shrink-0 rounded bg-dls-list-selected px-2.5 text-xs font-medium text-dls-text hover:bg-dls-list-selected hover:text-dls-text"
             title={t("session.agent_tab_new_session_title")}
             aria-label={t("session.agent_tab_new_session_title")}
           >
@@ -304,13 +308,15 @@ export function AgentSessionTabs(props: {
       {menuState ? (
         <div
           ref={menuRef}
-          className="fixed z-[100] w-24 overflow-hidden rounded-xl border border-dls-border bg-dls-surface py-1 text-xs"
+          className={TASK_CONTEXT_MENU_CLASS}
+          data-task-context-menu="true"
           style={{ left: menuState.left, top: menuState.top }}
           onMouseLeave={() => setMenuState(null)}
           onPointerLeave={() => setMenuState(null)}
         >
           <MenuRowButton
-            align="center"
+            align="start"
+            density="compact"
             type="button"
             onClick={() => {
               props.onRenameSession(menuState.sessionId, menuState.title);
@@ -319,8 +325,10 @@ export function AgentSessionTabs(props: {
           >
             {t("session.agent_tab_rename")}
           </MenuRowButton>
+          <div className={TASK_CONTEXT_MENU_SEPARATOR_CLASS} role="separator" />
           <MenuRowButton
-            align="center"
+            align="start"
+            density="compact"
             type="button"
             className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
             onClick={() => {
@@ -328,7 +336,7 @@ export function AgentSessionTabs(props: {
               setMenuState(null);
             }}
           >
-            {t("session.agent_tab_delete")}
+            {t("session.delete_task")}
           </MenuRowButton>
         </div>
       ) : null}

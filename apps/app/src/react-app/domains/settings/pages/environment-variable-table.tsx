@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
@@ -8,7 +8,6 @@ import { Toggle } from "@/components/ui/toggle";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
@@ -228,12 +227,9 @@ export function EnvironmentVariableTableItem(props: EnvironmentVariableTableItem
   );
 }
 
-export type EnvironmentVariableTableEmptyProps = {
-  canAdd: boolean;
-  onAdd: () => void;
-};
-
-export function EnvironmentVariableTableEmpty(props: EnvironmentVariableTableEmptyProps) {
+export function EnvironmentVariableTableEmpty() {
+  // Primary "add" CTA lives on the section header — keep empty state text-only
+  // so the page does not show two identical buttons.
   return (
     <Empty className="py-8">
       <EmptyHeader>
@@ -242,14 +238,6 @@ export function EnvironmentVariableTableEmpty(props: EnvironmentVariableTableEmp
           {t("settings.environment.empty_body")}
         </EmptyDescription>
       </EmptyHeader>
-      {props.canAdd ? (
-        <EmptyContent>
-          <Button onClick={props.onAdd}>
-            <Plus className="size-4" />
-            {t("settings.environment.add_button")}
-          </Button>
-        </EmptyContent>
-      ) : null}
     </Empty>
   );
 }

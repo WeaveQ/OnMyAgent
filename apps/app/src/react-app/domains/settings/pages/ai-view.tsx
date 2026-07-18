@@ -13,20 +13,12 @@ import type { ReactNode } from "react";
 import { t } from "@/i18n";
 import { ProviderIcon } from "../../../design-system/provider-icon";
 import {
+  SettingsBlock,
+  SettingsBlockRow,
   SettingsNotice,
-  SettingsPageSection,
   SettingsStatusBadge,
 } from "../settings-section";
-import {
-  LayoutSectionItem,
-  LayoutSectionItemDescription,
-  LayoutSectionItemFootnote,
-  LayoutSectionItemHeader,
-  LayoutSectionItemHeaderActions,
-  LayoutSectionItemTitle,
-  LayoutStack,
-} from "../settings-layout";
-import { APP_NAME } from "../../../../i18n/locales/brand";
+import { LayoutStack } from "../settings-layout";
 
 export type AiSettingsConnectedProvider = {
   id: string;
@@ -91,90 +83,63 @@ function providerStatusTone(
 export function AiSettingsView(props: AiSettingsViewProps) {
   return (
     <LayoutStack>
-      {/* ---- Providers ---- */}
-      <SettingsPageSection
-        title={t("settings.providers_title")}
-        description={t("settings.providers_desc")}
-      >
-        <LayoutSectionItem>
-          <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>
+      <div className="flex w-full max-w-3xl flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-dls-text">
               {props.providerSummary}
-              <SettingsStatusBadge
-                tone={providerStatusTone(
-                  props.providerStatusLabel,
-                  props.providerConnected,
-                )}
-                label={props.providerStatusLabel}
-              />
-            </LayoutSectionItemTitle>
-            <LayoutSectionItemHeaderActions>
-              <Button
-                variant="outline"
-                onClick={() => void props.onOpenOpencodeConfig?.()}
-                disabled={props.busy}
-              >
-                <FileCode size={14} />
-                {t("settings.custom_provider_config")}
-              </Button>
-              <Button
-                onClick={() => void props.onOpenProviderAuth()}
-                disabled={props.busy || props.providerAuthBusy}
-              >
-                {props.providerAuthBusy
-                  ? t("settings.loading_providers")
-                  : t("settings.connect_provider")}
-              </Button>
-            </LayoutSectionItemHeaderActions>
-          </LayoutSectionItemHeader>
-        </LayoutSectionItem>
-
-        {/* {props.showOnMyAgentModelsSubscribe ? (
-          <LayoutSectionItem className="flex-row flex-wrap items-center justify-between gap-3 rounded-lg border border-dls-accent/30 bg-dls-decision-soft px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <ProviderIcon
-                providerId="onmyagent"
-                size={20}
-                className="text-dls-accent"
-              />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-dls-text">
-                  {APP_NAME} Models
-                </div>
-                <div className="text-xs text-dls-secondary">
-                  Frontier intelligence, hand picked for your team&apos;s most
-                  ambitious work.
-                </div>
-              </div>
-            </div>
+            </span>
+            <SettingsStatusBadge
+              tone={providerStatusTone(
+                props.providerStatusLabel,
+                props.providerConnected,
+              )}
+              label={props.providerStatusLabel}
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
-              onClick={() => void props.onSubscribeOnMyAgentModels?.()}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void props.onOpenOpencodeConfig?.()}
+              disabled={props.busy}
+            >
+              <FileCode className="size-3.5" />
+              {t("settings.custom_provider_config")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void props.onOpenProviderAuth()}
               disabled={props.busy || props.providerAuthBusy}
             >
-              Subscribe
+              {props.providerAuthBusy
+                ? t("settings.loading_providers")
+                : t("settings.connect_provider")}
             </Button>
-          </LayoutSectionItem>
-        ) : null} */}
+          </div>
+        </div>
 
-        {props.connectedProviders.length > 0 ? (
-          <div className="space-y-2">
-            {props.connectedProviders.map((provider) => (
-              <LayoutSectionItem
-                key={provider.id}
-                className="group flex-row flex-wrap items-center justify-between gap-3 rounded-lg border border-dls-border px-4 py-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <ProviderIcon
-                    providerId={provider.id}
-                    size={20}
-                    className="text-dls-text"
-                  />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-dls-text">
-                        {provider.name}
-                      </span>
-                      {props.cloudProviderIds?.has(provider.id) ? (
+        <SettingsBlock>
+          {props.connectedProviders.length > 0 ? (
+            props.connectedProviders.map((provider) => {
+              const sourceLabel = providerSourceLabel(provider.source);
+              const isCloud = props.cloudProviderIds?.has(provider.id) === true;
+              const rowBusy = props.providerActionBusyId === provider.id;
+
+              return (
+                <SettingsBlockRow
+                  key={provider.id}
+                  title={
+                    <span className="inline-flex min-w-0 items-center gap-2.5">
+                      <ProviderIcon
+                        providerId={provider.id}
+                        size={18}
+                        className="shrink-0 text-dls-text"
+                      />
+                      <span className="truncate">{provider.name}</span>
+                      {isCloud ? (
                         <StatusBadge size="tiny" tone="accent">
                           Cloud
                         </StatusBadge>
@@ -183,81 +148,97 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                         <StatusBadge size="tiny" tone="neutral">
                           OpenCode
                         </StatusBadge>
-                      ) : providerSourceLabel(provider.source) ? (
+                      ) : sourceLabel ? (
                         <StatusBadge size="tiny" tone="neutral">
-                          {providerSourceLabel(provider.source)}
+                          {sourceLabel}
                         </StatusBadge>
                       ) : null}
-                    </div>
-                    <div className="truncate font-mono text-xs text-dls-secondary">
-                      {provider.id}
-                    </div>
-                  </div>
-                </div>
-                {!props.cloudProviderIds?.has(provider.id) ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={t("settings.provider_more_actions")}
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent align="end" className="w-44">
-                        {props.canEditProvider?.(provider) ? (
-                          <>
-                            <DropdownMenuItem
-                              disabled={props.busy || props.providerActionBusyId === provider.id}
-                              onClick={() => props.onEditProvider?.(provider)}
+                    </span>
+                  }
+                  description={
+                    <span className="font-mono text-xs">{provider.id}</span>
+                  }
+                  actions={
+                    !isCloud ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={t("settings.provider_more_actions")}
                             >
-                              <Pencil />
-                              {t("agent_manager.provider_modal.edit_provider")}
-                            </DropdownMenuItem>
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end" className="w-44">
+                          {props.canEditProvider?.(provider) ? (
+                            <>
+                              <DropdownMenuItem
+                                disabled={props.busy || rowBusy}
+                                onClick={() => props.onEditProvider?.(provider)}
+                              >
+                                <Pencil />
+                                {t("agent_manager.provider_modal.edit_provider")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                disabled={
+                                  props.busy ||
+                                  rowBusy ||
+                                  props.canDeleteProvider?.(provider) === false
+                                }
+                                onClick={() =>
+                                  props.onDeleteProvider?.(provider)
+                                }
+                              >
+                                <Trash2 />
+                                {t(
+                                  "agent_manager.provider_modal.delete_provider",
+                                )}
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
                             <DropdownMenuItem
                               variant="destructive"
                               disabled={
                                 props.busy ||
-                                props.providerActionBusyId === provider.id ||
-                                props.canDeleteProvider?.(provider) === false
+                                props.providerAuthBusy ||
+                                props.disconnectingProviderId !== null ||
+                                !props.canDisconnectProvider(provider)
                               }
-                              onClick={() => props.onDeleteProvider?.(provider)}
+                              onClick={() =>
+                                void props.onDisconnectProvider(provider.id)
+                              }
                             >
-                              <Trash2 />
-                              {t("agent_manager.provider_modal.delete_provider")}
+                              <Unplug />
+                              {props.disconnectingProviderId === provider.id
+                                ? t("settings.disconnecting")
+                                : props.canDisconnectProvider(provider)
+                                  ? t("settings.disconnect")
+                                  : t("settings.managed_by_env")}
                             </DropdownMenuItem>
-                          </>
-                        ) : (
-                          <DropdownMenuItem
-                            variant="destructive"
-                            disabled={
-                              props.busy ||
-                              props.providerAuthBusy ||
-                              props.disconnectingProviderId !== null ||
-                              !props.canDisconnectProvider(provider)
-                            }
-                            onClick={() => void props.onDisconnectProvider(provider.id)}
-                          >
-                            <Unplug />
-                            {props.disconnectingProviderId === provider.id
-                              ? t("settings.disconnecting")
-                              : props.canDisconnectProvider(provider)
-                                ? t("settings.disconnect")
-                                : t("settings.managed_by_env")}
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ) : null}
-              </LayoutSectionItem>
-            ))}
-          </div>
-        ) : null}
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : undefined
+                  }
+                />
+              );
+            })
+          ) : (
+            <SettingsBlockRow
+              title={t("settings.no_providers_connected")}
+              description={t("settings.connect_provider_empty_hint")}
+            />
+          )}
+        </SettingsBlock>
+
+        <p className="text-xs leading-5 text-dls-secondary">
+          {t("settings.api_keys_info")}
+        </p>
 
         {props.providerConnectError ? (
           <SettingsNotice tone="error">
@@ -272,11 +253,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
             {props.providerDisconnectError}
           </SettingsNotice>
         ) : null}
-
-        <LayoutSectionItemFootnote>
-          {t("settings.api_keys_info")}
-        </LayoutSectionItemFootnote>
-      </SettingsPageSection>
+      </div>
 
       {props.cloudProvidersView}
     </LayoutStack>

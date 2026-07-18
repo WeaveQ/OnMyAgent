@@ -1,20 +1,49 @@
 /** @jsxImportSource react */
 import { useCallback } from "react";
+import { ChevronDown } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
 import type { OnboardingProfile } from "../../../kernel/local-provider";
 import {
   roleOptions,
   industryOptions,
   toolOptions,
   taskOptions,
-  ToggleChip,
-  FieldLabel,
+  mbtiOptions,
+  mbtiSelectItems,
+  type ProfileOption,
 } from "./onboarding-profile-shared";
 import {
   SettingsBlock,
+  SettingsBlockRow,
   SettingsPageSection,
 } from "../settings-section";
+import { LayoutStack } from "../settings-layout";
+
+// Shared width for trailing inputs + selects so the right column aligns.
+// !justify-between: SettingsBlockRow applies [&_button]:justify-end to trailing controls.
+const fieldControlWidthClass = "w-[13.5rem] sm:w-56";
+const fieldTriggerClass = cn(
+  "h-9 !justify-between gap-2 px-3 font-normal",
+  fieldControlWidthClass,
+);
+const fieldInputClass = cn("h-9 text-sm", fieldControlWidthClass);
 
 export type MemoryViewProps = {
   draft: OnboardingProfile;
@@ -24,12 +53,8 @@ export type MemoryViewProps = {
 export function MemoryView(props: MemoryViewProps) {
   const { draft, onDraftChange } = props;
 
-  const toggleListValue = useCallback(
-    (key: "roles" | "industries" | "tools" | "tasks", value: string) => {
-      const list = draft[key];
-      const next = list.includes(value)
-        ? list.filter((v) => v !== value)
-        : [...list, value];
+  const setListValue = useCallback(
+    (key: "roles" | "industries" | "tools" | "tasks", next: string[]) => {
       onDraftChange({ ...draft, [key]: next });
     },
     [draft, onDraftChange],
@@ -43,103 +68,199 @@ export function MemoryView(props: MemoryViewProps) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <LayoutStack className="gap-y-8">
       <SettingsPageSection
         title={t("settings.memory_personal_info")}
         description={t("settings.memory_personal_info_desc")}
       >
         <SettingsBlock>
-          <div className="grid gap-4 px-4 py-3.5 sm:grid-cols-3">
-            <FieldLabel>
-              {t("settings.memory_user_name")}
+          <SettingsBlockRow
+            title={t("settings.memory_user_name")}
+            description={t("settings.memory_user_name_desc")}
+            actions={
               <Input
                 value={draft.userName}
                 onChange={(e) => updateField("userName", e.target.value)}
                 placeholder={t("settings.memory_user_name_placeholder")}
                 variant="dls"
-                className="mt-1.5"
+                className={fieldInputClass}
               />
-            </FieldLabel>
-            <FieldLabel>
-              {t("settings.memory_assistant_name")}
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.memory_assistant_name")}
+            description={t("settings.memory_assistant_name_desc")}
+            actions={
               <Input
                 value={draft.assistantName}
                 onChange={(e) => updateField("assistantName", e.target.value)}
                 placeholder="OnMyAgent"
                 variant="dls"
-                className="mt-1.5"
+                className={fieldInputClass}
               />
-            </FieldLabel>
-            <FieldLabel>
-              {t("settings.memory_mbti")}
-              <Input
-                value={draft.mbti}
-                onChange={(e) => updateField("mbti", e.target.value)}
-                placeholder="ENTJ"
-                variant="dls"
-                className="mt-1.5"
-              />
-            </FieldLabel>
-          </div>
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.memory_mbti")}
+            description={t("settings.memory_mbti_desc")}
+            actions={
+              <Select
+                value={draft.mbti || null}
+                items={mbtiSelectItems}
+                onValueChange={(value) =>
+                  updateField("mbti", typeof value === "string" ? value : "")
+                }
+              >
+                <SelectTrigger
+                  className={cn(
+                    fieldTriggerClass,
+                    "rounded-lg border-dls-border bg-dls-surface text-sm text-dls-text data-[size=default]:h-9",
+                  )}
+                  aria-label={t("settings.memory_mbti")}
+                >
+                  <SelectValue placeholder={t("settings.memory_select_placeholder")} />
+                </SelectTrigger>
+                <SelectContent align="end" className="rounded-xl">
+                  {mbtiOptions.map((value) => (
+                    <SelectItem key={value} value={value} className="rounded-lg text-sm">
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            }
+          />
         </SettingsBlock>
       </SettingsPageSection>
 
-      <SettingsPageSection title={t("settings.memory_work_profile")}>
+      <SettingsPageSection
+        title={t("settings.memory_work_profile")}
+        description={t("settings.memory_work_profile_desc")}
+      >
         <SettingsBlock>
-          <ChipGroup
-            label={t("settings.memory_roles")}
-            options={roleOptions}
-            selected={draft.roles}
-            onToggle={(value) => toggleListValue("roles", value)}
+          <SettingsBlockRow
+            title={t("settings.memory_roles")}
+            description={t("settings.memory_roles_desc")}
+            actions={
+              <MultiSelectField
+                options={roleOptions}
+                selected={draft.roles}
+                onChange={(next) => setListValue("roles", next)}
+                ariaLabel={t("settings.memory_roles")}
+              />
+            }
           />
-          <ChipGroup
-            label={t("settings.memory_industries")}
-            options={industryOptions}
-            selected={draft.industries}
-            onToggle={(value) => toggleListValue("industries", value)}
+          <SettingsBlockRow
+            title={t("settings.memory_industries")}
+            description={t("settings.memory_industries_desc")}
+            actions={
+              <MultiSelectField
+                options={industryOptions}
+                selected={draft.industries}
+                onChange={(next) => setListValue("industries", next)}
+                ariaLabel={t("settings.memory_industries")}
+              />
+            }
           />
         </SettingsBlock>
       </SettingsPageSection>
 
       <SettingsPageSection title={t("settings.memory_work_habits")}>
         <SettingsBlock>
-          <ChipGroup
-            label={t("settings.memory_tools")}
-            options={toolOptions}
-            selected={draft.tools}
-            onToggle={(value) => toggleListValue("tools", value)}
+          <SettingsBlockRow
+            title={t("settings.memory_tools")}
+            description={t("settings.memory_tools_desc")}
+            actions={
+              <MultiSelectField
+                options={toolOptions}
+                selected={draft.tools}
+                onChange={(next) => setListValue("tools", next)}
+                ariaLabel={t("settings.memory_tools")}
+              />
+            }
           />
-          <ChipGroup
-            label={t("settings.memory_tasks")}
-            options={taskOptions}
-            selected={draft.tasks}
-            onToggle={(value) => toggleListValue("tasks", value)}
+          <SettingsBlockRow
+            title={t("settings.memory_tasks")}
+            description={t("settings.memory_tasks_desc")}
+            actions={
+              <MultiSelectField
+                options={taskOptions}
+                selected={draft.tasks}
+                onChange={(next) => setListValue("tasks", next)}
+                ariaLabel={t("settings.memory_tasks")}
+              />
+            }
           />
         </SettingsBlock>
       </SettingsPageSection>
-    </div>
+    </LayoutStack>
   );
 }
 
-function ChipGroup(props: {
-  label: string;
-  options: Array<{ value: string; label: string }>;
+function MultiSelectField(props: {
+  options: ProfileOption[];
   selected: string[];
-  onToggle: (value: string) => void;
+  onChange: (next: string[]) => void;
+  ariaLabel: string;
 }) {
+  const selectedLabels = props.options
+    .filter((option) => props.selected.includes(option.value))
+    .map((option) => option.label);
+
+  const summary =
+    selectedLabels.length === 0
+      ? null
+      : selectedLabels.length <= 2
+        ? selectedLabels.join("、")
+        : t("settings.memory_selected_count", { count: selectedLabels.length });
+
   return (
-    <div className="flex flex-col gap-2.5 px-4 py-3.5">
-      <div className="text-xs font-medium text-dls-secondary">{props.label}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {props.options.map((option) => (
-          <ToggleChip
-            key={option.value}
-            label={option.label}
-            selected={props.selected.includes(option.value)}
-            onClick={() => props.onToggle(option.value)}
-          />
-        ))}
-      </div>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            className={fieldTriggerClass}
+            aria-label={props.ariaLabel}
+          >
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-left text-sm",
+                !summary && "text-dls-secondary",
+              )}
+            >
+              {summary ?? t("settings.memory_select_placeholder")}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-dls-secondary" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent
+        align="end"
+        className={cn("max-h-72", "min-w-[13.5rem] sm:min-w-56")}
+      >
+        {props.options.map((option) => {
+          const checked = props.selected.includes(option.value);
+          return (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={checked}
+              onCheckedChange={(next) => {
+                const on = next === true;
+                if (on) {
+                  if (checked) return;
+                  props.onChange([...props.selected, option.value]);
+                  return;
+                }
+                props.onChange(props.selected.filter((v) => v !== option.value));
+              }}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
