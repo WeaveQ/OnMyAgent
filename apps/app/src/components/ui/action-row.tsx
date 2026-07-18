@@ -49,8 +49,9 @@ const navTabButtonVariants = cva(
         underline: "px-3 pb-2 pt-0 text-sm font-semibold",
       },
       shape: {
-        pill: "rounded-full",
-        tab: "rounded-full",
+        // Slightly tighter than full pill — matches market header reference.
+        pill: "rounded-lg",
+        tab: "rounded-lg",
         underline: "rounded-none border-b-2 border-transparent bg-transparent shadow-none",
       },
     },
