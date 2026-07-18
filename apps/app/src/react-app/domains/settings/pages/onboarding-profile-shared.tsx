@@ -59,7 +59,30 @@ export const taskOptions: ProfileOption[] = [
   { value: "other", get label() { return t("profile.other"); } },
 ];
 
+/** 16 classic MBTI types (single-select). */
+export const mbtiOptions = [
+  "INTJ",
+  "INTP",
+  "ENTJ",
+  "ENTP",
+  "INFJ",
+  "INFP",
+  "ENFJ",
+  "ENFP",
+  "ISTJ",
+  "ISFJ",
+  "ESTJ",
+  "ESFJ",
+  "ISTP",
+  "ISFP",
+  "ESTP",
+  "ESFP",
+] as const;
 
+export const mbtiSelectItems = mbtiOptions.map((value) => ({
+  label: value,
+  value,
+}));
 
 /**
  * Soft filter / multi-select chip (image-1 style):

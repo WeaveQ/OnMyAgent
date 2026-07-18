@@ -57,8 +57,8 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
   // Match composer bottom chrome chips: text-xs / icon size-3.5 / chevron size-3.5.
   const triggerClass = compact
     ? props.value === "full"
-      ? "h-7 max-w-44 shrink min-w-0 gap-1.5 rounded-md px-1.5 text-xs font-normal leading-none text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
-      : "h-7 max-w-44 shrink min-w-0 gap-1.5 rounded-md px-1.5 text-xs font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
+      ? "h-8 max-w-44 shrink min-w-0 gap-1.5 rounded-lg px-2 text-xs font-normal leading-none text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
+      : "h-8 max-w-44 shrink min-w-0 gap-1.5 rounded-lg px-2 text-xs font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
     : props.value === "full"
       ? "max-h-9 max-w-44 shrink min-w-0 gap-1.5 px-2 text-sm font-normal text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60"
       : "max-h-9 max-w-44 shrink min-w-0 gap-1.5 px-2 text-sm font-normal text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60";

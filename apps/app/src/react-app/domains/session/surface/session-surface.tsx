@@ -1789,6 +1789,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     assistantCategoryId === "code"
       ? t("session.assistant_code_title")
       : t("session.assistant_work_title");
+  const assistantDraftHomeSubtitle =
+    assistantCategoryId === "code"
+      ? t("session.assistant_code_subtitle")
+      : t("session.assistant_work_subtitle");
 
   const draftWorkspaceAccessoryActive =
     Boolean(props.personalAssistantHome || props.assistantFeatureCategoryId) &&
@@ -2112,6 +2116,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           <SessionSurfaceDraftHome
             categoryId={assistantCategoryId}
             title={assistantDraftHomeTitle}
+            subtitle={assistantDraftHomeSubtitle}
           />
         ) : null}
         <div

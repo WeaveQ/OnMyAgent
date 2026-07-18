@@ -183,6 +183,10 @@ describe("settings route workspace model", () => {
       extensionsSection: "all",
     });
     expect(parseSettingsPath("/settings/den")).toEqual({ tab: "cloud-workers", redirectPath: "cloud-workers" });
+    expect(parseSettingsPath("/settings/archived-tasks")).toEqual({
+      tab: "archived-tasks",
+      redirectPath: null,
+    });
     expect(parseSettingsPath("/settings/nope")).toEqual({ tab: "general", redirectPath: "general" });
     expect(settingsPathForRoute({ tab: "extensions", redirectPath: null, extensionsSection: "mcp" })).toBe(
       "extensions/mcp",

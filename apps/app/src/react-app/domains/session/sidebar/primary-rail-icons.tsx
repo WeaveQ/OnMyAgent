@@ -81,7 +81,7 @@ export function FilesRailIcon(props: PrimaryRailIconProps) {
   );
 }
 
-/** Marketplace / store — shop front. */
+/** Marketplace / store — shopping bag (reads as a store, not a home). */
 export function StoreRailIcon(props: PrimaryRailIconProps) {
   return (
     <svg
@@ -93,13 +93,13 @@ export function StoreRailIcon(props: PrimaryRailIconProps) {
     >
       <path
         fillRule="evenodd"
-        d="M2.2 2.6A1.25 1.25 0 0 1 3.4 1.75h9.2c.57 0 1.07.38 1.22.93l.9 3.4c.2.76-.2 1.55-.92 1.9V13c0 .69-.56 1.25-1.25 1.25H3.45c-.69 0-1.25-.56-1.25-1.25V8.98c-.72-.35-1.12-1.14-.92-1.9l.9-3.4Zm1.2.65L2.65 6.5h2.1c.14-.52.55-.93 1.06-1.08L5.6 3.25H3.4Zm3.45 0 .2 2.17c.51.15.92.56 1.06 1.08h2.1c.14-.52.55-.93 1.06-1.08l.2-2.17H6.85Zm5.1 0-.2 2.17c.51.15.92.56 1.06 1.08h1.55l-.85-3.25h-1.56ZM3.45 8v5h3.3V10c0-.41.34-.75.75-.75h.9c.41 0 .75.34.75.75v3h3.4V8H3.45Zm4.55 2.75V13h.9v-2.25h-.9Z"
+        d="M5.4 2.15a.75.75 0 0 1 .75-.65h3.7a.75.75 0 0 1 .75.65V4h1.85c.55 0 1 .45 1 1v7.5c0 .97-.78 1.75-1.75 1.75H3.8c-.97 0-1.75-.78-1.75-1.75V5c0-.55.45-1 1-1H5.4V2.15Zm1.5.85V4h2.2V3H6.9ZM3.55 5.5v7.25c0 .14.11.25.25.25h8.4c.14 0 .25-.11.25-.25V5.5h-8.9Zm2.35 1.4a.75.75 0 0 1 .75.75v.35a1.35 1.35 0 0 0 2.7 0v-.35a.75.75 0 0 1 1.5 0v.35a2.85 2.85 0 0 1-5.7 0v-.35a.75.75 0 0 1 .75-.75Z"
       />
     </svg>
   );
 }
 
-/** Management — three equalizer sliders. */
+/** Management — horizontal control panel (three rows of dials). */
 export function ManageRailIcon(props: PrimaryRailIconProps) {
   return (
     <svg
@@ -109,9 +109,27 @@ export function ManageRailIcon(props: PrimaryRailIconProps) {
       aria-hidden="true"
       className={props.className}
     >
-      <path d="M3.25 1.75a.75.75 0 0 1 .75.75v2.85a1.75 1.75 0 1 1-1.5 0V2.5a.75.75 0 0 1 .75-.75Zm-.75 7.1v4.65a.75.75 0 0 0 1.5 0V8.85a1.76 1.76 0 0 1-1.5 0Z" />
-      <path d="M8 1.75a.75.75 0 0 1 .75.75v5.85a1.75 1.75 0 1 1-1.5 0V2.5A.75.75 0 0 1 8 1.75Zm-.75 10.1v1.65a.75.75 0 0 0 1.5 0v-1.65a1.76 1.76 0 0 1-1.5 0Z" />
-      <path d="M12.75 1.75a.75.75 0 0 1 .75.75v.85a1.75 1.75 0 1 1-1.5 0V2.5a.75.75 0 0 1 .75-.75Zm-.75 5.1v6.65a.75.75 0 0 0 1.5 0V6.85a1.76 1.76 0 0 1-1.5 0Z" />
+      <path d="M2 3.25a.75.75 0 0 1 .75-.75h5.1a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.25Zm8.35-.75a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm0 1.5a.25.25 0 1 1 0 .5.25.25 0 0 1 0-.5Z" />
+      <path d="M13.25 7.5a.75.75 0 0 1 0 1.5H8.15a.75.75 0 0 1 0-1.5h5.1ZM5.65 6.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm0 1.5a.25.25 0 1 1 0 .5.25.25 0 0 1 0-.5Z" />
+      <path d="M2 12.75a.75.75 0 0 1 .75-.75h5.1a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Zm8.35-.75a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm0 1.5a.25.25 0 1 1 0 .5.25.25 0 0 1 0-.5Z" />
+    </svg>
+  );
+}
+
+/** Message channels / IM — chat bubble with hollow body (same fill language as other rail icons). */
+export function ChannelsRailIcon(props: PrimaryRailIconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M1.5 6.85C1.5 3.85 4.36 1.5 8 1.5s6.5 2.35 6.5 5.35S11.64 12.2 8 12.2c-.58 0-1.14-.06-1.67-.18l-2.55 1.3a.65.65 0 0 1-.93-.72l.58-2.25C2.22 9.7 1.5 8.36 1.5 6.85Zm1.5 0c0 1.15.55 2.2 1.5 2.95a.75.75 0 0 1 .28.7l-.3 1.18 1.5-.76a.75.75 0 0 1 .52-.05c.48.12 1 .18 1.5.18 2.9 0 5-1.9 5-4.2S10.9 3 8 3 3 4.9 3 6.85Zm2.15-.1a.85.85 0 1 1 1.7 0 .85.85 0 0 1-1.7 0Zm2.5 0a.85.85 0 1 1 1.7 0 .85.85 0 0 1-1.7 0Zm2.5 0a.85.85 0 1 1 1.7 0 .85.85 0 0 1-1.7 0Z"
+      />
     </svg>
   );
 }

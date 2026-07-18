@@ -24,3 +24,21 @@ export type {
 } from "./onmyagent-server-store";
 export { OnMyAgentDenHelpLink } from "./onmyagent-den-help-link";
 export * from "./desktop-config-context";
+export {
+  ASSISTANT_ARCHIVED_TASKS_STORAGE_KEY,
+  type AssistantArchivedTask,
+  archiveAssistantTask,
+  archiveTaskInList,
+  archivedSessionIdSet,
+  assistantArchivedTasksChangedEvent,
+  dispatchAssistantArchivedTasksChanged,
+  filterGroupsExcludingArchived,
+  isArchivedSessionId,
+  permanentlyRemoveAssistantArchivedTask,
+  permanentlyRemoveFromList,
+  readAssistantArchivedTasks,
+  resolveOpenFolderPath,
+  restoreAssistantArchivedTask,
+  restoreTaskFromList,
+  writeAssistantArchivedTasks,
+} from "./assistant-archived-tasks";

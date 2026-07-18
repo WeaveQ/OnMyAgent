@@ -15,7 +15,6 @@ import {
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { AccessPermissionSelect } from "./composer/access-permission-select";
 import type { ComposerAccessMode } from "../../../../app/types";
 import {
@@ -75,20 +74,17 @@ export function SessionSurfaceHeader(props: {
 export function SessionSurfaceDraftHome(props: {
   categoryId: AssistantCategoryId;
   title: string;
+  subtitle?: string;
 }) {
   return (
-    <div className="mb-4 flex flex-col items-center text-center">
-      <img
-        src={resolvePublicAssetUrl("/onmyagent-logo.png")}
-        alt=""
-        aria-hidden="true"
-        className="mb-2 size-12 object-contain opacity-10"
-        draggable={false}
-      />
-      <div className="flex items-center gap-2 text-dls-text">
+    <div className="mb-6 flex flex-col items-center text-center">
+      <div className="flex items-center gap-2.5 text-dls-text">
         <AssistantDraftHomeMark categoryId={props.categoryId} />
         <h2 className={sessionSurfaceTextClass.draftHomeTitle}>{props.title}</h2>
       </div>
+      {props.subtitle ? (
+        <p className={sessionSurfaceTextClass.draftHomeSubtitle}>{props.subtitle}</p>
+      ) : null}
     </div>
   );
 }
@@ -104,8 +100,8 @@ export function SessionDraftWorkspaceAccessory(props: {
   onAccessModeChange: (mode: ComposerAccessMode) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 text-xs font-normal leading-none text-dls-secondary">
-      <div className="relative inline-flex items-center">
+    <div className="flex min-w-0 items-center gap-0.5 text-xs font-normal leading-none text-dls-secondary">
+      <div className="relative inline-flex min-w-0 items-center">
         {props.showFolderRequiredBubble ? (
           <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-text">
             <div className="font-medium text-dls-accent">
@@ -126,7 +122,7 @@ export function SessionDraftWorkspaceAccessory(props: {
             props.onPickDraftWorkspace?.();
           }}
           className={cn(
-            "h-7 justify-start gap-1.5 rounded-md px-1.5 text-left text-xs font-normal leading-none hover:text-dls-text [&_svg]:size-3.5",
+            "h-8 justify-start gap-1.5 rounded-lg px-2 text-left text-xs font-normal leading-none hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5",
             props.draftWorkspaceDirectory
               ? "text-dls-secondary"
               : props.assistantFeatureCategoryId === "code"
@@ -164,7 +160,7 @@ export function SessionDraftWorkspaceAccessory(props: {
             variant="ghost"
             size="icon-xs"
             onClick={props.onClearDraftWorkspace}
-            className="size-5 rounded-full text-dls-secondary hover:bg-dls-surface hover:text-dls-text"
+            className="size-6 rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
             title={t("session.clear_workspace_selection")}
             aria-label={t("session.clear_workspace_selection")}
           >

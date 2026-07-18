@@ -1,12 +1,12 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, Cloud, Cpu, FileText, HeartPulse, Loader2, Plug, Plus, RefreshCw, ShoppingBag, Sparkles, Wrench } from "lucide-react";
+import { Archive, Bot, Cpu, Plug, Plus, Puzzle, RefreshCw, UserRound, Zap } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { FilterChip, IconTile, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { FilterChip, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { shellChrome } from "@/react-app/design-system/type-scale";
@@ -164,15 +164,15 @@ function AgentManagementMetric(props: { label: string; value: string | number })
 
 const PANEL_TABS: Array<{
   id: AgentManagementPanel;
-  icon: typeof ShoppingBag;
+  icon: typeof Zap;
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  { id: "providers", icon: ShoppingBag, labelKey: "agent_manager.providers" },
-  { id: "agents", icon: Cpu, labelKey: "agent_manager.agent_check" },
-  { id: "skills", icon: FileText, labelKey: "agent_manager.skill_management" },
-  { id: "mcp", icon: Plug, labelKey: "agent_manager.mcp.tab" },
-  { id: "archive", icon: Archive, labelKey: "nav.session_archive", archiveOnly: true },
+  { id: "providers", icon: Zap, labelKey: "agent_manager.tab_providers" },
+  { id: "agents", icon: UserRound, labelKey: "agent_manager.tab_agents" },
+  { id: "skills", icon: Puzzle, labelKey: "agent_manager.tab_skills" },
+  { id: "mcp", icon: Plug, labelKey: "agent_manager.tab_mcp" },
+  { id: "archive", icon: Archive, labelKey: "agent_manager.tab_archive", archiveOnly: true },
 ];
 
 export function AgentManagementPage(props: {
@@ -589,8 +589,8 @@ export function AgentManagementPage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Store-style top chrome: segmented switch only (no page title). */}
-      <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3")}>
-        <SegmentedTabGroup density="filter">
+      <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3 border-b-0")}>
+        <SegmentedTabGroup density="bare">
           {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
             (tab) => {
               const Icon = tab.icon;
@@ -604,8 +604,8 @@ export function AgentManagementPage(props: {
                   size="tab"
                   shape="tab"
                 >
-                  <Icon className="size-3.5 shrink-0" />
-                  {t(tab.labelKey)}
+                  <Icon className="size-3.5" />
+                  <span className="leading-none">{t(tab.labelKey)}</span>
                 </NavTabButton>
               );
             },
@@ -645,14 +645,18 @@ export function AgentManagementPage(props: {
       <div
         className={cn(
           "min-h-0 flex-1",
-          activePanel === "archive" ? "overflow-hidden" : "overflow-y-auto px-6 py-4",
+          activePanel === "archive" || activePanel === "providers" || activePanel === "skills"
+            ? "overflow-hidden px-6 py-4"
+            : "overflow-y-auto px-6 py-4",
         )}
       >
         <div
           className={cn(
-            activePanel === "archive"
-              ? "flex h-full min-h-0 w-full flex-col"
-              : "mx-auto w-full max-w-6xl space-y-4",
+            activePanel === "skills"
+              ? "mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-4"
+              : activePanel === "archive" || activePanel === "providers"
+                ? "flex h-full min-h-0 w-full flex-col"
+                : "mx-auto w-full max-w-6xl space-y-4",
           )}
         >
           {error && activePanel !== "archive" ? (

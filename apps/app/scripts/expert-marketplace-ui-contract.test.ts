@@ -317,7 +317,8 @@ describe("expert marketplace UI contract", () => {
     expect(tabs).toContain("window.setTimeout");
     expect(tabs).toContain("setPendingSessionId(session.id)");
     expect(tabs).toContain("const active = session.id === activeSessionId");
-    expect(actionRow).toContain("border-dls-accent bg-dls-decision-soft font-medium text-dls-accent");
+    // Session tab active chrome: soft list-selected wash (not accent pill).
+    expect(actionRow).toContain("bg-dls-list-selected font-medium text-dls-text shadow-none");
   });
 
   test("expert session tabs separate expanded chrome and embed the collapse handle", () => {

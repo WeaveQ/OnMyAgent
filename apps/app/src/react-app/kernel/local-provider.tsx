@@ -28,9 +28,90 @@ export type OnboardingProfile = {
   industries: string[];
   tools: string[];
   tasks: string[];
+  /** Document output style preference for personal assistant. */
+  docPreference: "data" | "narrative" | "";
+  /** Free-form terminology / format notes. */
+  terminology: string;
   skipped: boolean;
   updatedAt: number;
 };
+
+export type ConversationMemoryItem = {
+  id: string;
+  text: string;
+  source: "dialog" | "manual";
+  updatedAt: number;
+  sessionId?: string;
+};
+
+export type ConversationMemoryState = {
+  /** Default false — opt-in only. */
+  enabled: boolean;
+  items: ConversationMemoryItem[];
+};
+
+export const DEFAULT_CONVERSATION_MEMORY: ConversationMemoryState = {
+  enabled: false,
+  items: [],
+};
+
+export function normalizeOnboardingProfile(
+  input: Partial<OnboardingProfile> | null | undefined,
+): OnboardingProfile | null {
+  if (!input || typeof input !== "object") return null;
+  return {
+    userName: typeof input.userName === "string" ? input.userName : "",
+    assistantName: typeof input.assistantName === "string" ? input.assistantName : "",
+    mbti: typeof input.mbti === "string" ? input.mbti : "",
+    roles: Array.isArray(input.roles) ? input.roles.filter((v): v is string => typeof v === "string") : [],
+    industries: Array.isArray(input.industries) ? input.industries.filter((v): v is string => typeof v === "string") : [],
+    tools: Array.isArray(input.tools) ? input.tools.filter((v): v is string => typeof v === "string") : [],
+    tasks: Array.isArray(input.tasks) ? input.tasks.filter((v): v is string => typeof v === "string") : [],
+    docPreference:
+      input.docPreference === "data" || input.docPreference === "narrative"
+        ? input.docPreference
+        : "",
+    terminology: typeof input.terminology === "string" ? input.terminology : "",
+    skipped: Boolean(input.skipped),
+    updatedAt: typeof input.updatedAt === "number" ? input.updatedAt : 0,
+  };
+}
+
+export function normalizeIdleHours(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 6;
+  return Math.min(168, Math.max(1, Math.round(n)));
+}
+
+export function normalizeConversationMemory(
+  input: Partial<ConversationMemoryState> | null | undefined,
+): ConversationMemoryState {
+  if (!input || typeof input !== "object") return { ...DEFAULT_CONVERSATION_MEMORY, items: [] };
+  const items = Array.isArray(input.items)
+    ? input.items
+        .filter((item): item is ConversationMemoryItem =>
+          Boolean(
+            item &&
+              typeof item === "object" &&
+              typeof item.id === "string" &&
+              typeof item.text === "string" &&
+              (item.source === "dialog" || item.source === "manual") &&
+              typeof item.updatedAt === "number",
+          ),
+        )
+        .map((item) => ({
+          id: item.id,
+          text: item.text,
+          source: item.source,
+          updatedAt: item.updatedAt,
+          sessionId: typeof item.sessionId === "string" ? item.sessionId : undefined,
+        }))
+    : [];
+  return {
+    enabled: Boolean(input.enabled),
+    items,
+  };
+}
 
 export type LocalPreferences = {
   showThinking: boolean;
@@ -59,6 +140,15 @@ export type LocalPreferences = {
    */
   hasCompletedOnboarding: boolean;
   onboardingProfile: OnboardingProfile | null;
+  /** Dialog-derived / manual personal memory facts. Default disabled. */
+  conversationMemory: ConversationMemoryState;
+  /**
+   * When true, sending after long inactivity creates a new session instead of
+   * continuing the idle thread (reduces stale context / token use).
+   */
+  autoNewSessionOnIdle: boolean;
+  /** Idle threshold in hours before auto-new-session applies. Default 6. */
+  autoNewSessionIdleHours: number;
 };
 
 type LocalContextValue = {
@@ -87,6 +177,9 @@ const INITIAL_PREFS: LocalPreferences = {
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,
   onboardingProfile: null,
+  conversationMemory: { enabled: false, items: [] },
+  autoNewSessionOnIdle: false,
+  autoNewSessionIdleHours: 6,
 };
 
 function readPersisted<T>(key: string, fallback: T): T {
@@ -123,13 +216,20 @@ export function LocalProvider({ children }: LocalProviderProps) {
   );
   const [prefs, setPrefsRaw] = useState<LocalPreferences>(() => {
     const persisted = readPersisted(PREFS_STORAGE_KEY, INITIAL_PREFS);
-    if (persisted.defaultModel) {
-      return persisted;
-    }
-    return {
+    const base: LocalPreferences = {
+      ...INITIAL_PREFS,
       ...persisted,
-      defaultModel: readStoredDefaultModel(),
+      featureFlags: {
+        ...INITIAL_PREFS.featureFlags,
+        ...(persisted.featureFlags ?? {}),
+      },
+      onboardingProfile: normalizeOnboardingProfile(persisted.onboardingProfile),
+      conversationMemory: normalizeConversationMemory(persisted.conversationMemory),
+      autoNewSessionOnIdle: Boolean(persisted.autoNewSessionOnIdle),
+      autoNewSessionIdleHours: normalizeIdleHours(persisted.autoNewSessionIdleHours),
+      defaultModel: persisted.defaultModel ?? readStoredDefaultModel(),
     };
+    return base;
   });
   const ready = true;
   const migratedThinkingRef = useRef(false);
