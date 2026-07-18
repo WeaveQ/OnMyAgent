@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const repoRoot = join(import.meta.dir, "../../..");
@@ -40,17 +40,14 @@ describe("session shared page layouts", () => {
     const filesPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
-    const imagePath = join(
-      repoRoot,
-      "apps/app/public/empty-states/cloud-drive-placeholder.png",
-    );
 
     expect(filesPage).toContain("CloudDriveEmptyState");
-    expect(filesPage).toContain("cloud-drive-placeholder.png");
+    expect(filesPage).toContain("CloudDriveIllustration");
     expect(filesPage).toContain('t("files.cloud_empty_title")');
     expect(filesPage).toContain('t("files.cloud_empty_description")');
     expect(filesPage).not.toContain('t("files.cloud_coming_soon")');
+    expect(filesPage).not.toContain("cloud-drive-placeholder.png");
     expect(filesPage).toContain('activeTab === "cloud" ? (');
-    expect(existsSync(imagePath)).toBe(true);
+    expect(filesPage).toContain('fill="currentColor"');
   });
 });

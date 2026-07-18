@@ -11,7 +11,10 @@ import type {
 import { normalizeDirectoryPath, safeStringify } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { resolveWorkspaceListSelectedId } from "../../../app/lib/desktop";
-import type { OnboardingProfile } from "../../kernel/local-provider";
+import type {
+  ConversationMemoryState,
+  OnboardingProfile,
+} from "../../kernel/local-provider";
 import type { AiSettingsConnectedProvider } from "../../domains/settings";
 
 export type RouteWorkspace = OnMyAgentWorkspaceInfo & {
@@ -21,10 +24,25 @@ export type RouteWorkspace = OnMyAgentWorkspaceInfo & {
 export function settingsMemoryHasChanges(input: {
   draft: OnboardingProfile | null;
   saved: OnboardingProfile | null;
+  conversationMemoryDraft?: ConversationMemoryState | null;
+  conversationMemorySaved?: ConversationMemoryState | null;
 }) {
-  if (input.draft === null && input.saved === null) return false;
-  if (input.draft === null || input.saved === null) return true;
-  return JSON.stringify(input.draft) !== JSON.stringify(input.saved);
+  const profileChanged = (() => {
+    if (input.draft === null && input.saved === null) return false;
+    if (input.draft === null || input.saved === null) return true;
+    return JSON.stringify(input.draft) !== JSON.stringify(input.saved);
+  })();
+  if (profileChanged) return true;
+  if (
+    input.conversationMemoryDraft === undefined &&
+    input.conversationMemorySaved === undefined
+  ) {
+    return false;
+  }
+  return (
+    JSON.stringify(input.conversationMemoryDraft ?? null) !==
+    JSON.stringify(input.conversationMemorySaved ?? null)
+  );
 }
 
 export type SettingsRoutePath = {
@@ -265,6 +283,8 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "updates":
     case "recovery":
     case "memory":
+    case "conversation-memory":
+    case "archived-tasks":
     case "debug":
     case "skills":
       return { tab: head, redirectPath: null };

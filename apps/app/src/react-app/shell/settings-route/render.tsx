@@ -38,6 +38,7 @@ import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigCont
 import { isOnMyAgentExtensionEnabled } from "../../domains/shared";
 import {
   AdvancedView,
+  ArchivedTasksView,
   AuthorizedFoldersPanel,
   CloudMarketplacesView,
   CloudProvidersView,
@@ -47,6 +48,7 @@ import {
   EnvironmentView,
   ExtensionsView,
   GeneralSettingsView,
+  ConversationMemoryView,
   McpView,
   MemoryView,
   MessagingView,
@@ -309,22 +311,30 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [memoryDraft, setMemoryDraft] = useState<OnboardingProfile | null>(() =>
     local.prefs.onboardingProfile,
   );
+  const [conversationMemoryDraft, setConversationMemoryDraft] = useState(
+    () => local.prefs.conversationMemory,
+  );
 
   useEffect(() => {
     setMemoryDraft(local.prefs.onboardingProfile);
   }, [local.prefs.onboardingProfile]);
 
+  useEffect(() => {
+    setConversationMemoryDraft(local.prefs.conversationMemory);
+  }, [local.prefs.conversationMemory]);
+
   const [memorySaved, setMemorySaved] = useState(false);
 
-  const memoryHasChanges = useMemo(
-    () => settingsMemoryHasChanges({
-      draft: memoryDraft,
-      saved: local.prefs.onboardingProfile,
-    }),
+  const profileHasChanges = useMemo(
+    () =>
+      settingsMemoryHasChanges({
+        draft: memoryDraft,
+        saved: local.prefs.onboardingProfile,
+      }),
     [memoryDraft, local.prefs.onboardingProfile],
   );
 
-  const handleMemorySave = useCallback(() => {
+  const handleProfileSave = useCallback(() => {
     if (!memoryDraft) return;
     local.setPrefs((previous) => ({
       ...previous,
@@ -334,17 +344,31 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setTimeout(() => setMemorySaved(false), 2000);
   }, [local, memoryDraft]);
 
-  const memoryToolbarSlot = route.tab === "memory" ? (
-    <div className="flex items-center justify-end">
-      <Button
-        type="button"
-        size="lg"
-        onClick={handleMemorySave}
-      >
-        {memorySaved ? t("settings.memory_saved") : t("settings.memory_save")}
-      </Button>
-    </div>
-  ) : undefined;
+  const persistConversationMemory = useCallback(
+    (next: typeof conversationMemoryDraft) => {
+      setConversationMemoryDraft(next);
+      local.setPrefs((previous) => ({
+        ...previous,
+        conversationMemory: next,
+      }));
+    },
+    [local],
+  );
+
+  // Profile (偏好) keeps an explicit save; conversation memory auto-persists.
+  const memoryToolbarSlot =
+    route.tab === "memory" ? (
+      <div className="flex items-center justify-end">
+        <Button
+          type="button"
+          size="lg"
+          disabled={!profileHasChanges && !memorySaved}
+          onClick={handleProfileSave}
+        >
+          {memorySaved ? t("settings.memory_saved") : t("settings.memory_save")}
+        </Button>
+      </div>
+    ) : undefined;
 
   const emptyWorkspaceDisplay = useMemo<WorkspaceDisplay>(
     () => ({
@@ -1534,7 +1558,18 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 void connectionsStore.refreshMcpServers();
               }}
             />
-            <SystemAuthorizationsView />
+            <SystemAuthorizationsView
+              busy={busy}
+              desktopNotifyOnAgentReady={
+                local.prefs.desktopNotifyOnAgentReady === true
+              }
+              onDesktopNotifyOnAgentReadyChange={(enabled) => {
+                local.setPrefs((previous) => ({
+                  ...previous,
+                  desktopNotifyOnAgentReady: enabled,
+                }));
+              }}
+            />
           </SettingsStack>
         );
       case "ai":
@@ -1586,10 +1621,19 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               industries: [],
               tools: [],
               tasks: [],
+              docPreference: "",
+              terminology: "",
               skipped: false,
               updatedAt: 0,
             }}
             onDraftChange={setMemoryDraft}
+          />
+        );
+      case "conversation-memory":
+        return (
+          <ConversationMemoryView
+            conversationMemory={conversationMemoryDraft}
+            onConversationMemoryChange={persistConversationMemory}
           />
         );
       case "preferences":
@@ -1611,11 +1655,18 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             autoCompactContext={autoCompactContext}
             autoCompactContextBusy={autoCompactContextBusy}
             onToggleAutoCompactContext={toggleAutoCompactContext}
-            desktopNotifyOnAgentReady={local.prefs.desktopNotifyOnAgentReady === true}
-            onDesktopNotifyOnAgentReadyChange={(enabled) => {
+            autoNewSessionOnIdle={local.prefs.autoNewSessionOnIdle === true}
+            autoNewSessionIdleHours={local.prefs.autoNewSessionIdleHours ?? 6}
+            onAutoNewSessionOnIdleChange={(enabled) => {
               local.setPrefs((previous) => ({
                 ...previous,
-                desktopNotifyOnAgentReady: enabled,
+                autoNewSessionOnIdle: enabled,
+              }));
+            }}
+            onAutoNewSessionIdleHoursChange={(hours) => {
+              local.setPrefs((previous) => ({
+                ...previous,
+                autoNewSessionIdleHours: hours,
               }));
             }}
           />
@@ -1864,6 +1915,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             configActionStatus={configActionStatus}
             cacheRepairResult={null}
             dockerCleanupResult={null}
+          />
+        );
+      case "archived-tasks":
+        return (
+          <ArchivedTasksView
+            client={onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient}
+            workspaceId={runtimeWorkspaceId?.trim() || selectedWorkspaceId}
           />
         );
       case "environment":

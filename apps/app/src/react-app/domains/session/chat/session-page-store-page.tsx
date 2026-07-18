@@ -1,12 +1,19 @@
 /** @jsxImportSource react */
+import type { ComponentType } from "react";
 import { useState } from "react";
+import { Puzzle, UserRound } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 
 type StorePrimaryTab = "experts" | "skills";
-type StorePrimaryTabItem = readonly [StorePrimaryTab, string];
+type StorePrimaryTabItem = {
+  id: StorePrimaryTab;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+};
 
 export function StorePage(props: {
   expertsSlot?: React.ReactNode;
@@ -17,29 +24,31 @@ export function StorePage(props: {
   );
   const tabs: StorePrimaryTabItem[] = props.expertsSlot
     ? [
-        ["experts", t("store.experts_tab")],
-        ["skills", t("store.skills_tab")],
+        { id: "experts", label: t("store.experts_tab"), icon: UserRound },
+        { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
       ]
-    : [
-        ["skills", t("store.skills_tab")],
-      ];
+    : [{ id: "skills", label: t("store.skills_tab"), icon: Puzzle }];
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
-      <div className={shellChrome.pageHeaderSimple}>
-        <SegmentedTabGroup density="filter">
-          {tabs.map(([tab, label]) => (
-            <NavTabButton
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              active={activeTab === tab}
-              size="tab"
-              shape="tab"
-            >
-              {label}
-            </NavTabButton>
-          ))}
+      <div className={cn(shellChrome.pageHeaderSimple, "border-b-0")}>
+        <SegmentedTabGroup density="bare">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <NavTabButton
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                active={activeTab === tab.id}
+                size="tab"
+                shape="tab"
+              >
+                <Icon className="size-3.5" />
+                <span className="leading-none">{tab.label}</span>
+              </NavTabButton>
+            );
+          })}
         </SegmentedTabGroup>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">

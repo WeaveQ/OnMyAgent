@@ -42,7 +42,7 @@ export default {
   "files.close_preview": "关闭预览",
   "files.copied": "已复制",
   "files.search_placeholder": "搜索文件、任务或工作空间",
-  "files.task_results": "任务成果",
+  "files.task_results": "我的文件",
   "files.title": "我的文件",
   "files.type_file": "文件",
   "files.type_folder": "文件夹",

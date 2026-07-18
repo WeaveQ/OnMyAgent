@@ -41,7 +41,11 @@ type AssistantConversationSectionsProps = {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onTogglePinned: (sessionId: string) => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
+  onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  onOpenFolder?: (path: string) => void;
+  /** sessionId → bound folder path (for open-folder menu item). */
+  folderPathBySessionId?: ReadonlyMap<string, string>;
 };
 
 function assistantDirectoryName(directory: string) {
@@ -147,11 +151,16 @@ function AssistantTaskRows(props: {
   pinned?: boolean;
   pinnable?: boolean;
   typeIcon?: React.ReactNode;
+  folderPathBySessionId?: ReadonlyMap<string, string>;
+  /** Fallback folder for all rows in this block (e.g. space directory). */
+  folderPath?: string | null;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onTogglePinned: (sessionId: string) => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
+  onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  onOpenFolder?: (path: string) => void;
 }) {
   return (
     <>
@@ -164,11 +173,18 @@ function AssistantTaskRows(props: {
           pinned={props.pinned}
           pinnable={props.pinnable}
           typeIcon={props.typeIcon}
+          folderPath={
+            props.folderPathBySessionId?.get(item.latestSession.id) ??
+            props.folderPath ??
+            null
+          }
           onOpenSession={props.onOpenSession}
           onPrefetchSession={props.onPrefetchSession}
           onTogglePinned={props.onTogglePinned}
           onRenameSession={props.onRenameSession}
+          onArchiveSession={props.onArchiveSession}
           onDeleteSession={props.onDeleteSession}
+          onOpenFolder={props.onOpenFolder}
         />
       ))}
     </>
@@ -375,11 +391,14 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   workspaceId={props.workspaceId}
                   selectedSessionId={props.selectedSessionId}
                   pinned
+                  folderPathBySessionId={props.folderPathBySessionId}
                   onOpenSession={props.onOpenSession}
                   onPrefetchSession={props.onPrefetchSession}
                   onTogglePinned={props.onTogglePinned}
                   onRenameSession={props.onRenameSession}
+                  onArchiveSession={props.onArchiveSession}
                   onDeleteSession={props.onDeleteSession}
+                  onOpenFolder={props.onOpenFolder}
                 />
               </div>
             </div>
@@ -390,11 +409,14 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                 groups={visibleTaskGroups}
                 workspaceId={props.workspaceId}
                 selectedSessionId={props.selectedSessionId}
+                folderPathBySessionId={props.folderPathBySessionId}
                 onOpenSession={props.onOpenSession}
                 onPrefetchSession={props.onPrefetchSession}
                 onTogglePinned={props.onTogglePinned}
                 onRenameSession={props.onRenameSession}
+                onArchiveSession={props.onArchiveSession}
                 onDeleteSession={props.onDeleteSession}
+                onOpenFolder={props.onOpenFolder}
               />
             </div>
           ) : null}
@@ -433,11 +455,15 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                           groups={items}
                           workspaceId={props.workspaceId}
                           selectedSessionId={props.selectedSessionId}
+                          folderPath={directory}
+                          folderPathBySessionId={props.folderPathBySessionId}
                           onOpenSession={props.onOpenSession}
                           onPrefetchSession={props.onPrefetchSession}
                           onTogglePinned={props.onTogglePinned}
                           onRenameSession={props.onRenameSession}
+                          onArchiveSession={props.onArchiveSession}
                           onDeleteSession={props.onDeleteSession}
+                          onOpenFolder={props.onOpenFolder}
                         />
                       </div>
                     ) : null}
@@ -483,11 +509,14 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                           selectedSessionId={props.selectedSessionId}
                           typeIcon={<CalendarClock className="size-3.5 text-dls-secondary" />}
                           pinnable={false}
+                          folderPathBySessionId={props.folderPathBySessionId}
                           onOpenSession={props.onOpenSession}
                           onPrefetchSession={props.onPrefetchSession}
                           onTogglePinned={props.onTogglePinned}
                           onRenameSession={props.onRenameSession}
+                          onArchiveSession={props.onArchiveSession}
                           onDeleteSession={props.onDeleteSession}
+                          onOpenFolder={props.onOpenFolder}
                         />
                       </div>
                     ) : null}

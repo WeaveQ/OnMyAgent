@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import type * as React from "react";
 import {
+  Archive,
   ArrowLeft,
   Bug,
   Brain,
@@ -83,7 +84,11 @@ export function getSettingsTabIcon(tab: SettingsTab) {
     case "recovery":
       return ShieldCheck;
     case "memory":
+      return UserCircle;
+    case "conversation-memory":
       return Brain;
+    case "archived-tasks":
+      return Archive;
     case "debug":
       return Bug;
     default:
@@ -121,6 +126,10 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.tab_recovery");
     case "memory":
       return t("settings.tab_memory");
+    case "conversation-memory":
+      return t("settings.tab_conversation_memory");
+    case "archived-tasks":
+      return t("settings.tab_archived_tasks");
     case "debug":
       return t("settings.tab_debug");
     case "general":
@@ -160,6 +169,10 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.tab_description_recovery");
     case "memory":
       return t("settings.tab_description_memory");
+    case "conversation-memory":
+      return t("settings.tab_description_conversation_memory");
+    case "archived-tasks":
+      return t("settings.tab_description_archived_tasks");
     case "debug":
       return t("settings.tab_description_debug");
     case "general":
@@ -170,7 +183,17 @@ export function getSettingsTabDescription(tab: SettingsTab) {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  return ["general", "preferences", "memory", "permissions"];
+  return [
+    "general",
+    "preferences",
+    "memory",
+    "conversation-memory",
+    "permissions",
+  ];
+}
+
+export function getArchivedSettingsTabs(): SettingsTab[] {
+  return ["archived-tasks"];
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
@@ -203,8 +226,46 @@ type SettingsSidebarProps = Pick<
   onClose: () => void;
 };
 
+function SettingsNavGroup(props: {
+  label: string;
+  tabs: SettingsTab[];
+  activeTab: SettingsTab;
+  onSelectTab: (tab: SettingsTab) => void;
+}) {
+  if (props.tabs.length === 0) return null;
+  return (
+    <SidebarGroup className="px-0 py-2">
+      <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>
+        {props.label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu className="gap-0.5">
+          {props.tabs.map((tab) => {
+            const Icon = getSettingsTabIcon(tab);
+            return (
+              <SidebarMenuItem key={tab}>
+                <SidebarMenuButton
+                  type="button"
+                  isActive={props.activeTab === tab}
+                  onClick={() => props.onSelectTab(tab)}
+                  size="settings"
+                  className={settingsNavButtonClass}
+                >
+                  <Icon />
+                  <span>{getSettingsTabLabel(tab)}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 export function SettingsSidebar(props: SettingsSidebarProps) {
   const workspaceTabs = getWorkspaceSettingsTabs();
+  const archivedTabs = getArchivedSettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
 
   return (
@@ -226,55 +287,24 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="px-2 pb-4">
-        <SidebarGroup className="px-0 py-2">
-          <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>{t("settings.group_workspace")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              {workspaceTabs.map((tab) => {
-                const Icon = getSettingsTabIcon(tab);
-                return (
-                  <SidebarMenuItem key={tab}>
-                    <SidebarMenuButton
-                      type="button"
-                      isActive={props.activeTab === tab}
-                      onClick={() => props.onSelectTab(tab)}
-                      size="settings"
-                      className={settingsNavButtonClass}
-                    >
-                      <Icon />
-                      <span>{getSettingsTabLabel(tab)}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="px-0 py-2">
-          <SidebarGroupLabel className={settingsSidebarGroupLabelClass}>{t("settings.group_global")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              {globalTabs.map((tab) => {
-                const Icon = getSettingsTabIcon(tab);
-                return (
-                  <SidebarMenuItem key={tab}>
-                    <SidebarMenuButton
-                      type="button"
-                      isActive={props.activeTab === tab}
-                      onClick={() => props.onSelectTab(tab)}
-                      size="settings"
-                      className={settingsNavButtonClass}
-                    >
-                      <Icon />
-                      <span>{getSettingsTabLabel(tab)}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <SettingsNavGroup
+          label={t("settings.group_workspace")}
+          tabs={workspaceTabs}
+          activeTab={props.activeTab}
+          onSelectTab={props.onSelectTab}
+        />
+        <SettingsNavGroup
+          label={t("settings.group_global")}
+          tabs={globalTabs}
+          activeTab={props.activeTab}
+          onSelectTab={props.onSelectTab}
+        />
+        <SettingsNavGroup
+          label={t("settings.group_archived")}
+          tabs={archivedTabs}
+          activeTab={props.activeTab}
+          onSelectTab={props.onSelectTab}
+        />
       </SidebarContent>
     </Sidebar>
   );
