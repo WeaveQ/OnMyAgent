@@ -1,24 +1,23 @@
 import {
   AlarmClock,
+  AlertTriangle,
   Bug,
   CalendarDays,
   ClipboardList,
   FileCode,
-  Film,
   GitPullRequest,
-  HeartPulse,
-  HelpCircle,
-  Image,
   Languages,
   ListChecks,
-  Moon,
   Newspaper,
   PackageCheck,
-  PhoneCall,
   Presentation,
+  Receipt,
+  Route,
   ScrollText,
   ShieldCheck,
   Tags,
+  Truck,
+  Wallet,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -41,6 +40,10 @@ export type AutomationTemplate = {
   promptKey: string;
   icon: ComponentType<{ className?: string }>;
   defaultSchedule: AutomationDefaultSchedule;
+  /** L2 vertical ids for personalization ranking (empty = generic/shared). */
+  verticalIds?: string[];
+  roleTags?: string[];
+  taskTags?: string[];
 };
 
 const defaultDailySchedule: AutomationDefaultSchedule = {
@@ -50,6 +53,88 @@ const defaultDailySchedule: AutomationDefaultSchedule = {
 };
 
 export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
+  // —— 物流（office）——
+  {
+    id: "logistics-dispatch-brief",
+    category: "office",
+    titleKey: "automation.template_logistics_dispatch_brief_title",
+    descriptionKey: "automation.template_logistics_dispatch_brief_desc",
+    promptKey: "automation.template_logistics_dispatch_brief_prompt",
+    icon: Truck,
+    defaultSchedule: { ...defaultDailySchedule, time: "08:00" },
+    verticalIds: ["logistics-supply", "manufacturing-ops"],
+    roleTags: ["operations", "logistics-ops", "management"],
+    taskTags: ["dispatch", "daily-brief"],
+  },
+  {
+    id: "logistics-exception-followup",
+    category: "office",
+    titleKey: "automation.template_logistics_exception_followup_title",
+    descriptionKey: "automation.template_logistics_exception_followup_desc",
+    promptKey: "automation.template_logistics_exception_followup_prompt",
+    icon: AlertTriangle,
+    defaultSchedule: { ...defaultDailySchedule, time: "10:00" },
+    verticalIds: ["logistics-supply", "manufacturing-ops"],
+    roleTags: ["operations", "logistics-ops"],
+    taskTags: ["dispatch", "customer-communication"],
+  },
+  {
+    id: "logistics-in-transit-risk",
+    category: "office",
+    titleKey: "automation.template_logistics_in_transit_risk_title",
+    descriptionKey: "automation.template_logistics_in_transit_risk_desc",
+    promptKey: "automation.template_logistics_in_transit_risk_prompt",
+    icon: Route,
+    defaultSchedule: { ...defaultDailySchedule, time: "14:00" },
+    verticalIds: ["logistics-supply"],
+    roleTags: ["operations", "logistics-ops"],
+    taskTags: ["dispatch", "data-analysis"],
+  },
+  {
+    id: "logistics-weekly-ops-report",
+    category: "office",
+    titleKey: "automation.template_logistics_weekly_ops_report_title",
+    descriptionKey: "automation.template_logistics_weekly_ops_report_desc",
+    promptKey: "automation.template_logistics_weekly_ops_report_prompt",
+    icon: ClipboardList,
+    defaultSchedule: {
+      mode: "weekly",
+      day: "weekly",
+      time: "17:30",
+    },
+    verticalIds: ["logistics-supply", "manufacturing-ops"],
+    roleTags: ["operations", "management"],
+    taskTags: ["weekly-report", "data-analysis"],
+  },
+  {
+    id: "logistics-pod-chase",
+    category: "office",
+    titleKey: "automation.template_logistics_pod_chase_title",
+    descriptionKey: "automation.template_logistics_pod_chase_desc",
+    promptKey: "automation.template_logistics_pod_chase_prompt",
+    icon: Receipt,
+    defaultSchedule: { ...defaultDailySchedule, time: "16:00" },
+    verticalIds: ["logistics-supply"],
+    roleTags: ["operations", "finance", "sales"],
+    taskTags: ["customer-communication", "recon"],
+  },
+  {
+    id: "logistics-recon-reminder",
+    category: "office",
+    titleKey: "automation.template_logistics_recon_reminder_title",
+    descriptionKey: "automation.template_logistics_recon_reminder_desc",
+    promptKey: "automation.template_logistics_recon_reminder_prompt",
+    icon: Wallet,
+    defaultSchedule: {
+      mode: "weekly",
+      day: "weekly",
+      time: "09:30",
+    },
+    verticalIds: ["logistics-supply", "finance-pro", "ecommerce-retail"],
+    roleTags: ["finance", "operations"],
+    taskTags: ["recon", "data-analysis"],
+  },
+  // —— 通用（office）——
   {
     id: "daily-ai-news",
     category: "office",
@@ -58,6 +143,8 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     promptKey: "automation.template_daily_ai_news_prompt",
     icon: Newspaper,
     defaultSchedule: defaultDailySchedule,
+    verticalIds: [],
+    taskTags: ["daily-brief"],
   },
   {
     id: "daily-english-words",
@@ -67,15 +154,8 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     promptKey: "automation.template_daily_english_words_prompt",
     icon: Languages,
     defaultSchedule: defaultDailySchedule,
-  },
-  {
-    id: "daily-bedtime-story",
-    category: "office",
-    titleKey: "automation.template_daily_bedtime_story_title",
-    descriptionKey: "automation.template_daily_bedtime_story_desc",
-    promptKey: "automation.template_daily_bedtime_story_prompt",
-    icon: Moon,
-    defaultSchedule: { ...defaultDailySchedule, time: "20:30" },
+    verticalIds: ["education"],
+    taskTags: ["study-plan"],
   },
   {
     id: "weekly-work-report",
@@ -87,62 +167,10 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     defaultSchedule: {
       mode: "weekly",
       day: "weekly",
-      time: "17:30",
+      time: "17:00",
     },
-  },
-  {
-    id: "classic-movie-recommendation",
-    category: "office",
-    titleKey: "automation.template_classic_movie_title",
-    descriptionKey: "automation.template_classic_movie_desc",
-    promptKey: "automation.template_classic_movie_prompt",
-    icon: Film,
-    defaultSchedule: defaultDailySchedule,
-  },
-  {
-    id: "today-in-history",
-    category: "office",
-    titleKey: "automation.template_today_history_title",
-    descriptionKey: "automation.template_today_history_desc",
-    promptKey: "automation.template_today_history_prompt",
-    icon: CalendarDays,
-    defaultSchedule: defaultDailySchedule,
-  },
-  {
-    id: "daily-why",
-    category: "office",
-    titleKey: "automation.template_daily_why_title",
-    descriptionKey: "automation.template_daily_why_desc",
-    promptKey: "automation.template_daily_why_prompt",
-    icon: HelpCircle,
-    defaultSchedule: defaultDailySchedule,
-  },
-  {
-    id: "parent-contact-reminder",
-    category: "office",
-    titleKey: "automation.template_parent_contact_title",
-    descriptionKey: "automation.template_parent_contact_desc",
-    promptKey: "automation.template_parent_contact_prompt",
-    icon: AlarmClock,
-    defaultSchedule: { ...defaultDailySchedule, time: "10:00" },
-  },
-  {
-    id: "health-check-reminder",
-    category: "office",
-    titleKey: "automation.template_health_check_title",
-    descriptionKey: "automation.template_health_check_desc",
-    promptKey: "automation.template_health_check_prompt",
-    icon: HeartPulse,
-    defaultSchedule: { ...defaultDailySchedule, time: "07:00" },
-  },
-  {
-    id: "interview-prep-reminder",
-    category: "office",
-    titleKey: "automation.template_interview_prep_title",
-    descriptionKey: "automation.template_interview_prep_desc",
-    promptKey: "automation.template_interview_prep_prompt",
-    icon: PhoneCall,
-    defaultSchedule: { ...defaultDailySchedule, time: "09:00" },
+    verticalIds: [],
+    taskTags: ["weekly-report"],
   },
   {
     id: "meeting-prep",
@@ -152,16 +180,36 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     promptKey: "automation.template_meeting_prep_prompt",
     icon: Presentation,
     defaultSchedule: { ...defaultDailySchedule, time: "09:30" },
+    verticalIds: [],
+    taskTags: ["meeting-notes"],
   },
   {
-    id: "cute-pet-wallpaper",
+    id: "today-in-history",
     category: "office",
-    titleKey: "automation.template_pet_wallpaper_title",
-    descriptionKey: "automation.template_pet_wallpaper_desc",
-    promptKey: "automation.template_pet_wallpaper_prompt",
-    icon: Image,
+    titleKey: "automation.template_today_history_title",
+    descriptionKey: "automation.template_today_history_desc",
+    promptKey: "automation.template_today_history_prompt",
+    icon: CalendarDays,
     defaultSchedule: defaultDailySchedule,
+    verticalIds: ["education"],
+    taskTags: ["study-plan"],
   },
+  {
+    id: "parent-contact-reminder",
+    category: "office",
+    titleKey: "automation.template_parent_contact_title",
+    descriptionKey: "automation.template_parent_contact_desc",
+    promptKey: "automation.template_parent_contact_prompt",
+    icon: AlarmClock,
+    defaultSchedule: {
+      mode: "weekly",
+      day: "weekly",
+      time: "10:00",
+    },
+    verticalIds: [],
+    taskTags: [],
+  },
+  // —— code 场景（不变）——
   {
     id: "code-daily-review",
     category: "code",
@@ -170,6 +218,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     promptKey: "automation.template_code_daily_review_prompt",
     icon: GitPullRequest,
     defaultSchedule: { ...defaultDailySchedule, time: "18:00" },
+    verticalIds: ["software-product", "game-entertainment"],
+    roleTags: ["technology"],
+    taskTags: ["code"],
   },
   {
     id: "code-ci-followup",
@@ -179,6 +230,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     promptKey: "automation.template_code_ci_followup_prompt",
     icon: ListChecks,
     defaultSchedule: { ...defaultDailySchedule, time: "10:00" },
+    verticalIds: ["software-product"],
+    roleTags: ["technology"],
+    taskTags: ["code"],
   },
   {
     id: "code-dependency-health",
@@ -192,6 +246,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       day: "weekly",
       time: "10:30",
     },
+    verticalIds: ["software-product"],
+    roleTags: ["technology"],
+    taskTags: ["code"],
   },
   {
     id: "code-security-check",
@@ -205,6 +262,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       day: "weekly",
       time: "11:00",
     },
+    verticalIds: ["software-product"],
+    roleTags: ["technology"],
+    taskTags: ["code", "compliance"],
   },
   {
     id: "code-todo-cleanup",
@@ -218,6 +278,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       day: "weekly",
       time: "16:00",
     },
+    verticalIds: ["software-product", "game-entertainment"],
+    roleTags: ["technology"],
+    taskTags: ["code"],
   },
   {
     id: "code-docs-sync",
@@ -231,6 +294,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       day: "weekly",
       time: "16:30",
     },
+    verticalIds: ["software-product"],
+    roleTags: ["technology", "product"],
+    taskTags: ["code"],
   },
   {
     id: "code-release-notes",
@@ -244,6 +310,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       day: "weekly",
       time: "17:00",
     },
+    verticalIds: ["software-product"],
+    roleTags: ["technology", "product"],
+    taskTags: ["code", "weekly-report"],
   },
   {
     id: "code-file-change-summary",
@@ -253,8 +322,21 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     promptKey: "automation.template_code_file_change_summary_prompt",
     icon: FileCode,
     defaultSchedule: defaultDailySchedule,
+    verticalIds: ["software-product", "game-entertainment"],
+    roleTags: ["technology"],
+    taskTags: ["code"],
   },
 ];
+
+/** Logistics template ids used by personalization plans. */
+export const LOGISTICS_AUTOMATION_TEMPLATE_IDS = [
+  "logistics-dispatch-brief",
+  "logistics-exception-followup",
+  "logistics-in-transit-risk",
+  "logistics-weekly-ops-report",
+  "logistics-pod-chase",
+  "logistics-recon-reminder",
+] as const;
 
 export function getAutomationTemplatesForScene(scene: AutomationScene): AutomationTemplate[] {
   return AUTOMATION_TEMPLATES.filter((template) => template.category === "shared" || template.category === scene);
