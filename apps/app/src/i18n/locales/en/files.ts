@@ -44,7 +44,7 @@ export default {
   "files.close_preview": "Close preview",
   "files.copied": "Copied",
   "files.search_placeholder": "Search files, tasks, or workspaces",
-  "files.task_results": "Task results",
+  "files.task_results": "My files",
   "files.title": "My files",
   "files.type_file": "File",
   "files.type_folder": "Folder",
