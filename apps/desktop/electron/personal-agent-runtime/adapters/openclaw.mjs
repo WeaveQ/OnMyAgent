@@ -112,7 +112,8 @@ function waitForProcess(child, timeoutMs) {
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
-      child.kill("SIGTERM");
+      // Tree-kill on timeout so Windows agent grandchildren do not orphan.
+      void terminateProcessTree(child).catch(() => undefined);
     }, timeoutMs);
     child.stdout?.on("data", (chunk) => {
       stdout += chunk.toString("utf8");

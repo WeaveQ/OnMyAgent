@@ -1,9 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { writeJsonFile } from "./utils.mjs";
+import {
+  forceKillProcessTree,
+  resolveProcessTreeKillPlan,
+  waitForExit,
+  writeJsonFile,
+} from "./utils.mjs";
 
 test("writeJsonFile survives concurrent writers to same target (no ENOENT rename race)", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "onmyagent-writejson-"));
@@ -19,4 +25,79 @@ test("writeJsonFile survives concurrent writers to same target (no ENOENT rename
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("resolveProcessTreeKillPlan uses taskkill /T /F on win32", () => {
+  const plan = resolveProcessTreeKillPlan({ platform: "win32", pid: 4242, force: true });
+  assert.equal(plan.kind, "taskkill");
+  assert.equal(plan.command, "taskkill");
+  assert.deepEqual(plan.args, ["/pid", "4242", "/T", "/F"]);
+});
+
+test("resolveProcessTreeKillPlan soft taskkill omits /F when force=false", () => {
+  const plan = resolveProcessTreeKillPlan({ platform: "win32", pid: 99, force: false });
+  assert.equal(plan.kind, "taskkill");
+  assert.deepEqual(plan.args, ["/pid", "99", "/T"]);
+  assert.ok(!plan.args.includes("/F"));
+});
+
+test("resolveProcessTreeKillPlan uses posix process-group signals off Windows", () => {
+  for (const platform of ["darwin", "linux"]) {
+    const plan = resolveProcessTreeKillPlan({ platform, pid: 1001, force: true });
+    assert.equal(plan.kind, "posix-group");
+    assert.deepEqual(plan.signals, ["SIGTERM", "SIGKILL"]);
+  }
+});
+
+test("resolveProcessTreeKillPlan is noop without pid", () => {
+  assert.equal(resolveProcessTreeKillPlan({ platform: "win32", pid: 0 }).kind, "noop");
+  assert.equal(resolveProcessTreeKillPlan({ platform: "win32" }).kind, "noop");
+});
+
+test("forceKillProcessTree falls back to child.kill when no pid (mock platform)", () => {
+  const signals = [];
+  const child = {
+    pid: undefined,
+    exitCode: null,
+    signalCode: null,
+    kill(signal) {
+      signals.push(signal);
+    },
+  };
+  forceKillProcessTree(child, { platform: "win32" });
+  assert.deepEqual(signals, ["SIGKILL"]);
+});
+
+test("forceKillProcessTree is a no-op when child already exited", () => {
+  const signals = [];
+  const child = {
+    pid: 12,
+    exitCode: 0,
+    signalCode: null,
+    kill(signal) {
+      signals.push(signal);
+    },
+  };
+  forceKillProcessTree(child, { platform: "darwin" });
+  assert.deepEqual(signals, []);
+});
+
+test("waitForExit resolves immediately when child already closed", async () => {
+  const child = { exitCode: 0, signalCode: null, once() {} };
+  await waitForExit(child, 50);
+});
+
+test("waitForExit force-kills the tree after timeout", async () => {
+  const signals = [];
+  const child = new EventEmitter();
+  child.pid = undefined;
+  child.exitCode = null;
+  child.signalCode = null;
+  child.kill = (signal) => {
+    signals.push(signal);
+  };
+  const started = Date.now();
+  await waitForExit(child, 30);
+  assert.ok(Date.now() - started >= 25, "should wait at least the timeout");
+  assert.deepEqual(signals, ["SIGKILL"]);
 });

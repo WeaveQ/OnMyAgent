@@ -30,6 +30,65 @@ function commandExists(command) {
   return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
 }
 
+/**
+ * Quote a path for embedding in a Windows cmd.exe /K command string.
+ * @param {string} value
+ */
+export function quoteWindowsCmdArg(value) {
+  const text = String(value ?? "");
+  if (!/[ \t"&<>|^]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Quote a path for embedding in a PowerShell -Command string (single-quoted literal).
+ * @param {string} value
+ */
+export function quoteWindowsPowerShellLiteral(value) {
+  return `'${String(value ?? "").replace(/'/g, "''")}'`;
+}
+
+/**
+ * Pure decision helper for the Windows "open terminal in workspace" cascade:
+ * Windows Terminal (`wt.exe -d`) → PowerShell (`Set-Location`) → cmd (`/K cd /D`).
+ * Never uses `start "" <path>` (file-association / Explorer open).
+ *
+ * @param {string} workspacePath
+ * @param {{ hasCommand?: (name: string) => boolean }} [options]
+ * @returns {{ command: string; args: string[]; strategy: "wt" | "powershell" | "cmd" }}
+ */
+export function resolveWindowsTerminalLaunch(workspacePath, options = {}) {
+  const hasCommand =
+    typeof options.hasCommand === "function"
+      ? options.hasCommand
+      : (name) => Boolean(commandPath(name));
+  // Caller already path.resolve()'d on the host platform; do not re-resolve so
+  // unit tests can pass Windows-style paths on non-Windows CI hosts.
+  const resolved = String(workspacePath ?? "").trim();
+
+  if (hasCommand("wt.exe") || hasCommand("wt")) {
+    return {
+      command: "wt.exe",
+      args: ["-d", resolved],
+      strategy: "wt",
+    };
+  }
+
+  if (hasCommand("powershell.exe") || hasCommand("powershell")) {
+    return {
+      command: "powershell.exe",
+      args: ["-NoExit", "-Command", `Set-Location -LiteralPath ${quoteWindowsPowerShellLiteral(resolved)}`],
+      strategy: "powershell",
+    };
+  }
+
+  return {
+    command: "cmd.exe",
+    args: ["/K", `cd /D ${quoteWindowsCmdArg(resolved)}`],
+    strategy: "cmd",
+  };
+}
+
 export function resolveEditorCommand() {
   const configured = process.env.ONMYAGENT_EDITOR || process.env.VISUAL || process.env.EDITOR;
   if (configured && commandExists(configured)) return configured;
@@ -549,8 +608,9 @@ async function openCodeWorkspace(input = {}) {
       command = "open";
       args = ["-a", "Terminal", resolvedWorkspacePath];
     } else if (process.platform === "win32") {
-      command = "cmd.exe";
-      args = ["/c", "start", "", resolvedWorkspacePath];
+      const launch = resolveWindowsTerminalLaunch(resolvedWorkspacePath);
+      command = launch.command;
+      args = launch.args;
     } else {
       const terminalCommand = commandPath("gnome-terminal")
         ? "gnome-terminal"
