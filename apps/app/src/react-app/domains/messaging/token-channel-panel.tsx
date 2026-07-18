@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../design-system/select-menu";
 import { AccessibleRootRow } from "../../design-system/accessible-root-row";
 import { t } from "../../../i18n";
@@ -185,17 +186,34 @@ function agentPayload(agent: PersonalLocalAgent) {
   };
 }
 
-function PanelSection(props: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
+function PanelSection(props: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <section className="space-y-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section
+      className={cn(
+        "space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4",
+        props.className,
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-medium text-dls-text">{props.title}</div>
           {props.description ? (
-            <p className="mt-0.5 max-w-2xl text-xs leading-5 text-dls-secondary">{props.description}</p>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-dls-secondary">
+              {props.description}
+            </p>
           ) : null}
         </div>
-        {props.actions ? <div className="flex shrink-0 flex-wrap items-center gap-1.5">{props.actions}</div> : null}
+        {props.actions ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {props.actions}
+          </div>
+        ) : null}
       </div>
       {props.children}
     </section>
@@ -204,18 +222,20 @@ function PanelSection(props: { title: string; description?: string; actions?: Re
 
 function FieldLabel(props: { label: string; children: ReactNode; hint?: string }) {
   return (
-    <label className="min-w-0 text-xs text-dls-secondary">
-      <span className="mb-1 block">{props.label}</span>
+    <label className="flex min-w-0 flex-col gap-1.5 text-xs text-dls-secondary">
+      <span className="font-medium text-dls-secondary">{props.label}</span>
       {props.children}
-      {props.hint ? <span className="mt-1 block text-xs leading-4 text-dls-secondary">{props.hint}</span> : null}
+      {props.hint ? (
+        <span className="text-xs leading-4 text-dls-secondary/90">{props.hint}</span>
+      ) : null}
     </label>
   );
 }
 
-function Metric(props: { label: string; value: string }) {
+function MetricInline(props: { label: string; value: string }) {
   return (
-    <span className="inline-flex min-w-0 max-w-full items-baseline gap-1.5 text-xs text-dls-secondary">
-      <span className="shrink-0">{props.label}</span>
+    <span className="inline-flex min-w-0 max-w-full items-baseline gap-1.5">
+      <span className="shrink-0 text-dls-secondary">{props.label}</span>
       <span className="truncate font-medium text-dls-text">{props.value}</span>
     </span>
   );
@@ -499,36 +519,180 @@ export function TokenChannelPanel(props: {
   const canSave = Boolean(accountId.trim() && token.trim()) && !busy;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-dls-secondary">
+    <div className="space-y-3">
+      {/* Runtime status strip */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="tiny">{serviceState.status ?? "stopped"}</StatusBadge>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={refresh} disabled={Boolean(busy)} aria-label={t("common.refresh")}>
-            {busy === "refresh" ? <LoadingSpinner size="default" /> : <RefreshCw className="size-4" />}
+          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="tiny">
+            {serviceState.status ?? "stopped"}
+          </StatusBadge>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={refresh}
+            disabled={Boolean(busy)}
+            aria-label={t("common.refresh")}
+            className="text-dls-secondary hover:text-dls-text"
+          >
+            {busy === "refresh" ? (
+              <LoadingSpinner size="default" />
+            ) : (
+              <RefreshCw className="size-3.5" />
+            )}
           </Button>
         </div>
         <span className="hidden h-3 w-px bg-dls-border sm:block" aria-hidden />
-        <Metric label={t(cfg.tokenLabelKey)} value={account?.accountId || effectiveAccountId || "--"} />
-        <Metric label={t("messaging.weixin_last_message")} value={shortTime(serviceState.lastMessageAt)} />
-        <Metric label={t("messaging.weixin_counts")} value={`${serviceState.processedCount ?? 0}/${serviceState.sentCount ?? 0}`} />
+        <MetricInline
+          label={t(cfg.tokenLabelKey)}
+          value={account?.accountId || effectiveAccountId || "--"}
+        />
+        <MetricInline
+          label={t("messaging.weixin_last_message")}
+          value={shortTime(serviceState.lastMessageAt)}
+        />
+        <MetricInline
+          label={t("messaging.weixin_counts")}
+          value={`${serviceState.processedCount ?? 0}/${serviceState.sentCount ?? 0}`}
+        />
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            onClick={startService}
+            disabled={!canStart || Boolean(busy)}
+          >
+            {busy === "start" ? busyIcon : <Play className="size-3.5" />}
+            {t(cfg.startKey)}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={stopService}
+            disabled={!running || Boolean(busy)}
+          >
+            {busy === "stop" ? busyIcon : <Square className="size-3.5" />}
+            {t(cfg.stopKey)}
+          </Button>
+        </div>
       </div>
+
+      {serviceState.lastError || error ? (
+        <NoticeBox tone="error" className="break-words leading-5">
+          {serviceState.lastError || error}
+        </NoticeBox>
+      ) : null}
+
+      <PanelSection title={t(cfg.tokenLabelKey)} description={t(cfg.descKey)}>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Input
+            value={accountId}
+            onChange={(event) => setAccountId(event.currentTarget.value)}
+            placeholder="account_id"
+          />
+          <Input
+            value={token}
+            onChange={(event) => setToken(event.currentTarget.value)}
+            placeholder={t(cfg.tokenPlaceholderKey)}
+            type="password"
+          />
+        </div>
+        {cfg.needsAllowedUsers ? (
+          <FieldLabel label={t(cfg.allowedUsersLabelKey ?? "")}>
+            <Textarea
+              className="font-mono text-xs"
+              value={allowedUsers}
+              onChange={(event) => setAllowedUsers(event.currentTarget.value)}
+              placeholder={t(cfg.allowedUsersPlaceholderKey ?? "")}
+              rows={2}
+              disabled={running || Boolean(busy)}
+            />
+          </FieldLabel>
+        ) : null}
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={saveManualAccount}
+            disabled={!canSave}
+          >
+            {busy === "save" ? busyIcon : <Save className="size-3.5" />}
+            {t(cfg.saveKey)}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={testConnection}
+            disabled={!effectiveAccountId || Boolean(busy)}
+            title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
+          >
+            {busy === "test" ? busyIcon : <Plug className="size-3.5" />}
+            {t("messaging.weixin_test_connection")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={simulateInbound}
+            disabled={Boolean(busy)}
+          >
+            {busy === "simulate" ? busyIcon : <Send className="size-3.5" />}
+            {t(cfg.simulateKey)}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void openDesktopUrl(cfg.helpLinkUrl)}
+          >
+            <ExternalLink className="size-3.5" />
+            {t(cfg.helpLinkKey)}
+          </Button>
+        </div>
+        {probeResult ? (
+          probeResult.ok ? (
+            <NoticeBox tone="info" className="break-words leading-5">
+              {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
+            </NoticeBox>
+          ) : (
+            <NoticeBox tone="error" className="break-words leading-5">
+              {probeResult.error ?? t("messaging.weixin_test_failed")}
+            </NoticeBox>
+          )
+        ) : null}
+      </PanelSection>
 
       <PanelSection
         title={t("messaging.weixin_access_workspace_title")}
         description={t("messaging.weixin_access_workspace_desc")}
-        actions={(
+        actions={
           <>
-            <Button type="button" variant="outline" size="sm" onClick={() => void chooseAccessWorkspace()} disabled={running || Boolean(busy)}>
-              <FolderOpen className="size-4" />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void chooseAccessWorkspace()}
+              disabled={running || Boolean(busy)}
+            >
+              <FolderOpen className="size-3.5" />
               {t("messaging.weixin_access_workspace_pick")}
             </Button>
             {props.workspaceRoot ? (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setAccessWorkspaceRoot(props.workspaceRoot ?? "")} disabled={running || Boolean(busy)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setAccessWorkspaceRoot(props.workspaceRoot ?? "")}
+                disabled={running || Boolean(busy)}
+              >
                 {t("messaging.weixin_access_workspace_use_current")}
               </Button>
             ) : null}
           </>
-        )}
+        }
       >
         <Input
           className="font-mono text-xs"
@@ -537,69 +701,62 @@ export function TokenChannelPanel(props: {
           placeholder={t("messaging.weixin_access_workspace_placeholder")}
           disabled={running || Boolean(busy)}
         />
-        <div className="mt-3 border-t border-dls-border pt-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-medium text-dls-text">{t("messaging.weixin_access_workspace_extra_title")}</div>
-              <div className="mt-1 text-xs leading-5 text-dls-secondary">{t("messaging.weixin_access_workspace_extra_desc")}</div>
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => void addAccessibleWorkspaceRoot()} disabled={running || Boolean(busy)}>
-              <FolderOpen className="size-4" />
+        <div className="rounded-lg border border-dls-border/70 bg-dls-background/60 px-3 py-2.5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-medium text-dls-secondary">
+              {t("messaging.weixin_access_workspace_extra_title")}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void addAccessibleWorkspaceRoot()}
+              disabled={running || Boolean(busy)}
+            >
+              <FolderOpen className="size-3.5" />
               {t("messaging.weixin_access_workspace_extra_add")}
             </Button>
           </div>
           {effectiveAccessibleRoots.length ? (
-            <div className="mt-2 flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {effectiveAccessibleRoots.map((root) => (
                 <AccessibleRootRow
                   key={root}
                   root={root}
-                  onRemove={(target) => setAccessibleWorkspaceRoots((current) => current.filter((item) => item !== target))}
+                  onRemove={(target) =>
+                    setAccessibleWorkspaceRoots((current) =>
+                      current.filter((item) => item !== target),
+                    )
+                  }
                   disabled={running || Boolean(busy)}
                   removeLabel={t("messaging.weixin_access_workspace_extra_remove")}
                 />
               ))}
             </div>
           ) : (
-            <NoticeBox tone="neutral" className="mt-2">
+            <p className="text-xs text-dls-secondary">
               {t("messaging.weixin_access_workspace_extra_empty")}
-            </NoticeBox>
+            </p>
           )}
         </div>
       </PanelSection>
 
-      <PanelSection title={t(cfg.tokenLabelKey)} description={t(cfg.descKey)}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input value={accountId} onChange={(event) => setAccountId(event.currentTarget.value)} placeholder="account_id" />
-          <Input value={token} onChange={(event) => setToken(event.currentTarget.value)} placeholder={t(cfg.tokenPlaceholderKey)} type="password" />
-        </div>
-        {cfg.needsAllowedUsers ? (
-          <div className="mt-3">
-            <FieldLabel label={t(cfg.allowedUsersLabelKey ?? "")}>
-              <Textarea
-                className="font-mono text-xs"
-                value={allowedUsers}
-                onChange={(event) => setAllowedUsers(event.currentTarget.value)}
-                placeholder={t(cfg.allowedUsersPlaceholderKey ?? "")}
-                rows={2}
-                disabled={running || Boolean(busy)}
-              />
-            </FieldLabel>
-          </div>
-        ) : null}
-      </PanelSection>
-
       <PanelSection
         title={t("identities.message_routing_title")}
-        description={t("messaging.configure_agent_desc")}
-        actions={(
-          <Button type="button" variant="ghost" size="sm" onClick={() => void refreshAgents()} disabled={running || Boolean(busy)}>
-            <RefreshCw className="size-4" />
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void refreshAgents()}
+            disabled={running || Boolean(busy)}
+          >
+            <RefreshCw className="size-3.5" />
             {t("common.refresh")}
           </Button>
-        )}
+        }
       >
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <FieldLabel label={t("messaging.weixin_reply_agent")}>
             <SelectMenu
               size="compact"
@@ -634,70 +791,10 @@ export function TokenChannelPanel(props: {
             />
           </FieldLabel>
         </div>
+        <p className="rounded-lg bg-dls-background/70 px-3 py-2 text-xs leading-5 text-dls-secondary">
+          {t(cfg.agentHelpKey)}
+        </p>
       </PanelSection>
-
-      <PanelSection title={t("status.running")} description={t("identities.message_routing_desc")}>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={saveManualAccount} disabled={!canSave}>
-            {busy === "save" ? busyIcon : <Save className="size-4" />}
-            {t(cfg.saveKey)}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={startService} disabled={!canStart || Boolean(busy)}>
-            {busy === "start" ? busyIcon : <Play className="size-4" />}
-            {t(cfg.startKey)}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={stopService} disabled={!running || Boolean(busy)}>
-            {busy === "stop" ? busyIcon : <Square className="size-4" />}
-            {t(cfg.stopKey)}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={simulateInbound} disabled={Boolean(busy)}>
-            {busy === "simulate" ? busyIcon : <Send className="size-4" />}
-            {t(cfg.simulateKey)}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={testConnection}
-            disabled={!effectiveAccountId || Boolean(busy)}
-            title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
-          >
-            {busy === "test" ? busyIcon : <Plug className="size-4" />}
-            {t("messaging.weixin_test_connection")}
-          </Button>
-        </div>
-        {probeResult ? (
-          <div className="mt-2">
-            {probeResult.ok ? (
-              <NoticeBox tone="info" className="break-words leading-5">
-                {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
-              </NoticeBox>
-            ) : (
-              <NoticeBox tone="error" className="break-words leading-5">
-                {probeResult.error ?? t("messaging.weixin_test_failed")}
-              </NoticeBox>
-            )}
-          </div>
-        ) : null}
-      </PanelSection>
-
-      {serviceState.lastError || error ? (
-        <NoticeBox tone="error" className="break-words leading-5">
-          {serviceState.lastError || error}
-        </NoticeBox>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="ghost" size="sm" onClick={() => void openDesktopUrl(cfg.helpLinkUrl)}>
-          <ExternalLink className="size-4" />
-          {t(cfg.helpLinkKey)}
-        </Button>
-      </div>
-
-      {/* Agent switch tip */}
-      <div className="rounded-lg border border-dls-border bg-dls-surface-muted px-3 py-2 text-xs leading-5 text-dls-secondary">
-        {t(cfg.agentHelpKey)}
-      </div>
     </div>
   );
 }
