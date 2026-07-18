@@ -2,6 +2,10 @@
  * L2 vertical workspaces for personalization.
  * Explicitly excluded (do not add): energy/energy-green, real-estate*,
  * healthcare, agri-food / food-as-primary-vertical.
+ *
+ * industries / roles use the collapsed profile taxonomy
+ * (see profile-option-aliases.ts). Old fine-grained values are
+ * canonicalized before scoring.
  */
 
 export type PersonalizationVerticalId =
@@ -48,8 +52,8 @@ export type PersonalizationVertical = {
 export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   {
     id: "solo-opc",
-    industries: ["opc-general", "content-creation", "student"],
-    roles: ["opc", "content", "management"],
+    industries: ["opc-general", "media", "student"],
+    roles: ["opc", "operations", "management"],
     tasks: ["content-ops", "weekly-report", "customer-communication"],
     tools: ["xiaohongshu", "douyin", "wechat-oa"],
     defaultWorkbench: "office",
@@ -70,16 +74,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "ecommerce-retail",
-    industries: [
-      "retail",
-      "ecommerce",
-      "cross-border",
-      "livestream",
-      "fmcg",
-      "beauty",
-      "fashion",
-    ],
-    roles: ["operations", "sales", "content", "marketing"],
+    industries: ["ecommerce"],
+    roles: ["operations", "sales", "supply-chain"],
     tasks: ["content-ops", "campaign", "customer-communication", "data-analysis"],
     tools: ["xiaohongshu", "douyin", "excel", "wps"],
     defaultWorkbench: "office",
@@ -100,15 +96,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "content-media",
-    industries: [
-      "media",
-      "content-creation",
-      "advertising",
-      "short-video",
-      "livestream-media",
-      "publishing",
-    ],
-    roles: ["content", "marketing", "operations"],
+    industries: ["media"],
+    roles: ["operations", "product"],
     tasks: ["content-ops", "campaign", "weekly-report"],
     tools: ["xiaohongshu", "douyin", "bilibili", "canva"],
     defaultWorkbench: "office",
@@ -124,17 +113,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "software-product",
-    industries: [
-      "internet",
-      "software",
-      "ai",
-      "cloud",
-      "cybersecurity",
-      "telecom",
-      "semiconductors",
-      "hardware",
-    ],
-    roles: ["technology", "product", "design", "data"],
+    industries: ["internet", "hardware"],
+    roles: ["technology", "product"],
     tasks: ["code", "data-analysis", "weekly-report", "meeting-notes"],
     tools: ["codex", "claude-code", "github", "vscode"],
     defaultWorkbench: "code",
@@ -155,8 +135,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "game-entertainment",
-    industries: ["gaming", "digital-entertainment", "film-tv", "sports"],
-    roles: ["technology", "design", "product", "content"],
+    industries: ["gaming"],
+    roles: ["technology", "product", "operations"],
     tasks: ["code", "content-ops", "weekly-report"],
     tools: ["github", "figma", "claude-code"],
     defaultWorkbench: "code",
@@ -171,16 +151,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "logistics-supply",
-    industries: [
-      "logistics",
-      "warehousing",
-      "express",
-      "freight",
-      "cold-chain",
-      "customs-trade",
-      "procurement",
-    ],
-    roles: ["operations", "logistics-ops", "supply-chain", "warehouse", "management", "finance"],
+    industries: ["logistics"],
+    roles: ["operations", "supply-chain", "management", "finance"],
     tasks: [
       "dispatch",
       "recon",
@@ -210,15 +182,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "manufacturing-ops",
-    industries: [
-      "manufacturing",
-      "automotive",
-      "electronics-mfg",
-      "machinery",
-      "chemicals",
-      "materials",
-    ],
-    roles: ["operations", "quality", "manufacturing-eng", "procurement", "management"],
+    industries: ["manufacturing"],
+    roles: ["operations", "manufacturing-eng", "supply-chain", "management"],
     tasks: ["daily-brief", "quality-check", "inventory", "weekly-report", "data-analysis"],
     tools: ["excel", "erp", "feishu"],
     defaultWorkbench: "office",
@@ -238,16 +203,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "enterprise-ops",
-    industries: ["consulting", "hr-services", "accounting", "legal-services"],
-    roles: [
-      "sales",
-      "admin",
-      "hr",
-      "legal",
-      "management",
-      "customer-success",
-      "finance",
-    ],
+    industries: ["consulting"],
+    roles: ["sales", "hr", "finance", "management"],
     tasks: [
       "meeting-notes",
       "weekly-report",
@@ -275,15 +232,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "finance-pro",
-    industries: [
-      "finance",
-      "banking",
-      "securities",
-      "insurance",
-      "asset-management",
-      "fintech",
-    ],
-    roles: ["finance", "data", "management", "legal"],
+    industries: ["finance"],
+    roles: ["finance", "technology", "management"],
     tasks: ["data-analysis", "weekly-report", "recon", "compliance", "contract-review"],
     tools: ["excel", "wps", "feishu"],
     defaultWorkbench: "office",
@@ -302,15 +252,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "education",
-    industries: [
-      "education",
-      "k12",
-      "higher-ed",
-      "vocational",
-      "edtech",
-      "training",
-    ],
-    roles: ["teacher", "content", "operations", "admin"],
+    industries: ["education"],
+    roles: ["teacher", "operations", "hr"],
     tasks: ["study-plan", "content-ops", "weekly-report", "meeting-notes"],
     tools: ["wps", "feishu", "notion"],
     defaultWorkbench: "office",
@@ -328,14 +271,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "travel-local",
-    industries: [
-      "travel",
-      "hospitality",
-      "local-life",
-      "transport-passenger",
-      "aviation",
-    ],
-    roles: ["operations", "sales", "content", "customer-success"],
+    industries: ["travel"],
+    roles: ["operations", "sales"],
     tasks: ["customer-communication", "daily-brief", "weekly-report"],
     tools: ["feishu", "wecom", "excel"],
     defaultWorkbench: "office",
@@ -344,8 +281,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
   },
   {
     id: "public-sector",
-    industries: ["government", "public-service", "nonprofit"],
-    roles: ["admin", "management", "legal", "operations"],
+    industries: ["government"],
+    roles: ["hr", "management", "finance", "operations"],
     tasks: ["meeting-notes", "email-drafting", "weekly-report", "compliance"],
     tools: ["wps", "feishu", "excel"],
     defaultWorkbench: "office",

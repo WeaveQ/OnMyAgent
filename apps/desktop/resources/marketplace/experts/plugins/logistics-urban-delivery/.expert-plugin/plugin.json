@@ -1,0 +1,52 @@
+{
+  "name": "logistics-urban-delivery",
+  "version": "1.0.0",
+  "description": "Urban and short-haul delivery ops: multi-stop windows, waiting fees, last-mile refusal, day-clear recon",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "logistics-urban-delivery",
+  "agents": ["./agents/logistics-urban-delivery.md"],
+  "skills": ["./skills/urban-delivery-ops"],
+  "displayName": { "en": "Urban Delivery Ops", "zh": "短途城配专家" },
+  "profession": { "en": "Urban / Short-Haul Delivery Lead", "zh": "短途城配作业" },
+  "displayDescription": {
+    "en": "Multi-stop city routes, time windows, wait/notify fees, last-mile refusal, and day-clear settlement for local delivery.",
+    "zh": "同城/城配作业：多点顺序、时段窗、等通知计费、末端拒收、日清对账。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "今天 12 个点城配，都在浦东，时段 9–18 点，帮我排个送货顺序建议和报价结构（起步+点位+等候）。",
+    "en": "12 stops in Pudong today, 9–18 window: stop order suggestion and quote structure (base + per stop + wait)."
+  },
+  "tags": [
+    { "zh": "城配", "en": "Urban delivery" },
+    { "zh": "短途", "en": "Short haul" },
+    { "zh": "多点", "en": "Multi-stop" },
+    { "zh": "日清", "en": "Day clear" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "今天 12 个点城配，都在浦东，时段 9–18 点，帮我排个送货顺序建议和报价结构（起步+点位+等候）。",
+      "en": "12 Pudong stops, 9–18: order suggestion and base+stop+wait quote."
+    },
+    {
+      "zh": "客户不在拒收，已经等了 40 分钟，城配怎么计等候费和二次配送话术？",
+      "en": "Customer absent after 40 min wait: wait fee and redelivery scripts."
+    },
+    {
+      "zh": "城配日清：今天 30 票，有 3 票代收和 2 票未签，帮我列日清核对清单。",
+      "en": "Day-clear: 30 tickets, 3 COD, 2 unsigned — checklist."
+    },
+    {
+      "zh": "商场限时进货 6–8 点，超时进不去，报价和异常责任怎么写？",
+      "en": "Mall receiving only 6–8am: quote terms and delay liability wording."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【短途城配专家】。\n\n专管：多点配送、时段窗、等通知/等候费、末端拒收、日清对账。\n不给违法闯禁区建议；路径顺序是作业建议不是导航引擎。\n\n丢点位清单或说「日清」。",
+    "en": "Boss, I'm Urban Delivery Ops.\n\nMulti-stop, windows, wait fees, refusal, day-clear.\nNo illegal zone-running tips; stop order is operational advice, not a router.\n\nDrop stop list or say day-clear."
+  }
+}
