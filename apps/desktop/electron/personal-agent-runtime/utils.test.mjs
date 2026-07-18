@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -89,12 +88,18 @@ test("waitForExit resolves immediately when child already closed", async () => {
 
 test("waitForExit force-kills the tree after timeout", async () => {
   const signals = [];
-  const child = new EventEmitter();
-  child.pid = undefined;
-  child.exitCode = null;
-  child.signalCode = null;
-  child.kill = (signal) => {
-    signals.push(signal);
+  // Plain ChildProcess-shaped stub (not EventEmitter) so electron tsc accepts
+  // pid/exitCode/signalCode/kill without TS2339 on EventEmitter.
+  const child = {
+    pid: undefined,
+    exitCode: null,
+    signalCode: null,
+    kill(signal) {
+      signals.push(signal);
+    },
+    once(_event, _handler) {
+      // Timeout path is under test; never emit "close".
+    },
   };
   const started = Date.now();
   await waitForExit(child, 30);
