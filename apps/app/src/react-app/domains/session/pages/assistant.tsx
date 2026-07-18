@@ -68,7 +68,7 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import { AgentManagementPage } from "../../local-agents";
 import { AutomationPage, MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
-import { permanentlyRemoveAssistantArchivedTask } from "../sidebar/assistant-archived-tasks";
+import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,

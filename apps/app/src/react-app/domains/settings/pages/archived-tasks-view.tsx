@@ -30,7 +30,7 @@ import {
   permanentlyRemoveAssistantArchivedTask,
   readAssistantArchivedTasks,
   restoreAssistantArchivedTask,
-} from "../../session/sidebar/assistant-archived-tasks";
+} from "../../shared";
 
 export type ArchivedTasksViewProps = {
   client: OnMyAgentServerClient | null;
