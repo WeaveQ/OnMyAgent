@@ -186,6 +186,11 @@ export default {
   "settings.archived_tasks_kind_scheduled": "Scheduled tasks",
   "settings.archived_tasks_delete_all": "Delete all",
   "settings.archived_tasks_delete": "Delete permanently",
+  "settings.archived_tasks_delete_project_all":
+    "Delete all archived tasks in project",
+  "settings.archived_tasks_delete_project_all_confirm":
+    "Permanently delete {count} archived tasks in “{project}”. This cannot be undone.",
+  "settings.archived_tasks_project_menu": "Project actions",
   "settings.archived_tasks_unarchive": "Unarchive",
   "settings.archived_tasks_loading": "Loading archived tasks…",
   "settings.archived_tasks_empty": "No archived tasks",
@@ -193,7 +198,7 @@ export default {
   "settings.archived_tasks_empty_hint": "Assistant tasks you archive from the task list appear here for restore or permanent delete.",
   "settings.archived_tasks_assistant_section": "Assistant tasks",
   "settings.archived_tasks_no_workspace": "Select a workspace to manage archived tasks.",
-  "settings.archived_tasks_unknown_project": "Unknown project",
+  "settings.archived_tasks_unknown_project": "Unscoped",
   "settings.archived_tasks_count": "{count} tasks",
   "settings.hide_titlebar": "Hide titlebar",
   "settings.hide_titlebar_desc":

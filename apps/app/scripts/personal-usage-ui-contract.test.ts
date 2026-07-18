@@ -41,7 +41,12 @@ describe("personal usage UI contract", () => {
     expect(page).toContain('"daily"');
     expect(page).toContain('"weekly"');
     expect(page).toContain('"cumulative"');
-    expect(page).toContain("size-3");
+    // Trailing-year heatmap fills width (no horizontal scrollbar / trim).
+    expect(page).toContain("buildTokenActivitySeries");
+    expect(page).not.toContain("trimLeadingEmptyActivityColumns");
+    expect(page).not.toContain("overflow-x-auto");
+    expect(page).not.toContain("min-w-3xl");
+    expect(page).toContain("aspect-square");
     expect(page).toContain("rounded-xs");
     expect(page).toContain("aria-label");
     expect(page).toContain("usage_daily_tooltip");

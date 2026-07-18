@@ -7,6 +7,7 @@ import { t } from "../../../../../i18n";
 import { ActionRowButton, DisclosureRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
 import { extractPlanDetailSections, resolvePlanStepItems } from "./plan-parse";
 import { sessionSurfaceStateClass } from "../surface-styles";
@@ -87,7 +88,7 @@ export function TodoPanel(props: { todos: TodoItem[] }) {
                     {done ? (
                       <Check size={12} />
                     ) : active ? (
-                      <span className={sessionSurfaceStateClass.todoActiveDot} />
+                      <StatusDot size="xs" tone="warning" />
                     ) : null}
                   </div>
                 </div>
@@ -243,9 +244,7 @@ export function PlanApprovalPanel(props: {
                       {done ? (
                         <Check size={12} />
                       ) : active ? (
-                        <span
-                          className={sessionSurfaceStateClass.todoActiveDot}
-                        />
+                        <StatusDot size="xs" tone="warning" />
                       ) : null}
                     </div>
                   </div>

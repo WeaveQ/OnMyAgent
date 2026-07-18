@@ -21,6 +21,7 @@ import {
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import { PaperGrainGradient } from "@onmyagent/ui/react";
 import { ActionRowButton, DisclosureRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
@@ -66,7 +67,6 @@ const sessionSurfaceTextClass = {
 const sessionSurfaceStateClass = {
   todoDone: "border-dls-status-success bg-dls-status-success-soft text-dls-status-success-fg",
   todoActive: "border-dls-status-warning bg-dls-status-warning-soft text-dls-status-warning-fg",
-  todoActiveDot: "size-1.5 rounded-full bg-dls-status-warning",
   errorPanel: "rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-5 py-4",
   errorText: "text-sm font-medium text-dls-status-danger",
   errorDismiss: "shrink-0 text-dls-status-danger hover:bg-dls-status-danger/10 hover:text-dls-status-danger",
@@ -302,7 +302,7 @@ export function TodoPanel(props: { todos: TodoItem[] }) {
                     {done ? (
                       <Check size={12} />
                     ) : active ? (
-                      <span className={sessionSurfaceStateClass.todoActiveDot} />
+                      <StatusDot size="xs" tone="warning" />
                     ) : null}
                   </div>
                 </div>
@@ -462,9 +462,7 @@ export function PlanApprovalPanel(props: {
                       {done ? (
                         <Check size={12} />
                       ) : active ? (
-                        <span
-                          className={sessionSurfaceStateClass.todoActiveDot}
-                        />
+                        <StatusDot size="xs" tone="warning" />
                       ) : null}
                     </div>
                   </div>

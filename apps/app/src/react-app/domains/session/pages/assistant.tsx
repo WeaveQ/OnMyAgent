@@ -51,7 +51,7 @@ import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
-import { ConversationHistoryPanel } from "../sidebar/conversation-history-panel";
+import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
@@ -485,8 +485,8 @@ export function AssistantPage(props: AssistantPageProps) {
   const openAssistantSidePanelMenu = useCallback(() => {
     assistantSidePanelWidthRef.current = ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH;
     setBrowserPanelWidth(ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH);
-    // Default right pane for assistant: conversation history.
-    setCurrentSidePanel("history");
+    // Right rail stays workspace tools (not history — history is a header popover).
+    setCurrentSidePanel("codeMenu");
   }, [setBrowserPanelWidth, setCurrentSidePanel]);
 
   const handleHistorySelectPrompt = useCallback(
@@ -670,6 +670,13 @@ export function AssistantPage(props: AssistantPageProps) {
       setCurrentSidePanel(null);
     }
   }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
+
+  // History is a header popover now; clear any persisted right-rail "history".
+  useEffect(() => {
+    if (sessionSidePanel === "history") {
+      setCurrentSidePanel(null);
+    }
+  }, [sessionSidePanel, setCurrentSidePanel]);
 
   const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
@@ -888,8 +895,7 @@ export function AssistantPage(props: AssistantPageProps) {
         ? "0/0"
         : "";
 
-  // Search expands in the main header (same chrome as in-chat find), not inside
-  // the history side panel body.
+  // Header chrome: 🔍 find (inline expand) · 🕐 history questions popover · ▤ workspace rail
   const headerPanelControls = (
     <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
       {historySearchOpen ? (
@@ -999,6 +1005,12 @@ export function AssistantPage(props: AssistantPageProps) {
           <Search className="size-3.5" />
         </Button>
       )}
+      <ConversationHistoryPopover
+        client={props.onmyagentServerClient}
+        workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+        sessionId={props.selectedSessionId}
+        onSelectPrompt={handleHistorySelectPrompt}
+      />
       <Button
         data-code-side-panel-toggle="true"
         type="button"
@@ -1017,8 +1029,8 @@ export function AssistantPage(props: AssistantPageProps) {
             openAssistantSidePanelMenu();
           }
         }}
-        title={t("session.conversation_history_toggle")}
-        aria-label={t("session.conversation_history_toggle")}
+        title={t("session.code_side_panel_toggle")}
+        aria-label={t("session.code_side_panel_toggle")}
         aria-expanded={sidePanelOpen}
       >
         <PanelRight className="size-3.5" />
@@ -1511,23 +1523,6 @@ export function AssistantPage(props: AssistantPageProps) {
                         client={props.onmyagentServerClient}
                         sessionId={props.selectedSessionId}
                         onClose={closeRightPane}
-                      />
-                    ) : activeSidePanel === "history" ||
-                      activeSidePanel === "codeMenu" ? (
-                      <ConversationHistoryPanel
-                        client={props.onmyagentServerClient}
-                        workspaceId={
-                          props.runtimeWorkspaceId ?? props.selectedWorkspaceId
-                        }
-                        sessionId={props.selectedSessionId}
-                        onClose={closeRightPane}
-                        onSelectPrompt={handleHistorySelectPrompt}
-                        // Header find owns match count via SessionSurface;
-                        // list may mirror the query but must not overwrite n/m.
-                        searchQuery={
-                          historySearchOpen ? historySearchQuery : undefined
-                        }
-                        activeMatchIndex={historyActiveMatch}
                       />
                     ) : (
                       <CodeWorkspaceSidePanel

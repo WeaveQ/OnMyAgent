@@ -5,8 +5,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { StatusPing } from "@/components/ui/status-dot";
-import { cn } from "@/lib/utils";
+import {
+  StatusDot as StatusDotPrimitive,
+  StatusPing,
+} from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { usePlatform } from "../../../../kernel/platform";
 import {
@@ -32,16 +34,16 @@ function StatusDot({ variant }: StatusDotProps) {
   }
 
   return (
-    <span className="relative flex size-2.5 shrink-0 items-center justify-center">
-      <span
-        className={cn(
-          "relative inline-flex size-2.5 rounded-full",
-          variant === "connected" && "bg-dls-accent",
-          variant === "partial" && "bg-dls-status-warning",
-          variant === "disconnected" && "bg-dls-status-danger",
-        )}
-      />
-    </span>
+    <StatusDotPrimitive
+      size="sm"
+      tone={
+        variant === "connected"
+          ? "active"
+          : variant === "partial"
+            ? "warning"
+            : "danger"
+      }
+    />
   );
 }
 

@@ -1,4 +1,3 @@
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { CSSProperties } from "react";
 import {
@@ -27,6 +26,7 @@ import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyStateBox } from "@/components/ui/notice-box";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusDot } from "@/components/ui/status-dot";
 import {
@@ -1010,14 +1010,26 @@ export function VoicePanel(props: VoicePanelProps) {
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
-            <span
-              className={cn(
-                "size-2 rounded-full bg-dls-surface-muted-foreground",
-                status === "connecting" && "animate-pulse bg-dls-status-warning",
-                (status === "listening" || status === "speaking") &&
-                  "bg-dls-accent",
-                status === "error" && "bg-dls-danger",
-              )}
+            <StatusDot
+              size="md"
+              pulse={status === "connecting"}
+              tone={
+                status === "connecting"
+                  ? "warning"
+                  : status === "listening" || status === "speaking"
+                    ? "active"
+                    : status === "error"
+                      ? "danger"
+                      : "muted"
+              }
+              className={
+                status === "connecting" ||
+                status === "listening" ||
+                status === "speaking" ||
+                status === "error"
+                  ? undefined
+                  : "bg-dls-surface-muted-foreground"
+              }
             />
             <Radio className="text-primary" />
             Voice Mode

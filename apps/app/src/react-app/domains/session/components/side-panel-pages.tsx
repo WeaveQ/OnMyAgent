@@ -22,6 +22,7 @@ import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { CountBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
@@ -139,7 +140,7 @@ function BillingTabButton(props: {
 function BillingMetric(props: { color: string; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className={cn("size-1.5 rounded-full", props.color)} />
+      <StatusDot size="xs" tone="current" className={props.color} />
       <span className="flex-1">{props.label}</span>
       <span className="font-medium">{props.value}</span>
     </div>

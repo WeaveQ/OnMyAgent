@@ -526,7 +526,6 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                     disabled={props.importingConfig}
                     variant="ghost"
                     size="sm"
-                    className="rounded-full"
                   >
                     {props.importingConfig ? (
                       <span className="inline-flex items-center gap-2">
