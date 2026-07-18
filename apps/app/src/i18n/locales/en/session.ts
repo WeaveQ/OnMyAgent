@@ -87,6 +87,8 @@ export default {
   "session.conversation_history_toggle": "Conversation history",
   "session.conversation_history_reuse": "Fill into composer",
   "session.conversation_history_search_placeholder": "Search past questions…",
+  "session.conversation_history_search_header_placeholder": "Search conversation",
+  "session.conversation_history_search_tooltip": "Search in conversation ({shortcut})",
   "session.conversation_history_search_prev": "Previous match",
   "session.conversation_history_search_next": "Next match",
   "session.conversation_history_search_clear": "Clear search",
