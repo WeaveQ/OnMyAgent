@@ -18,7 +18,7 @@ describe("assistant navigation typography contract", () => {
     expect(headerSource).not.toContain("<CirclePlus");
   });
 
-  test("uses 13px primary text with 12px auxiliary text", () => {
+  test("uses text-sm list rhythm without arbitrary text-[Npx]", () => {
     const primitiveSource = readFileSync(
       join(repoRoot, "apps/app/src/components/ui/action-row.tsx"),
       "utf8",
@@ -45,29 +45,20 @@ describe("assistant navigation typography contract", () => {
       "utf8",
     );
 
-    expect(primitiveSource).toContain('sidebar: "h-8 gap-2 rounded-lg px-2 text-[13px] font-normal"');
-    expect(primitiveSource).toContain('className: "font-medium"');
-    expect(controlsSource).toContain("px-4 text-[13px] transition-colors");
-    expect(controlsSource).toContain('? "font-medium text-dls-text"');
-    expect(controlsSource).toContain(': "font-normal text-dls-text');
+    // NavList sidebar density: sm scale (not arbitrary 13px).
+    expect(primitiveSource).toContain(
+      'sidebar: "h-9 gap-2 rounded-xl px-2.5 text-sm font-normal"',
+    );
+    expect(controlsSource).toContain('size="sidebar"');
     expect(controlsSource).toContain('<Icon className="size-4 shrink-0" />');
-    expect(controlsSource).not.toContain(
-      '<Icon className="size-4 shrink-0 text-dls-secondary" />',
-    );
     expect(taskSource).toContain('props.selected ? "font-medium" : "font-normal"');
-    expect(taskSource).toContain("text-left text-[13px] leading-5");
-    expect(taskSource).toContain(
-      "shrink-0 text-xs leading-5 text-dls-text/30",
-    );
-    expect(sectionsSource).toContain(
-      'gap-1.5 text-[13px] font-normal text-dls-secondary',
-    );
-    expect(sectionsSource).toContain(
-      'truncate text-xs font-normal text-dls-secondary',
-    );
-    expect(sectionsSource).toContain('className="text-[13px] hover:bg-dls-hover"');
-    expect(sectionsSource).toContain(
-      'text-dls-text-tertiary hover:bg-dls-active hover:text-dls-secondary',
-    );
+    expect(taskSource).toContain("text-sm text-dls-text");
+    // Idle meta time is xs, quiet secondary.
+    expect(taskSource).toContain("tabular-nums text-xs font-normal leading-none text-dls-secondary/55");
+    // List rows: shared text-sm leading-none (no text-[13px] drift).
+    expect(sectionsSource).toContain("text-sm font-normal leading-none");
+    expect(sectionsSource).not.toContain("text-[13px]");
+    expect(taskSource).not.toContain("text-[13px]");
+    expect(controlsSource).not.toContain("text-[13px]");
   });
 });

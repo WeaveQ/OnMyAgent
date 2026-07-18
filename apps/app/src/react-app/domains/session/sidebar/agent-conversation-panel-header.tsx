@@ -41,15 +41,20 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             onChange={props.onAssistantCategoryChange}
           />
         ) : null}
-        <div className="grid gap-1" data-assistant-primary-actions="true">
+        <div className="grid gap-0.5" data-assistant-primary-actions="true">
+          {/* WorkBuddy: soft gray wash primary CTA (not outline / not blue chip). */}
           <NavListButton
             type="button"
             onClick={props.onCreateTask}
-            active={!props.selectedSessionId && !props.automationActive}
+            active={false}
             size="sidebar"
-            className="font-medium"
+            className={
+              !props.selectedSessionId && !props.automationActive
+                ? "bg-dls-surface-muted font-medium text-dls-text hover:bg-dls-surface-muted"
+                : "bg-dls-surface-muted/70 font-medium text-dls-text hover:bg-dls-surface-muted"
+            }
           >
-            <MessageCirclePlus className="size-4 shrink-0" />
+            <MessageCirclePlus className="size-4 shrink-0 opacity-90" strokeWidth={1.75} />
             {t("session.new_task")}
           </NavListButton>
           {assistantMenuItems.map((item) => (

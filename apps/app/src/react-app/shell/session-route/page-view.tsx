@@ -466,7 +466,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               }),
             );
           }}
-          onOpenSettings={() => handleOpenSettings("/settings/general")}
+          onOpenSettings={(route) =>
+            handleOpenSettings(route ?? "/settings/general")
+          }
           providerAuthModal={
             sessionProviderAuthSnapshot.providerAuthModalOpen
               ? {

@@ -1,6 +1,23 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, Folder, Search, Trash2, Undo2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+} from "react";
+import {
+  Archive,
+  Check,
+  ChevronDown,
+  Folder,
+  ListFilter,
+  MessageCircle,
+  Search,
+  Timer,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 
 import type {
   OnMyAgentServerClient,
@@ -9,19 +26,20 @@ import type {
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { LayoutStack } from "../settings-layout";
 import {
@@ -37,11 +55,41 @@ export type ArchivedTasksViewProps = {
   workspaceId: string;
 };
 
-type ProjectGroup = {
-  projectKey: string;
-  projectLabel: string;
-  sessions: OnMyAgentSessionArchiveSession[];
-};
+/** Local soft-archive vs server trash. */
+type SourceFilter = "all" | "local" | "cloud";
+type SortMode = "updated" | "created" | "name";
+/** Project path or synthetic kind filter. */
+type ScopeFilter =
+  | "all"
+  | `project:${string}`
+  | "kind:tasks"
+  | "kind:scheduled";
+
+type UnifiedRow =
+  | {
+      kind: "assistant";
+      id: string;
+      title: string;
+      projectKey: string;
+      projectLabel: string;
+      updatedAt: number;
+      createdAt: number;
+      automated: false;
+      source: "local";
+      task: AssistantArchivedTask;
+    }
+  | {
+      kind: "session";
+      id: string;
+      title: string;
+      projectKey: string;
+      projectLabel: string;
+      updatedAt: number;
+      createdAt: number;
+      automated: boolean;
+      source: "cloud";
+      session: OnMyAgentSessionArchiveSession;
+    };
 
 function shortProjectLabel(project: string | null | undefined): string {
   if (!project?.trim()) return t("settings.archived_tasks_unknown_project");
@@ -59,26 +107,40 @@ function sessionTitle(session: OnMyAgentSessionArchiveSession): string {
   );
 }
 
-function sessionTimestamp(session: OnMyAgentSessionArchiveSession): number | null {
+function parseTimeMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function sessionUpdatedAt(session: OnMyAgentSessionArchiveSession): number {
   const candidates = [
     session.deleted_at,
     session.local_modified_at,
     session.ended_at,
     session.started_at,
+    session.created_at,
   ];
   for (const value of candidates) {
-    if (!value) continue;
-    const ms = Date.parse(value);
-    if (Number.isFinite(ms)) return ms;
+    const ms = parseTimeMs(value);
+    if (ms != null) return ms;
   }
   if (typeof session.file_mtime === "number" && session.file_mtime > 0) {
     return session.file_mtime < 1e12 ? session.file_mtime * 1000 : session.file_mtime;
   }
-  return null;
+  return 0;
+}
+
+function sessionCreatedAt(session: OnMyAgentSessionArchiveSession): number {
+  return (
+    parseTimeMs(session.started_at)
+    ?? parseTimeMs(session.created_at)
+    ?? sessionUpdatedAt(session)
+  );
 }
 
 function formatTime(ms: number | null): string {
-  if (ms == null || !Number.isFinite(ms)) return "";
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return "";
   try {
     return new Intl.DateTimeFormat(undefined, {
       year: "numeric",
@@ -92,9 +154,32 @@ function formatTime(ms: number | null): string {
   }
 }
 
-function formatArchivedTime(session: OnMyAgentSessionArchiveSession): string {
-  return formatTime(sessionTimestamp(session));
+function MenuCheckItem(props: {
+  selected: boolean;
+  label: string;
+  icon?: ComponentType<{ className?: string }>;
+  onSelect: () => void;
+}) {
+  const Icon = props.icon;
+  return (
+    <DropdownMenuItem
+      className="gap-2"
+      onClick={(event) => {
+        event.preventDefault();
+        props.onSelect();
+      }}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {props.selected ? <Check className="size-3.5" /> : null}
+      </span>
+      {Icon ? <Icon className="size-3.5 text-dls-secondary" /> : null}
+      <span className="min-w-0 flex-1 truncate">{props.label}</span>
+    </DropdownMenuItem>
+  );
 }
+
+const filterTriggerClass =
+  "h-9 shrink-0 gap-1.5 rounded-full border-dls-border bg-dls-surface px-3 font-normal text-dls-text";
 
 export function ArchivedTasksView(props: ArchivedTasksViewProps) {
   const [assistantTasks, setAssistantTasks] = useState<AssistantArchivedTask[]>(
@@ -104,7 +189,9 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("updated");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -142,7 +229,6 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       })
       .catch((cause: unknown) => {
         if (cancelled) return;
-        // Soft-fail trash load so assistant archives still show.
         setSessions([]);
         setError(cause instanceof Error ? cause.message : String(cause));
       })
@@ -153,22 +239,6 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       cancelled = true;
     };
   }, [props.client, props.workspaceId, tick]);
-
-  const filteredAssistant = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return assistantTasks
-      .filter((task) => {
-        const key = task.directory?.trim() || "__unknown__";
-        if (projectFilter !== "all" && key !== projectFilter) return false;
-        if (!q) return true;
-        return [task.title, task.directory, task.sessionId]
-          .filter(Boolean)
-          .join("\n")
-          .toLowerCase()
-          .includes(q);
-      })
-      .sort((a, b) => b.archivedAt - a.archivedAt);
-  }, [assistantTasks, query, projectFilter]);
 
   const projectOptions = useMemo(() => {
     const keys = new Map<string, string>();
@@ -185,57 +255,118 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [assistantTasks, sessions]);
 
-  const projectSelectItems = useMemo(
-    () => [
-      { value: "all", label: t("settings.archived_tasks_all_projects") },
-      ...projectOptions.map((option) => ({
-        value: option.value,
-        label: option.label,
-      })),
-    ],
-    [projectOptions],
-  );
-
-  const filteredSessions = useMemo(() => {
+  const rows = useMemo((): UnifiedRow[] => {
     const q = query.trim().toLowerCase();
-    return sessions
-      .filter((session) => {
-        const key = session.project?.trim() || "__unknown__";
-        if (projectFilter !== "all" && key !== projectFilter) return false;
-        if (!q) return true;
-        const haystack = [
-          sessionTitle(session),
-          session.project,
-          session.agent,
-          session.id,
-        ]
-          .filter(Boolean)
-          .join("\n")
-          .toLowerCase();
-        return haystack.includes(q);
-      })
-      .sort((a, b) => (sessionTimestamp(b) ?? 0) - (sessionTimestamp(a) ?? 0));
-  }, [sessions, query, projectFilter]);
+    const out: UnifiedRow[] = [];
 
-  const groups = useMemo(() => {
-    const byProject = new Map<string, ProjectGroup>();
-    for (const session of filteredSessions) {
-      const projectKey = session.project?.trim() || "__unknown__";
-      const existing = byProject.get(projectKey);
-      if (existing) {
-        existing.sessions.push(session);
-      } else {
-        byProject.set(projectKey, {
+    if (sourceFilter !== "cloud") {
+      for (const task of assistantTasks) {
+        const projectKey = task.directory?.trim() || "__unknown__";
+        if (scopeFilter.startsWith("project:")) {
+          const wanted = scopeFilter.slice("project:".length);
+          if (projectKey !== wanted) continue;
+        }
+        if (scopeFilter === "kind:scheduled") continue;
+        if (q) {
+          const hay = [task.title, task.directory, task.sessionId]
+            .filter(Boolean)
+            .join("\n")
+            .toLowerCase();
+          if (!hay.includes(q)) continue;
+        }
+        out.push({
+          kind: "assistant",
+          id: task.sessionId,
+          title: task.title,
           projectKey,
-          projectLabel: shortProjectLabel(session.project),
-          sessions: [session],
+          projectLabel: shortProjectLabel(task.directory),
+          updatedAt: task.archivedAt,
+          createdAt: task.archivedAt,
+          automated: false,
+          source: "local",
+          task,
         });
       }
     }
-    return Array.from(byProject.values()).sort((a, b) =>
-      a.projectLabel.localeCompare(b.projectLabel),
-    );
-  }, [filteredSessions]);
+
+    if (sourceFilter !== "local") {
+      for (const session of sessions) {
+        const projectKey = session.project?.trim() || "__unknown__";
+        const automated = session.is_automated === true;
+        if (scopeFilter.startsWith("project:")) {
+          const wanted = scopeFilter.slice("project:".length);
+          if (projectKey !== wanted) continue;
+        }
+        if (scopeFilter === "kind:tasks" && automated) continue;
+        if (scopeFilter === "kind:scheduled" && !automated) continue;
+        if (q) {
+          const hay = [
+            sessionTitle(session),
+            session.project,
+            session.agent,
+            session.id,
+          ]
+            .filter(Boolean)
+            .join("\n")
+            .toLowerCase();
+          if (!hay.includes(q)) continue;
+        }
+        out.push({
+          kind: "session",
+          id: session.id,
+          title: sessionTitle(session),
+          projectKey,
+          projectLabel: shortProjectLabel(session.project),
+          updatedAt: sessionUpdatedAt(session),
+          createdAt: sessionCreatedAt(session),
+          automated,
+          source: "cloud",
+          session,
+        });
+      }
+    }
+
+    out.sort((left, right) => {
+      if (sortMode === "name") {
+        return left.title.localeCompare(right.title, undefined, {
+          sensitivity: "base",
+        });
+      }
+      if (sortMode === "created") {
+        return right.createdAt - left.createdAt;
+      }
+      return right.updatedAt - left.updatedAt;
+    });
+    return out;
+  }, [
+    assistantTasks,
+    sessions,
+    query,
+    sourceFilter,
+    sortMode,
+    scopeFilter,
+  ]);
+
+  const sourceLabel = useMemo(() => {
+    if (sourceFilter === "local") return t("settings.archived_tasks_type_local");
+    if (sourceFilter === "cloud") return t("settings.archived_tasks_type_cloud");
+    return t("settings.archived_tasks_type_all");
+  }, [sourceFilter]);
+
+  const scopeLabel = useMemo(() => {
+    if (scopeFilter === "kind:tasks") {
+      return t("settings.archived_tasks_kind_tasks");
+    }
+    if (scopeFilter === "kind:scheduled") {
+      return t("settings.archived_tasks_kind_scheduled");
+    }
+    if (scopeFilter.startsWith("project:")) {
+      const key = scopeFilter.slice("project:".length);
+      return projectOptions.find((option) => option.value === key)?.label
+        ?? shortProjectLabel(key);
+    }
+    return t("settings.archived_tasks_all_projects");
+  }, [scopeFilter, projectOptions]);
 
   const handleRestoreAssistant = useCallback(
     (sessionId: string) => {
@@ -271,7 +402,10 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       setBusyId(sessionId);
       setError(null);
       try {
-        await props.client.restoreSessionArchiveSession(props.workspaceId, sessionId);
+        await props.client.restoreSessionArchiveSession(
+          props.workspaceId,
+          sessionId,
+        );
         refreshTrash();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -311,9 +445,9 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
   }
 
   const empty =
-    !loading &&
-    filteredAssistant.length === 0 &&
-    filteredSessions.length === 0;
+    !loading && rows.length === 0;
+  const hasAny =
+    assistantTasks.length > 0 || sessions.length > 0;
 
   return (
     <LayoutStack className="gap-y-5">
@@ -334,34 +468,116 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
             aria-label={t("settings.archived_tasks_search_placeholder")}
           />
         </InputGroup>
-        <Select
-          value={projectFilter}
-          items={projectSelectItems}
-          onValueChange={(value) => {
-            if (typeof value === "string" && value.trim()) {
-              setProjectFilter(value);
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={filterTriggerClass}
+                aria-label={t("settings.archived_tasks_type_section")}
+              >
+                <ListFilter className="size-3.5 text-dls-secondary" />
+                <span className="max-w-40 truncate">{sourceLabel}</span>
+                <ChevronDown className="size-3.5 text-dls-secondary" />
+              </Button>
             }
-          }}
-        >
-          <SelectTrigger size="sm" className="w-44 shrink-0">
-            <Folder className="size-3.5 text-dls-secondary" />
-            <SelectValue
-              placeholder={t("settings.archived_tasks_all_projects")}
+          />
+          <DropdownMenuContent align="end" className="min-w-52">
+            <DropdownMenuLabel className="text-xs font-medium text-dls-secondary">
+              {t("settings.archived_tasks_type_section")}
+            </DropdownMenuLabel>
+            <MenuCheckItem
+              selected={sourceFilter === "all"}
+              label={t("settings.archived_tasks_type_all")}
+              onSelect={() => setSourceFilter("all")}
             />
-          </SelectTrigger>
-          <SelectContent>
-            {projectSelectItems.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
+            <MenuCheckItem
+              selected={sourceFilter === "local"}
+              label={t("settings.archived_tasks_type_local")}
+              onSelect={() => setSourceFilter("local")}
+            />
+            <MenuCheckItem
+              selected={sourceFilter === "cloud"}
+              label={t("settings.archived_tasks_type_cloud")}
+              onSelect={() => setSourceFilter("cloud")}
+            />
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-medium text-dls-secondary">
+              {t("settings.archived_tasks_sort_section")}
+            </DropdownMenuLabel>
+            <MenuCheckItem
+              selected={sortMode === "updated"}
+              label={t("settings.archived_tasks_sort_updated")}
+              onSelect={() => setSortMode("updated")}
+            />
+            <MenuCheckItem
+              selected={sortMode === "created"}
+              label={t("settings.archived_tasks_sort_created")}
+              onSelect={() => setSortMode("created")}
+            />
+            <MenuCheckItem
+              selected={sortMode === "name"}
+              label={t("settings.archived_tasks_sort_name")}
+              onSelect={() => setSortMode("name")}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={filterTriggerClass}
+                aria-label={t("settings.archived_tasks_all_projects")}
+              >
+                <Folder className="size-3.5 text-dls-secondary" />
+                <span className="max-w-40 truncate">{scopeLabel}</span>
+                <ChevronDown className="size-3.5 text-dls-secondary" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="min-w-56">
+            <MenuCheckItem
+              selected={scopeFilter === "all"}
+              label={t("settings.archived_tasks_all_projects")}
+              icon={Folder}
+              onSelect={() => setScopeFilter("all")}
+            />
+            {projectOptions.map((option) => (
+              <MenuCheckItem
+                key={option.value}
+                selected={scopeFilter === `project:${option.value}`}
+                label={option.label}
+                icon={Folder}
+                onSelect={() => setScopeFilter(`project:${option.value}`)}
+              />
             ))}
-          </SelectContent>
-        </Select>
+            <DropdownMenuSeparator />
+            <MenuCheckItem
+              selected={scopeFilter === "kind:tasks"}
+              label={t("settings.archived_tasks_kind_tasks")}
+              icon={MessageCircle}
+              onSelect={() => setScopeFilter("kind:tasks")}
+            />
+            <MenuCheckItem
+              selected={scopeFilter === "kind:scheduled"}
+              label={t("settings.archived_tasks_kind_scheduled")}
+              icon={Timer}
+              onSelect={() => setScopeFilter("kind:scheduled")}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
 
-      {loading && sessions.length === 0 && assistantTasks.length === 0 ? (
+      {loading && !hasAny ? (
         <div className="flex items-center gap-2 py-10 text-sm text-dls-secondary">
           <LoadingSpinner size="sm" />
           {t("settings.archived_tasks_loading")}
@@ -373,7 +589,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
           <div className="flex flex-col items-center gap-2 py-4">
             <Archive className="size-8 opacity-40" />
             <div className="font-medium text-dls-text">
-              {assistantTasks.length === 0 && sessions.length === 0
+              {!hasAny
                 ? t("settings.archived_tasks_empty")
                 : t("settings.archived_tasks_empty_filtered")}
             </div>
@@ -384,145 +600,77 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
         </EmptyStateBox>
       ) : null}
 
-      {filteredAssistant.length > 0 ? (
-        <section className="flex flex-col gap-2" data-assistant-archived-list="true">
-          <div className="flex items-center justify-between gap-3 px-0.5">
-            <span className="text-sm font-medium text-dls-text">
-              {t("settings.archived_tasks_assistant_section")}
-            </span>
-            <span className="text-xs tabular-nums text-dls-secondary">
-              {t("settings.archived_tasks_count", {
-                count: filteredAssistant.length,
-              })}
-            </span>
-          </div>
-          <ul className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-            {filteredAssistant.map((task, index) => {
-              const rowBusy = busyId === task.sessionId;
-              return (
-                <li
-                  key={task.sessionId}
-                  className={cn(
-                    "flex items-center gap-3 px-3.5 py-3",
-                    index > 0 && "border-t border-dls-border",
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-dls-text">
-                      {task.title}
-                    </div>
-                    <div className="mt-0.5 truncate text-xs text-dls-secondary">
-                      {[
-                        shortProjectLabel(task.directory),
-                        formatTime(task.archivedAt),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
+      {rows.length > 0 ? (
+        <ul
+          className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface"
+          data-archived-task-list="true"
+        >
+          {rows.map((row, index) => {
+            const rowBusy = busyId === row.id;
+            const meta = [row.projectLabel, formatTime(row.updatedAt)]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <li
+                key={`${row.kind}:${row.id}`}
+                className={cn(
+                  "flex items-center gap-3 px-3.5 py-3",
+                  index > 0 && "border-t border-dls-border",
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-dls-text">
+                    {row.title}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => void handleDeleteAssistant(task.sessionId)}
-                      disabled={rowBusy}
-                      title={t("settings.archived_tasks_delete")}
-                      aria-label={t("settings.archived_tasks_delete")}
-                      className="text-dls-secondary hover:bg-dls-danger-soft hover:text-dls-danger"
-                    >
-                      {rowBusy ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <Trash2 className="size-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRestoreAssistant(task.sessionId)}
-                      disabled={rowBusy}
-                    >
-                      <Undo2 className="size-3.5" />
-                      {t("settings.archived_tasks_unarchive")}
-                    </Button>
+                  <div className="mt-0.5 truncate text-xs text-dls-secondary">
+                    {meta}
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
-
-      <div className="flex flex-col gap-6">
-        {groups.map((group) => (
-          <section key={group.projectKey} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3 px-0.5">
-              <div className="flex min-w-0 items-center gap-2 text-sm text-dls-text">
-                <Folder className="size-3.5 shrink-0 text-dls-secondary" />
-                <span className="truncate font-medium">{group.projectLabel}</span>
-              </div>
-              <span className="shrink-0 text-xs tabular-nums text-dls-secondary">
-                {t("settings.archived_tasks_count", {
-                  count: group.sessions.length,
-                })}
-              </span>
-            </div>
-            <ul className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-              {group.sessions.map((session, index) => {
-                const rowBusy = busyId === session.id;
-                return (
-                  <li
-                    key={session.id}
-                    className={cn(
-                      "flex items-center gap-3 px-3.5 py-3",
-                      index > 0 && "border-t border-dls-border",
-                    )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      if (row.kind === "assistant") {
+                        void handleDeleteAssistant(row.id);
+                      } else {
+                        void handleDeleteTrash(row.id);
+                      }
+                    }}
+                    disabled={rowBusy}
+                    title={t("settings.archived_tasks_delete")}
+                    aria-label={t("settings.archived_tasks_delete")}
+                    className="text-dls-secondary hover:bg-dls-danger-soft hover:text-dls-danger"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-dls-text">
-                        {sessionTitle(session)}
-                      </div>
-                      <div className="mt-0.5 truncate text-xs text-dls-secondary">
-                        {formatArchivedTime(session)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => void handleDeleteTrash(session.id)}
-                        disabled={rowBusy}
-                        title={t("settings.archived_tasks_delete")}
-                        aria-label={t("settings.archived_tasks_delete")}
-                        className="text-dls-secondary hover:bg-dls-danger-soft hover:text-dls-danger"
-                      >
-                        {rowBusy ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <Trash2 className="size-3.5" />
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleRestoreTrash(session.id)}
-                        disabled={rowBusy}
-                      >
-                        <Undo2 className="size-3.5" />
-                        {t("settings.archived_tasks_unarchive")}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
-      </div>
+                    {rowBusy ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <Trash2 className="size-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (row.kind === "assistant") {
+                        handleRestoreAssistant(row.id);
+                      } else {
+                        void handleRestoreTrash(row.id);
+                      }
+                    }}
+                    disabled={rowBusy}
+                  >
+                    <Undo2 className="size-3.5" />
+                    {t("settings.archived_tasks_unarchive")}
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </LayoutStack>
   );
 }

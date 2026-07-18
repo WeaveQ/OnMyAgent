@@ -4,10 +4,11 @@ import { ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { MenuRowButton, SessionRowButton } from "@/components/ui/action-row";
+import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import {
   TASK_CONTEXT_MENU_CLASS,
+  TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_CONTEXT_MENU_SEPARATOR_CLASS,
 } from "./assistant-task-item";
 import type {
@@ -314,30 +315,27 @@ export function AgentSessionTabs(props: {
           onMouseLeave={() => setMenuState(null)}
           onPointerLeave={() => setMenuState(null)}
         >
-          <MenuRowButton
-            align="start"
-            density="compact"
+          <button
             type="button"
+            className={TASK_CONTEXT_MENU_ITEM_CLASS}
             onClick={() => {
               props.onRenameSession(menuState.sessionId, menuState.title);
               setMenuState(null);
             }}
           >
             {t("session.agent_tab_rename")}
-          </MenuRowButton>
+          </button>
           <div className={TASK_CONTEXT_MENU_SEPARATOR_CLASS} role="separator" />
-          <MenuRowButton
-            align="start"
-            density="compact"
+          <button
             type="button"
-            className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
+            className={TASK_CONTEXT_MENU_ITEM_CLASS}
             onClick={() => {
               props.onDeleteSession(menuState.sessionId);
               setMenuState(null);
             }}
           >
             {t("session.delete_task")}
-          </MenuRowButton>
+          </button>
         </div>
       ) : null}
       <Button

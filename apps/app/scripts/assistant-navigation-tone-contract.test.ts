@@ -21,8 +21,9 @@ describe("assistant navigation tone contract", () => {
       "utf8",
     );
 
-    // Office/code switch uses shared SegmentedTabGroup + NavTabButton (market style).
+    // Office/code switch uses shared SegmentedTabGroup + NavTabButton (track size=tab).
     expect(controls).toContain("SegmentedTabGroup");
+    expect(controls).toContain('density="filter"');
     expect(controls).toContain('size="tab"');
     expect(controls).toContain('shape="tab"');
     expect(controls).toContain("NavListButton");
@@ -87,7 +88,7 @@ describe("assistant navigation tone contract", () => {
     );
   });
 
-  test("keeps the task header on its sidebar surface", () => {
+  test("keeps section headers on quiet list rows", () => {
     const sections = readFileSync(
       join(
         repoRoot,
@@ -96,9 +97,10 @@ describe("assistant navigation tone contract", () => {
       "utf8",
     );
 
-    expect(sections).toContain(
-      "rounded-lg bg-dls-sidebar px-2 text-dls-text",
-    );
+    expect(sections).toContain('data-assistant-section-header="true"');
+    expect(sections).toContain("hover:bg-dls-list-hover");
+    expect(sections).toContain("text-dls-secondary");
+    expect(sections).toContain("tabular-nums");
   });
 
   test("keeps the local agent list on the shared sidebar surface", () => {

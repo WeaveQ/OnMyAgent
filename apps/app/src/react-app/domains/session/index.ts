@@ -44,6 +44,7 @@ export {
   readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspaces,
   removeAssistantSessionWorkspace,
+  removeAssistantSessionWorkspacesByDirectory,
   writeAssistantSessionWorkspace,
 } from "./sync/assistant-session-workspaces";
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";

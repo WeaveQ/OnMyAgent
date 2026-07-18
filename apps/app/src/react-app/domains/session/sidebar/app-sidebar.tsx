@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
-  ChartNoAxesCombined,
   CircleHelp,
   FileText,
   Globe2,
@@ -767,7 +766,6 @@ export function AppSidebar(props: AppSidebarProps) {
               <div className="min-w-0 flex-1">
                 <SidebarAccountButton
                   account={props.account || undefined}
-                  onOpenUsage={() => props.onOpenPrimaryView("usage")}
                   onOpenSettings={props.onOpenAccountSettings}
                   onSignOut={props.onSignOut}
                   onOpenBilling={props.onOpenBilling}
@@ -820,7 +818,6 @@ export function AppSidebar(props: AppSidebarProps) {
 export function SidebarAccountButton(props: {
   account?: SidebarAccountInfo;
   onOpenDevices?: () => void;
-  onOpenUsage?: () => void;
   onOpenSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -927,16 +924,6 @@ export function SidebarAccountButton(props: {
           selectedValue={themeMode}
           onSelect={(value) => setThemeMode(value as ThemeMode)}
         />
-        {props.onOpenUsage ? (
-          <SidebarAccountMenuItem
-            icon={ChartNoAxesCombined}
-            label={t("nav.usage")}
-            onSelect={() => {
-              setOpen(false);
-              props.onOpenUsage?.();
-            }}
-          />
-        ) : null}
         <SidebarAccountMenuItem
           icon={Settings}
           label={t("account_menu.settings")}
