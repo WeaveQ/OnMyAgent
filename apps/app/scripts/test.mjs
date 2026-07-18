@@ -77,6 +77,8 @@ const testTargets = new Map([
   ['session-visual-files-contract', ['bun', ['test', 'scripts/session-visual-files-contract.test.ts']]],
   ['session-snapshot-error', ['bun', ['test', 'scripts/session-snapshot-error.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
+  ['settings-lazy-pages', ['bun', ['test', 'scripts/settings-lazy-pages.test.ts']]],
+  ['session-transcript-virtual-window', ['bun', ['test', 'scripts/session-transcript-virtual-window.test.ts']]],
   ['ui-state-store', ['bun', ['test', 'scripts/ui-state-store.test.ts']]],
   ['session-route-composer', ['bun', ['test', 'scripts/session-route-composer.test.ts']]],
   ['shared-skills-catalog', ['bun', ['test', 'scripts/shared-skills-catalog.test.ts']]],

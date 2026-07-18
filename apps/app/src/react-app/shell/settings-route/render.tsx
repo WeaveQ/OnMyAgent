@@ -29,43 +29,41 @@ import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../
 import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../../domains/connections";
 import { ProviderAuthModal } from "../../domains/connections";
 import { ConnectionsModals } from "../../domains/connections";
-import {
-  AiSettingsView,
-  type AiSettingsConnectedProvider,
-} from "../../domains/settings";
+import type { AiSettingsConnectedProvider } from "../../domains/settings";
 import { OpenCodeProviderConfigDialog } from "../../domains/session";
 import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../../domains/settings";
 import { isOnMyAgentExtensionEnabled } from "../../domains/shared";
 import {
-  ArchivedTasksView,
-  AuthorizedFoldersPanel,
-  CloudMarketplacesView,
-  CloudProvidersView,
   CloudSessionProvider,
-  DebugView,
-  EnvironmentView,
-  ExtensionsView,
-  GeneralSettingsView,
-  ConversationMemoryView,
-  McpView,
-  MemoryView,
-  MessagingView,
-  PreferencesView,
   SettingsStack,
-  SystemAuthorizationsView,
-  UpdatesView,
   useCloudSession,
   useDebugViewModel,
   useDenSession,
   useElectronUpdaterState,
   useMessagingViewProps,
+  createExtensionsStore,
+  useExtensionsStoreSnapshot,
+  SettingsShell,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
 import {
-  SettingsShell,
-  createExtensionsStore,
-  useExtensionsStoreSnapshot,
-} from "../../domains/settings";
+  LazyAiSettingsView,
+  LazyArchivedTasksView,
+  LazyAuthorizedFoldersPanel,
+  LazyCloudMarketplacesView,
+  LazyCloudProvidersView,
+  LazyConversationMemoryView,
+  LazyDebugView,
+  LazyEnvironmentView,
+  LazyExtensionsView,
+  LazyGeneralSettingsView,
+  LazyMcpView,
+  LazyMemoryView,
+  LazyPreferencesView,
+  LazySystemAuthorizationsView,
+  LazyUpdatesView,
+  SettingsTabSuspense,
+} from "./lazy-tab-views";
 import { usePlatform } from "../../kernel/platform";
 import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
@@ -1526,323 +1524,348 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     switch (route.tab) {
       case "general":
         return (
-          <GeneralSettingsView
-            onNavigateTab={(tab) => navigateSettingsPath(tab)}
-            developerMode={developerMode}
-            onSendFeedback={() => platform.openLink(buildFeedbackUrl({ entrypoint: "settings" }))}
-            onReportIssue={() => platform.openLink("https://github.com/WeaveQ/onmyagent/issues/new?template=bug.yml")}
-          />
+          <SettingsTabSuspense>
+            <LazyGeneralSettingsView
+              onNavigateTab={(tab) => navigateSettingsPath(tab)}
+              developerMode={developerMode}
+              onSendFeedback={() => platform.openLink(buildFeedbackUrl({ entrypoint: "settings" }))}
+              onReportIssue={() => platform.openLink("https://github.com/WeaveQ/onmyagent/issues/new?template=bug.yml")}
+            />
+          </SettingsTabSuspense>
         );
       case "permissions":
         return (
-          <SettingsStack>
-            <AuthorizedFoldersPanel
-              onmyagentServerClient={onmyagentClient}
-              onmyagentServerStatus={routeOnMyAgentStatus}
-              onmyagentServerCapabilities={routeOnMyAgentCapabilities}
-              runtimeWorkspaceId={runtimeWorkspaceId}
-              selectedWorkspaceRoot={selectedWorkspaceRoot}
-              activeWorkspaceType={workspaceType}
-              onConfigUpdated={() => {
-                setConfigActionStatus(t("settings.config_updated"));
-                void providerAuthStore.refreshProviders();
-                void connectionsStore.refreshMcpServers();
-              }}
-            />
-            <SystemAuthorizationsView
-              busy={busy}
-              desktopNotifyOnAgentReady={
-                local.prefs.desktopNotifyOnAgentReady === true
-              }
-              onDesktopNotifyOnAgentReadyChange={(enabled) => {
-                local.setPrefs((previous) => ({
-                  ...previous,
-                  desktopNotifyOnAgentReady: enabled,
-                }));
-              }}
-            />
-          </SettingsStack>
+          <SettingsTabSuspense>
+            <SettingsStack>
+              <LazyAuthorizedFoldersPanel
+                onmyagentServerClient={onmyagentClient}
+                onmyagentServerStatus={routeOnMyAgentStatus}
+                onmyagentServerCapabilities={routeOnMyAgentCapabilities}
+                runtimeWorkspaceId={runtimeWorkspaceId}
+                selectedWorkspaceRoot={selectedWorkspaceRoot}
+                activeWorkspaceType={workspaceType}
+                onConfigUpdated={() => {
+                  setConfigActionStatus(t("settings.config_updated"));
+                  void providerAuthStore.refreshProviders();
+                  void connectionsStore.refreshMcpServers();
+                }}
+              />
+              <LazySystemAuthorizationsView
+                busy={busy}
+                desktopNotifyOnAgentReady={
+                  local.prefs.desktopNotifyOnAgentReady === true
+                }
+                onDesktopNotifyOnAgentReadyChange={(enabled) => {
+                  local.setPrefs((previous) => ({
+                    ...previous,
+                    desktopNotifyOnAgentReady: enabled,
+                  }));
+                }}
+              />
+            </SettingsStack>
+          </SettingsTabSuspense>
         );
       case "ai":
         return (
-          <AiSettingsView
-            busy={busy}
-            providerAuthBusy={providerAuthSnapshot.providerAuthBusy}
-            providerStatusLabel={providerStatusLabel}
-            providerStatusStyle={providerStatusStyle}
-            providerSummary={providerSummary}
-            providerConnected={connectedProviders.length > 0}
-            connectedProviders={connectedProviders}
-            disconnectingProviderId={null}
-            providerConnectError={providerAuthSnapshot.providerAuthError}
-            providerDisconnectStatus={configActionStatus}
-            providerDisconnectError={null}
-            onOpenProviderAuth={handleOpenProviderAuth}
-            onOpenOpencodeConfig={handleOpenCustomProviderConfig}
-            onDisconnectProvider={async (providerId) => {
-              await providerAuthStore.disconnectProvider(providerId);
-            }}
-            canDisconnectProvider={(provider) => provider.managedBy !== "opencode"}
-            cloudProviderIds={new Set(
-              Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
-            )}
-            showOnMyAgentModelsSubscribe={showOnMyAgentModelsSubscribe}
-            onSubscribeOnMyAgentModels={subscribeToOnMyAgentModels}
-            cloudProvidersView={
-              <CloudProvidersView
-                embedded
-                cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
-                connectCloudProvider={providerAuthStore.connectCloudProvider}
-                importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
-                refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
-                removeCloudProvider={providerAuthStore.removeCloudProvider}
-                session={denSession}
-              />
-            }
-          />
+          <SettingsTabSuspense>
+            <LazyAiSettingsView
+              busy={busy}
+              providerAuthBusy={providerAuthSnapshot.providerAuthBusy}
+              providerStatusLabel={providerStatusLabel}
+              providerStatusStyle={providerStatusStyle}
+              providerSummary={providerSummary}
+              providerConnected={connectedProviders.length > 0}
+              connectedProviders={connectedProviders}
+              disconnectingProviderId={null}
+              providerConnectError={providerAuthSnapshot.providerAuthError}
+              providerDisconnectStatus={configActionStatus}
+              providerDisconnectError={null}
+              onOpenProviderAuth={handleOpenProviderAuth}
+              onOpenOpencodeConfig={handleOpenCustomProviderConfig}
+              onDisconnectProvider={async (providerId) => {
+                await providerAuthStore.disconnectProvider(providerId);
+              }}
+              canDisconnectProvider={(provider) => provider.managedBy !== "opencode"}
+              cloudProviderIds={new Set(
+                Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
+              )}
+              showOnMyAgentModelsSubscribe={showOnMyAgentModelsSubscribe}
+              onSubscribeOnMyAgentModels={subscribeToOnMyAgentModels}
+              cloudProvidersView={
+                <LazyCloudProvidersView
+                  embedded
+                  cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
+                  connectCloudProvider={providerAuthStore.connectCloudProvider}
+                  importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
+                  refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
+                  removeCloudProvider={providerAuthStore.removeCloudProvider}
+                  session={denSession}
+                />
+              }
+            />
+          </SettingsTabSuspense>
         );
       case "memory":
         return (
-          <MemoryView
-            draft={memoryDraft ?? {
-              userName: "",
-              assistantName: "",
-              mbti: "",
-              roles: [],
-              industries: [],
-              tools: [],
-              tasks: [],
-              docPreference: "",
-              terminology: "",
-              skipped: false,
-              updatedAt: 0,
-            }}
-            onDraftChange={setMemoryDraft}
-          />
+          <SettingsTabSuspense>
+            <LazyMemoryView
+              draft={memoryDraft ?? {
+                userName: "",
+                assistantName: "",
+                mbti: "",
+                roles: [],
+                industries: [],
+                tools: [],
+                tasks: [],
+                docPreference: "",
+                terminology: "",
+                skipped: false,
+                updatedAt: 0,
+              }}
+              onDraftChange={setMemoryDraft}
+            />
+          </SettingsTabSuspense>
         );
       case "conversation-memory":
         return (
-          <ConversationMemoryView
-            conversationMemory={conversationMemoryDraft}
-            onConversationMemoryChange={persistConversationMemory}
-          />
+          <SettingsTabSuspense>
+            <LazyConversationMemoryView
+              conversationMemory={conversationMemoryDraft}
+              onConversationMemoryChange={persistConversationMemory}
+            />
+          </SettingsTabSuspense>
         );
       case "preferences":
         return (
-          <PreferencesView
-            busy={busy}
-            showThinking={local.prefs.showThinking}
-            onToggleShowThinking={() => {
-              local.setPrefs((previous) => ({ ...previous, showThinking: !previous.showThinking }));
-            }}
-            responseTone={local.prefs.responseTone}
-            onResponseToneChange={(responseTone) => {
-              local.setPrefs((previous) => ({ ...previous, responseTone }));
-            }}
-            customInstructions={local.prefs.customInstructions}
-            onCustomInstructionsChange={(customInstructions) => {
-              local.setPrefs((previous) => ({ ...previous, customInstructions }));
-            }}
-            autoCompactContext={autoCompactContext}
-            autoCompactContextBusy={autoCompactContextBusy}
-            onToggleAutoCompactContext={toggleAutoCompactContext}
-            autoNewSessionOnIdle={local.prefs.autoNewSessionOnIdle === true}
-            autoNewSessionIdleHours={local.prefs.autoNewSessionIdleHours ?? 6}
-            onAutoNewSessionOnIdleChange={(enabled) => {
-              local.setPrefs((previous) => ({
-                ...previous,
-                autoNewSessionOnIdle: enabled,
-              }));
-            }}
-            onAutoNewSessionIdleHoursChange={(hours) => {
-              local.setPrefs((previous) => ({
-                ...previous,
-                autoNewSessionIdleHours: hours,
-              }));
-            }}
-          />
+          <SettingsTabSuspense>
+            <LazyPreferencesView
+              busy={busy}
+              showThinking={local.prefs.showThinking}
+              onToggleShowThinking={() => {
+                local.setPrefs((previous) => ({ ...previous, showThinking: !previous.showThinking }));
+              }}
+              responseTone={local.prefs.responseTone}
+              onResponseToneChange={(responseTone) => {
+                local.setPrefs((previous) => ({ ...previous, responseTone }));
+              }}
+              customInstructions={local.prefs.customInstructions}
+              onCustomInstructionsChange={(customInstructions) => {
+                local.setPrefs((previous) => ({ ...previous, customInstructions }));
+              }}
+              autoCompactContext={autoCompactContext}
+              autoCompactContextBusy={autoCompactContextBusy}
+              onToggleAutoCompactContext={toggleAutoCompactContext}
+              autoNewSessionOnIdle={local.prefs.autoNewSessionOnIdle === true}
+              autoNewSessionIdleHours={local.prefs.autoNewSessionIdleHours ?? 6}
+              onAutoNewSessionOnIdleChange={(enabled) => {
+                local.setPrefs((previous) => ({
+                  ...previous,
+                  autoNewSessionOnIdle: enabled,
+                }));
+              }}
+              onAutoNewSessionIdleHoursChange={(hours) => {
+                local.setPrefs((previous) => ({
+                  ...previous,
+                  autoNewSessionIdleHours: hours,
+                }));
+              }}
+            />
+          </SettingsTabSuspense>
         );
       case "extensions":
         return (
-          <ExtensionsView
-            busy={busy}
-            selectedWorkspaceRoot={selectedWorkspaceRoot}
-            isRemoteWorkspace={isRemoteWorkspace}
-            canEditPlugins={canWriteWorkspacePlugins}
-            canUseGlobalScope={!isRemoteWorkspace}
-            accessHint={pluginsAccessHint}
-            suggestedPlugins={SUGGESTED_PLUGINS}
-            extensions={extensionsStore}
-            mcpConnectedAppsCount={mcpConnectedAppsCount}
-            initialSection={route.extensionsSection}
-            setSectionRoute={(section) => {
-              const path = `extensions/${section}`;
-              navigateSettingsPath(path);
-            }}
-            onRefresh={() => {
-              void connectionsStore.refreshMcpServers();
-              void extensionsStore.refreshPlugins();
-              void extensionsStore.refreshCloudOrgMarketplaces({ force: true });
-            }}
-            mcpView={
-              <McpView
-                busy={busy}
-                selectedWorkspaceRoot={selectedWorkspaceRoot}
-                isRemoteWorkspace={isRemoteWorkspace}
-                mcpServers={connectionsSnapshot.mcpServers}
-                mcpStatus={connectionsSnapshot.mcpStatus}
-                mcpLastUpdatedAt={connectionsSnapshot.mcpLastUpdatedAt}
-                mcpStatuses={connectionsSnapshot.mcpStatuses}
-                mcpConnectingName={connectionsSnapshot.mcpConnectingName}
-                selectedMcp={connectionsSnapshot.selectedMcp}
-                setSelectedMcp={(name) => connectionsStore.setSelectedMcp(name)}
-                quickConnect={connectionsStore.quickConnect}
-                enablementContext={enablementContext}
-                builtInExtensionsDisabled={checkDesktopRestriction({ restriction: "allowBuiltInExtensions" })}
-                connectMcp={(entry) => {
-                  void connectionsStore.connectMcp(entry);
-                }}
-                configSlotForEntry={(entry) => getExtensionConfigSlot(entry, {
-                  onmyagentServerClient: selectedWorkspaceEndpoint?.client ?? onmyagentClient,
-                  computerUse: {
-                    connected: connectionsSnapshot.mcpServers.some((server) => server.name === "computer-use"),
-                    connecting: connectionsSnapshot.mcpConnectingName === entry.name,
-                    onConnect: () => connectionsStore.connectMcp(entry),
-                    onRefresh: () => connectionsStore.refreshMcpServers(),
-                  },
-                  imageExtension: {
-                    busy: imageExtensionBusy || imageGenerationBusy,
-                    status: imageExtensionStatus ?? imageGenerationStatus,
-                    error: imageExtensionError ?? imageGenerationError,
-                    envKeyDetected: providers.some((p) => p.id === "openai" && p.source === "env") || providerConnectedIds.includes("openai"),
-                    onInstall: installOpenAiImageExtension,
-                    onTestGenerate: generateOpenAiTestImage,
-                  },
-                  voiceExtension: {
-                    busy: voiceBusy,
-                    status: voiceStatus,
-                    error: voiceError,
-                    envKeyDetected:
-                      userEnvKeys.includes("OPENAI_REALTIME_API_KEY") ||
-                      userEnvKeys.includes(OPENAI_API_KEY_ENV_KEY) ||
-                      providers.some((p) => p.id === "openai" && p.source === "env") ||
-                      providerConnectedIds.includes("openai"),
-                    onSaveApiKey: saveVoiceApiKey,
-                    onTestSession: testVoiceSession,
-                  },
-                  localProvider: {
-                    busy: localProviderBusy,
-                    status: localProviderStatus,
-                    error: localProviderError,
-                    onInstall: installLocalProvider,
-                  },
-                })}
-                isExtensionConnected={(entry) => {
-                  const runtimeConnected = getExtensionConnected(entry, {
+          <SettingsTabSuspense>
+            <LazyExtensionsView
+              busy={busy}
+              selectedWorkspaceRoot={selectedWorkspaceRoot}
+              isRemoteWorkspace={isRemoteWorkspace}
+              canEditPlugins={canWriteWorkspacePlugins}
+              canUseGlobalScope={!isRemoteWorkspace}
+              accessHint={pluginsAccessHint}
+              suggestedPlugins={SUGGESTED_PLUGINS}
+              extensions={extensionsStore}
+              mcpConnectedAppsCount={mcpConnectedAppsCount}
+              initialSection={route.extensionsSection}
+              setSectionRoute={(section) => {
+                const path = `extensions/${section}`;
+                navigateSettingsPath(path);
+              }}
+              onRefresh={() => {
+                void connectionsStore.refreshMcpServers();
+                void extensionsStore.refreshPlugins();
+                void extensionsStore.refreshCloudOrgMarketplaces({ force: true });
+              }}
+              mcpView={
+                <LazyMcpView
+                  busy={busy}
+                  selectedWorkspaceRoot={selectedWorkspaceRoot}
+                  isRemoteWorkspace={isRemoteWorkspace}
+                  mcpServers={connectionsSnapshot.mcpServers}
+                  mcpStatus={connectionsSnapshot.mcpStatus}
+                  mcpLastUpdatedAt={connectionsSnapshot.mcpLastUpdatedAt}
+                  mcpStatuses={connectionsSnapshot.mcpStatuses}
+                  mcpConnectingName={connectionsSnapshot.mcpConnectingName}
+                  selectedMcp={connectionsSnapshot.selectedMcp}
+                  setSelectedMcp={(name) => connectionsStore.setSelectedMcp(name)}
+                  quickConnect={connectionsStore.quickConnect}
+                  enablementContext={enablementContext}
+                  builtInExtensionsDisabled={checkDesktopRestriction({ restriction: "allowBuiltInExtensions" })}
+                  connectMcp={(entry) => {
+                    void connectionsStore.connectMcp(entry);
+                  }}
+                  configSlotForEntry={(entry) => getExtensionConfigSlot(entry, {
                     onmyagentServerClient: selectedWorkspaceEndpoint?.client ?? onmyagentClient,
-                  });
-                  if (runtimeConnected !== null) return runtimeConnected;
-                  const id = entry.serverName ?? entry.name;
-                  if (id === "openai-image-gen") return imageExtensionInstalled;
-                  if (id === "ollama") return providerConnectedIds.includes("ollama");
-                  return false;
-                }}
-                authorizeMcp={(entry) => {
-                  void connectionsStore.authorizeMcp(entry);
-                }}
-                logoutMcpAuth={(name) => connectionsStore.logoutMcpAuth(name)}
-                removeMcp={(name) => {
-                  void connectionsStore.removeMcp(name);
-                }}
-                setMcpEnabled={
-                  routeOnMyAgentStatus === "connected" && routeOnMyAgentCapabilities?.mcp?.write
-                    ? (name, enabled) => connectionsStore.setMcpEnabled(name, enabled)
-                    : undefined
-                }
-                readConfigFile={(scope) => connectionsStore.readMcpConfigFile(scope)}
-                installedSkills={extensionsStore.skills()}
-                installedPlugins={Object.values(extensionsStore.importedCloudPlugins())}
-                uninstallSkill={(name) => { void extensionsStore.uninstallSkill(name); }}
-                removeCloudPlugin={(pluginId) => { void extensionsStore.removeCloudOrgPlugin(pluginId); }}
-                readSkill={(name) => extensionsStore.readSkill(name)}
-                showHeader={false}
-              />
-            }
-
-            cloudMarketplaceView={
-              <CloudMarketplacesView
-                embedded
-                extensions={extensionsStore}
-                session={denSession}
-              />
-            }
-          />
+                    computerUse: {
+                      connected: connectionsSnapshot.mcpServers.some((server) => server.name === "computer-use"),
+                      connecting: connectionsSnapshot.mcpConnectingName === entry.name,
+                      onConnect: () => connectionsStore.connectMcp(entry),
+                      onRefresh: () => connectionsStore.refreshMcpServers(),
+                    },
+                    imageExtension: {
+                      busy: imageExtensionBusy || imageGenerationBusy,
+                      status: imageExtensionStatus ?? imageGenerationStatus,
+                      error: imageExtensionError ?? imageGenerationError,
+                      envKeyDetected: providers.some((p) => p.id === "openai" && p.source === "env") || providerConnectedIds.includes("openai"),
+                      onInstall: installOpenAiImageExtension,
+                      onTestGenerate: generateOpenAiTestImage,
+                    },
+                    voiceExtension: {
+                      busy: voiceBusy,
+                      status: voiceStatus,
+                      error: voiceError,
+                      envKeyDetected:
+                        userEnvKeys.includes("OPENAI_REALTIME_API_KEY") ||
+                        userEnvKeys.includes(OPENAI_API_KEY_ENV_KEY) ||
+                        providers.some((p) => p.id === "openai" && p.source === "env") ||
+                        providerConnectedIds.includes("openai"),
+                      onSaveApiKey: saveVoiceApiKey,
+                      onTestSession: testVoiceSession,
+                    },
+                    localProvider: {
+                      busy: localProviderBusy,
+                      status: localProviderStatus,
+                      error: localProviderError,
+                      onInstall: installLocalProvider,
+                    },
+                  })}
+                  isExtensionConnected={(entry) => {
+                    const runtimeConnected = getExtensionConnected(entry, {
+                      onmyagentServerClient: selectedWorkspaceEndpoint?.client ?? onmyagentClient,
+                    });
+                    if (runtimeConnected !== null) return runtimeConnected;
+                    const id = entry.serverName ?? entry.name;
+                    if (id === "openai-image-gen") return imageExtensionInstalled;
+                    if (id === "ollama") return providerConnectedIds.includes("ollama");
+                    return false;
+                  }}
+                  authorizeMcp={(entry) => {
+                    void connectionsStore.authorizeMcp(entry);
+                  }}
+                  logoutMcpAuth={(name) => connectionsStore.logoutMcpAuth(name)}
+                  removeMcp={(name) => {
+                    void connectionsStore.removeMcp(name);
+                  }}
+                  setMcpEnabled={
+                    routeOnMyAgentStatus === "connected" && routeOnMyAgentCapabilities?.mcp?.write
+                      ? (name, enabled) => connectionsStore.setMcpEnabled(name, enabled)
+                      : undefined
+                  }
+                  readConfigFile={(scope) => connectionsStore.readMcpConfigFile(scope)}
+                  installedSkills={extensionsStore.skills()}
+                  installedPlugins={Object.values(extensionsStore.importedCloudPlugins())}
+                  uninstallSkill={(name) => { void extensionsStore.uninstallSkill(name); }}
+                  removeCloudPlugin={(pluginId) => { void extensionsStore.removeCloudOrgPlugin(pluginId); }}
+                  readSkill={(name) => extensionsStore.readSkill(name)}
+                  showHeader={false}
+                />
+              }
+              cloudMarketplaceView={
+                <LazyCloudMarketplacesView
+                  embedded
+                  extensions={extensionsStore}
+                  session={denSession}
+                />
+              }
+            />
+          </SettingsTabSuspense>
         );
       case "cloud-marketplaces":
         return (
-          <CloudMarketplacesView
-            extensions={extensionsStore}
-            session={denSession}
-          />
+          <SettingsTabSuspense>
+            <LazyCloudMarketplacesView
+              extensions={extensionsStore}
+              session={denSession}
+            />
+          </SettingsTabSuspense>
         );
       case "cloud-providers":
         return (
-          <CloudProvidersView
-            cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
-            connectCloudProvider={providerAuthStore.connectCloudProvider}
-            importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
-            refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
-            removeCloudProvider={providerAuthStore.removeCloudProvider}
-            session={denSession}
-          />
+          <SettingsTabSuspense>
+            <LazyCloudProvidersView
+              cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
+              connectCloudProvider={providerAuthStore.connectCloudProvider}
+              importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
+              refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
+              removeCloudProvider={providerAuthStore.removeCloudProvider}
+              session={denSession}
+            />
+          </SettingsTabSuspense>
         );
       case "updates":
         return (
-          <UpdatesView
-            busy={busy}
-            webDeployment={platform.platform === "web"}
-            appVersion={electronUpdaterState.appVersion}
-            updateEnv={electronUpdaterState.updateEnv}
-            updateAutoCheck={updateAutoCheck}
-            toggleUpdateAutoCheck={() => setUpdateAutoCheck((current) => !current)}
-            updateAutoDownload={updateAutoDownload}
-            toggleUpdateAutoDownload={() => setUpdateAutoDownload((current) => !current)}
-            updateStatus={electronUpdaterState.updateStatus}
-            anyActiveRuns={activeReloadBlockingSessions.length > 0}
-            checkForUpdates={electronUpdaterState.checkForUpdates}
-            downloadUpdate={electronUpdaterState.downloadUpdate}
-            installUpdateAndRestart={electronUpdaterState.installUpdateAndRestart}
-            releaseChannel={local.prefs.releaseChannel ?? "stable"}
-            onReleaseChannelChange={electronUpdaterState.setReleaseChannel}
-            // Lightweight GitHub Releases checker is stable-only; main reports
-            // alphaSupported=false. Prefer that over platform heuristics.
-            alphaChannelSupported={electronUpdaterState.alphaSupported === true}
-          />
+          <SettingsTabSuspense>
+            <LazyUpdatesView
+              busy={busy}
+              webDeployment={platform.platform === "web"}
+              appVersion={electronUpdaterState.appVersion}
+              updateEnv={electronUpdaterState.updateEnv}
+              updateAutoCheck={updateAutoCheck}
+              toggleUpdateAutoCheck={() => setUpdateAutoCheck((current) => !current)}
+              updateAutoDownload={updateAutoDownload}
+              toggleUpdateAutoDownload={() => setUpdateAutoDownload((current) => !current)}
+              updateStatus={electronUpdaterState.updateStatus}
+              anyActiveRuns={activeReloadBlockingSessions.length > 0}
+              checkForUpdates={electronUpdaterState.checkForUpdates}
+              downloadUpdate={electronUpdaterState.downloadUpdate}
+              installUpdateAndRestart={electronUpdaterState.installUpdateAndRestart}
+              releaseChannel={local.prefs.releaseChannel ?? "stable"}
+              onReleaseChannelChange={electronUpdaterState.setReleaseChannel}
+              alphaChannelSupported={electronUpdaterState.alphaSupported === true}
+            />
+          </SettingsTabSuspense>
         );
       case "archived-tasks":
         return (
-          <ArchivedTasksView
-            client={onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient}
-            workspaceId={runtimeWorkspaceId?.trim() || selectedWorkspaceId}
-          />
+          <SettingsTabSuspense>
+            <LazyArchivedTasksView
+              client={onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient}
+              workspaceId={runtimeWorkspaceId?.trim() || selectedWorkspaceId}
+            />
+          </SettingsTabSuspense>
         );
       case "environment":
         return (
-          <EnvironmentView
-            client={onmyagentServerSnapshot.onmyagentServerClient}
-            isRemoteWorkspace={isRemoteWorkspace}
-            onApplyChanges={isDesktopRuntime() && !isRemoteWorkspace ? handleApplyEnvironmentChanges : undefined}
-            applyBlocked={activeReloadBlockingSessions.length > 0}
-            applyBlockedReason={
-              activeReloadBlockingSessions.length > 0
-                ? t("settings.environment.apply_blocked_active_tasks")
-                : null
-            }
-            runtimeKey={environmentRuntimeKey}
-          />
+          <SettingsTabSuspense>
+            <LazyEnvironmentView
+              client={onmyagentServerSnapshot.onmyagentServerClient}
+              isRemoteWorkspace={isRemoteWorkspace}
+              onApplyChanges={isDesktopRuntime() && !isRemoteWorkspace ? handleApplyEnvironmentChanges : undefined}
+              applyBlocked={activeReloadBlockingSessions.length > 0}
+              applyBlockedReason={
+                activeReloadBlockingSessions.length > 0
+                  ? t("settings.environment.apply_blocked_active_tasks")
+                  : null
+              }
+              runtimeKey={environmentRuntimeKey}
+            />
+          </SettingsTabSuspense>
         );
       case "debug":
-        return <DebugView {...debugViewProps} />;
+        return (
+          <SettingsTabSuspense>
+            <LazyDebugView {...debugViewProps} />
+          </SettingsTabSuspense>
+        );
       default:
         return null;
     }

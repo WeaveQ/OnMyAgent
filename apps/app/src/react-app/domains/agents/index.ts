@@ -4,6 +4,9 @@ export {
   type AgentsPageProps,
   type AgentCardItem,
 } from "./agents-page";
+
+/** Deferred loader so session host can code-split the heavy agents registry UI. */
+export const loadAgentsPage = () => import("./agents-page");
 export { useEnsureAgentRegistry } from "./use-agent-registry";
 export {
   buildPendingAgentFromRecord,
