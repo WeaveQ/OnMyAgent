@@ -166,6 +166,7 @@ export default {
   "agent_manager.agent_card.add_as_mine_exists": "{name} is already in My agents",
   "agent_manager.agent_card.add_as_mine_fail_title": "Could not add",
   "agent_manager.agent_card.add_as_mine_no_workspace": "Open a workspace first",
+  "agent_manager.mcp.app_unavailable": "{label} is not in My agents or is not installed; MCP cannot be configured.",
   "agent_manager.mcp.no_fleet_apps": "No agents available under My agents. Adopt and enable agents in Agent management first.",
   "agent_manager.provider_no_fleet_apps": "No agents available under My agents. Adopt and enable agents first.",
   "agent_manager.agent_card.discoverable_hint": "From the built-in agent catalog · ready once installed, test connection even before that",
