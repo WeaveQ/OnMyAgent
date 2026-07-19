@@ -31,7 +31,7 @@ import {
 
 type SectionId = "pinned" | "tasks" | "spaces" | "automations";
 const ASSISTANT_TASK_PREVIEW_LIMIT = 20;
-/** Per space/automation folder: show “查看更多” when children exceed this. */
+/** Per space/automation folder: show "show more" when children exceed this. */
 const FOLDER_TASK_PREVIEW_LIMIT = 5;
 
 /**
@@ -199,7 +199,7 @@ function SectionHeader(props: {
   count: number;
   expanded: boolean;
   onToggle: () => void;
-  /** Optional trailing control (e.g. expand-all for 空间). */
+  /** Optional trailing control (e.g. expand-all for spaces). */
   trailing?: ReactNode;
 }) {
   // WorkBuddy：`空间 (10) ∨` — 箭头紧贴标题；可选 trailing 贴行尾。
@@ -459,7 +459,7 @@ function SectionShowMore(props: {
   );
 }
 
-/** WorkBuddy folder disclosure: soft pill “查看更多(n)” / “收起” — same h-8 as tasks. */
+/** WorkBuddy folder disclosure: soft pill "show more (n)" / "collapse" — same h-8 as tasks. */
 function FolderTaskShowMore(props: {
   total: number;
   showAll: boolean;
@@ -601,7 +601,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
 
   return (
     <div className="mt-1 flex flex-col gap-0.5 pt-1" data-assistant-task-list="true">
-      {/* 置顶任务 — WorkBuddy: 置顶任务 (n) ∨ as its own section */}
+      {/* Pinned tasks — WorkBuddy: pinned tasks (n) ∨ as its own section */}
       {pinnedCount > 0 ? (
         <div data-assistant-section="pinned" className="flex flex-col gap-0.5">
           <SectionHeader
@@ -639,7 +639,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         </div>
       ) : null}
 
-      {/* 任务 */}
+      {/* Tasks */}
       <div data-assistant-section="tasks" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_tasks")}
@@ -692,7 +692,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
 
-      {/* 空间 — WorkBuddy: 空间(n) ∨ / 📁 name > + expand-all */}
+      {/* Spaces — WorkBuddy: spaces (n) ∨ / 📁 name > + expand-all */}
       <div data-assistant-section="spaces" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_space_tasks")}
@@ -820,7 +820,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
 
-      {/* 定时 */}
+      {/* Automations */}
       <div data-assistant-section="automations" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_automation_tasks")}

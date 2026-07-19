@@ -75,7 +75,7 @@ type AssistantTaskItemProps = {
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenFolder?: (path: string) => void;
-  /** Bind this task to a project folder (appears under 空间). */
+  /** Bind this task to a project folder (appears under spaces). */
   onSaveToSpace?: (sessionId: string) => void;
 };
 

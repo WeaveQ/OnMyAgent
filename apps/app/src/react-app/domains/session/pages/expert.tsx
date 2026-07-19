@@ -1383,8 +1383,8 @@ export function ExpertPage(props: ExpertPageProps) {
 
   // Header chrome: 🔍 find · 🕐 history questions popover · ▤ workspace rail
   // (same as assistant — history is a floating popover, not a right panel)
-  const headerPanelControls = (
-    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+  const historyChrome = (
+    <>
       {historySearchOpen ? (
         <div
           className={cn(
@@ -1503,23 +1503,21 @@ export function ExpertPage(props: ExpertPageProps) {
         }
         onSelectPrompt={handleHistorySelectPrompt}
       />
+    </>
+  );
+  const headerPanelControls = !sidePanelOpen ? (
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historyChrome}
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
         size="icon-xs"
-        className={cn(
-          "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-          sidePanelOpen && "bg-dls-hover text-dls-text",
-        )}
+        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
           event.stopPropagation();
-          if (sidePanelOpen) {
-            closeRightPane();
-          } else {
-            openExpertSidePanelMenu();
-          }
+          openExpertSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
         aria-label={t("session.code_side_panel_toggle")}
@@ -1527,6 +1525,10 @@ export function ExpertPage(props: ExpertPageProps) {
       >
         <PanelRight className="size-3.5" />
       </Button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historyChrome}
     </div>
   );
 
