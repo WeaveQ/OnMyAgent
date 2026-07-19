@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
-import { Braces, ChevronRight, FileUp, Package, Plug, Plus, Zap } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Braces, ChevronRight, FileUp, Package, Plug, Plus } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
 import type {
   OnMyAgentCommandItem,
@@ -14,6 +14,7 @@ import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
 
 type ToolSection = "commands" | "skills" | "plugins" | "connectors";
 
@@ -120,9 +121,13 @@ export function AutomationPromptTools(props: {
     }
   };
 
-  const sections: Array<{ id: ToolSection; label: string; icon: typeof Braces }> = [
+  const sections: Array<{
+    id: ToolSection;
+    label: string;
+    icon: ComponentType<{ className?: string }>;
+  }> = [
     { id: "commands", label: t("automation.tool_commands"), icon: Braces },
-    { id: "skills", label: t("automation.tool_skills"), icon: Zap },
+    { id: "skills", label: t("automation.tool_skills"), icon: SkillGlyphIcon },
     { id: "plugins", label: t("automation.tool_plugins"), icon: Package },
     { id: "connectors", label: t("automation.tool_connectors"), icon: Plug },
   ];

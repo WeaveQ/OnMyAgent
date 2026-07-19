@@ -976,13 +976,12 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     user-select: none;
   }
 
-  /* WorkBuddy-style concrete op chips: 加载技能 / 运行命令 / 浏览器操作 */
+  /* WorkBuddy-style concrete ops: 加载技能 / 运行命令 / 浏览器操作 — text+icon only, no pill border */
   .session-workbuddy-process-head-chip {
     gap: 6px;
-    border: 1px solid var(--dls-border);
-    border-radius: 10px;
-    background: var(--dls-surface-muted, #f5f5f5);
-    padding: 6px 12px;
+    border: 0;
+    background: transparent;
+    padding: 0;
     color: var(--dls-text-secondary);
     line-height: 20px;
   }
@@ -1035,8 +1034,6 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-workbuddy-process-head-chip:hover,
   .session-workbuddy-process-head-chip:focus-visible {
-    border-color: var(--dls-border-strong, var(--dls-border));
-    background: var(--dls-hover, var(--dls-surface-muted));
     color: var(--dls-text-primary);
   }
 

@@ -20,7 +20,8 @@ function defaultBundledPluginsRoot(dirname) {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
 }
 
-const DEFAULT_URL = "https://www.google.com";
+// Product default for user-opened tabs (matches renderer BROWSER_HOME_URL).
+const DEFAULT_URL = "https://www.baidu.com";
 
 function normalizeUrl(input, fallback = DEFAULT_URL) {
   const value = typeof input === "string" && input.trim() ? input.trim() : fallback;
@@ -244,7 +245,7 @@ export function createElectronBrowserController(options) {
     };
   }
 
-  function createBrowserTab(url = "about:blank", { select = true, sessionId = null } = {}) {
+  function createBrowserTab(url = DEFAULT_URL, { select = true, sessionId = null } = {}) {
     const tabId = `tab-${randomUUID()}`;
     const view = createView();
     const tab = originalRegisterUserTab(tabId, view, {
@@ -252,7 +253,7 @@ export function createElectronBrowserController(options) {
     });
     records.set(tabId, { tab, view, favicon: null });
     order.push(tabId);
-    void view.webContents.loadURL(normalizeUrl(url, "about:blank"));
+    void view.webContents.loadURL(normalizeUrl(url, DEFAULT_URL));
     if (select || !activeTabId) activeTabId = tabId;
     attachSelected();
     sendState();
@@ -271,11 +272,14 @@ export function createElectronBrowserController(options) {
     if (!tabId) return null;
     const record = records.get(tabId);
     if (!record) return null;
-    if (host.describeTab(tabId).owner !== "user") {
-      throw new Error("Agent tabs must be finalized by their owning session");
-    }
+    // User can dismiss any tab from the panel X (including agent/claimed).
+    // Agent-owned temporary lifecycle finalize still happens via turnEnded/sessionDeleted.
     detach(record.view);
-    host.closeUserTab(tabId);
+    if (typeof host.forceCloseTab === "function") {
+      host.forceCloseTab(tabId);
+    } else {
+      host.closeUserTab(tabId);
+    }
     records.delete(tabId);
     order = order.filter((id) => id !== tabId);
     if (activeTabId === tabId) activeTabId = order[0] ?? null;

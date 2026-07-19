@@ -97,6 +97,7 @@ import {
   insertSidebarSession,
   sessionBelongsToAnotherWorkspace,
 } from "./sessions";
+import { writeStoredDefaultModel } from "../../kernel/model-config";
 import { focusPromptSoon, todoQueryKeyForSession } from "./state";
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import {
@@ -104,6 +105,7 @@ import {
   writeLastSessionFor,
 } from "../session-memory";
 import type { NavigateFunction } from "react-router-dom";
+import { updateDefaultModelPrefs } from "./composer";
 
 type NavigateToWorkspaceSession = (
   workspaceId: string,
@@ -361,10 +363,14 @@ export function useSessionRouteSurfaceProps(
       },
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
+        // 1) Pin model for the current session/draft (existing sessions stay put).
+        // 2) Remember as global default so 新建任务 / 新会话 homes pick it next.
         setSessionModelOverrideById((current) => ({
           ...current,
           [composerModeSessionId]: model,
         }));
+        local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
+        writeStoredDefaultModel(model);
         setCompactModelPickerOpen(false);
       },
       onOpenSettingsSection: (section: SettingsSection) => {
@@ -520,9 +526,22 @@ export function useSessionRouteSurfaceProps(
             : applySessionScopedValue(current, sessionId, draft.collaborationMode),
         );
         if (createdSession) {
-          setSessionModelOverrideById((current) =>
-            moveSessionModelOverride(current, composerModeSessionId, sessionId),
-          );
+          // Move draft override onto the new session, then pin the model actually
+          // used for this send so later default-model changes do not rewrite it.
+          const pinnedModel =
+            sessionModelOverrideById[composerModeSessionId] ??
+            usePendingAgentStore.getState().getAgent()?.model ??
+            local.prefs.defaultModel ??
+            null;
+          setSessionModelOverrideById((current) => {
+            const moved = moveSessionModelOverride(
+              current,
+              composerModeSessionId,
+              sessionId,
+            );
+            if (!pinnedModel) return moved;
+            return { ...moved, [sessionId]: pinnedModel };
+          });
         }
         const planningIntent = draft.planningIntent;
         if (planningIntent) {
@@ -897,6 +916,8 @@ export function useSessionRouteSurfaceProps(
           ...current,
           [composerModeSessionId]: model,
         }));
+        local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
+        writeStoredDefaultModel(model);
       },
       draftWorkspaceDirectory:
         pageMode === "assistant" || pageMode === "expert"

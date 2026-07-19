@@ -51,6 +51,7 @@ import {
   type WorkspaceFileTreeNode,
 } from "../chat/session-page-files-model";
 import { BrowserPanel, EmbeddedBrowserViewport } from "../browser/browser-panel";
+import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
 
 type ToolKind = "review" | "terminal" | "browser" | "files";
@@ -61,6 +62,56 @@ type ToolTab = {
   label: string;
   terminal?: CodeWorkspaceTerminal;
 };
+
+/** Durable tool chips (no live terminal handle) restored after side-panel unmount. */
+type DurableToolTab = {
+  id: string;
+  kind: Exclude<ToolKind, "terminal">;
+  label: string;
+};
+
+type WorkspacePanelSnapshot = {
+  tabs: DurableToolTab[];
+  activeId: string | null;
+};
+
+/**
+ * Side panel unmounts when closed (`sidePanelVisible ? … : null`). Keep tool
+ * tabs (browser/files/review) per session so reopening restores chrome; browser
+ * page tabs live in Electron and survive independently.
+ */
+const workspacePanelSnapshots = new Map<string, WorkspacePanelSnapshot>();
+
+function workspacePanelCacheKey(
+  sessionId: string | null | undefined,
+  workspaceId: string | null | undefined,
+) {
+  return `${sessionId?.trim() || "no-session"}::${workspaceId?.trim() || "no-workspace"}`;
+}
+
+function toDurableTabs(tabs: ToolTab[]): DurableToolTab[] {
+  return tabs.flatMap((tab) => {
+    if (tab.kind === "terminal") return [];
+    return [{ id: tab.id, kind: tab.kind, label: tab.label }];
+  });
+}
+
+function readWorkspacePanelSnapshot(key: string): WorkspacePanelSnapshot | null {
+  return workspacePanelSnapshots.get(key) ?? null;
+}
+
+function writeWorkspacePanelSnapshot(key: string, tabs: ToolTab[], activeId: string | null) {
+  const durable = toDurableTabs(tabs);
+  if (durable.length === 0) {
+    workspacePanelSnapshots.delete(key);
+    return;
+  }
+  const activeStillPresent = activeId && durable.some((tab) => tab.id === activeId);
+  workspacePanelSnapshots.set(key, {
+    tabs: durable,
+    activeId: activeStillPresent ? activeId : durable[0]?.id ?? null,
+  });
+}
 
 const toolItems: Array<{
   kind: ToolKind;
@@ -565,11 +616,31 @@ export function CodeWorkspaceSidePanel(props: {
   onClose: () => void;
   hiddenKinds?: ToolKind[];
 }) {
-  const [tabs, setTabs] = useState<ToolTab[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const tabsRef = useRef<ToolTab[]>([]);
-  const lastInitialKindRef = useRef<ToolKind | null>(null);
-  const activeTab = tabs.find((tab) => tab.id === activeId) ?? null;
+  const cacheKey = workspacePanelCacheKey(props.sessionId, props.workspaceId);
+  const cacheKeyRef = useRef(cacheKey);
+  cacheKeyRef.current = cacheKey;
+
+  const [tabs, setTabs] = useState<ToolTab[]>(() => {
+    const snapshot = readWorkspacePanelSnapshot(cacheKey);
+    return snapshot?.tabs.map((tab) => ({ ...tab })) ?? [];
+  });
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    const snapshot = readWorkspacePanelSnapshot(cacheKey);
+    return snapshot?.activeId ?? null;
+  });
+  const tabsRef = useRef<ToolTab[]>(tabs);
+  const activeIdRef = useRef<string | null>(activeId);
+  const restoredKind =
+    tabs.find((tab) => tab.id === activeId)?.kind
+    ?? tabs[0]?.kind
+    ?? null;
+  const lastInitialKindRef = useRef<ToolKind | null>(
+    restoredKind === "terminal" ? null : restoredKind,
+  );
+  // Fall back to the first tab when activeId is briefly out of sync (e.g. after
+  // async addTab) so content is never blank while a top tab chip is visible.
+  const activeTab =
+    tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
   const visibleToolItems = useMemo(
     () => toolItems.filter((item) => !props.hiddenKinds?.includes(item.kind)),
     [props.hiddenKinds],
@@ -579,8 +650,47 @@ export function CodeWorkspaceSidePanel(props: {
     tabsRef.current = tabs;
   }, [tabs]);
 
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  // Persist durable tool tabs whenever they change so close/reopen restores them.
+  useEffect(() => {
+    writeWorkspacePanelSnapshot(cacheKey, tabs, activeId);
+  }, [activeId, cacheKey, tabs]);
+
+  // Session/workspace switch: load that scope's snapshot (or empty).
+  useEffect(() => {
+    const snapshot = readWorkspacePanelSnapshot(cacheKey);
+    const nextTabs = snapshot?.tabs.map((tab) => ({ ...tab })) ?? [];
+    setTabs(nextTabs);
+    setActiveId(snapshot?.activeId ?? null);
+    const kind =
+      nextTabs.find((tab) => tab.id === snapshot?.activeId)?.kind
+      ?? nextTabs[0]?.kind
+      ?? null;
+    // Durable snapshots never include live terminal tabs.
+    lastInitialKindRef.current = kind;
+  }, [cacheKey]);
+
+  // Heal activeId when tabs exist but selection is missing/stale so content
+  // mounts immediately (office/code browser+files all use this surface).
+  useEffect(() => {
+    if (tabs.length === 0) {
+      if (activeId !== null) setActiveId(null);
+      return;
+    }
+    if (activeId && tabs.some((tab) => tab.id === activeId)) return;
+    setActiveId(tabs[0]!.id);
+  }, [activeId, tabs]);
+
   useEffect(
     () => () => {
+      writeWorkspacePanelSnapshot(
+        cacheKeyRef.current,
+        tabsRef.current,
+        activeIdRef.current,
+      );
       for (const tab of tabsRef.current) {
         if (tab.terminal) {
           void closeCodeWorkspaceTerminal({
@@ -593,34 +703,37 @@ export function CodeWorkspaceSidePanel(props: {
   );
 
   const addTab = useCallback(
-    async (kind: ToolKind) => {
+    async (kind: ToolKind, options?: { seedHomeWhenEmpty?: boolean }) => {
       if (props.hiddenKinds?.includes(kind)) return;
 
       // One browser/files/review tool surface per session side panel. Multiple
       // page tabs live *inside* BrowserPanel, not as duplicate tool chips.
       if (kind !== "terminal") {
-        let existingId: string | null = null;
+        // User open browser: ensure a session page tab *before* mounting BrowserPanel
+        // so the viewport activates on first paint (no empty shell → late show race).
+        if (kind === "browser" && options?.seedHomeWhenEmpty && props.sessionId) {
+          await openInAppBrowser({
+            openSidePanel: () => undefined,
+            sessionId: props.sessionId,
+            seedHomeWhenEmpty: true,
+          }).catch(() => undefined);
+        }
+
+        // Deterministic singleton id — never rely on setState updater side-effects
+        // to set activeId (after `await`, React may defer the updater and leave
+        // activeId null → top tab visible, content empty until user re-clicks).
+        const singletonId = `${kind}-singleton`;
+        const label = t(
+          toolItems.find((item) => item.kind === kind)?.labelKey ??
+            "session.code_side_panel_files",
+        );
         setTabs((current) => {
-          const existing = current.find((tab) => tab.kind === kind);
-          if (existing) {
-            existingId = existing.id;
+          if (current.some((tab) => tab.kind === kind || tab.id === singletonId)) {
             return current;
           }
-          const id = `${kind}-singleton`;
-          existingId = id;
-          return [
-            ...current,
-            {
-              id,
-              kind,
-              label: t(
-                toolItems.find((item) => item.kind === kind)?.labelKey ??
-                  "session.code_side_panel_files",
-              ),
-            },
-          ];
+          return [...current, { id: singletonId, kind, label }];
         });
-        if (existingId) setActiveId(existingId);
+        setActiveId(singletonId);
         return;
       }
 
@@ -637,7 +750,7 @@ export function CodeWorkspaceSidePanel(props: {
       setTabs((current) => [...current, next]);
       setActiveId(id);
     },
-    [props.hiddenKinds, props.workspacePath],
+    [props.hiddenKinds, props.sessionId, props.workspacePath],
   );
 
   // Ensure the requested tool tab exists once. Do not re-run addTab on every
@@ -650,16 +763,19 @@ export function CodeWorkspaceSidePanel(props: {
     if (lastInitialKindRef.current === nextInitialKind) {
       // Still focus existing singleton if present.
       if (nextInitialKind !== "terminal") {
-        setTabs((current) => {
-          const existing = current.find((tab) => tab.kind === nextInitialKind);
-          if (existing) setActiveId(existing.id);
-          return current;
-        });
+        const singletonId = `${nextInitialKind}-singleton`;
+        setActiveId(singletonId);
       }
       return;
     }
     lastInitialKindRef.current = nextInitialKind;
-    void addTab(nextInitialKind);
+    // User-driven panel open (browser/files/review) should seed browser home when empty.
+    // Agent auto-open uses the same initialKind — seedHomeWhenEmpty only creates Baidu
+    // when there is no page tab yet, so agent tabs that already exist are preserved.
+    void addTab(
+      nextInitialKind,
+      nextInitialKind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
+    );
   }, [addTab, props.hiddenKinds, props.initialKind]);
 
   const closeTab = async (tab: ToolTab) => {
@@ -757,7 +873,15 @@ export function CodeWorkspaceSidePanel(props: {
                   {visibleToolItems.map((item) => {
                     const Icon = item.icon;
                     return (
-                      <DropdownMenuItem key={item.kind} onClick={() => void addTab(item.kind)}>
+                      <DropdownMenuItem
+                        key={item.kind}
+                        onClick={() =>
+                          void addTab(
+                            item.kind,
+                            item.kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
+                          )
+                        }
+                      >
                         <Icon />
                         {t(item.labelKey)}
                       </DropdownMenuItem>
@@ -793,7 +917,12 @@ export function CodeWorkspaceSidePanel(props: {
                     key={item.kind}
                     type="button"
                     className="h-10 bg-dls-surface-muted text-dls-text hover:bg-dls-hover"
-                    onClick={() => void addTab(item.kind)}
+                    onClick={() =>
+                      void addTab(
+                        item.kind,
+                        item.kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
+                      )
+                    }
                   >
                     <Icon className="size-4 text-dls-secondary" />
                     {t(item.labelKey)}
