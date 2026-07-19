@@ -1000,7 +1000,7 @@ export function ExpertPage(props: ExpertPageProps) {
     }
     setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
   const {
     setRightSidebarExpandedWidth: setBrowserPanelWidth,
   } = useWorkspaceShellLayout({

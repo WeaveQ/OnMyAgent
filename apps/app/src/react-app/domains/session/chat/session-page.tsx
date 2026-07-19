@@ -1229,7 +1229,10 @@ export function SessionPage(props: SessionPageProps) {
                         onClose={closeRightPane}
                       />
                     ) : (
-                      <BrowserPanel onClose={closeRightPane} />
+                      <BrowserPanel
+                        sessionId={props.selectedSessionId}
+                        onClose={closeRightPane}
+                      />
                     )}
                   </ResizablePanel>
                 </>

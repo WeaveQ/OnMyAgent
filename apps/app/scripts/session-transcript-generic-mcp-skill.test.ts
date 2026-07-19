@@ -287,7 +287,7 @@ describe("session transcript WorkBuddy compact generic, MCP, and skill tools", (
         import.meta.url,
       )).text(),
       Bun.file(new URL(
-        "../src/react-app/domains/session/surface/message-list/tool-block.tsx",
+        "../src/react-app/domains/session/surface/message-list.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL("../src/react-app/domains/session/sync/session-sync.ts", import.meta.url)).text(),

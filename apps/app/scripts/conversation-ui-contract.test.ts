@@ -81,24 +81,20 @@ describe("conversation shared UI contract", () => {
     expect(read("ui/plan-block.tsx")).toContain("export function PlanBlock");
   });
 
-  test("OpenCode tool-block primary path uses shared ConversationItemView", () => {
-    const toolBlock = readFileSync(
+  test("OpenCode session transcript keeps WorkBuddy process fold and reasoning chrome", () => {
+    const messageList = readFileSync(
       join(
         import.meta.dir,
-        "../src/react-app/domains/session/surface/message-list/tool-block.tsx",
+        "../src/react-app/domains/session/surface/message-list.tsx",
       ),
       "utf8",
     );
-    expect(toolBlock).toContain('from "../../../../capabilities/conversation"');
-    expect(toolBlock).toContain("ConversationItemView");
-    expect(toolBlock).toContain("mapOpenCodeToolPartToItem");
-    expect(toolBlock).toContain("mapOpenCodeReasoningPartToItem");
-    // Reasoning (thinking) primary path is shared for streaming and complete.
-    expect(toolBlock).toContain("mapOpenCodeReasoningPartToItem");
-    expect(toolBlock).toMatch(/part\.type === "reasoning"[\s\S]*ConversationItemView/);
-    // Simple tools use shared row.
-    expect(toolBlock).toContain("useSharedSimpleToolRow");
-    expect(toolBlock).toContain("<ConversationItemView");
+    expect(messageList).toContain("function WorkBuddyProcessFold");
+    expect(messageList).toContain("function WorkBuddyTurnContent");
+    expect(messageList).toContain("showExpandedProcess");
+    expect(messageList).toContain("collapsedSegments");
+    expect(messageList).toContain("function TranscriptReasoning");
+    expect(messageList).toContain('part.type === "reasoning"');
   });
 
   test("Personal timeline primary path uses shared ConversationItemView", () => {

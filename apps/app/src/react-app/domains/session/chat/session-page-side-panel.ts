@@ -107,7 +107,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     }
     setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, selectedSessionId);
 
   const {
     rightSidebarExpandedWidth: browserPanelWidth,

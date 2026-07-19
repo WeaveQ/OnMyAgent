@@ -412,8 +412,8 @@ select:disabled {
   --dls-text-2xs: 0.625rem;  /* 10px @ 16 */
   --dls-text-xs: 0.75rem;    /* 12px */
   /* DESIGN.md § 11 WorkBuddy parity — assistant body / dense workbench chrome */
-  --dls-text-assistant: 0.875rem; /* 14px @ 16 (was 13) */
-  --dls-leading-assistant: 1.3125rem; /* 21px @ 16 (was 19) */
+  --dls-text-assistant: 0.8125rem; /* 13px @ 16 */
+  --dls-leading-assistant: 1.1875rem; /* 19px @ 16 */
   --dls-text-composer: 0.9375rem; /* 15px @ 16 — chat compose body */
   --dls-leading-composer: 1.375rem; /* 22px @ 16 */
   --dls-text-sm: 0.875rem;   /* 14px */
@@ -684,7 +684,7 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     box-sizing: border-box;
     padding: 8px 0;
     color: var(--dls-text-secondary);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 400;
     line-height: 1.75;
     white-space: nowrap;
@@ -716,8 +716,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   }
 
   .session-transcript-root {
-    --session-transcript-line-height: 21px;
-    --session-transcript-font-size: 14px;
+    --session-transcript-line-height: 19px;
+    --session-transcript-font-size: 13px;
     --session-content-table-header: #f7f7f7;
     --session-content-card: #f2f2f2;
     --session-content-border: #ebebeb;
@@ -807,9 +807,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     border-radius: 16px 16px 0 16px;
     background: var(--dls-chat-user-bg);
     padding: 8px 12px;
-    /* User bubble body: match assistant markdown (16px); +2 from prior 14. */
-    font-size: 16px;
-    line-height: 24px;
+    font-size: var(--session-transcript-font-size);
+    line-height: var(--session-transcript-line-height);
     scrollbar-color: var(--dls-border-strong) transparent;
     scrollbar-width: thin;
   }
@@ -833,8 +832,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     justify-content: flex-end;
     gap: 8px;
     color: var(--dls-text-secondary);
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 18px;
     opacity: 0;
     pointer-events: none;
     transition: opacity 150ms ease;
@@ -881,9 +880,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   }
 
   .session-transcript-assistant-identity > span {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
-    line-height: 26.5px;
+    line-height: 24.5px;
   }
 
   .session-transcript-assistant-copy {
@@ -896,8 +895,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   .session-transcript-assistant-copy .markdown-content,
   .session-transcript-assistant-copy .markdown-content p,
   .session-transcript-assistant-copy .markdown-content li {
-    font-size: 16px;
-    line-height: 27px;
+    font-size: 14px;
+    line-height: 25px;
   }
 
   .session-transcript-assistant-copy .markdown-content h1,
@@ -908,8 +907,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   .session-transcript-assistant-copy .markdown-content h6 {
     margin: 0;
     padding: 8px 0 4px;
-    font-size: 16px;
-    line-height: 27px;
+    font-size: 14px;
+    line-height: 25px;
     font-weight: 600;
   }
 
@@ -969,9 +968,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: transparent;
     padding: 0;
     color: var(--dls-text-secondary);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 400;
-    line-height: 27px;
+    line-height: 25px;
     text-align: left;
     cursor: pointer;
     user-select: none;
@@ -1055,9 +1054,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     min-width: 0;
     overflow: hidden;
     color: inherit;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 400;
-    line-height: 27px;
+    line-height: 25px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1127,9 +1126,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     flex: 1;
     overflow: hidden;
     color: var(--dls-text-primary);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 400;
-    line-height: 27px;
+    line-height: 25px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1163,7 +1162,7 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     gap: 8px;
     padding: 8px 0;
     color: var(--dls-text-secondary);
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.75;
   }
 
@@ -1176,7 +1175,7 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: var(--session-content-table-header, var(--dls-surface-muted));
     padding: 6px 8px 6px 16px;
     color: var(--dls-text-primary);
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .session-inline-visual-source {
@@ -1186,7 +1185,7 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     padding: 12px;
     color: var(--dls-text-secondary);
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.5;
   }
 
@@ -1214,13 +1213,13 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   .session-inline-visual-invalid {
     padding: 16px;
     color: var(--dls-text-secondary);
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .session-inline-visual-error {
     padding: 16px;
     color: var(--dls-status-danger);
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.75;
   }
 
@@ -1234,8 +1233,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: transparent;
     padding: 0;
     color: var(--dls-text-secondary);
-    font-size: 16px;
-    line-height: 26.5px;
+    font-size: 14px;
+    line-height: 24.5px;
   }
 
   .session-transcript-turn-status-button {
@@ -1258,8 +1257,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     gap: 8px;
     padding-top: 12px;
     color: var(--dls-text-secondary);
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 18px;
   }
 
   .session-transcript-turn-actions button {
