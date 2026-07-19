@@ -12,7 +12,10 @@ import type { ReactNode } from "react";
 import { Bot } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { LobeAgentBrandIcon } from "@/react-app/design-system/lobe-brand-icons";
+import {
+  hasLobeAgentBrandIcon,
+  LobeAgentBrandIcon,
+} from "@/react-app/design-system/lobe-brand-icons";
 import { resolveAgentIconUrl } from "./agent-icon-map";
 
 export type AgentBrandIconSize = "xs" | "sm" | "md" | "lg";
@@ -83,21 +86,8 @@ export function AgentBrandIcon(props: {
             draggable={false}
           />
         ) : (
-          <LobeAgentBrandIcon
-            id={props.id}
-            provider={props.provider}
-            size={GLYPH_PX[size]}
-            className={cn(GLYPH_SIZE[size], "object-contain")}
-          /> ?? (
-            // Lobe returns null when no mapping; fall through to Bot
-            <Bot className={FALLBACK_ICON_SIZE[size]} aria-hidden />
-          )
-        )}
-        {/* When Lobe renders nothing, show Bot — handled below via empty check is awkward in JSX.
-            Render Bot only if no URL and Lobe has no mark: use dual-pass structure. */}
-        {!resolvedUrl ? (
           <LobeOrBot id={props.id} provider={props.provider} size={size} />
-        ) : null}
+        )}
       </div>
       {props.badge}
     </div>
@@ -109,11 +99,10 @@ function LobeOrBot(props: {
   provider?: string;
   size: AgentBrandIconSize;
 }) {
-  // Try Lobe first; if the component returns null React still mounts null.
-  // We need a small probe: render Lobe and Bot with CSS so only one shows.
-  // Simpler: always prefer LobeAgentBrandIcon which returns null, and use
-  // a wrapper that falls back.
-  const lobe = (
+  if (!hasLobeAgentBrandIcon(props.id, props.provider)) {
+    return <Bot className={FALLBACK_ICON_SIZE[props.size]} aria-hidden />;
+  }
+  return (
     <LobeAgentBrandIcon
       id={props.id}
       provider={props.provider}
@@ -121,24 +110,4 @@ function LobeOrBot(props: {
       className={cn(GLYPH_SIZE[props.size], "object-contain")}
     />
   );
-  // LobeAgentBrandIcon is a component that returns null — we cannot detect null
-  // easily without dual render. Use known mapping helper.
-  const { hasLobeAgentBrandIcon } = requireLobeHas();
-  if (hasLobeAgentBrandIcon(props.id, props.provider)) {
-    return lobe;
-  }
-  return <Bot className={FALLBACK_ICON_SIZE[props.size]} aria-hidden />;
-}
-
-function requireLobeHas() {
-  // static import preferred — re-export path
-  return {
-    hasLobeAgentBrandIcon: (
-      id?: string | null,
-      provider?: string | null,
-    ) => {
-      // inline to avoid circular require — import at top
-      return false;
-    },
-  };
 }

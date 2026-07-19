@@ -19,7 +19,7 @@ import { ActionRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
-import { StatusPing } from "@/components/ui/status-dot";
+import { StatusDot, StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../../design-system/select-menu";

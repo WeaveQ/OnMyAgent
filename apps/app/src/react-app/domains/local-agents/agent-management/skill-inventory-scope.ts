@@ -10,10 +10,11 @@ export const AGENTS_SKILLS_SOURCE_KEY = "agents-skills";
 export type SkillInventoryScope = "fleet" | "all" | "shared";
 
 export function isAgentsSkillsPoolSkill(skill: AgentManagementSkill): boolean {
-  if (skill.agents?.includes(AGENTS_SKILLS_SOURCE_KEY)) return true;
+  const agentKeys = (skill.agents ?? []) as ReadonlyArray<string>;
+  if (agentKeys.includes(AGENTS_SKILLS_SOURCE_KEY)) return true;
   if (skill.scopeLabel === "Agent Skills") return true;
   for (const source of skill.sources ?? []) {
-    if (source.agent === AGENTS_SKILLS_SOURCE_KEY) return true;
+    if (String(source.agent ?? "") === AGENTS_SKILLS_SOURCE_KEY) return true;
     if (source.scope === "agents") return true;
     if (String(source.label ?? "").toLowerCase() === "agent skills") return true;
     const path = `${source.path ?? ""}\n${source.root ?? ""}`.toLowerCase();
