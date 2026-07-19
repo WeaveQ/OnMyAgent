@@ -306,6 +306,13 @@ function buildExpandedSegments(items: TurnContentItem[]): TurnContentSegment[] {
       segments.push({ kind: "body", id: `body:${itemId(item)}`, item, text });
       continue;
     }
+    if (item.part.type === "reasoning") {
+      const text = item.part.text.trim();
+      if (!text) continue;
+      flushProcess();
+      segments.push({ kind: "body", id: `body:${itemId(item)}`, item, text });
+      continue;
+    }
     if (item.part.type === "file") {
       flushProcess();
       segments.push({ kind: "file", id: `file:${itemId(item)}`, item });

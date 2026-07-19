@@ -344,6 +344,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     sessionTabs.find((tab) => tab.tabId === state.activeTabId || tab.isActive) ??
     sessionTabs[0] ??
     null;
+  const hasSessionScopedTabs = Boolean(sessionId) && sessionTabs.length > 0;
 
   // Keep the native selected tab inside this chat session's tab set.
   useEffect(() => {
@@ -351,6 +352,20 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     if (sessionActiveTab.tabId === state.activeTabId) return;
     void getElectronBrowser()?.selectTab?.(sessionActiveTab.tabId);
   }, [sessionId, sessionActiveTab?.tabId, state.activeTabId]);
+
+  // Sync URL bar to this session's active tab when switching sessions/tabs.
+  useEffect(() => {
+    if (!sessionActiveTab || urlFocusedRef.current) return;
+    dispatch({ type: "urlInputChanged", value: sessionActiveTab.url ?? "" });
+  }, [sessionActiveTab?.tabId, sessionActiveTab?.url]);
+
+  // When this session has no page tabs, hide the shared native WebContentsView
+  // so another session's page cannot paint into this panel.
+  useEffect(() => {
+    if (!sessionId) return;
+    if (hasSessionScopedTabs) return;
+    void getElectronBrowser()?.hide?.();
+  }, [sessionId, hasSessionScopedTabs]);
 
   const navigate = useCallback((url?: string) => {
     getElectronBrowser()?.navigate?.(url ?? state.urlInput);
@@ -390,7 +405,8 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     }
   }, [navigate]);
 
-  const activeTab = sessionActiveTab ?? getActiveTab(state);
+  // Never fall back to another session's global active tab when scoped.
+  const activeTab = sessionActiveTab ?? (sessionId ? null : getActiveTab(state));
   const browser = getElectronBrowser();
 
   if (!isElectronRuntime() || !browser) {
@@ -400,6 +416,10 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
       </div>
     );
   }
+
+  const canGoBack = activeTab?.canGoBack ?? false;
+  const canGoForward = activeTab?.canGoForward ?? false;
+  const isLoading = activeTab?.isLoading ?? false;
 
   return (
     <TooltipProvider delay={1000}>
@@ -440,7 +460,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={back} disabled={!activeTab.canGoBack} aria-label={t("session.browser_back")}>
+                  <Button variant="ghost" size="icon-sm" onClick={back} disabled={!canGoBack} aria-label={t("session.browser_back")}>
                     <ArrowLeft />
                   </Button>
                 )}
@@ -450,7 +470,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={forward} disabled={!activeTab.canGoForward} aria-label={t("session.browser_forward")}>
+                  <Button variant="ghost" size="icon-sm" onClick={forward} disabled={!canGoForward} aria-label={t("session.browser_forward")}>
                     <ArrowRight />
                   </Button>
                 )}
@@ -460,8 +480,8 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={reload} aria-label={t("session.browser_reload")}>
-                    {activeTab.isLoading ? <LoadingSpinner size="default" /> : <RotateCw />}
+                  <Button variant="ghost" size="icon-sm" onClick={reload} disabled={!activeTab} aria-label={t("session.browser_reload")}>
+                    {isLoading ? <LoadingSpinner size="default" /> : <RotateCw />}
                   </Button>
                 )}
               />
@@ -495,8 +515,18 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             </Button>
           </div>
         </div>
-        {/* WebContentsView renders in this area (managed by Electron main process) */}
-        <EmbeddedBrowserViewport />
+        {hasSessionScopedTabs || !sessionId ? (
+          <EmbeddedBrowserViewport />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-dls-secondary">
+            <Globe className="size-8 opacity-40" />
+            <p className="text-sm">{t("session.browser_new_tab")}</p>
+            <Button variant="outline" size="sm" onClick={createTab}>
+              <Plus className="size-3.5" />
+              {t("session.browser_new_tab")}
+            </Button>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

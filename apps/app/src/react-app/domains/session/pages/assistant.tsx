@@ -503,7 +503,7 @@ export function AssistantPage(props: AssistantPageProps) {
     }
     setCurrentSidePanel("browser");
   }, [setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
   const {
     setRightSidebarExpandedWidth: setBrowserPanelWidth,
   } = useWorkspaceShellLayout({

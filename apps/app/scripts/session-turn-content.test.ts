@@ -72,7 +72,15 @@ describe("WorkBuddy turn content presentation", () => {
       "body",
       "process",
       "body",
+      "body",
     ]);
+    expect(
+      presentation?.segments
+        .filter((segment) => segment.kind === "process")
+        .map((segment) =>
+          segment.kind === "process" ? segment.items.map((item) => item.messageId) : [],
+        ),
+    ).toEqual([["tool-1"]]);
     expect(presentation?.collapsedSegments.at(-1)?.kind).toBe("anchor");
   });
 
@@ -230,6 +238,50 @@ describe("WorkBuddy turn content presentation", () => {
     expect(buildTurnContentPresentation(streaming)?.processItems.map((item) => item.messageId)).toEqual([
       "reasoning",
     ]);
+    expect(buildTurnContentPresentation(streaming)?.segments.map((segment) => segment.kind)).toEqual([
+      "body",
+      "body",
+    ]);
+  });
+
+  test("surfaces reasoning narration outside process folds between browser tools", () => {
+    const streaming = {
+      ...completedTurn([
+        assistant("intro", [{ type: "text", text: "我来使用内置浏览器打开小红书并完成任务。" }]),
+        assistant("t1", [{
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "b1",
+          state: "output-available",
+          input: {},
+          output: "ok",
+        }]),
+        assistant("n1", [{ type: "reasoning", text: "截图返回null可能是因为它已经被显示了。让我看一下页面状态。" }]),
+        assistant("t2", [{
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "b2",
+          state: "output-available",
+          input: {},
+          output: "ok",
+        }]),
+        assistant("n2", [{ type: "reasoning", text: "页面已加载。现在我需要找到第一个帖子并点击它。" }]),
+      ]),
+      state: "streaming" as const,
+    };
+    const presentation = buildTurnContentPresentation(streaming);
+    expect(presentation?.segments.map((s) => s.kind)).toEqual([
+      "body",
+      "process",
+      "body",
+      "process",
+      "body",
+    ]);
+    expect(
+      presentation?.segments
+        .filter((s) => s.kind === "process")
+        .every((s) => s.kind === "process" && s.items.every((i) => i.part.type === "dynamic-tool")),
+    ).toBe(true);
   });
 
   test.each(["cancelled", "failed"] as const)(
