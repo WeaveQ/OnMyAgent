@@ -38,10 +38,14 @@ ipcMain.handle("onmyagent:browser:createTab", (_event, url, options) => {
     options && typeof options === "object" && typeof options.sessionId === "string"
       ? options.sessionId
       : null;
-  const tab = browserController.createBrowserTab(url ?? "about:blank", {
-    select: true,
-    sessionId,
-  });
+  // Omit url → controller DEFAULT_URL (Baidu). Keep explicit about:blank when callers need it.
+  const tab = browserController.createBrowserTab(
+    typeof url === "string" && url.trim() ? url : undefined,
+    {
+      select: true,
+      sessionId,
+    },
+  );
   return { tabId: tab.tabId, sessionId: tab.sessionId ?? sessionId };
 });
 ipcMain.handle("onmyagent:browser:closeTab", (_event, tabId) =>

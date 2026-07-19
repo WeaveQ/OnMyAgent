@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Pin, PinOff, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Pin, PinOff, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X } from "lucide-react";
+import { SkillGlyphIcon } from "../../../../design-system/skill-glyph-icon";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { desktopBridge } from "../../../../../app/lib/desktop";
@@ -1135,7 +1136,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ...(promptTemplates.length > 0
                               ? ([["templates", t("composer.prompt_templates_short"), ClipboardList]] as const)
                               : []),
-                            ["skills", t("dashboard.skills"), Zap] as const,
+                            ["skills", t("dashboard.skills"), SkillGlyphIcon] as const,
                             ["mcps", t("composer.connectors_label"), Plug] as const,
                           ]).map(([section, label, Icon]) => (
                             <MenuRowButton
@@ -1394,7 +1395,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                             onClick={() => applyCommandSelection(command)}
                                           >
                                             <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                              <Zap className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                              <SkillGlyphIcon className="size-3.5 text-dls-secondary" />
                                             </div>
                                             <div className="min-w-0 flex-1 overflow-hidden text-left">
                                               <div className="truncate text-sm font-medium text-dls-text">
