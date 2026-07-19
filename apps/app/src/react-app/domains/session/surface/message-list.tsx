@@ -19,13 +19,14 @@ import {
   RotateCcw,
   Search,
   Share2,
-  Sparkles,
   Square,
   Terminal,
   ThumbsDown,
   ThumbsUp,
   Volume2,
 } from "lucide-react";
+
+import { SkillGlyphIcon } from "../../../design-system/skill-glyph-icon";
 
 import {
   openDesktopPath,
@@ -693,6 +694,8 @@ function hasStructuredValue(value: unknown) {
 function ToolActivityIcon(props: { category?: string }) {
   const className = "size-4 shrink-0 text-dls-secondary";
   switch (props.category) {
+    case "skill":
+      return <SkillGlyphIcon className={cn(className, "session-workbuddy-process-icon")} />;
     case "terminal":
       return <Terminal className={className} strokeWidth={1.9} />;
     case "read":
@@ -2028,7 +2031,7 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
         label: skillName
           ? t("session.tool_chip_load_skill", { skill: skillName })
           : t("session.tool_chip_load_skill_generic"),
-        category: "tool",
+        category: "skill",
         variant: "tool-chip",
       };
     }
@@ -2247,9 +2250,7 @@ function WorkBuddyProcessFold(props: {
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
-        {isThinking ? null : chip.category === "tool" && isToolChip ? (
-          <Sparkles aria-hidden="true" className="session-workbuddy-process-icon" />
-        ) : (
+        {isThinking ? null : (
           <span className="session-workbuddy-process-icon-wrap" aria-hidden="true">
             {props.running && chip.variant === "summary" ? (
               <LoadingSpinner size="sm" />

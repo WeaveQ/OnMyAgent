@@ -9,6 +9,8 @@ function shouldRevealBrowserPanel(
   state: BrowserStatePayload,
   sessionId?: string | null,
 ): boolean {
+  // Draft / 新建任务 has no chat session id — never auto-open from foreign tabs.
+  if (!sessionId) return false;
   const tabs = filterTabsForSession(state.tabs ?? [], sessionId);
   if (tabs.length === 0) return false;
 
@@ -43,10 +45,13 @@ export function useAutoOpenBrowserPanel(
 
   useEffect(() => {
     if (!isElectronRuntime()) return;
+    // No session → draft home / 新建任务: do not bind panel-open to global browser.
+    if (!sessionId) return;
     const browser = window.__ONMYAGENT_ELECTRON__?.browser;
     if (!browser) return;
 
     const reveal = () => {
+      if (!sessionIdRef.current) return;
       openRef.current();
     };
 

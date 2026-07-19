@@ -105,8 +105,9 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
       preserveSidePanelOnPanelOpenRef.current = false;
       return;
     }
+    if (!selectedSessionId) return;
     setCurrentSidePanel("browser");
-  }, [setCurrentSidePanel]);
+  }, [selectedSessionId, setCurrentSidePanel]);
   useAutoOpenBrowserPanel(openBrowserPanelFromAgent, selectedSessionId);
 
   const {
@@ -211,8 +212,16 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
   }, [setCurrentSidePanel]);
 
   const openBrowserRailPane = useCallback(() => {
-    setCurrentSidePanel("browser");
-  }, [setCurrentSidePanel]);
+    // User clicked 浏览器: seed Baidu only when this session has no page tabs yet.
+    // Agent open / openTarget(url) must not go through seedHomeWhenEmpty.
+    void openInAppBrowser({
+      openSidePanel: () => setCurrentSidePanel("browser"),
+      sessionId: selectedSessionId,
+      seedHomeWhenEmpty: true,
+    }).catch(() => {
+      setCurrentSidePanel("browser");
+    });
+  }, [selectedSessionId, setCurrentSidePanel]);
 
   const openArtifactRailPane = useCallback(() => {
     if (!artifactRailActive) {

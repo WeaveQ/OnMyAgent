@@ -258,7 +258,7 @@ export function useSessionRouteModelCatalog(input: Input) {
   const modelScopeSessionId =
     selectedSessionId ?? `draft:${selectedWorkspaceId}`;
   // Priority: 1) this session's override, 2) pending agent's configured model,
-  // 3) global default. Session controls must never rewrite the global default.
+  // 3) global default (last model chosen in the composer — also written on select).
   const effectiveModelRef =
     sessionModelOverrideById[modelScopeSessionId] ??
     pendingAgentModel ??
