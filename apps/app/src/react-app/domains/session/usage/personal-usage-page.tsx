@@ -281,8 +281,11 @@ function ActivityGrid(props: {
         // render as solid 7-cell "towers".
         <div className="grid w-full gap-1 py-0.5" style={weekGridStyle}>
           {props.columns.map((column) => {
-            const cell = weekCellForMode(props.mode, column);
-            const active = columnHasActivity(props.mode, column);
+            // Narrow away "daily" for weekCellForMode (else branch only).
+            const weekMode =
+              props.mode === "cumulative" ? "cumulative" : "weekly";
+            const cell = weekCellForMode(weekMode, column);
+            const active = columnHasActivity(weekMode, column);
             return (
               <div
                 key={column.weekStart}
@@ -298,7 +301,7 @@ function ActivityGrid(props: {
                 aria-label={
                   active
                     ? activityTooltip({
-                        mode: props.mode,
+                        mode: weekMode,
                         column,
                         cell,
                       })
