@@ -976,6 +976,37 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     user-select: none;
   }
 
+  /* WorkBuddy-style concrete op chips: 加载技能 / 运行命令 / 浏览器操作 */
+  .session-workbuddy-process-head-chip {
+    gap: 6px;
+    border: 1px solid var(--dls-border);
+    border-radius: 10px;
+    background: var(--dls-surface-muted, #f5f5f5);
+    padding: 6px 12px;
+    color: var(--dls-text-secondary);
+    line-height: 20px;
+  }
+
+  .session-workbuddy-process-head-thinking {
+    color: var(--dls-text-secondary);
+  }
+
+  .session-workbuddy-process-icon,
+  .session-workbuddy-process-icon-wrap {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    color: var(--dls-text-secondary);
+  }
+
+  .session-workbuddy-process-icon-wrap .size-4 {
+    width: 16px;
+    height: 16px;
+  }
+
   .session-workbuddy-process-head > span {
     max-width: 520px;
     overflow: hidden;
@@ -993,8 +1024,19 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     transition: transform 200ms ease, color 160ms ease, opacity 160ms ease;
   }
 
+  .session-workbuddy-process-head-chip .session-workbuddy-process-arrow {
+    margin-left: 0;
+  }
+
   .session-workbuddy-process-head:hover,
   .session-workbuddy-process-head:focus-visible {
+    color: var(--dls-text-primary);
+  }
+
+  .session-workbuddy-process-head-chip:hover,
+  .session-workbuddy-process-head-chip:focus-visible {
+    border-color: var(--dls-border-strong, var(--dls-border));
+    background: var(--dls-hover, var(--dls-surface-muted));
     color: var(--dls-text-primary);
   }
 

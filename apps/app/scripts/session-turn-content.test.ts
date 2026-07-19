@@ -282,6 +282,42 @@ describe("WorkBuddy turn content presentation", () => {
         .filter((s) => s.kind === "process")
         .every((s) => s.kind === "process" && s.items.every((i) => i.part.type === "dynamic-tool")),
     ).toBe(true);
+    // Each tool is its own process segment (WorkBuddy op-chip timeline).
+    expect(
+      presentation?.segments
+        .filter((s) => s.kind === "process")
+        .map((s) => (s.kind === "process" ? s.items.length : 0)),
+    ).toEqual([1, 1]);
+  });
+
+  test("splits consecutive tools into one process segment each for op chips", () => {
+    const turn = completedTurn([
+      assistant("skill", [{
+        type: "dynamic-tool",
+        toolName: "skill",
+        toolCallId: "s1",
+        state: "output-available",
+        input: { name: "smooth-browser" },
+        output: "ok",
+      }]),
+      assistant("bash", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "c1",
+        state: "output-available",
+        input: { command: "which smooth" },
+        output: "not found",
+      }]),
+    ]);
+    const presentation = buildTurnContentPresentation(turn);
+    expect(presentation?.segments.map((s) => s.kind)).toEqual(["process", "process"]);
+    expect(
+      presentation?.segments.map((s) =>
+        s.kind === "process" && s.items[0]?.part.type === "dynamic-tool"
+          ? s.items[0].part.toolName
+          : null,
+      ),
+    ).toEqual(["skill", "bash"]);
   });
 
   test.each(["cancelled", "failed"] as const)(

@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Search,
   Share2,
+  Sparkles,
   Square,
   Terminal,
   ThumbsDown,
@@ -1987,46 +1988,142 @@ function processPlanDetails(items: TurnProcessItem[]) {
   return null;
 }
 
-function processFoldLabel(items: TurnProcessItem[]) {
-  if (processPlanDetails(items)) return t("session.workbuddy_task_list");
+function processFoldChipMeta(items: TurnProcessItem[]): {
+  label: string;
+  category?: string;
+  variant: "thinking" | "tool-chip" | "summary";
+} {
+  if (processPlanDetails(items)) {
+    return { label: t("session.workbuddy_task_list"), category: "terminal", variant: "summary" };
+  }
   const legacyParts = items.flatMap((item) => {
     const part = processItemToLegacyPart(item);
     return part ? [part] : [];
   });
   if (legacyParts.length > 0 && legacyParts.every((part) => part.type === "reasoning")) {
-    return t("session.process_summary_deep_thinking");
+    return {
+      label: t("session.process_summary_deep_thinking"),
+      variant: "thinking",
+    };
   }
+
+  // Single concrete op → WorkBuddy chip label (加载技能 / 运行命令 / …)
+  if (legacyParts.length === 1 && legacyParts[0]?.type === "tool") {
+    const part = legacyParts[0];
+    const summary = summarizeStep(part);
+    const tool = part.tool.toLowerCase();
+    const toolState = "state" in part && isRecordValue(part.state) ? part.state : null;
+    const toolInput = toolState && isRecordValue(toolState.input) ? toolState.input : null;
+    const skillNameRaw = toolInput
+      ? (typeof toolInput.name === "string" && toolInput.name.trim()
+        ? toolInput.name.trim()
+        : typeof toolInput.command === "string" && toolInput.command.trim()
+          ? toolInput.command.trim()
+          : "")
+      : "";
+    const skillName = skillNameRaw || summary.skillName?.trim() || "";
+
+    if (tool === "skill" || tool === "useskill" || tool.includes("skill")) {
+      return {
+        label: skillName
+          ? t("session.tool_chip_load_skill", { skill: skillName })
+          : t("session.tool_chip_load_skill_generic"),
+        category: "tool",
+        variant: "tool-chip",
+      };
+    }
+    if (
+      tool === "bash" ||
+      tool === "shell" ||
+      tool.includes("command") ||
+      tool.includes("terminal")
+    ) {
+      return {
+        label: t("session.tool_chip_run_command"),
+        category: "terminal",
+        variant: "tool-chip",
+      };
+    }
+    if (
+      tool.includes("browser") ||
+      tool.includes("playwright") ||
+      tool.includes("web") ||
+      tool.includes("fetch")
+    ) {
+      return {
+        label: t("session.tool_chip_browser"),
+        category: "search",
+        variant: "tool-chip",
+      };
+    }
+    return {
+      label: summary.title?.trim() || t("session.process_summary_continue_processing"),
+      category: summary.toolCategory,
+      variant: "tool-chip",
+    };
+  }
+
   const toolNames = legacyParts.flatMap((part) => (
     part.type === "tool" ? [part.tool.toLowerCase()] : []
   ));
   if (toolNames.some((name) => (
     name.includes("search") || name.includes("fetch") || name.includes("browser") || name.includes("web")
   ))) {
-    return t("session.process_summary_collecting_sources");
+    return {
+      label: t("session.process_summary_collecting_sources"),
+      category: "search",
+      variant: "summary",
+    };
   }
   const terminalCount = toolNames.filter((name) => (
     name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
   )).length;
   if (terminalCount > 0) {
-    return t("session.process_summary_ran_commands", { count: terminalCount });
+    return {
+      label: t("session.process_summary_ran_commands", { count: terminalCount }),
+      category: "terminal",
+      variant: "summary",
+    };
   }
   const editCount = toolNames.filter((name) => (
     name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
   )).length;
-  if (editCount > 0) return t("session.process_summary_edited", { count: editCount });
+  if (editCount > 0) {
+    return {
+      label: t("session.process_summary_edited", { count: editCount }),
+      category: "edit",
+      variant: "summary",
+    };
+  }
   const readCount = toolNames.filter((name) => (
     name.includes("read") || name.includes("glob") || name.includes("list")
   )).length;
-  if (readCount > 0) return t("session.process_summary_reviewed_files", { count: readCount });
+  if (readCount > 0) {
+    return {
+      label: t("session.process_summary_reviewed_files", { count: readCount }),
+      category: "read",
+      variant: "summary",
+    };
+  }
   if (legacyParts.length > 0) {
     const summary = summarizeStepCluster([{
       id: `turn-process:${items[0]?.messageId ?? "unknown"}`,
       parts: legacyParts,
       mode: "standalone",
     }]);
-    if (summary.category !== "tool") return summary.label;
+    if (summary.category !== "tool") {
+      return { label: summary.label, category: summary.category, variant: "summary" };
+    }
   }
-  return t("session.process_summary_continue_processing");
+  return {
+    label: t("session.process_summary_continue_processing"),
+    category: "tool",
+    variant: "summary",
+  };
+}
+
+function processFoldLabel(items: TurnProcessItem[]) {
+  return processFoldChipMeta(items).label;
 }
 
 function WorkBuddyTaskList(props: {
@@ -2115,6 +2212,10 @@ function WorkBuddyProcessFold(props: {
   const [expanded, setExpanded] = useState(false);
   if (plan) return <WorkBuddyTaskList todos={plan.todos} running={props.running} />;
 
+  const chip = processFoldChipMeta(props.items);
+  const isThinking = chip.variant === "thinking";
+  const isToolChip = chip.variant === "tool-chip";
+
   const toggleStep = (id: string) => {
     props.onExpandedStepIdsChange((current) => {
       const next = new Set(current);
@@ -2125,14 +2226,39 @@ function WorkBuddyProcessFold(props: {
   };
 
   return (
-    <section className={cn("session-workbuddy-process-fold", expanded && "is-expanded")}>
+    <section
+      className={cn(
+        "session-workbuddy-process-fold",
+        expanded && "is-expanded",
+        isToolChip && "is-tool-chip",
+        isThinking && "is-thinking",
+        chip.variant === "summary" && "is-summary",
+      )}
+      data-process-variant={chip.variant}
+    >
       <button
         type="button"
-        className="session-workbuddy-process-head"
+        className={cn(
+          "session-workbuddy-process-head",
+          isToolChip && "session-workbuddy-process-head-chip",
+          isThinking && "session-workbuddy-process-head-thinking",
+          chip.variant === "summary" && "session-workbuddy-process-head-chip",
+        )}
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
-        <span>{processFoldLabel(props.items)}</span>
+        {isThinking ? null : chip.category === "tool" && isToolChip ? (
+          <Sparkles aria-hidden="true" className="session-workbuddy-process-icon" />
+        ) : (
+          <span className="session-workbuddy-process-icon-wrap" aria-hidden="true">
+            {props.running && chip.variant === "summary" ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <ToolActivityIcon category={chip.category} />
+            )}
+          </span>
+        )}
+        <span>{chip.label}</span>
         <ChevronDown aria-hidden="true" className="session-workbuddy-process-arrow" />
       </button>
       {expanded ? (
