@@ -2,7 +2,6 @@
 import type { ArtifactPluginCatalogItem } from "@onmyagent/types/server";
 import { ChevronRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -11,8 +10,6 @@ import { ArtifactPluginIcon } from "./artifact-plugin-detail";
 
 export type ArtifactPluginCardProps = {
   plugin: ArtifactPluginCatalogItem;
-  enabledLabel: string;
-  disabledLabel: string;
   openLabel: string;
   toggleLabel: string;
   onOpen: () => void;
@@ -60,49 +57,52 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   return (
     <article
       className={cn(
-        "group flex flex-col gap-3 rounded-2xl border border-transparent bg-dls-surface p-3.5 transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover",
-        !enabled && "opacity-80",
+        "group flex h-full min-h-[5.5rem] cursor-pointer flex-col gap-2 rounded-xl border border-dls-border/50 bg-dls-surface p-3.5 transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover/60",
+        "focus-within:border-dls-border focus-within:bg-dls-hover/60",
+        !enabled && "opacity-70",
       )}
+      onClick={props.onOpen}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onOpen();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${copy.name}. ${props.openLabel}`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-2.5">
         <ArtifactPluginIcon pluginId={plugin.id} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate text-sm font-medium leading-5 text-dls-text">
               {copy.name}
             </h3>
-            <Switch
-              checked={enabled}
-              aria-label={props.toggleLabel}
+            <div
               className="shrink-0"
-              onCheckedChange={(next) => void props.onEnabledChange(next)}
-            />
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <Switch
+                checked={enabled}
+                aria-label={props.toggleLabel}
+                onCheckedChange={(next) => void props.onEnabledChange(next)}
+              />
+            </div>
           </div>
           <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
             {copy.description}
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 pl-0.5">
-        <span
-          className={cn(
-            "text-xs font-medium",
-            enabled ? "text-dls-status-success-fg" : "text-dls-secondary",
-          )}
-        >
-          {enabled ? props.enabledLabel : props.disabledLabel}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-0.5 px-2 text-xs text-dls-secondary hover:text-dls-text"
-          onClick={props.onOpen}
-        >
+      <div className="flex items-center justify-end">
+        <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
           {props.openLabel}
           <ChevronRight className="size-3.5" aria-hidden="true" />
-        </Button>
+        </span>
       </div>
     </article>
   );

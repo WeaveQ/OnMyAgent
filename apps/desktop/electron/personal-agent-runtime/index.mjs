@@ -1385,20 +1385,9 @@ export function createPersonalAgentRuntime(options) {
     // so `agent_type` becomes "acp", the ACP warmup path kicks in, and the
     // UI's model selector sees supportsModelOverride based on the handshake
     // instead of the raw stored bool.
-    // Known discoverable agent ids so that a previously-detected-and-added
-    // custom agent (e.g. CodeBuddy) retains its catalog identity rather than
-    // being demoted to the "custom" group. Without this, the agent shows up
-    // in "自定义 AI 同事" instead of "已识别 AI 同事" — and is then filtered
-    // out of the discoverable draft set (duplicate id) so it never appears in
-    // the right section.
-    const discoverableIdSet = new Set(
-      discoverableAgentDrafts().map((d) => String(d.id).toLowerCase()),
-    );
     const customAgents = await Promise.all(customAgentsRaw.map(async (agent) => {
-      // Probe CLI+ACP custom agents (both user-added and previously-detected
-      // discoverable ones like Kimi) so `未登陆 / 不支持 ACP` entries drop out
-      // of the runtime picker. Non-ACP or raw-cmd agents keep their stored
-      // status untouched.
+      // Probe CLI+ACP custom agents so 未登录 / ACP 失败 get offline|needs_auth
+      // (still 已安装). Non-ACP or raw-cmd agents keep their stored status.
       const isCliAcp = agent?.connectionType === "cli" && agent?.supportsAcp !== false;
       let status = agent?.status === "offline" ? "offline" : "online";
       let error = agent?.error ?? null;
@@ -1411,8 +1400,17 @@ export function createPersonalAgentRuntime(options) {
       }
       const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
       const connectionMode = agent.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, agent);
-      const discoverable = agent.discoverable === true || discoverableIdSet.has(String(agent?.id ?? "").toLowerCase());
-      return { ...agent, capability, connectionMode, discoverable, status, error, acpProbeStep };
+      // Store-backed agents are fleet members (mine), never catalog drafts.
+      return {
+        ...agent,
+        capability,
+        connectionMode,
+        discoverable: false,
+        status,
+        error,
+        acpProbeStep,
+        agent_source: agent.agent_source ?? agent.agentSource ?? "custom",
+      };
     }));
     const extensionAgents = await loadExtensionAdapters();
     const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];

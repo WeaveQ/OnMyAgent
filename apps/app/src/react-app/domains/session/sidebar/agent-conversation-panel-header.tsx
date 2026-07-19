@@ -42,19 +42,19 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           />
         ) : null}
         <div className="grid gap-0.5" data-assistant-primary-actions="true">
-          {/* WorkBuddy: soft gray wash primary CTA (not outline / not blue chip). */}
+          {/*
+            XOR selection: only the current view gets soft wash.
+            - New task: draft home (no session, not on automation)
+            - Automation: scheduledTasks rail
+            Never force permanent muted fill — that made both rows look selected.
+          */}
           <NavListButton
             type="button"
             onClick={props.onCreateTask}
-            active={false}
+            active={!props.selectedSessionId && !props.automationActive}
             size="sidebar"
-            className={
-              !props.selectedSessionId && !props.automationActive
-                ? "bg-dls-surface-muted font-medium text-dls-text hover:bg-dls-surface-muted"
-                : "bg-dls-surface-muted/70 font-medium text-dls-text hover:bg-dls-surface-muted"
-            }
           >
-            <MessageCirclePlus className="size-4 shrink-0 opacity-90" strokeWidth={1.75} />
+            <MessageCirclePlus className="size-4 shrink-0" strokeWidth={1.75} />
             {t("session.new_task")}
           </NavListButton>
           {assistantMenuItems.map((item) => (

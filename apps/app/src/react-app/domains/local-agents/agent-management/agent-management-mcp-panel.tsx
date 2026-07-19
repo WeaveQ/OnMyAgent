@@ -56,9 +56,16 @@ function inputFromDraft(draft: McpDraft): AgentManagementMcpActionInput {
   return { action: "save", server: { id: draft.id.trim(), name: draft.name.trim() || draft.id.trim(), description: draft.description.trim() || null, server, apps: draft.apps } };
 }
 
-function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; busy: boolean; onToggle: () => void }) {
+function McpAppToggle(props: {
+  app: AgentManagementMcpApp;
+  enabled: boolean;
+  busy: boolean;
+  unavailable?: boolean;
+  onToggle: () => void;
+}) {
   const tone = SKILL_AGENT_TONES[props.app] ?? SKILL_AGENT_TONES.unknown;
   const label = MCP_APP_LABELS[props.app];
+  const unavailable = Boolean(props.unavailable);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -67,17 +74,20 @@ function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; bus
             type="button"
             className={cn(
               "group/mcp-app relative flex size-8 items-center justify-center rounded-lg transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dls-surface disabled:cursor-not-allowed disabled:opacity-60",
-              props.enabled
-                ? cn("border-2 ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
-                : "border border-dashed border-dls-border bg-dls-surface-muted text-dls-secondary opacity-70 grayscale hover:bg-dls-hover hover:opacity-100 hover:grayscale-0 hover:text-dls-text",
+              unavailable
+                ? "border border-dashed border-dls-border/60 bg-dls-surface-muted text-dls-secondary opacity-40 grayscale"
+                : props.enabled
+                  ? cn("border-2 ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
+                  : "border border-dashed border-dls-border bg-dls-surface-muted text-dls-secondary opacity-70 grayscale hover:bg-dls-hover hover:opacity-100 hover:grayscale-0 hover:text-dls-text",
             )}
             aria-label={label}
             aria-pressed={props.enabled}
-            onClick={props.onToggle}
-            disabled={props.busy}
+            aria-disabled={unavailable || undefined}
+            onClick={unavailable ? undefined : props.onToggle}
+            disabled={props.busy || unavailable}
           >
             {props.busy ? <LoadingSpinner size="sm" /> : <AgentSkillIcon agent={props.app} />}
-            {props.enabled && !props.busy ? (
+            {props.enabled && !props.busy && !unavailable ? (
               <span className={cn("absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border-2 border-dls-surface", tone.dot)}>
                 <Check className="size-2 text-white" strokeWidth={3} />
               </span>
@@ -85,7 +95,13 @@ function McpAppToggle(props: { app: AgentManagementMcpApp; enabled: boolean; bus
           </button>
         }
       />
-      <TooltipContent side="bottom"><span>{label} · {props.enabled ? t("agent_manager.mcp.toggle_enabled") : t("agent_manager.mcp.toggle_disabled")}</span></TooltipContent>
+      <TooltipContent side="bottom">
+        <span>
+          {unavailable
+            ? t("agent_manager.mcp.app_unavailable", { label })
+            : `${label} · ${props.enabled ? t("agent_manager.mcp.toggle_enabled") : t("agent_manager.mcp.toggle_disabled")}`}
+        </span>
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -94,6 +110,8 @@ export function AgentManagementMcpPanel(props: {
   snapshot: AgentManagementMcpSnapshot | null;
   busyKey: string | null;
   onMcpAction: (input: AgentManagementMcpActionInput, busyKey: string) => Promise<void>;
+  /** Agent apps not in managed+installed fleet — toggles disabled. */
+  unavailableApps?: ReadonlySet<string>;
 }) {
   const [draft, setDraft] = useState<McpDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
@@ -154,6 +172,7 @@ export function AgentManagementMcpPanel(props: {
                       app={app}
                       enabled={server.apps[app]}
                       busy={props.busyKey === `mcp:toggle:${server.id}:${app}`}
+                      unavailable={props.unavailableApps?.has(app)}
                       onToggle={() => void props.onMcpAction({ action: "toggle", id: server.id, app, enabled: !server.apps[app] }, `mcp:toggle:${server.id}:${app}`)}
                     />
                   ))}
@@ -200,7 +219,16 @@ export function AgentManagementMcpPanel(props: {
               </>
             )}
             <div className="flex flex-wrap gap-2">
-              {MCP_APPS.map((app) => <McpAppToggle key={app} app={app} enabled={draft.apps[app]} busy={false} onToggle={() => setDraft({ ...draft, apps: { ...draft.apps, [app]: !draft.apps[app] } })} />)}
+              {MCP_APPS.map((app) => (
+                <McpAppToggle
+                  key={app}
+                  app={app}
+                  enabled={draft.apps[app]}
+                  busy={false}
+                  unavailable={props.unavailableApps?.has(app)}
+                  onToggle={() => setDraft({ ...draft, apps: { ...draft.apps, [app]: !draft.apps[app] } })}
+                />
+              ))}
             </div>
             <Button className="w-full" onClick={submit} disabled={props.busyKey === `mcp:save:${draft.id}`}>
               {props.busyKey === `mcp:save:${draft.id}` ? <LoadingSpinner size="default" /> : <Check className="size-4" />}

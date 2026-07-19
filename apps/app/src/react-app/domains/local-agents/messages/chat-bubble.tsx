@@ -23,7 +23,12 @@ import { MessageFileChanges } from "./message-file-changes";
 import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
 import { approvalClass, localAgentLayoutClass, localAgentTextClass } from "./message-style";
-import { classifiedRunFailureMessage, collectRunOpenTargets, resolveDesktopPath } from "./message-utils";
+import {
+  classifiedRunFailureMessage,
+  collectRunOpenTargets,
+  resolveDesktopPath,
+  runTimelineAlreadyShowsFailure,
+} from "./message-utils";
 import { groupLocalAgentTimeline, LocalAgentTimelineMessage, LocalAgentToolGroupSummary, visibleRunTimelineMessages } from "./timeline-messages";
 
 export const ChatBubble = memo(function ChatBubble(props: {
@@ -202,7 +207,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
           </div>
         ) : null}
 
-        {!isUser ? (
+        {!isUser && props.message.text.trim() ? (
           <div className={cn((timelineItems.length || throttledThought) ? "mt-2" : "")}>
             <MarkdownBlock text={props.message.text} streaming={run?.status === "running"} />
           </div>
@@ -210,7 +215,12 @@ export const ChatBubble = memo(function ChatBubble(props: {
 
         {run ? (
           <div className="mt-3 space-y-2 text-xs text-dls-secondary">
-            {run.errorInfo ? <NoticeBox tone="error">{classifiedRunFailureMessage(run)}<span className={`ml-2 ${localAgentTextClass.debugMeta}`}>{run.errorInfo.code}</span></NoticeBox> : run.error ? <NoticeBox tone="error">{run.error}</NoticeBox> : null}
+            {/* Timeline already renders error + tips from run events — don't repeat. */}
+            {run.errorInfo && !runTimelineAlreadyShowsFailure(run) ? (
+              <NoticeBox tone="error">{classifiedRunFailureMessage(run)}</NoticeBox>
+            ) : !run.errorInfo && run.error && !runTimelineAlreadyShowsFailure(run) ? (
+              <NoticeBox tone="error">{run.error}</NoticeBox>
+            ) : null}
             {run.pendingApprovals?.length ? (
               <div className="space-y-2">
                 <div className={localAgentTextClass.approvalTitle}>{t("local_agent.approval_required")}</div>

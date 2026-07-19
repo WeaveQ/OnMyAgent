@@ -372,8 +372,21 @@ function WorkspaceFilesPanel(props: {
             onToggle={(path) => void toggleDirectory(path)}
           />
         )) : (
-          <div className="px-2 py-3 text-xs text-dls-secondary">
-            {requiresSessionFileRoot ? t("files.no_session_files") : t("files.no_files")}
+          <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
+            <div
+              className="flex size-10 items-center justify-center rounded-xl bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60"
+              aria-hidden="true"
+            >
+              <FolderOpen className="size-5" strokeWidth={1.5} />
+            </div>
+            <p className="text-xs font-medium text-dls-text">
+              {requiresSessionFileRoot ? t("files.no_session_files") : t("files.no_files")}
+            </p>
+            <p className="text-xs leading-4 text-dls-secondary">
+              {requiresSessionFileRoot
+                ? t("files.no_session_files_hint")
+                : t("files.no_files_hint")}
+            </p>
           </div>
         )}
       </div>

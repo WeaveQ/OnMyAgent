@@ -6,6 +6,10 @@ import {
   type PersonalLocalAgentRunResult,
 } from "../../../../app/lib/desktop";
 import { isPersonalLocalAgentProvider, PROVIDER_LABELS } from "../local-agent-page-model";
+import {
+  classifiedRunFailureMessage,
+  runTimelineAlreadyShowsFailure,
+} from "../messages/message-utils";
 import type { ChatMessage } from "../messages/message-types";
 
 export const localAgentTextClass = {
@@ -22,17 +26,15 @@ export const localAgentTextClass = {
 export const localAgentLayoutClass = {
   refreshIcon: "mr-1.5 size-3.5",
   agentRow: "flex h-[68px] w-full items-center gap-3 px-4 text-left transition-colors",
-  agentAvatar: "flex size-11 items-center justify-center overflow-hidden rounded-lg border text-base font-medium",
-  agentAvatarSelected: "border-dls-border bg-dls-background text-dls-accent",
-  agentAvatarDefault: "border-dls-border bg-dls-decision-soft text-dls-accent",
+  // Avatar plate lives in AgentBrandIcon (dark: white). Status dot still shared.
   agentStatusDot: "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
   // Header / composer sit on the main canvas as lifted surface strips.
   header: "shrink-0 border-b border-dls-border bg-dls-surface mac:titlebar-drag",
-  pageContent: "mx-auto flex w-full max-w-[1120px] flex-col gap-5",
-  chatPanel: "mx-auto w-full max-w-[1120px] rounded-xl border border-dls-border bg-dls-surface p-2",
-  chatMessage: "max-w-[86%] rounded-xl border border-dls-border px-4 py-3 text-sm leading-6",
-  userChatMessage: "bg-dls-chat-user-bg text-dls-text",
-  assistantChatMessage: "bg-dls-surface-muted text-dls-chat-agent-text",
+  pageContent: "mx-auto flex w-full min-w-0 max-w-[1120px] flex-col gap-5",
+  chatPanel: "mx-auto w-full min-w-0 max-w-[1120px] rounded-xl border border-dls-border bg-dls-surface p-2",
+  chatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border px-4 py-3 text-sm leading-6",
+  userChatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border bg-dls-chat-user-bg px-4 py-3 text-sm leading-6 text-dls-text",
+  assistantChatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-3 text-sm leading-6 text-dls-chat-agent-text",
   artifactPanel: "rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2",
   artifactButton: "min-w-0 max-w-[260px] justify-start rounded-none text-dls-status-success-fg hover:bg-dls-status-success-soft",
   artifactIconButton: "shrink-0 rounded-none text-dls-status-success-fg hover:bg-dls-status-success-soft",
@@ -54,8 +56,15 @@ export function nowId(prefix: string) {
 
 export function agentSubtitle(agent: PersonalLocalAgent) {
   if (agent.status !== "online") return agent.error || t("common.unavailable");
-  const mode = agent.connectionMode;
-  return [mode, agent.version || agent.executablePath || t("config.status_connected")].filter(Boolean).join(" · ");
+  // Prefer friendly status over protocol chrome ("OpenCode ACP session · /Users/...").
+  const version = String(agent.version ?? "").trim();
+  if (version) return version;
+  const mode = String(agent.connectionMode ?? "").trim();
+  // Strip raw path tails; keep a short connection label.
+  if (mode && !mode.includes("/") && !mode.includes("\\")) {
+    return mode.replace(/\s*ACP session\s*/i, "").trim() || t("config.status_connected");
+  }
+  return t("config.status_connected");
 }
 
 export function lastRunForAgent(messages: ChatMessage[] | undefined) {
@@ -89,6 +98,12 @@ export function messageTextForRun(
   run: PersonalLocalAgentRunResult,
   fallback: string,
 ) {
+  // Failed runs: never surface raw English / duplicated failure lines as the
+  // assistant body — timeline tips already own the user-facing error card.
+  if (run.status === "failed") {
+    if (runTimelineAlreadyShowsFailure(run)) return "";
+    return classifiedRunFailureMessage(run);
+  }
   if (run.conversationMessages?.length) {
     const finalMessage = [...run.conversationMessages].reverse().find((message) => message.type === "finish" && message.text.trim());
     if (finalMessage) return finalMessage.text.trim();
@@ -108,13 +123,6 @@ export function messageTextForRun(
   if (run.status === "running") return t("local_agent.running");
   if (run.status === "completed") return fallback;
   if (run.status === "cancelled") return t("local_agent.cancelled");
-  if (run.status === "failed") {
-    return run.errorInfo?.message
-      ? t("local_agent.failed_with_message", { message: run.errorInfo.message })
-      : run.error
-        ? t("local_agent.failed_with_message", { message: run.error })
-        : t("local_agent.failed");
-  }
   return fallback;
 }
 

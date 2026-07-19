@@ -39,6 +39,8 @@ export default {
   "skills_marketplace.install": "安装技能",
   "skills_marketplace.install_skill": "安装 {name}",
   "skills_marketplace.installed": "已安装",
+  "skills_marketplace.view_detail": "查看 {name} 详情",
+  "skills_marketplace.detail_meta": "分类与标签",
   "skills_marketplace.open_folder": "打开文件夹",
   "skills_marketplace.open_skill_folder": "打开 {name} 所在文件夹",
   "skills_marketplace.import_title": "导入技能",

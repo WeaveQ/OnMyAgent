@@ -39,6 +39,7 @@ export default {
   "session.search_experts_placeholder": "Search expert title or description",
   "session.create_expert": "Create expert",
   "session.create_expert_desc": "Create a dedicated expert and save it locally.",
+  "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
   "session.expert_capability": "Capabilities",
   "session.expert_strengths": "Strengths",
   "session.expert_self_intro_prompt_title": "Self intro",

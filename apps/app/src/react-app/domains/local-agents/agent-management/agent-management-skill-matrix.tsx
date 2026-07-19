@@ -1,11 +1,11 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 import { Copy, Download, FileText, FolderOpen, Loader2, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { IconTile, MatrixButton, MenuRowButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { IconTile, MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
@@ -17,14 +17,50 @@ import {
   skillAgentLabel,
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
+import type { SkillInventoryScope } from "./skill-inventory-scope";
 import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 
-type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy";
+type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
 
-const SKILL_MATRIX_AGENT_COLS = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.length;
-const SKILL_MATRIX_GRID_STYLE = {
-  gridTemplateColumns: `minmax(0,1fr) repeat(${SKILL_MATRIX_AGENT_COLS}, 40px) 52px`,
-};
+// Skill name | agent enable columns | actions (download + folder)
+// Fixed tracks must match header + row exactly (no extra padding on either side).
+const SKILL_MATRIX_AGENT_COL = "44px";
+const SKILL_MATRIX_ACTION_COL = "52px";
+/** Hairline rules — avoid stacked full-opacity borders looking "thick". */
+const SKILL_MATRIX_RULE = "border-dls-border/25";
+
+function skillMatrixGridStyle(agentColCount: number) {
+  const n = Math.max(1, agentColCount);
+  return {
+    gridTemplateColumns: `minmax(12rem,1fr) repeat(${n}, ${SKILL_MATRIX_AGENT_COL}) ${SKILL_MATRIX_ACTION_COL}`,
+  } as const;
+}
+
+/**
+ * Shared track for header icons and row install cells.
+ * Only the first agent column draws a left rule (skill | matrix), so vertical lines
+ * stay a single hairline and columns do not double-border against each other.
+ */
+function SkillMatrixAgentTrack(props: {
+  children: ReactNode;
+  className?: string;
+  /** When true, draw the skill-name | agents separator (first agent col only). */
+  leadRule?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-full w-full min-w-0 items-center justify-center self-stretch",
+        props.leadRule && `border-l ${SKILL_MATRIX_RULE}`,
+        props.className,
+      )}
+    >
+      {props.children}
+    </div>
+  );
+}
+
+const EMPTY_UNAVAILABLE_AGENTS: ReadonlySet<string> = new Set();
 
 function SkillStateGlyph(props: {
   state: Exclude<SkillCellState, "busy">;
@@ -74,6 +110,21 @@ function SkillStateGlyph(props: {
       </span>
     );
   }
+  if (props.state === "unavailable") {
+    // Agent not installed — quiet disabled mark, not a dashed +
+    return (
+      <span
+        className={cn(
+          "flex items-center justify-center rounded-full font-medium leading-none text-dls-secondary/45",
+          sizeClass,
+          "border border-dashed border-dls-border/50 bg-transparent",
+        )}
+        aria-hidden
+      >
+        –
+      </span>
+    );
+  }
   return <span className="h-0.5 w-2.5 rounded-full bg-dls-border" />;
 }
 
@@ -96,6 +147,8 @@ function SkillMatrixCell(props: {
     glyph = <SkillStateGlyph state="managed" />;
   } else if (props.state === "available") {
     glyph = <SkillStateGlyph state="available" />;
+  } else if (props.state === "unavailable") {
+    glyph = <SkillStateGlyph state="unavailable" />;
   } else {
     glyph = <SkillStateGlyph state="readonly" />;
   }
@@ -114,6 +167,7 @@ function SkillMatrixCell(props: {
               interactive && props.state === "available" && "hover:bg-transparent",
               interactive && props.state !== "available" && "hover:bg-dls-hover",
               props.state === "native" && "hover:brightness-95",
+              props.state === "unavailable" && "opacity-50",
             )}
             aria-label={props.tooltip}
           >
@@ -132,39 +186,60 @@ function SkillMatrixColumnHeader(props: {
   agent: AgentManagementSkillAgent;
   active: boolean;
   count: number;
+  unavailable?: boolean;
+  /** Draw skill-name | agents separator (first agent column only). */
+  leadRule?: boolean;
   onToggle: (event: React.MouseEvent) => void;
 }) {
   const label = skillAgentLabel(props.agent);
+  const unavailable = Boolean(props.unavailable);
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <MatrixButton
-            type="button"
-            kind="header"
-            onClick={props.onToggle}
-            active={props.active}
-            className={cn(
-              props.active
-                ? "bg-dls-surface-muted text-dls-text"
-                : "hover:bg-dls-hover",
-            )}
-            aria-pressed={props.active}
-            aria-label={t("skills.matrix_column_label", {
-              label,
-              count: props.count,
-              filtered: props.active ? t("skills.matrix_filtered_suffix") : "",
-            })}
-          >
-            <span className="flex size-4 items-center justify-center">
-              <AgentSkillIcon agent={props.agent} />
-            </span>
-            <span className="tabular-nums leading-none">{props.count}</span>
-          </MatrixButton>
-        }
-      />
-      <TooltipContent side="bottom"><span>{t("skills.matrix_column_tooltip", { label })}</span></TooltipContent>
-    </Tooltip>
+    <SkillMatrixAgentTrack leadRule={props.leadRule}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MatrixButton
+              type="button"
+              kind="header"
+              onClick={unavailable ? undefined : props.onToggle}
+              active={props.active && !unavailable}
+              interactive={!unavailable}
+              disabled={unavailable}
+              className={cn(
+                unavailable
+                  ? "cursor-not-allowed opacity-40"
+                  : props.active
+                    ? "bg-dls-surface-muted/80 text-dls-text"
+                    : "hover:bg-dls-hover/50",
+              )}
+              aria-pressed={props.active && !unavailable}
+              aria-disabled={unavailable || undefined}
+              aria-label={
+                unavailable
+                  ? t("skills.matrix_column_unavailable", { label })
+                  : t("skills.matrix_column_label", {
+                      label,
+                      count: props.count,
+                      filtered: props.active ? t("skills.matrix_filtered_suffix") : "",
+                    })
+              }
+            >
+              <span className="flex size-4 items-center justify-center">
+                <AgentSkillIcon agent={props.agent} />
+              </span>
+              <span className="tabular-nums leading-none opacity-80">{props.count}</span>
+            </MatrixButton>
+          }
+        />
+        <TooltipContent side="bottom">
+          <span>
+            {unavailable
+              ? t("skills.matrix_column_unavailable", { label })
+              : t("skills.matrix_column_tooltip", { label })}
+          </span>
+        </TooltipContent>
+      </Tooltip>
+    </SkillMatrixAgentTrack>
   );
 }
 
@@ -172,13 +247,20 @@ function getSkillCellState(
   skill: AgentManagementSkill,
   agent: AgentManagementSkillAgent,
   busyKey: string | null,
+  agentUnavailable = false,
 ): { state: SkillCellState; tooltip: string } {
+  const label = skillAgentLabel(agent);
+  if (agentUnavailable) {
+    return {
+      state: "unavailable",
+      tooltip: t("skills.matrix_tooltip_agent_missing", { label }),
+    };
+  }
   const enabled = skill.agents.includes(agent);
   const ownsSource = skill.sources.some((source) => source.agent === agent && source.path === skill.path && !source.managedByStudioSwitch);
   const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
   const canSync = sourceKind === "skill" && skill.sources.some((source) => source.kind !== "runtime-skill" && source.kind !== "slash-command");
   const busy = busyKey === `${skill.path}:${agent}`;
-  const label = skillAgentLabel(agent);
   if (busy) return { state: "busy", tooltip: t("skills.matrix_tooltip_busy", { label }) };
   if (enabled && ownsSource) return { state: "native", tooltip: t("skills.matrix_tooltip_native", { label }) };
   if (enabled) return { state: "managed", tooltip: t("skills.matrix_tooltip_managed", { label }) };
@@ -244,6 +326,8 @@ function SkillMatrixRow(props: {
   skill: AgentManagementSkill;
   busyKey: string | null;
   selected: boolean;
+  matrixAgents: ReadonlyArray<AgentManagementSkillAgent>;
+  unavailableAgents?: ReadonlySet<string>;
   onSkillAction: (skill: AgentManagementSkill, agent: AgentManagementSkillAgent, action: "enable" | "disable" | "open" | "import") => void;
   onOpenDetail: (skill: AgentManagementSkill) => void;
 }) {
@@ -264,25 +348,29 @@ function SkillMatrixRow(props: {
           ? t("agent_manager.skill.kind_plugin")
           : null;
   const importAgent =
-    props.skill.agents.find((agent) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(agent)) ??
+    props.skill.agents.find((agent) => props.matrixAgents.includes(agent)) ??
     props.skill.sources.find((source) =>
-      STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(source.agent),
+      props.matrixAgents.includes(source.agent as AgentManagementSkillAgent),
     )?.agent ??
+    props.matrixAgents[0] ??
     "claude";
   const importBusy = props.busyKey === `${props.skill.path}:${importAgent}:import`;
+  const gridStyle = skillMatrixGridStyle(props.matrixAgents.length);
+  const unavailable = props.unavailableAgents ?? EMPTY_UNAVAILABLE_AGENTS;
   return (
     <div
       className={cn(
-        "group grid min-h-12 items-center border-b border-dls-border/70 text-xs transition-colors",
-        props.selected ? "bg-dls-list-selected" : "hover:bg-dls-hover",
+        "group grid min-h-12 items-stretch border-b text-xs transition-colors",
+        SKILL_MATRIX_RULE,
+        props.selected ? "bg-dls-list-selected" : "hover:bg-dls-hover/50",
       )}
-      style={SKILL_MATRIX_GRID_STYLE}
+      style={gridStyle}
     >
       <MenuRowButton
         type="button"
         onClick={() => props.onOpenDetail(props.skill)}
         align="center"
-        className="min-w-0 gap-2.5 px-3 py-2"
+        className="min-w-0 gap-2.5 self-center px-3 py-2"
       >
         <SkillAgentCluster skill={props.skill} />
         <div className="min-w-0 flex-1">
@@ -343,25 +431,35 @@ function SkillMatrixRow(props: {
         </div>
       </MenuRowButton>
 
-      {STUDIO_SWITCH_SKILL_AGENT_OPTIONS.map((agent) => {
-        const { state, tooltip } = getSkillCellState(props.skill, agent, props.busyKey);
+      {props.matrixAgents.map((agent, index) => {
+        const { state, tooltip } = getSkillCellState(
+          props.skill,
+          agent,
+          props.busyKey,
+          unavailable.has(agent),
+        );
         return (
-          <div key={agent} className="flex items-center justify-center">
+          <SkillMatrixAgentTrack key={agent} leadRule={index === 0}>
             <SkillMatrixCell
               state={state}
               agent={agent}
               tooltip={tooltip}
               onClick={() => {
-                if (state === "native") return;
+                if (state === "native" || state === "unavailable") return;
                 if (state === "managed") props.onSkillAction(props.skill, agent, "disable");
                 else if (state === "available") props.onSkillAction(props.skill, agent, "enable");
               }}
             />
-          </div>
+          </SkillMatrixAgentTrack>
         );
       })}
 
-      <div className="flex shrink-0 items-center justify-end gap-0.5 pr-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-end gap-0.5 self-center border-l pr-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
+          SKILL_MATRIX_RULE,
+        )}
+      >
         {!props.skill.managedByStudioSwitch ? (
           <Tooltip>
             <TooltipTrigger
@@ -421,6 +519,8 @@ function SkillMatrixRow(props: {
 function SkillMatrixDrawer(props: {
   skill: AgentManagementSkill;
   busyKey: string | null;
+  matrixAgents: ReadonlyArray<AgentManagementSkillAgent>;
+  unavailableAgents?: ReadonlySet<string>;
   onClose: () => void;
   onSkillAction: (skill: AgentManagementSkill, agent: AgentManagementSkillAgent, action: "enable" | "disable" | "open" | "import") => void;
 }) {
@@ -429,14 +529,21 @@ function SkillMatrixDrawer(props: {
   const description = skill.descriptionZh || skill.descriptionEn || skill.description || "";
   const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
   const sourceKindLabel = sourceKind === "runtime-skill" ? t("agent_manager.skill.kind_runtime") : sourceKind === "slash-command" ? t("agent_manager.skill.kind_slash") : sourceKind === "plugin" ? t("agent_manager.skill.kind_plugin") : null;
-  const importAgent = skill.agents.find((agent) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(agent)) ?? skill.sources.find((source) => STUDIO_SWITCH_SKILL_AGENT_OPTIONS.includes(source.agent))?.agent ?? "claude";
+  const importAgent =
+    skill.agents.find((agent) => props.matrixAgents.includes(agent)) ??
+    skill.sources.find((source) =>
+      props.matrixAgents.includes(source.agent as AgentManagementSkillAgent),
+    )?.agent ??
+    props.matrixAgents[0] ??
+    "claude";
   const importBusy = props.busyKey === `${skill.path}:${importAgent}:import`;
+  const unavailable = props.unavailableAgents ?? EMPTY_UNAVAILABLE_AGENTS;
   const copyPath = useCallback(async (path: string) => {
     try { await navigator.clipboard.writeText(path); } catch (_) { /* ignore */ }
   }, []);
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col border-l border-dls-border bg-dls-surface">
-      <header className="flex shrink-0 items-start justify-between gap-2 border-b border-dls-border px-4 py-3">
+    <aside className="flex h-full min-h-0 w-full flex-col bg-dls-surface">
+      <header className="flex shrink-0 items-start justify-between gap-2 border-b border-dls-border/30 px-4 py-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-medium text-dls-text">{title}</span>
@@ -465,9 +572,14 @@ function SkillMatrixDrawer(props: {
 
         <section className="mb-4">
           <div className="mb-1.5 text-xs font-medium text-dls-secondary">{t("skills.matrix_agent_enablement")}</div>
-          <div className="grid grid-cols-6 gap-1.5">
-            {STUDIO_SWITCH_SKILL_AGENT_OPTIONS.map((agent) => {
-              const { state, tooltip } = getSkillCellState(skill, agent, props.busyKey);
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">
+            {props.matrixAgents.map((agent) => {
+              const { state, tooltip } = getSkillCellState(
+                skill,
+                agent,
+                props.busyKey,
+                unavailable.has(agent),
+              );
               return (
                 <div key={agent} className="flex flex-col items-center gap-1 rounded-lg border border-dls-border bg-dls-surface-muted py-2">
                   <div className="size-4"><AgentSkillIcon agent={agent} /></div>
@@ -572,13 +684,28 @@ export function SkillMatrixPanel(props: {
   countsByAgent: Record<string, number>;
   selectedSkill: AgentManagementSkill | null;
   onSelectSkill: (skill: AgentManagementSkill | null) => void;
+  /** Fleet-ready skill columns (product keys + custom with skill dirs). */
+  matrixAgents?: ReadonlyArray<AgentManagementSkillAgent>;
+  /** Agents not installed / not in fleet — show – cells. */
+  unavailableAgents?: ReadonlySet<string>;
+  inventoryScope?: SkillInventoryScope;
+  onInventoryScopeChange?: (scope: SkillInventoryScope) => void;
+  scopeCounts?: { fleet: number; all: number; shared: number };
 }) {
+  const matrixAgents = props.matrixAgents?.length
+    ? props.matrixAgents
+    : STUDIO_SWITCH_SKILL_AGENT_OPTIONS;
+  const unavailable = props.unavailableAgents ?? EMPTY_UNAVAILABLE_AGENTS;
+  const inventoryScope = props.inventoryScope ?? "all";
+  const gridStyle = skillMatrixGridStyle(matrixAgents.length);
+
   const filtered = useMemo(() => {
     if (props.columnFilter.length === 0) return props.skills;
     return props.skills.filter((skill) => props.columnFilter.every((agent) => skill.agents.includes(agent)));
   }, [props.skills, props.columnFilter]);
 
   const handleHeaderToggle = useCallback((agent: AgentManagementSkillAgent, event: React.MouseEvent) => {
+    if (unavailable.has(agent)) return;
     const multi = event.shiftKey;
     const exists = props.columnFilter.includes(agent);
     if (multi) {
@@ -587,18 +714,24 @@ export function SkillMatrixPanel(props: {
       if (exists && props.columnFilter.length === 1) props.onColumnFilterChange([]);
       else props.onColumnFilterChange([agent]);
     }
-  }, [props.columnFilter, props.onColumnFilterChange]);
+  }, [props.columnFilter, props.onColumnFilterChange, unavailable]);
 
   return (
     <section
       className={cn(
-        "grid h-full min-h-0 flex-1 gap-3",
-        props.selectedSkill && "lg:grid-cols-[minmax(0,1fr)_360px]",
+        "grid h-full min-h-0 flex-1 gap-0",
+        props.selectedSkill && "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]",
       )}
     >
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-        {/* Search + column header stay fixed; only the skill rows scroll. */}
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-dls-border px-3 py-2">
+      <div
+        className={cn(
+          "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border/50 bg-dls-surface",
+          // When drawer is open, drop right edge so the shared seam is a single hairline on the drawer.
+          props.selectedSkill && "lg:rounded-r-none lg:border-r-0",
+        )}
+      >
+        {/* Search + inventory scope stay fixed above the matrix grid. */}
+        <div className={cn("flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2", SKILL_MATRIX_RULE)}>
           <InputGroup controlSize="sm" radius="lg" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start" inset="tight">
               <Search className="size-3.5" />
@@ -610,6 +743,31 @@ export function SkillMatrixPanel(props: {
               className="h-8 text-xs"
             />
           </InputGroup>
+          {props.onInventoryScopeChange ? (
+            <SegmentedTabGroup className="shrink-0">
+              {(
+                [
+                  ["fleet", t("skills.matrix_scope_fleet"), props.scopeCounts?.fleet],
+                  ["all", t("skills.matrix_scope_all"), props.scopeCounts?.all],
+                  ["shared", t("skills.matrix_scope_shared"), props.scopeCounts?.shared],
+                ] as const
+              ).map(([scope, label, count]) => (
+                <NavTabButton
+                  key={scope}
+                  type="button"
+                  size="filter"
+                  active={inventoryScope === scope}
+                  onClick={() => props.onInventoryScopeChange?.(scope)}
+                  className="gap-1 px-2 text-xs"
+                >
+                  <span>{label}</span>
+                  {typeof count === "number" ? (
+                    <span className="tabular-nums opacity-70">{count}</span>
+                  ) : null}
+                </NavTabButton>
+              ))}
+            </SegmentedTabGroup>
+          ) : null}
           {props.columnFilter.length > 0 ? (
             <Button
               type="button"
@@ -624,27 +782,36 @@ export function SkillMatrixPanel(props: {
           <span className="text-xs tabular-nums text-dls-secondary">{t("skills.matrix_count", { visible: filtered.length, total: props.totalSkills })}</span>
         </div>
 
-        <div
-          className="grid shrink-0 items-center border-b border-dls-border bg-dls-surface-muted text-xs font-medium text-dls-secondary"
-          style={SKILL_MATRIX_GRID_STYLE}
-        >
-          <div className="flex items-center gap-1.5 px-3 py-2">
-            <FileText className="size-3.5" />
-            <span>{t("skills.matrix_skill_source")}</span>
+        {/*
+          Header + rows share one scrollport so agent install columns always match the
+          column icons above (separate header + body scroll was offset by the scrollbar).
+        */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+          <div
+            className={cn(
+              "sticky top-0 z-10 grid items-stretch border-b bg-dls-surface-muted/95 text-xs font-medium text-dls-secondary backdrop-blur-sm",
+              SKILL_MATRIX_RULE,
+            )}
+            style={gridStyle}
+          >
+            <div className="flex items-center gap-1.5 self-center px-3 py-2">
+              <FileText className="size-3.5" />
+              <span>{t("skills.matrix_skill_source")}</span>
+            </div>
+            {matrixAgents.map((agent, index) => (
+              <SkillMatrixColumnHeader
+                key={agent}
+                agent={agent}
+                active={props.columnFilter.includes(agent)}
+                count={props.countsByAgent[agent] ?? 0}
+                unavailable={unavailable.has(agent)}
+                leadRule={index === 0}
+                onToggle={(event) => handleHeaderToggle(agent, event)}
+              />
+            ))}
+            <div aria-hidden="true" className={cn("border-l", SKILL_MATRIX_RULE)} />
           </div>
-          {STUDIO_SWITCH_SKILL_AGENT_OPTIONS.map((agent) => (
-            <SkillMatrixColumnHeader
-              key={agent}
-              agent={agent}
-              active={props.columnFilter.includes(agent)}
-              count={props.countsByAgent[agent] ?? 0}
-              onToggle={(event) => handleHeaderToggle(agent, event)}
-            />
-          ))}
-          <div aria-hidden="true" />
-        </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {filtered.length > 0 ? (
             filtered.map((skill) => (
               <SkillMatrixRow
@@ -652,6 +819,8 @@ export function SkillMatrixPanel(props: {
                 skill={skill}
                 busyKey={props.busyKey}
                 selected={props.selectedSkill?.path === skill.path && props.selectedSkill?.name === skill.name}
+                matrixAgents={matrixAgents}
+                unavailableAgents={unavailable}
                 onSkillAction={props.onSkillAction}
                 onOpenDetail={(item) => props.onSelectSkill(item)}
               />
@@ -660,13 +829,17 @@ export function SkillMatrixPanel(props: {
             <div className="px-4 py-12 text-center text-sm text-dls-secondary">
               <FileText className="mx-auto mb-2 size-8 opacity-40" />
               <div>{t("skills.matrix_empty")}</div>
-              {props.search || props.columnFilter.length > 0 ? (
+              {props.search || props.columnFilter.length > 0 || inventoryScope !== "all" ? (
                 <Button
                   type="button"
                   variant="link"
                   size="xs"
                   className="mt-2 text-xs text-dls-accent hover:underline"
-                  onClick={() => { props.onSearchChange(""); props.onColumnFilterChange([]); }}
+                  onClick={() => {
+                    props.onSearchChange("");
+                    props.onColumnFilterChange([]);
+                    props.onInventoryScopeChange?.("all");
+                  }}
                 >
                   {t("skills.matrix_clear_filters")}
                 </Button>
@@ -675,20 +848,26 @@ export function SkillMatrixPanel(props: {
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 border-t border-dls-border bg-dls-surface-muted px-3 py-1.5 text-xs text-dls-secondary">
+        <div className={cn("flex shrink-0 flex-wrap items-center gap-3 border-t bg-dls-surface-muted/70 px-3 py-1.5 text-xs text-dls-secondary", SKILL_MATRIX_RULE)}>
           <span className="inline-flex items-center gap-1"><SkillStateGlyph state="native" size="legend" /><span>{t("skills.matrix_legend_native")}</span></span>
           <span className="inline-flex items-center gap-1"><SkillStateGlyph state="managed" size="legend" /><span>{t("skills.matrix_legend_managed")}</span></span>
           <span className="inline-flex items-center gap-1"><SkillStateGlyph state="available" size="legend" /><span>{t("skills.matrix_legend_available")}</span></span>
+          <span className="inline-flex items-center gap-1"><SkillStateGlyph state="unavailable" size="legend" /><span>{t("skills.matrix_legend_unavailable")}</span></span>
           <span className="inline-flex items-center gap-1"><SkillStateGlyph state="readonly" size="legend" /><span>{t("skills.matrix_legend_readonly")}</span></span>
           <span className="ml-auto">{t("skills.matrix_legend_hint")}</span>
         </div>
       </div>
 
       {props.selectedSkill ? (
-        <div className="hidden h-full min-h-0 overflow-hidden rounded-xl border border-dls-border bg-dls-surface lg:flex">
+        <div
+          // Matrix drops its right border when open; one left hairline is the shared seam.
+          className="hidden h-full min-h-0 overflow-hidden rounded-xl rounded-l-none border border-dls-border/40 bg-dls-surface lg:flex"
+        >
           <SkillMatrixDrawer
             skill={props.selectedSkill}
             busyKey={props.busyKey}
+            matrixAgents={matrixAgents}
+            unavailableAgents={unavailable}
             onClose={() => props.onSelectSkill(null)}
             onSkillAction={props.onSkillAction}
           />

@@ -74,7 +74,12 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     else if (/version|版本|update/.test(lower)) code = "version_unsupported";
     else if (/timeout|timed out|超时/.test(lower)) code = "timeout";
     else if (/parse|json|解析/.test(lower)) code = "parse_failed";
-    else if (/empty|no assistant|no parseable|空/.test(lower)) code = "empty_output";
+    else if (
+      /empty|no assistant|without assistant|no parseable|no output|completed without/.test(lower)
+      || /没有.*回复|空输出|无助手文本/.test(message)
+    ) {
+      code = "empty_output";
+    }
     else if (/cancel|取消/.test(lower)) code = "cancelled";
     return { code, message: message || "Unknown local agent error", debug: message || null };
   }

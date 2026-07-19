@@ -2,8 +2,11 @@ import { describe, expect, it } from "bun:test";
 import type { OnMyAgentSessionArchiveSession } from "../src/app/lib/onmyagent-server";
 import {
   agentLabel,
+  archiveAgentIconId,
   buildResumeRequest,
   groupSessionsByAgent,
+  humanizeArchiveTitle,
+  isVisibleArchiveAgent,
   RESUMABLE_AGENTS,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
 
@@ -57,15 +60,56 @@ describe("session archive page helpers", () => {
     expect(buildResumeRequest(empty)).toBeNull();
   });
 
-  it("falls back to first message then id for title", () => {
+  it("falls back to first message then agent/project for title", () => {
     const s = session({ id: "sid", agent: "opencode", display_name: null, first_message: "greet" });
     expect(buildResumeRequest(s)?.title).toBe("greet");
-    const noMsg = session({ id: "sid2", agent: "opencode", display_name: null, first_message: null });
-    expect(buildResumeRequest(noMsg)?.title).toBe("sid2");
+    const noMsg = session({
+      id: "sid2",
+      agent: "opencode",
+      display_name: null,
+      first_message: null,
+      project: "/tmp/proj",
+    });
+    expect(buildResumeRequest(noMsg)?.title).toBe("OpenCode · proj");
+  });
+
+  it("humanizeArchiveTitle drops jsonrpc first messages", () => {
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "h1",
+          agent: "hermes",
+          display_name: null,
+          first_message: '{"jsonrpc":"2.0","id":1,"method":"initialize"}',
+          project: "/Users/work/sample-project",
+        }),
+      ),
+    ).toBe("Hermes · sample-project");
   });
 
   it("agentLabel returns friendly name or agent id", () => {
     expect(agentLabel("codex")).toBe("Codex");
+    expect(agentLabel("mimocode")).toBe("MiMo Code");
     expect(agentLabel("unknown-provider")).toBe("unknown-provider");
+  });
+
+  it("surfaces backend-scanned agents (option A — no tight whitelist)", () => {
+    expect(isVisibleArchiveAgent("mimocode")).toBe(true);
+    expect(isVisibleArchiveAgent("codex")).toBe(true);
+    expect(isVisibleArchiveAgent("kiro")).toBe(true);
+    expect(isVisibleArchiveAgent("unknown")).toBe(false);
+    expect(isVisibleArchiveAgent("")).toBe(false);
+  });
+
+  it("maps archive agent keys to brand icon ids", () => {
+    expect(archiveAgentIconId("mimocode")).toBe("mimo");
+    expect(archiveAgentIconId("codex")).toBe("codex");
+    expect(archiveAgentIconId("grok")).toBe("grok");
+    expect(archiveAgentIconId("vscode-copilot")).toBe("vscode-copilot");
+  });
+
+  it("labels grok and vscode-copilot friendly names", () => {
+    expect(agentLabel("grok")).toBe("Grok Build");
+    expect(agentLabel("vscode-copilot")).toBe("VS Code Copilot");
   });
 });

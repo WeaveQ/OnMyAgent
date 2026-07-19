@@ -183,6 +183,8 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   onSlashCommandExecute?: (command: LocalAgentSlashCommand) => void;
   toolbarLeft?: ReactNode;
   toolbarRight?: ReactNode;
+  /** Workbench-style strip under the card (workspace / approval). */
+  bottomAccessory?: ReactNode;
   contextUsage?: { used: number; total: number; label?: string | null } | null;
 }) {
   const [value, setValue] = useState(props.initialDraft);
@@ -439,12 +441,23 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const canSend = (Boolean(value.trim()) || attachments.length > 0 || quotes.length > 0)
     && !props.disabled && !props.submitting;
 
+  const hasBottomAccessory = Boolean(props.bottomAccessory);
+  // Match session workbench composer: soft mist border, flush bottom accessory strip.
+  const panelRoundedClass = hasBottomAccessory
+    ? "rounded-t-xl rounded-b-none"
+    : "rounded-xl";
+
   return (
+    <div className="w-full min-w-0 max-w-full" data-local-agent-composer-shell="true">
     <div
       className={cn(
-        "relative overflow-visible rounded-xl border bg-dls-surface transition-colors",
-        focused ? "border-dls-accent/60 ring-2 ring-dls-accent/15" : "border-dls-border",
-        dragActive && "border-dls-accent/80",
+        "relative min-w-0 max-w-full overflow-x-hidden overflow-y-visible border bg-dls-surface transition-colors",
+        panelRoundedClass,
+        hasBottomAccessory ? "border-b-0" : "",
+        focused
+          ? "border-dls-accent/40"
+          : "border-dls-mist",
+        dragActive && "border-dls-accent/70",
       )}
       data-local-agent-composer-root="true"
       onDragEnter={handleDragEnter}
@@ -679,6 +692,18 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
           </div>
         </div>
       </div>
+    </div>
+    {props.bottomAccessory ? (
+      <div
+        className={cn(
+          "relative z-10 mt-0 flex min-h-9 w-full min-w-0 max-w-full items-center gap-0.5 overflow-x-hidden rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary",
+          "border border-t-0 border-dls-mist",
+        )}
+        data-local-agent-composer-footer="true"
+      >
+        {props.bottomAccessory}
+      </div>
+    ) : null}
     </div>
   );
 });

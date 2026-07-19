@@ -30,6 +30,8 @@ type SelectMenuProps = {
   size?: "default" | "compact";
   placement?: "bottom" | "top" | "auto";
   onOpen?: () => void;
+  /** Root class — use e.g. `w-auto max-w-[14rem]` in flex toolbars. Default `w-full`. */
+  className?: string;
 };
 
 type PanelRect = {
@@ -221,7 +223,10 @@ export function SelectMenu(props: SelectMenuProps) {
       : null;
 
   return (
-    <div ref={rootRef} className="relative inline-flex w-full min-w-0">
+    <div
+      ref={rootRef}
+      className={cn("relative inline-flex min-w-0", props.className ?? "w-full")}
+    >
       <Button
         type="button"
         id={props.id}

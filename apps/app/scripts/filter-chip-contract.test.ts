@@ -31,4 +31,17 @@ describe("filter chip free-float contract", () => {
       "bg-transparent text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
     );
   });
+
+  test("segmented track nests NavTab radius (xl track + lg tabs, not full sausage)", () => {
+    // Track outer radius must exceed tab radius for p-0.5 nesting.
+    expect(source).toMatch(/filter:\s*\n\s*"h-8[^"]*rounded-xl/);
+    expect(source).toMatch(/panel:\s*\n\s*"h-9[^"]*rounded-xl/);
+    expect(source).not.toMatch(/filter:\s*\n\s*"h-8[^"]*rounded-full/);
+    expect(source).not.toMatch(/panel:\s*\n\s*"h-9[^"]*rounded-full/);
+    // NavTab pills stay rounded-lg (tighter than free-float FilterChip rounded-full).
+    expect(source).toMatch(/pill:\s*"rounded-lg"/);
+    expect(source).toMatch(/tab:\s*"rounded-lg"/);
+    // Free-float FilterChip chips remain full pills.
+    expect(source).toContain('chip: "rounded-full"');
+  });
 });

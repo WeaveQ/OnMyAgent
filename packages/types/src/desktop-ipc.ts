@@ -358,6 +358,7 @@ export type PersonalLocalAgentErrorInfo = {
     | "parse_failed"
     | "timeout"
     | "empty_output"
+    | "acp_incomplete_output"
     | "cancelled"
     | "codex_acp_model_format"
     | "codex_acp_mode_failed"

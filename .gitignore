@@ -98,6 +98,7 @@ vendor/opencode/
 doc/
 reports/*
 .learnings/
+.workbuddy/
 opencode.jsonc
 
 # Agent loop runtime artifacts (local only, not uploaded)

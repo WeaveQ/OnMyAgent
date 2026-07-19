@@ -103,9 +103,12 @@ describe("archived-tasks-view filter UX contract", () => {
     expect(source).toContain("text-dls-danger");
     expect(source).toContain("w-auto min-w-max");
     expect(source).toContain("ConfirmModal");
-    // Unarchive is pill text only (reference has no leading undo icon).
+    // Unarchive is text-only (reference has no leading undo icon).
     expect(source).not.toContain("Undo2");
-    expect(source).toContain("rounded-full");
+    // Filter chips match files-tab radius (rounded-lg), not capsule pills.
+    expect(source).toContain(
+      "h-9 shrink-0 gap-1.5 rounded-lg border-dls-border bg-dls-surface px-3 font-normal text-dls-text",
+    );
     expect(source).not.toContain("leadSlot");
   });
 });

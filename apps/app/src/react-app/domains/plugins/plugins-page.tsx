@@ -7,9 +7,6 @@ import {
   FileText,
   FolderOpen,
   Mail,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
   Search,
   ShoppingBag,
   Upload,
@@ -19,6 +16,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
 import { FilterChip, IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -32,6 +36,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import {
+  hasLobePluginBrandIcon,
+  LobePluginBrandIcon,
+} from "@/react-app/design-system/lobe-brand-icons";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
@@ -109,28 +117,38 @@ const pluginsTextClass = {
   cardDescription: "mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary",
   cardDescriptionClamp: "mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary",
   statusMeta: "flex items-center gap-1 pt-0.5 text-xs font-medium text-dls-secondary",
-  sectionTitle: "mb-2.5 text-sm font-medium leading-5 text-dls-text",
+  sectionTitle: "mb-2 text-sm font-medium leading-5 text-dls-text",
+  sectionLead: "max-w-2xl text-xs leading-5 text-dls-secondary",
   emptyTitle: "text-sm font-medium text-dls-text",
   emptyDescription: "mt-1.5 text-xs text-dls-secondary",
   helper: "text-xs text-dls-secondary",
   pathHint: "truncate text-xs text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100",
+  categoryTitle: "mb-2 text-xs font-medium uppercase tracking-wide text-dls-secondary",
 };
+
+/**
+ * Shared store grids: 1 → 2 → 3 (daily) → 5 (large).
+ * md≈日常桌面 3 列；2xl 宽屏 5 列。
+ */
+const PLUGIN_CARD_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5";
 
 const pluginsLayoutClass = {
   page: "flex h-full min-h-0 flex-col bg-dls-background",
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
-  pageContainer: "mx-auto w-full max-w-5xl px-6 pb-10 pt-5",
-  pluginPageContainer: "mx-auto w-full max-w-5xl space-y-8 px-6 pb-10 pt-5",
-  card: "rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 transition-colors",
+  pageContainer: "mx-auto w-full max-w-6xl px-6 pb-10 pt-5 2xl:max-w-7xl",
+  pluginPageContainer: "mx-auto w-full max-w-6xl space-y-7 px-6 pb-10 pt-5 2xl:max-w-7xl",
+  card: "rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
-  cardDisabled: "opacity-70",
-  cardInteractive: "hover:border-dls-border hover:bg-dls-hover",
-  cardMd: "min-h-[72px]",
-  cardLg: "min-h-[80px]",
+  cardDisabled: "opacity-80",
+  cardInteractive: "hover:border-dls-border hover:bg-dls-hover/60",
+  cardMd: "min-h-[4.5rem]",
+  cardLg: "min-h-20",
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
   disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
-  cardGrid: "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3",
+  cardGrid: PLUGIN_CARD_GRID,
+  artifactCardGrid: PLUGIN_CARD_GRID,
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
   originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
@@ -179,13 +197,6 @@ function getSamplePlugins(): PluginItem[] {
       description: t("session.plugins_desc_gmail"),
       category: "communication",
       iconKey: "gmail",
-    },
-    {
-      id: "feishu",
-      name: t("session.plugins_name_feishu"),
-      description: t("session.plugins_desc_feishu"),
-      category: "communication",
-      iconKey: "feishu",
     },
     {
       id: "feishu",
@@ -244,6 +255,30 @@ const CONNECTOR_ICON_SRC: Partial<Record<string, string>> = {
   "baidu-drive": "/connector-icons/baidu-drive.png",
 };
 
+function PluginLogoLobeOrFallback(props: {
+  iconKey: string;
+  className?: string;
+  shared: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className={cn(props.shared, "bg-dls-surface-muted text-dls-text", props.className)}>
+        <Blocks className="size-5" aria-hidden />
+      </div>
+    );
+  }
+  return (
+    <div className={cn(props.shared, "bg-dls-surface p-1.5", props.className)}>
+      <LobePluginBrandIcon
+        iconKey={props.iconKey}
+        className="size-7"
+        onFailed={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 function PluginLogo(props: { iconKey: string; className?: string }) {
   const shared =
     "flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/5";
@@ -258,6 +293,17 @@ function PluginLogo(props: { iconKey: string; className?: string }) {
           draggable={false}
         />
       </div>
+    );
+  }
+
+  // Lobe brand marks for connectors we no longer hand-draw (Notion / M365 / GH / …).
+  if (hasLobePluginBrandIcon(props.iconKey)) {
+    return (
+      <PluginLogoLobeOrFallback
+        iconKey={props.iconKey}
+        className={props.className}
+        shared={shared}
+      />
     );
   }
 
@@ -278,25 +324,6 @@ function PluginLogo(props: { iconKey: string; className?: string }) {
           <div className="relative size-8">
             <div className="absolute inset-0 rounded-lg bg-dls-plugin-gradient [clip-path:polygon(0_70%,34%_25%,58%_25%,33%_75%)]" />
             <div className="absolute inset-0 rounded-lg bg-dls-plugin-gradient [clip-path:polygon(36%_24%,88%_24%,56%_73%,20%_73%)] opacity-90" />
-          </div>
-        </div>
-      );
-    case "notion":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-black", props.className)}>
-          <div className="flex size-8 items-center justify-center rounded-md border-2 border-current text-2xl font-black leading-none">
-            N
-          </div>
-        </div>
-      );
-    case "m365":
-      return (
-        <div className={cn(shared, "bg-dls-surface p-1.5", props.className)}>
-          <div className="grid size-full grid-cols-2 gap-0.5 overflow-hidden rounded-lg">
-            <span className="bg-dls-brand-windows-red" />
-            <span className="bg-dls-brand-windows-green" />
-            <span className="bg-dls-brand-windows-blue" />
-            <span className="bg-dls-brand-windows-yellow" />
           </div>
         </div>
       );
@@ -521,25 +548,27 @@ function PluginStoreCard(props: {
 }
 
 function PluginCard(props: { item: PluginItem }) {
+  // Preview-only: not installable. Avoid Plus / hover-active affordances.
   return (
-    <PluginStoreCard minHeight="sm" className="gap-3">
-      <PluginLogo iconKey={props.item.iconKey} />
+    <PluginStoreCard
+      minHeight="sm"
+      disabled
+      className="h-full cursor-default gap-2.5 border border-dashed border-dls-border/70 bg-dls-surface/50 opacity-100 hover:border-dls-border/70 hover:bg-dls-surface/50"
+    >
+      <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-lg" />
       <div className="min-w-0 flex-1">
-        <div className={pluginsTextClass.featuredTitle}>
-          {props.item.name}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className={cn(pluginsTextClass.featuredTitle, "min-w-0 flex-1")}>
+            {props.item.name}
+          </div>
+          <StatusBadge tone="neutral" size="tiny" className="shrink-0">
+            {t("common.coming_soon_short")}
+          </StatusBadge>
         </div>
         <div className={pluginsTextClass.cardDescription}>
           {props.item.description}
         </div>
       </div>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className={pluginsLayoutClass.iconButton}
-        aria-label={t("session.plugins_add_aria", { name: props.item.name })}
-      >
-        <Plus className="size-3.5" />
-      </Button>
     </PluginStoreCard>
   );
 }
@@ -565,6 +594,7 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<ArtifactPluginDetailModel | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(false);
 
   useEffect(
     () => pluginState.subscribe(() => setRevision((revision) => revision + 1)),
@@ -630,31 +660,53 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
     }
   };
 
+  const closePluginDetail = () => {
+    setSelectedPluginId(null);
+    setSelectedDetail(null);
+    setDetailLoading(false);
+    setDetailError(false);
+  };
+
   const openPlugin = async (pluginId: string) => {
     if (!props.client) return;
     setSelectedPluginId(pluginId);
     setSelectedDetail(null);
     setDetailLoading(true);
-    setLoadError(false);
+    setDetailError(false);
     try {
       const detail = await loadArtifactPluginDetail(props.client, props.workspaceId, pluginId);
       setSelectedDetail(detail);
     } catch {
-      setLoadError(true);
+      setDetailError(true);
     } finally {
       setDetailLoading(false);
     }
   };
 
+  const detailTitle =
+    selectedPlugin?.id === "browser"
+      ? t("plugins.artifact_plugin_browser_name")
+      : selectedPlugin?.manifest.interface.displayName
+        ?? selectedDetail?.manifest.interface.displayName
+        ?? t("plugins.artifact_open");
+
+  const detailDescription =
+    selectedDetail?.manifest.interface.longDescription
+    ?? selectedPlugin?.manifest.interface.shortDescription
+    ?? t("plugins.artifact_detail_loading");
+
   return (
-    <section className="space-y-4" aria-labelledby="artifact-plugins-heading">
-      <div>
+    <section className="space-y-3" aria-labelledby="artifact-plugins-heading">
+      <div className="space-y-1">
         <h2
           id="artifact-plugins-heading"
           className="text-base font-medium leading-6 text-dls-text"
         >
           {t("plugins.artifact_title")}
         </h2>
+        <p className={pluginsTextClass.sectionLead}>
+          {t("plugins.artifact_description")}
+        </p>
       </div>
 
       {mutationError ? (
@@ -678,13 +730,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
       ) : plugins.length === 0 ? (
         <EmptyStateBox size="comfortable">{t("plugins.artifact_empty")}</EmptyStateBox>
       ) : (
-        <div className={pluginsLayoutClass.cardGrid}>
+        <div className={pluginsLayoutClass.artifactCardGrid}>
           {plugins.map((plugin) => (
             <ArtifactPluginCard
               key={plugin.id}
               plugin={plugin}
-              enabledLabel={labels.enabled}
-              disabledLabel={labels.disabled}
               openLabel={t("plugins.artifact_open")}
               toggleLabel={t("plugins.artifact_card_toggle", {
                 name: plugin.manifest.interface.displayName,
@@ -696,28 +746,52 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
         </div>
       )}
 
-      {detailLoading ? (
-        <div
-          className="flex min-h-16 items-center justify-center"
-          role="status"
-          aria-label={t("plugins.artifact_detail_loading")}
+      <Dialog
+        open={Boolean(selectedPluginId)}
+        onOpenChange={(open) => {
+          if (!open) closePluginDetail();
+        }}
+      >
+        <DialogContent
+          className="flex max-h-[min(88vh,40rem)] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
         >
-          <LoadingSpinner />
-        </div>
-      ) : selectedPlugin && selectedDetail ? (
-        <ArtifactPluginDetail
-          plugin={{ ...selectedPlugin, connection: selectedDetail.connection }}
-          labels={labels}
-          onSelectPrompt={(pluginId, skillId, prompt) =>
-            props.onSelectArtifactPrompt?.({ pluginId, skillId, prompt })
-          }
-          starterPromptsDisabled={!props.onSelectArtifactPrompt}
-          onPluginEnabledChange={(enabled) => setPluginEnabled(selectedPlugin.id, enabled)}
-          onSkillEnabledChange={(skillId, enabled) =>
-            setSkillEnabled(selectedPlugin.id, skillId, enabled)
-          }
-        />
-      ) : null}
+          {/* Visible chrome lives in ArtifactPluginDetail; title/description stay for a11y. */}
+          <DialogHeader className="sr-only">
+            <DialogTitle>{detailTitle}</DialogTitle>
+            <DialogDescription>{detailDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-12">
+            {detailLoading ? (
+              <div
+                className="flex min-h-32 items-center justify-center"
+                role="status"
+                aria-label={t("plugins.artifact_detail_loading")}
+              >
+                <LoadingSpinner />
+              </div>
+            ) : detailError ? (
+              <NoticeBox tone="error" role="alert">
+                {t("plugins.artifact_load_error")}
+              </NoticeBox>
+            ) : selectedPlugin && selectedDetail ? (
+              <ArtifactPluginDetail
+                plugin={{ ...selectedPlugin, connection: selectedDetail.connection }}
+                labels={labels}
+                onSelectPrompt={(pluginId, skillId, prompt) => {
+                  props.onSelectArtifactPrompt?.({ pluginId, skillId, prompt });
+                  closePluginDetail();
+                }}
+                starterPromptsDisabled={!props.onSelectArtifactPrompt}
+                onPluginEnabledChange={(enabled) => setPluginEnabled(selectedPlugin.id, enabled)}
+                onSkillEnabledChange={(skillId, enabled) =>
+                  setSkillEnabled(selectedPlugin.id, skillId, enabled)
+                }
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -744,18 +818,21 @@ export function PluginsPage(props: PluginsPageProps) {
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
           <ArtifactPluginsCatalog {...props} />
-          <section className="space-y-4 border-t border-dls-border pt-6">
-            <div>
+          <section className="space-y-5 border-t border-dls-border/50 pt-6">
+            <div className="space-y-1">
               <h2 className="text-base font-medium leading-6 text-dls-text">
                 {t("plugins.sample_section_title")}
               </h2>
+              <p className={pluginsTextClass.sectionLead}>
+                {t("plugins.sample_section_hint")}
+              </p>
             </div>
             {categories.map((category) => {
               const items = filteredByCategory.get(category.id) ?? [];
               if (items.length === 0) return null;
               return (
-                <section key={category.id} className="space-y-0 opacity-90">
-                  <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
+                <section key={category.id} className="space-y-0">
+                  <h3 className={pluginsTextClass.categoryTitle}>{category.title}</h3>
                   <div className={pluginsLayoutClass.cardGrid}>
                     {items.map((item) => (
                       <PluginCard key={item.id} item={item} />

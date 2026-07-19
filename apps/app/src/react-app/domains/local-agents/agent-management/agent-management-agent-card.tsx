@@ -1,27 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { Bot, ChevronRight, HeartPulse, Loader2, Pencil, Trash2, Wrench } from "lucide-react";
+import { ChevronRight, HeartPulse, Pencil, Plus, Trash2, Wrench } from "lucide-react";
 import { useState } from "react";
-import claudeIconUrl from "../../../../assets/agent-icons/claude.svg";
-import codexIconUrl from "../../../../assets/agent-icons/openai.svg";
-import hermesIconUrl from "../../../../assets/agent-icons/hermes.png";
-import openclawIconUrl from "../../../../assets/agent-icons/claw.svg";
-import opencodeIconUrl from "../../../../assets/agent-icons/opencode-logo-light.svg";
-import geminiIconUrl from "../../../../assets/agent-icons/gemini.svg";
-import kiroIconUrl from "../../../../assets/agent-icons/kiro.svg";
-import gooseIconUrl from "../../../../assets/agent-icons/goose.svg";
-import cursorAgentIconUrl from "../../../../assets/agent-icons/cursor-agent.svg";
-import qwenIconUrl from "../../../../assets/agent-icons/qwen.svg";
-import kimiIconUrl from "../../../../assets/agent-icons/kimi.svg";
-import copilotIconUrl from "../../../../assets/agent-icons/copilot.svg";
-import qoderIconUrl from "../../../../assets/agent-icons/qoder.svg";
-import augmentIconUrl from "../../../../assets/agent-icons/augment.svg";
-import snowIconUrl from "../../../../assets/agent-icons/snow.svg";
-import nanobotIconUrl from "../../../../assets/agent-icons/nanobot.svg";
-import codebuddyIconUrl from "../../../../assets/agent-icons/codebuddy.svg";
-import traeIconUrl from "../../../../assets/agent-icons/trae.svg";
-import mimoIconUrl from "../../../../assets/agent-icons/mimo.svg";
-import grokIconUrl from "../../../../assets/agent-icons/grok.svg";
 
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -30,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
 import type { AgentManagementAgent } from "../../../../app/lib/desktop";
+import { AgentBrandIcon } from "../agent-brand-icon";
 import { localAgentTypeLabel } from "./agent-management-providers";
 import {
   agentManagerHealthLabel,
@@ -38,6 +19,7 @@ import {
   formatAgentManagerDuration,
   type AgentManagementHealthResult,
 } from "./agent-management-health";
+import { agentDisplayStatus } from "./agent-card-model";
 
 function AgentManagementMetric(props: { label: string; value: string | number }) {
   return (
@@ -48,65 +30,29 @@ function AgentManagementMetric(props: { label: string; value: string | number })
   );
 }
 
-// Each agent shows its own brand icon instead of a unified fallback glyph.
-// Matched by agent id first (so the discoverable catalog like CodeBuddy/Gemini
-// gets its real icon), then by provider for the built-in 5 + user custom agents.
-const AGENT_ICON_BY_ID: Partial<Record<string, string>> = {
-  opencode: opencodeIconUrl,
-  codex: codexIconUrl,
-  claude: claudeIconUrl,
-  hermes: hermesIconUrl,
-  openclaw: openclawIconUrl,
-  gemini: geminiIconUrl,
-  kiro: kiroIconUrl,
-  goose: gooseIconUrl,
-  "cursor-agent": cursorAgentIconUrl,
-  qwen: qwenIconUrl,
-  kimi: kimiIconUrl,
-  copilot: copilotIconUrl,
-  qoder: qoderIconUrl,
-  augment: augmentIconUrl,
-  snow: snowIconUrl,
-  nanobot: nanobotIconUrl,
-  codebuddy: codebuddyIconUrl,
-  trae: traeIconUrl,
-  mimo: mimoIconUrl,
-  grok: grokIconUrl,
-};
-
-const AGENT_ICON_BY_PROVIDER: Partial<Record<string, string>> = {
-  opencode: opencodeIconUrl,
-  codex: codexIconUrl,
-  claude: claudeIconUrl,
-  hermes: hermesIconUrl,
-  openclaw: openclawIconUrl,
-};
-
-function AgentManagementAgentIcon(props: { id: string; provider: string }) {
-  const src = AGENT_ICON_BY_ID[props.id] ?? AGENT_ICON_BY_PROVIDER[props.provider];
-  if (src) {
-    return <img src={src} alt="" className="size-5 object-contain" loading="lazy" />;
-  }
-  return <Bot className="size-5" />;
-}
-
 export function AgentManagementAgentCard(props: {
   agent: AgentManagementAgent;
   health?: AgentManagementHealthResult;
   checking: boolean;
+  /** True while catalog → fleet adopt is in flight. */
+  adding?: boolean;
   onTestConnection: (agent: AgentManagementAgent) => void;
   onToggleEnabled?: (agent: AgentManagementAgent, enabled: boolean) => void;
   onDelete?: (agent: AgentManagementAgent) => void;
   onEdit?: (agent: AgentManagementAgent) => void;
   onRepair?: (agent: AgentManagementAgent) => void;
+  /** Adopt a catalog (discoverable) agent into My agents. */
+  onAddAsCustom?: (agent: AgentManagementAgent) => void;
 }) {
   // Discoverable catalog entries are stored with provider "custom" so the ACP
   // test-connection path works, but they are NOT user-registered agents — they
-  // must stay read-only (no edit/delete/enable), only test-connectable.
+  // must stay read-only (no edit/delete/enable) until adopted into the fleet.
   const isDiscoverable = props.agent.discoverable === true;
   const isCustom = props.agent.provider === "custom" && !isDiscoverable;
   const enabled = props.agent.enabled !== false;
   const usage = props.agent.usage;
+  // Unified with fleet partition filters (未安装 / 健康 / 离线 / 需登录).
+  const displayStatus = agentDisplayStatus(props.agent, props.health);
   // Upstream-style: rows are collapsed by default and only reveal their data
   // and detail operations after the user clicks to expand them.
   const [expanded, setExpanded] = useState(false);
@@ -123,20 +69,23 @@ export function AgentManagementAgentCard(props: {
           : t("agent_manager.agent_card.expand", { name: props.agent.name })}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-dls-surface-muted"
       >
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary">
-          <AgentManagementAgentIcon id={props.agent.id} provider={props.agent.provider} />
-        </div>
+        <AgentBrandIcon
+          id={props.agent.id}
+          provider={props.agent.provider}
+          size="sm"
+          alt={props.agent.name}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-base font-medium text-dls-text">{props.agent.name}</span>
-            <StatusBadge tone={agentManagerStatusTone(props.agent.status)} shape="pill" size="tiny">
-              {props.agent.status === "online"
+            <StatusBadge tone={agentManagerStatusTone(displayStatus)} shape="pill" size="tiny">
+              {displayStatus === "online"
                 ? t("agent_manager.agent_card.status_online")
-                : props.agent.status === "needs_auth"
+                : displayStatus === "needs_auth"
                   ? t("agent_manager.agent_card.status_needs_auth")
-                  : props.agent.status === "offline"
+                  : displayStatus === "offline"
                     ? t("agent_manager.agent_card.status_offline")
-                    : props.agent.status === "missing"
+                    : displayStatus === "missing"
                       ? t("agent_manager.agent_card.status_missing")
                       : t("agent_manager.agent_card.status_error")}
             </StatusBadge>
@@ -228,9 +177,24 @@ export function AgentManagementAgentCard(props: {
                 </label>
               </>
             ) : isDiscoverable ? (
-              <span className="text-xs text-dls-secondary">
-                {t("agent_manager.agent_card.discoverable_hint")}
-              </span>
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <span className="text-xs text-dls-secondary">
+                  {t("agent_manager.agent_card.discoverable_hint")}
+                </span>
+                {props.onAddAsCustom ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="ml-auto"
+                    disabled={props.adding || props.checking}
+                    onClick={() => props.onAddAsCustom?.(props.agent)}
+                  >
+                    {props.adding ? <LoadingSpinner size="sm" className="mr-1.5" /> : <Plus className="mr-1.5 size-3.5" />}
+                    {t("agent_manager.agent_card.add_as_mine")}
+                  </Button>
+                ) : null}
+              </div>
             ) : (
               <Button
                 type="button"

@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FolderOpen, Loader2, Plus, Upload } from "lucide-react";
+import { Check, FolderOpen, Plus, Upload } from "lucide-react";
 
 import {
   installBuiltinSkillPackage,
@@ -20,12 +20,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SKILL_MARKETPLACE_CATEGORIES } from "./categories";
 import { BUILTIN_MARKETPLACE_SKILLS } from "./data";
 import type { SkillMarketplaceEntry } from "./types";
+
+/** Align with plugins store: 1 → 2 → 3 (daily) → 5 (large). */
+const SKILL_CARD_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5";
 
 const OPC_AGGREGATED_CATEGORY_IDS = new Set([
   "developer",
@@ -236,12 +241,30 @@ function SkillCard(props: {
   installed: boolean;
   installing: boolean;
   onInstall: (skill: SkillMarketplaceEntry) => void;
+  onOpen: (skill: SkillMarketplaceEntry) => void;
 }) {
   return (
-    <div className="flex min-h-24 items-center gap-3 rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors hover:border-dls-border hover:bg-dls-hover">
+    <div
+      role="button"
+      tabIndex={0}
+      className={cn(
+        "group flex h-full min-h-[5.5rem] cursor-pointer items-center gap-2.5 rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover/60",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+      )}
+      onClick={() => props.onOpen(props.skill)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onOpen(props.skill);
+        }
+      }}
+      aria-label={t("skills_marketplace.view_detail", { name: props.skill.displayName })}
+    >
       <SkillIcon skill={props.skill} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold leading-5 text-dls-text">
+        <div className="truncate text-sm font-medium leading-5 text-dls-text">
           {props.skill.displayName}
         </div>
         <div className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
@@ -269,7 +292,10 @@ function SkillCard(props: {
                 aria-label={t("skills_marketplace.install_skill", {
                   name: props.skill.displayName,
                 })}
-                onClick={() => props.onInstall(props.skill)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onInstall(props.skill);
+                }}
               >
                 {props.installing ? (
                   <LoadingSpinner size="sm" />
@@ -293,21 +319,44 @@ function InstalledSkillCard(props: {
   marketplaceSkill: SkillMarketplaceEntry | null;
   opening: boolean;
   onOpenFolder: (skill: LocalSkillCard) => void;
+  onOpen?: (skill: LocalSkillCard) => void;
 }) {
   const description = skillDescription(props.skill);
+  const name = skillDisplayName(props.skill);
   return (
-    <div className="flex min-h-24 items-start gap-3 rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors hover:border-dls-border hover:bg-dls-hover">
+    <div
+      role={props.onOpen ? "button" : undefined}
+      tabIndex={props.onOpen ? 0 : undefined}
+      className={cn(
+        "group flex h-full min-h-[5.5rem] items-start gap-2.5 rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover/60",
+        props.onOpen && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+      )}
+      onClick={props.onOpen ? () => props.onOpen?.(props.skill) : undefined}
+      onKeyDown={
+        props.onOpen
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                props.onOpen?.(props.skill);
+              }
+            }
+          : undefined
+      }
+      aria-label={
+        props.onOpen ? t("skills_marketplace.view_detail", { name }) : undefined
+      }
+    >
       {props.marketplaceSkill ? (
         <SkillIcon skill={props.marketplaceSkill} />
       ) : (
         <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
-          {skillFallbackInitial(skillDisplayName(props.skill))}
+          {skillFallbackInitial(name)}
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold leading-5 text-dls-text">
-          {skillDisplayName(props.skill)}
-        </div>
+        <div className="truncate text-sm font-medium leading-5 text-dls-text">{name}</div>
         {description ? (
           <div className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
             {description}
@@ -324,9 +373,12 @@ function InstalledSkillCard(props: {
               disabled={props.opening || !isDesktopRuntime()}
               className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
               aria-label={t("skills_marketplace.open_skill_folder", {
-                name: skillDisplayName(props.skill),
+                name,
               })}
-              onClick={() => props.onOpenFolder(props.skill)}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onOpenFolder(props.skill);
+              }}
             >
               {props.opening ? (
                 <LoadingSpinner size="sm" />
@@ -341,6 +393,98 @@ function InstalledSkillCard(props: {
         </TooltipContent>
       </Tooltip>
     </div>
+  );
+}
+
+function MarketplaceSkillDetailDialog(props: {
+  skill: SkillMarketplaceEntry | null;
+  installed: boolean;
+  installing: boolean;
+  onOpenChange: (open: boolean) => void;
+  onInstall: (skill: SkillMarketplaceEntry) => void;
+}) {
+  const skill = props.skill;
+  const open = Boolean(skill);
+  const categories = skill
+    ? Array.from(new Set([skill.categoryLabel, ...skill.categoryLabels].filter(Boolean)))
+    : [];
+  const tags = skill?.tags ?? [];
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) props.onOpenChange(false);
+      }}
+    >
+      <DialogContent className="flex max-h-[min(88vh,36rem)] w-full max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{skill?.displayName ?? t("skills_marketplace.install")}</DialogTitle>
+          <DialogDescription>
+            {skill?.description ?? t("skills_marketplace.install")}
+          </DialogDescription>
+        </DialogHeader>
+        {skill ? (
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5 pr-12">
+            <header className="flex items-start gap-3">
+              <SkillIcon skill={skill} />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-medium leading-6 text-dls-text">
+                  {skill.displayName}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-dls-secondary">
+                  {skill.description}
+                </p>
+              </div>
+            </header>
+
+            {categories.length > 0 || tags.length > 0 ? (
+              <section className="space-y-2">
+                <h3 className="text-xs font-medium text-dls-secondary">
+                  {t("skills_marketplace.detail_meta")}
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {categories.map((label) => (
+                    <StatusBadge key={`cat-${label}`} tone="surface" shape="soft" size="tiny">
+                      {label}
+                    </StatusBadge>
+                  ))}
+                  {tags.map((tag) => (
+                    <StatusBadge key={`tag-${tag}`} tone="neutral" shape="soft" size="tiny">
+                      {tag}
+                    </StatusBadge>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <div className="flex items-center justify-end gap-2 border-t border-dls-border/50 pt-4">
+              {props.installed ? (
+                <StatusBadge tone="success" shape="soft" size="sm">
+                  <Check className="size-3.5" aria-hidden />
+                  {t("skills_marketplace.installed")}
+                </StatusBadge>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={props.installing}
+                  onClick={() => props.onInstall(skill)}
+                  className="mac:titlebar-no-drag"
+                >
+                  {props.installing ? (
+                    <LoadingSpinner size="sm" className="mr-1.5" />
+                  ) : (
+                    <Plus data-icon="inline-start" className="size-4" />
+                  )}
+                  {t("skills_marketplace.install")}
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -447,6 +591,7 @@ export function SkillsMarketplacePage(props: {
   const [openingSkillPath, setOpeningSkillPath] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [detailSkill, setDetailSkill] = useState<SkillMarketplaceEntry | null>(null);
 
   useEffect(() => {
     if (!isDesktopRuntime() || !props.workspaceRoot) return undefined;
@@ -597,18 +742,39 @@ export function SkillsMarketplacePage(props: {
   if (props.view === "installed") {
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
+        <MarketplaceSkillDetailDialog
+          skill={detailSkill}
+          installed={
+            detailSkill ? installedSkillNames.has(detailSkill.skillName) : false
+          }
+          installing={
+            detailSkill ? installingSkillName === detailSkill.skillName : false
+          }
+          onOpenChange={(open) => {
+            if (!open) setDetailSkill(null);
+          }}
+          onInstall={handleInstallSkill}
+        />
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
           {installedSkills.length > 0 ? (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {installedSkills.map((skill) => (
-                <InstalledSkillCard
-                  key={skill.name}
-                  skill={skill}
-                  marketplaceSkill={marketplaceSkillForLocalSkill(skill)}
-                  opening={openingSkillPath === skill.path}
-                  onOpenFolder={handleOpenSkillFolder}
-                />
-              ))}
+            <div className={SKILL_CARD_GRID}>
+              {installedSkills.map((skill) => {
+                const market = marketplaceSkillForLocalSkill(skill);
+                return (
+                  <InstalledSkillCard
+                    key={skill.name}
+                    skill={skill}
+                    marketplaceSkill={market}
+                    opening={openingSkillPath === skill.path}
+                    onOpenFolder={handleOpenSkillFolder}
+                    onOpen={
+                      market
+                        ? () => setDetailSkill(market)
+                        : undefined
+                    }
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="flex h-full min-h-0 items-center justify-center px-6 text-center text-sm text-dls-secondary">
@@ -633,6 +799,19 @@ export function SkillsMarketplacePage(props: {
         }}
         onImportFiles={handleImportFiles}
       />
+      <MarketplaceSkillDetailDialog
+        skill={detailSkill}
+        installed={
+          detailSkill ? installedSkillNames.has(detailSkill.skillName) : false
+        }
+        installing={
+          detailSkill ? installingSkillName === detailSkill.skillName : false
+        }
+        onOpenChange={(open) => {
+          if (!open) setDetailSkill(null);
+        }}
+        onInstall={handleInstallSkill}
+      />
       <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
         {SKILL_MARKETPLACE_CATEGORIES.map((category) => {
           const active = categoryId === category.id;
@@ -648,7 +827,7 @@ export function SkillsMarketplacePage(props: {
         })}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className={SKILL_CARD_GRID}>
           {filteredSkills.map((skill) => (
             <SkillCard
               key={skill.id}
@@ -656,6 +835,7 @@ export function SkillsMarketplacePage(props: {
               installed={installedSkillNames.has(skill.skillName)}
               installing={installingSkillName === skill.skillName}
               onInstall={handleInstallSkill}
+              onOpen={setDetailSkill}
             />
           ))}
         </div>

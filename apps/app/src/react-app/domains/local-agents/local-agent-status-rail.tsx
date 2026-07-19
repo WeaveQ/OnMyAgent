@@ -86,7 +86,7 @@ export function LocalAgentStatusRail(props: LocalAgentStatusRailProps) {
 
   return (
     <div
-      className="flex h-8 shrink-0 items-center gap-1 border-b border-dls-border bg-dls-surface-muted px-3 text-xs mac:titlebar-no-drag"
+      className="flex h-8 min-w-0 shrink-0 items-center gap-1 overflow-x-hidden border-b border-dls-border bg-dls-surface-muted px-3 text-xs mac:titlebar-no-drag"
       data-testid="local-agent-status-rail"
     >
       <Popover open={open === "skill"} onOpenChange={(next) => setOpen(next ? "skill" : null)}>
