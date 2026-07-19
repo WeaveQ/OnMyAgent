@@ -395,7 +395,6 @@ export default {
   "local_agent.extensions_enabled": "已启用",
   "local_agent.extensions_disabled": "已停用",
   "local_agent.background_status_restored": "后台运行状态已从主进程恢复。",
-  "local_agent.scheduled_task_completed": "定时任务“{title}”执行完成。\n状态：{status}\nRun：{runId}\n\n{output}",
   "local_agent.heartbeat_task_completed": "定时任务“{title}”执行完成。\n状态：{status}\nRun：{run}\n\n{output}",
   "local_agent.editor_id_placeholder": "唯一标识，仅小写字母 / 数字 / 横线，例如 my-agent",
   "local_agent.editor_name_placeholder": "显示名称，例如 我的本地编码助手",
