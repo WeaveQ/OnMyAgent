@@ -294,7 +294,7 @@ export function AgentManagementPage(props: {
     });
   }, [activePanel, cacheKey, healthResults, providerApp, selectedSkillKey, skillColumnFilter, skillSearch]);
 
-  /** Mutually exclusive filters aligned with card badges: 健康 / 需登录 / 离线 / 未安装. */
+  /** Mutually exclusive filters aligned with card badges: healthy / needs-auth / offline / not-installed. */
   const [agentFilter, setAgentFilter] = useState<"all" | "online" | "needs_auth" | "offline" | "missing">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AgentManagementAgent | null>(null);
@@ -425,7 +425,7 @@ export function AgentManagementPage(props: {
         });
         return;
       }
-      const message = /command is required|editor_error_command|不能为空/i.test(raw)
+      const message = /command is required|editor_error_command|\u4e0d\u80fd\u4e3a\u7a7a/i.test(raw)
         ? t("local_agent.editor_error_command")
         : raw;
       setError(message);
@@ -1076,7 +1076,7 @@ export function AgentManagementPage(props: {
       </div>
 
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) closeEditor(); }}>
-        {/* Match provider modal: fixed width, sticky chrome, scroll body (历史布局优化). */}
+        {/* Match provider modal: fixed width, sticky chrome, scroll body (legacy layout polish). */}
         <DialogContent className="flex max-h-[90vh] !w-[min(720px,calc(100vw-32px))] !max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
           <DialogHeader className="shrink-0 border-b border-dls-border bg-dls-surface px-5 py-3.5">
             <DialogTitle className="truncate text-base font-medium text-dls-text">

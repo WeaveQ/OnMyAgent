@@ -186,7 +186,7 @@ export function InlineAgentEditor(props: {
       }}
     >
       <div className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto", props.embedded ? "px-0 py-0" : "p-4")}>
-        {/* 基础 — always visible */}
+        {/* Basic — always visible */}
         <section className={sectionClass}>
           <div>
             <h3 className="text-sm font-medium text-dls-text">{t("local_agent.editor_section_basic")}</h3>
@@ -251,7 +251,7 @@ export function InlineAgentEditor(props: {
           </div>
         </section>
 
-        {/* 环境 / skills */}
+        {/* Environment / skills */}
         <section className={sectionClass}>
           <div>
             <h3 className="text-sm font-medium text-dls-text">{t("local_agent.editor_section_runtime")}</h3>
@@ -308,7 +308,7 @@ export function InlineAgentEditor(props: {
           </div>
         </section>
 
-        {/* 高级 — collapsed by default */}
+        {/* Advanced — collapsed by default */}
         <section className={sectionClass}>
           <button
             type="button"

@@ -75,3 +75,5 @@ export {
   renameAutomationSessionRecord,
 } from "../messaging";
 export { OpenCodeProviderConfigDialog } from "../local-agents";
+export { PersonalUsagePage } from "./usage/personal-usage-page";
+export type { PersonalUsageClient } from "./usage/personal-usage-model";

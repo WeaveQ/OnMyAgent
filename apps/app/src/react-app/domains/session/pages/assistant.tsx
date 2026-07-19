@@ -927,8 +927,8 @@ export function AssistantPage(props: AssistantPageProps) {
         : "";
 
   // Header chrome: 🔍 find (inline expand) · 🕐 history questions popover · ▤ workspace rail
-  const headerPanelControls = (
-    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+  const historyChrome = (
+    <>
       {historySearchOpen ? (
         <div
           className={cn(
@@ -1042,23 +1042,21 @@ export function AssistantPage(props: AssistantPageProps) {
         sessionId={props.selectedSessionId}
         onSelectPrompt={handleHistorySelectPrompt}
       />
+    </>
+  );
+  const headerPanelControls = !sidePanelOpen ? (
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historyChrome}
       <Button
         data-code-side-panel-toggle="true"
         type="button"
         variant="ghost"
         size="icon-xs"
-        className={cn(
-          "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-          sidePanelOpen && "bg-dls-hover text-dls-text",
-        )}
+        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
           event.stopPropagation();
-          if (sidePanelOpen) {
-            closeRightPane();
-          } else {
-            openAssistantSidePanelMenu();
-          }
+          openAssistantSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
         aria-label={t("session.code_side_panel_toggle")}
@@ -1066,6 +1064,10 @@ export function AssistantPage(props: AssistantPageProps) {
       >
         <PanelRight className="size-3.5" />
       </Button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historyChrome}
     </div>
   );
 

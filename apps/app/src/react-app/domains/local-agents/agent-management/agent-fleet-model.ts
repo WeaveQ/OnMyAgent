@@ -298,7 +298,7 @@ export function fleetMemberConfigKeys(
   return knownKeys.filter((key) => found.has(key.toLowerCase()));
 }
 
-/** Runtime picker / 本地 tab: only fleet members that are enabled (and typically online). */
+/** Runtime picker / local tab: only fleet members that are enabled (and typically online). */
 export function isRuntimeFleetPickerAgent(agent: AgentManagementAgent): boolean {
   if (agent.enabled === false) return false;
   // Catalog drafts never enter the runtime picker until adopted into the store.

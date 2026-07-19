@@ -272,7 +272,6 @@ function PluginLogoLobeOrFallback(props: {
     <div className={cn(props.shared, "bg-dls-surface p-1.5", props.className)}>
       <LobePluginBrandIcon
         iconKey={props.iconKey}
-        size={28}
         className="size-7"
         onFailed={() => setFailed(true)}
       />

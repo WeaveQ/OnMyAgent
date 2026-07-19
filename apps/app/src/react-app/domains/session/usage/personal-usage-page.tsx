@@ -57,7 +57,7 @@ function isGenericDisplayName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return true;
   // Default fallback from i18n (`session.current_user` → 我 / Me / etc.).
-  const generic = new Set(["我", "me", "you", "user", "anonymous"]);
+  const generic = new Set(["\u6211", "me", "you", "user", "anonymous"]);
   return generic.has(trimmed.toLowerCase());
 }
 

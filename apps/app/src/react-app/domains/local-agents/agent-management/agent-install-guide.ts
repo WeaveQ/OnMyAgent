@@ -47,7 +47,7 @@ export function effectiveAgentDisplayStatus(
   const raw = String(agent.status ?? "").trim() || "unknown";
   const err = String(agent.error ?? "");
   if (raw === "missing" || healthStatus === "missing") return "missing";
-  if (/enoent|command not found|no such file|spawn\s+\S+\s+enoent|未安装/i.test(err)) return "missing";
+  if (/enoent|command not found|no such file|spawn\s+\S+\s+enoent|\u672a\u5b89\u88c5/i.test(err)) return "missing";
   if (healthStatus === "passed") return "online";
   if (healthStatus === "needs_auth") return "needs_auth";
   if (healthStatus === "failed") return "offline";

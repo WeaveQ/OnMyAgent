@@ -4,8 +4,7 @@
  * Reuses the session-domain PersonalUsagePage (cross-workspace metrics).
  */
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
-import { PersonalUsagePage } from "../../session/usage/personal-usage-page";
-import type { PersonalUsageClient } from "../../session/usage/personal-usage-model";
+import { PersonalUsagePage, type PersonalUsageClient } from "../../session";
 
 export type UsageSettingsViewProps = {
   client: PersonalUsageClient | null;
