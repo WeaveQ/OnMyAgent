@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * WorkBuddy-parity skill glyph (filled wand + sparkle).
  * Reverse-engineered from WorkBuddy `packages/agent-ui/.../SkillIcon.tsx`
- * (viewBox 16×16, used for 加载技能 compact rows and skill UI).
+ * (viewBox 16x16, used for load-skill compact rows and skill UI).
  */
 export function SkillGlyphIcon({
   className,

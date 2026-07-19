@@ -2010,7 +2010,7 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
     };
   }
 
-  // Single concrete op → WorkBuddy chip label (加载技能 / 运行命令 / …)
+  // Single concrete op → WorkBuddy chip label (load skill / run command / browser)
   if (legacyParts.length === 1 && legacyParts[0]?.type === "tool") {
     const part = legacyParts[0];
     const summary = summarizeStep(part);

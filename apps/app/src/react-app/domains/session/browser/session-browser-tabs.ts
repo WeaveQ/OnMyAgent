@@ -7,7 +7,7 @@ import type { BrowserTabInfo } from "./use-browser-state";
  *
  * When sessionId is missing (draft home / new task with no chat id yet), return
  * an empty list — never fall back to every workspace tab, or another session's
- * browser bleeds into 新建任务.
+ * browser bleeds into new-task draft home.
  */
 export function filterTabsForSession(
   tabs: BrowserTabInfo[],
