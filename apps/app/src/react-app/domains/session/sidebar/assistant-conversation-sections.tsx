@@ -459,7 +459,7 @@ function SectionShowMore(props: {
   );
 }
 
-/** WorkBuddy folder disclosure: soft pill "show more(n)" / "collapse" — same h-8 as tasks. */
+/** WorkBuddy folder disclosure: soft pill "show more (n)" / "collapse" — same h-8 as tasks. */
 function FolderTaskShowMore(props: {
   total: number;
   showAll: boolean;
@@ -601,7 +601,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
 
   return (
     <div className="mt-1 flex flex-col gap-0.5 pt-1" data-assistant-task-list="true">
-      {/* pinned tasks — WorkBuddy: pinned tasks (n) ∨ as its own section */}
+      {/* Pinned tasks — WorkBuddy: pinned tasks (n) ∨ as its own section */}
       {pinnedCount > 0 ? (
         <div data-assistant-section="pinned" className="flex flex-col gap-0.5">
           <SectionHeader
@@ -639,7 +639,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         </div>
       ) : null}
 
-      {/* tasks */}
+      {/* Tasks */}
       <div data-assistant-section="tasks" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_tasks")}
@@ -692,7 +692,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
 
-      {/* spaces — WorkBuddy: spaces(n) ∨ / folder > + expand-all */}
+      {/* Spaces — WorkBuddy: spaces (n) ∨ / 📁 name > + expand-all */}
       <div data-assistant-section="spaces" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_space_tasks")}
@@ -820,7 +820,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
 
-      {/* scheduled */}
+      {/* Automations */}
       <div data-assistant-section="automations" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_automation_tasks")}
