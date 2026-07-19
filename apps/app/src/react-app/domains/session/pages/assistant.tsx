@@ -140,7 +140,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const sidePanelSessionKey =
     props.selectedSessionId ?? `assistant-draft:${props.selectedWorkspaceId}`;
-  /** Browser tab scope: real session id, or workspace draft key on 新建任务. */
+  /** Browser tab scope: real session id, or workspace draft key on new task. */
   const browserSessionScopeId = sidePanelSessionKey;
   const agentManagementIntent = props.agentManagementIntent;
   const onAgentManagementIntentConsumed =
@@ -338,7 +338,7 @@ export function AssistantPage(props: AssistantPageProps) {
         categoryId,
         { kind: "newTask" },
       );
-      // Close any draft-scoped rail before navigating so 新建任务 starts clean.
+      // Close any draft-scoped rail before navigating so new-task starts clean.
       setSidePanelState(`assistant-draft:${props.selectedWorkspaceId}`, null);
       setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
       if (isElectronRuntime()) {
@@ -510,13 +510,13 @@ export function AssistantPage(props: AssistantPageProps) {
       preserveSidePanelOnPanelOpenRef.current = false;
       return;
     }
-    // Only auto-open for a real chat session — never for draft / 新建任务.
+    // Only auto-open for a real chat session — never for draft / new-task.
     if (!props.selectedSessionId) return;
     setCurrentSidePanel("browser");
   }, [props.selectedSessionId, setCurrentSidePanel]);
   useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
 
-  // Leaving a session for 新建任务: close draft-scoped side panel and hide
+  // Leaving a session for new-task: close draft-scoped side panel and hide
   // the shared browser surface so the previous chat's rail does not carry over.
   const previousSelectedSessionIdRef = useRef(props.selectedSessionId);
   useEffect(() => {
@@ -1110,7 +1110,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 props.onNavigateToMode("expert");
                 return;
               }
-              // Returning to 助理 must NOT force a new task — restore last selection.
+              // Returning to assistant must NOT force a new task — restore last selection.
               writeRailView("assistant", props.selectedWorkspaceId, view);
               if (view === "assistant") {
                 setAgentPanelCollapsed(false);
