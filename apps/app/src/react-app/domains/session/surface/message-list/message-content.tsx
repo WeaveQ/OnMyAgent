@@ -182,7 +182,7 @@ export function FileCard(props: {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium leading-snug text-dls-text">{title}</div>
+        <div className="truncate text-base font-medium leading-snug text-dls-text">{title}</div>
         {badge ? (
           <StatusBadge className="mt-1" shape="soft" size="tiny">
             {badge}
@@ -272,7 +272,7 @@ export function OpenTargetIcon(props: { target: OpenTarget }) {
 export function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (target: OpenTarget) => void }) {
   if (!props.targets.length) return null;
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs leading-none">
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm leading-none">
       <span className="mr-0.5 text-dls-secondary">{t("session.openable_items")}</span>
       {props.targets.map((target) => (
           <Button
@@ -304,7 +304,7 @@ export function TranscriptDividerRow(props: {
   return (
     <div
       className={cn(
-        "session-transcript-divider mx-auto flex items-center justify-center gap-3 px-3 py-3 text-xs text-dls-secondary sm:px-5",
+        "session-transcript-divider mx-auto flex items-center justify-center gap-3 px-3 py-3 text-sm text-dls-secondary sm:px-5",
         props.variant && `session-transcript-divider-${props.variant}`,
       )}
       data-divider-variant={props.variant}

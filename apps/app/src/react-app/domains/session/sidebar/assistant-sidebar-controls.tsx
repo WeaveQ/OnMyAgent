@@ -70,7 +70,8 @@ export function AssistantCategorySwitch(props: {
               aria-selected={active}
               onClick={() => props.onChange(item.id)}
               active={active}
-              size="filter"
+              // Track tabs use NavTab size tab (theme-system free-float size is separate).
+              size="tab"
               shape="tab"
               className="relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm"
             >

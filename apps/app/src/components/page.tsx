@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
-import { Loader2 } from "lucide-react";
 
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 
 function Page({ className, ...props }: ComponentProps<"div">) {
@@ -70,10 +70,11 @@ function PageLoading({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-function PageLoadingSpinner({ className, ...props }: ComponentProps<typeof Loader2>) {
+function PageLoadingSpinner({ className, ...props }: ComponentProps<"span">) {
   return (
-    <Loader2
-      className={cn("size-6 animate-spin text-dls-secondary", className)}
+    <LoadingSpinner
+      size="default"
+      className={cn("size-6 text-dls-secondary", className)}
       {...props}
     />
   );

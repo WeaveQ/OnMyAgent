@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
-  ChartNoAxesCombined,
   CircleHelp,
   FileText,
   Globe2,
@@ -98,6 +97,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { SidebarContext, useSidebarContext } from "./app-sidebar-provider";
@@ -188,15 +188,15 @@ function SessionStatusIndicator(props: {
   }
 
   if (props.isActive) {
+    const tone = sessionActivityStatusDotTone(props.status);
     return (
-      <span
-        className={cn(
-          "size-1.5 shrink-0 rounded-full",
-          sessionActivityDotClass(props.status),
-        )}
-        title={title}
-        aria-label={title}
-      />
+      <span title={title} aria-label={title} className="inline-flex shrink-0">
+        <StatusDot
+          size="xs"
+          tone={tone}
+          className={sessionActivityDotClass(props.status)}
+        />
+      </span>
     );
   }
 
@@ -504,12 +504,22 @@ function isSessionActivityStatus(
   );
 }
 
+function sessionActivityStatusDotTone(
+  status: string | undefined,
+): "active" | "warning" | "danger" | "muted" {
+  if (status === "error") return "danger";
+  if (status === "waiting") return "muted"; // bg overridden by signal class
+  if (status === "compacting" || status === "responding") return "active";
+  return "warning"; // default "active session" amber
+}
+
 function sessionActivityDotClass(status: string | undefined) {
+  // Extra bg tokens not covered by StatusDot tone (signal / explicit accent).
   if (status === "waiting") return appSidebarStateClass.waiting;
-  if (status === "error") return appSidebarStateClass.error;
-  if (status === "compacting") return appSidebarStateClass.compacting;
+  if (status === "error") return undefined;
+  if (status === "compacting") return undefined;
   if (status === "responding") return "bg-dls-accent";
-  return appSidebarStateClass.active;
+  return undefined;
 }
 
 function sessionActivityTextClass(status: string | undefined) {
@@ -767,7 +777,6 @@ export function AppSidebar(props: AppSidebarProps) {
               <div className="min-w-0 flex-1">
                 <SidebarAccountButton
                   account={props.account || undefined}
-                  onOpenUsage={() => props.onOpenPrimaryView("usage")}
                   onOpenSettings={props.onOpenAccountSettings}
                   onSignOut={props.onSignOut}
                   onOpenBilling={props.onOpenBilling}
@@ -820,7 +829,6 @@ export function AppSidebar(props: AppSidebarProps) {
 export function SidebarAccountButton(props: {
   account?: SidebarAccountInfo;
   onOpenDevices?: () => void;
-  onOpenUsage?: () => void;
   onOpenSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -927,16 +935,6 @@ export function SidebarAccountButton(props: {
           selectedValue={themeMode}
           onSelect={(value) => setThemeMode(value as ThemeMode)}
         />
-        {props.onOpenUsage ? (
-          <SidebarAccountMenuItem
-            icon={ChartNoAxesCombined}
-            label={t("nav.usage")}
-            onSelect={() => {
-              setOpen(false);
-              props.onOpenUsage?.();
-            }}
-          />
-        ) : null}
         <SidebarAccountMenuItem
           icon={Settings}
           label={t("account_menu.settings")}
@@ -1079,7 +1077,11 @@ function SidebarAccountSubMenu(props: {
               )}
               <span className="min-w-0 truncate">{item.label}</span>
               {selected ? (
-                <span className="size-1.5 justify-self-center rounded-full bg-dls-text" />
+                <StatusDot
+                  size="xs"
+                  tone="current"
+                  className="justify-self-center bg-dls-text"
+                />
               ) : null}
             </DropdownMenuItem>
           );

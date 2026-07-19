@@ -24,6 +24,7 @@ import {
   SettingsSidebar,
   getArchivedSettingsTabs,
   getGlobalSettingsTabs,
+  getOverviewSettingsTabs,
   getSettingsTabDescription,
   getSettingsTabIcon,
   getSettingsTabLabel,
@@ -227,6 +228,7 @@ function SettingsSectionMenu(
   >,
 ) {
   const sections: Array<{ label: string | null; tabs: SettingsTab[] }> = [
+    { label: null, tabs: getOverviewSettingsTabs() },
     { label: t("settings.group_workspace"), tabs: getWorkspaceSettingsTabs() },
     {
       label: t("settings.group_global"),

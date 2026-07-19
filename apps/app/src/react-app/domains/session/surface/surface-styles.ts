@@ -15,7 +15,6 @@ export const sessionSurfaceTextClass = {
 export const sessionSurfaceStateClass = {
   todoDone: "border-dls-status-success bg-dls-status-success-soft text-dls-status-success-fg",
   todoActive: "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
-  todoActiveDot: "size-1.5 rounded-full bg-dls-status-warning",
   errorDismiss: "shrink-0 text-dls-status-danger hover:bg-dls-status-danger/10 hover:text-dls-status-danger",
   snapshotError: "mx-auto max-w-xl rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-6 py-5 text-sm text-dls-status-danger",
 };

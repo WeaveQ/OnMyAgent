@@ -62,6 +62,7 @@ import {
   LazyPreferencesView,
   LazySystemAuthorizationsView,
   LazyUpdatesView,
+  LazyUsageView,
   SettingsTabSuspense,
 } from "./lazy-tab-views";
 import { usePlatform } from "../../kernel/platform";
@@ -75,6 +76,7 @@ import {
   type AgentManagementManagedProvider,
   type WorkspaceList,
 } from "../../../app/lib/desktop";
+import { readLocalAuthUser } from "../../../app/lib/local-auth";
 import { isBlockedProvider } from "../../../app/cloud/blocked-providers";
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import {
@@ -1623,6 +1625,18 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 updatedAt: 0,
               }}
               onDraftChange={setMemoryDraft}
+              busy={busy}
+              responseTone={local.prefs.responseTone}
+              onResponseToneChange={(responseTone) => {
+                local.setPrefs((previous) => ({ ...previous, responseTone }));
+              }}
+              customInstructions={local.prefs.customInstructions}
+              onCustomInstructionsChange={(customInstructions) => {
+                local.setPrefs((previous) => ({
+                  ...previous,
+                  customInstructions,
+                }));
+              }}
             />
           </SettingsTabSuspense>
         );
@@ -1643,14 +1657,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               showThinking={local.prefs.showThinking}
               onToggleShowThinking={() => {
                 local.setPrefs((previous) => ({ ...previous, showThinking: !previous.showThinking }));
-              }}
-              responseTone={local.prefs.responseTone}
-              onResponseToneChange={(responseTone) => {
-                local.setPrefs((previous) => ({ ...previous, responseTone }));
-              }}
-              customInstructions={local.prefs.customInstructions}
-              onCustomInstructionsChange={(customInstructions) => {
-                local.setPrefs((previous) => ({ ...previous, customInstructions }));
               }}
               autoCompactContext={autoCompactContext}
               autoCompactContextBusy={autoCompactContextBusy}
@@ -1834,6 +1840,29 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             />
           </SettingsTabSuspense>
         );
+      case "usage": {
+        const localAuthUser = readLocalAuthUser();
+        const profileName =
+          memoryDraft?.userName?.trim()
+          || local.prefs.onboardingProfile?.userName?.trim()
+          || "";
+        return (
+          <SettingsTabSuspense>
+            <LazyUsageView
+              client={onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient}
+              workspaces={workspaces}
+              identity={{
+                name:
+                  profileName
+                  || localAuthUser?.username
+                  || localAuthUser?.email
+                  || t("session.current_user"),
+                email: localAuthUser?.email ?? null,
+              }}
+            />
+          </SettingsTabSuspense>
+        );
+      }
       case "archived-tasks":
         return (
           <SettingsTabSuspense>

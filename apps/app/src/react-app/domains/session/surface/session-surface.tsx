@@ -116,6 +116,7 @@ import {
   assistantFallbackText,
   messageToReadableText,
   messageHasVisibleAssistantOutput,
+  findTranscriptSearchMatchIds,
   transcriptToText,
 } from "./session-surface-model";
 import {
@@ -600,6 +601,40 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
     [compactBoundary, rawRenderedMessages],
   );
+  const searchQuery = props.searchQuery?.trim() ?? "";
+  const searchMatchIds = useMemo(
+    () => findTranscriptSearchMatchIds(renderedMessages, searchQuery),
+    [renderedMessages, searchQuery],
+  );
+  const searchMatchIdSet = useMemo(
+    () => new Set(searchMatchIds),
+    [searchMatchIds],
+  );
+  const activeSearchMessageId =
+    searchQuery && searchMatchIds.length > 0
+      ? searchMatchIds[
+          ((props.searchActiveMatchIndex ?? 0) % searchMatchIds.length +
+            searchMatchIds.length) %
+            searchMatchIds.length
+        ] ?? null
+      : null;
+  const scrollToMessageByIdRef = useRef<
+    ((messageId: string, behavior?: ScrollBehavior) => boolean) | null
+  >(null);
+
+  useEffect(() => {
+    props.onSearchMatchCountChange?.(searchMatchIds.length);
+  }, [props, searchMatchIds.length]);
+
+  useEffect(() => {
+    if (!activeSearchMessageId) return;
+    const scroll = scrollToMessageByIdRef.current;
+    if (!scroll) return;
+    // Wait a frame so highlight marks / virtual rows can settle.
+    window.requestAnimationFrame(() => {
+      scroll(activeSearchMessageId, "smooth");
+    });
+  }, [activeSearchMessageId, searchQuery]);
   const outputLimitedAssistantMessage = useMemo(
     () => latestOutputLimitedAssistantMessage(renderedMessages),
     [renderedMessages],
@@ -2083,6 +2118,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       onOpenTarget={props.onOpenTarget}
                       footer={assistantStatusFooter}
                       assistantAvatar={chatHeaderAgent}
+                      searchHighlightQuery={searchQuery || undefined}
+                      searchMatchMessageIds={
+                        searchQuery ? searchMatchIdSet : undefined
+                      }
+                      activeSearchMessageId={activeSearchMessageId}
+                      setScrollToMessageById={(handler) => {
+                        scrollToMessageByIdRef.current = handler;
+                      }}
                     />
                     {visibleTranscriptError ? (
                       <SessionErrorCard

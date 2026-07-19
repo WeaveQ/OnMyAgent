@@ -1,29 +1,49 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CalendarClock,
-  Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   ClipboardList,
-  Filter,
   Folder,
   FolderOpen,
-  MessageSquare,
+  Maximize2,
+  MessageCirclePlus,
+  Minimize2,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 
-import { IconTile, MenuRowButton, NavListButton } from "@/components/ui/action-row";
+import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { AgentConversationGroup } from "./conversation-model";
 import type { AssistantAutomationGroup } from "./assistant-automation-groups";
-import { AssistantTaskItem } from "./assistant-task-item";
+import {
+  AssistantTaskItem,
+  TASK_CONTEXT_MENU_CLASS,
+  TASK_CONTEXT_MENU_ITEM_CLASS,
+  TASK_ROW_ACTION_CLASS,
+} from "./assistant-task-item";
 
-type AssistantConversationTab = "all" | "tasks" | "spaces" | "automations";
+type SectionId = "pinned" | "tasks" | "spaces" | "automations";
 const ASSISTANT_TASK_PREVIEW_LIMIT = 20;
+/** Per space/automation folder: show "show more" when children exceed this. */
+const FOLDER_TASK_PREVIEW_LIMIT = 5;
+
+/**
+ * Unified sidebar row rhythm (section / folder / task / show-more).
+ * Strict fixed height so Chinese text, icons, and hover actions never drift.
+ */
+const LIST_ROW_H = "h-8 min-h-8 max-h-8";
+const LIST_ROW_CLASS = cn(
+  "flex w-full shrink-0 items-center overflow-hidden rounded-md px-2",
+  "text-sm font-normal leading-none",
+  LIST_ROW_H,
+);
 
 type AssistantConversationSectionsProps = {
   categoryId: AssistantCategoryId;
@@ -44,6 +64,11 @@ type AssistantConversationSectionsProps = {
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenFolder?: (path: string) => void;
+  onSaveToSpace?: (sessionId: string) => void;
+  /** Unbind all tasks under this project folder from the space list. */
+  onRemoveSpaceDirectory?: (directory: string) => void;
+  /** Start a new assistant task bound to this project folder. */
+  onCreateTaskInDirectory?: (directory: string) => void;
   /** sessionId → bound folder path (for open-folder menu item). */
   folderPathBySessionId?: ReadonlyMap<string, string>;
 };
@@ -92,34 +117,8 @@ function takeVisibleGroups(
   return visible;
 }
 
-function takeVisibleGroupedEntries(
-  groups: [string, AgentConversationGroup[]][],
-  remaining: { value: number },
-) {
-  const visible: [string, AgentConversationGroup[]][] = [];
-  for (const [directory, items] of groups) {
-    if (remaining.value <= 0) break;
-    const nextItems = takeVisibleGroups(items, remaining);
-    if (nextItems.length > 0) visible.push([directory, nextItems]);
-  }
-  return visible;
-}
-
-function takeVisibleAutomationGroups(
-  groups: AssistantAutomationGroup<AgentConversationGroup>[],
-  remaining: { value: number },
-) {
-  const visible: AssistantAutomationGroup<AgentConversationGroup>[] = [];
-  for (const group of groups) {
-    if (remaining.value <= 0) break;
-    const items = takeVisibleGroups(group.items, remaining);
-    if (items.length > 0) visible.push({ ...group, items });
-  }
-  return visible;
-}
-
 function AssistantListEmptyState(props: {
-  kind: AssistantConversationTab;
+  kind: SectionId;
   title: string;
   description: string;
 }) {
@@ -130,7 +129,7 @@ function AssistantListEmptyState(props: {
   })();
 
   return (
-    <div className="mx-1 mt-3 flex flex-col items-center gap-2.5 rounded-xl border border-dls-border/60 bg-dls-surface/40 px-3 py-6 text-center">
+    <div className="mx-1 mt-1 flex flex-col items-center gap-2 rounded-xl border border-dls-border/60 bg-dls-surface/40 px-3 py-5 text-center">
       <IconTile size="md" shape="lg" tone="neutral" className="bg-dls-surface text-dls-secondary">
         {icon}
       </IconTile>
@@ -151,6 +150,7 @@ function AssistantTaskRows(props: {
   pinned?: boolean;
   pinnable?: boolean;
   typeIcon?: React.ReactNode;
+  singleLine?: boolean;
   folderPathBySessionId?: ReadonlyMap<string, string>;
   /** Fallback folder for all rows in this block (e.g. space directory). */
   folderPath?: string | null;
@@ -161,6 +161,7 @@ function AssistantTaskRows(props: {
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenFolder?: (path: string) => void;
+  onSaveToSpace?: (sessionId: string) => void;
 }) {
   return (
     <>
@@ -173,6 +174,7 @@ function AssistantTaskRows(props: {
           pinned={props.pinned}
           pinnable={props.pinnable}
           typeIcon={props.typeIcon}
+          singleLine={props.singleLine}
           folderPath={
             props.folderPathBySessionId?.get(item.latestSession.id) ??
             props.folderPath ??
@@ -185,73 +187,363 @@ function AssistantTaskRows(props: {
           onArchiveSession={props.onArchiveSession}
           onDeleteSession={props.onDeleteSession}
           onOpenFolder={props.onOpenFolder}
+          onSaveToSpace={props.onSaveToSpace}
         />
       ))}
     </>
   );
 }
 
-export function AssistantConversationSections(props: AssistantConversationSectionsProps) {
-  const [activeFilter, setActiveFilter] = useState<AssistantConversationTab>("all");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [expanded, setExpanded] = useState(true);
-  const [showAllRows, setShowAllRows] = useState(false);
+function SectionHeader(props: {
+  label: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  /** Optional trailing control (e.g. expand-all for spaces). */
+  trailing?: ReactNode;
+}) {
+  // WorkBuddy：`空间 (10) ∨` — 箭头紧贴标题；可选 trailing 贴行尾。
+  return (
+    <div
+      className={cn(LIST_ROW_CLASS, "group/section gap-0.5 text-dls-secondary")}
+      data-assistant-section-header="true"
+    >
+      <button
+        type="button"
+        onClick={props.onToggle}
+        className="flex h-full min-w-0 flex-1 items-center justify-start gap-1 overflow-hidden rounded-md text-left leading-none transition-colors hover:bg-dls-list-hover hover:text-dls-text"
+        aria-expanded={props.expanded}
+      >
+        <span className="min-w-0 max-w-full truncate tracking-tight leading-none">
+          {props.label}
+          <span className="tabular-nums"> ({props.count})</span>
+        </span>
+        {props.expanded ? (
+          <ChevronDown
+            className="size-3 shrink-0 opacity-50"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ) : (
+          <ChevronRight
+            className="size-3 shrink-0 opacity-50"
+            strokeWidth={2}
+            aria-hidden
+          />
+        )}
+      </button>
+      {props.trailing ? (
+        <div className="ml-auto flex h-full max-h-8 shrink-0 items-center">
+          {props.trailing}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
-  const taskCount = props.pinnedGroups.length + props.taskGroups.length;
+/** Shared folder row chrome — space project + automation group (same height). */
+function FolderRowShell(props: {
+  title: string;
+  /** Full path / longer label for native tooltip; defaults to title. */
+  tooltip?: string;
+  expanded: boolean;
+  onToggle: () => void;
+  icon: ReactNode;
+  trailing?: ReactNode;
+  "data-assistant-space-directory"?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        LIST_ROW_CLASS,
+        // WorkBuddy: neutral charcoal outline folders (not blue secondary).
+        "group gap-0.5 text-dls-text/80 transition-colors hover:bg-dls-list-hover hover:text-dls-text",
+        props.className,
+      )}
+      data-assistant-space-directory={props["data-assistant-space-directory"]}
+    >
+      {/*
+        WorkBuddy: `📁 name >` — chevron sits immediately after the name
+        (not row-trailing). Trailing actions stay on the far right via ml-auto.
+      */}
+      <button
+        type="button"
+        onClick={props.onToggle}
+        title={props.tooltip ?? props.title}
+        aria-expanded={props.expanded}
+        className="flex h-full min-w-0 flex-1 items-center overflow-hidden rounded-md text-left leading-none outline-none"
+      >
+        <span className="flex min-w-0 max-w-full items-center gap-1.5">
+          {props.icon}
+          <span className="min-w-0 truncate leading-none">{props.title}</span>
+          {props.expanded ? (
+            <ChevronDown
+              className="size-3 shrink-0 text-dls-text/40"
+              strokeWidth={2}
+              aria-hidden
+            />
+          ) : (
+            <ChevronRight
+              className="size-3 shrink-0 text-dls-text/40"
+              strokeWidth={2}
+              aria-hidden
+            />
+          )}
+        </span>
+      </button>
+      {props.trailing ? (
+        <div className="ml-auto flex h-full max-h-8 shrink-0 items-center gap-0">
+          {props.trailing}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Space project row — folder + name + chevron + ⋯ menu (open / remove). */
+function SpaceDirectoryRow(props: {
+  name: string;
+  directory: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onOpenFolder?: (path: string) => void;
+  onRemoveFromList?: (directory: string) => void;
+  onCreateTask?: (directory: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("click", close);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [menuOpen]);
+
+  return (
+    <>
+      <FolderRowShell
+        title={props.name}
+        tooltip={props.directory}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+        data-assistant-space-directory="true"
+        className={menuOpen ? "bg-dls-list-hover text-dls-text" : undefined}
+        icon={
+          <Folder
+            className="size-3.5 shrink-0 text-dls-text/55"
+            strokeWidth={1.6}
+          />
+        }
+        trailing={
+          <div
+            className={cn(
+              "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
+              menuOpen && "opacity-100",
+            )}
+          >
+            <button
+              ref={anchorRef}
+              type="button"
+              className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+              title={t("session.task_actions")}
+              aria-label={t("session.task_actions")}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (anchorRef.current) {
+                  const rect = anchorRef.current.getBoundingClientRect();
+                  setMenuPosition({
+                    left: rect.right - 176,
+                    top: rect.bottom + 4,
+                  });
+                }
+                setMenuOpen((value) => !value);
+              }}
+            >
+              <MoreHorizontal strokeWidth={1.75} />
+            </button>
+            {props.onCreateTask ? (
+              <button
+                type="button"
+                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                title={t("session.new_task_in_space")}
+                aria-label={t("session.new_task_in_space")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen(false);
+                  props.onCreateTask?.(props.directory);
+                }}
+              >
+                <MessageCirclePlus strokeWidth={1.75} />
+              </button>
+            ) : null}
+          </div>
+        }
+      />
+      {menuOpen && menuPosition ? (
+        <div
+          className={TASK_CONTEXT_MENU_CLASS}
+          data-task-context-menu="true"
+          style={{ left: menuPosition.left, top: menuPosition.top }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {props.onOpenFolder ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onOpenFolder?.(props.directory);
+              }}
+            >
+              <FolderOpen strokeWidth={1.75} />
+              {t("session.open_folder")}
+            </button>
+          ) : null}
+          {props.onRemoveFromList ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onRemoveFromList?.(props.directory);
+              }}
+            >
+              <Trash2 strokeWidth={1.75} />
+              {t("session.remove_from_space_list")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function SectionShowMore(props: {
+  overflow: boolean;
+  showAll: boolean;
+  hiddenCount: number;
+  onToggle: () => void;
+}) {
+  if (!props.overflow) return null;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={cn(
+        LIST_ROW_CLASS,
+        "justify-center bg-dls-sidebar text-xs font-normal text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+      )}
+      data-assistant-task-list-disclosure="true"
+      onClick={props.onToggle}
+    >
+      {props.showAll ? (
+        <ChevronUp className="size-3.5 shrink-0" />
+      ) : (
+        <ChevronDown className="size-3.5 shrink-0" />
+      )}
+      {props.showAll
+        ? t("session.task_list_show_less")
+        : t("session.task_list_show_more", { count: props.hiddenCount })}
+    </Button>
+  );
+}
+
+/** WorkBuddy folder disclosure: soft pill "show more (n)" / "collapse" — same h-8 as tasks. */
+function FolderTaskShowMore(props: {
+  total: number;
+  showAll: boolean;
+  onToggle: () => void;
+}) {
+  if (props.total <= FOLDER_TASK_PREVIEW_LIMIT) return null;
+  const hidden = props.total - FOLDER_TASK_PREVIEW_LIMIT;
+  return (
+    <button
+      type="button"
+      data-assistant-folder-task-disclosure="true"
+      onClick={props.onToggle}
+      className={cn(
+        LIST_ROW_CLASS,
+        "text-left text-dls-text/80 transition-colors hover:bg-dls-list-hover hover:text-dls-text",
+        props.showAll && "bg-dls-list-hover text-dls-text",
+      )}
+    >
+      <span className="truncate leading-none">
+        {props.showAll
+          ? t("session.collapse_folder_tasks")
+          : t("session.view_more_folder_tasks", { count: hidden })}
+      </span>
+    </button>
+  );
+}
+
+/** Nested task list under a folder — no extra py so row heights stay even. */
+function FolderChildren(props: { children: ReactNode }) {
+  return <div className="ml-5 flex flex-col gap-0.5">{props.children}</div>;
+}
+
+export function AssistantConversationSections(props: AssistantConversationSectionsProps) {
+  // Default collapsed (WorkBuddy); open the section that owns the selection.
+  const [expandedSections, setExpandedSections] = useState<Record<SectionId, boolean>>({
+    pinned: true,
+    tasks: false,
+    spaces: false,
+    automations: false,
+  });
+  const [showAllBySection, setShowAllBySection] = useState<Record<SectionId, boolean>>({
+    pinned: false,
+    tasks: false,
+    spaces: false,
+    automations: false,
+  });
+  /** Per space-folder / automation-group: expand beyond FOLDER_TASK_PREVIEW_LIMIT. */
+  const [showAllByFolder, setShowAllByFolder] = useState<Record<string, boolean>>({});
+
+  const pinnedCount = props.pinnedGroups.length;
+  const taskCount = props.taskGroups.length;
   const spacesCount = props.spaceGroups.reduce(
     (count, [, items]) => count + items.length,
     0,
   );
+  const spaceDirectoryCount = props.spaceGroups.length;
+  const allSpaceDirectoriesExpanded =
+    spaceDirectoryCount > 0 &&
+    props.spaceGroups.every(([directory]) =>
+      props.expandedDirectories.includes(directory),
+    );
   const automationsCount = props.automationGroups.reduce(
     (count, group) => count + group.items.length,
     0,
   );
-  const allCount = taskCount + spacesCount + automationsCount;
 
-  const filterItems = useMemo(
-    () => [
-      {
-        id: "all" as const,
-        label: t("session.task_filter_all"),
-        count: allCount,
-        icon: <ClipboardList className="size-3.5" />,
-      },
-      {
-        id: "tasks" as const,
-        label: t("session.task_filter_tasks"),
-        count: taskCount,
-        icon: <MessageSquare className="size-3.5" />,
-      },
-      {
-        id: "spaces" as const,
-        label: t("session.task_filter_space_tasks"),
-        count: spacesCount,
-        icon: <Folder className="size-3.5" />,
-      },
-      {
-        id: "automations" as const,
-        label: t("session.task_filter_automation_tasks"),
-        count: automationsCount,
-        icon: <CalendarClock className="size-3.5" />,
-      },
-    ],
-    [allCount, automationsCount, spacesCount, taskCount],
-  );
-
-  const activeFilterItem = filterItems.find((item) => item.id === activeFilter);
-
+  // Keep the section that owns the selected session expanded.
   useEffect(() => {
-    if (
-      groupIncludesSession(
-        [...props.pinnedGroups, ...props.taskGroups],
-        props.selectedSessionId,
-      )
-    ) {
-      setActiveFilter((current) => current === "all" ? current : "tasks");
+    if (groupIncludesSession(props.pinnedGroups, props.selectedSessionId)) {
+      setExpandedSections((current) =>
+        current.pinned ? current : { ...current, pinned: true },
+      );
+      return;
+    }
+    if (groupIncludesSession(props.taskGroups, props.selectedSessionId)) {
+      setExpandedSections((current) =>
+        current.tasks ? current : { ...current, tasks: true },
+      );
       return;
     }
     if (groupedEntriesIncludeSession(props.spaceGroups, props.selectedSessionId)) {
-      setActiveFilter((current) => current === "all" ? current : "spaces");
+      setExpandedSections((current) =>
+        current.spaces ? current : { ...current, spaces: true },
+      );
       return;
     }
     if (
@@ -260,7 +552,9 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         props.selectedSessionId,
       )
     ) {
-      setActiveFilter((current) => current === "all" ? current : "automations");
+      setExpandedSections((current) =>
+        current.automations ? current : { ...current, automations: true },
+      );
     }
   }, [
     props.automationGroups,
@@ -270,145 +564,60 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     props.taskGroups,
   ]);
 
-  const showTasks = activeFilter === "all" || activeFilter === "tasks";
-  const showSpaces = activeFilter === "all" || activeFilter === "spaces";
-  const showAutomations = activeFilter === "all" || activeFilter === "automations";
-  const visibleCount = (showTasks ? taskCount : 0) +
-    (showSpaces ? spacesCount : 0) +
-    (showAutomations ? automationsCount : 0);
-  const rowsOverflow = visibleCount > ASSISTANT_TASK_PREVIEW_LIMIT;
-  const remainingRows = { value: showAllRows ? Number.POSITIVE_INFINITY : ASSISTANT_TASK_PREVIEW_LIMIT };
-  const visiblePinnedGroups = showTasks ? takeVisibleGroups(props.pinnedGroups, remainingRows) : [];
-  const visibleTaskGroups = showTasks ? takeVisibleGroups(props.taskGroups, remainingRows) : [];
-  const visibleSpaceGroups = showSpaces ? takeVisibleGroupedEntries(props.spaceGroups, remainingRows) : [];
-  const visibleAutomationGroups = showAutomations
-    ? takeVisibleAutomationGroups(props.automationGroups, remainingRows)
-    : [];
+  const toggleSection = (id: SectionId) => {
+    setExpandedSections((current) => ({ ...current, [id]: !current[id] }));
+  };
 
-  const hasContent =
-    (showTasks && taskCount > 0) ||
-    (showSpaces && spacesCount > 0) ||
-    (showAutomations && automationsCount > 0);
+  const toggleShowAll = (id: SectionId) => {
+    setShowAllBySection((current) => ({ ...current, [id]: !current[id] }));
+  };
+
+  const toggleShowAllFolder = (folderKey: string) => {
+    setShowAllByFolder((current) => ({
+      ...current,
+      [folderKey]: !current[folderKey],
+    }));
+  };
+
+  const pinnedRemaining = {
+    value: showAllBySection.pinned
+      ? Number.POSITIVE_INFINITY
+      : ASSISTANT_TASK_PREVIEW_LIMIT,
+  };
+  const visiblePinnedGroups = expandedSections.pinned
+    ? takeVisibleGroups(props.pinnedGroups, pinnedRemaining)
+    : [];
+  const pinnedOverflow = pinnedCount > ASSISTANT_TASK_PREVIEW_LIMIT;
+
+  const taskRemaining = {
+    value: showAllBySection.tasks
+      ? Number.POSITIVE_INFINITY
+      : ASSISTANT_TASK_PREVIEW_LIMIT,
+  };
+  const visibleTaskGroups = expandedSections.tasks
+    ? takeVisibleGroups(props.taskGroups, taskRemaining)
+    : [];
+  const tasksOverflow = taskCount > ASSISTANT_TASK_PREVIEW_LIMIT;
 
   return (
-    <div className="flex flex-col pt-1">
-      <div
-        data-assistant-task-list-header="true"
-        role="button"
-        tabIndex={0}
-        onClick={() => setExpanded((value) => !value)}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          setExpanded((value) => !value);
-        }}
-        className="sticky top-0 z-10 flex h-8 w-full cursor-pointer items-center justify-between rounded-lg bg-dls-sidebar px-2 text-dls-text transition-colors hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
-        aria-expanded={expanded}
-        title={expanded ? t("session.task_list_collapse") : t("session.task_list_expand")}
-      >
-        <span className="flex min-w-0 items-center gap-1.5 text-sm font-normal text-dls-secondary">
-          {expanded ? (
-            <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
-          ) : (
-            <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
-          )}
-          {t("session.task_list")}
-        </span>
-        <span className="flex min-w-0 items-center gap-1">
-          {activeFilterItem && (
-            <span className="min-w-0 truncate text-xs font-normal text-dls-secondary">
-              <span>{activeFilterItem.label}</span>
-              <span>({activeFilterItem.count})</span>
-            </span>
-          )}
-          <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={(event) => event.stopPropagation()}
-                  className="shrink-0 text-dls-text-tertiary hover:bg-dls-active hover:text-dls-secondary data-[popup-open]:bg-dls-active data-[popup-open]:text-dls-text"
-                  title={t("session.filter_tasks")}
-                  aria-label={t("session.filter_tasks")}
-                >
-                  <Filter className="size-3.5" />
-                </Button>
-              }
-            />
-            <PopoverContent
-              onClick={(event) => event.stopPropagation()}
-              side="bottom"
-              align="end"
-              className="w-40 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-1"
-            >
-              <div className="flex flex-col gap-0.5">
-                {filterItems.map((item) => (
-                  <MenuRowButton
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveFilter(item.id);
-                      setFilterOpen(false);
-                    }}
-                    className="justify-between text-xs"
-                  >
-                    <span className="flex items-center gap-2">
-                      {item.icon}
-                      <span className={activeFilter === item.id ? "text-dls-accent" : "text-dls-text"}>
-                        {item.label}
-                      </span>
-                      {activeFilter === item.id ? (
-                        <Check className="size-3.5 text-dls-accent" />
-                      ) : null}
-                    </span>
-                    <span className="text-dls-secondary">
-                      {item.count > 99 ? "99+" : item.count}
-                    </span>
-                  </MenuRowButton>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-        </span>
-      </div>
-
-      {expanded ? (
-        <div className="space-y-1.5">
-          {showTasks && visiblePinnedGroups.length > 0 ? (
-            <div>
-              <div className="flex h-8 w-full items-center gap-2 px-2 text-left text-sm font-medium text-dls-secondary">
-                <span className="min-w-0 flex-1 truncate">
-                  {t("session.pinned_count", {
-                    count: props.pinnedGroups.length,
-                  })}
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                <AssistantTaskRows
-                  groups={visiblePinnedGroups}
-                  workspaceId={props.workspaceId}
-                  selectedSessionId={props.selectedSessionId}
-                  pinned
-                  folderPathBySessionId={props.folderPathBySessionId}
-                  onOpenSession={props.onOpenSession}
-                  onPrefetchSession={props.onPrefetchSession}
-                  onTogglePinned={props.onTogglePinned}
-                  onRenameSession={props.onRenameSession}
-                  onArchiveSession={props.onArchiveSession}
-                  onDeleteSession={props.onDeleteSession}
-                  onOpenFolder={props.onOpenFolder}
-                />
-              </div>
-            </div>
-          ) : null}
-          {showTasks && visibleTaskGroups.length > 0 ? (
-            <div className="space-y-0.5">
+    <div className="mt-1 flex flex-col gap-0.5 pt-1" data-assistant-task-list="true">
+      {/* Pinned tasks — WorkBuddy: pinned tasks (n) ∨ as its own section */}
+      {pinnedCount > 0 ? (
+        <div data-assistant-section="pinned" className="flex flex-col gap-0.5">
+          <SectionHeader
+            label={t("session.pinned_tasks_section")}
+            count={pinnedCount}
+            expanded={expandedSections.pinned}
+            onToggle={() => toggleSection("pinned")}
+          />
+          {expandedSections.pinned ? (
+            <div className="flex flex-col gap-0.5 pb-1">
               <AssistantTaskRows
-                groups={visibleTaskGroups}
+                groups={visiblePinnedGroups}
                 workspaceId={props.workspaceId}
                 selectedSessionId={props.selectedSessionId}
+                pinned
+                singleLine
                 folderPathBySessionId={props.folderPathBySessionId}
                 onOpenSession={props.onOpenSession}
                 onPrefetchSession={props.onPrefetchSession}
@@ -417,164 +626,290 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                 onArchiveSession={props.onArchiveSession}
                 onDeleteSession={props.onDeleteSession}
                 onOpenFolder={props.onOpenFolder}
+                onSaveToSpace={props.onSaveToSpace}
+              />
+              <SectionShowMore
+                overflow={pinnedOverflow}
+                showAll={showAllBySection.pinned}
+                hiddenCount={pinnedCount - ASSISTANT_TASK_PREVIEW_LIMIT}
+                onToggle={() => toggleShowAll("pinned")}
               />
             </div>
           ) : null}
-
-          {showSpaces && visibleSpaceGroups.length > 0
-            ? visibleSpaceGroups.map(([directory, items]) => {
-                const expandedDir = props.expandedDirectories.includes(directory);
-                const name = assistantDirectoryName(directory);
-                return (
-                  <div key={directory}>
-                    <NavListButton
-                      type="button"
-                      size="compact"
-                      onClick={() =>
-                        props.onExpandedDirectoriesChange((current) =>
-                          current.includes(directory)
-                            ? current.filter((item) => item !== directory)
-                            : [...current, directory],
-                        )
-                      }
-                      className="text-sm hover:bg-dls-hover"
-                      title={directory}
-                      aria-expanded={expandedDir}
-                    >
-                      <Folder className="size-3.5 shrink-0 text-dls-secondary" />
-                      <span className="min-w-0 flex-1 truncate">{name}</span>
-                      {expandedDir ? (
-                        <ChevronDown className="size-3 shrink-0 text-dls-secondary" />
-                      ) : (
-                        <ChevronRight className="size-3 shrink-0 text-dls-secondary" />
-                      )}
-                    </NavListButton>
-                    {expandedDir ? (
-                      <div className="ml-5 space-y-0.5">
-                        <AssistantTaskRows
-                          groups={items}
-                          workspaceId={props.workspaceId}
-                          selectedSessionId={props.selectedSessionId}
-                          folderPath={directory}
-                          folderPathBySessionId={props.folderPathBySessionId}
-                          onOpenSession={props.onOpenSession}
-                          onPrefetchSession={props.onPrefetchSession}
-                          onTogglePinned={props.onTogglePinned}
-                          onRenameSession={props.onRenameSession}
-                          onArchiveSession={props.onArchiveSession}
-                          onDeleteSession={props.onDeleteSession}
-                          onOpenFolder={props.onOpenFolder}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })
-            : null}
-
-          {showAutomations && visibleAutomationGroups.length > 0
-            ? visibleAutomationGroups.map((group) => {
-                const expandedAuto = props.expandedAutomationDirectories.includes(group.id);
-                const groupLabel = t("automation.session_group_title", {
-                  title: group.title,
-                });
-                return (
-                  <div key={group.id}>
-                    <NavListButton
-                      type="button"
-                      size="compact"
-                      onClick={() =>
-                        props.onExpandedAutomationDirectoriesChange((current) =>
-                          current.includes(group.id)
-                            ? current.filter((item) => item !== group.id)
-                            : [...current, group.id],
-                        )
-                      }
-                      className="text-sm hover:bg-dls-hover"
-                      title={groupLabel}
-                      aria-expanded={expandedAuto}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{groupLabel}</span>
-                      {expandedAuto ? (
-                        <ChevronDown className="size-3 shrink-0 text-dls-secondary" />
-                      ) : (
-                        <ChevronRight className="size-3 shrink-0 text-dls-secondary" />
-                      )}
-                    </NavListButton>
-                    {expandedAuto ? (
-                      <div className="ml-5 space-y-0.5">
-                        <AssistantTaskRows
-                          groups={group.items}
-                          workspaceId={props.workspaceId}
-                          selectedSessionId={props.selectedSessionId}
-                          typeIcon={<CalendarClock className="size-3.5 text-dls-secondary" />}
-                          pinnable={false}
-                          folderPathBySessionId={props.folderPathBySessionId}
-                          onOpenSession={props.onOpenSession}
-                          onPrefetchSession={props.onPrefetchSession}
-                          onTogglePinned={props.onTogglePinned}
-                          onRenameSession={props.onRenameSession}
-                          onArchiveSession={props.onArchiveSession}
-                          onDeleteSession={props.onDeleteSession}
-                          onOpenFolder={props.onOpenFolder}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })
-            : null}
-
-          {!hasContent ? (
-            <AssistantListEmptyState
-              kind={activeFilter}
-              title={
-                activeFilter === "tasks"
-                  ? (props.categoryId === "code"
-                    ? t("session.no_code_tasks")
-                    : t("session.no_tasks"))
-                  : activeFilter === "spaces"
-                    ? t("session.no_space_tasks")
-                    : activeFilter === "automations"
-                      ? t("session.no_automation_tasks")
-                      : t("session.no_content")
-              }
-              description={
-                activeFilter === "tasks"
-                  ? (props.categoryId === "code"
-                    ? t("session.no_code_tasks_desc")
-                    : t("session.no_tasks_desc"))
-                  : activeFilter === "spaces"
-                    ? t("session.no_space_tasks_desc")
-                    : activeFilter === "automations"
-                      ? t("session.no_automation_tasks_desc")
-                      : t("session.no_content_desc")
-              }
-            />
-          ) : null}
-          {hasContent && rowsOverflow ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mx-1 mt-2 w-[calc(100%-0.5rem)] justify-center bg-dls-sidebar text-xs text-dls-secondary font-normal hover:bg-dls-list-hover hover:text-dls-text"
-              data-assistant-task-list-disclosure="true"
-              onClick={() => setShowAllRows((value) => !value)}
-            >
-              {showAllRows ? (
-                <ChevronUp className="size-3.5 shrink-0" />
-              ) : (
-                <ChevronDown className="size-3.5 shrink-0" />
-              )}
-              {showAllRows
-                ? t("session.task_list_show_less")
-                : t("session.task_list_show_more", {
-                    count: visibleCount - ASSISTANT_TASK_PREVIEW_LIMIT,
-                  })}
-            </Button>
-          ) : null}
         </div>
       ) : null}
+
+      {/* Tasks */}
+      <div data-assistant-section="tasks" className="flex flex-col gap-0.5">
+        <SectionHeader
+          label={t("session.task_filter_tasks")}
+          count={taskCount}
+          expanded={expandedSections.tasks}
+          onToggle={() => toggleSection("tasks")}
+        />
+        {expandedSections.tasks ? (
+          <div className="flex flex-col gap-0.5 pb-1">
+            {taskCount === 0 ? (
+              <AssistantListEmptyState
+                kind="tasks"
+                title={
+                  props.categoryId === "code"
+                    ? t("session.no_code_tasks")
+                    : t("session.no_tasks")
+                }
+                description={
+                  props.categoryId === "code"
+                    ? t("session.no_code_tasks_desc")
+                    : t("session.no_tasks_desc")
+                }
+              />
+            ) : (
+              <>
+                <AssistantTaskRows
+                  groups={visibleTaskGroups}
+                  workspaceId={props.workspaceId}
+                  selectedSessionId={props.selectedSessionId}
+                  singleLine
+                  folderPathBySessionId={props.folderPathBySessionId}
+                  onOpenSession={props.onOpenSession}
+                  onPrefetchSession={props.onPrefetchSession}
+                  onTogglePinned={props.onTogglePinned}
+                  onRenameSession={props.onRenameSession}
+                  onArchiveSession={props.onArchiveSession}
+                  onDeleteSession={props.onDeleteSession}
+                  onOpenFolder={props.onOpenFolder}
+                  onSaveToSpace={props.onSaveToSpace}
+                />
+                <SectionShowMore
+                  overflow={tasksOverflow}
+                  showAll={showAllBySection.tasks}
+                  hiddenCount={taskCount - ASSISTANT_TASK_PREVIEW_LIMIT}
+                  onToggle={() => toggleShowAll("tasks")}
+                />
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Spaces — WorkBuddy: spaces (n) ∨ / 📁 name > + expand-all */}
+      <div data-assistant-section="spaces" className="flex flex-col gap-0.5">
+        <SectionHeader
+          label={t("session.task_filter_space_tasks")}
+          count={spacesCount}
+          expanded={expandedSections.spaces}
+          onToggle={() => toggleSection("spaces")}
+          trailing={
+            spacesCount > 0 ? (
+              <button
+                type="button"
+                className={cn(
+                  TASK_ROW_ACTION_CLASS,
+                  "opacity-0 transition-opacity group-hover/section:opacity-100",
+                  expandedSections.spaces && "opacity-100",
+                )}
+                title={
+                  allSpaceDirectoriesExpanded
+                    ? t("session.collapse_all_spaces")
+                    : t("session.expand_all_spaces")
+                }
+                aria-label={
+                  allSpaceDirectoriesExpanded
+                    ? t("session.collapse_all_spaces")
+                    : t("session.expand_all_spaces")
+                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  // Ensure the 空间 section itself is open.
+                  if (!expandedSections.spaces) {
+                    setExpandedSections((current) => ({
+                      ...current,
+                      spaces: true,
+                    }));
+                  }
+                  if (allSpaceDirectoriesExpanded) {
+                    props.onExpandedDirectoriesChange(() => []);
+                    return;
+                  }
+                  const allDirs = props.spaceGroups.map(([directory]) => directory);
+                  props.onExpandedDirectoriesChange(() => allDirs);
+                }}
+              >
+                {allSpaceDirectoriesExpanded ? (
+                  <Minimize2 strokeWidth={1.75} />
+                ) : (
+                  <Maximize2 strokeWidth={1.75} />
+                )}
+              </button>
+            ) : null
+          }
+        />
+        {expandedSections.spaces ? (
+          <div className="flex flex-col gap-0.5 pb-1">
+            {spacesCount === 0 ? (
+              <AssistantListEmptyState
+                kind="spaces"
+                title={t("session.no_space_tasks")}
+                description={t("session.no_space_tasks_desc")}
+              />
+            ) : (
+              <>
+                {/* Full folder list; per-folder cap is FOLDER_TASK_PREVIEW_LIMIT. */}
+                {props.spaceGroups.map(([directory, items]) => {
+                  const expandedDir = props.expandedDirectories.includes(directory);
+                  const name = assistantDirectoryName(directory);
+                  return (
+                    <div key={directory} className="flex flex-col gap-0.5">
+                      <SpaceDirectoryRow
+                        name={name}
+                        directory={directory}
+                        expanded={expandedDir}
+                        onToggle={() =>
+                          props.onExpandedDirectoriesChange((current) =>
+                            current.includes(directory)
+                              ? current.filter((item) => item !== directory)
+                              : [...current, directory],
+                          )
+                        }
+                        onOpenFolder={props.onOpenFolder}
+                        onRemoveFromList={props.onRemoveSpaceDirectory}
+                        onCreateTask={props.onCreateTaskInDirectory}
+                      />
+                      {expandedDir ? (
+                        <FolderChildren>
+                          {(() => {
+                            const showAll = showAllByFolder[directory] === true;
+                            const visibleItems =
+                              showAll || items.length <= FOLDER_TASK_PREVIEW_LIMIT
+                                ? items
+                                : items.slice(0, FOLDER_TASK_PREVIEW_LIMIT);
+                            return (
+                              <>
+                                <AssistantTaskRows
+                                  groups={visibleItems}
+                                  workspaceId={props.workspaceId}
+                                  selectedSessionId={props.selectedSessionId}
+                                  singleLine
+                                  folderPath={directory}
+                                  folderPathBySessionId={props.folderPathBySessionId}
+                                  onOpenSession={props.onOpenSession}
+                                  onPrefetchSession={props.onPrefetchSession}
+                                  onTogglePinned={props.onTogglePinned}
+                                  onRenameSession={props.onRenameSession}
+                                  onArchiveSession={props.onArchiveSession}
+                                  onDeleteSession={props.onDeleteSession}
+                                  onOpenFolder={props.onOpenFolder}
+                                  onSaveToSpace={props.onSaveToSpace}
+                                />
+                                <FolderTaskShowMore
+                                  total={items.length}
+                                  showAll={showAll}
+                                  onToggle={() => toggleShowAllFolder(directory)}
+                                />
+                              </>
+                            );
+                          })()}
+                        </FolderChildren>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Automations */}
+      <div data-assistant-section="automations" className="flex flex-col gap-0.5">
+        <SectionHeader
+          label={t("session.task_filter_automation_tasks")}
+          count={automationsCount}
+          expanded={expandedSections.automations}
+          onToggle={() => toggleSection("automations")}
+        />
+        {expandedSections.automations ? (
+          <div className="flex flex-col gap-0.5 pb-1">
+            {automationsCount === 0 ? (
+              <AssistantListEmptyState
+                kind="automations"
+                title={t("session.no_automation_tasks")}
+                description={t("session.no_automation_tasks_desc")}
+              />
+            ) : (
+              <>
+                {props.automationGroups.map((group) => {
+                  const expandedAuto = props.expandedAutomationDirectories.includes(
+                    group.id,
+                  );
+                  const groupLabel = t("automation.session_group_title", {
+                    title: group.title,
+                  });
+                  return (
+                    <div key={group.id} className="flex flex-col gap-0.5">
+                      <FolderRowShell
+                        title={groupLabel}
+                        expanded={expandedAuto}
+                        onToggle={() =>
+                          props.onExpandedAutomationDirectoriesChange((current) =>
+                            current.includes(group.id)
+                              ? current.filter((item) => item !== group.id)
+                              : [...current, group.id],
+                          )
+                        }
+                        icon={
+                          <CalendarClock
+                            className="size-3.5 shrink-0 text-dls-text/55"
+                            strokeWidth={1.6}
+                          />
+                        }
+                      />
+                      {expandedAuto ? (
+                        <FolderChildren>
+                          {(() => {
+                            const folderKey = `auto:${group.id}`;
+                            const showAll = showAllByFolder[folderKey] === true;
+                            const items = group.items;
+                            const visibleItems =
+                              showAll || items.length <= FOLDER_TASK_PREVIEW_LIMIT
+                                ? items
+                                : items.slice(0, FOLDER_TASK_PREVIEW_LIMIT);
+                            return (
+                              <>
+                                <AssistantTaskRows
+                                  groups={visibleItems}
+                                  workspaceId={props.workspaceId}
+                                  selectedSessionId={props.selectedSessionId}
+                                  singleLine
+                                  pinnable={false}
+                                  folderPathBySessionId={props.folderPathBySessionId}
+                                  onOpenSession={props.onOpenSession}
+                                  onPrefetchSession={props.onPrefetchSession}
+                                  onTogglePinned={props.onTogglePinned}
+                                  onRenameSession={props.onRenameSession}
+                                  onArchiveSession={props.onArchiveSession}
+                                  onDeleteSession={props.onDeleteSession}
+                                  onOpenFolder={props.onOpenFolder}
+                                  onSaveToSpace={props.onSaveToSpace}
+                                />
+                                <FolderTaskShowMore
+                                  total={items.length}
+                                  showAll={showAll}
+                                  onToggle={() => toggleShowAllFolder(folderKey)}
+                                />
+                              </>
+                            );
+                          })()}
+                        </FolderChildren>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

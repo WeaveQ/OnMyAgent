@@ -49,7 +49,6 @@ export {
   TranscriptSpeechButton,
   TranscriptShareButton,
   TranscriptFeedbackControls,
-  TranscriptMoreMenu,
   TranscriptTurnStatus,
   TranscriptAssistantHeader,
   TranscriptCancelledIndicator,
@@ -174,7 +173,6 @@ export function MessageBlockRow(props: {
         <TranscriptCancelledIndicator presentation={turnPresentation} />
         <TranscriptTurnActions
           presentation={turnPresentation}
-          onForkAtMessage={props.onForkAtMessage}
         />
       </div>
     );
@@ -235,8 +233,7 @@ export function MessageBlockRow(props: {
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
-            onForkAtMessage={props.onForkAtMessage}
-          />
+            />
         ) : null}
       </div>
     );
@@ -263,7 +260,7 @@ export function MessageBlockRow(props: {
         data-output-limit-continuation="true"
         style={blockStyle}
       >
-        <div className="flex items-center gap-3 text-xs text-dls-secondary">
+        <div className="flex items-center gap-3 text-sm text-dls-secondary">
           <span className="h-px flex-1 bg-dls-border" aria-hidden="true" />
           <span>{continuationText}</span>
           <span className="h-px flex-1 bg-dls-border" aria-hidden="true" />
@@ -299,7 +296,7 @@ export function MessageBlockRow(props: {
           onDetailsExpandedChange={onTurnDetailsExpandedChange}
         />
         <div className={cn("w-full relative", !props.isNestedVariant && "max-w-[650px]", searchOutlineClass)}>
-          <NoticeBox className="inline-flex max-w-full items-start gap-2 text-sm leading-5" role="alert" tone="error">
+          <NoticeBox className="inline-flex max-w-full items-start gap-2 text-base leading-5" role="alert" tone="error">
             <CircleAlert size={14} className="mt-0.5 shrink-0" />
             <div className="min-w-0 wrap-break-word">{messageText}</div>
           </NoticeBox>
@@ -308,8 +305,7 @@ export function MessageBlockRow(props: {
         {turnPresentation ? (
           <TranscriptTurnActions
             presentation={turnPresentation}
-            onForkAtMessage={props.onForkAtMessage}
-          />
+            />
         ) : null}
       </div>
     );
@@ -482,7 +478,6 @@ export function MessageBlockRow(props: {
       {turnPresentation ? (
         <TranscriptTurnActions
           presentation={turnPresentation}
-          onForkAtMessage={props.onForkAtMessage}
         />
       ) : null}
     </div>

@@ -110,11 +110,17 @@ function dateDistance(left: string, right: string) {
   );
 }
 
+/** All reported token buckets (includes prompt cache). Prefer for diagnostics only. */
 export function workspaceUsageTotal(usage: PersonalUsageTokenBreakdown) {
   return usage.inputTokens
     + usage.outputTokens
     + usage.cacheCreationTokens
     + usage.cacheReadTokens;
+}
+
+/** User-facing usage: model input + output only (excludes cache). */
+export function workspaceUsageGeneratedTokens(usage: PersonalUsageTokenBreakdown) {
+  return Math.max(0, usage.inputTokens) + Math.max(0, usage.outputTokens);
 }
 
 export async function loadPersonalUsageSnapshots(input: {
@@ -205,7 +211,9 @@ export function summarizePersonalUsage(
 
   for (const snapshot of scoped) {
     for (const entry of snapshot.daily) {
-      const tokens = workspaceUsageTotal(entry);
+      // Profile metrics and heatmap use generated tokens only so cache hits
+      // do not inflate "usage" into multi-billion figures.
+      const tokens = workspaceUsageGeneratedTokens(entry);
       if (tokens <= 0) continue;
       dailyTotals.set(entry.date, (dailyTotals.get(entry.date) ?? 0) + tokens);
     }
@@ -379,4 +387,26 @@ export function formatTaskDuration(minutes: number) {
     hours: Math.floor(roundedMinutes / 60),
     minutes: roundedMinutes % 60,
   };
+}
+
+/**
+ * @deprecated Prefer the full trailing-year series from `buildTokenActivitySeries`.
+ * Kept for unit tests / call-site compatibility. Leading empty weeks are part of
+ * the year view and should not be trimmed in the personal usage UI.
+ */
+export function trimLeadingEmptyActivityColumns(
+  columns: TokenActivityColumn[],
+  emptyFallbackWeeks = 16,
+): TokenActivityColumn[] {
+  if (columns.length === 0) return columns;
+  const firstActive = columns.findIndex((column) =>
+    column.cells.some((cell) => cell.value > 0)
+    || column.weeklyValue > 0
+    || column.cumulativeValue > 0,
+  );
+  if (firstActive < 0) {
+    return columns.slice(-Math.max(1, emptyFallbackWeeks));
+  }
+  // One empty week of context before first activity.
+  return columns.slice(Math.max(0, firstActive - 1));
 }
