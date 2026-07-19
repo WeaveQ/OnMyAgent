@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
+import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Pin, PinOff, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X, Zap } from "lucide-react";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { desktopBridge } from "../../../../../app/lib/desktop";
@@ -12,6 +12,13 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { ComposerAccessMode, ComposerAttachment, ComposerCollaborationMode, McpServerEntry, McpStatusMap, ModelRef, SkillCard, SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
@@ -65,6 +72,12 @@ import {
   pluginSlashCommandName,
 } from "./composer-helpers";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
+import {
+  readPinnedSkillIds,
+  sortWithPinnedFirst,
+  togglePinnedSkillId,
+  writePinnedSkillIds,
+} from "./pinned-skills";
 
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
@@ -87,6 +100,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [selectedComposerExtension, setSelectedComposerExtension] = useState<McpDirectoryInfo | null>(null);
   const [skillSearchQuery, setSkillSearchQuery] = useState("");
   const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
+  const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>(() => readPinnedSkillIds());
   const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
   const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -244,11 +258,20 @@ export function ReactSessionComposer(props: ComposerProps) {
     setConnectorSearchQuery("");
     if (!toolMenuOpen || toolMenuSection !== "templates") {
       setSelectedPromptTemplateId(null);
+    } else {
+      // WorkBuddy-style cascade: open the 3rd flyout as soon as 提示词 is active.
+      const templates = props.promptTemplates ?? [];
+      setSelectedPromptTemplateId((current) => {
+        if (current && templates.some((template) => template.id === current)) {
+          return current;
+        }
+        return templates[0]?.id ?? null;
+      });
     }
     if (!toolMenuOpen || toolMenuSection !== "mcps") {
       setSelectedComposerExtension(null);
     }
-  }, [toolMenuOpen, toolMenuSection]);
+  }, [toolMenuOpen, toolMenuSection, props.promptTemplates]);
 
   useEffect(() => {
     if (!slashOpen && !toolMenuOpen) return;
@@ -288,24 +311,40 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [slashOpen, toolMenuOpen, loadCommands]);
 
   useEffect(() => {
+    // @ menu is files-only (workspace / recent). Agent pick lives in its own menu, not @.
     if (!mentionOpen) return;
     let cancelled = false;
-    void Promise.all([props.listAgents(), props.searchFiles(mentionQuery)]).then(([agentList, files]) => {
-      if (cancelled) return;
-      const recent = props.recentFiles.slice(0, 8);
-      const next: MentionItem[] = [
-        ...agentList.map((agent) => ({ id: `agent:${agent.name}`, kind: "agent" as const, value: agent.name, label: agent.name })),
-        ...recent.map((file) => ({ id: `file:${file}`, kind: "file" as const, value: file, label: file })),
-        ...files.filter((file) => !recent.includes(file)).map((file) => ({ id: `file:${file}`, kind: "file" as const, value: file, label: file })),
-      ];
-      setMentionItems(next);
-    }).catch(() => {
-      if (!cancelled) setMentionItems([]);
-    });
+    void props
+      .searchFiles(mentionQuery)
+      .then((files) => {
+        if (cancelled) return;
+        const recent = props.recentFiles.slice(0, 8);
+        const recentSet = new Set(recent);
+        const next: MentionItem[] = [
+          ...recent.map((file) => ({
+            id: `file:${file}`,
+            kind: "file" as const,
+            value: file,
+            label: file,
+          })),
+          ...files
+            .filter((file) => !recentSet.has(file))
+            .map((file) => ({
+              id: `file:${file}`,
+              kind: "file" as const,
+              value: file,
+              label: file,
+            })),
+        ];
+        setMentionItems(next);
+      })
+      .catch(() => {
+        if (!cancelled) setMentionItems([]);
+      });
     return () => {
       cancelled = true;
     };
-  }, [mentionOpen, mentionQuery, props.listAgents, props.recentFiles, props.searchFiles]);
+  }, [mentionOpen, mentionQuery, props.recentFiles, props.searchFiles]);
 
   useEffect(() => {
     if (!toolMenuOpen) return;
@@ -759,11 +798,23 @@ export function ReactSessionComposer(props: ComposerProps) {
         source: "skill" as const,
       })),
   ];
-  const filteredSkillItems = filterToolMenuItems(
-    combinedSkillItems,
-    skillSearchQuery,
-    (item) => `${item.name} ${item.description ?? ""}`,
+  const filteredSkillItems = sortWithPinnedFirst(
+    filterToolMenuItems(
+      combinedSkillItems,
+      skillSearchQuery,
+      (item) => `${item.name} ${item.description ?? ""}`,
+    ),
+    pinnedSkillIds,
+    (item) => item.id,
   );
+
+  const handleTogglePinnedSkill = useCallback((skillId: string) => {
+    setPinnedSkillIds((current) => {
+      const { next } = togglePinnedSkillId(current, skillId);
+      writePinnedSkillIds(next);
+      return next;
+    });
+  }, []);
   const filteredPluginSkillFiles = filterToolMenuItems(
     pluginSkillFiles,
     skillSearchQuery,
@@ -1075,6 +1126,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                               <span className="truncate text-sm">{t("composer.capture_appshot")}</span>
                             </MenuRowButton>
                           ) : null}
+                          <div
+                            className="my-1 h-px bg-dls-border/80"
+                            role="separator"
+                          />
                           {([
                             ["modes", t("composer.collaboration_mode"), Sparkles] as const,
                             ...(promptTemplates.length > 0
@@ -1090,9 +1145,25 @@ export function ReactSessionComposer(props: ComposerProps) {
                               density="compact"
                               active={toolMenuSection === section}
                               className="justify-between gap-2"
-                              onMouseEnter={() => setToolMenuSection(section)}
-                              onFocus={() => setToolMenuSection(section)}
-                              onClick={() => setToolMenuSection(section)}
+                              onMouseEnter={() => {
+                                setToolMenuSection(section);
+                                // WorkBuddy-style: open first template category so the 3rd flyout appears.
+                                if (section === "templates" && promptTemplates[0]) {
+                                  setSelectedPromptTemplateId(promptTemplates[0].id);
+                                }
+                              }}
+                              onFocus={() => {
+                                setToolMenuSection(section);
+                                if (section === "templates" && promptTemplates[0]) {
+                                  setSelectedPromptTemplateId(promptTemplates[0].id);
+                                }
+                              }}
+                              onClick={() => {
+                                setToolMenuSection(section);
+                                if (section === "templates" && promptTemplates[0]) {
+                                  setSelectedPromptTemplateId(promptTemplates[0].id);
+                                }
+                              }}
                             >
                               <span className="flex min-w-0 items-center gap-2">
                                 <Icon className="size-3.5 shrink-0 text-dls-secondary" />
@@ -1105,11 +1176,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                       </div>
                       {toolMenuSection === "files" ? null : (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),20rem)] min-h-0 max-w-[20rem] flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className="absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),14rem)] min-h-0 max-w-[14rem] flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           {toolMenuSection === "templates" ? (
-                            <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
+                            <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
                               {t("composer.prompt_templates")}
                             </div>
                           ) : toolMenuSection === "skills" ? (
@@ -1185,7 +1256,13 @@ export function ReactSessionComposer(props: ComposerProps) {
                               {t("composer.collaboration_choose_mode")}
                             </div>
                           ) : null}
-                          <div className="max-h-72 overflow-x-hidden overflow-y-auto p-2">
+                          <div
+                            className={cn(
+                              "overflow-x-hidden overflow-y-auto p-1.5",
+                              // Templates list is short (≤3) — keep panel compact so the 3rd flyout fits.
+                              toolMenuSection === "templates" ? "max-h-48" : "max-h-56",
+                            )}
+                          >
                             {toolMenuSection === "templates" ? (
                               <div className="grid gap-0.5">
                                 {promptTemplates.map((template) => {
@@ -1303,58 +1380,113 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                             {toolMenuSection === "skills" ? (
                               hasSkillMatches ? (
-                                <div className="grid min-w-0 gap-0.5">
-                                  {filteredSkillItems.map((command) => {
-                                    const description = skillMenuDescription(command.description);
-                                    return (
+                                <TooltipProvider delay={280}>
+                                  <div className="grid min-w-0 gap-0.5">
+                                    {filteredSkillItems.map((command) => {
+                                      const description = skillMenuDescription(command.description);
+                                      const isPinned = pinnedSkillIds.includes(command.id);
+                                      const rowBody = (
+                                        <div className="group/skill flex min-w-0 items-stretch gap-0.5 rounded-xl hover:bg-dls-surface-muted/70">
+                                          <MenuRowButton
+                                            type="button"
+                                            align="center"
+                                            className="min-w-0 flex-1 gap-3 overflow-hidden bg-transparent hover:bg-transparent"
+                                            onClick={() => applyCommandSelection(command)}
+                                          >
+                                            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                              <Zap className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                            </div>
+                                            <div className="min-w-0 flex-1 overflow-hidden text-left">
+                                              <div className="truncate text-sm font-medium text-dls-text">
+                                                {command.name}
+                                              </div>
+                                              {description ? (
+                                                <div className="truncate text-xs text-dls-secondary">
+                                                  {description}
+                                                </div>
+                                              ) : null}
+                                            </div>
+                                          </MenuRowButton>
+                                          <button
+                                            type="button"
+                                            className={cn(
+                                              "inline-flex size-8 shrink-0 !w-8 items-center justify-center rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/30",
+                                              isPinned
+                                                ? "text-dls-accent hover:bg-dls-surface-muted"
+                                                : "text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text",
+                                            )}
+                                            title={
+                                              isPinned
+                                                ? t("composer.unpin_skill")
+                                                : t("composer.pin_skill")
+                                            }
+                                            aria-label={
+                                              isPinned
+                                                ? t("composer.unpin_skill")
+                                                : t("composer.pin_skill")
+                                            }
+                                            aria-pressed={isPinned}
+                                            onClick={(event) => {
+                                              event.preventDefault();
+                                              event.stopPropagation();
+                                              handleTogglePinnedSkill(command.id);
+                                            }}
+                                          >
+                                            {isPinned ? (
+                                              <PinOff className="size-3.5" aria-hidden />
+                                            ) : (
+                                              <Pin className="size-3.5" aria-hidden />
+                                            )}
+                                          </button>
+                                        </div>
+                                      );
+                                      if (!description) {
+                                        return <div key={command.id}>{rowBody}</div>;
+                                      }
+                                      return (
+                                        <Tooltip key={command.id}>
+                                          <TooltipTrigger
+                                            render={<div className="min-w-0" />}
+                                            className="min-w-0"
+                                          >
+                                            {rowBody}
+                                          </TooltipTrigger>
+                                          <TooltipContent
+                                            side="bottom"
+                                            align="start"
+                                            sideOffset={6}
+                                            className="max-w-[18rem] whitespace-normal text-left leading-5"
+                                          >
+                                            {description}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      );
+                                    })}
+                                    {filteredPluginSkillFiles.map((file) => (
                                       <MenuRowButton
-                                        key={command.id}
+                                        key={`${file.configObjectId}:${file.path}`}
                                         type="button"
                                         align="center"
                                         className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                        onClick={() => applyCommandSelection(command)}
+                                        onClick={() => applyPluginFileSelection(file)}
                                       >
-                                        {/* Same icon tile language as connector extension rows */}
                                         <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                          <Zap className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                          <FileText className="size-3.5 text-dls-secondary" aria-hidden="true" />
                                         </div>
                                         <div className="min-w-0 flex-1 overflow-hidden">
-                                          <div className="truncate text-sm font-medium text-dls-text">
-                                            {command.name}
-                                          </div>
-                                          {description ? (
-                                            <div className="truncate text-xs text-dls-secondary">
-                                              {description}
+                                          <div className="flex min-w-0 items-center justify-between gap-2">
+                                            <div className="min-w-0 truncate text-sm font-medium text-dls-text">
+                                              {file.title}
                                             </div>
-                                          ) : null}
+                                            <StatusBadge size="tiny" tone="neutral" shape="soft" className="shrink-0">
+                                              {formatPluginObjectType(file.objectType)}
+                                            </StatusBadge>
+                                          </div>
                                         </div>
                                       </MenuRowButton>
-                                    );
-                                  })}
-                                  {filteredPluginSkillFiles.map((file) => (
-                                    <MenuRowButton
-                                      key={`${file.configObjectId}:${file.path}`}
-                                      type="button"
-                                      align="center"
-                                      className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                      onClick={() => applyPluginFileSelection(file)}
-                                    >
-                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                        <FileText className="size-3.5 text-dls-secondary" aria-hidden="true" />
-                                      </div>
-                                      <div className="min-w-0 flex-1 overflow-hidden">
-                                        <div className="flex min-w-0 items-center justify-between gap-2">
-                                          <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-                                            {file.title}
-                                          </div>
-                                          <StatusBadge size="tiny" tone="neutral" shape="soft" className="shrink-0">
-                                            {formatPluginObjectType(file.objectType)}
-                                          </StatusBadge>
-                                        </div>
-                                      </div>
-                                    </MenuRowButton>
-                                  ))}
-                                </div>
+                                    ))}
+                                  </div>
+                                </TooltipProvider>
                               ) : (
                                 <div className="px-3 py-2 text-xs text-dls-secondary">
                                   {(!skillsLoaded && skillsLoading) || (!commandsLoaded && commandsLoading)
@@ -1406,60 +1538,88 @@ export function ReactSessionComposer(props: ComposerProps) {
                                       </MenuRowButton>
                                     );
                                   })}
-                                  {filteredComposerExtensions.map((entry) => (
-                                    <MenuRowButton
-                                      key={entry.id ?? entry.serverName ?? entry.name}
-                                      type="button"
-                                      align="center"
-                                      className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                      active={selectedComposerExtension === entry}
-                                      onMouseEnter={() => setSelectedComposerExtension(
-                                        entry.suggestedPrompts?.length ? entry : null,
-                                      )}
-                                      onFocus={() => setSelectedComposerExtension(
-                                        entry.suggestedPrompts?.length ? entry : null,
-                                      )}
-                                      onClick={() => {
-                                        if (entry.suggestedPrompts?.length) {
-                                          setSelectedComposerExtension(entry);
-                                          return;
-                                        }
-                                        applyExtensionSelection(entry);
-                                      }}
-                                    >
-                                      {/* Same icon tile language as skills rows */}
-                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                        {extensionIcon(entry, 16)}
-                                      </div>
-                                      <div className="min-w-0 flex-1 overflow-hidden">
-                                        <div className="flex min-w-0 items-center justify-between gap-2">
-                                          <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-                                            {entry.name}
+                                  <TooltipProvider delay={280}>
+                                    {filteredComposerExtensions.map((entry) => {
+                                      const description = entry.description?.trim() ?? "";
+                                      const row = (
+                                        <MenuRowButton
+                                          type="button"
+                                          align="center"
+                                          className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
+                                          active={selectedComposerExtension === entry}
+                                          onMouseEnter={() => setSelectedComposerExtension(
+                                            entry.suggestedPrompts?.length ? entry : null,
+                                          )}
+                                          onFocus={() => setSelectedComposerExtension(
+                                            entry.suggestedPrompts?.length ? entry : null,
+                                          )}
+                                          onClick={() => {
+                                            if (entry.suggestedPrompts?.length) {
+                                              setSelectedComposerExtension(entry);
+                                              return;
+                                            }
+                                            applyExtensionSelection(entry);
+                                          }}
+                                        >
+                                          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                            {extensionIcon(entry, 16)}
                                           </div>
-                                          {entry.defaultEnabled ? (
-                                            <StatusBadge
-                                              size="tiny"
-                                              shape="soft"
-                                              tone="accent"
-                                              className="shrink-0"
-                                            >
-                                              {t("plugins.enabled")}
-                                            </StatusBadge>
-                                          ) : entry.suggestedPrompts?.length ? (
-                                            <ChevronRight
-                                              className="size-3.5 shrink-0 text-dls-secondary"
-                                              aria-hidden="true"
-                                            />
-                                          ) : null}
-                                        </div>
-                                        {entry.description ? (
-                                          <div className="truncate text-xs text-dls-secondary">
-                                            {entry.description}
+                                          <div className="min-w-0 flex-1 overflow-hidden">
+                                            <div className="flex min-w-0 items-center justify-between gap-2">
+                                              <div className="min-w-0 truncate text-sm font-medium text-dls-text">
+                                                {entry.name}
+                                              </div>
+                                              {entry.defaultEnabled ? (
+                                                <StatusBadge
+                                                  size="tiny"
+                                                  shape="soft"
+                                                  tone="accent"
+                                                  className="shrink-0"
+                                                >
+                                                  {t("plugins.enabled")}
+                                                </StatusBadge>
+                                              ) : entry.suggestedPrompts?.length ? (
+                                                <ChevronRight
+                                                  className="size-3.5 shrink-0 text-dls-secondary"
+                                                  aria-hidden="true"
+                                                />
+                                              ) : null}
+                                            </div>
+                                            {description ? (
+                                              <div className="truncate text-xs text-dls-secondary">
+                                                {description}
+                                              </div>
+                                            ) : null}
                                           </div>
-                                        ) : null}
-                                      </div>
-                                    </MenuRowButton>
-                                  ))}
+                                        </MenuRowButton>
+                                      );
+                                      if (!description) {
+                                        return (
+                                          <div key={entry.id ?? entry.serverName ?? entry.name}>
+                                            {row}
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <Tooltip key={entry.id ?? entry.serverName ?? entry.name}>
+                                          <TooltipTrigger
+                                            render={<div className="min-w-0" />}
+                                            className="min-w-0"
+                                          >
+                                            {row}
+                                          </TooltipTrigger>
+                                          <TooltipContent
+                                            side="bottom"
+                                            align="start"
+                                            sideOffset={6}
+                                            className="max-w-[18rem] whitespace-normal text-left leading-5"
+                                          >
+                                            {description}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      );
+                                    })}
+                                  </TooltipProvider>
                                 </div>
                               ) : (
                                 <div className="px-3 py-2 text-xs text-dls-secondary">
@@ -1476,13 +1636,13 @@ export function ReactSessionComposer(props: ComposerProps) {
                       )}
                       {toolMenuSection === "templates" && selectedPromptTemplate ? (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem+20rem-2px)] flex w-[min(calc(100vw-33.5rem),18rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className="absolute bottom-0 left-[calc(11rem+14rem-2px)] flex w-[min(calc(100vw-27rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
-                          <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
+                          <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
                             <span className="truncate">{selectedPromptTemplate.label}</span>
                           </div>
-                          <div className="max-h-72 overflow-x-hidden overflow-y-auto p-2">
+                          <div className="max-h-48 overflow-x-hidden overflow-y-auto p-1.5">
                             <div className="grid gap-0.5">
                               {selectedPromptTemplate.prompts.map((prompt) => (
                                 <MenuRowButton
@@ -1494,7 +1654,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   onClick={() => applyPromptTemplate(selectedPromptTemplate.id, prompt)}
                                 >
                                   <MessageCircle className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
-                                  <span className="line-clamp-2 text-sm text-dls-text">{prompt}</span>
+                                  <span className="line-clamp-2 text-sm leading-5 text-dls-text">{prompt}</span>
                                 </MenuRowButton>
                               ))}
                             </div>
@@ -1502,11 +1662,14 @@ export function ReactSessionComposer(props: ComposerProps) {
                         </div>
                       ) : null}
                       {toolMenuSection === "mcps" && selectedComposerExtension?.suggestedPrompts?.length ? (
-                        <div className="absolute bottom-0 left-[calc(11rem+20rem-2px)] flex w-[min(calc(100vw-33.5rem),18rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                          <div className="flex min-h-10 items-center border-b border-dls-border px-3 py-2 text-sm font-medium text-dls-text">
+                        <div
+                          className="absolute bottom-0 left-[calc(11rem+14rem-2px)] flex w-[min(calc(100vw-27rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
+                        >
+                          <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
                             <span className="truncate">{selectedComposerExtension.name}</span>
                           </div>
-                          <div className="max-h-72 overflow-y-auto p-2">
+                          <div className="max-h-48 overflow-x-hidden overflow-y-auto p-1.5">
                             <div className="grid gap-0.5">
                               {selectedComposerExtension.suggestedPrompts.map((prompt) => (
                                 <MenuRowButton
@@ -1518,7 +1681,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   onClick={() => applyExtensionSuggestion(selectedComposerExtension, prompt)}
                                 >
                                   <MessageCircle className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
-                                  <span className="line-clamp-2 text-sm text-dls-text">{prompt}</span>
+                                  <span className="line-clamp-2 text-sm leading-5 text-dls-text">{prompt}</span>
                                 </MenuRowButton>
                               ))}
                             </div>

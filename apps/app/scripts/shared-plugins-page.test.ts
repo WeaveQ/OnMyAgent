@@ -21,5 +21,11 @@ describe("shared plugins page contract", () => {
 
     expect(html).toContain("Artifact plugins");
     expect(html).toContain("aria-pressed=\"true\"");
+    // Section copy + preview affordance (not installable +)
+    expect(html).toContain("Create, edit, and analyze documents");
+    expect(html).toContain("Connector preview");
+    expect(html).toContain("not installable yet");
+    expect(html).toContain("Coming soon");
+    expect(html).not.toContain('aria-label="Add WordPress"');
   });
 });

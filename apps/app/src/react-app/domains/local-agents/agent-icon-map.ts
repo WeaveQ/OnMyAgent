@@ -42,6 +42,8 @@ const AGENT_ICON_BY_ID: Record<string, string> = {
   snow: snowIconUrl,
   nanobot: nanobotIconUrl,
   codebuddy: codebuddyIconUrl,
+  // WorkBuddy embeds CodeBuddy CLI; share the same brand mark.
+  workbuddy: codebuddyIconUrl,
   trae: traeIconUrl,
   mimo: mimoIconUrl,
   grok: grokIconUrl,

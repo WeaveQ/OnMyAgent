@@ -21,7 +21,7 @@ describe("workspace files page navigation", () => {
     expect(source).toContain('data-workspace-file-row={node.kind}');
   });
 
-  test("matches the compact marketplace tab switcher", () => {
+  test("matches the compact shell tab switcher and surface list chrome", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -30,15 +30,15 @@ describe("workspace files page navigation", () => {
       "utf8",
     );
 
-    expect(source).toContain(
-      'className="flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-surface px-6"',
-    );
-    expect(source).toContain(
-      '<SegmentedTabGroup className="rounded-md border-0 p-0.5">',
-    );
-    expect(source).toContain(
-      'className="h-7 min-w-24 rounded-md px-3 py-0"',
-    );
-    expect(source).not.toContain('<Cloud className="size-4" />');
+    // Same pattern as agent management / marketplace: bare SegmentedTabGroup + tab NavTabButton
+    expect(source).toContain("shellChrome.pageHeaderSimple");
+    expect(source).toContain('<SegmentedTabGroup density="bare">');
+    expect(source).toContain('size="tab"');
+    expect(source).toContain('shape="tab"');
+    expect(source).toContain("<Cloud aria-hidden />");
+    // List lives in a surface card; file rows use typed icons
+    expect(source).toContain("rounded-xl border border-dls-border bg-dls-surface");
+    expect(source).toContain("FileKindIcon");
+    expect(source).toContain("max-w-6xl");
   });
 });

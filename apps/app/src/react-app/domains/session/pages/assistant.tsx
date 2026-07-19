@@ -95,6 +95,17 @@ import {
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
 import {
+  KeepAlivePane,
+  useVisitedRailViews,
+} from "../sidebar/keep-alive-pane";
+import {
+  isPrimarySessionRailView,
+  readAssistantCategoryMemory,
+  readRailView,
+  writeAssistantCategoryMemory,
+  writeRailView,
+} from "../sidebar/rail-navigation-memory";
+import {
   BillingPage,
   DevicesPage,
   ProjectsComingSoonPage,
@@ -124,8 +135,6 @@ import {
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
-const CREATE_EXPERT_PROMPT =
-  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 export function AssistantPage(props: AssistantPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
@@ -136,12 +145,27 @@ export function AssistantPage(props: AssistantPageProps) {
     props.onAgentManagementIntentConsumed;
   const consumedAgentManagementIntentRef = useRef<string | null>(null);
   const [activeSidebarView, setActiveSidebarView] =
-    useState<OnMyAgentPrimaryView>("assistant");
+    useState<OnMyAgentPrimaryView>(() =>
+      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
+    );
   const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
-    useState<AssistantCategoryId>("office");
+    useState<AssistantCategoryId>(() =>
+      readAssistantCategoryMemory(props.selectedWorkspaceId, "office"),
+    );
+  const visitedRailViews = useVisitedRailViews(
+    activeSidebarView,
+    props.selectedWorkspaceId,
+  );
+  const setAssistantCategoryAndRemember = useCallback(
+    (categoryId: AssistantCategoryId) => {
+      setAssistantCategoryId(categoryId);
+      writeAssistantCategoryMemory(props.selectedWorkspaceId, categoryId);
+    },
+    [props.selectedWorkspaceId],
+  );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
   const [myExpertPackages, setMyExpertPackages] = useState<
@@ -285,12 +309,14 @@ export function AssistantPage(props: AssistantPageProps) {
   );
 
   const openAssistantSessionView = useCallback(() => {
+    writeRailView("assistant", props.selectedWorkspaceId, "assistant");
     setActiveSidebarView("assistant");
-  }, []);
+  }, [props.selectedWorkspaceId]);
 
   const openScheduledTasksView = useCallback(() => {
+    writeRailView("assistant", props.selectedWorkspaceId, "scheduledTasks");
     setActiveSidebarView("scheduledTasks");
-  }, []);
+  }, [props.selectedWorkspaceId]);
 
   const assistantWorkspaceSessions = useMemo(
     () =>
@@ -334,7 +360,10 @@ export function AssistantPage(props: AssistantPageProps) {
     }
     setAssistantCategoryId("office");
     openAssistantNewTask("office");
-    setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT);
+    setComposerDraftAfterNewTask(
+      props.selectedWorkspaceId,
+      t("session.create_expert_prompt"),
+    );
   }, [openAssistantNewTask, props.selectedWorkspaceId]);
 
   const applyAssistantSelection = useCallback(
@@ -806,6 +835,8 @@ export function AssistantPage(props: AssistantPageProps) {
       : activeSidebarView;
   const railActiveView =
     activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
+  /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
+  const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -1053,18 +1084,25 @@ export function AssistantPage(props: AssistantPageProps) {
                 props.onNavigateToMode("expert");
                 return;
               }
-              setActiveSidebarView(view);
+              // Returning to 助理 must NOT force a new task — restore last selection.
+              writeRailView("assistant", props.selectedWorkspaceId, view);
               if (view === "assistant") {
                 setAgentPanelCollapsed(false);
-                props.sidebar.onCreateTaskInWorkspace(
-                  props.selectedWorkspaceId,
-                );
+                openAssistantSessionView();
+                return;
               }
+              setActiveSidebarView(view);
             }}
             onOpenAccountSettings={props.onOpenAccountSettings}
             onSignOut={props.onSignOut}
-            onOpenDevices={() => setActiveSidebarView("devices")}
-            onOpenBilling={() => setActiveSidebarView("billing")}
+            onOpenDevices={() => {
+              writeRailView("assistant", props.selectedWorkspaceId, "devices");
+              setActiveSidebarView("devices");
+            }}
+            onOpenBilling={() => {
+              writeRailView("assistant", props.selectedWorkspaceId, "billing");
+              setActiveSidebarView("billing");
+            }}
           />
           <div className="relative flex min-h-0 flex-1 overflow-hidden">
             {(activeSidebarView === "chat" ||
@@ -1170,7 +1208,10 @@ export function AssistantPage(props: AssistantPageProps) {
                 )}>
                   <div className="flex min-h-0 flex-1 overflow-hidden">
                     <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
-                      {activeSidebarView === "store" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "store"}
+                        mounted={visitedRailViews.has("store")}
+                      >
                         <StorePage
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
@@ -1181,9 +1222,12 @@ export function AssistantPage(props: AssistantPageProps) {
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "localAgent" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "localAgent"}
+                        mounted={visitedRailViews.has("localAgent")}
+                      >
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
                           onResumeConsumed={() => setPendingArchiveResume(null)}
@@ -1199,12 +1243,20 @@ export function AssistantPage(props: AssistantPageProps) {
                               action: "openPanel",
                               panel: panel ?? "skills",
                             });
+                            writeRailView(
+                              "assistant",
+                              props.selectedWorkspaceId,
+                              "agentManagement",
+                            );
                             setActiveSidebarView("agentManagement");
                           }}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "agentManagement" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "agentManagement"}
+                        mounted={visitedRailViews.has("agentManagement")}
+                      >
                         <AgentManagementPage
                           workspaceRoot={props.selectedWorkspaceRoot}
                           intent={agentManagementPageIntent}
@@ -1214,14 +1266,22 @@ export function AssistantPage(props: AssistantPageProps) {
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                               onResume={(request) => {
                                 setPendingArchiveResume(request);
+                                writeRailView(
+                                  "assistant",
+                                  props.selectedWorkspaceId,
+                                  "localAgent",
+                                );
                                 setActiveSidebarView("localAgent");
                               }}
                             />
                           )}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "files" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "files"}
+                        mounted={visitedRailViews.has("files")}
+                      >
                         <WorkspaceFilesPage
                           client={props.onmyagentServerClient}
                           workspaceId={
@@ -1231,19 +1291,35 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "projects" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "projects"}
+                        mounted={visitedRailViews.has("projects")}
+                      >
                         <ProjectsComingSoonPage />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "devices" ? <DevicesPage /> : null}
+                      <KeepAlivePane
+                        active={activeSidebarView === "devices"}
+                        mounted={visitedRailViews.has("devices")}
+                      >
+                        <DevicesPage />
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "channels" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "channels"}
+                        mounted={visitedRailViews.has("channels")}
+                      >
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "billing" ? <BillingPage /> : null}
+                      <KeepAlivePane
+                        active={activeSidebarView === "billing"}
+                        mounted={visitedRailViews.has("billing")}
+                      >
+                        <BillingPage />
+                      </KeepAlivePane>
 
                       {activeSidebarView === "scheduledTasks" ? (
                         <AutomationPage
@@ -1277,8 +1353,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      {isPrimarySessionView &&
                       showBlockingStartupSkeleton ? (
                         <div
                           className="px-6 py-14"
@@ -1314,8 +1389,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      {isPrimarySessionView &&
                       showDelayedSessionLoadingState ? (
                         <div className="px-6 py-16">
                           <div
@@ -1331,62 +1405,64 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      activeSidebarView !== "scheduledTasks" &&
-                      !showDelayedSessionLoadingState &&
-                      canRenderReactSurface ? (
-                        <SessionSurface
-                          key={renderedSessionId}
-                          {...props.surface!}
-                          onSendDraft={wrappedOnSendDraft}
-                          client={props.onmyagentServerClient!}
-                          workspaceId={props.runtimeWorkspaceId!}
-                          sessionId={renderedSessionId}
-                          draftOnly={isDraftSession}
-                          opencodeBaseUrl={reactSessionBaseUrl}
-                          onmyagentToken={reactSessionToken}
-                          todos={props.todos}
-                          activePermission={props.activePermission}
-                          permissionReplyBusy={props.permissionReplyBusy}
-                          respondPermission={props.respondPermission}
-                          autoApprovedPermissionNoticeId={
-                            props.autoApprovedPermissionNoticeId
+                      {canRenderReactSurface ? (
+                        <KeepAlivePane
+                          active={
+                            isPrimarySessionView && !showDelayedSessionLoadingState
                           }
-                          activeQuestion={props.activeQuestion}
-                          questionReplyBusy={props.questionReplyBusy}
-                          respondQuestion={props.respondQuestion}
-                          safeStringify={props.safeStringify}
-                          userIdentity={{
-                            name:
-                              localAuthUser?.username ||
-                              props.account?.name ||
-                              props.account?.email ||
-                              t("session.current_user"),
-                          }}
-                          headerActions={headerPanelControls}
-                          conversationTabs={null}
-                          searchQuery={historySearchOpen ? historySearchQuery : ""}
-                          searchActiveMatchIndex={historyActiveMatch}
-                          onSearchMatchCountChange={setHistoryMatchCount}
-                          onOpenTarget={openTarget}
-                          onOpenTargetsChange={handleOpenTargetsChange}
-                          personalAssistantHome={true}
-                          personalAssistantCategoryId={assistantCategoryId}
-                          onPersonalAssistantCategoryChange={setAssistantCategoryId}
-                          onPersonalAssistantCategoryActive={setAssistantCategoryId}
-                          onOpenSkillsMarketplace={() => {
-                            setStoreActiveTab("skills");
-                            setActiveSidebarView("store");
-                          }}
-                        />
+                          mounted
+                        >
+                          <SessionSurface
+                            key={renderedSessionId}
+                            {...props.surface!}
+                            onSendDraft={wrappedOnSendDraft}
+                            client={props.onmyagentServerClient!}
+                            workspaceId={props.runtimeWorkspaceId!}
+                            sessionId={renderedSessionId}
+                            draftOnly={isDraftSession}
+                            opencodeBaseUrl={reactSessionBaseUrl}
+                            onmyagentToken={reactSessionToken}
+                            todos={props.todos}
+                            activePermission={props.activePermission}
+                            permissionReplyBusy={props.permissionReplyBusy}
+                            respondPermission={props.respondPermission}
+                            autoApprovedPermissionNoticeId={
+                              props.autoApprovedPermissionNoticeId
+                            }
+                            activeQuestion={props.activeQuestion}
+                            questionReplyBusy={props.questionReplyBusy}
+                            respondQuestion={props.respondQuestion}
+                            safeStringify={props.safeStringify}
+                            userIdentity={{
+                              name:
+                                localAuthUser?.username ||
+                                props.account?.name ||
+                                props.account?.email ||
+                                t("session.current_user"),
+                            }}
+                            headerActions={headerPanelControls}
+                            conversationTabs={null}
+                            searchQuery={historySearchOpen ? historySearchQuery : ""}
+                            searchActiveMatchIndex={historyActiveMatch}
+                            onSearchMatchCountChange={setHistoryMatchCount}
+                            onOpenTarget={openTarget}
+                            onOpenTargetsChange={handleOpenTargetsChange}
+                            personalAssistantHome={true}
+                            personalAssistantCategoryId={assistantCategoryId}
+                            onPersonalAssistantCategoryChange={setAssistantCategoryAndRemember}
+                            onPersonalAssistantCategoryActive={setAssistantCategoryAndRemember}
+                            onOpenSkillsMarketplace={() => {
+                              setStoreActiveTab("skills");
+                              setActiveSidebarView("store");
+                            }}
+                          />
+                        </KeepAlivePane>
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isPrimarySessionView &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
-                      !showStartupSkeleton &&
-                      activeSidebarView !== "scheduledTasks" &&
-                      activeSidebarView !== "agentManagement" ? (
+                      !showStartupSkeleton ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
                         >

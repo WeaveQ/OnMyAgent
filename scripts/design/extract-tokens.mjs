@@ -334,6 +334,10 @@ const INTENTIONAL_EXCEPTIONS = [
   /^--dls-decision-/,
   /^--dls-canvas$/,
   /^--dls-sidebar$/,
+  // Solid twin of `--dls-surface` for floating menus/popovers that must stay
+  // opaque under mac vibrancy. Same hex as `surface` by construction, not an
+  // independent contract slot.
+  /^--dls-surface-solid$/,
   /^--dls-leading-/,
   /^--dls-font-/,
   /^--ow-primary-rgb$/,
@@ -384,6 +388,27 @@ function normalizeHex(v) {
   return `#${h.length === 3 ? h.split('').map((c) => c + c).join('') : h}`
 }
 
+/**
+ * Normalize a code-side color value for comparison against DESIGN.md hex.
+ *
+ * The macOS Electron vibrancy layer re-declares shell tokens as
+ * `color-mix(in srgb, #hex N%, transparent)` (and `transparent` for
+ * app-bg/canvas). Those are intentional alpha-graded variants of the same
+ * contract hue, so the diff compares the base hex, not the alpha wrapper.
+ */
+function normalizeColorValue(v) {
+  if (typeof v !== 'string') return v
+  const s = v.trim()
+  if (s === 'transparent') return s
+  const mix = s.match(/^color-mix\(\s*in\s+\w+\s*,\s*(#[0-9a-fA-F]{3,6})\s+\d+(?:\.\d+)?%\s*,\s*transparent\s*\)$/)
+  if (mix) return normalizeHex(mix[1])
+  return normalizeHex(s)
+}
+
+// Keys whose vibrancy layer legitimately resolves to fully transparent
+// (the desktop material supplies the floor color). Other keys must keep a hex.
+const TRANSPARENT_OK_KEYS = new Set(['app-bg', 'background', 'canvas'])
+
 function flattenColors(colors) {
   const out = { light: {}, dark: {} }
   for (const theme of ['light', 'dark']) {
@@ -397,7 +422,7 @@ function flattenColors(colors) {
 
 function pickCssValue(cssMap, candidateNames) {
   for (const name of candidateNames) {
-    if (cssMap.has(name)) return { name, value: normalizeHex(cssMap.get(name)) }
+    if (cssMap.has(name)) return { name, value: normalizeColorValue(cssMap.get(name)) }
   }
   return null
 }
@@ -447,6 +472,11 @@ function diffColors(yaml, css) {
       }
       if (hit.value === expected) {
         report.matched.push({ theme, yamlKey, cssName: hit.name, value: expected })
+      } else if (hit.value === 'transparent' && TRANSPARENT_OK_KEYS.has(yamlKey)) {
+        // macOS vibrancy re-declares canvas/app-bg/background as `transparent`
+        // so the desktop material shows through — an intentional platform
+        // variant of the contract floor color, not drift.
+        report.matched.push({ theme, yamlKey, cssName: hit.name, value: `${expected} (vibrancy: transparent)` })
       } else {
         report.mismatched.push({
           theme,
@@ -472,6 +502,20 @@ function diffColors(yaml, css) {
   return report
 }
 
+/**
+ * Convert a CSS length to px for comparison against the DESIGN.md px scale.
+ * Token files store the type scale in rem (0.625rem = 10px @ 16px root);
+ * without this conversion every scale entry reads as a false mismatch.
+ */
+function lengthToPx(v) {
+  const s = String(v).trim()
+  const rem = s.match(/^([0-9.]+)rem$/)
+  if (rem) return Number(rem[1]) * 16
+  const px = s.match(/^([0-9.]+)px$/)
+  if (px) return Number(px[1])
+  return NaN
+}
+
 function diffTypography(yaml, css) {
   const report = { matched: [], missingInCode: [], mismatched: [] }
   const scale = yaml.typography?.scale || {}
@@ -482,8 +526,7 @@ function diffTypography(yaml, css) {
       report.missingInCode.push({ key, cssName, expected })
       continue
     }
-    const asPx = String(hit).replace('px', '')
-    if (Number(asPx) === Number(expected)) {
+    if (lengthToPx(hit) === Number(expected)) {
       report.matched.push({ key, cssName, value: expected })
     } else {
       report.mismatched.push({ key, cssName, expected, actual: hit })

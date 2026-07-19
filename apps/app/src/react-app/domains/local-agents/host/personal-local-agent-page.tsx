@@ -19,7 +19,7 @@ import { ActionRowButton, SessionRowButton } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
-import { StatusDot, StatusPing } from "@/components/ui/status-dot";
+import { StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../../design-system/select-menu";
@@ -58,7 +58,7 @@ import {
 } from "../../../../app/lib/desktop";
 import { type OpenTarget } from "../../../capabilities/artifacts/open-target";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
-import { resolveAgentIconUrlFor } from "../agent-icon-map";
+import { AgentBrandIcon } from "../agent-brand-icon";
 import { latestContextUsage } from "../context-usage-indicator";
 import { useAcpInitialMessage } from "../hooks/use-acp-initial-message";
 import { useAcpModelInfo } from "../hooks/use-acp-model-info";
@@ -343,13 +343,22 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     const normalized = query.trim().toLowerCase();
     // The synthetic channel agent is rendered in its own section below, not as
     // a normal agent row.
-    const realAgents = allAgents.filter((agent) => agent.id !== CHANNEL_AGENT_ID);
-    if (!normalized) return realAgents;
-    return realAgents.filter((agent) =>
-      `${agent.name} ${agent.executablePath} ${agent.version ?? ""}`
-        .toLowerCase()
-        .includes(normalized),
-    );
+    let realAgents = allAgents.filter((agent) => agent.id !== CHANNEL_AGENT_ID);
+    if (normalized) {
+      realAgents = realAgents.filter((agent) =>
+        `${agent.name} ${agent.executablePath} ${agent.version ?? ""}`
+          .toLowerCase()
+          .includes(normalized),
+      );
+    }
+    // Online / healthy first; broken install rows (ENOENT) sink so the list
+    // doesn't lead with error chrome.
+    return [...realAgents].sort((a, b) => {
+      const rank = (agent: typeof a) => (agent.status === "online" ? 0 : 1);
+      const delta = rank(a) - rank(b);
+      if (delta !== 0) return delta;
+      return a.name.localeCompare(b.name, "zh");
+    });
   }, [allAgents, query]);
   const startAgentListResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -413,7 +422,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const running = Boolean(activeRun?.status === "running" || (selectedAgent && startingByAgent[selectedChatKey]));
   const selectedError = selectedAgent ? errorsByAgent[selectedAgent.id] ?? null : null;
   const selectedCapability = selectedAgent?.capability ?? null;
-  const selectedAgentIconUrl = selectedAgent ? resolveAgentIconUrlFor(selectedAgent) : null;
   const composerContextUsage = useMemo(() => {
     for (let index = selectedMessages.length - 1; index >= 0; index -= 1) {
       const message = selectedMessages[index];
@@ -1384,6 +1392,20 @@ return (
                 strokeWidth={3}
               />
             </Button>
+
+            {/* WorkBuddy-style: gear in chrome, not a blue text link above the list. */}
+            {props.onOpenAgentManagement ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                onClick={() => props.onOpenAgentManagement?.("agents")}
+                className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                title={t("local_agent.manage_agents")}
+                aria-label={t("local_agent.manage_agents")}
+              >
+                <Settings2 className="size-4.5" />
+              </Button>
+            ) : null}
           </div>
 
           {showAddForm ? (
@@ -1407,19 +1429,6 @@ return (
             </div>
           ) : null}
 
-          {props.onOpenAgentManagement ? (
-            <div className="mx-4 mt-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto p-0 text-dls-accent hover:bg-transparent hover:text-dls-accent"
-                onClick={() => props.onOpenAgentManagement?.("agents")}
-              >
-                {t("local_agent.manage_agents")}…
-              </Button>
-            </div>
-          ) : null}
-
           <div className="min-h-0 flex-1 overflow-y-auto">
             {filteredAgents.length > 0 ? (
               <div>
@@ -1435,8 +1444,6 @@ return (
                     ? lastRunForAgent(messagesByAgent[agentActiveRunKey])
                     : lastRunForAgent(messagesByAgent[agent.id]);
 
-                  const iconUrl = resolveAgentIconUrlFor(agent);
-
                   const hasActiveRun = Boolean(
                     agentActiveRunKey &&
                       lastRun &&
@@ -1450,52 +1457,52 @@ return (
                       type="button"
                       onClick={() => setSelectedAgentId(agent.id)}
                       active={selectedAgentId === agent.id}
-                      className={localAgentLayoutClass.agentRow}
+                      className={cn(
+                        localAgentLayoutClass.agentRow,
+                        agent.status !== "online" && "opacity-70",
+                      )}
                     >
-                      <div className="relative shrink-0">
-                        <div
-                          className={cn(
-                            localAgentLayoutClass.agentAvatar,
-                            selectedAgentId === agent.id
-                              ? localAgentLayoutClass.agentAvatarSelected
-                              : localAgentLayoutClass.agentAvatarDefault,
-                          )}
-                        >
-                          {iconUrl ? (
-                            <img
-                              src={iconUrl}
-                              alt=""
-                              className="size-7 object-contain"
-                              loading="lazy"
-                              draggable={false}
+                      <AgentBrandIcon
+                        id={agent.id}
+                        provider={agent.provider}
+                        size="md"
+                        alt={agent.name}
+                        badge={
+                          // One corner badge only (priority: running → online → offline).
+                          // Avoid stacking ping + green online + trailing blue dot.
+                          hasActiveRun ? (
+                            <StatusPing
+                              inset
+                              size="status"
+                              className="absolute -right-0.5 bottom-0 items-center justify-center"
+                              title={t("local_agent.background_run_title")}
+                              aria-label={t("local_agent.background_run_aria")}
                             />
                           ) : (
-                            <Bot className="size-5" />
-                          )}
-                        </div>
-
-                        <span
-                          className={cn(
-                            localAgentLayoutClass.agentStatusDot,
-                            selectedAgentId === agent.id
-                              ? "border-dls-list-selected"
-                              : "border-dls-sidebar",
-                            agent.status === "online"
-                              ? "bg-dls-online"
-                              : "bg-dls-secondary",
-                          )}
-                        />
-
-                        {hasActiveRun ? (
-                          <StatusPing
-                            inset
-                            size="md"
-                            className="absolute -right-0.5 -top-0.5 items-center justify-center"
-                            title={t("local_agent.background_run_title")}
-                            aria-label={t("local_agent.background_run_aria")}
-                          />
-                        ) : null}
-                      </div>
+                            <span
+                              className={cn(
+                                localAgentLayoutClass.agentStatusDot,
+                                selectedAgentId === agent.id
+                                  ? "border-dls-list-selected"
+                                  : "border-dls-sidebar",
+                                agent.status === "online"
+                                  ? "bg-dls-online"
+                                  : "bg-dls-secondary",
+                              )}
+                              title={
+                                agent.status === "online"
+                                  ? t("local_agent.online")
+                                  : t("local_agent.offline")
+                              }
+                              aria-label={
+                                agent.status === "online"
+                                  ? t("local_agent.online")
+                                  : t("local_agent.offline")
+                              }
+                            />
+                          )
+                        }
+                      />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-baseline gap-2">
@@ -1504,17 +1511,13 @@ return (
                           </div>
                         </div>
 
-                        <div className="mt-1 flex min-w-0 items-center gap-1.5">
-                          <div className="min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary">
-                            {agent.status === "online"
+                        <div className="mt-1 min-w-0 truncate text-xs leading-5 text-dls-secondary">
+                          {hasActiveRun
+                            ? t("local_agent.background_run_aria")
+                            : agent.status === "online"
                               ? agentSubtitle(agent)
                               : agent.error ||
                                 t("local_agent.check_install_or_login")}
-                          </div>
-
-                          {hasActiveRun ? (
-                            <StatusDot size="md" tone="active" />
-                          ) : null}
                         </div>
                       </div>
                     </SessionRowButton>
@@ -1537,6 +1540,22 @@ return (
               </div>
             )}
           </div>
+
+          {/* Bottom of agent list — fill empty chrome (screenshot arrow). */}
+          {props.onOpenAgentManagement ? (
+            <div className="shrink-0 border-t border-dls-border/70 px-3 py-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-full justify-start gap-2 px-2 text-xs font-normal text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+                onClick={() => props.onOpenAgentManagement?.("agents")}
+              >
+                <Settings2 className="size-3.5 shrink-0" />
+                <span className="truncate">{t("local_agent.manage_agents")}</span>
+              </Button>
+            </div>
+          ) : null}
         </>
       )}
     </aside>
@@ -1578,27 +1597,34 @@ return (
       }}
     />
 
-    <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-dls-background">
    <header className={localAgentLayoutClass.header}>
   <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
-    <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
-      {isChannelView ? (
+    {isChannelView ? (
+      <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
         <MessageSquare className="size-4" />
-      ) : selectedAgentIconUrl ? (
-        <img src={selectedAgentIconUrl} alt="" className="size-5 object-contain" loading="lazy" draggable={false} />
-      ) : (
+      </div>
+    ) : selectedAgent ? (
+      <AgentBrandIcon
+        id={selectedAgent.id}
+        provider={selectedAgent.provider}
+        size="sm"
+        alt={selectedAgent.name}
+        badge={
+          <span
+            className={cn(
+              "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-dls-surface",
+              selectedAgent.status === "online" ? "bg-dls-online" : "bg-dls-secondary",
+            )}
+            aria-hidden
+          />
+        }
+      />
+    ) : (
+      <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
         <UserRound className="size-4" />
-      )}
-      {selectedAgent && !isChannelView ? (
-        <span
-          className={cn(
-            "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-dls-surface",
-            selectedAgent.status === "online" ? "bg-dls-online" : "bg-dls-secondary",
-          )}
-          aria-hidden
-        />
-      ) : null}
-    </div>
+      </div>
+    )}
     <div className="min-w-0 truncate text-sm font-medium text-dls-text">
       {selectedAgent?.name}
     </div>
@@ -1680,19 +1706,36 @@ return (
       />
     </div>
   ) : null}
-</header><LocalAgentStatusRail workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} /><div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6" onScroll={(event) => { if (programmaticScrollRef.current) return; const el = event.currentTarget; const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight; stickToBottomRef.current = distanceFromBottom <= 80; }} ><div className={localAgentLayoutClass.pageContent}> {selectedMessages.map((message) => ( <ChatBubble key={message.id} message={message} workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent} selectedModel={selectedModel} onOpenArtifact={props.onOpenArtifact} onResolveApproval={resolveApproval} onResolveTip={() => props.onOpenAgentManagement?.("skills")} /> ))} {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null} </div></div><footer className="shrink-0 bg-dls-surface px-6 pb-5 pt-2">
-        <div className={localAgentLayoutClass.chatPanel}>
-          <div className="flex flex-wrap items-center gap-2 px-1 pb-2 pt-1">
-            <WorkspaceFootnote
-              workspaceRoot={displayWorkspaceRoot}
-              recentWorkspaces={workspaceRecentList}
-              disabled={running || !chipEditable}
-              readOnly={!chipEditable}
-              onSelect={applyWorkspaceOverride}
-              onClear={clearWorkspaceOverride}
-              onBrowse={() => { void browseWorkspaceOverride(); }}
+</header><LocalAgentStatusRail workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} />
+      <div
+        ref={scrollRef}
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6"
+        onScroll={(event) => {
+          if (programmaticScrollRef.current) return;
+          const el = event.currentTarget;
+          const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+          stickToBottomRef.current = distanceFromBottom <= 80;
+        }}
+      >
+        <div className={localAgentLayoutClass.pageContent}>
+          {selectedMessages.map((message) => (
+            <ChatBubble
+              key={message.id}
+              message={message}
+              workspaceRoot={effectiveWorkspaceRoot}
+              agent={selectedAgent}
+              selectedModel={selectedModel}
+              onOpenArtifact={props.onOpenArtifact}
+              onResolveApproval={resolveApproval}
+              onResolveTip={() => props.onOpenAgentManagement?.("skills")}
             />
-          </div>
+          ))}
+          {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null}
+        </div>
+      </div>
+      {/* Match session workbench composer: soft shell + flush bottom chrome. */}
+      <footer className="min-w-0 shrink-0 overflow-x-hidden bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-6 pb-5 pt-2">
+        <div className="mx-auto w-full min-w-0 max-w-[1120px]">
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
             workspaceRoot={effectiveWorkspaceRoot}
@@ -1705,19 +1748,6 @@ return (
             onSlashCommandExecute={handleSlashCommandExecute}
             contextUsage={composerContextUsage}
             onSubmit={(payload) => { updateDraftForChat(selectedChatKey, ""); void submitComposerPayload(payload); }}
-            toolbarLeft={
-              <div className="min-w-[136px]">
-                <SelectMenu
-                  size="compact"
-                  value={approvalMode}
-                  onChange={(value) => setApprovalMode(value as PersonalLocalAgentApprovalMode)}
-                  disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
-                  ariaLabel={t("local_agent.approval_aria")}
-                  placement="top"
-                  options={APPROVAL_MODE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
-                />
-              </div>
-            }
             toolbarRight={
               <>
                 {activeRun?.status === "running" ? (
@@ -1727,6 +1757,32 @@ return (
                   </Button>
                 ) : null}
               </>
+            }
+            bottomAccessory={
+              <div className="flex min-w-0 w-full max-w-full items-center gap-1 overflow-hidden">
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <WorkspaceFootnote
+                    density="compact"
+                    workspaceRoot={displayWorkspaceRoot}
+                    recentWorkspaces={workspaceRecentList}
+                    disabled={running || !chipEditable}
+                    readOnly={!chipEditable}
+                    onSelect={applyWorkspaceOverride}
+                    onClear={clearWorkspaceOverride}
+                    onBrowse={() => { void browseWorkspaceOverride(); }}
+                  />
+                </div>
+                <SelectMenu
+                  size="compact"
+                  className="w-auto max-w-[12rem] shrink-0"
+                  value={approvalMode}
+                  onChange={(value) => setApprovalMode(value as PersonalLocalAgentApprovalMode)}
+                  disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
+                  ariaLabel={t("local_agent.approval_aria")}
+                  placement="top"
+                  options={APPROVAL_MODE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
+                />
+              </div>
             }
           />
         </div>

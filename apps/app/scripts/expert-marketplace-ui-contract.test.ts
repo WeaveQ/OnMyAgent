@@ -228,10 +228,26 @@ describe("expert marketplace UI contract", () => {
 
   test("expert store create expert opens a fresh assistant draft before prefill", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
+    const desktopMain = readWorkspaceFile("apps/desktop/electron/main.mjs");
+    const zhSession = readWorkspaceFile("apps/app/src/i18n/locales/zh/session.ts");
+    const enSession = readWorkspaceFile("apps/app/src/i18n/locales/en/session.ts");
 
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
-    expect(expertPage).toContain("setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT)");
+    expect(expertPage).toContain('t("session.create_expert_prompt")');
+    expect(expertPage).toContain("setComposerDraftAfterNewTask(");
     expect(expertPage).toContain('props.onNavigateToMode("assistant")');
+    expect(expertPage).toContain('packageName: CREATE_EXPERT_SKILL_NAME');
+    expect(expertPage).toContain('skillName: CREATE_EXPERT_SKILL_NAME');
+    expect(assistantPage).toContain('t("session.create_expert_prompt")');
+    expect(assistantPage).toContain("installBuiltinSkillPackage");
+    // expert-manager is curated under bundled-skills, not marketplace hub package ids
+    expect(desktopMain).toContain('path.join(bundledRoot, safePackage)');
+    expect(desktopMain).toContain("apps/desktop/resources/bundled-skills");
+    expect(zhSession).toContain("session.create_expert_prompt");
+    expect(zhSession).toContain("/expert-manager 帮我创建一个");
+    expect(enSession).toContain("session.create_expert_prompt");
+    expect(enSession).toContain("/expert-manager Help me create");
   });
 
   test("marketplace summon opens a fresh expert draft before agent activation", () => {

@@ -28,11 +28,12 @@ describe("session shared page layouts", () => {
     expect(managementPage).not.toContain('"mx-auto w-full max-w-7xl"');
     expect(channelsPage).toContain('className="w-full"');
     expect(channelsPage).not.toContain("mx-auto max-w-screen-2xl");
-    // plugins page keeps a centered readable column (not full-bleed)
-    expect(toolsPage).toContain('pageContainer: "mx-auto w-full max-w-5xl px-6 pb-10 pt-5"');
+    // plugins / skills marketplace: full-width content (match skills tab, no max-w squeeze)
+    expect(toolsPage).toContain('pageContainer: "mx-auto w-full px-6 pb-10 pt-5"');
     expect(toolsPage).toContain(
-      'pluginPageContainer: "mx-auto w-full max-w-5xl space-y-8 px-6 pb-10 pt-5"',
+      'pluginPageContainer: "mx-auto w-full space-y-8 px-6 pb-10 pt-5"',
     );
+    expect(toolsPage).not.toContain("max-w-5xl");
     expect(toolsPage).not.toContain("mx-auto w-full max-w-screen-2xl");
   });
 

@@ -40,6 +40,8 @@ export default {
   "skills_marketplace.install": "Install skill",
   "skills_marketplace.install_skill": "Install {name}",
   "skills_marketplace.installed": "Installed",
+  "skills_marketplace.view_detail": "View {name} details",
+  "skills_marketplace.detail_meta": "Categories & tags",
   "skills_marketplace.open_folder": "Open folder",
   "skills_marketplace.open_skill_folder": "Open {name} folder",
   "skills_marketplace.import_title": "Import skill",

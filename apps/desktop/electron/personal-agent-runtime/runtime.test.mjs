@@ -3346,6 +3346,23 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(runtime.buildErrorTipForTest(timeout).resolution.kind, "retry");
   });
 
+  it("classifies custom ACP empty assistant text as empty_output (not provider_failed)", () => {
+    const runtime = createPersonalAgentRuntime({ legacy: makeFakeLegacy("custom") });
+    const empty = runtime.classifyErrorForTest(
+      new Error("custom ACP completed without assistant text"),
+    );
+    assert.equal(empty.code, "empty_output");
+    const tip = runtime.buildErrorTipForTest(empty);
+    assert.equal(tip.ownership, "agent");
+    assert.equal(tip.resolution.kind, "retry");
+    const coded = runtime.classifyErrorForTest(
+      Object.assign(new Error("custom ACP completed without assistant text"), {
+        code: "empty_output",
+      }),
+    );
+    assert.equal(coded.code, "empty_output");
+  });
+
   it("runs remote ACP agents over WebSocket", async () => {
     const workspaceRoot = await tempWorkspace();
     const server = await withTinyWebSocketServer((message) => {

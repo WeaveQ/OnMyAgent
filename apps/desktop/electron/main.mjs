@@ -429,12 +429,20 @@ function builtinSkillPackageSource(packageName) {
   const safePackage = validateBuiltinSkillPackageName(packageName);
   const workspaceRoot = path.resolve(__dirname, "../../..");
   const marketplaceRoot = marketplaceRootPath();
+  // Curated skills (expert-manager, skill-creator, …) live under
+  // resources/bundled-skills. Marketplace hub skills use
+  // resources/marketplace/skills/skills/<packageName>.
+  const bundledRoot = bundledSkillsRootPath();
   const candidates = [
+    ...(bundledRoot ? [path.join(bundledRoot, safePackage)] : []),
     ...(marketplaceRoot
       ? [path.join(marketplaceRoot, "skills", "skills", safePackage)]
       : []),
+    path.join(workspaceRoot, "apps/desktop/resources/bundled-skills", safePackage),
     path.join(workspaceRoot, "apps/desktop/resources/marketplace/skills/skills", safePackage),
+    path.join(app.getAppPath(), "apps/desktop/resources/bundled-skills", safePackage),
     path.join(app.getAppPath(), "apps/desktop/resources/marketplace/skills/skills", safePackage),
+    path.join(process.cwd(), "apps/desktop/resources/bundled-skills", safePackage),
     path.join(process.cwd(), "apps/desktop/resources/marketplace/skills/skills", safePackage),
   ];
   return { safePackage, candidates };

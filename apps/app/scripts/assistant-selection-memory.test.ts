@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type { WorkspaceSessionGroup } from "../src/app/types";
 import {
@@ -118,5 +120,41 @@ describe("assistant selection memory", () => {
         sessions: sessions("office-session", "code-session"),
       }),
     ).toEqual({ kind: "newTask" });
+  });
+});
+
+describe("assistant return navigation contract", () => {
+  test("rail return to assistant does not force a new task", () => {
+    const assistantPage = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/assistant.tsx",
+      ),
+      "utf8",
+    );
+    // Must restore selection memory instead of always creating a draft.
+    expect(assistantPage).toContain("readAssistantSelectionMemory(");
+    expect(assistantPage).toContain("Returning to 助理 must NOT force a new task");
+    // The rail handler must not call create-task when view === assistant.
+    const railHandler = assistantPage.slice(
+      assistantPage.indexOf("onOpenView={(view) => {"),
+      assistantPage.indexOf("onOpenAccountSettings="),
+    );
+    expect(railHandler).not.toContain("onCreateTaskInWorkspace");
+    expect(railHandler).toContain("openAssistantSessionView()");
+  });
+
+  test("mode switch into assistant does not suppress session restore", () => {
+    const pageView = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/shell/session-route/page-view.tsx",
+      ),
+      "utf8",
+    );
+    expect(pageView).toContain("onNavigateToMode={(targetMode) => {");
+    expect(pageView).not.toContain(
+      'if (targetMode === "assistant") {\n              suppressRestoreSessionRef.current = true;',
+    );
   });
 });

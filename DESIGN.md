@@ -34,8 +34,12 @@ colors:
     rail-hover: "#E2E2E2"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"
-    hover: "#EEF4FF"
-    active: "#DDEBFF"
+    # Neutral grays — the earlier blue-tinted pair (#EEF4FF / #DDEBFF)
+    # read as a "selected chip" on menus and dropdowns, so hover/active
+    # are neutral by contract. Brand-blue selection lives on rail-active
+    # and decision-soft instead; do not re-tint hover/active blue.
+    hover: "#F0F0F1"
+    active: "#E6E6E8"
     list-selected: "#E4E4E4"
     list-hover: "#E8E8E8"
     danger: "#EF4444"
