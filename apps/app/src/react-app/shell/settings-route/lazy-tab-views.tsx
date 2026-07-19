@@ -23,6 +23,7 @@ import {
   loadPreferencesView,
   loadSystemAuthorizationsView,
   loadUpdatesView,
+  loadUsageView,
 } from "../../domains/settings";
 
 const tabFallbackClass = {
@@ -102,6 +103,10 @@ export const LazyEnvironmentView = lazy(() =>
 
 export const LazyUpdatesView = lazy(() =>
   loadUpdatesView().then((module) => ({ default: module.UpdatesView })),
+);
+
+export const LazyUsageView = lazy(() =>
+  loadUsageView().then((module) => ({ default: module.UsageSettingsView })),
 );
 
 export const LazyDebugView = lazy(() =>

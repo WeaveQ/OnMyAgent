@@ -3,14 +3,8 @@ import { APP_NAME } from "../../../../i18n/locales/brand";
 
 export const DEFAULT_COMPOSER_CONTROL_TEXT = `Help me outline the next ${APP_NAME} task.`;
 
-export function messageToReadableText(message: UIMessage) {
-  const header =
-    message.role === "user"
-      ? "You"
-      : message.role === "assistant"
-        ? "OnMyAgent"
-        : message.role;
-  const body = message.parts
+export function messageBodySearchText(message: UIMessage) {
+  return message.parts
     .flatMap((part) => {
       if (part.type === "text") return [part.text];
       if (part.type === "reasoning") return [part.text];
@@ -23,8 +17,37 @@ export function messageToReadableText(message: UIMessage) {
       }
       return [];
     })
-    .join("\n\n");
+    .join("\n\n")
+    .trim();
+}
+
+export function messageToReadableText(message: UIMessage) {
+  const header =
+    message.role === "user"
+      ? "You"
+      : message.role === "assistant"
+        ? "OnMyAgent"
+        : message.role;
+  const body = messageBodySearchText(message);
   return `${header}\n${body}`.trim();
+}
+
+/** Message ids that contain the query (document order, oldest → newest). */
+export function findTranscriptSearchMatchIds(
+  messages: UIMessage[],
+  query: string,
+): string[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [];
+  const ids: string[] = [];
+  for (const message of messages) {
+    if (!message.id) continue;
+    const body = messageBodySearchText(message);
+    if (body && body.toLowerCase().includes(needle)) {
+      ids.push(message.id);
+    }
+  }
+  return ids;
 }
 
 export function transcriptToText(messages: UIMessage[]) {

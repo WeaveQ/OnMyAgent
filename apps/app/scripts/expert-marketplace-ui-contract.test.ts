@@ -332,12 +332,9 @@ describe("expert marketplace UI contract", () => {
     expect(item).toContain(
       'props.selected ? "font-medium" : "font-normal"',
     );
-    expect(item).toContain(
-      'props.taskStatusVariant === "available" && "bg-dls-online"',
-    );
-    expect(list).toContain(
-      'props.taskStatusVariant === "available" && "bg-dls-online"',
-    );
+    // Presence uses StatusDot + online fill helper (not a raw accent pill).
+    expect(item).toContain("StatusDot");
+    expect(item).toContain('return "bg-dls-online"');
     expect(item).not.toContain(
       'props.taskStatusVariant === "available" && "bg-dls-accent"',
     );
@@ -431,7 +428,8 @@ describe("expert marketplace UI contract", () => {
 
     expect(taskItem).toContain("pinnable?: boolean");
     expect(taskItem).toContain("const pinnable = props.pinnable ?? true");
-    expect(taskItem).toContain("{pinnable ? (");
+    // Pin control only when pinnable and a toggle handler is provided.
+    expect(taskItem).toContain("{pinnable && props.onTogglePinned ? (");
     expect(sections).toContain("pinnable={false}");
   });
 

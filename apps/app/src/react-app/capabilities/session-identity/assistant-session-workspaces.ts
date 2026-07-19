@@ -91,3 +91,21 @@ export function readAssistantSessionWorkspaceChangeOwner(event: Event) {
 export function removeAssistantSessionWorkspace(sessionId: string) {
   writeAll(readAll().filter((item) => item.sessionId !== sessionId.trim()));
 }
+
+/** Unbind every assistant session mapped to this project directory. */
+export function removeAssistantSessionWorkspacesByDirectory(
+  ownerWorkspaceId: string,
+  directory: string,
+) {
+  const owner = ownerWorkspaceId.trim();
+  const dir = directory.trim();
+  if (!owner || !dir) return 0;
+  const current = readAll();
+  const next = current.filter(
+    (item) =>
+      !(item.ownerWorkspaceId === owner && item.directory === dir),
+  );
+  const removed = current.length - next.length;
+  if (removed > 0) writeAll(next);
+  return removed;
+}

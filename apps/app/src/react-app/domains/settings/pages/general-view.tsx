@@ -121,6 +121,11 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       title: t("settings.tab_updates"),
       desc: t("settings.tab_updates_description"),
     },
+    {
+      tab: "usage",
+      title: t("settings.tab_usage"),
+      desc: t("settings.tab_description_usage"),
+    },
   ];
 
   const archivedCards: Array<{

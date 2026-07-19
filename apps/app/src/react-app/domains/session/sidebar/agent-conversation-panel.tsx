@@ -31,7 +31,15 @@ import {
   type TaskStatusIndicator,
   writeAssistantPinnedSessionIds,
 } from "./conversation-model";
-import { readAssistantSessionWorkspaces } from "../sync/assistant-session-workspaces";
+import { queueAssistantNewTaskDirectory } from "../../../capabilities/session-identity/assistant-new-task-directory";
+import {
+  assistantSessionWorkspacesChangedEvent,
+  dispatchAssistantSessionWorkspacesChanged,
+  readAssistantSessionWorkspaceChangeOwner,
+  readAssistantSessionWorkspaces,
+  removeAssistantSessionWorkspacesByDirectory,
+  writeAssistantSessionWorkspace,
+} from "../sync/assistant-session-workspaces";
 import {
   archiveAssistantTask,
   archivedSessionIdSet,
@@ -40,7 +48,7 @@ import {
   readAssistantArchivedTasks,
 } from "../../shared";
 import { isDesktopRuntime } from "../../../../app/utils";
-import { revealDesktopItemInDir } from "../../../../app/lib/desktop";
+import { pickDirectory, revealDesktopItemInDir } from "../../../../app/lib/desktop";
 import {
   type AutomationSessionRecord,
   automationSessionsChangedEvent,
@@ -216,13 +224,34 @@ export function AgentConversationPanel(props: {
         : [],
     [mode, sessions],
   );
-  const assistantWorkspaceRecords =
-    mode === "assistant"
-      ? readAssistantSessionWorkspaces(props.selectedWorkspaceId)
-      : [];
-  const assistantWorkspaceBySessionId = new Map(
-    assistantWorkspaceRecords.map((item) => [item.sessionId, item]),
+  const [workspaceBindRevision, setWorkspaceBindRevision] = useState(0);
+  const assistantWorkspaceRecords = useMemo(
+    () =>
+      mode === "assistant"
+        ? readAssistantSessionWorkspaces(props.selectedWorkspaceId)
+        : [],
+    [mode, props.selectedWorkspaceId, workspaceBindRevision],
   );
+  const assistantWorkspaceBySessionId = useMemo(
+    () => new Map(assistantWorkspaceRecords.map((item) => [item.sessionId, item])),
+    [assistantWorkspaceRecords],
+  );
+
+  useEffect(() => {
+    if (mode !== "assistant") return;
+    const onChanged = (event: Event) => {
+      const owner = readAssistantSessionWorkspaceChangeOwner(event);
+      if (owner && owner !== props.selectedWorkspaceId) return;
+      setWorkspaceBindRevision((value) => value + 1);
+    };
+    window.addEventListener(assistantSessionWorkspacesChangedEvent, onChanged);
+    return () => {
+      window.removeEventListener(
+        assistantSessionWorkspacesChangedEvent,
+        onChanged,
+      );
+    };
+  }, [mode, props.selectedWorkspaceId]);
   const assistantSnapshotQueries = useQueries({
     queries: assistantSessions.map((session) => ({
       queryKey: [
@@ -510,6 +539,78 @@ export function AgentConversationPanel(props: {
     });
   }, [showToast]);
 
+  const handleSaveToSpace = useCallback(
+    (sessionId: string) => {
+      if (!isDesktopRuntime()) {
+        showToast({
+          tone: "warning",
+          title: t("session.save_to_space_desktop_only"),
+        });
+        return;
+      }
+      void pickDirectory({ title: t("session.save_to_space_pick") })
+        .then((directory) => {
+          const path = typeof directory === "string" ? directory.trim() : "";
+          if (!path) return;
+          writeAssistantSessionWorkspace({
+            sessionId,
+            ownerWorkspaceId: props.selectedWorkspaceId,
+            directory: path,
+          });
+          dispatchAssistantSessionWorkspacesChanged(props.selectedWorkspaceId);
+          setWorkspaceBindRevision((value) => value + 1);
+          // Keep the space directory expanded so the moved task is visible.
+          setExpandedAssistantDirectories((current) =>
+            current.includes(path) ? current : [...current, path],
+          );
+          showToast({
+            tone: "success",
+            title: t("session.save_to_space_done"),
+          });
+        })
+        .catch((error: unknown) => {
+          showToast({
+            tone: "error",
+            title:
+              error instanceof Error
+                ? error.message
+                : t("session.save_to_space_failed"),
+          });
+        });
+    },
+    [props.selectedWorkspaceId, showToast],
+  );
+
+  const handleRemoveSpaceDirectory = useCallback(
+    (directory: string) => {
+      const removed = removeAssistantSessionWorkspacesByDirectory(
+        props.selectedWorkspaceId,
+        directory,
+      );
+      if (removed <= 0) return;
+      dispatchAssistantSessionWorkspacesChanged(props.selectedWorkspaceId);
+      setWorkspaceBindRevision((value) => value + 1);
+      setExpandedAssistantDirectories((current) =>
+        current.filter((item) => item !== directory),
+      );
+      showToast({
+        tone: "success",
+        title: t("session.remove_from_space_list_done"),
+      });
+    },
+    [props.selectedWorkspaceId, showToast],
+  );
+
+  const handleCreateTaskInDirectory = useCallback(
+    (directory: string) => {
+      const path = directory.trim();
+      if (!path) return;
+      queueAssistantNewTaskDirectory(path);
+      props.onCreateTask?.();
+    },
+    [props.onCreateTask],
+  );
+
 
 
   useEffect(() => {
@@ -573,6 +674,9 @@ export function AgentConversationPanel(props: {
             onArchiveSession={handleArchiveAssistantSession}
             onDeleteSession={props.onDeleteSession}
             onOpenFolder={handleOpenFolder}
+            onSaveToSpace={handleSaveToSpace}
+            onRemoveSpaceDirectory={handleRemoveSpaceDirectory}
+            onCreateTaskInDirectory={handleCreateTaskInDirectory}
             folderPathBySessionId={folderPathBySessionId}
           />
         ) : (

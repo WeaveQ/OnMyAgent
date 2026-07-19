@@ -44,6 +44,7 @@ export {
   readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspaces,
   removeAssistantSessionWorkspace,
+  removeAssistantSessionWorkspacesByDirectory,
   writeAssistantSessionWorkspace,
 } from "./sync/assistant-session-workspaces";
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";
@@ -74,3 +75,5 @@ export {
   renameAutomationSessionRecord,
 } from "../messaging";
 export { OpenCodeProviderConfigDialog } from "../local-agents";
+export { PersonalUsagePage } from "./usage/personal-usage-page";
+export type { PersonalUsageClient } from "./usage/personal-usage-model";

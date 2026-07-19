@@ -118,7 +118,6 @@ export function OnMyAgentRail(props: {
   account?: SidebarAccountInfo | null;
   onOpenView: (view: OnMyAgentPrimaryView) => void;
   onOpenDevices: () => void;
-  onOpenUsage: () => void;
   onOpenAccountSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -149,7 +148,6 @@ export function OnMyAgentRail(props: {
         <SidebarAccountButton
           compact
           account={props.account || undefined}
-          onOpenUsage={props.onOpenUsage}
           onOpenSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenBilling={props.onOpenBilling}

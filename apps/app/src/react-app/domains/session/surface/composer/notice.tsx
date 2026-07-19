@@ -39,7 +39,7 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
               type="button"
               variant="outline"
               size="xs"
-              className="mt-3 rounded-full text-dls-text hover:bg-dls-hover"
+              className="mt-3 text-dls-text hover:bg-dls-hover"
               onClick={() => props.notice?.onAction?.()}
             >
               {props.notice.actionLabel}

@@ -17,6 +17,7 @@ import type {
 } from "../../../app/types";
 import { isDesktopRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
+import { takeAssistantNewTaskDirectory } from "../../capabilities/session-identity/assistant-new-task-directory";
 import { usePendingAgentStore } from "../../domains/agents";
 import type { LocalPreferences } from "../../kernel/local-provider";
 import {
@@ -361,14 +362,23 @@ export function useSessionRouteWorkspaceInteraction(
       // `onCreateTaskInWorkspace`, so this clear is always "overridden" in
       // that path.
       usePendingAgentStore.getState().setAgent(null);
-      setAssistantDraftWorkspaceRoot("");
+      // Space-folder “new chat” may have queued a project directory; apply it
+      // as the draft workspace so the first send binds into that space.
+      const queuedDirectory = takeAssistantNewTaskDirectory();
+      setAssistantDraftWorkspaceRoot(queuedDirectory ?? "");
       setLegacySelectedWorkspaceId(navigation.workspaceId);
       writeActiveWorkspaceId(navigation.activeWorkspaceId);
       suppressRestoreSessionRef.current = true;
       navigateToWorkspaceSession(navigation.workspaceId, null);
       focusPromptSoon();
     },
-    [loading, navigateToWorkspaceSession, retryingWorkspaceIds, workspaces],
+    [
+      loading,
+      navigateToWorkspaceSession,
+      retryingWorkspaceIds,
+      setAssistantDraftWorkspaceRoot,
+      workspaces,
+    ],
   );
   const handleReorderWorkspaces = useCallback((workspaceIds: string[]) => {
     const nextOrderIds = buildWorkspaceReorderIds({

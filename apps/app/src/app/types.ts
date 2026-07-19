@@ -246,6 +246,7 @@ export type SettingsTab =
   | "extensions"
   | "environment"
   | "updates"
+  | "usage"
   | "memory"
   | "conversation-memory"
   | "archived-tasks"

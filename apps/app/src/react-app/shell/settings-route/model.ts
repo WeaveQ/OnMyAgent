@@ -280,6 +280,7 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "permissions":
     case "environment":
     case "updates":
+    case "usage":
     case "memory":
     case "conversation-memory":
     case "archived-tasks":

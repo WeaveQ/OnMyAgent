@@ -3,11 +3,16 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import {
+  ChevronDown,
+  ChevronUp,
   PanelRight,
+  Search,
+  X,
   Zap,
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
+import { formatShortcut } from "../../../../lib/format-shortcut";
 import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
@@ -39,7 +44,6 @@ import {
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
 import { VoicePanel } from "../voice/voice-panel";
-import { PersonalUsagePage } from "../usage";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
@@ -51,6 +55,7 @@ import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
+import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
@@ -686,6 +691,12 @@ export function ExpertPage(props: ExpertPageProps) {
   const [renameTitle, setRenameTitle] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  /** Header find bar (same chrome as assistant — not a right rail). */
+  const [historySearchOpen, setHistorySearchOpen] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyMatchCount, setHistoryMatchCount] = useState(0);
+  const [historyActiveMatch, setHistoryActiveMatch] = useState(0);
+  const historySearchInputRef = useRef<HTMLInputElement>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [sessionActionId, setSessionActionId] = useState<string | null>(null);
   const browserPanelRef = usePanelRef();
@@ -984,6 +995,54 @@ export function ExpertPage(props: ExpertPageProps) {
     setBrowserPanelWidth(EXPERT_SIDE_PANEL_DEFAULT_WIDTH);
     setCurrentSidePanel("codeMenu");
   }, [setBrowserPanelWidth, setCurrentSidePanel]);
+
+  const expertHistorySessionId = draftSessionActive
+    ? activeDraftSessionId
+    : props.selectedSessionId;
+
+  const handleHistorySelectPrompt = useCallback(
+    (text: string) => {
+      const sessionId = expertHistorySessionId;
+      if (!sessionId || !text.trim()) return;
+      useComposerStateStore.getState().setDraft(sessionId, text);
+    },
+    [expertHistorySessionId],
+  );
+
+  /** Header find only — never opens the right workspace panel. */
+  const openHistorySearch = useCallback(
+    (event?: { stopPropagation?: () => void }) => {
+      event?.stopPropagation?.();
+      setHistorySearchOpen(true);
+      window.setTimeout(() => historySearchInputRef.current?.focus(), 0);
+    },
+    [],
+  );
+
+  const closeHistorySearch = useCallback(() => {
+    setHistorySearchOpen(false);
+    setHistorySearchQuery("");
+    setHistoryActiveMatch(0);
+    setHistoryMatchCount(0);
+  }, []);
+
+  useEffect(() => {
+    setHistoryActiveMatch(0);
+  }, [historySearchQuery, expertHistorySessionId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+        if (activeSidebarView === "chat") {
+          event.preventDefault();
+          openHistorySearch();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeSidebarView, openHistorySearch]);
+
   useEffect(() => {
     loadedHiddenTargetsKeyRef.current = hiddenAccessibleTargetsStorageKey(
       props.selectedWorkspaceId,
@@ -1244,7 +1303,6 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "files" ||
     activeSidebarView === "store" ||
     activeSidebarView === "projects" ||
-    activeSidebarView === "usage" ||
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
     activeSidebarView === "skills" ||
@@ -1315,8 +1373,141 @@ export function ExpertPage(props: ExpertPageProps) {
     }
   };
 
+  const historySearchShortcut = formatShortcut(["Mod", "F"]);
+  const historyMatchLabel =
+    historySearchQuery.trim() && historyMatchCount > 0
+      ? `${(historyActiveMatch % historyMatchCount) + 1}/${historyMatchCount}`
+      : historySearchQuery.trim()
+        ? "0/0"
+        : "";
+
+  // Header chrome: 🔍 find · 🕐 history questions popover · ▤ workspace rail
+  // (same as assistant — history is a floating popover, not a right panel)
+  const historyChrome = (
+    <>
+      {historySearchOpen ? (
+        <div
+          className={cn(
+            "flex h-8 items-center gap-1 rounded-full border border-dls-border",
+            "bg-dls-surface-muted/70 px-2 shadow-sm",
+            "focus-within:border-dls-accent/40 focus-within:bg-dls-surface-solid",
+          )}
+        >
+          <Search className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
+          <input
+            ref={historySearchInputRef}
+            type="search"
+            value={historySearchQuery}
+            onChange={(event) => setHistorySearchQuery(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (!historyMatchCount) return;
+                setHistoryActiveMatch((i) =>
+                  event.shiftKey
+                    ? (i - 1 + historyMatchCount) % historyMatchCount
+                    : (i + 1) % historyMatchCount,
+                );
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                closeHistorySearch();
+              }
+            }}
+            placeholder={t("session.conversation_history_search_header_placeholder")}
+            className="w-40 min-w-0 bg-transparent text-sm text-dls-text outline-none placeholder:text-dls-secondary/70 sm:w-52"
+            aria-label={t("session.conversation_history_search_header_placeholder")}
+          />
+          {historyMatchLabel ? (
+            <span className="shrink-0 tabular-nums text-xs text-dls-secondary">
+              {historyMatchLabel}
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-dls-secondary hover:text-dls-text"
+            disabled={!historyMatchCount}
+            onClick={() =>
+              setHistoryActiveMatch((i) =>
+                historyMatchCount
+                  ? (i - 1 + historyMatchCount) % historyMatchCount
+                  : 0,
+              )
+            }
+            title={t("session.conversation_history_search_prev")}
+            aria-label={t("session.conversation_history_search_prev")}
+          >
+            <ChevronUp className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-dls-secondary hover:text-dls-text"
+            disabled={!historyMatchCount}
+            onClick={() =>
+              setHistoryActiveMatch((i) =>
+                historyMatchCount ? (i + 1) % historyMatchCount : 0,
+              )
+            }
+            title={t("session.conversation_history_search_next")}
+            aria-label={t("session.conversation_history_search_next")}
+          >
+            <ChevronDown className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-dls-secondary hover:text-dls-text"
+            onClick={closeHistorySearch}
+            title={t("session.conversation_history_search_clear")}
+            aria-label={t("session.conversation_history_search_clear")}
+          >
+            <X className="size-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            openHistorySearch(event);
+          }}
+          title={t("session.conversation_history_search_tooltip", {
+            shortcut: historySearchShortcut,
+          })}
+          aria-label={t("session.conversation_history_search_tooltip", {
+            shortcut: historySearchShortcut,
+          })}
+        >
+          <Search className="size-3.5" />
+        </Button>
+      )}
+      <ConversationHistoryPopover
+        client={props.onmyagentServerClient}
+        workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+        sessionId={
+          expertHistorySessionId &&
+          !String(expertHistorySessionId).startsWith("draft:")
+            ? expertHistorySessionId
+            : props.selectedSessionId
+        }
+        onSelectPrompt={handleHistorySelectPrompt}
+      />
+    </>
+  );
   const headerPanelControls = !sidePanelOpen ? (
     <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historyChrome}
       <Button
         data-code-side-panel-toggle="true"
         type="button"
@@ -1324,7 +1515,8 @@ export function ExpertPage(props: ExpertPageProps) {
         size="icon-xs"
         className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
+        onClick={(event) => {
+          event.stopPropagation();
           openExpertSidePanelMenu();
         }}
         title={t("session.code_side_panel_toggle")}
@@ -1334,7 +1526,11 @@ export function ExpertPage(props: ExpertPageProps) {
         <PanelRight className="size-3.5" />
       </Button>
     </div>
-  ) : null;
+  ) : (
+    <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
+      {historyChrome}
+    </div>
+  );
 
   const conversationTabs =
     activeSidebarView === "chat" ? (
@@ -1374,7 +1570,6 @@ export function ExpertPage(props: ExpertPageProps) {
             onOpenAccountSettings={props.onOpenAccountSettings}
             onSignOut={props.onSignOut}
             onOpenDevices={() => setActiveSidebarView("devices")}
-            onOpenUsage={() => setActiveSidebarView("usage")}
             onOpenBilling={() => setActiveSidebarView("billing")}
           />
           <div className="relative flex min-h-0 flex-1 overflow-hidden">
@@ -1526,18 +1721,6 @@ export function ExpertPage(props: ExpertPageProps) {
 
                       {activeSidebarView === "devices" ? <DevicesPage /> : null}
 
-                      {activeSidebarView === "usage" ? (
-                        <PersonalUsagePage
-                          client={props.onmyagentServerClient}
-                          workspaces={props.workspaces}
-                          onEdit={props.onOpenAccountSettings}
-                          identity={{
-                            name: localAuthUser?.username || props.account?.name || props.account?.email || t("session.current_user"),
-                            email: localAuthUser?.email || props.account?.email,
-                          }}
-                        />
-                      ) : null}
-
                       {activeSidebarView === "channels" ? (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
                       ) : null}
@@ -1552,7 +1735,6 @@ export function ExpertPage(props: ExpertPageProps) {
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&
-                      activeSidebarView !== "usage" &&
                       activeSidebarView !== "channels" &&
                       activeSidebarView !== "billing" ? (
                         <SidebarFeaturePlaceholder
@@ -1667,6 +1849,9 @@ export function ExpertPage(props: ExpertPageProps) {
                           }}
                           headerActions={headerPanelControls}
                           conversationTabs={conversationTabs}
+                          searchQuery={historySearchOpen ? historySearchQuery : ""}
+                          searchActiveMatchIndex={historyActiveMatch}
+                          onSearchMatchCountChange={setHistoryMatchCount}
                           onOpenTarget={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                           personalAssistantHome={false}
