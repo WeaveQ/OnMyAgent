@@ -4,7 +4,7 @@
  * Extracted from composer.tsx (mechanical UI split).
  */
 import type { RefObject } from "react";
-import { FileText, Terminal, Zap } from "lucide-react";
+import { FileText, Terminal } from "lucide-react";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { SlashCommandOption } from "../../../../../app/types";
@@ -130,17 +130,11 @@ export function ComposerMentionMenu(props: {
                 onMouseEnter={() => props.setMenuIndex(index)}
                 onClick={() => props.onSelect(item)}
               >
-                {item.kind === "agent" ? (
-                  <Zap size={14} className={composerMenuClass.itemIcon} />
-                ) : (
-                  <FileText size={14} className={composerMenuClass.itemIcon} />
-                )}
+                <FileText size={14} className={composerMenuClass.itemIcon} />
                 <div className="min-w-0">
                   <div className={composerMenuClass.itemTitle}>@{item.label}</div>
                   <div className={composerMenuClass.itemMeta}>
-                    {item.kind === "agent"
-                      ? t("composer.agent_label")
-                      : t("composer.file_kind")}
+                    {t("composer.file_kind")}
                   </div>
                 </div>
               </MenuRowButton>

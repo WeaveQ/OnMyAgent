@@ -288,24 +288,40 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [slashOpen, toolMenuOpen, loadCommands]);
 
   useEffect(() => {
+    // @ menu is files-only (workspace / recent). Agent pick lives in its own menu, not @.
     if (!mentionOpen) return;
     let cancelled = false;
-    void Promise.all([props.listAgents(), props.searchFiles(mentionQuery)]).then(([agentList, files]) => {
-      if (cancelled) return;
-      const recent = props.recentFiles.slice(0, 8);
-      const next: MentionItem[] = [
-        ...agentList.map((agent) => ({ id: `agent:${agent.name}`, kind: "agent" as const, value: agent.name, label: agent.name })),
-        ...recent.map((file) => ({ id: `file:${file}`, kind: "file" as const, value: file, label: file })),
-        ...files.filter((file) => !recent.includes(file)).map((file) => ({ id: `file:${file}`, kind: "file" as const, value: file, label: file })),
-      ];
-      setMentionItems(next);
-    }).catch(() => {
-      if (!cancelled) setMentionItems([]);
-    });
+    void props
+      .searchFiles(mentionQuery)
+      .then((files) => {
+        if (cancelled) return;
+        const recent = props.recentFiles.slice(0, 8);
+        const recentSet = new Set(recent);
+        const next: MentionItem[] = [
+          ...recent.map((file) => ({
+            id: `file:${file}`,
+            kind: "file" as const,
+            value: file,
+            label: file,
+          })),
+          ...files
+            .filter((file) => !recentSet.has(file))
+            .map((file) => ({
+              id: `file:${file}`,
+              kind: "file" as const,
+              value: file,
+              label: file,
+            })),
+        ];
+        setMentionItems(next);
+      })
+      .catch(() => {
+        if (!cancelled) setMentionItems([]);
+      });
     return () => {
       cancelled = true;
     };
-  }, [mentionOpen, mentionQuery, props.listAgents, props.recentFiles, props.searchFiles]);
+  }, [mentionOpen, mentionQuery, props.recentFiles, props.searchFiles]);
 
   useEffect(() => {
     if (!toolMenuOpen) return;

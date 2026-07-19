@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { Bot, ChevronRight, HeartPulse, Loader2, Pencil, Trash2, Wrench } from "lucide-react";
+import { Bot, ChevronRight, HeartPulse, Loader2, Pencil, Plus, Trash2, Wrench } from "lucide-react";
 import { useState } from "react";
 import claudeIconUrl from "../../../../assets/agent-icons/claude.svg";
 import codexIconUrl from "../../../../assets/agent-icons/openai.svg";
@@ -94,15 +94,19 @@ export function AgentManagementAgentCard(props: {
   agent: AgentManagementAgent;
   health?: AgentManagementHealthResult;
   checking: boolean;
+  /** True while catalog → fleet adopt is in flight. */
+  adding?: boolean;
   onTestConnection: (agent: AgentManagementAgent) => void;
   onToggleEnabled?: (agent: AgentManagementAgent, enabled: boolean) => void;
   onDelete?: (agent: AgentManagementAgent) => void;
   onEdit?: (agent: AgentManagementAgent) => void;
   onRepair?: (agent: AgentManagementAgent) => void;
+  /** Adopt a catalog (discoverable) agent into My agents. */
+  onAddAsCustom?: (agent: AgentManagementAgent) => void;
 }) {
   // Discoverable catalog entries are stored with provider "custom" so the ACP
   // test-connection path works, but they are NOT user-registered agents — they
-  // must stay read-only (no edit/delete/enable), only test-connectable.
+  // must stay read-only (no edit/delete/enable) until adopted into the fleet.
   const isDiscoverable = props.agent.discoverable === true;
   const isCustom = props.agent.provider === "custom" && !isDiscoverable;
   const enabled = props.agent.enabled !== false;
@@ -228,9 +232,24 @@ export function AgentManagementAgentCard(props: {
                 </label>
               </>
             ) : isDiscoverable ? (
-              <span className="text-xs text-dls-secondary">
-                {t("agent_manager.agent_card.discoverable_hint")}
-              </span>
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <span className="text-xs text-dls-secondary">
+                  {t("agent_manager.agent_card.discoverable_hint")}
+                </span>
+                {props.onAddAsCustom ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="ml-auto"
+                    disabled={props.adding || props.checking}
+                    onClick={() => props.onAddAsCustom?.(props.agent)}
+                  >
+                    {props.adding ? <LoadingSpinner size="sm" className="mr-1.5" /> : <Plus className="mr-1.5 size-3.5" />}
+                    {t("agent_manager.agent_card.add_as_mine")}
+                  </Button>
+                ) : null}
+              </div>
             ) : (
               <Button
                 type="button"

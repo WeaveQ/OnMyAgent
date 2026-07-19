@@ -285,7 +285,8 @@ select:disabled {
   --dls-text-primary: var(--ow-ink);
   --dls-text-secondary: var(--ow-slate);
   /* Neutral grays — blue-tinted hover (#EEF4FF) read as “selected chip” on menus. */
-  --dls-hover: #F0F0F1;
+  /* Align with DESIGN.md colors.light.hover (brand soft wash, not neutral gray). */
+  --dls-hover: #EEF4FF;
   --dls-active: #E6E6E8;
   --dls-list-selected: #E4E4E4;
   --dls-list-hover: #E8E8E8;

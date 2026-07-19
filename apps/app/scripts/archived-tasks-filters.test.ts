@@ -89,16 +89,21 @@ describe("archived-tasks-filters", () => {
     expect(rowMatchesArchivedFilters(other, filters)).toBe(false);
   });
 
-  test("sortArchivedRows by updated/name", () => {
+  test("sortArchivedRows by updated/created/name", () => {
     const rows = [
-      row({ id: "b", title: "Beta", updatedAt: 1 }),
-      row({ id: "a", title: "Alpha", updatedAt: 3 }),
-      row({ id: "c", title: "Gamma", updatedAt: 2 }),
+      row({ id: "b", title: "Beta", updatedAt: 1, createdAt: 30 }),
+      row({ id: "a", title: "Alpha", updatedAt: 3, createdAt: 10 }),
+      row({ id: "c", title: "Gamma", updatedAt: 2, createdAt: 20 }),
     ];
     expect(sortArchivedRows(rows, "updated").map((r) => r.id)).toEqual([
       "a",
       "c",
       "b",
+    ]);
+    expect(sortArchivedRows(rows, "created").map((r) => r.id)).toEqual([
+      "b",
+      "c",
+      "a",
     ]);
     expect(sortArchivedRows(rows, "name").map((r) => r.title)).toEqual([
       "Alpha",
@@ -109,21 +114,32 @@ describe("archived-tasks-filters", () => {
 
   test("groupArchivedRowsByProject builds folder sections (WorkBuddy project archive)", () => {
     const rows = [
-      { ...row({ id: "1", projectKey: "/p/onmyagent" }), projectLabel: "onmyagent" },
-      { ...row({ id: "2", projectKey: "/p/onmyagent" }), projectLabel: "onmyagent" },
+      { ...row({ id: "1", projectKey: "/p/onmyagent", updatedAt: 1 }), projectLabel: "onmyagent" },
+      { ...row({ id: "2", projectKey: "/p/onmyagent", updatedAt: 5 }), projectLabel: "onmyagent" },
       { ...row({ id: "3", projectKey: "__unknown__" }), projectLabel: "Unknown" },
-      { ...row({ id: "4", projectKey: "/p/work" }), projectLabel: "work" },
+      { ...row({ id: "4", projectKey: "/p/work", updatedAt: 9 }), projectLabel: "work" },
     ];
-    const groups = groupArchivedRowsByProject(rows, {
+    // Default name-order groups (sortMode name) — folders A–Z.
+    const byName = groupArchivedRowsByProject(rows, {
       unscopedLabel: "Unscoped",
+      sortMode: "name",
     });
-    expect(groups.map((g) => g.label)).toEqual([
+    expect(byName.map((g) => g.label)).toEqual([
       "onmyagent",
       "work",
       "Unscoped",
     ]);
-    expect(groups[0]?.items.map((i) => i.id)).toEqual(["1", "2"]);
-    expect(groups[2]?.items.map((i) => i.id)).toEqual(["3"]);
+    // Date sort: newest project first; items newest-first inside group.
+    const byUpdated = groupArchivedRowsByProject(rows, {
+      unscopedLabel: "Unscoped",
+      sortMode: "updated",
+    });
+    expect(byUpdated.map((g) => g.label)).toEqual([
+      "work",
+      "onmyagent",
+      "Unscoped",
+    ]);
+    expect(byUpdated[1]?.items.map((i) => i.id)).toEqual(["2", "1"]);
   });
 
   test("formatTaskArchiveMeta is date · project for task layout", () => {

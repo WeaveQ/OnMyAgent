@@ -9,14 +9,81 @@
 // Detection is intentionally conservative: we never guess connection details
 // that would break an agent. We pre-fill a sensible ACP draft (connectionType
 // "cli", supportsAcp true, a per-agent acpArgs hint) and the native skills
-// dirs so the agent can reuse its own marketplace skills. The user can still
+// dirs so the agent can reuse its own installed skills. The user can still
 // edit everything afterwards via the inline editor.
 
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import os from "node:os";
 import { delimiter, join } from "node:path";
 
 const HOME = os.homedir();
+
+/**
+ * WorkBuddy ships an embedded `codebuddy` binary (Tencent CodeBuddy CLI with
+ * `--acp`). These are the well-known install locations for that app bundle.
+ * WorkBuddy and standalone CodeBuddy share the same CLI family and skill root
+ * (`~/.codebuddy/skills`) but are listed as separate product cards.
+ */
+function workbuddyEmbeddedCodebuddyPaths() {
+  if (process.platform === "darwin") {
+    return [
+      "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
+      join(
+        HOME,
+        "Applications",
+        "WorkBuddy.app",
+        "Contents",
+        "Resources",
+        "app.asar.unpacked",
+        "cli",
+        "bin",
+        "codebuddy",
+      ),
+    ];
+  }
+  if (process.platform === "win32") {
+    const localAppData = process.env.LOCALAPPDATA || join(HOME, "AppData", "Local");
+    const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+    return [
+      join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
+      join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
+      join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
+      join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
+    ];
+  }
+  // Linux / other: common user-local Electron app layouts.
+  return [
+    join(HOME, ".local", "share", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
+    join(HOME, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
+  ];
+}
+
+/** True when `path` is the codebuddy CLI nested inside a WorkBuddy install. */
+export function isWorkBuddyEmbeddedPath(filePath) {
+  const normalized = String(filePath ?? "")
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  if (!normalized) return false;
+  if (normalized.includes("workbuddy.app/")) return true;
+  // Windows / Linux: …/WorkBuddy/…/app.asar.unpacked/cli/…
+  if (
+    normalized.includes("/workbuddy/") &&
+    (normalized.includes("app.asar.unpacked") || normalized.includes("/cli/bin/codebuddy"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function resolveRealPath(filePath) {
+  const raw = String(filePath ?? "").trim();
+  if (!raw) return "";
+  try {
+    return realpathSync(raw);
+  } catch {
+    return raw;
+  }
+}
 
 /**
  * Catalog of known CLI agents beyond the 5 built-in providers.
@@ -35,7 +102,7 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
   {
     id: "kiro",
-    displayName: "Kiro",
+    displayName: "Kiro CLI",
     commands: ["kiro", "kiro-cli"],
     skillsDirs: [join(HOME, ".kiro", "skills")],
     wellKnownPaths: [join(HOME, ".local", "bin", "kiro-cli")],
@@ -43,21 +110,21 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
   {
     id: "goose",
-    displayName: "Goose",
+    displayName: "Goose CLI",
     commands: ["goose"],
     skillsDirs: [join(HOME, ".goose", "skills")],
     acpArgs: ["acp"],
   },
   {
     id: "cursor-agent",
-    displayName: "Cursor Agent",
+    displayName: "Cursor Agent CLI",
     commands: ["cursor-agent", "cursor"],
     skillsDirs: [],
     acpArgs: ["agent", "acp"],
   },
   {
     id: "qwen",
-    displayName: "Qwen Code",
+    displayName: "Qwen Code CLI",
     commands: ["qwen", "qwen-code"],
     skillsDirs: [join(HOME, ".qwen", "skills")],
     acpArgs: ["--acp"],
@@ -72,21 +139,21 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
   {
     id: "copilot",
-    displayName: "GitHub Copilot",
+    displayName: "GitHub Copilot CLI",
     commands: ["copilot", "github-copilot"],
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
   {
     id: "qoder",
-    displayName: "Qoder",
+    displayName: "Qoder CLI",
     commands: ["qoder", "qodercli"],
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
   {
     id: "augment",
-    displayName: "Augment Code",
+    displayName: "Augment Code CLI",
     commands: ["augment", "augment-code", "auggie"],
     skillsDirs: [],
     acpArgs: ["--acp"],
@@ -100,29 +167,40 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
   {
     id: "nanobot",
-    displayName: "Nano Bot",
+    displayName: "Nano Bot CLI",
     commands: ["nanobot", "nano-bot"],
     skillsDirs: [],
     acpArgs: ["--acp"],
   },
   {
-    id: "codebuddy",
-    displayName: "CodeBuddy",
-    commands: ["codebuddy"],
-    wellKnownPaths: [join(HOME, ".local", "bin", "codebuddy"), join(HOME, "npm", "bin", "codebuddy")],
+    // Desktop app (not a standalone CLI product). Embeds CodeBuddy CLI binary.
+    id: "workbuddy",
+    displayName: "WorkBuddy",
+    commands: [],
+    wellKnownPaths: workbuddyEmbeddedCodebuddyPaths(),
     skillsDirs: [join(HOME, ".codebuddy", "skills")],
     acpArgs: ["--acp"],
   },
   {
+    id: "codebuddy",
+    displayName: "CodeBuddy CLI",
+    commands: ["codebuddy"],
+    wellKnownPaths: [join(HOME, ".local", "bin", "codebuddy"), join(HOME, "npm", "bin", "codebuddy")],
+    skillsDirs: [join(HOME, ".codebuddy", "skills")],
+    acpArgs: ["--acp"],
+    // Never claim the WorkBuddy-embedded binary as standalone CodeBuddy.
+    skipWorkBuddyEmbedded: true,
+  },
+  {
     id: "trae",
-    displayName: "Trae",
+    displayName: "Trae CLI",
     commands: ["traecli", "trae-cli"],
     skillsDirs: [],
     acpArgs: ["acp", "serve"],
   },
   {
     id: "mimo",
-    displayName: "MiMo Code",
+    displayName: "MiMo Code CLI",
     commands: ["mimo"],
     skillsDirs: [join(HOME, ".mimocode", "skills")],
     // `mimo acp` starts the Agent Client Protocol stdio server
@@ -131,7 +209,7 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
   {
     id: "grok",
-    displayName: "Grok Build",
+    displayName: "Grok Build CLI",
     commands: ["grok"],
     skillsDirs: [join(HOME, ".grok", "skills")],
     // `grok agent stdio` starts the ACP stdio server
@@ -150,15 +228,22 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
  * The detection layer later resolves each draft to online / offline / missing;
  * the user can hit "测试连接" on any of them regardless of install state.
  */
+function pathUsableForDef(def, candidate) {
+  if (!candidate) return false;
+  if (def.skipWorkBuddyEmbedded && isWorkBuddyEmbeddedPath(candidate)) return false;
+  return true;
+}
+
 function resolveKnownAgentBinary(def) {
-  for (const cmd of def.commands) {
+  const commands = Array.isArray(def.commands) ? def.commands : [];
+  for (const cmd of commands) {
     const found = resolveOnPath(cmd);
-    if (found) return found;
+    if (found && pathUsableForDef(def, found)) return found;
   }
   if (Array.isArray(def.wellKnownPaths)) {
     for (const candidate of def.wellKnownPaths) {
       try {
-        if (existsSync(candidate)) return candidate;
+        if (existsSync(candidate) && pathUsableForDef(def, candidate)) return candidate;
       } catch {
         // ignore
       }
@@ -167,12 +252,37 @@ function resolveKnownAgentBinary(def) {
   return null;
 }
 
+/**
+ * When WorkBuddy and CodeBuddy resolve to the same real binary, keep WorkBuddy
+ * and drop the CodeBuddy draft so the catalog shows one product card.
+ * Standalone CodeBuddy (npm / ~/.local/bin) still appears on its own.
+ */
+export function dedupeCodebuddyWorkbuddyAgents(agents, pathKey = "command") {
+  const list = Array.isArray(agents) ? agents : [];
+  const workbuddy = list.find((item) => String(item?.id ?? "").toLowerCase() === "workbuddy");
+  const codebuddy = list.find((item) => String(item?.id ?? "").toLowerCase() === "codebuddy");
+  if (!workbuddy || !codebuddy) return list;
+
+  const wbPath = resolveRealPath(workbuddy[pathKey] ?? workbuddy.command ?? workbuddy.executablePath);
+  const cbPath = resolveRealPath(codebuddy[pathKey] ?? codebuddy.command ?? codebuddy.executablePath);
+
+  const sameBinary = Boolean(wbPath && cbPath && wbPath === cbPath);
+  const codebuddyIsEmbedded = isWorkBuddyEmbeddedPath(cbPath || codebuddy[pathKey] || "");
+
+  if (sameBinary || codebuddyIsEmbedded) {
+    return list.filter((item) => String(item?.id ?? "").toLowerCase() !== "codebuddy");
+  }
+  return list;
+}
+
 export function discoverableAgentDrafts() {
-  return KNOWN_DISCOVERABLE_AGENTS.map((def) => ({
+  const drafts = KNOWN_DISCOVERABLE_AGENTS.map((def) => ({
     id: def.id,
     name: def.displayName,
     provider: /** @type {"custom"} */ ("custom"),
-    executablePath: resolveKnownAgentBinary(def) ?? def.commands[0],
+    executablePath:
+      resolveKnownAgentBinary(def) ??
+      (Array.isArray(def.commands) && def.commands[0] ? def.commands[0] : def.id),
     connectionType: /** @type {"cli"} */ ("cli"),
     supportsAcp: true,
     acpArgs: Array.isArray(def.acpArgs) ? def.acpArgs : ["--acp"],
@@ -180,6 +290,8 @@ export function discoverableAgentDrafts() {
       (dir) => typeof dir === "string" && dir.length > 0,
     ),
   }));
+  // Prefer WorkBuddy card when both would point at the same embedded binary.
+  return dedupeCodebuddyWorkbuddyAgents(drafts, "executablePath");
 }
 
 // Resolve an executable name against PATH without spawning a shell. `command`
@@ -223,26 +335,7 @@ export async function detectAvailableLocalAgents(input = {}) {
   const detected = [];
   for (const def of KNOWN_DISCOVERABLE_AGENTS) {
     if (existing.has(def.id)) continue;
-    let resolved = null;
-    for (const cmd of def.commands) {
-      const found = resolveOnPath(cmd);
-      if (found) {
-        resolved = found;
-        break;
-      }
-    }
-    if (!resolved && Array.isArray(def.wellKnownPaths)) {
-      for (const candidate of def.wellKnownPaths) {
-        try {
-          if (existsSync(candidate)) {
-            resolved = candidate;
-            break;
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
+    const resolved = resolveKnownAgentBinary(def);
     if (!resolved) continue;
 
     detected.push({
@@ -258,7 +351,7 @@ export async function detectAvailableLocalAgents(input = {}) {
     });
   }
 
-  return { agents: detected };
+  return { agents: dedupeCodebuddyWorkbuddyAgents(detected, "command") };
 }
 
 export default detectAvailableLocalAgents;
