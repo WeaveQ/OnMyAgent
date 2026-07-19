@@ -332,7 +332,13 @@ function buildExpandedSegments(items: TurnContentItem[]): TurnContentSegment[] {
       });
       continue;
     }
-    if (item.part.type !== "step-start") processItems.push(item);
+    // One tool (or non-text process unit) per segment so the timeline shows
+    // WorkBuddy-style op chips instead of a single "收集资料" mega-fold.
+    if (item.part.type !== "step-start") {
+      flushProcess();
+      processItems.push(item);
+      flushProcess();
+    }
   }
   flushProcess();
   return segments;
