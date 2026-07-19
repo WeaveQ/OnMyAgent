@@ -160,6 +160,7 @@ export default {
   "agent_manager.agent_card.add_as_mine_exists": "{name} 已在「我的智能體」中",
   "agent_manager.agent_card.add_as_mine_fail_title": "納入失敗",
   "agent_manager.agent_card.add_as_mine_no_workspace": "請先開啟一個工作區",
+  "agent_manager.mcp.app_unavailable": "{label} 未納入「我的智能體」或未安裝，無法配置 MCP",
   "agent_manager.mcp.no_fleet_apps": "「我的智能體」中暫無可用 Agent。請先在「智能體管理」納入並啟用後再管理 MCP。",
   "agent_manager.provider_no_fleet_apps": "「我的智能體」中暫無可用 Agent。請先在「智能體管理」納入並啟用。",
   "agent_manager.agent_card.discoverable_hint": "來自內建 Agent 目錄 · 安裝後可直接使用，未安裝也可測試連線",

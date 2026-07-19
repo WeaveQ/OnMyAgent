@@ -755,7 +755,7 @@ export function SkillMatrixPanel(props: {
                 <NavTabButton
                   key={scope}
                   type="button"
-                  size="sm"
+                  size="filter"
                   active={inventoryScope === scope}
                   onClick={() => props.onInventoryScopeChange?.(scope)}
                   className="gap-1 px-2 text-xs"
