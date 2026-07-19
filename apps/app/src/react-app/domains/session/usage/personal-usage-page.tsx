@@ -56,8 +56,11 @@ function usageActivityModeLabel(mode: TokenActivityMode): string {
 function isGenericDisplayName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return true;
-  // Default fallback from i18n (`session.current_user` → 我 / Me / etc.).
-  const generic = new Set(["\u6211", "me", "you", "user", "anonymous"]);
+  // Default fallback from i18n (`session.current_user`) also counts as generic;
+  // resolve the current-locale label at runtime so we do not hardcode CJK here.
+  const localizedMe = t("session.current_user").trim();
+  const generic = new Set(["me", "you", "user", "anonymous"]);
+  if (localizedMe) generic.add(localizedMe.toLowerCase());
   return generic.has(trimmed.toLowerCase());
 }
 
