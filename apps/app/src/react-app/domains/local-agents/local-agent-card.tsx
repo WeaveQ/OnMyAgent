@@ -1,13 +1,14 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { memo } from "react";
-import { Bot, KeyRound, Loader2, Settings2, Wifi } from "lucide-react";
+import { KeyRound, Settings2, Wifi } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import type { PersonalLocalAgent, PersonalLocalAgentTestConnectionResult } from "../../../app/lib/desktop";
+import { AgentBrandIcon } from "./agent-brand-icon";
 import { localAgentStatus } from "./local-agent-filters";
 import { localAgentStatusDescriptor } from "./local-agent-status";
 
@@ -48,19 +49,22 @@ export const LocalAgentCard = memo(function LocalAgentCard(props: LocalAgentCard
         className="flex min-w-0 items-center gap-3 text-left"
         onClick={() => props.onSelect?.(agent.id)}
       >
-        <div className="relative shrink-0">
-          <div className="flex size-11 items-center justify-center overflow-hidden rounded-lg border border-dls-border bg-dls-decision-soft text-dls-accent">
-            {props.iconUrl ? (
-              <img src={props.iconUrl} alt="" className="size-7 object-contain" loading="lazy" draggable={false} />
-            ) : (
-              <Bot className="size-5" />
-            )}
-          </div>
-          <span
-            className={cn("absolute -right-0.5 bottom-0 size-3 rounded-full border-2 border-dls-surface", descriptor.dotClass)}
-            title={descriptor.label}
-          />
-        </div>
+        <AgentBrandIcon
+          id={agent.id}
+          provider={agent.provider}
+          src={props.iconUrl}
+          size="md"
+          alt={agent.name}
+          badge={
+            <span
+              className={cn(
+                "absolute -right-0.5 bottom-0 size-3 rounded-full border-2 border-dls-surface",
+                descriptor.dotClass,
+              )}
+              title={descriptor.label}
+            />
+          }
+        />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-medium text-dls-text">{agent.name}</span>

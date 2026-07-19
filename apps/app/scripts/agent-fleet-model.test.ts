@@ -109,6 +109,20 @@ describe("isManagedFleetMember", () => {
     expect(shouldAutoAdoptToStore(snow)).toBe(false);
   });
 
+  it("treats offline (installed, probe failed) auto-manage catalog as fleet", () => {
+    const claude = agent({
+      id: "claude",
+      provider: "custom",
+      status: "offline",
+      error: "spawn claude ENOENT",
+      discoverable: true,
+    });
+    // Must NOT reclassify offline+ENOENT-looking errors as missing.
+    expect(isManagedFleetMember(claude)).toBe(true);
+    expect(isDiscoverCandidate(claude)).toBe(false);
+    expect(shouldAutoAdoptToStore(claude)).toBe(true);
+  });
+
   it("never auto-adopts missing catalog drafts", () => {
     const gemini = agent({
       id: "gemini",
@@ -223,6 +237,31 @@ describe("isSkillAgentConfigTarget", () => {
         fleet,
       ),
     ).toEqual(["onmyagent", "opencode", "hermes", "grok"]);
+  });
+
+  it("skill matrix omits offline agents even when skill folders remain", () => {
+    const fleet = [
+      agent({ id: "opencode", provider: "opencode", status: "online" }),
+      agent({ id: "hermes", provider: "hermes", status: "offline" }),
+      agent({
+        id: "grok",
+        provider: "custom",
+        status: "offline",
+        agent_source: "custom",
+        discoverable: false,
+        nativeSkillsDirs: ["/Users/me/.grok/skills"],
+      }),
+      agent({ id: "claude", provider: "claude", status: "needs_auth" }),
+    ];
+    expect(
+      visibleSkillMatrixAgents(
+        ["onmyagent", "opencode", "codex", "claude", "gemini", "hermes", "openclaw"],
+        fleet,
+      ),
+    ).toEqual(["onmyagent", "opencode"]);
+    expect(isSkillAgentConfigTarget("hermes", fleet)).toBe(false);
+    expect(isSkillAgentConfigTarget("grok", fleet)).toBe(false);
+    expect(isSkillAgentConfigTarget("claude", fleet)).toBe(false);
   });
 
   it("MCP / provider sidebars list full managed fleet including custom agents", () => {

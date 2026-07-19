@@ -182,7 +182,7 @@ describe("residual UI style dialect contract", () => {
       "shell/architecture-mismatch-gate.tsx",
     ];
     const nonCtaLine =
-      /\b(object-cover|overflow-x-hidden|flex-wrap|ProgressTrack|progress-track|gap-0\.5 rounded-full border|h-full w-full rounded-full|blur-3xl|soft-blue-glow|soft-orange-glow|soft-signal-glow)\b/;
+      /\b(object-cover|overflow-x-hidden|flex-wrap|ProgressTrack|progress-track|gap-0\.5 rounded-(full|xl) border|h-full w-full rounded-full|blur-3xl|soft-blue-glow|soft-orange-glow|soft-signal-glow)\b/;
     const hits = sources.flatMap((s) => {
       const lineHits: string[] = [];
       s.source.split("\n").forEach((line, idx) => {

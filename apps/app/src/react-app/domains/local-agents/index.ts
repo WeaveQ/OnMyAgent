@@ -93,6 +93,7 @@ export {
 } from "./workspace-picker/recent-workspaces";
 
 export { resolveAgentIconUrlFor, resolveAgentIconUrl } from "./agent-icon-map";
+export { AgentBrandIcon, agentBrandIconTileClass } from "./agent-brand-icon";
 
 // Personal local-agent host page (owned by this domain)
 export { PersonalLocalAgentPage } from "./host/personal-local-agent-page";

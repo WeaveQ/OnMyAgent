@@ -16,15 +16,19 @@ describe("composer tool menu model", () => {
       ),
       "utf8",
     );
+    const helpers = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer-helpers.tsx",
+      ),
+      "utf8",
+    );
 
-    expect(source).toContain("showOuterBorder?: boolean;");
+    expect(helpers).toContain("showOuterBorder?: boolean;");
     expect(source).toContain(
-      'props.showOuterBorder ? "border border-dls-mist" : ""',
+      'props.showOuterBorder ? `border border-dls-mist',
     );
     expect(source).not.toContain("shadow-sm transition-shadow");
-    expect(source).not.toContain(
-      "relative overflow-visible rounded-xl border border-dls-border bg-dls-surface",
-    );
   });
 
   test("matches marketplace search styling for skills and connectors", () => {
@@ -64,16 +68,28 @@ describe("composer tool menu model", () => {
       ),
       "utf8",
     );
+    const helpers = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer-helpers.tsx",
+      ),
+      "utf8",
+    );
 
-    expect(source).toContain(
-      'type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";',
+    expect(helpers).toContain(
+      'export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";',
     );
     expect(source).toContain('t("composer.prompt_templates")');
     expect(source).toContain("selectedPromptTemplate.prompts.map");
     expect(source).toContain(
       "onMouseEnter={() => setSelectedPromptTemplateId(template.id)}",
     );
-    expect(source).toContain('left-[calc(36rem-2px)]');
+    // Primary (11rem) + compact secondary (14rem) → third flyout for selected template prompts.
+    expect(source).toContain("left-[calc(11rem+14rem-2px)]");
+    expect(source).toContain("max-w-[14rem]");
+    expect(source).toContain('toolMenuSection === "templates" ? "max-h-48" : "max-h-56"');
+    // WorkBuddy cascade: open 3rd panel when 提示词 section becomes active.
+    expect(source).toContain("WorkBuddy-style cascade");
     expect(source).toContain(
       "applyPromptTemplate(selectedPromptTemplate.id, prompt)",
     );

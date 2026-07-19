@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Boxes, Cpu, MessagesSquare, Plug, Plus, Puzzle, RefreshCw } from "lucide-react";
+import { Bot, Boxes, Cpu, MessagesSquare, Monitor, Plug, Plus, Puzzle, RefreshCw } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -41,8 +41,15 @@ import {
   partitionAgentsForFleet,
   shouldAutoAdoptToStore,
   collectUnavailableSkillAgents,
+  visibleSkillMatrixAgents,
 } from "./agent-fleet-model";
 import { STUDIO_SWITCH_SKILL_AGENT_OPTIONS } from "./agent-management-skill-model";
+import {
+  countFleetRelatedSkills,
+  countSharedPoolSkills,
+  filterSkillsByInventoryScope,
+  type SkillInventoryScope,
+} from "./skill-inventory-scope";
 import {
   AgentManagementProviderModal,
   AgentManagementProviderPanel,
@@ -193,12 +200,12 @@ function AgentManagementMetric(props: { label: string; value: string | number })
 
 const PANEL_TABS: Array<{
   id: AgentManagementPanel;
-  icon: typeof Bot;
+  icon: typeof Monitor;
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  // Order: 智能体管理 → 模型供应商 → 技能 → MCP → 会话管理
-  { id: "agents", icon: Bot, labelKey: "agent_manager.tab_agents" },
+  // Compact labels: 本地 / 模型 / 技能 / MCP / 会话
+  { id: "agents", icon: Monitor, labelKey: "agent_manager.tab_agents" },
   { id: "providers", icon: Boxes, labelKey: "agent_manager.tab_providers" },
   { id: "skills", icon: Puzzle, labelKey: "agent_manager.tab_skills" },
   { id: "mcp", icon: Plug, labelKey: "agent_manager.tab_mcp" },
@@ -232,6 +239,8 @@ export function AgentManagementPage(props: {
   const [skillColumnFilter, setSkillColumnFilter] = useState<AgentManagementSkillAgent[]>(() => initialUi.skillColumnFilter);
   const [skillSearch, setSkillSearch] = useState(() => initialUi.skillSearch);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string | null>(() => initialUi.selectedSkillKey);
+  /** Default fleet: only skills tied to managed agents (not full-disk 155). */
+  const [skillInventoryScope, setSkillInventoryScope] = useState<SkillInventoryScope>("fleet");
   const refresh = useCallback(async (options?: { force?: boolean }) => {
     const cached = readCachedAgentManagerSnapshot(cacheKey);
 
@@ -305,14 +314,12 @@ export function AgentManagementPage(props: {
   );
   const managedAgents = fleetParts.managed;
   const discoverAgents = fleetParts.discover;
+  // Status chips (健康 / 需登录 / 离线 / 未安装) only filter「我的智能体」.
+  // Discover catalog always lists the full installable set.
   const filteredManagedAgents = useMemo(() => {
     if (agentFilter === "all") return managedAgents;
     return managedAgents.filter((agent) => agentDisplayStatus(agent, healthResults[agent.id]) === agentFilter);
   }, [agentFilter, managedAgents, healthResults]);
-  const filteredDiscoverAgents = useMemo(() => {
-    if (agentFilter === "all") return discoverAgents;
-    return discoverAgents.filter((agent) => agentDisplayStatus(agent, healthResults[agent.id]) === agentFilter);
-  }, [agentFilter, discoverAgents, healthResults]);
 
   const openAddCustomAgent = useCallback(() => {
     setEditingAgent(null);
@@ -733,11 +740,44 @@ export function AgentManagementPage(props: {
     }
   }, [cacheKey]);
 
+  const matrixAgents = useMemo(() => {
+    const keys = visibleSkillMatrixAgents(
+      STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
+      snapshot?.agents ?? [],
+      healthResults,
+    );
+    // Prefer known product keys; keep custom ids that declare skill dirs.
+    return keys as AgentManagementSkillAgent[];
+  }, [snapshot?.agents, healthResults]);
+
+  const unavailableSkillAgents = useMemo(
+    () =>
+      collectUnavailableSkillAgents(
+        matrixAgents,
+        snapshot?.agents ?? [],
+        healthResults,
+      ),
+    [matrixAgents, snapshot?.agents, healthResults],
+  );
+
+  const skillScopeCounts = useMemo(() => {
+    const all = snapshot?.skills ?? [];
+    return {
+      all: all.length,
+      fleet: countFleetRelatedSkills(all, matrixAgents),
+      shared: countSharedPoolSkills(all),
+    };
+  }, [snapshot?.skills, matrixAgents]);
+
   const skills = useMemo(() => {
-    const items = snapshot?.skills ?? [];
+    const scoped = filterSkillsByInventoryScope(
+      snapshot?.skills ?? [],
+      skillInventoryScope,
+      matrixAgents,
+    );
     const query = skillSearch.trim().toLowerCase();
-    return items.filter((skill) => {
-      if (!query) return true;
+    if (!query) return scoped;
+    return scoped.filter((skill) => {
       const haystack = [
         skill.name,
         skill.displayNameZh,
@@ -750,15 +790,16 @@ export function AgentManagementPage(props: {
       ].filter(Boolean).join("\n").toLowerCase();
       return haystack.includes(query);
     });
-  }, [snapshot?.skills, skillSearch]);
+  }, [snapshot?.skills, skillSearch, skillInventoryScope, matrixAgents]);
 
   const skillCountsByAgent = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const skill of snapshot?.skills ?? []) {
+    // Counts reflect current inventory scope so column badges match visible rows.
+    for (const skill of skills) {
       for (const agent of skill.agents) counts[agent] = (counts[agent] ?? 0) + 1;
     }
     return counts;
-  }, [snapshot?.skills]);
+  }, [skills]);
 
   const totalRuns = snapshot?.agents.reduce((sum, agent) => sum + agent.usage.runs, 0) ?? 0;
   const onlineAgents = snapshot?.agents.filter((agent) => agent.status === "online").length ?? 0;
@@ -768,7 +809,7 @@ export function AgentManagementPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Store-style top chrome: segmented switch only (no page title). */}
       <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3 border-b-0")}>
-        <SegmentedTabGroup density="bare">
+        <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
           {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
             (tab) => {
               const Icon = tab.icon;
@@ -781,9 +822,10 @@ export function AgentManagementPage(props: {
                   onClick={() => setActivePanel(tab.id)}
                   size="tab"
                   shape="tab"
+                  aria-current={active ? "page" : undefined}
                 >
-                  <Icon className="size-3.5" />
-                  <span className="leading-none">{t(tab.labelKey)}</span>
+                  <Icon aria-hidden />
+                  <span>{t(tab.labelKey)}</span>
                 </NavTabButton>
               );
             },
@@ -820,21 +862,28 @@ export function AgentManagementPage(props: {
         </div>
       </header>
 
+      {/*
+        Shared content gutter for every tab (本地 / 模型 / 技能 / MCP / 会话).
+        Must match shellChrome.pageHeaderSimple (px-6) so left/right inset is identical
+        when switching panels — no full-bleed archive vs max-w-6xl agents mismatch.
+      */}
       <div
         className={cn(
-          "min-h-0 flex-1",
-          activePanel === "archive" || activePanel === "providers" || activePanel === "skills"
-            ? "overflow-hidden px-6 py-4"
-            : "overflow-y-auto px-6 py-4",
+          "min-h-0 flex-1 px-6 py-4",
+          activePanel === "archive" ||
+            activePanel === "providers" ||
+            activePanel === "skills" ||
+            activePanel === "mcp"
+            ? "overflow-hidden"
+            : "overflow-y-auto",
         )}
       >
         <div
           className={cn(
-            activePanel === "skills"
-              ? "mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-4"
-              : activePanel === "archive" || activePanel === "providers"
-                ? "flex h-full min-h-0 w-full flex-col"
-                : "mx-auto w-full max-w-6xl space-y-4",
+            "flex h-full min-h-0 w-full flex-col",
+            activePanel === "skills" && "gap-4",
+            activePanel === "agents" && "space-y-4",
+            activePanel === "mcp" && "min-h-0",
           )}
         >
           {error && activePanel !== "archive" ? (
@@ -967,8 +1016,7 @@ export function AgentManagementPage(props: {
                     <Cpu className="size-4 shrink-0 text-dls-secondary" />
                     <h3 className="text-sm font-medium text-dls-text">{t("agent_manager.discover_title")}</h3>
                     <span className="text-xs tabular-nums text-dls-secondary">
-                      {filteredDiscoverAgents.length}
-                      {agentFilter !== "all" ? ` / ${discoverAgents.length}` : ""}
+                      {discoverAgents.length}
                     </span>
                     <span className="text-xs text-dls-secondary">
                       {discoverOpen ? t("agent_manager.discover_collapse") : t("agent_manager.discover_expand")}
@@ -982,13 +1030,9 @@ export function AgentManagementPage(props: {
                       <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                         {t("agent_manager.discover_empty")}
                       </EmptyStateBox>
-                    ) : filteredDiscoverAgents.length === 0 ? (
-                      <EmptyStateBox size="spacious" tone="surface" className="text-sm">
-                        {t("agent_manager.discover_filter_empty")}
-                      </EmptyStateBox>
                     ) : (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                        {filteredDiscoverAgents.map((agent) => (
+                        {discoverAgents.map((agent) => (
                           <AgentManagementAgentCard
                             key={agent.id}
                             agent={agent}
@@ -1011,7 +1055,7 @@ export function AgentManagementPage(props: {
           ) : (
             <SkillMatrixPanel
               skills={skills}
-              totalSkills={snapshot?.skills.length ?? 0}
+              totalSkills={skillScopeCounts.all}
               search={skillSearch}
               onSearchChange={setSkillSearch}
               busyKey={skillActionKey}
@@ -1021,23 +1065,33 @@ export function AgentManagementPage(props: {
               countsByAgent={skillCountsByAgent}
               selectedSkill={selectedSkillKey ? (snapshot?.skills.find((item) => `${item.path}/${item.name}` === selectedSkillKey) ?? null) : null}
               onSelectSkill={(skill) => setSelectedSkillKey(skill ? `${skill.path}/${skill.name}` : null)}
+              matrixAgents={matrixAgents}
+              unavailableAgents={unavailableSkillAgents}
+              inventoryScope={skillInventoryScope}
+              onInventoryScopeChange={setSkillInventoryScope}
+              scopeCounts={skillScopeCounts}
             />
           )}
         </div>
       </div>
 
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) closeEditor(); }}>
-        <DialogContent className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
-          <DialogHeader className="border-b border-dls-border px-5 py-4">
+        {/* Match provider modal: fixed width, sticky chrome, scroll body (历史布局优化). */}
+        <DialogContent className="flex max-h-[90vh] !w-[min(720px,calc(100vw-32px))] !max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
+          <DialogHeader className="shrink-0 border-b border-dls-border bg-dls-surface px-5 py-3.5">
             <DialogTitle className="truncate text-base font-medium text-dls-text">
               {editingAgent ? t("agent_manager.custom_agents_edit") : t("agent_manager.custom_agents_add")}
             </DialogTitle>
+            <p className="mt-0.5 text-xs text-dls-secondary">
+              {t("agent_manager.custom_agents_dialog_desc")}
+            </p>
           </DialogHeader>
-          <div className="px-5 py-4">
+          <div className="flex min-h-0 flex-1 flex-col bg-dls-background px-5 py-4">
             <InlineAgentEditor
               agent={editingAgent}
               busy={editorBusy}
               error={editorError}
+              embedded
               onCancel={closeEditor}
               onSave={handleSaveCustomAgent}
             />

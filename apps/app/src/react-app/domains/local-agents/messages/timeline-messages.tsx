@@ -27,7 +27,18 @@ export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefine
  * this keeps the rich PersonalLocalAgentConversationMessage shape for UI cards.
  */
 export function visibleRunTimelineMessages(run: PersonalLocalAgentRunResult | null | undefined) {
-  return mapPersonalRunToMessages(run) as PersonalLocalAgentConversationMessage[];
+  const messages = mapPersonalRunToMessages(run) as PersonalLocalAgentConversationMessage[];
+  // Runtime emits both type:error and tips(category=error) for the same failure.
+  // Keep the tips card (has resolution CTA) and drop the bare duplicate error row.
+  return messages.filter((message, index, list) => {
+    if (message.type !== "error") return true;
+    const next = list[index + 1];
+    if (next?.type === "tips" && next.category === "error") return false;
+    const hasErrorTip = list.some(
+      (item) => item.type === "tips" && item.category === "error",
+    );
+    return !hasErrorTip;
+  });
 }
 
 /** Runtime-agnostic ConversationItemVM[] for the same personal run. */

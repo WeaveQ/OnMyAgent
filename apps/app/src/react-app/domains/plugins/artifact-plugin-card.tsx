@@ -57,9 +57,9 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   return (
     <article
       className={cn(
-        "group flex cursor-pointer flex-col gap-2.5 rounded-2xl border border-transparent bg-dls-surface p-3.5 transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover",
-        "focus-within:border-dls-border focus-within:bg-dls-hover",
+        "group flex h-full min-h-[5.5rem] cursor-pointer flex-col gap-2 rounded-xl border border-dls-border/50 bg-dls-surface p-3.5 transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover/60",
+        "focus-within:border-dls-border focus-within:bg-dls-hover/60",
         !enabled && "opacity-70",
       )}
       onClick={props.onOpen}
@@ -74,7 +74,7 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
       tabIndex={0}
       aria-label={`${copy.name}. ${props.openLabel}`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-2.5">
         <ArtifactPluginIcon pluginId={plugin.id} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
@@ -98,7 +98,7 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-end pl-0.5">
+      <div className="flex items-center justify-end">
         <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
           {props.openLabel}
           <ChevronRight className="size-3.5" aria-hidden="true" />

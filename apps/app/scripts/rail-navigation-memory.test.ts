@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  isPrimarySessionRailView,
+  isRailKeepAliveView,
   readAssistantCategoryMemory,
   readRailView,
   writeAssistantCategoryMemory,
@@ -116,5 +118,35 @@ describe("rail keep-alive contract", () => {
     // visibility:hidden lets descendants paint — that stacked composer over 管理.
     expect(pane).not.toMatch(/className=\{[^}]*\binvisible\b/);
     expect(pane).toContain('props.active ? "z-[1]" : "z-0 hidden"');
+  });
+
+  test("primary session rail is only assistant/chat", () => {
+    expect(isPrimarySessionRailView("assistant")).toBe(true);
+    expect(isPrimarySessionRailView("chat")).toBe(true);
+    expect(isPrimarySessionRailView("localAgent")).toBe(false);
+    expect(isPrimarySessionRailView("agentManagement")).toBe(false);
+    expect(isPrimarySessionRailView("files")).toBe(false);
+    expect(isPrimarySessionRailView("store")).toBe(false);
+    expect(isRailKeepAliveView("agentManagement")).toBe(true);
+    expect(isRailKeepAliveView("assistant")).toBe(false);
+  });
+
+  test("assistant and expert hide SessionSurface under secondary rails", () => {
+    const assistant = readFileSync(
+      join(import.meta.dir, "../src/react-app/domains/session/pages/assistant.tsx"),
+      "utf8",
+    );
+    const expert = readFileSync(
+      join(import.meta.dir, "../src/react-app/domains/session/pages/expert.tsx"),
+      "utf8",
+    );
+    for (const source of [assistant, expert]) {
+      expect(source).toContain("isPrimarySessionRailView");
+      expect(source).toContain("isPrimarySessionView");
+      // SessionSurface must live inside KeepAlivePane gated by primary view
+      expect(source).toMatch(
+        /KeepAlivePane[\s\S]*?active=\{\s*isPrimarySessionView[\s\S]*?SessionSurface/,
+      );
+    }
   });
 });

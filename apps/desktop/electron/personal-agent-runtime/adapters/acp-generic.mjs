@@ -900,8 +900,30 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             appendEvent({ type: "status", text: `acp_context_usage> ${JSON.stringify({ used: fallbackUsage.used, total })}` });
           }
         }
-        const output = outputParts.join("").trim();
+        let output = outputParts.join("").trim();
         const completion = assertAcpPromptCompleted(provider, promptResult);
+        // Some custom ACP agents return final text only on the prompt result
+        // (no agent_message_chunk stream). Recover that before treating as empty.
+        if (!output) {
+          const fallbackText = textFromAcpContent(
+            promptResult?.message
+              ?? promptResult?.text
+              ?? promptResult?.content
+              ?? promptResult?.result?.message
+              ?? promptResult?.result?.text
+              ?? promptResult?.result?.content
+              ?? promptResult?.response
+              ?? "",
+          ).trim();
+          if (fallbackText) {
+            output = fallbackText;
+            appendEvent({ type: "assistant_chunk", text: fallbackText });
+            appendEvent({
+              type: "status",
+              text: `${provider} ACP returned assistant text only in the prompt result (no streamed chunks).`,
+            });
+          }
+        }
         if (/\*?conversation interrupted\*?/i.test(output)) {
           const detail = failedToolUpdates.at(-1) ?? "ACP session reported conversation interrupted";
           await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, { sessionId, workdir, health: "unhealthy", lastFailureCode: "acp_bridge_interrupted", lastFailure: detail, updatedAt: Date.now() });
@@ -917,7 +939,14 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             throw acpFailureError(provider, code, `${provider} ACP tool call failed. ${detail}`);
           }
         }
-        if (!output) throw new Error(`${provider} ACP completed without assistant text`);
+        if (!output) {
+          const stopHint = completion.stopReason ? ` stopReason=${completion.stopReason}` : "";
+          throw acpFailureError(
+            provider,
+            "empty_output",
+            `${provider} ACP completed without assistant text.${stopHint}`.trim(),
+          );
+        }
         if (!completion.ok) {
           // Truncated output is preserved and shown as-is; the incomplete-output
           // warning lets the frontend render a truncation indicator.

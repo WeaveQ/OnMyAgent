@@ -41,6 +41,10 @@ export const TASK_CONTEXT_MENU_ITEM_CLASS =
 export const TASK_ROW_ACTION_CLASS =
   "inline-flex size-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 leading-none text-dls-secondary outline-none transition-colors hover:text-dls-text focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0";
 
+/** WorkBuddy: labeled archive chip on row hover (icon-only is too easy to miss). */
+export const TASK_ROW_ARCHIVE_CHIP_CLASS =
+  "inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-dls-border/70 bg-dls-surface-solid px-1.5 text-xs font-normal leading-none text-dls-secondary shadow-sm outline-none transition-colors hover:border-dls-border hover:bg-dls-surface-muted hover:text-dls-text focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:pointer-events-none [&_svg]:size-3 [&_svg]:shrink-0";
+
 function TaskMenuItem(props: {
   onClick: () => void;
   children: ReactNode;
@@ -109,7 +113,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
   return (
     <div
       className={cn(
-        "group flex w-full gap-1 rounded-md px-2 transition-colors",
+        // WorkBuddy task card: soft pill selection, single-line dense row.
+        "group relative flex w-full gap-1 rounded-lg px-2 transition-colors",
         singleLine
           ? // Match LIST_ROW_H in assistant-conversation-sections (strict 32px).
             "h-8 min-h-8 max-h-8 shrink-0 items-center overflow-hidden py-0"
@@ -146,6 +151,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         >
           {props.group.description}
         </span>
+        {/* Two-line preview only when not WorkBuddy single-line mode. */}
         {!singleLine && props.group.preview ? (
           <span className="w-full truncate text-xs font-normal leading-4 text-dls-secondary">
             {props.group.preview}
@@ -153,8 +159,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         ) : null}
       </Button>
       {/*
-        WorkBuddy idle: always show relative time (pin state is the 置顶任务 section).
-        Hover: ⋯ / archive / pin — pin stays accent when already pinned (unpin).
+        WorkBuddy idle: relative time only (pin lives under 置顶任务 section).
+        Hover: ⋯ / pin / labeled 归档 chip — matches pinned-row reference.
       */}
       <div
         className={cn(
@@ -176,7 +182,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
       </div>
       <div
         className={cn(
-          "hidden shrink-0 items-center justify-end gap-0 group-hover:flex",
+          "hidden shrink-0 items-center justify-end gap-0.5 group-hover:flex",
           singleLine ? "h-8 self-center" : "self-start",
           menuOpen && "flex",
         )}
@@ -198,24 +204,6 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         >
           <MoreHorizontal strokeWidth={1.75} />
         </button>
-        {props.onArchiveSession ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setMenuOpen(false);
-              props.onArchiveSession?.(
-                latestSession.id,
-                props.group.description,
-              );
-            }}
-            className={TASK_ROW_ACTION_CLASS}
-            title={t("session.archive_task")}
-            aria-label={t("session.archive_task")}
-          >
-            <Archive strokeWidth={1.75} />
-          </button>
-        ) : null}
         {pinnable && props.onTogglePinned ? (
           <button
             type="button"
@@ -239,6 +227,25 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             ) : (
               <Pin strokeWidth={1.75} />
             )}
+          </button>
+        ) : null}
+        {props.onArchiveSession ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen(false);
+              props.onArchiveSession?.(
+                latestSession.id,
+                props.group.description,
+              );
+            }}
+            className={TASK_ROW_ARCHIVE_CHIP_CLASS}
+            title={t("session.archive_task")}
+            aria-label={t("session.archive_task")}
+          >
+            <Archive strokeWidth={1.75} />
+            <span>{t("session.archive_task")}</span>
           </button>
         ) : null}
       </div>
@@ -273,17 +280,6 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             <Pencil strokeWidth={1.75} />
             {t("session.rename_action")}
           </TaskMenuItem>
-          {props.onSaveToSpace ? (
-            <TaskMenuItem
-              onClick={() => {
-                setMenuOpen(false);
-                props.onSaveToSpace?.(latestSession.id);
-              }}
-            >
-              <Box strokeWidth={1.75} />
-              {t("session.save_to_space")}
-            </TaskMenuItem>
-          ) : null}
           {pinnable && props.onTogglePinned ? (
             <TaskMenuItem
               onClick={() => {
@@ -311,6 +307,18 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             >
               <Archive strokeWidth={1.75} />
               {t("session.archive_task")}
+            </TaskMenuItem>
+          ) : null}
+          {/* WorkBuddy order: 保存到空间 sits below 归档 */}
+          {props.onSaveToSpace ? (
+            <TaskMenuItem
+              onClick={() => {
+                setMenuOpen(false);
+                props.onSaveToSpace?.(latestSession.id);
+              }}
+            >
+              <Box strokeWidth={1.75} />
+              {t("session.save_to_space")}
             </TaskMenuItem>
           ) : null}
           {props.onDeleteSession ? (

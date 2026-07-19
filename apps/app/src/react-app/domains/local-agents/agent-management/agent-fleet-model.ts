@@ -133,10 +133,22 @@ export function isFleetConfigReadyAgent(
 }
 
 /**
- * Skill-matrix / MCP / provider app key is interactive only when a matching
- * fleet agent exists (managed + installed + enabled). No phantom columns —
- * except `onmyagent`, which is the host product skill root (`~/.onmyagent/skills`)
- * and always appears as a skill-matrix target even without a fleet agent row.
+ * Skill-matrix columns only: managed + installed + enabled + healthy (online).
+ * Offline / needs_auth / missing stay out — leftover skill folders after an
+ * uninstall must not create empty dead columns.
+ */
+export function isSkillMatrixReadyAgent(
+  agent: AgentManagementAgent,
+  health?: AgentManagementHealthResult | null,
+): boolean {
+  if (!isFleetConfigReadyAgent(agent, health)) return false;
+  return agentDisplayStatus(agent, health) === "online";
+}
+
+/**
+ * Skill-matrix column key is interactive only when a matching healthy fleet
+ * agent exists. No phantom / offline columns — except `onmyagent`, which is the
+ * host product skill root (`~/.onmyagent/skills`) and always appears.
  */
 export function isSkillAgentConfigTarget(
   skillAgentKey: string,
@@ -149,7 +161,7 @@ export function isSkillAgentConfigTarget(
   if (key === "onmyagent") return true;
   const matches = agents.filter((agent) => agentKeys(agent).includes(key));
   if (matches.length === 0) return false;
-  return matches.some((agent) => isFleetConfigReadyAgent(agent, healthById?.[agent.id] ?? null));
+  return matches.some((agent) => isSkillMatrixReadyAgent(agent, healthById?.[agent.id] ?? null));
 }
 
 export function collectUnavailableSkillAgents<T extends string>(
@@ -184,8 +196,9 @@ function agentHasSkillDirs(agent: AgentManagementAgent): boolean {
 }
 
 /**
- * Skill matrix columns: product keys in fleet + custom fleet agents that declare nativeSkillsDirs.
- * Custom agents without skill dirs stay in 机群 only (no column).
+ * Skill matrix columns: healthy product keys in fleet + healthy custom fleet
+ * agents that declare nativeSkillsDirs. Offline agents (binary gone, stale
+ * folders) never get a column.
  */
 export function visibleSkillMatrixAgents(
   productSkillKeys: ReadonlyArray<string>,
@@ -196,7 +209,7 @@ export function visibleSkillMatrixAgents(
   const productSet = new Set(product.map((key) => key.toLowerCase()));
   const custom: string[] = [];
   for (const agent of agents) {
-    if (!isFleetConfigReadyAgent(agent, healthById?.[agent.id] ?? null)) continue;
+    if (!isSkillMatrixReadyAgent(agent, healthById?.[agent.id] ?? null)) continue;
     if (!agentHasSkillDirs(agent)) continue;
     const id = String(agent.id ?? "").trim();
     if (!id || productSet.has(id.toLowerCase())) continue;

@@ -9,7 +9,6 @@ import {
   ExternalLink,
   FileSearch,
   FileStack,
-  FileText,
   Folder,
   FolderOpen,
   MoreHorizontal,
@@ -37,7 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { shellChrome } from "@/react-app/design-system/type-scale";
+import { shellChrome, typeScale } from "@/react-app/design-system/type-scale";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import type {
   OnMyAgentServerClient,
@@ -48,10 +47,6 @@ import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 import type { OpenTarget } from "../../capabilities/artifacts/open-target";
 import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
-
-const workspaceFilesTextClass = {
-  pageTitle: "text-lg font-medium text-dls-text",
-};
 
 function formatWorkspaceFileSize(size: number) {
   if (!Number.isFinite(size) || size <= 0) return "0 B";
@@ -85,6 +80,20 @@ type WorkspaceFileTreeNode = {
   mtimeMs: number;
   children: WorkspaceFileTreeNode[];
 };
+
+function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
+  if (props.node.kind === "dir") {
+    return <Folder className="size-4 shrink-0 text-dls-status-warning-fg" />;
+  }
+  const target = workspaceFileOpenTarget({
+    fileRoot: props.fileRoot || "/",
+    path: props.node.path,
+    name: props.node.name,
+    size: props.node.size,
+    mtimeMs: props.node.mtimeMs,
+  });
+  return <ArtifactIcon type={target.preview} className="size-4 shrink-0" />;
+}
 
 function shouldHideEntry(path: string): boolean {
   const parts = path.split("/").filter(Boolean);
@@ -763,9 +772,10 @@ export function WorkspaceFilesPage(props: {
             onClick={() => setActiveTab("task")}
             size="tab"
             shape="tab"
+            aria-current={activeTab === "task" ? "page" : undefined}
           >
-            <FileStack className="size-3.5" />
-            <span className="leading-none">{t("files.task_results")}</span>
+            <FileStack aria-hidden />
+            <span>{t("files.task_results")}</span>
           </NavTabButton>
           <NavTabButton
             active={activeTab === "cloud"}
@@ -773,42 +783,50 @@ export function WorkspaceFilesPage(props: {
             onClick={() => setActiveTab("cloud")}
             size="tab"
             shape="tab"
+            aria-current={activeTab === "cloud" ? "page" : undefined}
           >
-            <Cloud className="size-3.5" />
-            <span className="leading-none">{t("files.cloud_drive")}</span>
+            <Cloud aria-hidden />
+            <span>{t("files.cloud_drive")}</span>
           </NavTabButton>
         </SegmentedTabGroup>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-8">
-        <div className="flex h-full w-full flex-col">
+      <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
+        <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
           {activeTab === "cloud" ? (
             <CloudDriveEmptyState />
           ) : (
             <>
-          <div className="mb-6 flex shrink-0 items-end justify-between gap-6">
-            <div className="min-w-0">
-              <h1 className={workspaceFilesTextClass.pageTitle}>
+          <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 max-w-xl">
+              <h1 className={typeScale.pageTitle}>
                 {t("files.title")}
               </h1>
-              <p className="mt-2 text-sm text-dls-secondary">
+              <p className={cn(typeScale.pageSubtitle, "mt-1")}>
                 {t("files.description")}
               </p>
             </div>
-            <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-md">
               <div className="relative shrink-0">
                 <Button
                   type="button"
                   variant="outline"
-                  size="lg"
+                  size="default"
                   onClick={() => setTypeMenuOpen((prev) => !prev)}
+                  className="h-9 gap-1.5 px-3 text-sm"
                 >
-                  <SlidersHorizontal data-icon="inline-start" className="size-4 text-dls-secondary" />
+                  <SlidersHorizontal data-icon="inline-start" className="size-3.5 text-dls-secondary" />
                   {fileCategoryLabel(typeFilter)}
                   <ChevronDown className={cn("size-3.5 transition-transform", typeMenuOpen && "rotate-180")} />
                 </Button>
                 {typeMenuOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-2 flex min-w-[136px] flex-col rounded-lg border border-dls-border bg-dls-surface py-1">
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-lg border border-dls-border bg-dls-surface-solid py-1 shadow-md"
+                    style={{
+                      // Opaque on mac Electron glass — dls-surface alone is translucent.
+                      backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
+                    }}
+                  >
                     {FILE_CATEGORIES.map((cat) => (
                       <MenuRowButton
                         key={cat}
@@ -823,175 +841,197 @@ export function WorkspaceFilesPage(props: {
                   </div>
                 )}
               </div>
-              <InputGroup controlSize="lg" radius="xl" tone="surface" className="min-w-[280px] max-w-[360px] flex-1">
+              <InputGroup controlSize="default" radius="lg" tone="surface" className="min-w-[200px] max-w-[280px] flex-1">
                 <InputGroupAddon align="inline-start">
-                  <Search className="size-4" />
+                  <Search className="size-3.5" />
                 </InputGroupAddon>
                 <InputGroupInput
                   value={query}
                   onChange={(e) => setQuery(e.currentTarget.value)}
                   placeholder={t("files.search_placeholder")}
-                  className="h-10 text-sm placeholder:text-dls-secondary"
+                  className="h-9 text-sm placeholder:text-dls-secondary"
                 />
               </InputGroup>
             </div>
           </div>
 
           <div className="relative min-h-0 flex-1">
-            <div className="h-full min-h-0 overflow-auto pr-1">
+            <div className="h-full min-h-0 overflow-auto">
               {loading && entries.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-dls-secondary">
+                <div className="flex h-full min-h-48 items-center justify-center text-sm text-dls-secondary">
                   {t("files.loading")}
                 </div>
               ) : error ? (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                <div className="flex h-full min-h-48 items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {error}
                 </div>
               ) : (
-                <div className="py-3">
+                <div className="flex min-h-0 flex-col gap-3 pb-4">
                   <nav
                     data-workspace-file-breadcrumb="true"
                     aria-label={t("files.breadcrumb_label")}
-                    className="mb-3 flex min-h-8 items-center gap-1 text-sm text-dls-secondary"
+                    className="flex min-h-8 flex-wrap items-center gap-0.5 rounded-lg border border-dls-border/70 bg-dls-surface-muted/40 px-2 py-1 text-sm text-dls-secondary"
                   >
                     <Button
                       type="button"
                       variant="ghost"
                       size="xs"
-                      className="px-2 text-dls-secondary hover:text-dls-text"
+                      className={cn(
+                        "h-7 px-2 hover:text-dls-text",
+                        currentDirectoryPath
+                          ? "text-dls-secondary"
+                          : "font-medium text-dls-text",
+                      )}
                       onClick={() => setCurrentDirectoryPath("")}
                     >
                       {t("files.task_results")}
                     </Button>
-                    {breadcrumbs.map((item) => (
-                      <span key={item.path} className="flex min-w-0 items-center gap-1">
-                        <ChevronRight className="size-3 shrink-0" />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          className="max-w-48 min-w-0 px-2 text-dls-secondary hover:text-dls-text"
-                          onClick={() => setCurrentDirectoryPath(item.path)}
-                        >
-                          <span className="truncate">{item.name}</span>
-                        </Button>
-                      </span>
-                    ))}
+                    {breadcrumbs.map((item, index) => {
+                      const isLast = index === breadcrumbs.length - 1;
+                      return (
+                        <span key={item.path} className="flex min-w-0 items-center gap-0.5">
+                          <ChevronRight className="size-3 shrink-0 opacity-60" />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            className={cn(
+                              "max-w-48 min-w-0 h-7 px-2 hover:text-dls-text",
+                              isLast
+                                ? "font-medium text-dls-text"
+                                : "text-dls-secondary",
+                            )}
+                            onClick={() => setCurrentDirectoryPath(item.path)}
+                          >
+                            <span className="truncate">{item.name}</span>
+                          </Button>
+                        </span>
+                      );
+                    })}
                   </nav>
                   {currentDirectory.children.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead>{t("files.column_name")}</TableHead>
-                          <TableHead className="w-32">
-                            {t("files.column_type")}
-                          </TableHead>
-                          <TableHead className="w-44">
-                            {t("files.column_updated")}
-                          </TableHead>
-                          <TableHead className="w-28">
-                            {t("files.column_size")}
-                          </TableHead>
-                          <TableHead className="w-12">
-                            <span className="sr-only">
-                              {t("files.column_actions")}
-                            </span>
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {currentDirectory.children.map((node) => (
-                        <TableRow
-                          key={node.path}
-                          data-workspace-file-row={node.kind}
-                          role="button"
-                          tabIndex={0}
-                          className={cn(
-                            "group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                            selectedFile?.path === node.path && "bg-dls-surface-muted",
-                          )}
-                          onClick={() => {
-                            if (node.kind === "dir") {
-                              setCurrentDirectoryPath(node.path);
-                              return;
-                            }
-                            void handleSelectFile(node);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.target !== event.currentTarget) return;
-                            if (event.key !== "Enter" && event.key !== " ") return;
-                            event.preventDefault();
-                            if (node.kind === "dir") {
-                              setCurrentDirectoryPath(node.path);
-                              return;
-                            }
-                            void handleSelectFile(node);
-                          }}
-                        >
-                          <TableCell>
-                            <span className="flex min-w-0 items-center gap-2">
-                              {node.kind === "dir" ? (
-                                <Folder className="size-4 shrink-0 text-dls-status-warning-fg" />
-                              ) : (
-                                <FileText className="size-4 shrink-0 text-dls-secondary" />
-                              )}
-                              <span className="truncate text-dls-text">{node.name}</span>
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-dls-secondary">
-                            {node.kind === "dir" ? t("files.type_folder") : t("files.type_file")}
-                          </TableCell>
-                          <TableCell className="text-dls-secondary">
-                            {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
-                          </TableCell>
-                          <TableCell className="text-dls-secondary">
-                            {node.kind === "dir" ? "-" : formatWorkspaceFileSize(node.size)}
-                          </TableCell>
-                          <TableCell className="relative">
-                            {node.kind === "file" ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setMenuPath(node.path);
-                                }}
-                                className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                                aria-label={t("files.file_actions", { name: node.name })}
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </Button>
-                            ) : null}
-                            {menuPath === node.path ? (
-                              <div className="absolute right-3 top-10 z-20 flex min-w-32 flex-col rounded-lg border border-dls-border bg-dls-surface py-1">
-                                <MenuRowButton
-                                  align="center"
+                    <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="h-10 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                              {t("files.column_name")}
+                            </TableHead>
+                            <TableHead className="h-10 w-28 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                              {t("files.column_type")}
+                            </TableHead>
+                            <TableHead className="h-10 w-40 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                              {t("files.column_updated")}
+                            </TableHead>
+                            <TableHead className="h-10 w-24 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                              {t("files.column_size")}
+                            </TableHead>
+                            <TableHead className="h-10 w-12 bg-dls-surface-muted/50">
+                              <span className="sr-only">
+                                {t("files.column_actions")}
+                              </span>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentDirectory.children.map((node) => (
+                          <TableRow
+                            key={node.path}
+                            data-workspace-file-row={node.kind}
+                            role="button"
+                            tabIndex={0}
+                            className={cn(
+                              "group h-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dls-accent/30",
+                              selectedFile?.path === node.path && "bg-dls-surface-muted",
+                            )}
+                            onClick={() => {
+                              if (node.kind === "dir") {
+                                setCurrentDirectoryPath(node.path);
+                                return;
+                              }
+                              void handleSelectFile(node);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.target !== event.currentTarget) return;
+                              if (event.key !== "Enter" && event.key !== " ") return;
+                              event.preventDefault();
+                              if (node.kind === "dir") {
+                                setCurrentDirectoryPath(node.path);
+                                return;
+                              }
+                              void handleSelectFile(node);
+                            }}
+                          >
+                            <TableCell className="py-2">
+                              <span className="flex min-w-0 items-center gap-2.5">
+                                <FileKindIcon node={node} fileRoot={fileRoot} />
+                                <span className="truncate text-sm text-dls-text">
+                                  {node.name}
+                                </span>
+                                {node.kind === "dir" ? (
+                                  <ChevronRight className="ml-auto size-3.5 shrink-0 text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100" />
+                                ) : null}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-2 text-xs text-dls-secondary">
+                              {node.kind === "dir"
+                                ? t("files.type_folder")
+                                : fileCategoryLabel(getFileCategory(node.name))}
+                            </TableCell>
+                            <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                              {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
+                            </TableCell>
+                            <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                              {node.kind === "dir" ? "-" : formatWorkspaceFileSize(node.size)}
+                            </TableCell>
+                            <TableCell className="relative py-2">
+                              {node.kind === "file" ? (
+                                <Button
                                   type="button"
-                                  onClick={() => handleOpenFile(node.path)}
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setMenuPath(node.path);
+                                  }}
+                                  className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                  aria-label={t("files.file_actions", { name: node.name })}
                                 >
-                                  {t("files.open_in_folder")}
-                                </MenuRowButton>
-                                <MenuRowButton
-                                  align="center"
-                                  type="button"
-                                  onClick={() => handleDeleteFile(node.path)}
-                                  className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
-                                >
-                                  {t("common.remove")}
-                                </MenuRowButton>
-                              </div>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              ) : null}
+                              {menuPath === node.path ? (
+                                <div className="absolute right-3 top-9 z-20 flex min-w-32 flex-col rounded-lg border border-dls-border bg-dls-surface py-1 shadow-md">
+                                  <MenuRowButton
+                                    align="center"
+                                    type="button"
+                                    onClick={() => handleOpenFile(node.path)}
+                                  >
+                                    {t("files.open_in_folder")}
+                                  </MenuRowButton>
+                                  <MenuRowButton
+                                    align="center"
+                                    type="button"
+                                    onClick={() => handleDeleteFile(node.path)}
+                                    className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
+                                  >
+                                    {t("common.remove")}
+                                  </MenuRowButton>
+                                </div>
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   ) : (
-                    <FilesListEmptyState
-                      filtered={typeFilter !== "all" || Boolean(query.trim())}
-                      sessionScoped={requiresSessionFileRoot}
-                    />
+                    <div className="rounded-xl border border-dashed border-dls-border bg-dls-surface/50">
+                      <FilesListEmptyState
+                        filtered={typeFilter !== "all" || Boolean(query.trim())}
+                        sessionScoped={requiresSessionFileRoot}
+                      />
+                    </div>
                   )}
                 </div>
               )}

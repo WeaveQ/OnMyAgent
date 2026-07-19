@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useMemo, useState } from "react";
-import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, XCircle, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SelectMenu } from "../../design-system/select-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import type { PersonalLocalAgent, PersonalLocalAgentTestCustomAgentResult } from "../../../app/lib/desktop";
 import { personalLocalAgentTestCustomAgent } from "../../../app/lib/desktop";
@@ -80,12 +81,19 @@ function envRecord(rows: EnvVarRow[]): Record<string, string> {
   return result;
 }
 
+const labelClass = "text-xs font-medium text-dls-secondary";
+const fieldHintClass = "text-xs leading-tight text-dls-text-tertiary";
+const sectionClass =
+  "space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4";
+
 export function InlineAgentEditor(props: {
   agent?: PersonalLocalAgent | null;
   busy?: boolean;
   error?: string | null;
   onCancel: () => void;
   onSave: (value: InlineAgentEditorValue) => void;
+  /** When true, omit outer chrome (dialog already provides surface). */
+  embedded?: boolean;
 }) {
   // Callers pass agent objects that may carry richer editor-only fields (description,
   // env map, nativeSkillsDirs, behaviorPolicy) not exposed on the public PersonalLocalAgent type.
@@ -105,8 +113,8 @@ export function InlineAgentEditor(props: {
   const [supportsApproval, setSupportsApproval] = useState<boolean>(editableAgent?.supportsApproval === true);
   const [supportsModelOverride, setSupportsModelOverride] = useState<boolean>(editableAgent?.supportsModelOverride === true);
   const [authRequired, setAuthRequired] = useState<boolean>(editableAgent?.authRequired === true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  // Test Connection state
   type TestStatus = "idle" | "testing" | "success" | "fail_cli" | "fail_acp";
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testError, setTestError] = useState<string | null>(null);
@@ -145,7 +153,8 @@ export function InlineAgentEditor(props: {
   }, [behaviorPolicy, command, env, id, name]);
 
   const save = () => {
-    if (validation || props.busy) return;
+    if (validation) return;
+    const parsedPolicy = parseBehaviorPolicy(behaviorPolicy);
     props.onSave({
       id: id.trim(),
       name: name.trim(),
@@ -154,7 +163,7 @@ export function InlineAgentEditor(props: {
       env: envRecord(env),
       description: description.trim(),
       nativeSkillsDirs: nativeSkillsDirs.split(/\n+/).map((item) => item.trim()).filter(Boolean),
-      behaviorPolicy: parseBehaviorPolicy(behaviorPolicy).value,
+      behaviorPolicy: parsedPolicy.value,
       connectionType,
       acpArgs: splitArgs(acpArgs),
       supportsStreaming,
@@ -166,105 +175,218 @@ export function InlineAgentEditor(props: {
   };
 
   return (
-    <form className="space-y-3 rounded-lg border border-dls-border bg-dls-surface-muted/35 p-3" onSubmit={(event) => { event.preventDefault(); save(); }}>
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="space-y-1 text-xs text-dls-secondary">
-          <span>{t("local_agent.editor_id")}</span>
-          <Input data-testid="local-agent-editor-id" variant="dls" value={id} disabled={props.busy || Boolean(props.agent)} onChange={(event) => setId(event.target.value)} placeholder={t("local_agent.editor_id_placeholder")} />
-        </label>
-        <label className="space-y-1 text-xs text-dls-secondary">
-          <span>{t("local_agent.editor_name")}</span>
-          <Input data-testid="local-agent-editor-name" variant="dls" value={name} disabled={props.busy} onChange={(event) => setName(event.target.value)} placeholder={t("local_agent.editor_name_placeholder")} />
-        </label>
-        <label className="space-y-1 text-xs text-dls-secondary">
-          <span>{t("local_agent.editor_command")}</span>
-          <Input data-testid="local-agent-editor-command" variant="dls" value={command} disabled={props.busy} onChange={(event) => setCommand(event.target.value)} placeholder={t("local_agent.editor_command_placeholder")} />
-        </label>
-        <label className="space-y-1 text-xs text-dls-secondary">
-          <span>{t("local_agent.editor_args")}</span>
-          <Input data-testid="local-agent-editor-args" variant="dls" value={args} disabled={props.busy} onChange={(event) => setArgs(event.target.value)} placeholder={t("local_agent.editor_args_placeholder")} />
-        </label>
-      </div>
-      <label className="block space-y-1 text-xs text-dls-secondary">
-        <span>{t("local_agent.editor_description")}</span>
-        <Textarea data-testid="local-agent-editor-description" className="min-h-20 resize-y bg-dls-surface" value={description} disabled={props.busy} onChange={(event) => setDescription(event.target.value)} placeholder={t("local_agent.editor_description_placeholder")} />
-      </label>
-      <EnvVarEditor rows={env} disabled={props.busy} onChange={setEnv} />
-      <label className="block space-y-1 text-xs text-dls-secondary">
-        <span>{t("local_agent.editor_native_skills_dirs")}</span>
-        <Textarea data-testid="local-agent-editor-native-skills" variant="dlsMono" className="min-h-20 resize-y text-xs" value={nativeSkillsDirs} disabled={props.busy} onChange={(event) => setNativeSkillsDirs(event.target.value)} placeholder={t("local_agent.editor_native_skills_dirs_placeholder")} />
-      </label>
-      <label className="block space-y-1 text-xs text-dls-secondary">
-        <span>{t("local_agent.editor_behavior_policy")}</span>
-        <Textarea data-testid="local-agent-editor-behavior-policy" variant="dlsMono" className="min-h-20 resize-y text-xs" value={behaviorPolicy} disabled={props.busy} onChange={(event) => setBehaviorPolicy(event.target.value)} placeholder={t("local_agent.editor_behavior_policy_placeholder")} />
-      </label>
-      <fieldset data-testid="local-agent-editor-acp" className="space-y-2 rounded-lg border border-dls-border/70 bg-dls-surface p-3">
-        <legend className="px-1 text-xs font-medium text-dls-secondary">{t("local_agent.editor_acp_section")}</legend>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="space-y-1 text-xs text-dls-secondary">
-            <span>{t("local_agent.editor_connection_type")}</span>
-            <SelectMenu
-              size="compact"
-              ariaLabel={t("local_agent.editor_connection_type")}
-              options={[
-                { value: "raw", label: t("local_agent.editor_connection_raw") },
-                { value: "cli", label: t("local_agent.editor_connection_cli") },
-              ]}
-              value={connectionType}
-              onChange={(value) => setConnectionType(value === "cli" ? "cli" : "raw")}
+    <form
+      className={cn(
+        "flex min-h-0 flex-1 flex-col",
+        !props.embedded && "rounded-xl border border-dls-border bg-dls-surface",
+      )}
+      onSubmit={(event) => {
+        event.preventDefault();
+        save();
+      }}
+    >
+      <div className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto", props.embedded ? "px-0 py-0" : "p-4")}>
+        {/* 基础 — always visible */}
+        <section className={sectionClass}>
+          <div>
+            <h3 className="text-sm font-medium text-dls-text">{t("local_agent.editor_section_basic")}</h3>
+            <p className="mt-0.5 text-xs text-dls-secondary">{t("local_agent.editor_section_basic_desc")}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className={labelClass}>{t("local_agent.editor_id")}</span>
+              <Input
+                data-testid="local-agent-editor-id"
+                variant="dls"
+                value={id}
+                disabled={props.busy || Boolean(props.agent)}
+                onChange={(event) => setId(event.target.value)}
+                placeholder={t("local_agent.editor_id_placeholder")}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className={labelClass}>{t("local_agent.editor_name")}</span>
+              <Input
+                data-testid="local-agent-editor-name"
+                variant="dls"
+                value={name}
+                disabled={props.busy}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("local_agent.editor_name_placeholder")}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className={labelClass}>{t("local_agent.editor_command")}</span>
+              <Input
+                data-testid="local-agent-editor-command"
+                variant="dls"
+                value={command}
+                disabled={props.busy}
+                onChange={(event) => setCommand(event.target.value)}
+                placeholder={t("local_agent.editor_command_placeholder")}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className={labelClass}>{t("local_agent.editor_args")}</span>
+              <Input
+                data-testid="local-agent-editor-args"
+                variant="dls"
+                value={args}
+                disabled={props.busy}
+                onChange={(event) => setArgs(event.target.value)}
+                placeholder={t("local_agent.editor_args_placeholder")}
+              />
+            </label>
+            <label className="space-y-1.5 sm:col-span-2">
+              <span className={labelClass}>{t("local_agent.editor_description")}</span>
+              <Textarea
+                data-testid="local-agent-editor-description"
+                className="min-h-16 resize-y bg-dls-surface"
+                value={description}
+                disabled={props.busy}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={t("local_agent.editor_description_placeholder")}
+              />
+            </label>
+          </div>
+        </section>
+
+        {/* 环境 / skills */}
+        <section className={sectionClass}>
+          <div>
+            <h3 className="text-sm font-medium text-dls-text">{t("local_agent.editor_section_runtime")}</h3>
+            <p className="mt-0.5 text-xs text-dls-secondary">{t("local_agent.editor_section_runtime_desc")}</p>
+          </div>
+          <EnvVarEditor rows={env} disabled={props.busy} onChange={setEnv} />
+          <label className="block space-y-1.5">
+            <span className={labelClass}>{t("local_agent.editor_native_skills_dirs")}</span>
+            <Textarea
+              data-testid="local-agent-editor-native-skills"
+              variant="dlsMono"
+              className="min-h-16 resize-y text-xs"
+              value={nativeSkillsDirs}
               disabled={props.busy}
+              onChange={(event) => setNativeSkillsDirs(event.target.value)}
+              placeholder={t("local_agent.editor_native_skills_dirs_placeholder")}
             />
           </label>
-          <label className="space-y-1 text-xs text-dls-secondary">
-            <span>{t("local_agent.editor_acp_args")}</span>
-            <Input data-testid="local-agent-editor-acp-args" variant="dls" value={acpArgs} disabled={props.busy || connectionType !== "cli"} onChange={(event) => setAcpArgs(event.target.value)} placeholder="--acp" />
-            <p className="text-xs leading-tight text-dls-text-tertiary">{t("local_agent.editor_acp_args_hint")}</p>
-          </label>
-        </div>
-        <div className="grid gap-2 md:grid-cols-2">
-          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <Checkbox checked={supportsStreaming} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsStreaming(checked === true)} />
-            <span>{t("local_agent.editor_supports_streaming")}</span>
-          </label>
-          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <Checkbox checked={supportsResume} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsResume(checked === true)} />
-            <span>{t("local_agent.editor_supports_resume")}</span>
-          </label>
-          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <Checkbox checked={supportsApproval} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsApproval(checked === true)} />
-            <span>{t("local_agent.editor_supports_approval")}</span>
-          </label>
-          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <Checkbox checked={supportsModelOverride} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setSupportsModelOverride(checked === true)} />
-            <span>{t("local_agent.editor_supports_model_override")}</span>
-          </label>
-          <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
-            <Checkbox checked={authRequired} disabled={props.busy || connectionType !== "cli"} onCheckedChange={(checked) => setAuthRequired(checked === true)} />
-            <span>{t("local_agent.editor_auth_required")}</span>
-          </label>
-        </div>
-      </fieldset>
+        </section>
 
-      {/* Test Connection */}
-      <div className="space-y-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full"
-          disabled={!command.trim() || testStatus === "testing" || props.busy}
-          onClick={handleTestConnection}
-          data-testid="local-agent-editor-test-connection"
-        >
-          {testStatus === "testing" ? (
-            <>
-              <LoadingSpinner size="default" />
-              {t("local_agent.test_connection_testing")}
-            </>
-          ) : (
-            t("local_agent.test_connection")
-          )}
-        </Button>
+        {/* ACP */}
+        <section className={sectionClass} data-testid="local-agent-editor-acp">
+          <div>
+            <h3 className="text-sm font-medium text-dls-text">{t("local_agent.editor_acp_section")}</h3>
+            <p className="mt-0.5 text-xs text-dls-secondary">{t("local_agent.editor_section_acp_desc")}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className={labelClass}>{t("local_agent.editor_connection_type")}</span>
+              <SelectMenu
+                size="compact"
+                ariaLabel={t("local_agent.editor_connection_type")}
+                options={[
+                  { value: "raw", label: t("local_agent.editor_connection_raw") },
+                  { value: "cli", label: t("local_agent.editor_connection_cli") },
+                ]}
+                value={connectionType}
+                onChange={(value) => setConnectionType(value === "cli" ? "cli" : "raw")}
+                disabled={props.busy}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className={labelClass}>{t("local_agent.editor_acp_args")}</span>
+              <Input
+                data-testid="local-agent-editor-acp-args"
+                variant="dls"
+                value={acpArgs}
+                disabled={props.busy || connectionType !== "cli"}
+                onChange={(event) => setAcpArgs(event.target.value)}
+                placeholder="--acp"
+              />
+              <p className={fieldHintClass}>{t("local_agent.editor_acp_args_hint")}</p>
+            </label>
+          </div>
+        </section>
+
+        {/* 高级 — collapsed by default */}
+        <section className={sectionClass}>
+          <button
+            type="button"
+            className="flex w-full items-center gap-1.5 text-left"
+            onClick={() => setAdvancedOpen((value) => !value)}
+            aria-expanded={advancedOpen}
+          >
+            {advancedOpen ? (
+              <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
+            ) : (
+              <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+            )}
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-dls-text">{t("local_agent.editor_section_advanced")}</h3>
+              <p className="mt-0.5 text-xs text-dls-secondary">{t("local_agent.editor_section_advanced_desc")}</p>
+            </div>
+          </button>
+          {advancedOpen ? (
+            <div className="space-y-3 border-t border-dls-border pt-3">
+              <label className="block space-y-1.5">
+                <span className={labelClass}>{t("local_agent.editor_behavior_policy")}</span>
+                <Textarea
+                  data-testid="local-agent-editor-behavior-policy"
+                  variant="dlsMono"
+                  className="min-h-20 resize-y text-xs"
+                  value={behaviorPolicy}
+                  disabled={props.busy}
+                  onChange={(event) => setBehaviorPolicy(event.target.value)}
+                  placeholder={t("local_agent.editor_behavior_policy_placeholder")}
+                />
+              </label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+                  <Checkbox
+                    checked={supportsStreaming}
+                    disabled={props.busy || connectionType !== "cli"}
+                    onCheckedChange={(checked) => setSupportsStreaming(checked === true)}
+                  />
+                  <span>{t("local_agent.editor_supports_streaming")}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+                  <Checkbox
+                    checked={supportsResume}
+                    disabled={props.busy || connectionType !== "cli"}
+                    onCheckedChange={(checked) => setSupportsResume(checked === true)}
+                  />
+                  <span>{t("local_agent.editor_supports_resume")}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+                  <Checkbox
+                    checked={supportsApproval}
+                    disabled={props.busy || connectionType !== "cli"}
+                    onCheckedChange={(checked) => setSupportsApproval(checked === true)}
+                  />
+                  <span>{t("local_agent.editor_supports_approval")}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+                  <Checkbox
+                    checked={supportsModelOverride}
+                    disabled={props.busy || connectionType !== "cli"}
+                    onCheckedChange={(checked) => setSupportsModelOverride(checked === true)}
+                  />
+                  <span>{t("local_agent.editor_supports_model_override")}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-xs text-dls-secondary">
+                  <Checkbox
+                    checked={authRequired}
+                    disabled={props.busy || connectionType !== "cli"}
+                    onCheckedChange={(checked) => setAuthRequired(checked === true)}
+                  />
+                  <span>{t("local_agent.editor_auth_required")}</span>
+                </label>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        {/* Test connection feedback lives in body so sticky footer stays clean */}
         {testStatus === "success" && (
           <Alert className="border-dls-status-success/40 bg-dls-status-success-soft text-dls-status-success-fg [&>svg]:text-dls-status-success-fg">
             <CheckCircle2 className="size-4" />
@@ -278,30 +400,61 @@ export function InlineAgentEditor(props: {
           <Alert variant="destructive">
             <XCircle className="size-4" />
             <AlertTitle>{t("local_agent.test_connection_fail_cli")}</AlertTitle>
-            {testError && (
-              <AlertDescription className="text-xs break-all">
-                {testError}
-              </AlertDescription>
-            )}
+            {testError ? (
+              <AlertDescription className="break-all text-xs">{testError}</AlertDescription>
+            ) : null}
           </Alert>
         )}
         {testStatus === "fail_acp" && (
           <Alert className="border-dls-status-warning/40 bg-dls-status-warning-soft text-dls-status-warning-fg [&>svg]:text-dls-status-warning-fg">
             <AlertTriangle className="size-4" />
             <AlertTitle>{t("local_agent.test_connection_fail_acp")}</AlertTitle>
-            {testError && (
-              <AlertDescription className="text-xs break-all">
-                {testError}
-              </AlertDescription>
-            )}
+            {testError ? (
+              <AlertDescription className="break-all text-xs">{testError}</AlertDescription>
+            ) : null}
           </Alert>
         )}
+        {validation || props.error ? (
+          <NoticeBox tone="error">{validation || props.error}</NoticeBox>
+        ) : null}
       </div>
 
-      {validation || props.error ? <NoticeBox tone="error">{validation || props.error}</NoticeBox> : null}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" disabled={props.busy} onClick={props.onCancel}>{t("common.cancel")}</Button>
-        <Button type="submit" size="sm" disabled={Boolean(validation) || props.busy} data-testid="local-agent-editor-save">{t("common.save")}</Button>
+      <div
+        className={cn(
+          "flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-dls-border bg-dls-surface",
+          props.embedded ? "px-5 py-3" : "px-4 py-3",
+        )}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mr-auto"
+          disabled={!command.trim() || testStatus === "testing" || props.busy}
+          onClick={() => void handleTestConnection()}
+          data-testid="local-agent-editor-test-connection"
+        >
+          {testStatus === "testing" ? (
+            <>
+              <LoadingSpinner size="default" />
+              {t("local_agent.test_connection_testing")}
+            </>
+          ) : (
+            t("local_agent.test_connection")
+          )}
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={props.busy} onClick={props.onCancel}>
+          {t("common.cancel")}
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={Boolean(validation) || props.busy}
+          data-testid="local-agent-editor-save"
+        >
+          {props.busy ? <LoadingSpinner size="sm" className="mr-1.5" /> : null}
+          {t("common.save")}
+        </Button>
       </div>
     </form>
   );

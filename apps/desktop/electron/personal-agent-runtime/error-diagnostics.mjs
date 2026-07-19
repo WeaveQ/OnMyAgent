@@ -9,14 +9,21 @@ export function classifyErrorInfo(error) {
   else if (/acp_bridge_interrupted_after_retry/.test(lower)) code = "acp_bridge_interrupted_after_retry";
   else if (/did not finish cleanly|incomplete output/.test(lower)) code = "acp_incomplete_output";
   else if (/tool call failed/.test(lower)) code = "acp_tool_failed";
+  // Empty assistant output: match before the broad "provider" token so
+  // "custom ACP completed without assistant text" is not mislabeled.
+  else if (
+    /empty|no assistant|without assistant|no parseable|no output|completed without/.test(lower)
+    || /没有.*回复|空输出|无助手文本/.test(message)
+  ) {
+    code = "empty_output";
+  }
   else if (/sandbox|network|could not resolve host|permission denied|operation not permitted/.test(lower)) code = "sandbox_or_network_refusal";
   else if (/not found|no such file|enoent|command not found|未配置|命令不可用/.test(lower)) code = "missing_binary";
   else if (/auth|login|unauthorized|forbidden|api key|认证|登录/.test(lower)) code = "auth_required";
   else if (/version|版本|update/.test(lower)) code = "version_unsupported";
   else if (/timeout|timed out|超时/.test(lower)) code = "timeout";
-  else if (/\b5\d\d\b|bad gateway|service unavailable|upstream|rate limit|provider/.test(lower)) code = "provider_failed";
+  else if (/\b5\d\d\b|bad gateway|service unavailable|upstream|rate limit/.test(lower)) code = "provider_failed";
   else if (/parse|json|解析/.test(lower)) code = "parse_failed";
-  else if (/empty|no assistant|no parseable|空/.test(lower)) code = "empty_output";
   else if (/cancel|取消/.test(lower)) code = "cancelled";
   else if (message.trim()) code = "provider_failed";
   return { code, message, debug: message || null };
@@ -32,7 +39,12 @@ export function buildErrorTip(errorInfo) {
     ownership = "agent";
     target = "agent_settings";
     kind = code === "auth_required" ? "authenticate" : "configure";
-  } else if (code === "provider_failed" || code === "timeout" || code === "empty_output" || code === "acp_incomplete_output" || code === "acp_tool_failed") {
+  } else if (code === "empty_output" || code === "acp_incomplete_output") {
+    // Empty/truncated ACP replies are agent/protocol issues, not cloud provider outages.
+    ownership = "agent";
+    target = "agent_settings";
+    kind = "retry";
+  } else if (code === "provider_failed" || code === "timeout" || code === "acp_tool_failed") {
     ownership = code === "timeout" ? "unknown" : "provider";
     target = code === "timeout" ? "details" : "provider";
     kind = code === "timeout" ? "retry" : "inspect";

@@ -122,7 +122,8 @@ describe("assistant navigation tone contract", () => {
       "utf8",
     );
 
-    expect(surface).toContain("promptTemplates={");
+    expect(surface).toContain("promptTemplates={personalizedPromptTemplates}");
+    expect(surface).toContain("personalizeAssistantScenariosForMenu");
     expect(surface).toContain("onSelectPromptTemplate={selectAssistantPromptTemplate}");
     expect(surface).not.toContain("<PersonalAssistantAccessory");
     expect(surface).not.toContain('<div className="mb-4 w-full max-w-5xl">');

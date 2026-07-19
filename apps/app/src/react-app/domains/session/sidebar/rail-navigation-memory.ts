@@ -119,3 +119,12 @@ export type RailKeepAliveView = (typeof RAIL_KEEP_ALIVE_VIEWS)[number];
 export function isRailKeepAliveView(view: string): view is RailKeepAliveView {
   return (RAIL_KEEP_ALIVE_VIEWS as readonly string[]).includes(view);
 }
+
+/**
+ * Primary conversation surface (assistant home / expert chat).
+ * SessionSurface must only paint when this is true — otherwise keep-alive
+ * secondary pages (管理 / 本地 / 文件…) stack over a still-visible chat layer.
+ */
+export function isPrimarySessionRailView(view: string): boolean {
+  return view === "assistant" || view === "chat";
+}

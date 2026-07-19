@@ -163,8 +163,24 @@ export function classifiedRunFailureMessage(run: PersonalLocalAgentRunResult) {
   if (code === "acp_bridge_interrupted" || code === "acp_bridge_interrupted_after_retry") return t("local_agent.failure_acp_interrupted", { message });
   if (code === "acp_tool_failed") return t("local_agent.failure_acp_tool", { message });
   if (code === "sandbox_or_network_refusal") return t("local_agent.failure_sandbox_network", { message });
+  if (code === "empty_output") return t("local_agent.failure_empty_output", { message });
+  if (code === "acp_incomplete_output") return t("local_agent.failure_acp_incomplete", { message });
+  // Legacy raw English still seen in older runs / misclassified codes.
+  if (/without assistant text|completed without assistant|no assistant text/i.test(message)) {
+    return t("local_agent.failure_empty_output", { message });
+  }
   if (message) return message;
   return t("local_agent.failed");
+}
+
+/** True when the run timeline already surfaces the failure (avoid footer duplicate). */
+export function runTimelineAlreadyShowsFailure(run: PersonalLocalAgentRunResult | null | undefined) {
+  const messages = run?.conversationMessages ?? [];
+  return messages.some(
+    (message) =>
+      message.type === "error"
+      || (message.type === "tips" && message.category === "error"),
+  );
 }
 
 
