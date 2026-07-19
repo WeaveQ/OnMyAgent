@@ -116,6 +116,7 @@ export default {
   "agent_manager.custom_agents": "Custom agents",
   "agent_manager.custom_agents_desc": "Agents you added manually. Toggle, edit, or remove them.",
   "agent_manager.custom_agents_add": "Add custom agent",
+  "agent_manager.custom_agents_dialog_desc": "Register a local CLI / ACP agent. It will show up in My agents and Local.",
   "agent_manager.custom_agents_empty": "No custom agents yet. Add one to get started.",
   "agent_manager.custom_agents_enabled": "Enabled",
   "agent_manager.custom_agents_disabled": "Disabled",

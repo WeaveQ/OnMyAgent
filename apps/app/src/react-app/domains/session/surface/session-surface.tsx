@@ -112,6 +112,7 @@ import {
   onmyagentAssistantName,
   type AssistantCategoryId,
 } from "./personal-assistant-config";
+import { personalizeAssistantScenariosForMenu } from "./personalize-assistant-scenarios";
 import {
   assistantFallbackText,
   messageToReadableText,
@@ -323,6 +324,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
     id: scenario.id,
     label: scenario.label,
   }));
+  // Composer middle flyout: short list ranked by onboarding role/industry/tasks.
+  const personalizedPromptTemplates = useMemo(() => {
+    if (!props.personalAssistantHome || !props.draftOnly) return undefined;
+    return personalizeAssistantScenariosForMenu(
+      assistantCategory.scenarios,
+      local.prefs.onboardingProfile,
+    );
+  }, [
+    assistantCategory.scenarios,
+    local.prefs.onboardingProfile,
+    props.draftOnly,
+    props.personalAssistantHome,
+  ]);
   const pendingAgent = usePendingAgentStore((state) => state.agent);
 
   useEffect(() => {
@@ -2174,11 +2188,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               draft={draft}
               mentions={mentions}
               scenarioTags={assistantScenarioTags}
-              promptTemplates={
-                props.personalAssistantHome && props.draftOnly
-                  ? assistantCategory.scenarios
-                  : undefined
-              }
+              promptTemplates={personalizedPromptTemplates}
               onSelectPromptTemplate={selectAssistantPromptTemplate}
               onDraftChange={handleComposerDraftChange}
               onSend={handleSend}

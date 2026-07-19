@@ -18,6 +18,18 @@ describe("assistant navigation spacing contract", () => {
     expect(source).toContain('className="grid gap-0.5"');
     expect(source).toContain('size="sidebar"');
     expect(source).toContain('className="space-y-0 pb-1 pt-3"');
+    // XOR highlight: new task only when draft home; automation only when rail active.
+    // Never force permanent muted fill on both rows.
+    expect(source).toContain(
+      "active={!props.selectedSessionId && !props.automationActive}",
+    );
+    expect(source).toContain(
+      "active={item.id === \"automation\" && props.automationActive}",
+    );
+    expect(source).not.toContain("bg-dls-surface-muted/70");
+    expect(source).not.toMatch(
+      /onCreateTask[\s\S]{0,200}bg-dls-surface-muted font-medium/,
+    );
   });
 
   test("keeps category tabs on SegmentedTabGroup track with equal-width tab chips", () => {

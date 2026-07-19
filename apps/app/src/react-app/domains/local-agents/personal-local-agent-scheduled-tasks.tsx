@@ -116,7 +116,26 @@ export function scheduledTaskSessionContext(messages: Array<{ id: string; role: 
 
 export function conversationTitle(conversation: PersonalLocalAgentConversation | null | undefined) {
   if (!conversation) return t("local_agent.default_conversation");
-  return conversation.title || t("local_agent.default_conversation");
+  const raw = String(conversation.title ?? "").trim();
+  // Backend often stores the English placeholder "Default conversation" —
+  // never show that literal in the chrome selector.
+  if (
+    !raw ||
+    /^default conversation$/i.test(raw) ||
+    raw === t("local_agent.default_conversation")
+  ) {
+    if (conversation.updatedAt) {
+      return shortDateTime(conversation.updatedAt);
+    }
+    return t("local_agent.default_conversation");
+  }
+  // Protocol noise / path-only titles → fall back to time.
+  if (raw.startsWith("{") && raw.includes("jsonrpc")) {
+    return conversation.updatedAt
+      ? shortDateTime(conversation.updatedAt)
+      : t("local_agent.default_conversation");
+  }
+  return raw.length > 48 ? `${raw.slice(0, 45)}…` : raw;
 }
 
 export function shortDateTime(value: number | null | undefined) {

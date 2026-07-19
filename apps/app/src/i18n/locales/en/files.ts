@@ -15,7 +15,7 @@ export default {
   "files.category_video": "Video",
   "files.category_website": "Websites",
   "files.cloud_coming_soon": "Cloud drive is coming soon",
-  "files.cloud_drive": "Cloud drive",
+  "files.cloud_drive": "Drive",
   "files.cloud_empty_description":
     "Synced task files, cross-device materials, and shared team content will appear here when cloud drive is available.",
   "files.cloud_empty_title": "Cloud drive is almost ready",
@@ -47,7 +47,7 @@ export default {
   "files.close_preview": "Close preview",
   "files.copied": "Copied",
   "files.search_placeholder": "Search files, tasks, or workspaces",
-  "files.task_results": "My files",
+  "files.task_results": "Mine",
   "files.title": "My files",
   "files.type_file": "File",
   "files.type_folder": "Folder",

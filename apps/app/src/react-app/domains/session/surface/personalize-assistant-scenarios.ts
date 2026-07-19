@@ -113,12 +113,21 @@ const SCENARIO_SIGNALS: Record<
     tools: ["excel", "wps"],
     docPreference: ["data"],
   },
+  "data-viz": {
+    tasks: ["data-analysis", "recon", "sales-pipeline", "weekly-report"],
+    roles: ["technology", "operations", "product", "finance", "management"],
+    tools: ["excel", "wps"],
+    docPreference: ["data"],
+  },
   finance: {
     tasks: ["recon", "compliance", "sales-pipeline"],
     roles: ["finance", "management"],
     industries: ["finance"],
   },
 };
+
+/** Middle flyout keeps a short, preference-ranked list — not the full catalog. */
+export const PROMPT_TEMPLATE_MENU_LIMIT = 3;
 
 function scoreScenario(
   scenarioId: string,
@@ -271,4 +280,27 @@ export function personalizeAssistantScenarios(
   }
 
   return ranked.map(({ _index: _i, ...rest }) => rest);
+}
+
+/**
+ * Composer middle flyout: rank by onboarding profile (role / industry / tasks),
+ * then keep only the top matches so the menu stays short.
+ */
+export function personalizeAssistantScenariosForMenu(
+  scenarios: readonly AssistantScenarioLike[],
+  profile: PersonalizationProfileLite | null | undefined,
+  limit: number = PROMPT_TEMPLATE_MENU_LIMIT,
+): PersonalizedAssistantScenario[] {
+  const ranked = personalizeAssistantScenarios(scenarios, profile);
+  const safeLimit = Math.max(1, Math.min(limit, ranked.length || 1));
+  if (ranked.length <= safeLimit) return ranked;
+
+  // Prefer recommended rows; fill remainder by score order.
+  const recommended = ranked.filter((row) => row.recommended);
+  if (recommended.length >= safeLimit) {
+    return recommended.slice(0, safeLimit);
+  }
+  const used = new Set(recommended.map((row) => row.id));
+  const rest = ranked.filter((row) => !used.has(row.id));
+  return [...recommended, ...rest].slice(0, safeLimit);
 }

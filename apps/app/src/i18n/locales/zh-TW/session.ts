@@ -36,6 +36,7 @@ export default {
   "session.search_experts_placeholder": "搜尋專家職稱或描述",
   "session.create_expert": "創建專家",
   "session.create_expert_desc": "創建一個專屬專家，並保存到本地專家目錄。",
+  "session.create_expert_prompt": "/expert-manager 幫我創建一個 XXX 專家，擅長 XXXXX。我的經驗是：[請補充你的行業背景、相關經驗]",
   "session.expert_capability": "能力介紹",
   "session.expert_strengths": "擅長領域",
   "session.expert_self_intro_prompt_title": "自我介紹",

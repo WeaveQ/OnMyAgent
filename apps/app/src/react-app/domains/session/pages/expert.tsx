@@ -71,6 +71,15 @@ import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pe
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import { writeAssistantSelectionMemory } from "../sidebar/session-chrome";
+import {
+  KeepAlivePane,
+  useVisitedRailViews,
+} from "../sidebar/keep-alive-pane";
+import {
+  isPrimarySessionRailView,
+  readRailView,
+  writeRailView,
+} from "../sidebar/rail-navigation-memory";
 
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
@@ -146,8 +155,6 @@ const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
-const CREATE_EXPERT_PROMPT =
-  "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]";
 
 function expertFeatureCategoryForCategoryId(
   categoryId: string | null | undefined,
@@ -201,7 +208,13 @@ export type ExpertPageProps = SessionPageProps & {
 export function ExpertPage(props: ExpertPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeSidebarView, setActiveSidebarView] =
-    useState<OnMyAgentPrimaryView>("chat");
+    useState<OnMyAgentPrimaryView>(() =>
+      readRailView("expert", props.selectedWorkspaceId, "chat"),
+    );
+  const visitedRailViews = useVisitedRailViews(
+    activeSidebarView,
+    props.selectedWorkspaceId,
+  );
   const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
@@ -821,7 +834,10 @@ export function ExpertPage(props: ExpertPageProps) {
       { kind: "newTask" },
     );
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-    setComposerDraftAfterNewTask(props.selectedWorkspaceId, CREATE_EXPERT_PROMPT);
+    setComposerDraftAfterNewTask(
+      props.selectedWorkspaceId,
+      t("session.create_expert_prompt"),
+    );
     props.onNavigateToMode("assistant");
   }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
@@ -1309,6 +1325,8 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
+  /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
+  const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
 
   useEffect(() => {
     if (!showSessionLoadingState) {
@@ -1560,6 +1578,8 @@ export function ExpertPage(props: ExpertPageProps) {
                 props.onNavigateToMode("assistant");
                 return;
               }
+              // Expert rail return must not create a task.
+              writeRailView("expert", props.selectedWorkspaceId, view);
               setActiveSidebarView(view);
               if (view === "chat") {
                 setAgentPanelCollapsed(false);
@@ -1567,8 +1587,14 @@ export function ExpertPage(props: ExpertPageProps) {
             }}
             onOpenAccountSettings={props.onOpenAccountSettings}
             onSignOut={props.onSignOut}
-            onOpenDevices={() => setActiveSidebarView("devices")}
-            onOpenBilling={() => setActiveSidebarView("billing")}
+            onOpenDevices={() => {
+              writeRailView("expert", props.selectedWorkspaceId, "devices");
+              setActiveSidebarView("devices");
+            }}
+            onOpenBilling={() => {
+              writeRailView("expert", props.selectedWorkspaceId, "billing");
+              setActiveSidebarView("billing");
+            }}
           />
           <div className="relative flex min-h-0 flex-1 overflow-hidden">
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
@@ -1648,18 +1674,24 @@ export function ExpertPage(props: ExpertPageProps) {
                 <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-background">
                   <div className="flex min-h-0 flex-1 overflow-hidden">
                     <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
-                      {activeSidebarView === "agents" ? (
-                        props.renderAgentsPage({
+                      <KeepAlivePane
+                        active={activeSidebarView === "agents"}
+                        mounted={visitedRailViews.has("agents")}
+                      >
+                        {props.renderAgentsPage({
                           workspaceId: props.selectedWorkspaceId,
                           workspaceRoot: props.selectedWorkspaceRoot,
                           client: props.onmyagentServerClient,
                           providers: props.providers,
                           connectedProviderIds: props.providerConnectedIds,
                           onStartConversation: handleStartAgentConversation,
-                        })
-                      ) : null}
+                        })}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "store" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "store"}
+                        mounted={visitedRailViews.has("store")}
+                      >
                         <StorePage
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
@@ -1670,9 +1702,12 @@ export function ExpertPage(props: ExpertPageProps) {
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "localAgent" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "localAgent"}
+                        mounted={visitedRailViews.has("localAgent")}
+                      >
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
                           onResumeConsumed={() => setPendingArchiveResume(null)}
@@ -1683,9 +1718,12 @@ export function ExpertPage(props: ExpertPageProps) {
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "agentManagement" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "agentManagement"}
+                        mounted={visitedRailViews.has("agentManagement")}
+                      >
                         <AgentManagementPage
                           workspaceRoot={props.selectedWorkspaceRoot}
                           sessionArchiveSlot={(
@@ -1699,9 +1737,12 @@ export function ExpertPage(props: ExpertPageProps) {
                             />
                           )}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "files" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "files"}
+                        mounted={visitedRailViews.has("files")}
+                      >
                         <WorkspaceFilesPage
                           client={props.onmyagentServerClient}
                           workspaceId={
@@ -1711,19 +1752,35 @@ export function ExpertPage(props: ExpertPageProps) {
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
                         />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "projects" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "projects"}
+                        mounted={visitedRailViews.has("projects")}
+                      >
                         <ProjectsComingSoonPage />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "devices" ? <DevicesPage /> : null}
+                      <KeepAlivePane
+                        active={activeSidebarView === "devices"}
+                        mounted={visitedRailViews.has("devices")}
+                      >
+                        <DevicesPage />
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "channels" ? (
+                      <KeepAlivePane
+                        active={activeSidebarView === "channels"}
+                        mounted={visitedRailViews.has("channels")}
+                      >
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      ) : null}
+                      </KeepAlivePane>
 
-                      {activeSidebarView === "billing" ? <BillingPage /> : null}
+                      <KeepAlivePane
+                        active={activeSidebarView === "billing"}
+                        mounted={visitedRailViews.has("billing")}
+                      >
+                        <BillingPage />
+                      </KeepAlivePane>
 
                       {activePlaceholderView &&
                       activeSidebarView !== "agents" &&
@@ -1740,7 +1797,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         />
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isPrimarySessionView &&
                       showBlockingStartupSkeleton ? (
                         <div
                           className="px-6 py-14"
@@ -1776,7 +1833,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isPrimarySessionView &&
                       showNoExpertConversationEmptyState ? (
                         <div className="flex h-full min-h-0 items-center justify-center px-8 py-10">
                           <div className="flex max-w-md flex-col items-center text-center">
@@ -1796,7 +1853,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isPrimarySessionView &&
                       !showNoExpertConversationEmptyState &&
                       showDelayedSessionLoadingState ? (
                         <div className="px-6 py-16">
@@ -1813,61 +1870,65 @@ export function ExpertPage(props: ExpertPageProps) {
                         </div>
                       ) : null}
 
-                      {!activePlaceholderView &&
-                      !showNoExpertConversationEmptyState &&
-                      !showDelayedSessionLoadingState &&
-                      canRenderReactSurface ? (
-                        <SessionSurface
-                          key={renderedSessionId}
-                          {...props.surface!}
-                          onSendDraft={wrappedOnSendDraft}
-                          client={props.onmyagentServerClient!}
-                          workspaceId={props.runtimeWorkspaceId!}
-                          sessionId={renderedSessionId}
-                          draftOnly={isDraftSession}
-                          opencodeBaseUrl={reactSessionBaseUrl}
-                          onmyagentToken={reactSessionToken}
-                          todos={props.todos}
-                          activePermission={props.activePermission}
-                          permissionReplyBusy={props.permissionReplyBusy}
-                          respondPermission={props.respondPermission}
-                          autoApprovedPermissionNoticeId={
-                            props.autoApprovedPermissionNoticeId
+                      {canRenderReactSurface &&
+                      !showNoExpertConversationEmptyState ? (
+                        <KeepAlivePane
+                          active={
+                            isPrimarySessionView && !showDelayedSessionLoadingState
                           }
-                          activeQuestion={props.activeQuestion}
-                          questionReplyBusy={props.questionReplyBusy}
-                          respondQuestion={props.respondQuestion}
-                          safeStringify={props.safeStringify}
-                          userIdentity={{
-                            name:
-                              localAuthUser?.username ||
-                              props.account?.name ||
-                              props.account?.email ||
-                              t("session.current_user"),
-                          }}
-                          headerActions={headerPanelControls}
-                          conversationTabs={conversationTabs}
-                          searchQuery={historySearchOpen ? historySearchQuery : ""}
-                          searchActiveMatchIndex={historyActiveMatch}
-                          onSearchMatchCountChange={setHistoryMatchCount}
-                          onOpenTarget={openTarget}
-                          onOpenTargetsChange={handleOpenTargetsChange}
-                          personalAssistantHome={false}
-                          assistantFeatureCategoryId={activeExpertFeatureCategoryId}
-                          agentContext={activeAgentContext}
-                          onOpenSkillsMarketplace={() => {
-                            setStoreActiveTab("skills");
-                            setActiveSidebarView("store");
-                          }}
-                        />
+                          mounted
+                        >
+                          <SessionSurface
+                            key={renderedSessionId}
+                            {...props.surface!}
+                            onSendDraft={wrappedOnSendDraft}
+                            client={props.onmyagentServerClient!}
+                            workspaceId={props.runtimeWorkspaceId!}
+                            sessionId={renderedSessionId}
+                            draftOnly={isDraftSession}
+                            opencodeBaseUrl={reactSessionBaseUrl}
+                            onmyagentToken={reactSessionToken}
+                            todos={props.todos}
+                            activePermission={props.activePermission}
+                            permissionReplyBusy={props.permissionReplyBusy}
+                            respondPermission={props.respondPermission}
+                            autoApprovedPermissionNoticeId={
+                              props.autoApprovedPermissionNoticeId
+                            }
+                            activeQuestion={props.activeQuestion}
+                            questionReplyBusy={props.questionReplyBusy}
+                            respondQuestion={props.respondQuestion}
+                            safeStringify={props.safeStringify}
+                            userIdentity={{
+                              name:
+                                localAuthUser?.username ||
+                                props.account?.name ||
+                                props.account?.email ||
+                                t("session.current_user"),
+                            }}
+                            headerActions={headerPanelControls}
+                            conversationTabs={conversationTabs}
+                            searchQuery={historySearchOpen ? historySearchQuery : ""}
+                            searchActiveMatchIndex={historyActiveMatch}
+                            onSearchMatchCountChange={setHistoryMatchCount}
+                            onOpenTarget={openTarget}
+                            onOpenTargetsChange={handleOpenTargetsChange}
+                            personalAssistantHome={false}
+                            assistantFeatureCategoryId={activeExpertFeatureCategoryId}
+                            agentContext={activeAgentContext}
+                            onOpenSkillsMarketplace={() => {
+                              setStoreActiveTab("skills");
+                              setActiveSidebarView("store");
+                            }}
+                          />
+                        </KeepAlivePane>
                       ) : null}
 
-                      {!activePlaceholderView &&
+                      {isPrimarySessionView &&
                       !showNoExpertConversationEmptyState &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
-                      !showBlockingStartupSkeleton &&
-                      activeSidebarView !== "agentManagement" ? (
+                      !showBlockingStartupSkeleton ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
                         >

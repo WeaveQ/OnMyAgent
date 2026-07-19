@@ -43,9 +43,10 @@ export function StorePage(props: {
                 active={activeTab === tab.id}
                 size="tab"
                 shape="tab"
+                aria-current={activeTab === tab.id ? "page" : undefined}
               >
-                <Icon className="size-3.5" />
-                <span className="leading-none">{tab.label}</span>
+                <Icon aria-hidden />
+                <span>{tab.label}</span>
               </NavTabButton>
             );
           })}

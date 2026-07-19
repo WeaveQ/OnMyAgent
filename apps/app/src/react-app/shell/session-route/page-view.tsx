@@ -408,9 +408,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           agentManagementIntent={agentManagementIntent}
           onAgentManagementIntentConsumed={clearAgentManagementIntent}
           onNavigateToMode={(targetMode) => {
-            if (targetMode === "assistant") {
-              suppressRestoreSessionRef.current = true;
-            }
+            // Returning to 助理 must restore the last session/task selection —
+            // do not suppress restore (WorkBuddy-style sidebar memory).
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
               findFirstSessionIdMatching,

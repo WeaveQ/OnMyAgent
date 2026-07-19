@@ -48,15 +48,30 @@ export function agentDisplayStatus(
   return installOnlyStatus(agent);
 }
 
-/** Before 测试连接: only distinguish 未安装 vs 健康. */
+/**
+ * Install / probe status from listAgents (before or without user 测试连接).
+ *
+ * Trust explicit probe statuses from the desktop runtime:
+ * - online / offline / needs_auth ⇒ binary exists (已安装)
+ * - missing ⇒ 未安装
+ *
+ * Do NOT reclassify offline/online as missing just because the error text
+ * contains "ENOENT" (ACP/handshake errors often mention spawn paths).
+ * That bug kept Claude/Codex/Hermes in「可添加」as 离线 instead of「我的智能体」.
+ */
 function installOnlyStatus(agent: {
   status?: string | null;
   error?: string | null;
 }): AgentDisplayStatus {
-  const raw = String(agent.status ?? "").trim();
+  const raw = String(agent.status ?? "").trim().toLowerCase();
   const err = String(agent.error ?? "");
-  if (raw === "missing" || MISSING_ERROR.test(err)) return "missing";
-  // Installed (or list probe offline/needs_auth): stay calm as 健康 until user tests.
+  if (raw === "online") return "online";
+  if (raw === "needs_auth") return "needs_auth";
+  if (raw === "offline") return "offline";
+  if (raw === "missing") return "missing";
+  // Unknown / empty status: fall back to error heuristics.
+  if (MISSING_ERROR.test(err)) return "missing";
+  // Installed but calm: list-time optimism until user runs 测试连接.
   return "online";
 }
 

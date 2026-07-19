@@ -3,7 +3,9 @@ import { BarChart3, FileText, LineChart, Monitor } from "lucide-react";
 
 import {
   personalizeAssistantScenarios,
+  personalizeAssistantScenariosForMenu,
   personalizePromptText,
+  PROMPT_TEMPLATE_MENU_LIMIT,
 } from "../src/react-app/domains/session/surface/personalize-assistant-scenarios";
 
 const scenarios = [
@@ -71,5 +73,41 @@ describe("personalizeAssistantScenarios", () => {
     );
     expect(text).toContain("相关主题");
     expect(text).not.toContain("【主题】");
+  });
+
+  test("menu helper keeps a short preference-ranked list", () => {
+    const longCatalog = [
+      ...scenarios,
+      {
+        id: "data-viz",
+        label: "Viz",
+        icon: BarChart3,
+        prompts: ["帮我把数据可视化。"],
+      },
+      {
+        id: "deep-research",
+        label: "Research",
+        icon: FileText,
+        prompts: ["帮我做研究。"],
+      },
+    ];
+    expect(longCatalog.length).toBeGreaterThan(PROMPT_TEMPLATE_MENU_LIMIT);
+
+    const emptyProfile = personalizeAssistantScenariosForMenu(longCatalog, null);
+    expect(emptyProfile).toHaveLength(PROMPT_TEMPLATE_MENU_LIMIT);
+    expect(emptyProfile.map((row) => row.id)).toEqual(
+      longCatalog.slice(0, PROMPT_TEMPLATE_MENU_LIMIT).map((row) => row.id),
+    );
+
+    const financeMenu = personalizeAssistantScenariosForMenu(longCatalog, {
+      roles: ["finance"],
+      industries: ["finance"],
+      tasks: ["data-analysis", "recon"],
+      tools: ["excel"],
+      docPreference: "data",
+    });
+    expect(financeMenu).toHaveLength(PROMPT_TEMPLATE_MENU_LIMIT);
+    expect(financeMenu.map((row) => row.id)).toContain("finance");
+    expect(financeMenu.map((row) => row.id)).toContain("data-analysis");
   });
 });

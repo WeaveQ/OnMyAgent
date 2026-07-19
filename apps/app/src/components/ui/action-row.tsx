@@ -31,26 +31,28 @@ const menuRowButtonVariants = cva(
 )
 
 const navTabButtonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-2 font-medium transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:block [&_svg]:shrink-0",
+  // items-center + fixed svg box keeps icon/label on one baseline (avoids floaty icons in header tabs).
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 font-medium leading-none transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       active: {
-        // Light: inverted dark pill (ink fill + light label). Dark: elevated solid surface.
-        true: "bg-dls-text text-dls-background shadow-none [&_svg]:opacity-100 dark:bg-dls-surface-solid dark:text-dls-text",
+        // Both themes: high-contrast inverted pill so free-float header tabs stay readable.
+        true: "bg-dls-text text-dls-background shadow-none [&_svg]:opacity-100",
         false:
-          "bg-transparent text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text [&_svg]:opacity-80",
+          "bg-transparent text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text [&_svg]:opacity-90",
       },
       size: {
-        default: "px-3.5 py-1 text-xs",
+        default: "h-8 gap-1.5 px-3 text-xs",
         // Compact filter chip (store/assistant/management primary filters)
         filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
         // Default page/header tab height (store / files / management).
         tab: "h-8 gap-1.5 px-3 text-sm",
-        messaging: "h-10 px-4 text-base font-semibold",
-        underline: "px-3 pb-2 pt-0 text-sm font-semibold",
+        messaging: "h-10 gap-2 px-4 text-base font-semibold",
+        underline: "h-auto gap-1.5 px-3 pb-2 pt-0 text-sm font-semibold",
       },
       shape: {
-        // Slightly tighter than full pill — matches market header reference.
+        // Nested inside SegmentedTabGroup track (rounded-xl + p-0.5).
+        // Keep lg (not full) so end segments follow the track without sausage ends.
         pill: "rounded-lg",
         tab: "rounded-lg",
         underline: "rounded-none border-b-2 border-transparent bg-transparent shadow-none",
@@ -78,7 +80,7 @@ const navTabButtonVariants = cva(
 )
 
 const segmentedTabButtonVariants = cva(
-  "cursor-pointer rounded-lg font-semibold transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg font-semibold transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -95,7 +97,7 @@ const segmentedTabButtonVariants = cva(
         compact: "px-3 py-1.5 text-xs",
         comfortable: "px-3.5 py-1.5 text-sm font-medium",
         // Compact hug pill for category filters / memory multi-select.
-        chip: "h-7 min-h-7 px-2.5 text-xs font-medium",
+        chip: "h-7 min-h-7 gap-1.5 px-2.5 text-xs font-medium",
       },
       width: {
         fill: "flex-1",
@@ -284,16 +286,18 @@ const sessionRowButtonVariants = cva(
 )
 
 const matrixButtonVariants = cva(
-  "transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  // Header + cell share the same full-track box so glyphs line up under column icons.
+  "relative flex h-full w-full min-w-0 items-center justify-center transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       kind: {
-        cell: "group/cell relative flex h-full w-full items-center justify-center",
-        header: "flex h-9 w-full flex-col items-center justify-center gap-0.5 border-l border-dls-border text-2xs",
+        cell: "group/cell",
+        // No border-l here — column rules are drawn by the shared track wrapper.
+        header: "h-11 flex-col gap-0.5 text-2xs",
       },
       active: {
         true: "font-semibold text-dls-text",
-        false: "text-dls-secondary hover:bg-dls-hover",
+        false: "text-dls-secondary hover:bg-dls-hover/60",
       },
       interactive: {
         true: "cursor-pointer",
@@ -419,14 +423,16 @@ function FilterChip({
 const segmentedTabGroupVariants = cva("inline-flex items-center", {
   variants: {
     density: {
-      // Compact filter strip (assistant office/code track)
+      // Compact filter strip (assistant office/code track).
+      // Track radius must nest NavTab shape=tab (rounded-lg + p-0.5):
+      // outer ≈ inner + padding → rounded-xl, not rounded-full sausage.
       filter:
-        "h-8 w-fit shrink-0 gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+        "h-8 w-fit shrink-0 gap-0.5 rounded-xl border border-dls-border/50 bg-dls-surface-muted p-0.5",
       // In-page multi-tab (may wrap; slightly taller track)
       panel:
-        "h-9 max-w-full flex-wrap gap-0.5 rounded-full border border-dls-border/50 bg-dls-surface-muted p-0.5",
+        "h-9 max-w-full flex-wrap gap-0.5 rounded-xl border border-dls-border/50 bg-dls-surface-muted p-0.5",
       // Header tabs without track — free-floating active pill only (store/files/management)
-      bare: "h-8 w-fit shrink-0 gap-1 border-0 bg-transparent p-0",
+      bare: "h-8 w-fit shrink-0 items-center gap-0.5 border-0 bg-transparent p-0",
     },
   },
   defaultVariants: {

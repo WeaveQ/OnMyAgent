@@ -17,6 +17,8 @@ export type WorkspaceFootnoteProps = {
   /** When true the chip is locked to an existing conversation's workdir and
    * shows a hint to start a new conversation to switch directory. */
   readOnly?: boolean;
+  /** compact = workbench bottom-bar chip (borderless); default = standalone chip. */
+  density?: "default" | "compact";
   onSelect: (path: string) => void;
   onClear: () => void;
   onBrowse: () => void;
@@ -29,9 +31,19 @@ export type WorkspaceFootnoteProps = {
  * with browse + clear actions.
  */
 export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactElement {
-  const { workspaceRoot, recentWorkspaces, disabled, readOnly, onSelect, onClear, onBrowse } = props;
+  const {
+    workspaceRoot,
+    recentWorkspaces,
+    disabled,
+    readOnly,
+    density = "default",
+    onSelect,
+    onClear,
+    onBrowse,
+  } = props;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const compact = density === "compact";
 
   const trimmedRoot = workspaceRoot.trim();
   const displayName = trimmedRoot ? workspaceDisplayName(trimmedRoot) : "";
@@ -64,10 +76,14 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
     onClear();
   }, [onClear]);
 
-  const chipLabel = trimmedRoot ? displayName : t("local_agent.workspace_work_in_project");
+  const chipLabel = trimmedRoot
+    ? displayName
+    : compact
+      ? t("session.choose_folder_optional")
+      : t("local_agent.workspace_work_in_project");
 
   return (
-    <div className="mac:titlebar-no-drag flex items-center gap-1 text-xs text-dls-secondary">
+    <div className="mac:titlebar-no-drag flex min-w-0 items-center gap-0.5 text-xs text-dls-secondary">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
@@ -75,11 +91,15 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
               type="button"
               disabled={disabled}
               className={cn(
-                "mac:titlebar-no-drag inline-flex items-center gap-1.5 rounded-lg border border-dls-border bg-dls-surface px-2.5 py-1 text-xs font-medium text-dls-text transition-colors",
-                "hover:bg-dls-hover",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-signal focus-visible:ring-offset-1",
+                "mac:titlebar-no-drag inline-flex min-w-0 items-center gap-1.5 transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-signal/40 focus-visible:ring-offset-1",
                 disabled && "cursor-not-allowed opacity-60",
-                !trimmedRoot && "border-dashed",
+                compact
+                  ? "h-8 max-w-52 shrink gap-1.5 rounded-lg px-2 text-xs font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5"
+                  : cn(
+                      "rounded-lg border border-dls-border bg-dls-surface px-2.5 py-1 text-xs font-medium text-dls-text hover:bg-dls-hover",
+                      !trimmedRoot && "border-dashed",
+                    ),
               )}
               title={trimmedRoot || t("local_agent.workspace_no_project")}
               aria-label={
@@ -88,8 +108,8 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
                   : t("local_agent.workspace_pick_aria")
               }
             >
-              {trimmedRoot ? <Folder className="h-3.5 w-3.5" /> : <FolderPlus className="h-3.5 w-3.5" />}
-              <span className="max-w-40 truncate">{chipLabel}</span>
+              {trimmedRoot ? <Folder className="h-3.5 w-3.5 shrink-0" /> : <FolderPlus className="h-3.5 w-3.5 shrink-0" />}
+              <span className="min-w-0 truncate">{chipLabel}</span>
             </button>
           }
         />
@@ -148,10 +168,10 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
             <button
               type="button"
               onClick={handleClear}
-              disabled={!trimmedRoot}
+              disabled={!trimmedRoot || Boolean(readOnly)}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                trimmedRoot ? "text-dls-secondary hover:bg-dls-hover" : "text-dls-secondary opacity-50",
+                trimmedRoot && !readOnly ? "text-dls-secondary hover:bg-dls-hover" : "text-dls-secondary opacity-50",
               )}
             >
               <FolderX className="h-3.5 w-3.5" />
@@ -160,7 +180,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
           </div>
         </PopoverContent>
       </Popover>
-      {trimmedRoot ? (
+      {trimmedRoot && !readOnly && !compact ? (
         <Button
           type="button"
           size="icon-xs"
@@ -175,7 +195,14 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
         </Button>
       ) : null}
       {readOnly ? (
-        <span className="text-xs text-dls-secondary">
+        <span
+          className={cn(
+            "min-w-0 truncate text-xs text-dls-secondary",
+            compact && "max-w-[14rem]",
+          )}
+          title={t("local_agent.workspace_locked_hint")}
+        >
+          {compact ? "· " : null}
           {t("local_agent.workspace_locked_hint")}
         </span>
       ) : null}

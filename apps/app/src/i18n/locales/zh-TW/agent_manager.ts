@@ -112,6 +112,7 @@ export default {
   "agent_manager.custom_agents": "自定義 Agent",
   "agent_manager.custom_agents_desc": "你手動新增的 Agent，可在此開關、編輯或刪除。",
   "agent_manager.custom_agents_add": "新增自定義 Agent",
+  "agent_manager.custom_agents_dialog_desc": "手動註冊本機 CLI / ACP Agent，儲存後會出現在「我的智能體」與本地列表。",
   "agent_manager.custom_agents_empty": "還沒有自定義 Agent，新增一個開始吧。",
   "agent_manager.custom_agents_enabled": "已啟用",
   "agent_manager.custom_agents_disabled": "已停用",

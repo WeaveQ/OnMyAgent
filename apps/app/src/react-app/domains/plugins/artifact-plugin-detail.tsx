@@ -90,17 +90,19 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
     ?? plugin.skills[0]?.id;
   const connectionUnavailable = plugin.connection?.status === "unavailable";
 
+  const title =
+    plugin.id === "browser"
+      ? t("plugins.artifact_plugin_browser_name")
+      : plugin.manifest.interface.displayName;
+
   return (
-    <article className="space-y-8 rounded-xl border border-dls-border bg-dls-surface p-6">
+    // Surface chrome comes from the parent dialog; keep body padding-free for scroll layout.
+    <article className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
           <ArtifactPluginIcon pluginId={plugin.id} />
           <div className="min-w-0">
-            <h2 className="text-lg font-medium leading-7 text-dls-text">
-              {plugin.id === "browser"
-                ? t("plugins.artifact_plugin_browser_name")
-                : plugin.manifest.interface.displayName}
-            </h2>
+            <h2 className="text-lg font-medium leading-7 text-dls-text">{title}</h2>
             <p className="mt-1 text-sm text-dls-secondary">
               {plugin.manifest.interface.longDescription}
             </p>
@@ -125,7 +127,7 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
 
       {primarySkillId ? (
         <section className="space-y-3">
-          <h3 className="text-base font-medium text-dls-text">{labels.starterPrompts}</h3>
+          <h3 className="text-sm font-medium text-dls-text">{labels.starterPrompts}</h3>
           <ArtifactStarterPrompts
             pluginId={plugin.id}
             skillId={primarySkillId}
@@ -137,7 +139,7 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
       ) : null}
 
       <section className="space-y-3">
-        <h3 className="text-base font-medium text-dls-text">{labels.skills}</h3>
+        <h3 className="text-sm font-medium text-dls-text">{labels.skills}</h3>
         <div className="divide-y divide-dls-border rounded-lg border border-dls-border">
           {plugin.skills.map((skill) => {
             const unavailable = connectionUnavailable && skill.id === "excel-live-control";
