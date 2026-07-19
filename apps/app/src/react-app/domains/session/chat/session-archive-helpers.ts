@@ -134,7 +134,7 @@ export const VISIBLE_AGENTS = new Set([
   "iflow",
 ]);
 
-/** Agents that support "恢复" into a live local-agent session. */
+/** Agents that support "restore" into a live local-agent session. */
 export const RESUMABLE_AGENTS = new Set(["opencode", "codex", "claude", "openclaw", "hermes"]);
 
 export function groupSessionsByAgent(

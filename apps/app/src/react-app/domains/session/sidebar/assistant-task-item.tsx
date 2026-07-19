@@ -79,7 +79,7 @@ type AssistantTaskItemProps = {
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenFolder?: (path: string) => void;
-  /** Bind this task to a project folder (appears under 空间). */
+  /** Bind this task to a project folder (appears under spaces). */
   onSaveToSpace?: (sessionId: string) => void;
 };
 
@@ -309,7 +309,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
               {t("session.archive_task")}
             </TaskMenuItem>
           ) : null}
-          {/* WorkBuddy order: 保存到空间 sits below 归档 */}
+          {/* WorkBuddy order: save-to-space sits below archive */}
           {props.onSaveToSpace ? (
             <TaskMenuItem
               onClick={() => {

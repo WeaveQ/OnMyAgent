@@ -21,7 +21,7 @@ export type AgentPrimaryAction = "install" | "test";
 export type AgentSecondaryAction = "mine_controls" | "add_to_mine" | "repair" | "none";
 
 const MISSING_ERROR =
-  /enoent|command not found|no such file|spawn\s+\S+\s+enoent|未配置|未安装|not installed/i;
+  /enoent|command not found|no such file|spawn\s+\S+\s+enoent|\u672a\u914d\u7f6e|\u672a\u5b89\u88c5|not installed/i;
 
 /**
  * Status for badge + filters.
@@ -201,32 +201,6 @@ export function agentVersionTooltip(agent: AgentManagementAgent): string | null 
   const raw = String(agent.version ?? "").trim();
   if (raw) return raw;
   return agentVersionLabel(agent);
-}
-
-export function humanizeAgentError(
-  agent: { name?: string | null; executablePath?: string | null; id?: string | null },
-  raw: string | null | undefined,
-): string | null {
-  const text = String(raw ?? "").trim();
-  if (!text) return null;
-  const command =
-    String(agent.executablePath ?? "").trim().split(/[\\/]/).pop()
-    || String(agent.id ?? "").trim()
-    || String(agent.name ?? "agent").trim();
-
-  if (MISSING_ERROR.test(text)) {
-    return `未找到「${command}」命令，请先安装后再试`;
-  }
-  if (/ACP process exited/i.test(text)) {
-    return `进程启动后立即退出，可能未安装、未登录，或参数不正确`;
-  }
-  if (/auth|login|unauthorized|forbidden|api key|credential|认证|登录|未授权|凭证/i.test(text)) {
-    return `需要登录认证后才能使用`;
-  }
-  if (/timeout|timed out|ETIMEDOUT/i.test(text)) {
-    return `连接超时，请检查网络或本机代理`;
-  }
-  return text.replace(/\s+/g, " ").slice(0, 160);
 }
 
 // Re-export install guide helper for cards.

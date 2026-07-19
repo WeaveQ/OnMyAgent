@@ -6,7 +6,7 @@
 import type { ComponentType } from "react";
 
 import { t } from "../../../../i18n";
-import { canonicalizeProfileOptionValue } from "../../shared/personalization/profile-option-aliases";
+import { canonicalizeProfileOptionValue } from "../../shared";
 
 export type PersonalizationProfileLite = {
   roles?: string[] | null;
@@ -196,13 +196,13 @@ export function personalizePromptText(
   if (!domain) return prompt;
 
   return prompt
-    .replace(/【主题】/g, `【${domain}相关主题】`)
-    .replace(/【研究主题】/g, `【${domain}相关课题】`)
-    .replace(/【页面主题】/g, `【${domain}相关页面】`)
-    .replace(/【功能描述】/g, `【与${domain}相关的功能】`)
-    .replace(/【任务场景】/g, `【${domain}任务场景】`)
-    .replace(/【行业\/公司】/g, `【${domain}】`)
-    .replace(/【核心指标】/g, `【${domain}核心指标】`)
+    .replace(/\u3010\u4e3b\u9898\u3011/g, `\u3010${domain}\u76f8\u5173\u4e3b\u9898\u3011`)
+    .replace(/\u3010\u7814\u7a76\u4e3b\u9898\u3011/g, `\u3010${domain}\u76f8\u5173\u8bfe\u9898\u3011`)
+    .replace(/\u3010\u9875\u9762\u4e3b\u9898\u3011/g, `\u3010${domain}\u76f8\u5173\u9875\u9762\u3011`)
+    .replace(/\u3010\u529f\u80fd\u63cf\u8ff0\u3011/g, `\u3010\u4e0e${domain}\u76f8\u5173\u7684\u529f\u80fd\u3011`)
+    .replace(/\u3010\u4efb\u52a1\u573a\u666f\u3011/g, `\u3010${domain}\u4efb\u52a1\u573a\u666f\u3011`)
+    .replace(/\u3010\u884c\u4e1a\/\u516c\u53f8\u3011/g, `\u3010${domain}\u3011`)
+    .replace(/\u3010\u6838\u5fc3\u6307\u6807\u3011/g, `\u3010${domain}\u6838\u5fc3\u6307\u6807\u3011`)
     .replace(/\[topic\]/gi, `[${domain} topic]`)
     .replace(/\[core metrics\]/gi, `[${domain} core metrics]`);
 }
