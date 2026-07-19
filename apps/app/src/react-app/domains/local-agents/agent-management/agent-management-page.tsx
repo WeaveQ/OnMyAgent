@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, Cpu, Plug, Plus, Puzzle, RefreshCw, UserRound, Zap } from "lucide-react";
+import { Bot, Boxes, Cpu, MessagesSquare, Plug, Plus, Puzzle, RefreshCw } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 import { cn } from "@/lib/utils";
+import { useStatusToasts } from "../../shell-feedback";
 import {
   agentManagementFetchModels,
   agentManagementMcpAction,
@@ -33,9 +34,15 @@ import { InlineAgentEditor, type InlineAgentEditorValue } from "../inline-agent-
 import { AgentManagementRepairDialog } from "../agent-management-repair-dialog";
 import { ExtensionListPanel } from "../extension-list-panel";
 import {
-  formatAgentManagerDuration,
   type AgentManagementHealthResult,
 } from "./agent-management-health";
+import { agentDisplayStatus, agentOwnership } from "./agent-card-model";
+import {
+  partitionAgentsForFleet,
+  shouldAutoAdoptToStore,
+  collectUnavailableSkillAgents,
+} from "./agent-fleet-model";
+import { STUDIO_SWITCH_SKILL_AGENT_OPTIONS } from "./agent-management-skill-model";
 import {
   AgentManagementProviderModal,
   AgentManagementProviderPanel,
@@ -61,12 +68,34 @@ type AgentManagementUiCache = {
   healthResults: Record<string, AgentManagementHealthResult>;
 };
 
+type AgentManagerSnapshotCacheEntry = {
+  snapshot: AgentManagementSnapshot;
+  fetchedAt: number;
+};
+
 const AGENT_MANAGER_PANEL_STORAGE_KEY = "onmyagent.agentManagement.activePanel";
-const AGENT_MANAGER_SNAPSHOT_CACHE = new Map<string, AgentManagementSnapshot>();
+/** In-memory snapshot cache across remounts (sidebar view unmounts this page). */
+const AGENT_MANAGER_SNAPSHOT_CACHE = new Map<string, AgentManagerSnapshotCacheEntry>();
 const AGENT_MANAGER_UI_CACHE = new Map<string, AgentManagementUiCache>();
+/** Soft TTL: re-entry within this window reuses cache without network. After TTL, silent background revalidate. */
+const AGENT_MANAGER_SNAPSHOT_TTL_MS = 60_000;
 
 function agentManagerCacheKey(workspaceRoot: string) {
   return workspaceRoot.trim() || "__default_workspace__";
+}
+
+function readCachedAgentManagerSnapshot(cacheKey: string): AgentManagementSnapshot | null {
+  return AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey)?.snapshot ?? null;
+}
+
+function writeCachedAgentManagerSnapshot(cacheKey: string, snapshot: AgentManagementSnapshot) {
+  AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, { snapshot, fetchedAt: Date.now() });
+}
+
+function isAgentManagerSnapshotCacheFresh(cacheKey: string, ttlMs = AGENT_MANAGER_SNAPSHOT_TTL_MS) {
+  const entry = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
+  if (!entry) return false;
+  return Date.now() - entry.fetchedAt < ttlMs;
 }
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
@@ -83,7 +112,7 @@ function isAgentManagementSkillAgent(value: unknown): value is AgentManagementSk
 
 function defaultAgentManagementUiCache(): AgentManagementUiCache {
   return {
-    activePanel: "providers",
+    activePanel: "agents",
     providerApp: "opencode",
     skillColumnFilter: [],
     skillSearch: "",
@@ -136,7 +165,7 @@ function readInitialAgentManagementUi(cacheKey: string): AgentManagementUiCache 
       return ui;
     }
     const storedPanel = window.localStorage.getItem(AGENT_MANAGER_PANEL_STORAGE_KEY);
-    return { ...defaultAgentManagementUiCache(), activePanel: isAgentManagementPanel(storedPanel) ? storedPanel : "providers" };
+    return { ...defaultAgentManagementUiCache(), activePanel: isAgentManagementPanel(storedPanel) ? storedPanel : "agents" };
   } catch {
     return defaultAgentManagementUiCache();
   }
@@ -164,15 +193,16 @@ function AgentManagementMetric(props: { label: string; value: string | number })
 
 const PANEL_TABS: Array<{
   id: AgentManagementPanel;
-  icon: typeof Zap;
+  icon: typeof Bot;
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  { id: "providers", icon: Zap, labelKey: "agent_manager.tab_providers" },
-  { id: "agents", icon: UserRound, labelKey: "agent_manager.tab_agents" },
+  // Order: 智能体管理 → 模型供应商 → 技能 → MCP → 会话管理
+  { id: "agents", icon: Bot, labelKey: "agent_manager.tab_agents" },
+  { id: "providers", icon: Boxes, labelKey: "agent_manager.tab_providers" },
   { id: "skills", icon: Puzzle, labelKey: "agent_manager.tab_skills" },
   { id: "mcp", icon: Plug, labelKey: "agent_manager.tab_mcp" },
-  { id: "archive", icon: Archive, labelKey: "agent_manager.tab_archive", archiveOnly: true },
+  { id: "archive", icon: MessagesSquare, labelKey: "agent_manager.tab_archive", archiveOnly: true },
 ];
 
 export function AgentManagementPage(props: {
@@ -180,12 +210,16 @@ export function AgentManagementPage(props: {
   sessionArchiveSlot?: ReactNode;
   intent?: { key: string; action: "createProvider" | "openPanel"; panel?: AgentManagementPanel; focus?: "custom" | "detected" } | null;
 }) {
+  const { showToast } = useStatusToasts();
   const cacheKey = agentManagerCacheKey(props.workspaceRoot);
   const initialUi = useMemo(() => readInitialAgentManagementUi(cacheKey), [cacheKey]);
-  const [snapshot, setSnapshot] = useState<AgentManagementSnapshot | null>(() => AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey) ?? null);
+  const [snapshot, setSnapshot] = useState<AgentManagementSnapshot | null>(() => readCachedAgentManagerSnapshot(cacheKey));
   const consumedIntentRef = useRef<string | null>(null);
   const [activePanel, setActivePanel] = useState<AgentManagementPanel>(() => initialUi.activePanel);
-  const [loading, setLoading] = useState(false);
+  /** Full-page loading only when there is no cached snapshot to show. */
+  const [loading, setLoading] = useState(() => !readCachedAgentManagerSnapshot(cacheKey));
+  /** Quiet revalidate / manual refresh while content stays visible. */
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providerActionKey, setProviderActionKey] = useState<string | null>(null);
   const [providerApp, setProviderApp] = useState<AgentManagementProviderApp>(() => initialUi.providerApp);
@@ -199,24 +233,40 @@ export function AgentManagementPage(props: {
   const [skillSearch, setSkillSearch] = useState(() => initialUi.skillSearch);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string | null>(() => initialUi.selectedSkillKey);
   const refresh = useCallback(async (options?: { force?: boolean }) => {
-    const cached = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
+    const cached = readCachedAgentManagerSnapshot(cacheKey);
+
+    // Cache-first: paint instantly on re-entry. Fresh cache skips network entirely.
     if (cached && !options?.force) {
       setSnapshot(cached);
       setError(null);
-      return cached;
+      setLoading(false);
+      if (isAgentManagerSnapshotCacheFresh(cacheKey)) {
+        return cached;
+      }
     }
-    setLoading(true);
+
+    // Have data → quiet background revalidate. No data → centered full loading.
+    if (cached || options?.force) {
+      setRefreshing(true);
+      if (!cached) setLoading(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const nextSnapshot = await agentManagementSnapshot({ workspaceRoot: props.workspaceRoot });
-      AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, nextSnapshot);
+      writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot);
       setSnapshot(nextSnapshot);
       return nextSnapshot;
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : String(loadError));
-      return null;
+      // Keep stale cache on screen when background revalidate fails.
+      if (!cached) {
+        setError(loadError instanceof Error ? loadError.message : String(loadError));
+      }
+      return cached;
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [cacheKey, props.workspaceRoot]);
 
@@ -235,45 +285,34 @@ export function AgentManagementPage(props: {
     });
   }, [activePanel, cacheKey, healthResults, providerApp, selectedSkillKey, skillColumnFilter, skillSearch]);
 
-  const [agentFilter, setAgentFilter] = useState<"all" | "available" | "unavailable" | "needs_auth" | "missing">("all");
+  /** Mutually exclusive filters aligned with card badges: 健康 / 需登录 / 离线 / 未安装. */
+  const [agentFilter, setAgentFilter] = useState<"all" | "online" | "needs_auth" | "offline" | "missing">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AgentManagementAgent | null>(null);
   const [editorBusy, setEditorBusy] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [repairAgent, setRepairAgent] = useState<AgentManagementAgent | null>(null);
   const [customFocusPending, setCustomFocusPending] = useState(false);
-  const customSectionRef = useRef<HTMLDivElement>(null);
+  const [discoverOpen, setDiscoverOpen] = useState(true);
+  const fleetSectionRef = useRef<HTMLDivElement>(null);
+  const autoAdoptInFlightRef = useRef(false);
+  const autoAdoptedIdsRef = useRef<Set<string>>(new Set());
 
-  // Detected section = the built-in providers PLUS the discoverable catalog
-  // (known agents surfaced even when not installed). Custom section = only the
-  // user's own registered custom agents (discoverable entries are read-only and
-  // must not show edit/delete/enable controls).
-  const detectedAgents = useMemo(
-    () => (snapshot?.agents ?? []).filter((agent) => agent.provider !== "custom" || agent.discoverable),
-    [snapshot?.agents],
+  // Managed fleet (primary) vs discover catalog (secondary).
+  const fleetParts = useMemo(
+    () => partitionAgentsForFleet(snapshot?.agents ?? [], healthResults),
+    [snapshot?.agents, healthResults],
   );
-  const customAgents = useMemo(
-    () => (snapshot?.agents ?? []).filter((agent) => agent.provider === "custom" && !agent.discoverable),
-    [snapshot?.agents],
-  );
-  const filteredDetectedAgents = useMemo(() => {
-    if (agentFilter === "available") return detectedAgents.filter((agent) => agent.status === "online");
-    if (agentFilter === "unavailable") return detectedAgents.filter((agent) => agent.status !== "online");
-    if (agentFilter === "needs_auth") return detectedAgents.filter((agent) => agent.status === "needs_auth");
-    if (agentFilter === "missing") return detectedAgents.filter((agent) => agent.status === "missing");
-    return detectedAgents;
-  }, [agentFilter, detectedAgents]);
-  // Custom agents (e.g. CodeBuddy added via "detect available") must also
-  // respect the availability filter, otherwise an online custom agent stays
-  // visible under the "不可用" tab and looks wrongly classified as unavailable.
-  const filteredCustomAgents = useMemo(() => {
-    if (agentFilter === "all") return customAgents;
-    if (agentFilter === "available") return customAgents.filter((agent) => agent.status === "online");
-    if (agentFilter === "unavailable") return customAgents.filter((agent) => agent.status !== "online");
-    if (agentFilter === "needs_auth") return customAgents.filter((agent) => agent.status === "needs_auth");
-    if (agentFilter === "missing") return customAgents.filter((agent) => agent.status === "missing");
-    return customAgents.filter((agent) => agent.status === agentFilter);
-  }, [agentFilter, customAgents]);
+  const managedAgents = fleetParts.managed;
+  const discoverAgents = fleetParts.discover;
+  const filteredManagedAgents = useMemo(() => {
+    if (agentFilter === "all") return managedAgents;
+    return managedAgents.filter((agent) => agentDisplayStatus(agent, healthResults[agent.id]) === agentFilter);
+  }, [agentFilter, managedAgents, healthResults]);
+  const filteredDiscoverAgents = useMemo(() => {
+    if (agentFilter === "all") return discoverAgents;
+    return discoverAgents.filter((agent) => agentDisplayStatus(agent, healthResults[agent.id]) === agentFilter);
+  }, [agentFilter, discoverAgents, healthResults]);
 
   const openAddCustomAgent = useCallback(() => {
     setEditingAgent(null);
@@ -299,6 +338,145 @@ export function AgentManagementPage(props: {
   const openRepair = useCallback((agent: AgentManagementAgent) => {
     setRepairAgent(agent);
   }, []);
+
+  const [addingAgentId, setAddingAgentId] = useState<string | null>(null);
+
+  const catalogAgentToStoreInput = useCallback((agent: AgentManagementAgent) => {
+    const draft = agent as AgentManagementAgent & {
+      supportsStreaming?: boolean;
+      supportsResume?: boolean;
+      supportsApproval?: boolean;
+      supportsModelOverride?: boolean;
+      authRequired?: boolean;
+      description?: string | null;
+      customArgs?: string[];
+    };
+    const command = String(draft.executablePath ?? "").trim() || String(draft.id ?? "").trim();
+    if (!command) throw new Error(t("local_agent.editor_error_command"));
+    const connectionType = draft.connectionType === "raw" ? ("raw" as const) : ("cli" as const);
+    const acpArgs = Array.isArray(draft.acpArgs) ? draft.acpArgs : [];
+    const customId = String(draft.id).trim();
+    return {
+      id: customId,
+      agent: {
+        id: customId,
+        name: draft.name,
+        command,
+        args: Array.isArray(draft.customArgs) ? draft.customArgs : [],
+        connectionType,
+        acpArgs,
+        supportsAcp: connectionType === "cli",
+        supportsStreaming: draft.supportsStreaming !== false && connectionType === "cli",
+        supportsResume: draft.supportsResume === true,
+        supportsApproval: draft.supportsApproval === true,
+        supportsModelOverride: draft.supportsModelOverride === true,
+        authRequired: draft.authRequired === true,
+        nativeSkillsDirs: Array.isArray(draft.nativeSkillsDirs) ? draft.nativeSkillsDirs : [],
+        description: typeof draft.description === "string" ? draft.description : null,
+        agentSource: "custom" as const,
+      },
+    };
+  }, []);
+
+  /** Catalog (discoverable) → user-owned custom agent in the managed fleet. */
+  const handleAddDiscoverableAsCustom = useCallback(async (agent: AgentManagementAgent) => {
+    if (addingAgentId) return;
+    if (!String(props.workspaceRoot ?? "").trim()) {
+      showToast({
+        tone: "error",
+        title: t("agent_manager.agent_card.add_as_mine_fail_title"),
+        description: t("agent_manager.agent_card.add_as_mine_no_workspace"),
+      });
+      return;
+    }
+    setAddingAgentId(agent.id);
+    setError(null);
+    try {
+      const payload = catalogAgentToStoreInput(agent);
+      await personalLocalAgentCreateCustomAgent({
+        workspaceRoot: props.workspaceRoot,
+        id: payload.id,
+        agent: payload.agent,
+      });
+      await refresh({ force: true });
+      setCustomFocusPending(true);
+      showToast({
+        tone: "success",
+        title: t("agent_manager.agent_card.add_as_mine_ok_title", { name: agent.name }),
+        description: t("agent_manager.agent_card.add_as_mine_ok_desc"),
+      });
+    } catch (addError) {
+      const raw = addError instanceof Error ? addError.message : String(addError);
+      const already = /already exists/i.test(raw);
+      if (already) {
+        await refresh({ force: true });
+        setCustomFocusPending(true);
+        showToast({
+          tone: "success",
+          title: t("agent_manager.agent_card.add_as_mine_ok_title", { name: agent.name }),
+          description: t("agent_manager.agent_card.add_as_mine_exists", { name: agent.name }),
+        });
+        return;
+      }
+      const message = /command is required|editor_error_command|不能为空/i.test(raw)
+        ? t("local_agent.editor_error_command")
+        : raw;
+      setError(message);
+      showToast({
+        tone: "error",
+        title: t("agent_manager.agent_card.add_as_mine_fail_title"),
+        description: message,
+      });
+    } finally {
+      setAddingAgentId(null);
+    }
+  }, [addingAgentId, catalogAgentToStoreInput, props.workspaceRoot, refresh, showToast]);
+
+  // Idempotent auto-adopt: installed common catalog agents enter the fleet store.
+  useEffect(() => {
+    if (!snapshot?.agents?.length || !String(props.workspaceRoot ?? "").trim()) return;
+    if (autoAdoptInFlightRef.current) return;
+    const candidates = snapshot.agents.filter((agent) => {
+      if (!shouldAutoAdoptToStore(agent, healthResults[agent.id])) return false;
+      if (autoAdoptedIdsRef.current.has(agent.id)) return false;
+      return true;
+    });
+    if (candidates.length === 0) return;
+    autoAdoptInFlightRef.current = true;
+    void (async () => {
+      const adoptedNames: string[] = [];
+      for (const agent of candidates) {
+        autoAdoptedIdsRef.current.add(agent.id);
+        try {
+          const payload = catalogAgentToStoreInput(agent);
+          await personalLocalAgentCreateCustomAgent({
+            workspaceRoot: props.workspaceRoot,
+            id: payload.id,
+            agent: payload.agent,
+          });
+          adoptedNames.push(agent.name);
+        } catch (error) {
+          const raw = error instanceof Error ? error.message : String(error);
+          // Already in store: still counts as managed membership.
+          if (!/already exists/i.test(raw)) {
+            autoAdoptedIdsRef.current.delete(agent.id);
+          }
+        }
+      }
+      autoAdoptInFlightRef.current = false;
+      if (adoptedNames.length > 0) {
+        await refresh({ force: true });
+        showToast({
+          tone: "success",
+          title: t("agent_manager.fleet_auto_adopt_title"),
+          description: t("agent_manager.fleet_auto_adopt_desc", {
+            names: adoptedNames.slice(0, 4).join("、"),
+            count: adoptedNames.length,
+          }),
+        });
+      }
+    })();
+  }, [catalogAgentToStoreInput, healthResults, props.workspaceRoot, refresh, showToast, snapshot?.agents]);
 
   const handleSaveCustomAgent = useCallback(async (value: InlineAgentEditorValue) => {
     setEditorBusy(true);
@@ -371,7 +549,7 @@ export function AgentManagementPage(props: {
 
   useEffect(() => {
     if (customFocusPending && activePanel === "agents") {
-      customSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      fleetSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       setCustomFocusPending(false);
     }
   }, [customFocusPending, activePanel]);
@@ -694,95 +872,138 @@ export function AgentManagementPage(props: {
             />
           ) : activePanel === "agents" ? (
             <section className="space-y-6">
-              <div className="space-y-3">
+              {/* Primary: managed fleet */}
+              <div ref={fleetSectionRef} className="scroll-mt-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="size-4 text-dls-secondary" />
-                    <h3 className="text-sm font-medium">{t("agent_manager.detected_agents")}</h3>
-                    <span className="text-xs text-dls-secondary">
-                      {filteredDetectedAgents.length} / {detectedAgents.length}
-                    </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Bot className="size-4 text-dls-secondary" />
+                      <h3 className="text-sm font-medium">{t("agent_manager.fleet_title")}</h3>
+                      <span className="text-xs tabular-nums text-dls-secondary">
+                        {filteredManagedAgents.length}
+                        {agentFilter !== "all" ? ` / ${managedAgents.length}` : ""}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-dls-secondary">{t("agent_manager.fleet_desc")}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-0.5">
-                    <FilterChip
-                      selected={agentFilter === "all"}
-                      onClick={() => setAgentFilter("all")}
-                      label={t("agent_manager.filter_all")}
-                    />
-                    <FilterChip
-                      selected={agentFilter === "available"}
-                      onClick={() => setAgentFilter("available")}
-                      label={t("agent_manager.filter_available")}
-                    />
-                    <FilterChip
-                      selected={agentFilter === "unavailable"}
-                      onClick={() => setAgentFilter("unavailable")}
-                      label={t("agent_manager.filter_unavailable")}
-                    />
-                    <FilterChip
-                      selected={agentFilter === "needs_auth"}
-                      onClick={() => setAgentFilter("needs_auth")}
-                      label={t("local_agent.filter_needs_auth")}
-                    />
-                    <FilterChip
-                      selected={agentFilter === "missing"}
-                      onClick={() => setAgentFilter("missing")}
-                      label={t("local_agent.filter_missing")}
-                    />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-0.5">
+                      <FilterChip
+                        selected={agentFilter === "all"}
+                        onClick={() => setAgentFilter("all")}
+                        label={t("agent_manager.filter_all")}
+                      />
+                      <FilterChip
+                        selected={agentFilter === "online"}
+                        onClick={() => setAgentFilter("online")}
+                        label={t("agent_manager.filter_online")}
+                      />
+                      <FilterChip
+                        selected={agentFilter === "needs_auth"}
+                        onClick={() => setAgentFilter("needs_auth")}
+                        label={t("agent_manager.filter_needs_auth")}
+                      />
+                      <FilterChip
+                        selected={agentFilter === "offline"}
+                        onClick={() => setAgentFilter("offline")}
+                        label={t("agent_manager.filter_offline")}
+                      />
+                      <FilterChip
+                        selected={agentFilter === "missing"}
+                        onClick={() => setAgentFilter("missing")}
+                        label={t("agent_manager.filter_missing")}
+                      />
+                    </div>
+                    <Button variant="default" size="sm" onClick={openAddCustomAgent}>
+                      <Plus className="mr-1.5 size-3.5" />
+                      {t("agent_manager.custom_agents_add")}
+                    </Button>
                   </div>
                 </div>
-                {detectedAgents.length === 0 ? (
+                {managedAgents.length === 0 ? (
                   <EmptyStateBox size="spacious" tone="surface" className="text-sm">
-                    {t("agent_manager.detected_agents_desc")}
+                    {t("agent_manager.fleet_empty")}
+                  </EmptyStateBox>
+                ) : filteredManagedAgents.length === 0 ? (
+                  <EmptyStateBox size="spacious" tone="surface" className="text-sm">
+                    {t("agent_manager.fleet_filter_empty")}
                   </EmptyStateBox>
                 ) : (
-                  <div className="space-y-2">
-                    {filteredDetectedAgents.map((agent) => (
-                      <AgentManagementAgentCard
-                        key={agent.id}
-                        agent={agent}
-                        health={healthResults[agent.id]}
-                        checking={checkingAgentId === agent.id}
-                        onTestConnection={runTestConnection}
-                        onRepair={openRepair}
-                      />
-                    ))}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                    {filteredManagedAgents.map((agent) => {
+                      const ownership = agentOwnership(agent);
+                      const isMine = ownership === "mine";
+                      return (
+                        <AgentManagementAgentCard
+                          key={agent.id}
+                          agent={agent}
+                          health={healthResults[agent.id]}
+                          checking={checkingAgentId === agent.id}
+                          adding={addingAgentId === agent.id}
+                          onTestConnection={runTestConnection}
+                          onRepair={openRepair}
+                          onToggleEnabled={isMine ? handleToggleCustomAgentEnabled : undefined}
+                          onDelete={isMine ? handleDeleteCustomAgent : undefined}
+                          onEdit={isMine ? openEditCustomAgent : undefined}
+                          onAddAsCustom={
+                            ownership === "catalog" ? handleAddDiscoverableAsCustom : undefined
+                          }
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              <div ref={customSectionRef} className="scroll-mt-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Bot className="size-4 text-dls-secondary" />
-                    <h3 className="text-sm font-medium">{t("agent_manager.custom_agents")}</h3>
-                    <span className="text-xs text-dls-secondary">{filteredCustomAgents.length}</span>
-                  </div>
-                  <Button variant="default" size="sm" onClick={openAddCustomAgent}>
-                    <Plus className="mr-1.5 size-3.5" />
-                    {t("agent_manager.custom_agents_add")}
-                  </Button>
+              {/* Secondary: discover / install catalog */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    className="flex min-w-0 items-center gap-2 text-left"
+                    onClick={() => setDiscoverOpen((open) => !open)}
+                    aria-expanded={discoverOpen}
+                  >
+                    <Cpu className="size-4 shrink-0 text-dls-secondary" />
+                    <h3 className="text-sm font-medium text-dls-text">{t("agent_manager.discover_title")}</h3>
+                    <span className="text-xs tabular-nums text-dls-secondary">
+                      {filteredDiscoverAgents.length}
+                      {agentFilter !== "all" ? ` / ${discoverAgents.length}` : ""}
+                    </span>
+                    <span className="text-xs text-dls-secondary">
+                      {discoverOpen ? t("agent_manager.discover_collapse") : t("agent_manager.discover_expand")}
+                    </span>
+                  </button>
                 </div>
-                {customAgents.length === 0 ? (
-                  <EmptyStateBox size="spacious" tone="surface" className="text-sm">
-                    {t("agent_manager.custom_agents_empty")}
-                  </EmptyStateBox>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredCustomAgents.map((agent) => (
-                      <AgentManagementAgentCard
-                        key={agent.id}
-                        agent={agent}
-                        health={healthResults[agent.id]}
-                        checking={checkingAgentId === agent.id}
-                        onTestConnection={runTestConnection}
-                        onToggleEnabled={handleToggleCustomAgentEnabled}
-                        onDelete={handleDeleteCustomAgent}
-                        onEdit={openEditCustomAgent}
-                      />
-                    ))}
-                  </div>
-                )}
+                {discoverOpen ? (
+                  <>
+                    <p className="text-xs text-dls-secondary">{t("agent_manager.discover_desc")}</p>
+                    {discoverAgents.length === 0 ? (
+                      <EmptyStateBox size="spacious" tone="surface" className="text-sm">
+                        {t("agent_manager.discover_empty")}
+                      </EmptyStateBox>
+                    ) : filteredDiscoverAgents.length === 0 ? (
+                      <EmptyStateBox size="spacious" tone="surface" className="text-sm">
+                        {t("agent_manager.discover_filter_empty")}
+                      </EmptyStateBox>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                        {filteredDiscoverAgents.map((agent) => (
+                          <AgentManagementAgentCard
+                            key={agent.id}
+                            agent={agent}
+                            health={healthResults[agent.id]}
+                            checking={checkingAgentId === agent.id}
+                            adding={addingAgentId === agent.id}
+                            onTestConnection={runTestConnection}
+                            onRepair={openRepair}
+                            onAddAsCustom={handleAddDiscoverableAsCustom}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </div>
 
               <ExtensionListPanel />

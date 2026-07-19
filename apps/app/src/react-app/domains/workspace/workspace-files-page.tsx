@@ -7,9 +7,11 @@ import {
   Cloud,
   Copy,
   ExternalLink,
+  FileSearch,
   FileStack,
   FileText,
   Folder,
+  FolderOpen,
   MoreHorizontal,
   Search,
   SlidersHorizontal,
@@ -18,6 +20,13 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   Table,
@@ -490,6 +499,44 @@ function FilePreviewDrawer(props: {
   return createPortal(overlay, document.body);
 }
 
+function FilesListEmptyState(props: {
+  filtered: boolean;
+  sessionScoped: boolean;
+}) {
+  const Icon = props.filtered ? FileSearch : props.sessionScoped ? FileStack : FolderOpen;
+  const title = props.filtered
+    ? t("files.no_matching_files")
+    : props.sessionScoped
+      ? t("files.no_session_files")
+      : t("files.no_files");
+  const description = props.filtered
+    ? t("files.no_matching_files_hint")
+    : props.sessionScoped
+      ? t("files.no_session_files_hint")
+      : t("files.no_files_hint");
+
+  return (
+    <div className="flex min-h-56 flex-1 items-center justify-center px-6 py-12">
+      <Empty className="max-w-sm flex-none border-0 bg-transparent p-0" variant="ghost">
+        <EmptyHeader>
+          <EmptyMedia
+            variant="icon"
+            className="mb-3 size-14 rounded-2xl bg-dls-surface-muted/80 text-dls-secondary shadow-sm ring-1 ring-dls-border/60 [&_svg]:size-7"
+          >
+            <Icon aria-hidden="true" strokeWidth={1.5} />
+          </EmptyMedia>
+          <EmptyTitle className="text-sm font-medium text-dls-text">
+            {title}
+          </EmptyTitle>
+          <EmptyDescription className="mt-1 text-xs leading-5 text-dls-secondary">
+            {description}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </div>
+  );
+}
+
 export function WorkspaceFilesPage(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
@@ -941,13 +988,10 @@ export function WorkspaceFilesPage(props: {
                       </TableBody>
                     </Table>
                   ) : (
-                    <div className="flex min-h-48 items-center justify-center text-sm text-dls-secondary">
-                      {typeFilter !== "all" || query.trim()
-                        ? t("files.no_matching_files")
-                        : requiresSessionFileRoot
-                          ? t("files.no_session_files")
-                          : t("files.no_files")}
-                    </div>
+                    <FilesListEmptyState
+                      filtered={typeFilter !== "all" || Boolean(query.trim())}
+                      sessionScoped={requiresSessionFileRoot}
+                    />
                   )}
                 </div>
               )}

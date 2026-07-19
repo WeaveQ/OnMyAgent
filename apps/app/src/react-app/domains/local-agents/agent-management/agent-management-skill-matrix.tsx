@@ -19,12 +19,19 @@ import {
 } from "./agent-management-skill-model";
 import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
 
-type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy";
+type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
 
 const SKILL_MATRIX_AGENT_COLS = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.length;
+// Skill name | actions (download + folder) | agent enable columns
+// Actions sit before the + / ✓ matrix so icons stay aligned and easy to find.
+// Fixed tracks must match header + row exactly (no extra padding on either side).
+const SKILL_MATRIX_AGENT_COL = "40px";
+const SKILL_MATRIX_ACTION_COL = "56px";
 const SKILL_MATRIX_GRID_STYLE = {
-  gridTemplateColumns: `minmax(0,1fr) repeat(${SKILL_MATRIX_AGENT_COLS}, 40px) 52px`,
+  gridTemplateColumns: `minmax(0,1fr) ${SKILL_MATRIX_ACTION_COL} repeat(${SKILL_MATRIX_AGENT_COLS}, ${SKILL_MATRIX_AGENT_COL})`,
 };
+
+const EMPTY_UNAVAILABLE_AGENTS: ReadonlySet<AgentManagementSkillAgent> = new Set();
 
 function SkillStateGlyph(props: {
   state: Exclude<SkillCellState, "busy">;
@@ -74,6 +81,21 @@ function SkillStateGlyph(props: {
       </span>
     );
   }
+  if (props.state === "unavailable") {
+    // Agent not installed — quiet disabled mark, not a dashed +
+    return (
+      <span
+        className={cn(
+          "flex items-center justify-center rounded-full font-medium leading-none text-dls-secondary/45",
+          sizeClass,
+          "border border-dashed border-dls-border/50 bg-transparent",
+        )}
+        aria-hidden
+      >
+        –
+      </span>
+    );
+  }
   return <span className="h-0.5 w-2.5 rounded-full bg-dls-border" />;
 }
 
@@ -96,6 +118,8 @@ function SkillMatrixCell(props: {
     glyph = <SkillStateGlyph state="managed" />;
   } else if (props.state === "available") {
     glyph = <SkillStateGlyph state="available" />;
+  } else if (props.state === "unavailable") {
+    glyph = <SkillStateGlyph state="unavailable" />;
   } else {
     glyph = <SkillStateGlyph state="readonly" />;
   }
@@ -114,6 +138,7 @@ function SkillMatrixCell(props: {
               interactive && props.state === "available" && "hover:bg-transparent",
               interactive && props.state !== "available" && "hover:bg-dls-hover",
               props.state === "native" && "hover:brightness-95",
+              props.state === "unavailable" && "opacity-50",
             )}
             aria-label={props.tooltip}
           >
@@ -132,9 +157,11 @@ function SkillMatrixColumnHeader(props: {
   agent: AgentManagementSkillAgent;
   active: boolean;
   count: number;
+  unavailable?: boolean;
   onToggle: (event: React.MouseEvent) => void;
 }) {
   const label = skillAgentLabel(props.agent);
+  const unavailable = Boolean(props.unavailable);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -142,19 +169,28 @@ function SkillMatrixColumnHeader(props: {
           <MatrixButton
             type="button"
             kind="header"
-            onClick={props.onToggle}
-            active={props.active}
+            onClick={unavailable ? undefined : props.onToggle}
+            active={props.active && !unavailable}
+            interactive={!unavailable}
+            disabled={unavailable}
             className={cn(
-              props.active
-                ? "bg-dls-surface-muted text-dls-text"
-                : "hover:bg-dls-hover",
+              unavailable
+                ? "cursor-not-allowed opacity-40"
+                : props.active
+                  ? "bg-dls-surface-muted text-dls-text"
+                  : "hover:bg-dls-hover",
             )}
-            aria-pressed={props.active}
-            aria-label={t("skills.matrix_column_label", {
-              label,
-              count: props.count,
-              filtered: props.active ? t("skills.matrix_filtered_suffix") : "",
-            })}
+            aria-pressed={props.active && !unavailable}
+            aria-disabled={unavailable || undefined}
+            aria-label={
+              unavailable
+                ? t("skills.matrix_column_unavailable", { label })
+                : t("skills.matrix_column_label", {
+                    label,
+                    count: props.count,
+                    filtered: props.active ? t("skills.matrix_filtered_suffix") : "",
+                  })
+            }
           >
             <span className="flex size-4 items-center justify-center">
               <AgentSkillIcon agent={props.agent} />
@@ -163,7 +199,13 @@ function SkillMatrixColumnHeader(props: {
           </MatrixButton>
         }
       />
-      <TooltipContent side="bottom"><span>{t("skills.matrix_column_tooltip", { label })}</span></TooltipContent>
+      <TooltipContent side="bottom">
+        <span>
+          {unavailable
+            ? t("skills.matrix_column_unavailable", { label })
+            : t("skills.matrix_column_tooltip", { label })}
+        </span>
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -172,13 +214,20 @@ function getSkillCellState(
   skill: AgentManagementSkill,
   agent: AgentManagementSkillAgent,
   busyKey: string | null,
+  agentUnavailable = false,
 ): { state: SkillCellState; tooltip: string } {
+  const label = skillAgentLabel(agent);
+  if (agentUnavailable) {
+    return {
+      state: "unavailable",
+      tooltip: t("skills.matrix_tooltip_agent_missing", { label }),
+    };
+  }
   const enabled = skill.agents.includes(agent);
   const ownsSource = skill.sources.some((source) => source.agent === agent && source.path === skill.path && !source.managedByStudioSwitch);
   const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
   const canSync = sourceKind === "skill" && skill.sources.some((source) => source.kind !== "runtime-skill" && source.kind !== "slash-command");
   const busy = busyKey === `${skill.path}:${agent}`;
-  const label = skillAgentLabel(agent);
   if (busy) return { state: "busy", tooltip: t("skills.matrix_tooltip_busy", { label }) };
   if (enabled && ownsSource) return { state: "native", tooltip: t("skills.matrix_tooltip_native", { label }) };
   if (enabled) return { state: "managed", tooltip: t("skills.matrix_tooltip_managed", { label }) };
@@ -244,6 +293,7 @@ function SkillMatrixRow(props: {
   skill: AgentManagementSkill;
   busyKey: string | null;
   selected: boolean;
+  unavailableAgents?: ReadonlySet<AgentManagementSkillAgent>;
   onSkillAction: (skill: AgentManagementSkill, agent: AgentManagementSkillAgent, action: "enable" | "disable" | "open" | "import") => void;
   onOpenDetail: (skill: AgentManagementSkill) => void;
 }) {

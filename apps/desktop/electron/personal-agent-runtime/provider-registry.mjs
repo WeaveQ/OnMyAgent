@@ -8,7 +8,7 @@
 export const PERSONAL_LOCAL_AGENT_PROVIDERS = {
   opencode: {
     id: "opencode",
-    name: "OpenCode",
+    name: "OpenCode CLI",
     executable: "opencode",
     versionArgs: ["--version"],
     modelMode: "flag",
@@ -22,21 +22,21 @@ export const PERSONAL_LOCAL_AGENT_PROVIDERS = {
   },
   claude: {
     id: "claude",
-    name: "Claude Code",
+    name: "Claude Code CLI",
     executable: "claude",
     versionArgs: ["--version"],
     modelMode: "flag",
   },
   openclaw: {
     id: "openclaw",
-    name: "OpenClaw",
+    name: "OpenClaw CLI",
     executable: "openclaw",
     versionArgs: ["--version"],
     modelMode: "none",
   },
   hermes: {
     id: "hermes",
-    name: "Hermes",
+    name: "Hermes CLI",
     executable: "hermes",
     versionArgs: ["--version"],
     modelMode: "flag",
@@ -125,11 +125,11 @@ export function isPersonalLocalAgentProvider(provider) {
 
 export function defaultPersonalLocalAgents() {
   return [
-    { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+    { id: "opencode", name: "OpenCode CLI", provider: "opencode", executablePath: "opencode" },
     { id: "codex", name: "Codex CLI", provider: "codex", executablePath: "codex" },
-    { id: "claude", name: "Claude Code", provider: "claude", executablePath: "claude" },
-    { id: "openclaw", name: "OpenClaw", provider: "openclaw", executablePath: "openclaw" },
-    { id: "hermes", name: "Hermes", provider: "hermes", executablePath: "hermes" },
+    { id: "claude", name: "Claude Code CLI", provider: "claude", executablePath: "claude" },
+    { id: "openclaw", name: "OpenClaw CLI", provider: "openclaw", executablePath: "openclaw" },
+    { id: "hermes", name: "Hermes CLI", provider: "hermes", executablePath: "hermes" },
   ];
 }
 

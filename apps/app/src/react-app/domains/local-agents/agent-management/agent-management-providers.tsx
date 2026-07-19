@@ -49,11 +49,11 @@ import openclawIconUrl from "../../../../assets/agent-icons/claw.svg";
 import opencodeIconUrl from "../../../../assets/agent-icons/opencode-logo-light.svg";
 
 export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
-  opencode: "OpenCode",
-  codex: "Codex",
-  claude: "Claude Code",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
+  opencode: "OpenCode CLI",
+  codex: "Codex CLI",
+  claude: "Claude Code CLI",
+  openclaw: "OpenClaw CLI",
+  hermes: "Hermes CLI",
   custom: "Custom",
 };
 
@@ -62,28 +62,39 @@ export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
 // its own real identity in `agent.id`. Mirror AionUi: surface that identity for
 // display instead of the collapsed "Custom" marker. Keyed by the same ids the
 // card icon map uses (see AgentManagementAgentIcon in agent-management-agent-card).
+// Names ending in "CLI" are command-line agents; desktop clients (e.g. WorkBuddy)
+// omit the suffix.
 export const AGENT_TYPE_LABELS_BY_ID: Record<string, string> = {
   gemini: "Gemini CLI",
-  kiro: "Kiro",
-  goose: "Goose",
-  "cursor-agent": "Cursor Agent",
-  qwen: "Qwen Code",
+  kiro: "Kiro CLI",
+  goose: "Goose CLI",
+  "cursor-agent": "Cursor Agent CLI",
+  qwen: "Qwen Code CLI",
   kimi: "Kimi CLI",
-  copilot: "GitHub Copilot",
-  qoder: "Qoder",
-  augment: "Augment Code",
+  copilot: "GitHub Copilot CLI",
+  qoder: "Qoder CLI",
+  augment: "Augment Code CLI",
   snow: "Snow CLI",
-  nanobot: "Nano Bot",
-  codebuddy: "CodeBuddy",
-  trae: "Trae",
-  mimo: "MiMo Code",
-  grok: "Grok Build",
+  nanobot: "Nano Bot CLI",
+  codebuddy: "CodeBuddy CLI",
+  workbuddy: "WorkBuddy",
+  trae: "Trae CLI",
+  mimo: "MiMo Code CLI",
+  grok: "Grok Build CLI",
 };
 
 export function localAgentTypeLabel(agent: { id?: string; provider?: string; name?: string }): string {
-  if (agent.id && AGENT_TYPE_LABELS_BY_ID[agent.id]) return AGENT_TYPE_LABELS_BY_ID[agent.id];
-  if (agent.provider && AGENT_MANAGER_PROVIDER_LABELS[agent.provider]) return AGENT_MANAGER_PROVIDER_LABELS[agent.provider];
-  return agent.provider || agent.id || agent.name || "Custom";
+  const id = String(agent.id ?? "").trim();
+  if (id && AGENT_TYPE_LABELS_BY_ID[id]) return AGENT_TYPE_LABELS_BY_ID[id];
+  const provider = String(agent.provider ?? "").trim();
+  // Prefer product-family brand labels (OpenCode CLI / Claude Code CLI / …).
+  // Skip generic "custom" so user-named agents keep their stored display name.
+  if (provider && provider !== "custom" && AGENT_MANAGER_PROVIDER_LABELS[provider]) {
+    return AGENT_MANAGER_PROVIDER_LABELS[provider];
+  }
+  const name = String(agent.name ?? "").trim();
+  if (name) return name;
+  return provider || id || "Custom";
 }
 
 const SKILL_AGENT_LABELS: Record<string, string> = {

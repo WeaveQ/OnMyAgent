@@ -7,9 +7,6 @@ import {
   FileText,
   FolderOpen,
   Mail,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
   Search,
   ShoppingBag,
   Upload,
@@ -32,6 +29,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import {
+  hasLobePluginBrandIcon,
+  LobePluginBrandIcon,
+} from "@/react-app/design-system/lobe-brand-icons";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
@@ -131,6 +132,8 @@ const pluginsLayoutClass = {
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
   disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
   cardGrid: "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3",
+  /** Built-in artifact plugins (typically 4) stay a stable 2×2 on wide layouts. */
+  artifactCardGrid: "grid grid-cols-1 gap-2.5 sm:grid-cols-2",
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
   originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
@@ -179,13 +182,6 @@ function getSamplePlugins(): PluginItem[] {
       description: t("session.plugins_desc_gmail"),
       category: "communication",
       iconKey: "gmail",
-    },
-    {
-      id: "feishu",
-      name: t("session.plugins_name_feishu"),
-      description: t("session.plugins_desc_feishu"),
-      category: "communication",
-      iconKey: "feishu",
     },
     {
       id: "feishu",
@@ -244,6 +240,31 @@ const CONNECTOR_ICON_SRC: Partial<Record<string, string>> = {
   "baidu-drive": "/connector-icons/baidu-drive.png",
 };
 
+function PluginLogoLobeOrFallback(props: {
+  iconKey: string;
+  className?: string;
+  shared: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className={cn(props.shared, "bg-dls-surface-muted text-dls-text", props.className)}>
+        <Blocks className="size-5" aria-hidden />
+      </div>
+    );
+  }
+  return (
+    <div className={cn(props.shared, "bg-dls-surface p-1.5", props.className)}>
+      <LobePluginBrandIcon
+        iconKey={props.iconKey}
+        size={28}
+        className="size-7"
+        onFailed={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 function PluginLogo(props: { iconKey: string; className?: string }) {
   const shared =
     "flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/5";
@@ -258,6 +279,17 @@ function PluginLogo(props: { iconKey: string; className?: string }) {
           draggable={false}
         />
       </div>
+    );
+  }
+
+  // Lobe brand marks for connectors we no longer hand-draw (Notion / M365 / GH / …).
+  if (hasLobePluginBrandIcon(props.iconKey)) {
+    return (
+      <PluginLogoLobeOrFallback
+        iconKey={props.iconKey}
+        className={props.className}
+        shared={shared}
+      />
     );
   }
 
@@ -278,25 +310,6 @@ function PluginLogo(props: { iconKey: string; className?: string }) {
           <div className="relative size-8">
             <div className="absolute inset-0 rounded-lg bg-dls-plugin-gradient [clip-path:polygon(0_70%,34%_25%,58%_25%,33%_75%)]" />
             <div className="absolute inset-0 rounded-lg bg-dls-plugin-gradient [clip-path:polygon(36%_24%,88%_24%,56%_73%,20%_73%)] opacity-90" />
-          </div>
-        </div>
-      );
-    case "notion":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-black", props.className)}>
-          <div className="flex size-8 items-center justify-center rounded-md border-2 border-current text-2xl font-black leading-none">
-            N
-          </div>
-        </div>
-      );
-    case "m365":
-      return (
-        <div className={cn(shared, "bg-dls-surface p-1.5", props.className)}>
-          <div className="grid size-full grid-cols-2 gap-0.5 overflow-hidden rounded-lg">
-            <span className="bg-dls-brand-windows-red" />
-            <span className="bg-dls-brand-windows-green" />
-            <span className="bg-dls-brand-windows-blue" />
-            <span className="bg-dls-brand-windows-yellow" />
           </div>
         </div>
       );
@@ -521,8 +534,13 @@ function PluginStoreCard(props: {
 }
 
 function PluginCard(props: { item: PluginItem }) {
+  // Preview-only: not installable. Avoid Plus / hover-active affordances.
   return (
-    <PluginStoreCard minHeight="sm" className="gap-3">
+    <PluginStoreCard
+      minHeight="sm"
+      disabled
+      className="cursor-default gap-3 border border-dashed border-dls-border bg-dls-surface/60 opacity-100 hover:border-dls-border hover:bg-dls-surface/60"
+    >
       <PluginLogo iconKey={props.item.iconKey} />
       <div className="min-w-0 flex-1">
         <div className={pluginsTextClass.featuredTitle}>
@@ -532,14 +550,9 @@ function PluginCard(props: { item: PluginItem }) {
           {props.item.description}
         </div>
       </div>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className={pluginsLayoutClass.iconButton}
-        aria-label={t("session.plugins_add_aria", { name: props.item.name })}
-      >
-        <Plus className="size-3.5" />
-      </Button>
+      <StatusBadge tone="neutral" size="sm" className="shrink-0">
+        {t("common.coming_soon_short")}
+      </StatusBadge>
     </PluginStoreCard>
   );
 }
@@ -648,13 +661,16 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
 
   return (
     <section className="space-y-4" aria-labelledby="artifact-plugins-heading">
-      <div>
+      <div className="space-y-1">
         <h2
           id="artifact-plugins-heading"
           className="text-base font-medium leading-6 text-dls-text"
         >
           {t("plugins.artifact_title")}
         </h2>
+        <p className="max-w-2xl text-xs leading-5 text-dls-secondary">
+          {t("plugins.artifact_description")}
+        </p>
       </div>
 
       {mutationError ? (
@@ -678,13 +694,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
       ) : plugins.length === 0 ? (
         <EmptyStateBox size="comfortable">{t("plugins.artifact_empty")}</EmptyStateBox>
       ) : (
-        <div className={pluginsLayoutClass.cardGrid}>
+        <div className={pluginsLayoutClass.artifactCardGrid}>
           {plugins.map((plugin) => (
             <ArtifactPluginCard
               key={plugin.id}
               plugin={plugin}
-              enabledLabel={labels.enabled}
-              disabledLabel={labels.disabled}
               openLabel={t("plugins.artifact_open")}
               toggleLabel={t("plugins.artifact_card_toggle", {
                 name: plugin.manifest.interface.displayName,
@@ -745,16 +759,19 @@ export function PluginsPage(props: PluginsPageProps) {
         <div className={pluginsLayoutClass.pluginPageContainer}>
           <ArtifactPluginsCatalog {...props} />
           <section className="space-y-4 border-t border-dls-border pt-6">
-            <div>
+            <div className="space-y-1">
               <h2 className="text-base font-medium leading-6 text-dls-text">
                 {t("plugins.sample_section_title")}
               </h2>
+              <p className="max-w-2xl text-xs leading-5 text-dls-secondary">
+                {t("plugins.sample_section_hint")}
+              </p>
             </div>
             {categories.map((category) => {
               const items = filteredByCategory.get(category.id) ?? [];
               if (items.length === 0) return null;
               return (
-                <section key={category.id} className="space-y-0 opacity-90">
+                <section key={category.id} className="space-y-0">
                   <h3 className={pluginsTextClass.sectionTitle}>{category.title}</h3>
                   <div className={pluginsLayoutClass.cardGrid}>
                     {items.map((item) => (
