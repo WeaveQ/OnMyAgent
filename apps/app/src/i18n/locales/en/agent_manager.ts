@@ -100,6 +100,7 @@ export default {
   "agent_manager.written": "Written",
   "agent_manager.detected_agents": "Local agents",
   "agent_manager.detected_agents_desc":
+    "Coding agents installed or available on this machine (OpenCode, Claude Code, Codex, and more).",
   "agent_manager.fleet_title": "My agents",
   "agent_manager.fleet_desc": "Agents under management: test, repair, and use for skills / MCP / models.",
   "agent_manager.fleet_empty": "No agents yet. Common agents auto-join when installed, or adopt from Discover below.",
@@ -112,7 +113,6 @@ export default {
   "agent_manager.discover_filter_empty": "No discoverable agents match this filter.",
   "agent_manager.discover_collapse": "Collapse",
   "agent_manager.discover_expand": "Expand",
-    "Coding agents installed or available on this machine (OpenCode, Claude Code, Codex, and more).",
   "agent_manager.custom_agents": "Custom agents",
   "agent_manager.custom_agents_desc": "Agents you added manually. Toggle, edit, or remove them.",
   "agent_manager.custom_agents_add": "Add custom agent",

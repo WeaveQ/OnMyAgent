@@ -192,11 +192,19 @@ export const LobeProviderBrandIcon = memo(function LobeProviderBrandIcon(props: 
   providerName?: string | null;
   size?: number;
   className?: string;
+  /** Called when no Lobe mark maps for this provider (caller may show a fallback). */
+  onFailed?: () => void;
 }) {
   const key = resolveLobeProviderKey(props.providerId, props.providerName);
-  if (!key) return null;
+  if (!key) {
+    props.onFailed?.();
+    return null;
+  }
   const Icon = PROVIDER_MONO[key];
-  if (!Icon) return null;
+  if (!Icon) {
+    props.onFailed?.();
+    return null;
+  }
   return renderBrand(Icon, {
     size: props.size ?? 16,
     className: props.className,
@@ -227,10 +235,15 @@ export const LobePluginBrandIcon = memo(function LobePluginBrandIcon(props: {
   iconKey?: string | null;
   size?: number;
   className?: string;
+  /** Called when no Lobe mark maps for this icon key (caller may show a fallback). */
+  onFailed?: () => void;
 }) {
   const k = props.iconKey?.trim().toLowerCase() ?? "";
   const Icon = PLUGIN_BRAND[k];
-  if (!Icon) return null;
+  if (!Icon) {
+    props.onFailed?.();
+    return null;
+  }
   return renderBrand(Icon, {
     size: props.size ?? 24,
     className: props.className,

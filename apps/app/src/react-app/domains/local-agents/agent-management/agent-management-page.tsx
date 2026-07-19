@@ -582,7 +582,7 @@ export function AgentManagementPage(props: {
       setSnapshot((current) => {
         if (!current) return current;
         const nextSnapshot = { ...current, providers: result.providers };
-        AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, nextSnapshot);
+        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot);
         return nextSnapshot;
       });
       if (input.action === "save") {
@@ -723,7 +723,7 @@ export function AgentManagementPage(props: {
       setSnapshot((current) => {
         if (!current) return current;
         const nextSnapshot = { ...current, mcp: result.snapshot };
-        AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, nextSnapshot);
+        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot);
         return nextSnapshot;
       });
     } catch (mcpError) {
