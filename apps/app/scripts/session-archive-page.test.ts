@@ -81,10 +81,10 @@ describe("session archive page helpers", () => {
           agent: "hermes",
           display_name: null,
           first_message: '{"jsonrpc":"2.0","id":1,"method":"initialize"}',
-          project: "/Users/work/openwork-agents",
+          project: "/Users/work/sample-project",
         }),
       ),
-    ).toBe("Hermes · openwork-agents");
+    ).toBe("Hermes · sample-project");
   });
 
   it("agentLabel returns friendly name or agent id", () => {

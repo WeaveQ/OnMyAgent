@@ -396,7 +396,6 @@ export default {
   "local_agent.detect_available_title": "發現可添加的本地 Agent",
   "local_agent.no_active_runs": "當前沒有後台執行中的本地 Agent",
   "local_agent.background_status_restored": "後台運行狀態已從主進程恢復。",
-  "local_agent.scheduled_task_completed": "定時任務「{title}」執行完成。\n狀態：{status}\nRun：{runId}\n\n{output}",
   "local_agent.editor_id_placeholder": "唯一識別，僅小寫字母 / 數字 / 橫線，例如 my-agent",
   "local_agent.editor_name_placeholder": "顯示名稱，例如 我的本地編碼助手",
   "local_agent.editor_command_placeholder": "Agent 執行檔絕對路徑，例如 /usr/local/bin/opencode",
