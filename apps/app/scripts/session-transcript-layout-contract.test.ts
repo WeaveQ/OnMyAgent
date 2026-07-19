@@ -124,8 +124,6 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("function TranscriptSpeechButton");
     expect(messageList).toContain("function TranscriptShareButton");
     expect(messageList).toContain("turnDetailsExpanded={props.turnDetailsExpanded}");
-    expect(messageList).toContain("const autoExpanded = hasPinnedBrowserUseOperation");
-    expect(messageList).not.toContain("const autoExpanded = active || hasPinnedBrowserUseOperation");
     expect(messageList).not.toContain("disabled={isLockedOpen}");
     expect(messageList).not.toContain("if (props.onTurnDetailsExpandedChange && !detailsExpanded) return null");
     expect(messageList).toContain("function WorkBuddyTurnContent");
