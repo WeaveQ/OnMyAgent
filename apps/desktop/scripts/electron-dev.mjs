@@ -233,6 +233,9 @@ runSync(nodeCmd, [resolve(__dirname, "patch-electron-name.mjs")], {
   },
 });
 
+// Shared packages must be built before Electron loads workspace deps from dist/.
+console.log("[electron-dev] Building @onmyagent/types...");
+runSync(pnpmCmd, ["--filter", "@onmyagent/types", "build"], { cwd: repoRoot });
 // Build the server TS → JS so Electron can import it in-process
 console.log("[electron-dev] Building onmyagent-server (tsc)...");
 runSync(pnpmCmd, ["--filter", "onmyagent-server", "build"], { cwd: repoRoot });
@@ -316,9 +319,14 @@ if (viteReady && forceViteOptimize) {
 }
 
 if (!viteReady) {
-  // Run from apps/app so Vite cacheDir resolves to apps/app/node_modules/.vite.
+  // Run from apps/app so Vite cacheDir resolves to apps/app/node_modules/.vite
+  // (same path inspectViteDeps / clearViteDepsCache use).
+  // package.json "dev" uses Unix env assignment (FOO=1 cmd); Windows needs dev:windows.
   const appRoot = resolve(repoRoot, "apps/app");
-  const viteArgs = forceViteOptimize ? ["exec", "vite", "--force"] : ["run", "dev"];
+  const appDevScript = process.platform === "win32" ? "dev:windows" : "dev";
+  const viteArgs = forceViteOptimize
+    ? ["exec", "vite", "--force"]
+    : ["run", appDevScript];
   uiChild = run(pnpmCmd, viteArgs, {
     cwd: appRoot,
     env: {

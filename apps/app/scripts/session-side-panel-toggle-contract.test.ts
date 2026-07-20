@@ -108,4 +108,29 @@ describe("right side panel toggle contract", () => {
     expect(workspacePanel).toContain('<PanelRight className="size-3.5" />');
     expect(workspacePanel).toContain("flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist");
   });
+
+  test("workspace tool tabs activate content without relying on setState updater side-effects", () => {
+    const workspacePanel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
+    );
+    // Deterministic singleton id + explicit setActiveId (browser/files/review).
+    expect(workspacePanel).toContain("const singletonId = `${kind}-singleton`");
+    expect(workspacePanel).toContain("setActiveId(singletonId)");
+    // Safety net when tabs exist but activeId is briefly null/stale.
+    expect(workspacePanel).toContain("tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null");
+    expect(workspacePanel).toContain("Heal activeId when tabs exist");
+    // Must not assign active id only from inside setTabs updater (async-defer bug).
+    expect(workspacePanel).not.toContain("existingId = existing.id");
+    expect(workspacePanel).not.toContain("if (existingId) setActiveId(existingId)");
+  });
+
+  test("workspace tool tabs survive side-panel close via session-scoped snapshot cache", () => {
+    const workspacePanel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
+    );
+    expect(workspacePanel).toContain("workspacePanelSnapshots");
+    expect(workspacePanel).toContain("writeWorkspacePanelSnapshot");
+    expect(workspacePanel).toContain("readWorkspacePanelSnapshot");
+    expect(workspacePanel).toContain("Persist durable tool tabs whenever they change");
+  });
 });
