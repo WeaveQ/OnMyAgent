@@ -126,6 +126,7 @@ export default {
   "local_agent.failure_sandbox_network": "底層 Agent 的沙箱、網路或系統權限拒絕了本次操作。原始錯誤：{message}",
   "local_agent.failure_empty_output": "Agent 已結束，但沒有返回可讀回覆。請檢查該 Agent 是否正常輸出，或重試。",
   "local_agent.failure_acp_incomplete": "Agent 回覆未完整結束，可能被截斷。可重試或檢查模型上下文限制。",
+  "local_agent.failure_acp_prompt": "本輪發送失敗，Agent 處理請求時出錯。可重試或新建會話。",
   "local_agent.tips_ownership_agent": "Agent",
   "local_agent.tips_ownership_provider": "服務",
   "local_agent.tips_ownership_platform": "平台",

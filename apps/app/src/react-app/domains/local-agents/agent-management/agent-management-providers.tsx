@@ -164,13 +164,6 @@ export type ProviderDraft = {
 
 const PROVIDER_APP_OPTIONS: AgentManagementProviderApp[] = ["opencode", "claude", "codex", "openclaw", "hermes"];
 
-function redactProviderText(value: unknown) {
-  return JSON.stringify(value ?? {}, (key, innerValue) => {
-    if (/api.?key|token|secret|authorization|auth/i.test(key)) return innerValue ? "***" : innerValue;
-    return innerValue;
-  }, 2);
-}
-
 function createCodexCatalogDraftRow(seed?: Partial<CodexCatalogDraftRow>): CodexCatalogDraftRow {
   const fallbackId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return {
@@ -1237,14 +1230,6 @@ export function AgentManagementProviderPanel(props: {
                         </ProviderActionIconButton>
                       </div>
                     </div>
-                    <details className="mt-2.5 rounded-lg border border-dls-border bg-dls-background px-3 py-2 text-xs text-dls-secondary">
-                      <summary className="cursor-pointer font-medium text-dls-secondary hover:text-dls-text">
-                        {t("agent_manager.config_preview")}
-                      </summary>
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs leading-4 text-dls-secondary">
-                        {redactProviderText(provider.settingsConfig)}
-                      </pre>
-                    </details>
                   </div>
                 );
               })}

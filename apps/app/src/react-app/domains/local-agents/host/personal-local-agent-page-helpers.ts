@@ -5,7 +5,9 @@ import {
   type PersonalLocalAgentProvider,
   type PersonalLocalAgentRunResult,
 } from "../../../../app/lib/desktop";
+import { formatAgentVersionDisplay } from "../agent-management/agent-card-model";
 import { isPersonalLocalAgentProvider, PROVIDER_LABELS } from "../local-agent-page-model";
+import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
 import {
   classifiedRunFailureMessage,
   runTimelineAlreadyShowsFailure,
@@ -54,15 +56,30 @@ export function nowId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function isGenericCustomLabel(value: string) {
+  const text = value.trim();
+  return /^custom$/i.test(text) || /^custom\s+command$/i.test(text);
+}
+
+/**
+ * Secondary line under the agent name in the local-agent list.
+ * Prefer a compact binary version (same formatting as management cards).
+ * Never show the collapsed "Custom" marker as if it were a version.
+ */
 export function agentSubtitle(agent: PersonalLocalAgent) {
   if (agent.status !== "online") return agent.error || t("common.unavailable");
-  // Prefer friendly status over protocol chrome ("OpenCode ACP session · /Users/...").
-  const version = String(agent.version ?? "").trim();
-  if (version) return version;
+  const rawVersion = String(agent.version ?? "").trim().split("\n")[0]?.trim() ?? "";
+  if (rawVersion && !isGenericCustomLabel(rawVersion)) {
+    // Keep list style aligned with OpenCode/WorkBuddy rows (no forced "v" prefix).
+    const compact = formatAgentVersionDisplay(rawVersion);
+    if (compact) return compact.replace(/^v/i, "");
+    return rawVersion;
+  }
   const mode = String(agent.connectionMode ?? "").trim();
-  // Strip raw path tails; keep a short connection label.
+  // Strip protocol chrome ("… ACP session"); keep a short product label when useful.
   if (mode && !mode.includes("/") && !mode.includes("\\")) {
-    return mode.replace(/\s*ACP session\s*/i, "").trim() || t("config.status_connected");
+    const cleaned = mode.replace(/\s*ACP session\s*/i, "").trim();
+    if (cleaned && !isGenericCustomLabel(cleaned)) return cleaned;
   }
   return t("config.status_connected");
 }
@@ -85,13 +102,16 @@ export function runningAssistantTextForRun(run: PersonalLocalAgentRunResult) {
     .map((event) => event.text)
     .filter((text) => text.trim().length > 0);
   if (!chunks.length) return "";
+  let joined: string;
   if (run.agentProvider === "hermes") {
-    return chunks.reduce((current, next) => {
+    joined = chunks.reduce((current, next) => {
       if (!current) return next;
       return shouldJoinAssistantChunkTightly(current, next) ? `${current}${next}` : `${current} ${next}`;
     }, "").trim();
+  } else {
+    joined = chunks.join("\n").trim();
   }
-  return chunks.join("\n").trim();
+  return sanitizeAssistantTranscriptText(joined).text;
 }
 
 export function messageTextForRun(
@@ -106,11 +126,11 @@ export function messageTextForRun(
   }
   if (run.conversationMessages?.length) {
     const finalMessage = [...run.conversationMessages].reverse().find((message) => message.type === "finish" && message.text.trim());
-    if (finalMessage) return finalMessage.text.trim();
+    if (finalMessage) return sanitizeAssistantTranscriptText(finalMessage.text).text;
     const latestAssistant = [...run.conversationMessages].reverse().find((message) => message.role === "assistant" && message.text.trim());
-    if (latestAssistant) return latestAssistant.text.trim();
+    if (latestAssistant) return sanitizeAssistantTranscriptText(latestAssistant.text).text;
   }
-  const output = run.output.trim();
+  const output = sanitizeAssistantTranscriptText(run.output).text;
   if (output) return output;
   const liveAssistantText = runningAssistantTextForRun(run);
   if (liveAssistantText) {
@@ -121,9 +141,9 @@ export function messageTextForRun(
   }
   if (run.status === "running" && run.pendingApprovals?.length) return t("local_agent.waiting_for_approval");
   if (run.status === "running") return t("local_agent.running");
-  if (run.status === "completed") return fallback;
+  if (run.status === "completed") return sanitizeAssistantTranscriptText(fallback).text;
   if (run.status === "cancelled") return t("local_agent.cancelled");
-  return fallback;
+  return sanitizeAssistantTranscriptText(fallback).text;
 }
 
 export function placeholderRunFromProcess(process: PersonalLocalAgentProcessRecord): PersonalLocalAgentRunResult | null {
