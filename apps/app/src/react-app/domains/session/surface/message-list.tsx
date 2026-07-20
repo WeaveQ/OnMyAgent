@@ -78,7 +78,7 @@ import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
 import { usePlatform } from "../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../sync/message-metadata";
 import { isOutputLimitContinuationMessageId } from "../sync/output-limit-recovery";
-import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
+import { MarkdownBlock, type MarkdownCodePathOpenMode, type MarkdownVerifiedCodePath } from "./markdown";
 import {
   ImageGenerationToolCard,
   SpecializedToolDetails,
@@ -435,6 +435,7 @@ type SessionTranscriptProps = {
   onForkAtMessage?: (messageId: string) => void;
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
+  workspaceRoot?: string;
   /**
    * When set, renders this identity once at the start of each visible
    * assistant turn. The root transcript always supplies the active identity.
@@ -1769,7 +1770,7 @@ function StepRow(props: {
   part: TranscriptPart;
   expanded: boolean;
   onToggle: () => void;
-  onOpenCodePath?: (path: string) => void;
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
   isStreamingReasoning: boolean;
   headlineOverride?: string;
   categoryOverride?: string;
@@ -2392,7 +2393,7 @@ function WorkBuddyProcessFold(props: {
   running: boolean;
   expandedStepIds: Set<string>;
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
-  onOpenCodePath?: (path: string) => void;
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
 }) {
   const plan = processPlanDetails(props.items);
   const [expanded, setExpanded] = useState(false);
@@ -2518,7 +2519,7 @@ function StepsContainer(props: {
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
   turnDetailsExpanded?: boolean;
   onTurnDetailsExpandedChange?: (expanded: boolean) => void;
-  onOpenCodePath?: (path: string) => void;
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
   isTrailingMessageContent?: boolean;
 }) {
   const toggleSteps = (id: string) => {
@@ -2711,8 +2712,25 @@ function OpenTargetIcon(props: { target: OpenTarget }) {
   return <FileIcon size={12} className="shrink-0 text-dls-secondary" />;
 }
 
-function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (target: OpenTarget) => void }) {
+function absoluteArtifactPath(workspaceRoot: string | undefined, value: string) {
+  const root = workspaceRoot?.trim().replace(/[/\\]+$/, "") ?? "";
+  const relative = value.replace(/^\.\//, "");
+  return value.startsWith("/") ? value : (root ? `${root}/${relative}` : relative);
+}
+
+function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (target: OpenTarget) => void; workspaceRoot?: string }) {
   if (!props.targets.length) return null;
+  const openInFolder = async (target: OpenTarget) => {
+    if (target.kind !== "file") {
+      props.onOpenTarget(target);
+      return;
+    }
+    try {
+      await revealDesktopItemInDir(absoluteArtifactPath(props.workspaceRoot, target.value));
+    } catch (error) {
+      console.error("Failed to open artifact in folder:", error);
+    }
+  };
   return (
     <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs leading-none">
       <span className="mr-0.5 text-dls-secondary">{t("session.openable_items")}</span>
@@ -2724,7 +2742,7 @@ function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (tar
             size="xs"
             className="session-generated-artifact-card max-w-[220px] rounded-lg text-dls-text hover:text-dls-text"
             title={target.value}
-            onClick={() => props.onOpenTarget(target)}
+            onClick={() => void openInFolder(target)}
           >
             <OpenTargetIcon target={target} />
             <span className="truncate">{target.name || target.value}</span>
@@ -2763,7 +2781,7 @@ function WorkBuddyTurnContent(props: {
   detailsExpanded: boolean;
   expandedStepIds: Set<string>;
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
-  onOpenCodePath?: (path: string) => void;
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
   highlightQuery?: string;
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
 }) {
@@ -3001,6 +3019,7 @@ function MessageBlockRow(props: {
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
   onOpenCodePath?: (path: string) => void;
   onOpenTarget?: (target: OpenTarget) => void;
+  workspaceRoot?: string;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
   showAssistantIdentity: boolean;
   turnPresentation?: TranscriptBlockTurnPresentation;
@@ -3083,6 +3102,7 @@ function MessageBlockRow(props: {
             <OpenableTargetsStrip
               targets={turnOpenTargets}
               onOpenTarget={props.onOpenTarget}
+              workspaceRoot={props.workspaceRoot}
             />
           ) : null}
         </div>
@@ -3800,10 +3820,17 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       .filter((target) => target.kind === "file" && target.exists === true)
       .map((target) => [target.value, target]),
   ), [props.openTargets]);
-  const onOpenMarkdownCodePath = useCallback((path: string) => {
+  const onOpenMarkdownCodePath = useCallback((path: string, mode: MarkdownCodePathOpenMode = "preview") => {
     const target = verifiedOpenTargetByPath.get(path);
-    if (target) props.onOpenTarget?.(target);
-  }, [props.onOpenTarget, verifiedOpenTargetByPath]);
+    if (!target) return;
+    if (mode === "preview") {
+      props.onOpenTarget?.(target);
+      return;
+    }
+    void revealDesktopItemInDir(absoluteArtifactPath(props.workspaceRoot, target.value)).catch((error) => {
+      console.error("Failed to open artifact in folder:", error);
+    });
+  }, [props.onOpenTarget, props.workspaceRoot, verifiedOpenTargetByPath]);
 
   const blockIndexByMessageId = useMemo(() => {
     const next = new Map<string, number>();
@@ -3991,6 +4018,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         verifiedCodePaths={verifiedMarkdownCodePaths}
         onOpenCodePath={onOpenMarkdownCodePath}
         onOpenTarget={props.onOpenTarget}
+        workspaceRoot={props.workspaceRoot}
         assistantAvatar={props.assistantAvatar}
         showAssistantIdentity={turnPresentation?.isFirstAssistantBlock === true}
         turnPresentation={turnPresentation}
