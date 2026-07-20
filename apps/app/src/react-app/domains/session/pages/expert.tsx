@@ -998,9 +998,10 @@ export function ExpertPage(props: ExpertPageProps) {
       preserveSidePanelOnPanelOpenRef.current = false;
       return;
     }
+    if (!props.selectedSessionId) return;
     setCurrentSidePanel("browser");
-  }, [setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
+  }, [props.selectedSessionId, setCurrentSidePanel]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
   const {
     setRightSidebarExpandedWidth: setBrowserPanelWidth,
   } = useWorkspaceShellLayout({

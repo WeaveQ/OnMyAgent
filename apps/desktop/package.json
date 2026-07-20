@@ -2,7 +2,7 @@
   "name": "@onmyagent/desktop",
   "private": true,
   "version": "0.2.0",
-  "description": "OnMyAgent desktop shell",
+  "description": "OnMyAgent — local control plane for your AI agents",
   "author": {
     "name": "OnMyAgent Contributors"
   },
@@ -41,6 +41,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electron/asar": "^4.2.0",
     "electron": "^39.8.10",
     "electron-builder": "^25.1.8",
     "electron-devtools-installer": "^4.0.0"

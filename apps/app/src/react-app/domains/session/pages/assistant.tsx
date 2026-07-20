@@ -140,6 +140,8 @@ export function AssistantPage(props: AssistantPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const sidePanelSessionKey =
     props.selectedSessionId ?? `assistant-draft:${props.selectedWorkspaceId}`;
+  /** Browser tab scope: real session id, or workspace draft key on new task. */
+  const browserSessionScopeId = sidePanelSessionKey;
   const agentManagementIntent = props.agentManagementIntent;
   const onAgentManagementIntentConsumed =
     props.onAgentManagementIntentConsumed;
@@ -336,6 +338,12 @@ export function AssistantPage(props: AssistantPageProps) {
         categoryId,
         { kind: "newTask" },
       );
+      // Close any draft-scoped rail before navigating so new-task starts clean.
+      setSidePanelState(`assistant-draft:${props.selectedWorkspaceId}`, null);
+      setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
+      if (isElectronRuntime()) {
+        void window.__ONMYAGENT_ELECTRON__?.browser?.hide?.();
+      }
       openAssistantSessionView();
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
     },
@@ -343,6 +351,7 @@ export function AssistantPage(props: AssistantPageProps) {
       openAssistantSessionView,
       props.selectedWorkspaceId,
       props.sidebar,
+      setSidePanelState,
     ],
   );
 
@@ -501,9 +510,26 @@ export function AssistantPage(props: AssistantPageProps) {
       preserveSidePanelOnPanelOpenRef.current = false;
       return;
     }
+    // Only auto-open for a real chat session — never for draft / new-task.
+    if (!props.selectedSessionId) return;
     setCurrentSidePanel("browser");
-  }, [setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent);
+  }, [props.selectedSessionId, setCurrentSidePanel]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
+
+  // Leaving a session for new-task: close draft-scoped side panel and hide
+  // the shared browser surface so the previous chat's rail does not carry over.
+  const previousSelectedSessionIdRef = useRef(props.selectedSessionId);
+  useEffect(() => {
+    const previous = previousSelectedSessionIdRef.current;
+    previousSelectedSessionIdRef.current = props.selectedSessionId;
+    if (!previous || props.selectedSessionId) return;
+    const draftKey = `assistant-draft:${props.selectedWorkspaceId}`;
+    setSidePanelState(draftKey, null);
+    setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
+    if (isElectronRuntime()) {
+      void window.__ONMYAGENT_ELECTRON__?.browser?.hide?.();
+    }
+  }, [props.selectedSessionId, props.selectedWorkspaceId, setSidePanelState]);
   const {
     setRightSidebarExpandedWidth: setBrowserPanelWidth,
   } = useWorkspaceShellLayout({
@@ -1084,7 +1110,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 props.onNavigateToMode("expert");
                 return;
               }
-              // Returning to 助理 must NOT force a new task — restore last selection.
+              // Returning to assistant must NOT force a new task — restore last selection.
               writeRailView("assistant", props.selectedWorkspaceId, view);
               if (view === "assistant") {
                 setAgentPanelCollapsed(false);
@@ -1609,7 +1635,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         fileRoot={props.selectedSessionFileRoot ?? ""}
                         fileTargets={artifactFileTargets}
                         workspaceId={props.runtimeWorkspaceId}
-                        sessionId={props.selectedSessionId}
+                        sessionId={browserSessionScopeId}
                         client={props.onmyagentServerClient}
                         initialKind={
                           activeSidePanel === "review"

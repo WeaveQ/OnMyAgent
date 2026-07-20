@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/input-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  getActiveTab,
   type BrowserStatePayload,
   type BrowserTabInfo,
   useBrowserState,
 } from "./use-browser-state";
+import { BROWSER_HOME_URL } from "./open-in-app-browser";
 import { filterTabsForSession } from "./session-browser-tabs";
 
 type BrowserPanelProps = {
@@ -30,6 +30,11 @@ type EmbeddedBrowserViewportProps = {
   url?: string;
   announcePanelOpen?: boolean;
   className?: string;
+  /**
+   * When false, keep the host box for layout but detach the native WebContentsView
+   * (session isolation / empty state). When true, show immediately.
+   */
+  active?: boolean;
 };
 
 function getTabLabel(tab: BrowserTabInfo) {
@@ -187,9 +192,9 @@ function BrowserTab({ tab }: BrowserTabProps) {
           )}
           <span className="min-w-0 flex-1 truncate text-left">{label}</span>
         </PanelTab>
-        {tab.owner === "user" || !tab.owner ? (
-          <PanelTabClose active={tab.isActive} label={label} onClose={closeTab} />
-        ) : null}
+        {/* Always show close on hover — including agent tabs. User dismiss is
+            allowed; main process force-closes non-user tabs on request. */}
+        <PanelTabClose active={tab.isActive} label={label} onClose={closeTab} />
       </div>
     </PanelTabItem>
   );
@@ -199,9 +204,12 @@ export function EmbeddedBrowserViewport({
   url,
   announcePanelOpen = true,
   className,
+  active = true,
 }: EmbeddedBrowserViewportProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const shownRef = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const boundsFrameRef = useRef<number | null>(null);
   const lastBoundsRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
@@ -211,15 +219,28 @@ export function EmbeddedBrowserViewport({
     void browser.navigate?.(url, { announcePanelOpen });
   }, [announcePanelOpen, url]);
 
+  // Sync native attach/detach when the host box becomes active (session tabs ready).
+  // Do not await hide before show — that left a multi-frame blank after user open.
   useLayoutEffect(() => {
     const browser = getElectronBrowser();
     const content = contentRef.current;
     if (!browser || !content) return;
+
+    if (!active) {
+      if (shownRef.current) {
+        void browser.hide?.();
+        shownRef.current = false;
+        lastBoundsRef.current = null;
+      }
+      return;
+    }
+
     const bounds = computeBounds(content);
-    if (bounds.width < 1 || bounds.height < 1) return;
-    browser.setBounds?.(bounds);
+    if (bounds.width < 1 || bounds.height < 1 || hasNativeBrowserOccluder()) return;
+    browser.show?.(bounds);
+    shownRef.current = true;
     lastBoundsRef.current = bounds;
-  });
+  }, [active]);
 
   useLayoutEffect(() => {
     const browser = getElectronBrowser();
@@ -231,20 +252,21 @@ export function EmbeddedBrowserViewport({
     const content = contentRef.current;
     let disposed = false;
 
-    const resetNativeView = async () => {
-      await browser.hide?.();
-      if (disposed) return;
-      shownRef.current = false;
-      lastBoundsRef.current = null;
-      boundsFrameRef.current = window.requestAnimationFrame(watchBounds);
-    };
-
     const syncBounds = () => {
+      if (!activeRef.current) {
+        if (shownRef.current) {
+          void browser.hide?.();
+          shownRef.current = false;
+          lastBoundsRef.current = null;
+        }
+        return;
+      }
+
       const bounds = computeBounds(content);
 
       if (bounds.width < 1 || bounds.height < 1 || hasNativeBrowserOccluder()) {
         if (shownRef.current) {
-          browser.hide?.();
+          void browser.hide?.();
           shownRef.current = false;
           lastBoundsRef.current = null;
         }
@@ -269,34 +291,34 @@ export function EmbeddedBrowserViewport({
       boundsFrameRef.current = window.requestAnimationFrame(watchBounds);
     };
 
-    void resetNativeView();
+    // Immediate sync (no await hide) so first paint attaches the native view.
+    syncBounds();
+    boundsFrameRef.current = window.requestAnimationFrame(watchBounds);
 
-    const observer = new ResizeObserver(scheduleSyncBounds);
-
-    function scheduleSyncBounds() {
+    const observer = new ResizeObserver(() => {
       syncBounds();
-    }
-
+    });
     observer.observe(content);
 
-    window.addEventListener("resize", scheduleSyncBounds);
-    window.addEventListener("scroll", scheduleSyncBounds, true);
+    window.addEventListener("resize", syncBounds);
+    window.addEventListener("scroll", syncBounds, true);
 
     return () => {
       disposed = true;
       observer.disconnect();
 
-      window.removeEventListener("resize", scheduleSyncBounds);
-      window.removeEventListener("scroll", scheduleSyncBounds, true);
+      window.removeEventListener("resize", syncBounds);
+      window.removeEventListener("scroll", syncBounds, true);
 
       if (boundsFrameRef.current != null) {
         window.cancelAnimationFrame(boundsFrameRef.current);
         boundsFrameRef.current = null;
       }
 
-      browser.hide?.();
+      void browser.hide?.();
       shownRef.current = false;
       lastBoundsRef.current = null;
+      void disposed;
     };
   }, []);
 
@@ -344,6 +366,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     sessionTabs.find((tab) => tab.tabId === state.activeTabId || tab.isActive) ??
     sessionTabs[0] ??
     null;
+  const hasSessionScopedTabs = Boolean(sessionId) && sessionTabs.length > 0;
 
   // Keep the native selected tab inside this chat session's tab set.
   useEffect(() => {
@@ -352,16 +375,39 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     void getElectronBrowser()?.selectTab?.(sessionActiveTab.tabId);
   }, [sessionId, sessionActiveTab?.tabId, state.activeTabId]);
 
+  // Sync URL bar to this session's active tab when switching sessions/tabs.
+  useEffect(() => {
+    if (!sessionActiveTab || urlFocusedRef.current) return;
+    dispatch({ type: "urlInputChanged", value: sessionActiveTab.url ?? "" });
+  }, [sessionActiveTab?.tabId, sessionActiveTab?.url]);
+
+  // Do NOT auto-seed Baidu on mount. Agent/automation may open the panel first
+  // and then create a real URL tab; seeding here would race and steal the page.
+  // User rail click seeds via openInAppBrowser({ seedHomeWhenEmpty: true }).
+  // Native hide/show is owned by EmbeddedBrowserViewport `active` prop.
+
   const navigate = useCallback((url?: string) => {
     getElectronBrowser()?.navigate?.(url ?? state.urlInput);
   }, [state.urlInput]);
 
   const createTab = useCallback(() => {
     const sid = sessionIdRef.current;
-    void getElectronBrowser()?.createTab?.(
-      "about:blank",
-      sid ? { sessionId: sid } : undefined,
-    );
+    if (!sid) return;
+    // Explicit "+" new tab from the user → Baidu home; refresh state so the
+    // viewport becomes active without waiting for a late IPC event.
+    void (async () => {
+      const browser = getElectronBrowser();
+      if (!browser?.createTab) return;
+      await browser.createTab(BROWSER_HOME_URL, { sessionId: sid });
+      const next = await browser.getState?.().catch(() => null);
+      if (next) {
+        dispatch({
+          type: "browserStateChanged",
+          browserState: next,
+          syncUrlInput: !urlFocusedRef.current,
+        });
+      }
+    })();
   }, []);
 
   const reorderTabs = useCallback((tabIds: unknown[]) => {
@@ -390,7 +436,8 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     }
   }, [navigate]);
 
-  const activeTab = sessionActiveTab ?? getActiveTab(state);
+  // Never fall back to the global active tab — that is how other sessions leak.
+  const activeTab = sessionActiveTab;
   const browser = getElectronBrowser();
 
   if (!isElectronRuntime() || !browser) {
@@ -400,6 +447,10 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
       </div>
     );
   }
+
+  const canGoBack = activeTab?.canGoBack ?? false;
+  const canGoForward = activeTab?.canGoForward ?? false;
+  const isLoading = activeTab?.isLoading ?? false;
 
   return (
     <TooltipProvider delay={1000}>
@@ -440,7 +491,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={back} disabled={!activeTab.canGoBack} aria-label={t("session.browser_back")}>
+                  <Button variant="ghost" size="icon-sm" onClick={back} disabled={!canGoBack} aria-label={t("session.browser_back")}>
                     <ArrowLeft />
                   </Button>
                 )}
@@ -450,7 +501,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={forward} disabled={!activeTab.canGoForward} aria-label={t("session.browser_forward")}>
+                  <Button variant="ghost" size="icon-sm" onClick={forward} disabled={!canGoForward} aria-label={t("session.browser_forward")}>
                     <ArrowRight />
                   </Button>
                 )}
@@ -460,8 +511,8 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={reload} aria-label={t("session.browser_reload")}>
-                    {activeTab.isLoading ? <LoadingSpinner size="default" /> : <RotateCw />}
+                  <Button variant="ghost" size="icon-sm" onClick={reload} disabled={!activeTab} aria-label={t("session.browser_reload")}>
+                    {isLoading ? <LoadingSpinner size="default" /> : <RotateCw />}
                   </Button>
                 )}
               />
@@ -495,8 +546,27 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
             </Button>
           </div>
         </div>
-        {/* WebContentsView renders in this area (managed by Electron main process) */}
-        <EmbeddedBrowserViewport />
+        {/* Always mount the viewport host so bounds exist before tabs arrive;
+            `active` only attaches the native WebContentsView when this session
+            has page tabs (avoids remount race: hide → create → late show). */}
+        <div className="relative min-h-0 flex-1">
+          <EmbeddedBrowserViewport
+            active={hasSessionScopedTabs}
+            className="absolute inset-0 min-h-0 overflow-hidden"
+          />
+          {!hasSessionScopedTabs ? (
+            <div className="absolute inset-0 flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-dls-background p-6 text-center text-dls-secondary">
+              <Globe className="size-8 opacity-40" />
+              <p className="text-sm">{t("session.browser_new_tab")}</p>
+              {sessionId ? (
+                <Button variant="outline" size="sm" onClick={createTab}>
+                  <Plus className="size-3.5" />
+                  {t("session.browser_new_tab")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     </TooltipProvider>
   );

@@ -30,7 +30,7 @@ export function createApplicationMenuController(input) {
       ? [
           {
             label: "Settings...",
-            accelerator: "CommandOrControl,",
+            accelerator: "CommandOrControl+,",
             click: () => {
               void openSettingsFromNativeMenu();
             },
@@ -41,7 +41,7 @@ export function createApplicationMenuController(input) {
       : [
           {
             label: "Settings...",
-            accelerator: "CommandOrControl,",
+            accelerator: "CommandOrControl+,",
             click: () => {
               void openSettingsFromNativeMenu();
             },
@@ -84,7 +84,7 @@ export function createApplicationMenuController(input) {
                 { type: "separator" },
                 {
                   label: "Settings...",
-                  accelerator: "CommandOrControl,",
+                  accelerator: "CommandOrControl+,",
                   click: () => {
                     void openSettingsFromNativeMenu();
                   },
