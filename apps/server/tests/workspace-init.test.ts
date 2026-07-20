@@ -86,6 +86,11 @@ describe("ensureWorkspaceFiles", () => {
       expect(agent).toContain("write a small skeleton first");
       expect(agent).toContain("edit or append in multiple calls");
       expect(agent).toContain(`${APP_NAME} can render safe SVG/HTML fragments`);
+      expect(agent).toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
+      expect(agent).toContain("Do not mention specific tool names");
+      expect(agent).toContain("The final reply must stand on its own");
+      expect(agent).toContain("Explicit requests to show, visualize, diagram, chart, draw, or graph");
+      expect(agent).toContain("Between multiple visuals, write a short paragraph");
       expect(agent).toContain('request `modules: ["chart"]`');
       expect(agent).toContain("pass its workspace-relative path as `file_path`");
       expect(agent).toContain("use responsive Chart.js HTML");
@@ -153,6 +158,8 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(agent).toContain("Old instructions");
       expect(agent).toContain(`${APP_NAME} Artifacts`);
+      expect(agent).toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
+      expect(agent).toContain("Do not mention specific tool names");
       expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
     });
   });

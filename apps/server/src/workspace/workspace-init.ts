@@ -29,6 +29,16 @@ ${APP_NAME} can preview, edit, and download standard artifacts when you create o
 - For large HTML, SVG, source-code, or report artifacts, do not place the entire artifact in one JSON tool argument. Keep each file-mutation tool call bounded: write a small skeleton first, then edit or append in multiple calls, and validate the completed file before presenting it. Prefer chunks below 8,000 characters so a provider output limit cannot cut a tool call mid-JSON.
 <!-- ${APP_NAME}_ARTIFACTS_END -->`;
 
+const ONMYAGENT_PRESENTATION_GUIDANCE = `<!-- ${APP_NAME}_PRESENTATION_START -->
+## User-facing presentation
+
+- Do not mention specific tool names in user-facing replies or status descriptions. Describe the action and result in natural language.
+- Intermediate tool calls, observations, reasoning, and progress may be folded or hidden. The final reply must stand on its own and restate every substantive result the user needs, including important outputs or changed files, findings, conclusions, errors, unresolved risks, and next steps when relevant.
+- Explicit requests to show, visualize, diagram, chart, draw, or graph require an inline visual when no file artifact or specialized connected tool is the intended destination. First read the relevant visual design module, then call \`render_visual\`.
+- Between multiple visuals, write a short paragraph that explains the next visual and connects it to the previous one.
+- Never expose the visual machinery. Use a natural preamble, and do not paste generated SVG or HTML source into the reply.
+<!-- ${APP_NAME}_PRESENTATION_END -->`;
+
 const ONMYAGENT_VISUAL_GUIDANCE = `<!-- ${APP_NAME}_VISUALS_START -->
 ## Inline visuals
 
@@ -230,6 +240,8 @@ Hard rule: never copy private memory into repo files. Store only redacted summar
 - If you change code, run the smallest meaningful test.
 - If steps repeat, factor them into a skill.
 - Prefer clear, practical steps over abstract explanations.
+
+${ONMYAGENT_PRESENTATION_GUIDANCE}
 
 ${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}
 
@@ -443,6 +455,24 @@ async function ensureOnMyAgentAgent(
     }
   } else {
     current = `${current.trimEnd()}\n\n${ONMYAGENT_ARTIFACT_GUIDANCE}\n`;
+    changed = true;
+  }
+
+  const presentationStart = `<!-- ${APP_NAME}_PRESENTATION_START -->`;
+  const presentationEnd = `<!-- ${APP_NAME}_PRESENTATION_END -->`;
+  const presentationStartIdx = current.indexOf(presentationStart);
+  const presentationEndIdx = current.indexOf(presentationEnd);
+  if (
+    presentationStartIdx >= 0 &&
+    presentationEndIdx > presentationStartIdx
+  ) {
+    const patched = `${current.slice(0, presentationStartIdx)}${ONMYAGENT_PRESENTATION_GUIDANCE}${current.slice(presentationEndIdx + presentationEnd.length)}`;
+    if (patched !== current) {
+      current = patched;
+      changed = true;
+    }
+  } else {
+    current = `${current.trimEnd()}\n\n${ONMYAGENT_PRESENTATION_GUIDANCE}\n`;
     changed = true;
   }
 
