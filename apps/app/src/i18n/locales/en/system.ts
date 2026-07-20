@@ -20,7 +20,7 @@ export default {
   "system.reload_unavailable": "Reload is unavailable for this worker.",
   "system.stop_active_runs_before_reset": "Stop active runs before resetting.",
   "system.server_unhealthy": "Server reported unhealthy status.",
-  "system.boot_preparing_workspace": "Preparing workspace",
+  "system.boot_preparing_workspace": "Starting OnMyAgent…",
   "system.boot_activating_workspace": "Activating your workspace",
   "system.boot_ready": "Ready",
   "system.boot_error": "Something went wrong",

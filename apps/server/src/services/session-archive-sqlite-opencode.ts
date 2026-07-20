@@ -139,7 +139,10 @@ function buildParseResult(input: {
     messages.push(message);
     if (message.role === "user") userMessageCount += 1;
   }
-  if (messages.length === 0) return null;
+  // Keep titled empty shells so the archive UI can show OpenCode sessions that
+  // were created but never messaged (common on first-run / Windows cold start).
+  const displayTitle = input.session.title.trim();
+  if (messages.length === 0 && !displayTitle) return null;
 
   const firstMessage = messages[0];
   const lastMessage = messages[messages.length - 1];
@@ -148,7 +151,6 @@ function buildParseResult(input: {
   const endedAt = lastMessage?.timestamp || isoFromMillis(input.session.timeUpdated) || startedAt;
 
   const projectName = input.project || projectFromDirectory(input.session.directory);
-  const displayTitle = input.session.title.trim();
   const session: SessionArchiveSession = {
     id: sessionId,
     project: projectName,

@@ -33,6 +33,10 @@ export default {
   "session_archive.compact_transcript": "Compact",
   "session_archive.hide_message_meta": "Hide meta",
   "session_archive.empty": "No archived sessions yet",
+  "session_archive.empty_hint":
+    "This panel indexes local Claude / Codex / OpenCode / Copilot agent history. Personal assistant chats live under Assistant. Click Sync to rescan this machine.",
+  "session_archive.empty_sync_stats":
+    "Last sync: discovered {discovered}, synced {synced}, skipped {skipped}, failed {failed}",
   "session_archive.select_session": "Select an archived session",
   "session_archive.select_session_hint": "Pick a session from the list to preview its transcript",
   "session_archive.no_messages": "No messages in this archive entry",

@@ -578,7 +578,7 @@ export default {
   "session.cmd_settings_meta": "打开",
   "session.palette_no_matches": "没有匹配项。",
   "session.default_model": "选择模型",
-  "session.preparing_workspace": "正在准备工作区",
+  "session.preparing_workspace": "正在启动 OnMyAgent…",
   "session.select_or_create_session": "选择或创建一个会话即可开始。",
   "session.assistant_compacting": "正在压缩",
   "session.assistant_compacted": "上下文已压缩",
