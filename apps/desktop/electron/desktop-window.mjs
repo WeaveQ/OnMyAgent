@@ -218,8 +218,26 @@ export function createDesktopWindowController(options) {
       process.env.ONMYAGENT_ELECTRON_START_URL?.trim() ||
       process.env.ELECTRON_START_URL?.trim();
     try {
+      // Drop residual Chromium caches before the first paint so a previous
+      // optimize-deps graph cannot blank the window after a Vite rebuild.
+      if (isDevMode) {
+        try {
+          await session.defaultSession.clearCache();
+        } catch (cacheError) {
+          console.warn(
+            "[main-window] clearCache failed:",
+            cacheError?.message ?? cacheError,
+          );
+        }
+      }
       if (startUrl) {
-        await mainWindow.loadURL(startUrl);
+        if (isDevMode) {
+          await mainWindow.loadURL(startUrl, {
+            extraHeaders: "Cache-Control: no-cache\nPragma: no-cache\n",
+          });
+        } else {
+          await mainWindow.loadURL(startUrl);
+        }
       } else {
         const packagedIndexPath = path.join(
           process.resourcesPath,
