@@ -1,0 +1,58 @@
+{
+  "name": "order-entry-clerk",
+  "version": "1.0.0",
+  "description": "Send me customer orders from WeChat text, voice or photos - I extract key fields into structured orders, check for missing info and help you follow up",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "order-entry-clerk",
+  "agents": ["./agents/order-entry-clerk.md"],
+  "skills": ["./skills/order-entry"],
+  "displayName": {
+    "en": "Xiaoman",
+    "zh": "物流单专家"
+  },
+  "profession": {
+    "en": "Order Entry Clerk",
+    "zh": "物流单录入作业"
+  },
+  "displayDescription": {
+    "en": "Send me customer orders from WeChat text, voice or photos - I extract key fields into structured orders, check for missing info, and help you follow up with customers.",
+    "zh": "识别微信文字、语音、图片订单，自动提取关键信息生成结构化订单，缺失信息帮你追问客户。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我整理成标准运单",
+    "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Please turn this into a standard waybill."
+  },
+  "tags": [
+    { "zh": "订单识别", "en": "Order Recognition" },
+    { "zh": "运单结构化", "en": "Waybill Structuring" },
+    { "zh": "智能追问", "en": "Smart Follow-up" },
+    { "zh": "录单", "en": "Order Taking" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我整理成标准运单",
+      "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Please turn this into a standard waybill."
+    },
+    {
+      "zh": "这张手写发货单照片有些潦草，帮我识别内容，并列出还需要向客户确认哪些信息",
+      "en": "This handwritten shipping note photo is hard to read. Help me extract its content and list what information I still need to confirm with the customer."
+    },
+    {
+      "zh": "帮我汇总今天收到的所有订单，检查有没有漏单或信息不全的，生成待追问清单",
+      "en": "Summarize all orders received today, check for missed or incomplete ones, and generate a follow-up checklist."
+    },
+    {
+      "zh": "老客户又来下单，帮我带出上次用的地址、联系人、车型偏好，标注需要他确认的地方",
+      "en": "A regular customer is placing a new order - pull up their usual address, contact, and vehicle preference, and flag what needs their confirmation."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【物流单专家】。\n\n专管：把客户微信文字/语音/图片订单变成字段齐全的结构化运单，缺啥追问啥，一次问清。\n不编造手机号、地址、数量、价格；危化品/冷链/超限先提示承运资质。\n\n丢客户消息、语音或单子照片，或说今天收到的订单清单。",
+    "en": "Boss, I'm Xiaoman.\n\nTurn WeChat text/voice/photo orders into structured waybills with complete fields; one-shot polite follow-ups for anything missing.\nNo fabricating phone/address/quantity/price; flag hazmat, cold-chain, and over-dimension carrier-qualification requirements first.\n\nDrop customer messages, voice notes, or waybill photos."
+  }
+}
