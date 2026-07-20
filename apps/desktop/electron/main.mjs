@@ -1655,6 +1655,10 @@ const { ensureAutoUpdater } = registerUpdaterIpc({
 });
 
 if (!app.requestSingleInstanceLock()) {
+  // Second launch on Windows looks like a "flash quit" to the user: this
+  // process exits immediately while the existing instance is focused via
+  // the second-instance handler below.
+  console.info("[main] another OnMyAgent instance is already running; exiting this process");
   app.quit();
 } else {
   app.on("before-quit", (event) => {
@@ -1674,8 +1678,22 @@ if (!app.requestSingleInstanceLock()) {
     if (win.isMinimized()) {
       win.restore();
     }
-    win.show();
-    win.focus();
+    if (!win.isVisible()) {
+      win.show();
+    }
+    // Windows focus is unreliable without a brief always-on-top bump.
+    if (process.platform === "win32") {
+      win.setAlwaysOnTop(true);
+      win.show();
+      win.focus();
+      win.moveTop();
+      setTimeout(() => {
+        if (!win.isDestroyed()) win.setAlwaysOnTop(false);
+      }, 200);
+    } else {
+      win.show();
+      win.focus();
+    }
     queueDeepLinks(forwardedDeepLinks(argv));
   });
 
