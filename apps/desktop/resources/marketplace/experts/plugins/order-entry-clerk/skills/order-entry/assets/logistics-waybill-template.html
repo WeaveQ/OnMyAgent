@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>物流托运单（草稿）</title>
+    <style>
+      :root { color-scheme: light; font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif; color: #172033; background: #eef2f7; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; }
+      .sheet { width: min(1120px, 100%); margin: 0 auto; padding: 28px; background: #fff; border: 1px solid #cbd5e1; box-shadow: 0 18px 48px rgba(15, 23, 42, .12); }
+      .topline, .section-title, th { background: #edf4ff; }
+      .topline { height: 8px; margin: -28px -28px 20px; }
+      header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 18px; margin-bottom: 16px; }
+      h1 { grid-column: 2; margin: 0; letter-spacing: .28em; font-size: 28px; }
+      .meta { justify-self: end; font-size: 13px; line-height: 1.8; }
+      .status { display: inline-block; padding: 3px 10px; color: #9a3412; background: #ffedd5; border: 1px solid #fdba74; border-radius: 6px; font-weight: 700; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border: 1px solid #94a3b8; padding: 9px 10px; vertical-align: top; font-size: 13px; }
+      th { color: #334155; font-weight: 700; }
+      .section-title { padding: 7px 10px; border: 1px solid #94a3b8; border-bottom: 0; font-weight: 800; color: #1e3a5f; }
+      .block { margin-top: 12px; }
+      .missing { color: #b45309; background: #fff7ed; border-bottom: 1px dashed #f59e0b; font-weight: 700; }
+      .goods td { height: 54px; }
+      .signatures td { height: 72px; }
+      .hint { display: flex; justify-content: space-between; gap: 16px; margin-top: 14px; color: #64748b; font-size: 12px; }
+      .progress { color: #1d4ed8; font-weight: 700; }
+      @media print { body { padding: 0; background: #fff; } .sheet { width: 100%; border: 0; box-shadow: none; } }
+    </style>
+  </head>
+  <body>
+    <!-- 使用时用已知数据替换占位内容；未知必填项保留“待补充”和 missing 样式。 -->
+    <main class="sheet">
+      <div class="topline"></div>
+      <header>
+        <div></div>
+        <h1>物流托运单</h1>
+        <div class="meta">
+          <div>单号：<span class="missing">待补充</span></div>
+          <div>日期：<span class="missing">待补充</span></div>
+          <div><span class="status">草稿·待确认</span></div>
+        </div>
+      </header>
+
+      <div class="section-title">托运与收货信息</div>
+      <table>
+        <tr><th>托运方</th><td class="missing">待补充</td><th>收货方</th><td class="missing">待补充</td></tr>
+        <tr><th>联系人</th><td class="missing">待补充</td><th>联系人</th><td class="missing">待补充</td></tr>
+        <tr><th>联系电话</th><td class="missing">待补充</td><th>联系电话</th><td class="missing">待补充</td></tr>
+        <tr><th>装货地址</th><td class="missing">待补充</td><th>卸货地址</th><td class="missing">待补充</td></tr>
+      </table>
+
+      <div class="block section-title">路线与时效</div>
+      <table>
+        <tr><th>起运地</th><td class="missing">待补充</td><th>目的地</th><td class="missing">待补充</td></tr>
+        <tr><th>计划提货</th><td class="missing">待补充</td><th>要求到达</th><td class="missing">待补充</td></tr>
+      </table>
+
+      <div class="block section-title">货物明细</div>
+      <table class="goods">
+        <thead><tr><th>品名/规格</th><th>件数</th><th>包装</th><th>重量</th><th>体积</th><th>声明价值</th><th>备注</th></tr></thead>
+        <tbody><tr><td class="missing">待补充</td><td class="missing">待补充</td><td>—</td><td class="missing">待补充</td><td class="missing">待补充</td><td>—</td><td>—</td></tr></tbody>
+      </table>
+
+      <div class="block section-title">运输与交付</div>
+      <table>
+        <tr><th>承运方</th><td>—</td><th>车牌/车型</th><td>—</td><th>司机/电话</th><td>—</td></tr>
+        <tr><th>提货方式</th><td>送货 / 自提（待确认）</td><th>交付方式</th><td>送货 / 自提（待确认）</td><th>回单要求</th><td>—</td></tr>
+        <tr><th>特殊要求</th><td colspan="5">—</td></tr>
+      </table>
+
+      <div class="block section-title">费用与结算</div>
+      <table>
+        <tr><th>结算方式</th><td>现付 / 到付 / 月结 / 回单付（待确认）</td><th>运费</th><td>—</td><th>保价/保险</th><td>—</td></tr>
+      </table>
+
+      <div class="block section-title">交接确认</div>
+      <table class="signatures">
+        <tr><th>托运方签字</th><td></td><th>承运方签字</th><td></td><th>收货方签收</th><td></td></tr>
+      </table>
+
+      <div class="hint">
+        <span>本单据为普通货运通用业务格式；专项运输请使用对应法规/承运商模板。</span>
+        <span class="progress">完成度：0% · 更新于：待生成</span>
+      </div>
+    </main>
+  </body>
+</html>
