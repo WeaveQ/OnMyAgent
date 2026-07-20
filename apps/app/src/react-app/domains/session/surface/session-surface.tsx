@@ -869,7 +869,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [snapshot],
   );
   const openTargets = useMemo(
-    () => deriveOpenTargets(renderedMessages),
+    () => deriveOpenTargets(renderedMessages, { includeFileMentions: true }),
     [renderedMessages],
   );
   const openTargetsFingerprint = useMemo(
@@ -2133,6 +2133,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       onForkAtMessage={props.onForkAtMessage}
                       openTargets={verifiedOpenTargets}
                       onOpenTarget={props.onOpenTarget}
+                      workspaceRoot={props.workspaceRoot}
                       footer={assistantStatusFooter}
                       assistantAvatar={chatHeaderAgent}
                       searchHighlightQuery={searchQuery || undefined}

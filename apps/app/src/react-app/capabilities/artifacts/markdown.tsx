@@ -52,6 +52,8 @@ export type MarkdownVerifiedCodePath = {
   resolvedPath: string;
 };
 
+export type MarkdownCodePathOpenMode = "preview" | "reveal";
+
 const MARKDOWN_INLINE_PATH_RANGE = /^(.+?)#L(\d+)(?:-L(\d+))?$/;
 const MARKDOWN_INLINE_FILE = /^(?:[a-zA-Z]:[\\/]|[\\/])?(?:[^\\/]+[\\/])*[^\\/]+\.[a-zA-Z0-9]+$/;
 
@@ -274,6 +276,17 @@ const baseMarkedOptions = {
       return `<del>${this.parser.parseInline(tokens)}</del>`;
     },
     link({ href, title, tokens }) {
+      const openMode: MarkdownCodePathOpenMode | null = href.startsWith("preview:")
+        ? "preview"
+        : href.startsWith("artifact:")
+          ? "reveal"
+          : null;
+      const artifactPath = openMode ? href.slice(href.indexOf(":") + 1) : "";
+      const filePath = artifactPath ? parseMarkdownInlinePath(artifactPath) : null;
+      if (filePath) {
+        const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
+        return `<a href="#" data-markdown-file-path="${escapeAttribute(filePath.path)}" data-markdown-open-mode="${openMode}"${titleAttr} class="inline-flex h-8 items-center justify-center rounded-lg border border-dls-border bg-dls-surface px-3 text-sm font-medium text-dls-text no-underline transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus">${this.parser.parseInline(tokens)}</a>`;
+      }
       const safe = escapeAttribute(safeHref(href));
       const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
       return `<a href="${safe}"${titleAttr} target="_blank" rel="noreferrer noopener" class="text-dls-accent underline underline-offset-2 transition-colors hover:text-dls-accent-hover">${this.parser.parseInline(tokens)}</a>`;
@@ -338,7 +351,7 @@ function MarkdownBlockInner(props: {
   showStreamingCursor?: boolean;
   highlightQuery?: string;
   locale?: string;
-  onOpenCodePath?: (path: string) => void;
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -469,11 +482,28 @@ function MarkdownBlockInner(props: {
         : null;
       if (!detected || !resolvedPath) return;
       inlineCode.dataset.markdownCodePath = resolvedPath;
+      inlineCode.dataset.markdownOpenMode = "reveal";
       inlineCode.setAttribute("role", "button");
       inlineCode.tabIndex = 0;
-      inlineCode.title = t("files.open_file");
-      inlineCode.classList.add("cursor-pointer", "text-dls-accent", "hover:bg-dls-hover");
-      inlineCode.textContent = truncateMarkdownPathDisplay(rawCode);
+      inlineCode.title = t("files.open_in_folder");
+      inlineCode.classList.remove("rounded-md", "bg-dls-surface-muted", "px-1.5", "py-0.5", "font-mono");
+      inlineCode.classList.add(
+        "inline-flex",
+        "h-8",
+        "cursor-pointer",
+        "items-center",
+        "justify-center",
+        "rounded-lg",
+        "border",
+        "border-dls-border",
+        "bg-dls-surface",
+        "px-3",
+        "text-sm",
+        "font-medium",
+        "text-dls-text",
+        "hover:bg-dls-hover",
+      );
+      inlineCode.textContent = t("session.open_artifact");
       const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       icon.setAttribute("viewBox", "0 0 24 24");
       icon.setAttribute("width", "14");
@@ -492,6 +522,18 @@ function MarkdownBlockInner(props: {
       icon.append(path, fold);
       inlineCode.prepend(icon);
     });
+    root.querySelectorAll<HTMLAnchorElement>("a[data-markdown-file-path]").forEach((fileLink) => {
+      const rawPath = fileLink.dataset.markdownFilePath ?? "";
+      const resolvedPath = resolveVerifiedCodePath(props.verifiedCodePaths ?? [], rawPath);
+      if (!resolvedPath) {
+        fileLink.setAttribute("aria-disabled", "true");
+        fileLink.classList.add("pointer-events-none", "opacity-50");
+        return;
+      }
+      fileLink.dataset.markdownCodePath = resolvedPath;
+      fileLink.title = t("files.open_in_folder");
+      fileLink.removeAttribute("target");
+    });
     const resetTimers = new Set<number>();
     const handleClick = (event: MouseEvent) => {
       const target = event.target;
@@ -499,7 +541,9 @@ function MarkdownBlockInner(props: {
       const pathLabel = target.closest<HTMLElement>("[data-markdown-code-path]");
       const path = pathLabel?.dataset.markdownCodePath;
       if (path && props.onOpenCodePath) {
-        props.onOpenCodePath(path);
+        event.preventDefault();
+        const mode = pathLabel.dataset.markdownOpenMode === "reveal" ? "reveal" : "preview";
+        props.onOpenCodePath(path, mode);
         return;
       }
 
