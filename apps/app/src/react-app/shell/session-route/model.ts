@@ -233,13 +233,18 @@ export function waitForWorkspaceSessionLoadBackoff(input: {
    * Injectable timer for tests. Must be invokable without a `window` receiver —
    * never pass bare `window.setTimeout` (throws TypeError: Illegal invocation
    * in Chromium/Electron when called as a free function).
+   *
+   * Return type is intentionally loose: DOM `window.setTimeout` yields `number`,
+   * while Node `@types/node` yields `NodeJS.Timeout`. Callers only need side effects.
    */
-  setTimeoutFn?: (handler: () => void, timeout: number) => ReturnType<typeof setTimeout>;
+  setTimeoutFn?: (handler: () => void, timeout: number) => unknown;
 }) {
   return new Promise<void>((resolve) => {
     const schedule =
       input.setTimeoutFn ??
-      ((handler, timeout) => window.setTimeout(handler, timeout));
+      ((handler, timeout) => {
+        window.setTimeout(handler, timeout);
+      });
     schedule(resolve, workspaceSessionLoadBackoffMs(input.attempt));
   });
 }
