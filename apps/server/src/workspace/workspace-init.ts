@@ -34,7 +34,10 @@ const ONMYAGENT_PRESENTATION_GUIDANCE = `<!-- ${APP_NAME}_PRESENTATION_START -->
 
 - Do not mention specific tool names in user-facing replies or status descriptions. Describe the action and result in natural language.
 - Intermediate tool calls, observations, reasoning, and progress may be folded or hidden. The final reply must stand on its own and restate every substantive result the user needs, including important outputs or changed files, findings, conclusions, errors, unresolved risks, and next steps when relevant.
-- Explicit requests to show, visualize, diagram, chart, draw, or graph require an inline visual when no file artifact or specialized connected tool is the intended destination. First read the relevant visual design module, then call \`render_visual\`.
+- Explicit requests to show, visualize, diagram, chart, draw, or graph require an inline visual when no file artifact or specialized connected tool is the intended destination; the same applies when the user asks to illustrate something or asks what it looks like. First read the relevant visual design module, then call \`render_visual\`.
+- Always use an inline visual for educational or teaching requests when no file artifact or specialized connected tool is intended, except for a pure dictionary-style word-definition lookup.
+- Data comparisons and architecture or system design requests should proactively use an inline chart or diagram when the visual communicates the structure more clearly than prose.
+- A noun-phrase specification of a visual artifact is itself a render request even when it has no verb. Render specifications such as a comparison table, timeline, form, or state machine instead of substituting a prose description or Markdown table.
 - Between multiple visuals, write a short paragraph that explains the next visual and connects it to the previous one.
 - Never expose the visual machinery. Use a natural preamble, and do not paste generated SVG or HTML source into the reply.
 <!-- ${APP_NAME}_PRESENTATION_END -->`;
