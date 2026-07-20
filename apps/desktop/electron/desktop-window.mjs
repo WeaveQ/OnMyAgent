@@ -196,8 +196,24 @@ export function createDesktopWindowController(options) {
       flushPendingDeepLinks();
     });
 
+    // Detach BrowserViews while the window is still alive. Doing this only on
+    // "closed" races Electron teardown and throws "Object has been destroyed".
+    mainWindow.on("close", () => {
+      try {
+        browserController.destroyBrowserView();
+      } catch (error) {
+        console.warn(
+          "[main] destroyBrowserView on close failed:",
+          error?.message ?? error,
+        );
+      }
+    });
     mainWindow.on("closed", () => {
-      browserController.destroyBrowserView();
+      try {
+        browserController.destroyBrowserView();
+      } catch {
+        // Already cleaned up in "close", or window is fully gone.
+      }
       browserController.setMainWindow(null);
       setMainWindow(null);
     });

@@ -56,18 +56,27 @@ type Props = {
   onResume?: (request: SessionArchiveResumeRequest) => void;
 };
 
+type ArchiveSyncSummary = {
+  discovered: number;
+  synced: number;
+  skipped: number;
+  failed: number;
+  warnings: string[];
+};
+
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
   const [sessions, setSessions] = useState<OnMyAgentSessionArchiveSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<OnMyAgentSessionArchiveMessagesResponse["messages"]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listTick, setListTick] = useState(0);
   const [agentCounts, setAgentCounts] = useState<Array<{ agent: string; count: number }>>([]);
   const [agentFilter, setAgentFilter] = useState<string | null>(null); // null = 全部
-
+  const [lastSyncSummary, setLastSyncSummary] = useState<ArchiveSyncSummary | null>(null);
 
   const trimmedQuery = query.trim();
   const refreshList = useCallback(() => setListTick((tick) => tick + 1), []);
@@ -76,37 +85,81 @@ export function SessionArchivePage(props: Props) {
   // is currently reading. Transcript refetch only fires when the user changes
   // selection, not when the list ticks.
   const lastLoadedSessionRef = useRef<string | null>(null);
+  const initialSyncDoneRef = useRef(false);
+
+  const loadSessionList = useCallback(async () => {
+    if (!props.client || !props.workspaceId.trim()) return;
+    setLoadingList(true);
+    setError(null);
+    try {
+      const page = await props.client.listSessionArchiveSessions(props.workspaceId, {
+        limit: PAGE_LIMIT,
+        search: trimmedQuery || undefined,
+      });
+      setSessions(page.sessions);
+      setAgentCounts(page.agent_counts ?? []);
+      setSelectedSessionId((current) => {
+        if (current && page.sessions.some((s) => s.id === current)) return current;
+        return page.sessions[0]?.id ?? null;
+      });
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoadingList(false);
+    }
+  }, [props.client, props.workspaceId, trimmedQuery]);
+
+  const runArchiveSync = useCallback(
+    async (mode: "incremental" | "resync" = "resync") => {
+      if (!props.client || !props.workspaceId.trim()) return;
+      setSyncing(true);
+      setError(null);
+      try {
+        await props.client.syncSessionArchive(props.workspaceId, { mode });
+        const deadline = Date.now() + 60_000;
+        while (Date.now() < deadline) {
+          const status = await props.client.getSessionArchiveSyncStatus(props.workspaceId);
+          if (status.status === "completed" || status.status === "failed") {
+            const stats = status.stats;
+            setLastSyncSummary({
+              discovered: stats?.discovered_sessions ?? stats?.total_sessions ?? 0,
+              synced: stats?.synced ?? 0,
+              skipped: stats?.skipped ?? 0,
+              failed: stats?.failed ?? 0,
+              warnings: stats?.warnings ?? (status.error ? [status.error] : []),
+            });
+            if (status.status === "failed" && status.error) {
+              setError(status.error);
+            }
+            break;
+          }
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, 400);
+          });
+        }
+        await loadSessionList();
+      } catch (cause: unknown) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [props.client, props.workspaceId, loadSessionList],
+  );
 
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
-    let cancelled = false;
-    setLoadingList(true);
-    setError(null);
-    props.client
-      .listSessionArchiveSessions(props.workspaceId, {
-        limit: PAGE_LIMIT,
-        search: trimmedQuery || undefined,
-      })
-      .then((page) => {
-        if (cancelled) return;
-        setSessions(page.sessions);
-        setAgentCounts(page.agent_counts ?? []);
-        setSelectedSessionId((current) => {
-          if (current && page.sessions.some((s) => s.id === current)) return current;
-          return page.sessions[0]?.id ?? null;
-        });
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return;
-        setError(cause instanceof Error ? cause.message : String(cause));
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingList(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [props.client, props.workspaceId, trimmedQuery, listTick]);
+    void loadSessionList();
+  }, [props.client, props.workspaceId, trimmedQuery, listTick, loadSessionList]);
+
+  // First visit: run a real archive sync so Windows cold starts actually index
+  // local agent histories instead of only re-reading an empty SQLite cache.
+  useEffect(() => {
+    if (!props.client || !props.workspaceId.trim()) return;
+    if (initialSyncDoneRef.current) return;
+    initialSyncDoneRef.current = true;
+    void runArchiveSync("incremental");
+  }, [props.client, props.workspaceId, runArchiveSync]);
 
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim() || !selectedSessionId) {
@@ -265,13 +318,15 @@ export function SessionArchivePage(props: Props) {
             type="button"
             variant="outline"
             size="icon-sm"
-            onClick={refreshList}
-            disabled={loadingList}
+            onClick={() => {
+              void runArchiveSync("resync");
+            }}
+            disabled={loadingList || syncing}
             aria-label={t("session_archive.sync")}
             title={t("session_archive.sync")}
             className="shrink-0"
           >
-            <RefreshCw className={cn("size-3.5", loadingList && "animate-spin")} />
+            <RefreshCw className={cn("size-3.5", (loadingList || syncing) && "animate-spin")} />
           </Button>
           <CountBadge size="dot" className="shrink-0 tabular-nums">
             {t("session_archive.agent_group_count", { count: totalKnown })}
@@ -327,10 +382,42 @@ export function SessionArchivePage(props: Props) {
                 {t("session_archive.loading")}
               </div>
             ) : null}
-            {!loadingList && flatSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 px-4 py-20 text-center text-xs text-dls-secondary">
+            {!loadingList && !syncing && flatSessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center text-xs text-dls-secondary">
                 <MessageSquare className="size-8 opacity-30" />
                 <span>{t("session_archive.empty")}</span>
+                <span className="max-w-[16rem] text-[11px] leading-relaxed text-dls-secondary/80">
+                  {t("session_archive.empty_hint")}
+                </span>
+                {lastSyncSummary ? (
+                  <span className="max-w-[16rem] text-[11px] leading-relaxed text-dls-secondary/70">
+                    {t("session_archive.empty_sync_stats", {
+                      discovered: lastSyncSummary.discovered,
+                      synced: lastSyncSummary.synced,
+                      skipped: lastSyncSummary.skipped,
+                      failed: lastSyncSummary.failed,
+                    })}
+                  </span>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-1"
+                  disabled={syncing}
+                  onClick={() => {
+                    void runArchiveSync("resync");
+                  }}
+                >
+                  <RefreshCw className={cn("size-3.5", syncing && "animate-spin")} />
+                  {t("session_archive.sync")}
+                </Button>
+              </div>
+            ) : null}
+            {syncing && flatSessions.length === 0 ? (
+              <div className="flex items-center gap-2 px-4 py-8 text-xs text-dls-secondary">
+                <LoadingSpinner size="sm" />
+                {t("session_archive.syncing")}
               </div>
             ) : null}
             <ul className="flex flex-col gap-0.5 p-2">

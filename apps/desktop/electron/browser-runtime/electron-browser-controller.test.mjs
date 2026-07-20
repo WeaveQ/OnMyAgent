@@ -189,3 +189,40 @@ test("turn cleanup closes temporary agent tabs but preserves user tabs", async (
   assert.deepEqual(controller.listBrowserTabs().map((tab) => tab.owner), ["user"]);
   await controller.close();
 });
+
+test("destroyBrowserView is safe after the main window is destroyed", () => {
+  const harness = createHarness();
+  let destroyed = false;
+  harness.mainWindow.isDestroyed = () => destroyed;
+  Object.defineProperty(harness.mainWindow, "contentView", {
+    get() {
+      if (destroyed) throw new Error("Object has been destroyed");
+      return {
+        children: harness.windowChildren,
+        addChildView(view) {
+          harness.windowChildren.push(view);
+        },
+        removeChildView(view) {
+          const index = harness.windowChildren.indexOf(view);
+          if (index >= 0) harness.windowChildren.splice(index, 1);
+        },
+      };
+    },
+  });
+
+  const controller = createElectronBrowserController({
+    WebContentsView: harness.WebContentsView,
+    dirname: "/tmp",
+    openExternal: async () => true,
+  });
+  controller.setMainWindow(harness.mainWindow);
+  controller.createBrowserTab("about:blank", { select: true });
+  controller.attachBrowserView({ x: 0, y: 0, width: 800, height: 600 });
+  assert.equal(harness.windowChildren.length, 1);
+
+  // Simulate BrowserWindow "closed": the window is already dead.
+  destroyed = true;
+  assert.doesNotThrow(() => controller.destroyBrowserView());
+  assert.equal(controller.listBrowserTabs().length, 0);
+  controller.setMainWindow(null);
+});
