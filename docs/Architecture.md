@@ -20,7 +20,7 @@ apps/
 packages/
   types/        共享类型与 Zod schema：server API / Desktop IPC（含 `DesktopCommandMap`）/ desktop-policies / restrictions / inference；health/status/runtime 响应类型也在此包
   ui/           Paper shader 视觉组件：仅 React 导出（`@onmyagent/ui/react`）；Solid 已移除
-  handsfree/    macOS Computer Use：Swift AX + JS CUA runner
+  handsfree/    macOS-only Computer Use：Swift AX + Appshot + JS CUA runner（Windows/Linux 不打包 helper）
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
 ```
 
