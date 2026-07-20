@@ -184,11 +184,10 @@ export function CodeSceneToolbar(props: {
         targetId: target.id,
         workspacePath: props.workspacePath?.trim() ?? "",
       });
-      setNoticeText(
-        result.ok
-          ? t("session.code_toolbar_opened")
-          : result.reason ?? t("session.code_toolbar_open_failed"),
-      );
+      // Success is silent (Finder/app already opens); only surface failures.
+      if (!result.ok) {
+        setNoticeText(result.reason ?? t("session.code_toolbar_open_failed"));
+      }
     } catch (error) {
       setNoticeText(
         error instanceof Error

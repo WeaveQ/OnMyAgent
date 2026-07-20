@@ -101,7 +101,9 @@ export function AgentManagementAgentCard(props: {
         <AgentBrandIcon
           id={props.agent.id}
           provider={props.agent.provider}
-          size="sm"
+          // Match skills marketplace icon scale (skills use size-8; md tile reads
+          // clearly on the wider agent management cards).
+          size="md"
           alt={props.agent.name}
           className="shrink-0"
         />

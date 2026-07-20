@@ -25,9 +25,11 @@ describe("composer tool menu model", () => {
     );
 
     expect(helpers).toContain("showOuterBorder?: boolean;");
+    expect(helpers).toContain("homeLayout?: boolean;");
     expect(source).toContain(
-      'props.showOuterBorder ? `border border-dls-mist',
+      'props.showOuterBorder ? `border border-dls-border shadow-sm',
     );
+    expect(source).toContain("const homeLayout = Boolean(props.homeLayout);");
     expect(source).not.toContain("shadow-sm transition-shadow");
   });
 

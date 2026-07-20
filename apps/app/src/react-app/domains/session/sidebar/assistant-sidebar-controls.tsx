@@ -53,11 +53,15 @@ export function AssistantCategorySwitch(props: {
   ];
 
   return (
-    <div className="mb-3 flex w-full justify-center mac:titlebar-no-drag">
+    <div className="mb-2.5 flex w-full justify-center mac:titlebar-no-drag">
+      {/*
+        Same free-float pill as store 「专家」: density bare + shape tab (rounded-lg),
+        inverted active fill — no track, so L/R radius stays uniform.
+      */}
       <SegmentedTabGroup
-        density="filter"
+        density="bare"
         role="tablist"
-        className="h-10 w-full max-w-none"
+        className="h-8 w-full max-w-none"
       >
         {items.map((item) => {
           const Icon = item.icon;
@@ -70,12 +74,11 @@ export function AssistantCategorySwitch(props: {
               aria-selected={active}
               onClick={() => props.onChange(item.id)}
               active={active}
-              // Track tabs use NavTab size tab (theme-system free-float size is separate).
               size="tab"
               shape="tab"
-              className="relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm"
+              className="relative z-10 h-8 min-h-8 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm"
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className="size-3.5 shrink-0" />
               <span className="leading-none">{item.label}</span>
             </NavTabButton>
           );

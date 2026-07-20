@@ -26,13 +26,21 @@ export default {
   "composer.search_connectors": "Search connectors",
   "composer.search_skills": "Search skills",
   "composer.skill_source": "Skill",
+  "composer.slash_section_skills": "Skills",
+  "composer.slash_section_commands": "Commands",
+  "composer.slash_section_mcps": "Connectors",
   "composer.stop": "Stop",
   "composer.tools_label": "Commands, skills, and MCPs",
   "composer.upload_to_shared_folder": "Upload to shared folder",
-  "composer.uploaded_multiple_files":
-    "Uploaded {count} files to the shared folder and inserted links.",
-  "composer.uploaded_single_file":
-    "Uploaded {name} to the shared folder and inserted a link.",
+  "composer.upload_success_title": "Attachment added",
+  "composer.uploaded_multiple_files": "Uploaded {count} files",
+  "composer.uploaded_single_file": "Uploaded {name}",
+  "composer.uploaded_single_file_short": "{name}",
+  "composer.appshot_success": "Desktop screenshot added",
+  "composer.appshot_unsupported_windows":
+    "Desktop capture is only available on macOS for now",
+  "composer.appshot_unsupported_linux":
+    "Desktop capture is only available on macOS for now",
   "composer.access_default": "Default permissions",
   "composer.access_default_desc": "Always ask before editing external files or using the internet",
   "composer.access_delegate": "Let me approve",

@@ -1,5 +1,11 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   Archive,
   Box,
@@ -12,6 +18,12 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import {
@@ -19,6 +31,20 @@ import {
   type AgentConversationGroup,
 } from "./conversation-model";
 import { resolveOpenFolderPath } from "../../shared";
+
+function IconHoverTip(props: {
+  label: string;
+  children: ReactElement;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={props.children} />
+      <TooltipContent side="left" sideOffset={6}>
+        {props.label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * WorkBuddy-style task context menu chrome.
@@ -41,9 +67,8 @@ export const TASK_CONTEXT_MENU_ITEM_CLASS =
 export const TASK_ROW_ACTION_CLASS =
   "inline-flex size-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 leading-none text-dls-secondary outline-none transition-colors hover:text-dls-text focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0";
 
-/** WorkBuddy: labeled archive chip on row hover (icon-only is too easy to miss). */
-export const TASK_ROW_ARCHIVE_CHIP_CLASS =
-  "inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-dls-border/70 bg-dls-surface-solid px-1.5 text-xs font-normal leading-none text-dls-secondary shadow-sm outline-none transition-colors hover:border-dls-border hover:bg-dls-surface-muted hover:text-dls-text focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:pointer-events-none [&_svg]:size-3 [&_svg]:shrink-0";
+/** Archive control: icon-only (same footprint as pin); label via tooltip / aria. */
+export const TASK_ROW_ARCHIVE_CHIP_CLASS = TASK_ROW_ACTION_CLASS;
 
 function TaskMenuItem(props: {
   onClick: () => void;
@@ -160,7 +185,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
       </Button>
       {/*
         WorkBuddy idle: relative time only (pin lives under 置顶任务 section).
-        Hover: ⋯ / pin / labeled 归档 chip — matches pinned-row reference.
+        Hover: ⋯ / pin / archive icon — label via tooltip only.
       */}
       <div
         className={cn(
@@ -180,6 +205,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           {summaryTime}
         </span>
       </div>
+      <TooltipProvider delay={200}>
       <div
         className={cn(
           "hidden shrink-0 items-center justify-end gap-0.5 group-hover:flex",
@@ -187,68 +213,73 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           menuOpen && "flex",
         )}
       >
-        <button
-          ref={anchorRef}
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            if (anchorRef.current) {
-              const rect = anchorRef.current.getBoundingClientRect();
-              setMenuPosition({ left: rect.right - 176, top: rect.bottom + 4 });
-            }
-            setMenuOpen((value) => !value);
-          }}
-          className={TASK_ROW_ACTION_CLASS}
-          title={t("session.task_actions")}
-          aria-label={t("session.task_actions")}
-        >
-          <MoreHorizontal strokeWidth={1.75} />
-        </button>
-        {pinnable && props.onTogglePinned ? (
+        <IconHoverTip label={t("session.task_actions")}>
           <button
+            ref={anchorRef}
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              setMenuOpen(false);
-              props.onTogglePinned?.(latestSession.id);
+              if (anchorRef.current) {
+                const rect = anchorRef.current.getBoundingClientRect();
+                setMenuPosition({ left: rect.right - 176, top: rect.bottom + 4 });
+              }
+              setMenuOpen((value) => !value);
             }}
-            className={cn(
-              TASK_ROW_ACTION_CLASS,
-              // Pinned → accent “unpin”; unpinned → quiet secondary “pin”.
-              props.pinned
-                ? "text-dls-accent hover:text-dls-accent"
-                : "text-dls-secondary",
-            )}
-            title={props.pinned ? t("session.unpin") : t("session.pin")}
-            aria-label={props.pinned ? t("session.unpin") : t("session.pin")}
+            className={TASK_ROW_ACTION_CLASS}
+            aria-label={t("session.task_actions")}
           >
-            {props.pinned ? (
-              <PinOff strokeWidth={1.75} />
-            ) : (
-              <Pin strokeWidth={1.75} />
-            )}
+            <MoreHorizontal strokeWidth={1.75} />
           </button>
+        </IconHoverTip>
+        {pinnable && props.onTogglePinned ? (
+          <IconHoverTip
+            label={props.pinned ? t("session.unpin") : t("session.pin")}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMenuOpen(false);
+                props.onTogglePinned?.(latestSession.id);
+              }}
+              className={cn(
+                TASK_ROW_ACTION_CLASS,
+                // Pinned → accent “unpin”; unpinned → quiet secondary “pin”.
+                props.pinned
+                  ? "text-dls-accent hover:text-dls-accent"
+                  : "text-dls-secondary",
+              )}
+              aria-label={props.pinned ? t("session.unpin") : t("session.pin")}
+            >
+              {props.pinned ? (
+                <PinOff strokeWidth={1.75} />
+              ) : (
+                <Pin strokeWidth={1.75} />
+              )}
+            </button>
+          </IconHoverTip>
         ) : null}
         {props.onArchiveSession ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setMenuOpen(false);
-              props.onArchiveSession?.(
-                latestSession.id,
-                props.group.description,
-              );
-            }}
-            className={TASK_ROW_ARCHIVE_CHIP_CLASS}
-            title={t("session.archive_task")}
-            aria-label={t("session.archive_task")}
-          >
-            <Archive strokeWidth={1.75} />
-            <span>{t("session.archive_task")}</span>
-          </button>
+          <IconHoverTip label={t("session.archive_task")}>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMenuOpen(false);
+                props.onArchiveSession?.(
+                  latestSession.id,
+                  props.group.description,
+                );
+              }}
+              className={TASK_ROW_ARCHIVE_CHIP_CLASS}
+              aria-label={t("session.archive_task")}
+            >
+              <Archive strokeWidth={1.75} />
+            </button>
+          </IconHoverTip>
         ) : null}
       </div>
+      </TooltipProvider>
 
       {menuOpen && menuPosition ? (
         <div

@@ -23,7 +23,8 @@ function ExpertAvatar(props: {
   avatarUrl: string | null;
   size?: "sm" | "lg";
 }) {
-  const sizeClass = props.size === "lg" ? "size-14 rounded-full" : "size-9 rounded-full";
+  // Match skills marketplace icons: rounded-md (not circle).
+  const sizeClass = props.size === "lg" ? "size-14 rounded-md" : "size-9 rounded-md";
   if (props.avatarUrl) {
     return (
       <img
@@ -189,7 +190,7 @@ export function ExpertMarketplacePage(props: {
                 className="min-h-36 rounded-2xl border border-dashed border-dls-border bg-dls-surface px-4 py-3.5 text-left transition-colors hover:bg-dls-hover mac:titlebar-no-drag"
                 onClick={props.onCreateExpert}
               >
-                <span className="inline-flex size-9 items-center justify-center rounded-full bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30">
+                <span className="inline-flex size-9 items-center justify-center rounded-md bg-dls-accent/10 text-dls-accent ring-1 ring-dls-border">
                   <Plus className="size-4" />
                 </span>
                 <div className="mt-3 text-sm font-semibold text-dls-text">
