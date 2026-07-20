@@ -61,6 +61,18 @@ describe("session transcript layout contract", () => {
     expect(messageList).not.toContain("<LoadingSpinner className={className}");
   });
 
+  test("scopes reasoning shimmer to the latest streaming message owner", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+
+    expect(messageList).toContain(
+      "const processRunning = running && items.some",
+    );
+    expect(messageList).toContain(
+      "item.messageId === props.presentation.streamingMessageId",
+    );
+    expect(messageList).toContain("running={processRunning}");
+  });
+
   test("keeps the five-card finance KPI strip on one compact row", async () => {
     const visualFixture = await Bun.file(visualFixturePath).text();
 
