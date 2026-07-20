@@ -5,6 +5,7 @@ import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 import { t } from "@/i18n";
 
@@ -47,9 +48,11 @@ function pluginIcon(pluginId: string) {
 export function ArtifactPluginIcon({
   pluginId,
   size = "md",
+  className,
 }: {
   pluginId: string;
   size?: "sm" | "md";
+  className?: string;
 }) {
   const Icon = pluginIcon(pluginId);
   return (
@@ -57,7 +60,7 @@ export function ArtifactPluginIcon({
       size={size === "sm" ? "sm" : "md"}
       tone="accent"
       shape={size === "sm" ? "lg" : "xl"}
-      className="shrink-0"
+      className={cn("shrink-0", className)}
     >
       <Icon className={size === "sm" ? "size-4" : "size-5"} aria-hidden="true" />
     </IconTile>

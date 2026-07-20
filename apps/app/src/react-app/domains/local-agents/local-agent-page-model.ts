@@ -49,6 +49,7 @@ export function modelSelectorLabel(agent: PersonalLocalAgent | null) {
 const PERSONAL_AGENT_MODEL_PREF_PREFIX = "onmyagent.personalLocalAgent.model";
 const PERSONAL_AGENT_CHAT_STATE_PREFIX = "onmyagent.personalLocalAgent.chatState";
 const PERSONAL_AGENT_LIST_CACHE_PREFIX = "onmyagent.personalLocalAgent.agentList";
+const PERSONAL_AGENT_SIDEBAR_ORDER_PREFIX = "onmyagent.personalLocalAgent.sidebarOrder";
 const PERSONAL_AGENT_APPROVAL_MODE_PREFIX = "onmyagent.personalLocalAgent.approvalMode";
 export const LOCAL_AGENT_LIST_MIN_WIDTH = 180;
 export const LOCAL_AGENT_LIST_MAX_WIDTH = 320;
@@ -222,6 +223,83 @@ export function personalAgentChatStateKey(workspaceRoot: string) {
 
 export function personalAgentListCacheKey(workspaceRoot: string) {
   return `${PERSONAL_AGENT_LIST_CACHE_PREFIX}.${workspaceRoot}`;
+}
+
+export function personalAgentSidebarOrderKey(workspaceRoot: string) {
+  return `${PERSONAL_AGENT_SIDEBAR_ORDER_PREFIX}.${workspaceRoot || "default"}`;
+}
+
+/**
+ * Merge a saved sidebar id order with the current agent set.
+ * - Keeps previous relative order for known agents (status must not reshuffle).
+ * - Drops removed agents; appends newcomers in `currentIds` order.
+ */
+export function mergeLocalAgentSidebarOrder(
+  savedOrder: ReadonlyArray<string>,
+  currentIds: ReadonlyArray<string>,
+): string[] {
+  const idSet = new Set(
+    currentIds.map((id) => String(id ?? "").trim()).filter(Boolean),
+  );
+  const next: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of savedOrder) {
+    const id = String(raw ?? "").trim();
+    if (!id || !idSet.has(id) || seen.has(id)) continue;
+    next.push(id);
+    seen.add(id);
+  }
+  for (const raw of currentIds) {
+    const id = String(raw ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    next.push(id);
+    seen.add(id);
+  }
+  return next;
+}
+
+/**
+ * Stable sidebar sort: position follows persisted order only.
+ * Online/offline/ENOENT updates chrome on the row, not list position.
+ */
+export function sortLocalAgentsBySidebarOrder<T extends { id: string; name?: string | null }>(
+  agents: ReadonlyArray<T>,
+  order: ReadonlyArray<string>,
+): T[] {
+  const index = new Map(
+    order.map((id, i) => [String(id).trim(), i] as const).filter(([id]) => id.length > 0),
+  );
+  return [...agents].sort((a, b) => {
+    const ai = index.has(a.id) ? (index.get(a.id) as number) : Number.MAX_SAFE_INTEGER;
+    const bi = index.has(b.id) ? (index.get(b.id) as number) : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return String(a.name ?? a.id).localeCompare(String(b.name ?? b.id), "zh");
+  });
+}
+
+export function safeReadLocalAgentSidebarOrder(workspaceRoot: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(personalAgentSidebarOrderKey(workspaceRoot));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((id) => String(id ?? "").trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function safeWriteLocalAgentSidebarOrder(workspaceRoot: string, order: ReadonlyArray<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      personalAgentSidebarOrderKey(workspaceRoot),
+      JSON.stringify(order.map((id) => String(id ?? "").trim()).filter(Boolean)),
+    );
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 export function personalAgentApprovalModeKey(workspaceRoot: string) {

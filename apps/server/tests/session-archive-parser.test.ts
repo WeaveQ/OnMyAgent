@@ -49,6 +49,8 @@ describe("session-archive parser registry", () => {
       "cortex",
       "hermes",
       "onmyagent",
+      "grok",
+      "workbuddy",
       "forge",
       "piebald",
       "warp",
@@ -176,6 +178,8 @@ describe("session-archive parser initial slice", () => {
       "qwenpaw",
       "reasonix",
       "aider",
+      "grok",
+      "workbuddy",
     ]);
     expect(sessionArchiveGenericParserAgents).toEqual([
       "cowork",
@@ -505,6 +509,59 @@ describe("session-archive parser initial slice", () => {
       const result = await sessionArchiveParserForAgent("hermes")?.parseFile(path);
 
       expect(result?.session).toMatchObject({ id: "hermes:20260403_153620_5a3e2ff1", agent: "hermes", first_message: "hello hermes" });
+      expect(result?.messages).toHaveLength(2);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("discovers and parses Grok Build chat_history.jsonl", async () => {
+    const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-parser-"));
+    try {
+      const sessionDir = join(root, "%2FUsers%2Fwork%2Fcode", "019f-session-id");
+      await mkdir(sessionDir, { recursive: true });
+      const path = join(sessionDir, "chat_history.jsonl");
+      await writeFile(path, [
+        JSON.stringify({ type: "system", content: "You are Grok" }),
+        JSON.stringify({ type: "user", content: [{ type: "text", text: "hello grok" }] }),
+        JSON.stringify({ type: "assistant", content: [{ type: "text", text: "hi" }] }),
+      ].join("\n"));
+
+      expect(await discoverSessionArchiveSessionFiles({ agent: "grok", root })).toEqual([path]);
+      const result = await sessionArchiveParserForAgent("grok")?.parseFile(path);
+      expect(result?.session).toMatchObject({ id: "grok:019f-session-id", agent: "grok", first_message: "hello grok" });
+      expect(result?.messages).toHaveLength(2);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("discovers and parses WorkBuddy project JSONL", async () => {
+    const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-parser-"));
+    try {
+      const projectDir = join(root, "Users-work-demo");
+      await mkdir(projectDir, { recursive: true });
+      const path = join(projectDir, "sess-abc.jsonl");
+      await writeFile(path, [
+        JSON.stringify({
+          type: "message",
+          role: "user",
+          sessionId: "sess-abc",
+          timestamp: 1_700_000_000_000,
+          content: [{ type: "input_text", text: "what can you do" }],
+        }),
+        JSON.stringify({
+          type: "message",
+          role: "assistant",
+          sessionId: "sess-abc",
+          timestamp: 1_700_000_001_000,
+          content: [{ type: "output_text", text: "I can help code" }],
+        }),
+      ].join("\n"));
+
+      expect(await discoverSessionArchiveSessionFiles({ agent: "workbuddy", root })).toEqual([path]);
+      const result = await sessionArchiveParserForAgent("workbuddy")?.parseFile(path);
+      expect(result?.session).toMatchObject({ id: "workbuddy:sess-abc", agent: "workbuddy", first_message: "what can you do" });
       expect(result?.messages).toHaveLength(2);
     } finally {
       await rm(root, { recursive: true, force: true });

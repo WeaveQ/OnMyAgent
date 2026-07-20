@@ -13,6 +13,7 @@ import {
   type PersonalAdapterMessage,
 } from "../../../capabilities/conversation";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
+import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
 
@@ -30,7 +31,22 @@ export function visibleRunTimelineMessages(run: PersonalLocalAgentRunResult | nu
   const messages = mapPersonalRunToMessages(run) as PersonalLocalAgentConversationMessage[];
   // Runtime emits both type:error and tips(category=error) for the same failure.
   // Keep the tips card (has resolution CTA) and drop the bare duplicate error row.
-  return messages.filter((message, index, list) => {
+  // Also drop pure skill-catalog dumps that leaked as assistant text.
+  const cleaned: PersonalLocalAgentConversationMessage[] = [];
+  for (const message of messages) {
+    if (message.role === "assistant" || message.type === "text" || message.type === "finish") {
+      const sanitized = sanitizeAssistantTranscriptText(message.text);
+      if (sanitized.wasSkillCatalogDump || !sanitized.text.trim()) {
+        if (message.role === "assistant" || message.type === "finish" || message.type === "text") {
+          continue;
+        }
+      }
+      cleaned.push(sanitized.text === message.text ? message : { ...message, text: sanitized.text });
+      continue;
+    }
+    cleaned.push(message);
+  }
+  return cleaned.filter((message, index, list) => {
     if (message.type !== "error") return true;
     const next = list[index + 1];
     if (next?.type === "tips" && next.category === "error") return false;
@@ -553,10 +569,12 @@ export function LocalAgentTimelineMessage(props: {
     );
   }
   if (props.message.role === "assistant") {
+    const body = sanitizeAssistantTranscriptText(props.message.text).text;
+    if (!body.trim()) return null;
     return (
       <div className="text-sm leading-6 text-dls-text">
         <MarkdownBlock
-          text={props.message.text}
+          text={body}
           streaming={props.streaming && props.message.type !== "finish"}
         />
       </div>

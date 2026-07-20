@@ -21,6 +21,31 @@ export type SessionArchiveRegistryEntry = SessionArchiveSource & {
   shallowWatchRootsKind?: "codex";
 };
 
+/**
+ * Archive policy (product):
+ * 1. Built-in whitelist sources in `sessionArchiveRegistry` (OpenCode, Codex, Hermes, Grok, …).
+ * 2. Known-format *managed* local agents map here: fleet id → archive agent key.
+ *    Not every custom agent gets archive — only entries with known on-disk formats.
+ * 3. Unknown pure-custom agents: no archive unless the user configures a source later.
+ */
+export const KNOWN_MANAGED_ARCHIVE_AGENTS: Readonly<Record<string, SessionArchiveAgent>> = Object.freeze({
+  grok: "grok",
+  workbuddy: "workbuddy",
+  codebuddy: "workbuddy",
+  mimo: "mimocode",
+  mimocode: "mimocode",
+  opencode: "opencode",
+  codex: "codex",
+  claude: "claude",
+  hermes: "hermes",
+  openclaw: "openclaw",
+  gemini: "gemini",
+  kimi: "kimi",
+  kiro: "kiro",
+  qwen: "qwen",
+  copilot: "copilot",
+});
+
 export type SessionArchiveDirSource = "default" | "config" | "env";
 
 export type SessionArchiveResolvedSourceRoot = {
@@ -86,6 +111,11 @@ export const sessionArchiveRegistry = [
   entry("cortex", "Cortex Code", "CORTEX_DIR", "cortex_dirs", [".snowflake/cortex/conversations"], "cortex:"),
   entry("hermes", "Hermes Agent", "HERMES_SESSIONS_DIR", "hermes_sessions_dirs", [".hermes/sessions"], "hermes:"),
   entry("onmyagent", "OnMyAgent", "ONMYAGENT_PROJECTS_DIR", "onmyagent_project_dirs", [".onmyagent/projects"], "onmyagent:"),
+  // Tier 1 built-in + tier 2 known-format managed CLIs (see KNOWN_MANAGED_ARCHIVE_AGENTS).
+  // Grok Build: ~/.grok/sessions/<workspace>/<id>/chat_history.jsonl
+  entry("grok", "Grok Build", "GROK_SESSIONS_DIR", "grok_sessions_dirs", [".grok/sessions"], "grok:", { shallowWatch: false }),
+  // WorkBuddy / CodeBuddy CLI: ~/.workbuddy/projects/<project>/<sessionId>.jsonl
+  entry("workbuddy", "WorkBuddy", "WORKBUDDY_PROJECTS_DIR", "workbuddy_projects_dirs", [".workbuddy/projects"], "workbuddy:"),
   entry("forge", "Forge", "FORGE_DIR", "forge_dirs", [".forge"], "forge:", { fileBased: false }),
   entry("piebald", "Piebald", "PIEBALD_DIR", "piebald_dirs", [".local/share/piebald", "Library/Application Support/piebald", "AppData/Roaming/piebald"], "piebald:", { fileBased: false }),
   entry("warp", "Warp", "WARP_DIR", "warp_dirs", warpDefaultDirs(), "warp:", { fileBased: false }),

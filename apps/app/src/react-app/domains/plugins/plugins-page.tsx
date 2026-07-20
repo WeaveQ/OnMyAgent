@@ -548,12 +548,12 @@ function PluginStoreCard(props: {
 }
 
 function PluginCard(props: { item: PluginItem }) {
-  // Preview-only: not installable. Avoid Plus / hover-active affordances.
+  // Preview-only: not installable. Same horizontal shell as ArtifactPluginCard.
   return (
     <PluginStoreCard
       minHeight="sm"
       disabled
-      className="h-full cursor-default gap-2.5 border border-dashed border-dls-border/70 bg-dls-surface/50 opacity-100 hover:border-dls-border/70 hover:bg-dls-surface/50"
+      className="h-full min-h-20 cursor-default gap-2.5 border border-dashed border-dls-border/70 bg-dls-surface/50 opacity-100 hover:border-dls-border/70 hover:bg-dls-surface/50"
     >
       <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-lg" />
       <div className="min-w-0 flex-1">
@@ -696,7 +696,7 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
     ?? t("plugins.artifact_detail_loading");
 
   return (
-    <section className="space-y-3" aria-labelledby="artifact-plugins-heading">
+    <section className="space-y-5" aria-labelledby="artifact-plugins-heading">
       <div className="space-y-1">
         <h2
           id="artifact-plugins-heading"

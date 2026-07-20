@@ -10,7 +10,6 @@ export default {
   "agent_manager.agent_check": "Agents",
   "agent_manager.agents_desc":
     "Local coding agent status, connection checks, and run info",
-  "agent_manager.config_preview": "Configuration preview",
   "agent_manager.current": "Current",
   "agent_manager.import_current": "Import current configuration",
   "agent_manager.local_runs": "Local runs",

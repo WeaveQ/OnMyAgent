@@ -84,6 +84,7 @@ import {
   compactMessagesByAgent,
   isUnsupportedNativeTranscriptError,
   localAgentChatKey,
+  mergeLocalAgentSidebarOrder,
   mergeSlashCommands,
   modelSelectorLabel,
   nativeSessionResumeOnlyMessage,
@@ -95,8 +96,11 @@ import {
   recoverActiveRunIds,
   safeReadApprovalMode,
   safeReadCachedAgents,
+  safeReadLocalAgentSidebarOrder,
   safeReadPersistedChatState,
   safeWriteCachedAgents,
+  safeWriteLocalAgentSidebarOrder,
+  sortLocalAgentsBySidebarOrder,
   transcriptMessagesForAgent,
   welcomeMessageForAgent,
   type PersistedLocalAgentChatState,
@@ -339,6 +343,23 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       .catch(() => undefined);
   }, [effectiveWorkspaceRoot, props.workspaceRoot, selectedAgent, selectedConversationId]);
   useAcpInitialMessage({ workspaceRoot: effectiveWorkspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, disabled: isChannelView, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: effectiveWorkspaceRoot, agent: isChannelView ? null : selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
+  // Stable sidebar order: status (online / ENOENT) only updates row chrome.
+  // Relative order is persisted per workspace so re-entering the page does not reshuffle.
+  const sidebarOrder = useMemo(() => {
+    const realIds = allAgents
+      .filter((agent) => agent.id !== CHANNEL_AGENT_ID)
+      .map((agent) => agent.id);
+    const saved = safeReadLocalAgentSidebarOrder(props.workspaceRoot);
+    return mergeLocalAgentSidebarOrder(saved.length ? saved : realIds, realIds);
+  }, [allAgents, props.workspaceRoot]);
+
+  useEffect(() => {
+    const saved = safeReadLocalAgentSidebarOrder(props.workspaceRoot);
+    if (sidebarOrder.join("\0") !== saved.join("\0")) {
+      safeWriteLocalAgentSidebarOrder(props.workspaceRoot, sidebarOrder);
+    }
+  }, [props.workspaceRoot, sidebarOrder]);
+
   const filteredAgents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     // The synthetic channel agent is rendered in its own section below, not as
@@ -351,15 +372,8 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
           .includes(normalized),
       );
     }
-    // Online / healthy first; broken install rows (ENOENT) sink so the list
-    // doesn't lead with error chrome.
-    return [...realAgents].sort((a, b) => {
-      const rank = (agent: typeof a) => (agent.status === "online" ? 0 : 1);
-      const delta = rank(a) - rank(b);
-      if (delta !== 0) return delta;
-      return a.name.localeCompare(b.name, "zh");
-    });
-  }, [allAgents, query]);
+    return sortLocalAgentsBySidebarOrder(realAgents, sidebarOrder);
+  }, [allAgents, query, sidebarOrder]);
   const startAgentListResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
