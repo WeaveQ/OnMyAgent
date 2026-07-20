@@ -81,18 +81,21 @@ OnMyAgent 不是：
 - **Automations**：调度周期性本地 Agent 任务，并查看运行历史。
 - **MCP Control**：统一配置 MCP server，并通过 MCP 暴露 UI 控制能力。
 - **Skills & Memory**：管理可复用能力和项目上下文。
-- **软件与环境设置**：管理内置运行时、API keys、本机环境变量和 macOS 权限。
+- **软件与环境设置**：管理内置运行时、API keys、本机环境变量，以及平台权限（macOS 辅助功能 / 屏幕录制等）。
 - **Artifact Review**：集中审查日志、Diff、文件、截图和交付物。
 - **Permission & Approval**：为高风险本地动作提供显式权限和审批界面。
 - **Local-first / BYOK**：工作留在本机，模型和服务商密钥由用户自己掌控。
-- **桌面端打包**：支持 macOS Electron 桌面端打包。
+- **桌面端打包**：macOS 为主；Windows NSIS 为开发者预览包。
 - **国际化**：维护英文、简体中文和繁体中文 locale 文件。
 
 ## 平台支持
 
-- 首批公开版本只支持 macOS，同时提供 Apple Silicon 和 Intel 构建。
-- Windows 支持计划放在后续版本。
-- 暂不支持 Linux 包，包括 Arch Linux AUR 包。
+- **macOS** 是主发布与日常 dogfood 平台（Apple Silicon + Intel）。
+- **Windows** 可跑 Electron shell、sidecar 与大部分产品 UI；预检、NSIS 打包与
+  macOS-only 缺口（Computer Use / Appshot 桌面截图、`sandbox-exec`）见
+  [`docs/windows-compat.md`](./docs/windows-compat.md)。
+- **Linux** 包（含 Arch AUR）暂不支持。
+- **Computer Use 与 Appshot** 依赖原生 HandsFree helper，**仅 macOS**。
 
 ## 工作流
 
