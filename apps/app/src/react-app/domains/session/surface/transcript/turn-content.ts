@@ -1,6 +1,13 @@
 import type { UIMessage } from "ai";
 
+import type { Locale } from "@/i18n";
 import type { TranscriptTurn, TranscriptTurnState } from "./turn-model";
+import {
+  isTranscriptToolPart,
+  isWrongLanguageProgressNarration,
+  progressNarrationKey,
+  type ProgressNarrationMessageKey,
+} from "./progress-narration";
 
 const WIDGET_TOOL_NAMES = new Set([
   "render_visual",
@@ -18,6 +25,7 @@ export type TurnContentItem = {
   partIndex: number;
   index: number;
   part: UIMessagePart;
+  bodySegments?: TurnBodySegment[];
 };
 
 export type TurnProcessItem = TurnContentItem;
@@ -34,10 +42,16 @@ export type TurnWidgetItem = {
   errorText: string | null;
 };
 
+export type TurnBodySegment =
+  | { kind: "text"; text: string }
+  | { kind: "widget"; visual: TurnWidgetItem };
+
 export type TurnContentSegment =
   | { kind: "process"; id: string; items: TurnProcessItem[] }
+  | { kind: "synthetic-body"; id: string; messageKey: ProgressNarrationMessageKey }
   | { kind: "body"; id: string; item: TurnContentItem; text: string }
-  | { kind: "file"; id: string; item: TurnContentItem };
+  | { kind: "file"; id: string; item: TurnContentItem }
+  | { kind: "widget"; id: string; visual: TurnWidgetItem };
 
 export type TurnFoldSegment =
   | { kind: "hidden"; id: string; items: TurnContentItem[] }
@@ -46,13 +60,17 @@ export type TurnFoldSegment =
 
 export type TurnContentPresentation = {
   anchorMessageId: string;
+  streamingMessageId: string | null;
   state: TranscriptTurnState;
+  turnCollapseEligible: boolean;
   finalText: string;
   segments: TurnContentSegment[];
   collapsedSegments: TurnFoldSegment[];
   processItems: TurnProcessItem[];
   hoistedItems: TurnWidgetItem[];
 };
+
+const CANCELLATION_SENTINELS = ["[User Cancelled]", "Interrupted by user"] as const;
 
 type WidgetPayload = {
   title: string | null;
@@ -208,10 +226,17 @@ function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
 
 function extractFencedWidgets(item: TurnContentItem, text: string) {
   const widgets: TurnWidgetItem[] = [];
-  const withoutWidgets = text.replace(WIDGET_FENCE_PATTERN, (_match, payload: string) => {
+  const segments: TurnBodySegment[] = [];
+  const pattern = new RegExp(WIDGET_FENCE_PATTERN.source, WIDGET_FENCE_PATTERN.flags);
+  let cursor = 0;
+  let match = pattern.exec(text);
+  while (match) {
+    const precedingText = text.slice(cursor, match.index);
+    if (precedingText) segments.push({ kind: "text", text: precedingText });
+    const payload = match[1] ?? "";
     const widget = parseWidgetPayload(payload);
     if (widget) {
-      widgets.push({
+      const visual: TurnWidgetItem = {
         kind: "widget",
         messageId: item.messageId,
         partIndex: item.partIndex,
@@ -221,11 +246,23 @@ function extractFencedWidgets(item: TurnContentItem, text: string) {
         status: "completed",
         loadingMessages: widget.loadingMessages,
         errorText: null,
-      });
+      };
+      widgets.push(visual);
+      segments.push({ kind: "widget", visual });
+    } else {
+      segments.push({ kind: "text", text: match[0] });
     }
-    return "";
-  });
-  return { text: withoutWidgets.trim(), widgets };
+    cursor = match.index + match[0].length;
+    match = pattern.exec(text);
+  }
+  const trailingText = text.slice(cursor);
+  if (trailingText) segments.push({ kind: "text", text: trailingText });
+  const withoutWidgets = segments
+    .filter((segment) => segment.kind === "text")
+    .map((segment) => segment.text)
+    .join("")
+    .trim();
+  return { text: withoutWidgets, widgets, segments };
 }
 
 function itemId(item: TurnContentItem) {
@@ -238,6 +275,19 @@ function isBodyItem(item: TurnContentItem) {
 
 function bodyText(item: TurnContentItem) {
   return item.part.type === "text" ? item.part.text.trim() : "";
+}
+
+function stripCancellationSentinel(text: string) {
+  const trimmed = text.trim();
+  for (const sentinel of CANCELLATION_SENTINELS) {
+    if (trimmed.endsWith(sentinel)) {
+      return {
+        text: trimmed.slice(0, -sentinel.length).trimEnd(),
+        removed: true,
+      };
+    }
+  }
+  return { text: trimmed, removed: false };
 }
 
 function computeFoldAnchors(items: TurnContentItem[]) {
@@ -268,6 +318,7 @@ function buildCollapsedSegments(items: TurnContentItem[]): TurnFoldSegment[] {
 
   let hasPreviousAnchor = false;
   for (const item of items) {
+    if (widgetFromToolPart(item)) continue;
     if (!anchorIndexes.has(item.index)) {
       pending.push(item);
       continue;
@@ -281,36 +332,74 @@ function buildCollapsedSegments(items: TurnContentItem[]): TurnFoldSegment[] {
     });
     hasPreviousAnchor = true;
   }
-  flush(hasPreviousAnchor);
   return segments;
 }
 
-function buildExpandedSegments(items: TurnContentItem[]): TurnContentSegment[] {
+function buildExpandedSegments(
+  items: TurnContentItem[],
+): TurnContentSegment[] {
   const segments: TurnContentSegment[] = [];
   let processItems: TurnProcessItem[] = [];
+  let processTool: TurnProcessItem | null = null;
+  let nextStageStart: number | null = null;
+  let operationCount = 0;
+  let nextOperationCovered = false;
   const flushProcess = () => {
     if (processItems.length === 0) return;
+    const operation = processTool;
+    if (operation && !nextOperationCovered) {
+      segments.push({
+        kind: "synthetic-body",
+        id: `synthetic-body:${itemId(operation)}`,
+        messageKey: progressNarrationKey(
+          operation.part,
+          operationCount === 0 ? "start" : "continue",
+        ),
+      });
+    }
     segments.push({
       kind: "process",
       id: `process:${itemId(processItems[0])}`,
       items: processItems,
     });
+    if (operation) {
+      operationCount += 1;
+      nextOperationCovered = false;
+    }
     processItems = [];
+    processTool = null;
+    nextStageStart = null;
   };
 
   for (const item of items) {
-    if (item.part.type === "text") {
-      const text = item.part.text.trim();
-      if (!text) continue;
+    const widget = widgetFromToolPart(item);
+    if (widget) {
       flushProcess();
-      segments.push({ kind: "body", id: `body:${itemId(item)}`, item, text });
+      if (!nextOperationCovered) {
+        segments.push({
+          kind: "synthetic-body",
+          id: `synthetic-body:${itemId(item)}`,
+          messageKey: progressNarrationKey(
+            item.part,
+            operationCount === 0 ? "start" : "continue",
+          ),
+        });
+      }
+      segments.push({
+        kind: "widget",
+        id: `widget:${itemId(item)}`,
+        visual: widget,
+      });
+      operationCount += 1;
+      nextOperationCovered = false;
       continue;
     }
-    if (item.part.type === "reasoning") {
+    if (item.part.type === "text") {
       const text = item.part.text.trim();
-      if (!text) continue;
+      if (!text && !item.bodySegments?.some((segment) => segment.kind === "widget")) continue;
       flushProcess();
       segments.push({ kind: "body", id: `body:${itemId(item)}`, item, text });
+      nextOperationCovered = true;
       continue;
     }
     if (item.part.type === "file") {
@@ -318,26 +407,22 @@ function buildExpandedSegments(items: TurnContentItem[]): TurnContentSegment[] {
       segments.push({ kind: "file", id: `file:${itemId(item)}`, item });
       continue;
     }
-    if (
-      item.part.type === "dynamic-tool" &&
-      ["todowrite", "todoread", "todo_write", "plancreate", "planupdate"].includes(
-        item.part.toolName.toLowerCase(),
-      )
-    ) {
-      flushProcess();
-      segments.push({
-        kind: "process",
-        id: `process:${itemId(item)}`,
-        items: [item],
-      });
-      continue;
+    if (item.part.type === "reasoning" && processTool && nextStageStart === null) {
+      nextStageStart = processItems.length;
     }
-    // One tool (or non-text process unit) per segment so the timeline shows
-    // WorkBuddy-style op chips instead of a single "收集资料" mega-fold.
+    if (isTranscriptToolPart(item.part) && processTool) {
+      if (nextStageStart !== null) {
+        const nextItems = processItems.slice(nextStageStart);
+        processItems = processItems.slice(0, nextStageStart);
+        flushProcess();
+        processItems = nextItems;
+      } else {
+        flushProcess();
+      }
+    }
     if (item.part.type !== "step-start") {
-      flushProcess();
       processItems.push(item);
-      flushProcess();
+      if (isTranscriptToolPart(item.part)) processTool = item;
     }
   }
   flushProcess();
@@ -346,6 +431,7 @@ function buildExpandedSegments(items: TurnContentItem[]): TurnContentSegment[] {
 
 export function buildTurnContentPresentation(
   turn: TranscriptTurn,
+  options: { locale?: Locale } = {},
 ): TurnContentPresentation | null {
   if (turn.state === "pending" || turn.assistantMessages.length === 0) return null;
 
@@ -360,37 +446,82 @@ export function buildTurnContentPresentation(
 
   const hoistedItems: TurnWidgetItem[] = [];
   const renderItems: TurnContentItem[] = [];
+  let removedCancellationSentinel = false;
   for (const item of indexedParts) {
     const widget = widgetFromToolPart(item);
     if (widget) {
       hoistedItems.push(widget);
+      renderItems.push(item);
       continue;
     }
     if (item.part.type === "text") {
-      const fenced = extractFencedWidgets(item, item.part.text);
-      hoistedItems.push(...fenced.widgets);
-      if (!fenced.text) continue;
-      renderItems.push({ ...item, part: { ...item.part, text: fenced.text } });
+      const normalized = turn.state === "cancelled"
+        ? stripCancellationSentinel(item.part.text)
+        : { text: item.part.text, removed: false };
+      removedCancellationSentinel ||= normalized.removed;
+      const fenced = extractFencedWidgets(item, normalized.text);
+      if (!fenced.text && fenced.widgets.length === 0) continue;
+      renderItems.push({
+        ...item,
+        part: { ...item.part, text: fenced.text },
+        bodySegments: fenced.widgets.length > 0 ? fenced.segments : undefined,
+      });
       continue;
     }
     renderItems.push(item);
   }
 
-  const bodyItems = renderItems.filter(isBodyItem);
+  const locale = options.locale ?? "en";
+  const publicRenderItems = renderItems.filter((item, index) => {
+    if (
+      item.part.type !== "text" ||
+      !isWrongLanguageProgressNarration(item.part.text, locale)
+    ) {
+      return true;
+    }
+    return !renderItems.slice(index + 1).some((laterItem) => (
+      isTranscriptToolPart(laterItem.part) || widgetFromToolPart(laterItem) !== null
+    ));
+  });
+
+  const bodyItems = publicRenderItems.filter(isBodyItem);
   const finalText = bodyItems.length > 0 ? bodyText(bodyItems.at(-1)!) : "";
-  const processItems = renderItems.filter((item) => (
-    item.part.type !== "text" && item.part.type !== "file" && item.part.type !== "step-start"
+  const processItems = publicRenderItems.filter((item) => (
+    item.part.type !== "text" &&
+    item.part.type !== "file" &&
+    item.part.type !== "step-start" &&
+    !widgetFromToolPart(item)
   ));
-  if (processItems.length === 0 && renderItems.length <= 1 && hoistedItems.length === 0) {
+  const hasInlineWidget = publicRenderItems.some((item) =>
+    item.bodySegments?.some((segment) => segment.kind === "widget") === true
+  );
+  if (
+    processItems.length === 0 &&
+    publicRenderItems.length <= 1 &&
+    hoistedItems.length === 0 &&
+    !hasInlineWidget &&
+    !removedCancellationSentinel
+  ) {
     return null;
   }
 
+  const terminal = turn.state === "completed" ||
+    turn.state === "cancelled" ||
+    turn.state === "failed";
+  const contentCount = publicRenderItems.filter((item) => item.part.type !== "step-start").length;
+  const turnCollapseEligible = terminal && bodyItems.length > 0 && contentCount > 1;
+
   return {
     anchorMessageId: turn.assistantMessages[0]!.id,
+    streamingMessageId:
+      turn.state === "streaming" || turn.state === "awaiting-approval"
+        ? turn.assistantMessages.at(-1)?.id ?? null
+        : null,
     state: turn.state,
+    turnCollapseEligible,
     finalText,
-    segments: buildExpandedSegments(renderItems),
-    collapsedSegments: buildCollapsedSegments(renderItems),
+    segments: buildExpandedSegments(publicRenderItems),
+    collapsedSegments: buildCollapsedSegments(publicRenderItems),
     processItems,
     hoistedItems,
   };

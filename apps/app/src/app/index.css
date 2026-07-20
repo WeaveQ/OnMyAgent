@@ -1050,14 +1050,20 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-workbuddy-process-body {
     display: flex;
-    max-height: 200px;
     flex-direction: column;
-    gap: 12px;
+    padding: 2px 0;
+  }
+
+  .session-workbuddy-process-fold.is-summary > .session-workbuddy-process-body {
+    padding: 2px 0;
+  }
+
+  .session-workbuddy-process-fold.is-thinking > .session-workbuddy-process-body {
+    max-height: 200px;
     overflow-x: hidden;
     overflow-y: auto;
-    margin: 2px 0 0 6px;
-    border-left: 1px solid var(--dls-border);
-    padding: 2px 4px 2px 12px;
+    border-left: 4px solid var(--dls-border);
+    padding: 2px 0 0 12px;
   }
 
   .session-workbuddy-task-list {

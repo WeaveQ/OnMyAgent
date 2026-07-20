@@ -5,6 +5,7 @@ import {
   deriveAssistantActivity,
   deriveAssistantActivityPhase,
   getAssistantActivityPhaseLabel,
+  WORKBUDDY_ACTIVITY_PHASES,
 } from "../src/react-app/domains/session/surface/chrome/assistant-activity";
 import { nextLoadingTipIndex } from "../src/react-app/domains/session/surface/chrome/assistant-status";
 import { createTranscriptMessageMetadata } from "../src/react-app/domains/session/sync/message-metadata";
@@ -19,6 +20,25 @@ const assistantMessage = (parts: UIMessage["parts"]): UIMessage => ({
 });
 
 describe("root assistant activity phase", () => {
+  test("keeps the complete WorkBuddy runtime phase contract", () => {
+    expect(WORKBUDDY_ACTIVITY_PHASES).toEqual([
+      "preparing",
+      "model-requesting",
+      "model-streaming",
+      "model-done",
+      "tool-preparing",
+      "tool-executing",
+      "waiting-permission",
+      "waiting-user",
+      "retrying",
+      "compacting",
+    ]);
+
+    for (const phase of WORKBUDDY_ACTIVITY_PHASES) {
+      expect(getAssistantActivityPhaseLabel(phase)).not.toBe("");
+    }
+  });
+
   test("selects loading tips randomly without immediate repetition", () => {
     const originalRandom = Math.random;
     Math.random = () => 0;
