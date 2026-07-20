@@ -1,6 +1,13 @@
 import type { UIMessage } from "ai";
 
+import type { Locale } from "@/i18n";
 import type { TranscriptTurn, TranscriptTurnState } from "./turn-model";
+import {
+  isTranscriptToolPart,
+  isWrongLanguageProgressNarration,
+  progressNarrationKey,
+  type ProgressNarrationMessageKey,
+} from "./progress-narration";
 
 const WIDGET_TOOL_NAMES = new Set([
   "render_visual",
@@ -41,6 +48,7 @@ export type TurnBodySegment =
 
 export type TurnContentSegment =
   | { kind: "process"; id: string; items: TurnProcessItem[] }
+  | { kind: "synthetic-body"; id: string; messageKey: ProgressNarrationMessageKey }
   | { kind: "body"; id: string; item: TurnContentItem; text: string }
   | { kind: "file"; id: string; item: TurnContentItem }
   | { kind: "widget"; id: string; visual: TurnWidgetItem };
@@ -329,39 +337,61 @@ function buildCollapsedSegments(items: TurnContentItem[]): TurnFoldSegment[] {
 
 function buildExpandedSegments(
   items: TurnContentItem[],
-  state: TranscriptTurnState,
 ): TurnContentSegment[] {
   const segments: TurnContentSegment[] = [];
   let processItems: TurnProcessItem[] = [];
-  const flushProcess = (groupConsecutive = true) => {
+  let processTool: TurnProcessItem | null = null;
+  let nextStageStart: number | null = null;
+  let operationCount = 0;
+  let nextOperationCovered = false;
+  const flushProcess = () => {
     if (processItems.length === 0) return;
-    if (groupConsecutive || processItems.length === 1) {
+    const operation = processTool;
+    if (operation && !nextOperationCovered) {
       segments.push({
-        kind: "process",
-        id: `process:${itemId(processItems[0])}`,
-        items: processItems,
+        kind: "synthetic-body",
+        id: `synthetic-body:${itemId(operation)}`,
+        messageKey: progressNarrationKey(
+          operation.part,
+          operationCount === 0 ? "start" : "continue",
+        ),
       });
-    } else {
-      for (const item of processItems) {
-        segments.push({
-          kind: "process",
-          id: `process:${itemId(item)}`,
-          items: [item],
-        });
-      }
+    }
+    segments.push({
+      kind: "process",
+      id: `process:${itemId(processItems[0])}`,
+      items: processItems,
+    });
+    if (operation) {
+      operationCount += 1;
+      nextOperationCovered = false;
     }
     processItems = [];
+    processTool = null;
+    nextStageStart = null;
   };
 
   for (const item of items) {
     const widget = widgetFromToolPart(item);
     if (widget) {
       flushProcess();
+      if (!nextOperationCovered) {
+        segments.push({
+          kind: "synthetic-body",
+          id: `synthetic-body:${itemId(item)}`,
+          messageKey: progressNarrationKey(
+            item.part,
+            operationCount === 0 ? "start" : "continue",
+          ),
+        });
+      }
       segments.push({
         kind: "widget",
         id: `widget:${itemId(item)}`,
         visual: widget,
       });
+      operationCount += 1;
+      nextOperationCovered = false;
       continue;
     }
     if (item.part.type === "text") {
@@ -369,6 +399,7 @@ function buildExpandedSegments(
       if (!text && !item.bodySegments?.some((segment) => segment.kind === "widget")) continue;
       flushProcess();
       segments.push({ kind: "body", id: `body:${itemId(item)}`, item, text });
+      nextOperationCovered = true;
       continue;
     }
     if (item.part.type === "file") {
@@ -376,34 +407,31 @@ function buildExpandedSegments(
       segments.push({ kind: "file", id: `file:${itemId(item)}`, item });
       continue;
     }
-    if (
-      item.part.type === "dynamic-tool" &&
-      ["todowrite", "todoread", "todo_write", "plancreate", "planupdate"].includes(
-        item.part.toolName.toLowerCase(),
-      )
-    ) {
-      flushProcess();
-      segments.push({
-        kind: "process",
-        id: `process:${itemId(item)}`,
-        items: [item],
-      });
-      continue;
+    if (item.part.type === "reasoning" && processTool && nextStageStart === null) {
+      nextStageStart = processItems.length;
     }
-    // WorkBuddy groups consecutive foldable items behind one outer summary.
-    // A live trailing run stays as individual reasoning/tool disclosures until
-    // a following body (or turn completion) makes that run foldable.
+    if (isTranscriptToolPart(item.part) && processTool) {
+      if (nextStageStart !== null) {
+        const nextItems = processItems.slice(nextStageStart);
+        processItems = processItems.slice(0, nextStageStart);
+        flushProcess();
+        processItems = nextItems;
+      } else {
+        flushProcess();
+      }
+    }
     if (item.part.type !== "step-start") {
       processItems.push(item);
+      if (isTranscriptToolPart(item.part)) processTool = item;
     }
   }
-  const running = state === "streaming" || state === "awaiting-approval";
-  flushProcess(!running);
+  flushProcess();
   return segments;
 }
 
 export function buildTurnContentPresentation(
   turn: TranscriptTurn,
+  options: { locale?: Locale } = {},
 ): TurnContentPresentation | null {
   if (turn.state === "pending" || turn.assistantMessages.length === 0) return null;
 
@@ -443,20 +471,33 @@ export function buildTurnContentPresentation(
     renderItems.push(item);
   }
 
-  const bodyItems = renderItems.filter(isBodyItem);
+  const locale = options.locale ?? "en";
+  const publicRenderItems = renderItems.filter((item, index) => {
+    if (
+      item.part.type !== "text" ||
+      !isWrongLanguageProgressNarration(item.part.text, locale)
+    ) {
+      return true;
+    }
+    return !renderItems.slice(index + 1).some((laterItem) => (
+      isTranscriptToolPart(laterItem.part) || widgetFromToolPart(laterItem) !== null
+    ));
+  });
+
+  const bodyItems = publicRenderItems.filter(isBodyItem);
   const finalText = bodyItems.length > 0 ? bodyText(bodyItems.at(-1)!) : "";
-  const processItems = renderItems.filter((item) => (
+  const processItems = publicRenderItems.filter((item) => (
     item.part.type !== "text" &&
     item.part.type !== "file" &&
     item.part.type !== "step-start" &&
     !widgetFromToolPart(item)
   ));
-  const hasInlineWidget = renderItems.some((item) =>
+  const hasInlineWidget = publicRenderItems.some((item) =>
     item.bodySegments?.some((segment) => segment.kind === "widget") === true
   );
   if (
     processItems.length === 0 &&
-    renderItems.length <= 1 &&
+    publicRenderItems.length <= 1 &&
     hoistedItems.length === 0 &&
     !hasInlineWidget &&
     !removedCancellationSentinel
@@ -467,7 +508,7 @@ export function buildTurnContentPresentation(
   const terminal = turn.state === "completed" ||
     turn.state === "cancelled" ||
     turn.state === "failed";
-  const contentCount = renderItems.filter((item) => item.part.type !== "step-start").length;
+  const contentCount = publicRenderItems.filter((item) => item.part.type !== "step-start").length;
   const turnCollapseEligible = terminal && bodyItems.length > 0 && contentCount > 1;
 
   return {
@@ -479,8 +520,8 @@ export function buildTurnContentPresentation(
     state: turn.state,
     turnCollapseEligible,
     finalText,
-    segments: buildExpandedSegments(renderItems, turn.state),
-    collapsedSegments: buildCollapsedSegments(renderItems),
+    segments: buildExpandedSegments(publicRenderItems),
+    collapsedSegments: buildCollapsedSegments(publicRenderItems),
     processItems,
     hoistedItems,
   };

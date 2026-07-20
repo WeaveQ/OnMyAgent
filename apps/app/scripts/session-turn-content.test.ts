@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { UIMessage } from "ai";
 
+import enSession from "../src/i18n/locales/en/session";
+import zhTWSession from "../src/i18n/locales/zh-TW/session";
+import zhSession from "../src/i18n/locales/zh/session";
 import { buildTurnContentPresentation } from "../src/react-app/domains/session/surface/transcript/turn-content";
 import {
   buildVisualSandboxDocument,
@@ -50,6 +53,135 @@ describe("WorkBuddy turn content presentation", () => {
       buildTurnContentPresentation(completedTurn([historical, current]))
         ?.streamingMessageId,
     ).toBeNull();
+  });
+
+  test("adds safe narration before every uncovered completed tool stage", () => {
+    const turn = completedTurn([
+      assistant("reasoning-skill", [{
+        type: "reasoning",
+        text: "PRIVATE: load the browser skill before doing anything else.",
+      }]),
+      assistant("tool-skill", [{
+        type: "dynamic-tool",
+        toolName: "skill",
+        toolCallId: "skill-1",
+        state: "output-available",
+        input: { name: "browser-automation" },
+        output: "loaded",
+      }]),
+      assistant("reasoning-open", [{
+        type: "reasoning",
+        text: "PRIVATE: now open the target URL.",
+      }]),
+      assistant("tool-open", [{
+        type: "dynamic-tool",
+        toolName: "onmyagent_browser_node_repl",
+        toolCallId: "browser-1",
+        state: "output-available",
+        input: { code: "await agent.browsers.open('https://secret.example')" },
+        output: "ok",
+      }]),
+      assistant("reasoning-check", [{
+        type: "reasoning",
+        text: "PRIVATE: inspect the page and click the first item.",
+      }]),
+      assistant("tool-check", [{
+        type: "dynamic-tool",
+        toolName: "onmyagent_browser_node_repl",
+        toolCallId: "browser-2",
+        state: "output-available",
+        input: { code: "await page.locator('.secret').click()" },
+        output: "clicked",
+      }]),
+    ]);
+
+    const presentation = buildTurnContentPresentation(turn);
+    const segments = presentation?.segments ?? [];
+
+    expect(segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
+      "process",
+      "synthetic-body",
+      "process",
+      "synthetic-body",
+      "process",
+    ]);
+    expect(
+      segments.flatMap((segment) =>
+        "messageKey" in segment ? [segment.messageKey] : []
+      ),
+    ).toEqual([
+      "session.progress_narration.skill_start",
+      "session.progress_narration.web_continue",
+      "session.progress_narration.web_continue",
+    ]);
+    const syntheticJson = JSON.stringify(
+      segments.filter((segment) => segment.kind === "synthetic-body"),
+    );
+    expect(syntheticJson).not.toContain("PRIVATE");
+    expect(syntheticJson).not.toContain("onmyagent_browser_node_repl");
+    expect(syntheticJson).not.toContain("secret.example");
+    expect(syntheticJson).not.toContain(".secret");
+    expect(presentation?.finalText).toBe("");
+  });
+
+  test("keeps real body text authoritative and fills only the next uncovered stage", () => {
+    const turn = completedTurn([
+      assistant("body", [{ type: "text", text: "我先准备浏览器能力，再打开目标页面。" }]),
+      assistant("reasoning-skill", [{ type: "reasoning", text: "load it" }]),
+      assistant("tool-skill", [{
+        type: "dynamic-tool",
+        toolName: "skill",
+        toolCallId: "skill-1",
+        state: "output-available",
+        input: { name: "browser-automation" },
+        output: "loaded",
+      }]),
+      assistant("reasoning-open", [{ type: "reasoning", text: "open it" }]),
+      assistant("tool-open", [{
+        type: "dynamic-tool",
+        toolName: "onmyagent_browser_node_repl",
+        toolCallId: "browser-1",
+        state: "output-available",
+        input: { code: "open" },
+        output: "ok",
+      }]),
+    ]);
+
+    const presentation = buildTurnContentPresentation(turn);
+
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "body",
+      "process",
+      "synthetic-body",
+      "process",
+    ]);
+    expect(presentation?.finalText).toBe("我先准备浏览器能力，再打开目标页面。");
+  });
+
+  test("adds narration to the latest uncovered streaming tool without creating final text", () => {
+    const turn: TranscriptTurn = {
+      ...completedTurn([
+        assistant("reasoning-live", [{ type: "reasoning", text: "PRIVATE live plan" }]),
+        assistant("tool-live", [{
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "browser-live",
+          state: "input-available",
+          input: { code: "await page.screenshot()" },
+        }]),
+      ]),
+      state: "streaming",
+    };
+
+    const presentation = buildTurnContentPresentation(turn);
+
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
+      "process",
+    ]);
+    expect(presentation?.finalText).toBe("");
+    expect(presentation?.streamingMessageId).toBe("tool-live");
   });
 
   test("accepts WorkBuddy-style Chart.js HTML only from the widget CDN allowlist", () => {
@@ -135,6 +267,7 @@ describe("WorkBuddy turn content presentation", () => {
       errorText: null,
     });
     expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
       "widget",
       "body",
     ]);
@@ -144,6 +277,7 @@ describe("WorkBuddy turn content presentation", () => {
     const turn = {
       ...completedTurn([
         assistant("intro", [{ type: "text", text: "先说明图表口径。" }]),
+        assistant("reasoning", [{ type: "reasoning", text: "PRIVATE chart planning" }]),
         assistant("tool-widget", [{
           type: "dynamic-tool",
           toolName: "show_widget",
@@ -161,6 +295,7 @@ describe("WorkBuddy turn content presentation", () => {
 
     expect(buildTurnContentPresentation(turn)?.segments.map((segment) => segment.kind)).toEqual([
       "body",
+      "process",
       "widget",
       "process",
     ]);
@@ -330,20 +465,14 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.segments.map((s) => s.kind)).toEqual([
       "body",
       "process",
-      "process",
-      "process",
+      "synthetic-body",
       "process",
     ]);
     expect(
       presentation?.segments
         .filter((s) => s.kind === "process")
         .map((s) => s.kind === "process" ? s.items[0]?.part.type : null),
-    ).toEqual([
-      "dynamic-tool",
-      "reasoning",
-      "dynamic-tool",
-      "reasoning",
-    ]);
+    ).toEqual(["dynamic-tool", "reasoning"]);
     expect(
       presentation?.segments
         .filter((s) => s.kind === "body")
@@ -351,15 +480,229 @@ describe("WorkBuddy turn content presentation", () => {
     ).toEqual([
       "我来使用内置浏览器打开小红书并完成任务。",
     ]);
-    // Each tool and reasoning disclosure is its own process segment.
+    // Reasoning stays folded with its operation while the narration remains outside.
     expect(
       presentation?.segments
         .filter((s) => s.kind === "process")
         .map((s) => (s.kind === "process" ? s.items.length : 0)),
-    ).toEqual([1, 1, 1, 1]);
+    ).toEqual([1, 3]);
   });
 
-  test("groups consecutive completed tools into one outer process fold", () => {
+  test("replaces transient fallback when Kimi later streams real narration", () => {
+    const initial = {
+      ...completedTurn([
+        assistant("intro", [{ type: "text", text: "我先准备浏览器能力。" }]),
+        assistant("browser-1", [{
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "browser-1",
+          state: "output-available",
+          input: { code: "private first operation" },
+          output: "ok",
+        }]),
+        assistant("reasoning-2", [{ type: "reasoning", text: "PRIVATE next operation" }]),
+        assistant("browser-2", [{
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "browser-2",
+          state: "input-available",
+          input: { code: "private second operation" },
+        }]),
+      ]),
+      state: "streaming" as const,
+    };
+    const grown = {
+      ...completedTurn([
+        initial.assistantMessages[0]!,
+        initial.assistantMessages[1]!,
+        assistant("real-progress", [{
+          type: "text",
+          text: "第一项能力已经准备好，我继续检查浏览器环境。",
+        }]),
+        initial.assistantMessages[2]!,
+        initial.assistantMessages[3]!,
+      ]),
+      state: "streaming" as const,
+    };
+
+    const initialPresentation = buildTurnContentPresentation(initial);
+    const grownPresentation = buildTurnContentPresentation(grown);
+
+    expect(initialPresentation?.segments.map((segment) => segment.kind)).toEqual([
+      "body",
+      "process",
+      "synthetic-body",
+      "process",
+    ]);
+    expect(grownPresentation?.segments.map((segment) => segment.kind)).toEqual([
+      "body",
+      "process",
+      "body",
+      "process",
+    ]);
+    expect(grownPresentation?.segments.some(
+      (segment) => segment.kind === "synthetic-body",
+    )).toBe(false);
+    expect(grownPresentation?.finalText).toBe(
+      "第一项能力已经准备好，我继续检查浏览器环境。",
+    );
+  });
+
+  test("replaces Kimi wrong-language intermediate progress without mutating source parts", () => {
+    const originalEnglish = "I will obtain Kweichow Moutai's financial report data and then generate a trend chart for you.";
+    const streaming = {
+      ...completedTurn([
+        assistant("english-progress", [{ type: "text", text: originalEnglish }]),
+        assistant("reasoning", [{ type: "reasoning", text: "PRIVATE next operation" }]),
+        assistant("browser", [{
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "browser-1",
+          state: "input-available",
+          input: { code: "open private report" },
+        }]),
+      ]),
+      state: "streaming" as const,
+    };
+
+    const presentation = buildTurnContentPresentation(streaming, { locale: "zh" });
+
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
+      "process",
+    ]);
+    expect(presentation?.segments[0]).toMatchObject({
+      messageKey: "session.progress_narration.web_start",
+    });
+    expect(presentation?.finalText).toBe("");
+    expect(streaming.assistantMessages[0]?.parts[0]).toEqual({
+      type: "text",
+      text: originalEnglish,
+    });
+  });
+
+  test("keeps real narration and synthesizes only a missing later stage", () => {
+    const streaming = {
+      ...completedTurn([
+        assistant("intro-zh", [{ type: "text", text: "我先读取项目文件，确认现有实现。" }]),
+        assistant("read-1", [{
+          type: "dynamic-tool",
+          toolName: "read",
+          toolCallId: "read-1",
+          state: "output-available",
+          input: { filePath: "/private/project/secret.ts" },
+          output: "private source contents",
+        }]),
+        assistant("reasoning", [{ type: "reasoning", text: "Need to update the implementation." }]),
+        assistant("edit-1", [{
+          type: "dynamic-tool",
+          toolName: "apply_patch",
+          toolCallId: "edit-1",
+          state: "input-available",
+          input: { patch: "private patch contents" },
+        }]),
+      ]),
+      state: "streaming" as const,
+    };
+
+    const presentation = buildTurnContentPresentation(streaming);
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    const synthetic = presentation?.segments.find(
+      (segment) => segment.kind === "synthetic-body",
+    );
+
+    expect(body?.kind === "body" ? body.text : null).toBe(
+      "我先读取项目文件，确认现有实现。",
+    );
+    expect(body?.kind === "body" ? body.item.messageId : null).toBe("intro-zh");
+    expect(synthetic).toMatchObject({
+      id: "synthetic-body:edit-1:0",
+      messageKey: "session.progress_narration.edit_continue",
+    });
+    expect(JSON.stringify(synthetic)).not.toContain("secret.ts");
+    expect(JSON.stringify(synthetic)).not.toContain("private patch contents");
+  });
+
+  test("uses stable synthetic narration IDs as a live operation grows and folds it after completion", () => {
+    const messages = [
+      assistant("reasoning", [{ type: "reasoning", text: "Need a command." }]),
+      assistant("command", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "command-1",
+        state: "input-available" as const,
+        input: { command: "print-secret-token" },
+      }]),
+    ];
+    const first = buildTurnContentPresentation({
+      ...completedTurn(messages),
+      state: "streaming",
+    });
+    const grown = buildTurnContentPresentation({
+      ...completedTurn([
+        messages[0]!,
+        assistant("command", [{
+          type: "dynamic-tool",
+          toolName: "bash",
+          toolCallId: "command-1",
+          state: "output-available",
+          input: { command: "print-secret-token" },
+          output: "secret output",
+        }]),
+        assistant("final", [{ type: "text", text: "處理完成。" }]),
+      ]),
+      state: "completed",
+    });
+
+    const firstNarration = first?.segments.find((segment) => segment.kind === "synthetic-body");
+    const grownNarration = grown?.segments.find((segment) => segment.kind === "synthetic-body");
+    expect(firstNarration?.id).toBe("synthetic-body:command:0");
+    expect(grownNarration?.id).toBe(firstNarration?.id);
+    expect(firstNarration?.kind === "synthetic-body" ? firstNarration.messageKey : "").toBe(
+      "session.progress_narration.command_start",
+    );
+    expect(JSON.stringify(firstNarration)).not.toContain("secret");
+    expect(grown?.turnCollapseEligible).toBe(true);
+    expect(grown?.collapsedSegments.map((segment) => segment.kind)).toEqual([
+      "hidden",
+      "anchor",
+    ]);
+  });
+
+  test("provides every deterministic progress narration in all supported locales", () => {
+    const keys = [
+      "session.progress_narration.command_start",
+      "session.progress_narration.command_continue",
+      "session.progress_narration.edit_start",
+      "session.progress_narration.edit_continue",
+      "session.progress_narration.generic_start",
+      "session.progress_narration.generic_continue",
+      "session.progress_narration.plan_start",
+      "session.progress_narration.plan_continue",
+      "session.progress_narration.read_start",
+      "session.progress_narration.read_continue",
+      "session.progress_narration.search_start",
+      "session.progress_narration.search_continue",
+      "session.progress_narration.skill_start",
+      "session.progress_narration.skill_continue",
+      "session.progress_narration.task_start",
+      "session.progress_narration.task_continue",
+      "session.progress_narration.visual_start",
+      "session.progress_narration.visual_continue",
+      "session.progress_narration.web_start",
+      "session.progress_narration.web_continue",
+    ] as const;
+
+    for (const key of keys) {
+      expect(enSession[key]).toBeTruthy();
+      expect(zhSession[key]).toBeTruthy();
+      expect(zhTWSession[key]).toBeTruthy();
+    }
+    expect(zhSession["session.progress_narration.web_start"]).toContain("内置浏览器");
+    expect(zhTWSession["session.progress_narration.command_start"]).toContain("執行");
+  });
+
+  test("adds narration between consecutive completed tools", () => {
     const turn = completedTurn([
       assistant("skill", [{
         type: "dynamic-tool",
@@ -380,7 +723,12 @@ describe("WorkBuddy turn content presentation", () => {
     ]);
     const presentation = buildTurnContentPresentation(turn);
     expect(presentation?.turnCollapseEligible).toBe(false);
-    expect(presentation?.segments.map((s) => s.kind)).toEqual(["process"]);
+    expect(presentation?.segments.map((s) => s.kind)).toEqual([
+      "synthetic-body",
+      "process",
+      "synthetic-body",
+      "process",
+    ]);
     expect(
       presentation?.segments.flatMap((s) =>
         s.kind === "process"

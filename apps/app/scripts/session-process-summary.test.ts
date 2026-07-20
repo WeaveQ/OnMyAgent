@@ -130,6 +130,38 @@ describe("session process summary", () => {
     });
   });
 
+  test("keeps an opaque browser operation semantic when reasoning precedes it", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-reasoning",
+        partIndex: 0,
+        index: 0,
+        part: { type: "reasoning", text: "PRIVATE browser plan" },
+      },
+      {
+        messageId: "message-browser",
+        partIndex: 0,
+        index: 1,
+        part: {
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "call-browser",
+          input: { code: "opaque provider operation" },
+          output: "ok",
+          state: "output-available",
+        },
+      },
+    ], false);
+
+    expect(meta).toEqual({
+      label: "Browser action",
+      category: "browser",
+      variant: "summary",
+      running: false,
+    });
+  });
+
   test("distinguishes browser inspection, interaction, snapshot, and waiting operations", () => {
     setLocale("en");
     const cases = [
