@@ -94,6 +94,11 @@ describe("ensureWorkspaceFiles", () => {
       expect(agent).toContain("Data comparisons and architecture or system design requests");
       expect(agent).toContain("A noun-phrase specification of a visual artifact");
       expect(agent).toContain("Between multiple visuals, write a short paragraph");
+      expect(agent).toContain("Before the first operation group");
+      expect(agent).toContain("After receiving a material result and before starting the next operation group");
+      expect(agent).toContain("Every visible process fold should therefore have preceding body text");
+      expect(agent).toContain("Do not narrate every low-level call");
+      expect(agent).toContain("Text -> operation group -> text -> operation group");
       expect(agent).toContain('request `modules: ["chart"]`');
       expect(agent).toContain("pass its workspace-relative path as `file_path`");
       expect(agent).toContain("use responsive Chart.js HTML");
@@ -163,6 +168,8 @@ describe("ensureWorkspaceFiles", () => {
       expect(agent).toContain(`${APP_NAME} Artifacts`);
       expect(agent).toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
       expect(agent).toContain("Do not mention specific tool names");
+      expect(agent).toContain("Before the first operation group");
+      expect(agent).toContain("Every visible process fold should therefore have preceding body text");
       expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
     });
   });

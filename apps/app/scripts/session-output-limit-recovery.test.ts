@@ -76,6 +76,11 @@ describe("output-limit recovery", () => {
     expect(source).toContain("Data comparisons and architecture or system design requests");
     expect(source).toContain("A noun-phrase specification of a visual artifact");
     expect(source).toContain("Between multiple visuals, write a short paragraph");
+    expect(source).toContain("Before the first operation group");
+    expect(source).toContain("After receiving a material result and before starting the next operation group");
+    expect(source).toContain("Every visible process fold should therefore have preceding body text");
+    expect(source).toContain("Do not narrate every low-level call");
+    expect(source).toContain("Text -> operation group -> text -> operation group");
   });
 
   test("session surface renders and sends the output-limit continuation card", async () => {
