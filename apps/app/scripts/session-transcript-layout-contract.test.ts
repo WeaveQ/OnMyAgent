@@ -116,7 +116,7 @@ describe("session transcript layout contract", () => {
     const appStyles = await Bun.file(appStylesPath).text();
 
     expect(messageList).toContain("function TranscriptTurnStatus");
-    expect(messageList).toContain('props.presentation.state !== "completed"');
+    expect(messageList).toContain("props.presentation.turnContent?.turnCollapseEligible !== true");
     expect(messageList).toContain("!props.presentation.hasExecutionDetails");
     expect(messageList).toContain("props.presentation.copyText.trim().length > 0");
     expect(messageList).not.toContain('running && "session-transcript-loading-shimmer"');
@@ -128,9 +128,17 @@ describe("session transcript layout contract", () => {
     expect(messageList).not.toContain("if (props.onTurnDetailsExpandedChange && !detailsExpanded) return null");
     expect(messageList).toContain("function WorkBuddyTurnContent");
     expect(messageList).toContain("function WorkBuddyProcessFold");
+    expect(messageList).toContain('t("session.process_summary_deep_thinking")');
+    expect(messageList).toContain('data-process-variant={chip.variant}');
+    expect(messageList).toContain("const renderSingletonProcess");
+    expect(messageList).toContain("props.items.length > 1");
     expect(messageList).toContain("function WorkBuddyTaskList");
-    expect(messageList).toContain("const showExpandedProcess = running || props.detailsExpanded");
+    expect(messageList).toContain("const showExpandedProcess = !props.presentation.turnCollapseEligible");
+    expect(messageList).toContain("!props.presentation.turnCollapseEligible");
     expect(appStyles).toContain(".session-workbuddy-process-head");
+    expect(appStyles).toContain(".session-workbuddy-process-fold.is-summary > .session-workbuddy-process-body");
+    expect(appStyles).toContain(".session-workbuddy-process-fold.is-thinking > .session-workbuddy-process-body");
+    expect(appStyles).toContain("border-left: 4px solid var(--dls-border)");
     expect(appStyles).toContain(".session-workbuddy-task-detail");
     expect(messageList).toContain("<MarkdownBlock");
     expect(appStyles).toContain(".session-transcript-divider-line");
@@ -204,7 +212,7 @@ describe("session transcript layout contract", () => {
 
     expect(markdown).toContain("showStreamingCursor?: boolean");
     expect(markdown).toContain("props.showStreamingCursor !== false");
-    expect(messageList.match(/showStreamingCursor=\{false\}/g)?.length).toBe(4);
+    expect(messageList.match(/showStreamingCursor=\{false\}/g)?.length).toBe(5);
     expect(messageList).toContain("const activeTurnHasAssistantBlock");
     expect(messageList).toContain("item.turnId === activeTurn.id");
     expect(messageList).toContain('block.kind !== "divider" && !block.isUser');
