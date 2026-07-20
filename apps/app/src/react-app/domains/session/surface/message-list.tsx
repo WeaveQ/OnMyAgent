@@ -1771,6 +1771,8 @@ function StepRow(props: {
   onToggle: () => void;
   onOpenCodePath?: (path: string) => void;
   isStreamingReasoning: boolean;
+  headlineOverride?: string;
+  categoryOverride?: string;
 }) {
   const platform = usePlatform();
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
@@ -1797,9 +1799,10 @@ function StepRow(props: {
     (specializedDetails
       ? specializedToolCanExpand(specializedDetails) || Boolean(toolError)
       : hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
-  const headline = specializedDetails
+  const headline = props.headlineOverride ?? (specializedDetails
     ? specializedToolHeadline(specializedDetails, isRunningStepStatus(summary.status))
-    : summary.title?.trim() || t("session.step_progress");
+    : summary.title?.trim() || t("session.step_progress"));
+  const iconCategory = props.categoryOverride ?? summary.toolCategory;
   const statusText = toolStatusText(summary.status);
   const questionAnswers =
     props.part.type === "tool" && props.part.tool.toLowerCase() === "question"
@@ -1875,7 +1878,7 @@ function StepRow(props: {
     return (
       <div className={messageTextClass.body}>
         <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
-          <ToolActivityIcon category={summary.toolCategory} />
+          <ToolActivityIcon category={iconCategory} />
           <span>{headline}</span>
           <Button
             type="button"
@@ -1896,7 +1899,7 @@ function StepRow(props: {
     return (
       <div className={messageTextClass.body}>
         <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
-          <ToolActivityIcon category={summary.toolCategory} />
+          <ToolActivityIcon category={iconCategory} />
           <span>{headline}</span>
           <Button
             type="button"
@@ -1931,7 +1934,7 @@ function StepRow(props: {
         }}
       >
         <span className="inline-flex min-w-0 max-w-[760px] items-center gap-3">
-          <ToolActivityIcon category={summary.toolCategory} />
+          <ToolActivityIcon category={iconCategory} />
           <span className="min-w-0 flex-1">
             <span className="block wrap-break-word">{headline}</span>
             {toolPresentation?.secondary ? (
@@ -2100,7 +2103,7 @@ function browserNodeReplProcessMeta(input: Record<string, unknown> | null): {
     };
   }
   return {
-    label: t("session.process_summary_continue_processing"),
+    label: t("session.tool_chip_browser"),
     category: "browser",
   };
 }
@@ -2787,11 +2790,7 @@ function WorkBuddyTurnContent(props: {
     processRunning: boolean,
   ) => {
     const legacyPart = processItemToLegacyPart(item);
-    if (
-      item.part.type === "reasoning" ||
-      processPlanDetails([item]) ||
-      (legacyPart && shouldUseSemanticProcessFold(legacyPart))
-    ) {
+    if (item.part.type === "reasoning" || processPlanDetails([item])) {
       return (
         <WorkBuddyProcessFold
           key={id}
@@ -2805,6 +2804,9 @@ function WorkBuddyTurnContent(props: {
       );
     }
     if (!legacyPart) return null;
+    const semanticMeta = shouldUseSemanticProcessFold(legacyPart)
+      ? processFoldChipMeta([item], processRunning)
+      : null;
     const stepId = `${item.messageId}:${item.partIndex}`;
     return (
       <StepRow
@@ -2815,6 +2817,8 @@ function WorkBuddyTurnContent(props: {
         onToggle={() => toggleStep(stepId)}
         onOpenCodePath={props.onOpenCodePath}
         isStreamingReasoning={processRunning}
+        headlineOverride={semanticMeta?.label}
+        categoryOverride={semanticMeta?.category}
       />
     );
   };
@@ -2842,6 +2846,21 @@ function WorkBuddyTurnContent(props: {
 
   const renderExpandedSegment = (segment: TurnContentSegment) => {
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.kind === "synthetic-body") {
+      return (
+        <div key={segment.id} className="session-workbuddy-turn-body">
+          <MarkdownBlock
+            text={t(segment.messageKey)}
+            streaming={false}
+            showStreamingCursor={false}
+            highlightQuery={props.highlightQuery}
+            locale={currentLocale()}
+            onOpenCodePath={props.onOpenCodePath}
+            verifiedCodePaths={props.verifiedCodePaths}
+          />
+        </div>
+      );
+    }
     if (segment.kind === "widget") {
       return <InlineVisual key={segment.id} visual={segment.visual} />;
     }
@@ -3388,6 +3407,7 @@ function MessageBlockRow(props: {
 function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? DEFAULT_SHOW_THINKING;
   const isNestedVariant = props.variant === "nested";
+  const transcriptLocale = currentLocale();
   const [rootContentWidth, setRootContentWidth] = useState(
     DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
   );
@@ -3654,11 +3674,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const presentations = new Map<string, TurnContentPresentation>();
     if (isNestedVariant || props.searchHighlightQuery?.trim()) return presentations;
     transcriptTurns.forEach((turn) => {
-      const presentation = buildTurnContentPresentation(turn);
+      const presentation = buildTurnContentPresentation(turn, {
+        locale: transcriptLocale,
+      });
       if (presentation) presentations.set(turn.id, presentation);
     });
     return presentations;
-  }, [isNestedVariant, props.searchHighlightQuery, transcriptTurns]);
+  }, [isNestedVariant, props.searchHighlightQuery, transcriptLocale, transcriptTurns]);
 
   const turnPresentationByBlockKey = useMemo(() => {
     const presentations = new Map<string, TranscriptBlockTurnPresentation>();

@@ -685,6 +685,79 @@ const activityStreamingMessages: UIMessage[] = [
   },
 ];
 
+const kimiProgressFallbackMessages: UIMessage[] = [
+  {
+    id: "kimi-progress-user",
+    role: "user",
+    parts: [{ type: "text", text: "生成一张贵州茅台财务趋势图" }],
+  },
+  {
+    id: "kimi-progress-english",
+    role: "assistant",
+    parts: [{
+      type: "text",
+      text: "I will obtain Kweichow Moutai's financial report data and then generate a trend chart for you.",
+    }],
+  },
+  {
+    id: "kimi-progress-reasoning-1",
+    role: "assistant",
+    parts: [{ type: "reasoning", text: "Inspect the first data source." }],
+  },
+  {
+    id: "kimi-progress-browser-1",
+    role: "assistant",
+    parts: [{
+      type: "dynamic-tool",
+      toolName: "onmyagent_browser_node_repl",
+      toolCallId: "kimi-browser-1",
+      state: "output-available",
+      input: { code: "open first source" },
+      output: "ok",
+    }],
+  },
+  {
+    id: "kimi-progress-reasoning-2",
+    role: "assistant",
+    parts: [{ type: "reasoning", text: "Inspect the next data source." }],
+  },
+  {
+    id: "kimi-progress-browser-2",
+    role: "assistant",
+    parts: [{
+      type: "dynamic-tool",
+      toolName: "onmyagent_browser_node_repl",
+      toolCallId: "kimi-browser-2",
+      state: "input-available",
+      input: { code: "open next source" },
+    }],
+  },
+];
+
+const semanticSingletonToolMessages: UIMessage[] = [
+  {
+    id: "semantic-singleton-user",
+    role: "user",
+    parts: [{ type: "text", text: "打开财务报告页面" }],
+  },
+  {
+    id: "semantic-singleton-intro",
+    role: "assistant",
+    parts: [{ type: "text", text: "我先打开报告页面，确认内容是否可用。" }],
+  },
+  {
+    id: "semantic-singleton-browser",
+    role: "assistant",
+    parts: [{
+      type: "dynamic-tool",
+      toolName: "onmyagent_browser_node_repl",
+      toolCallId: "semantic-singleton-browser",
+      state: "input-available",
+      input: { code: "await tab.goto('https://example.com/report')" },
+    }],
+  },
+];
+
 function workBuddyRunningMessages(growthCount: number): UIMessage[] {
   const suffix = growthCount > 0 ? ` 已同步 ${growthCount} 个增量数据片段。` : "";
   return [
@@ -1036,6 +1109,38 @@ function Fixture() {
           >
             Append stream token
           </Button>
+        </div>
+      </main>
+    );
+  }
+
+  if (sceneParam === "kimi-progress-fallback") {
+    return (
+      <main className="h-screen overflow-y-auto bg-dls-background px-10 py-8 text-dls-text">
+        <div className="mx-auto max-w-[960px]">
+          <SessionTranscript
+            messages={kimiProgressFallbackMessages}
+            isStreaming
+            developerMode={false}
+            showThinking
+            assistantAvatar={fixtureAssistant}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  if (sceneParam === "semantic-singleton-tool") {
+    return (
+      <main className="h-screen overflow-y-auto bg-dls-background px-10 py-8 text-dls-text">
+        <div className="mx-auto max-w-[960px]">
+          <SessionTranscript
+            messages={semanticSingletonToolMessages}
+            isStreaming
+            developerMode={false}
+            showThinking
+            assistantAvatar={fixtureAssistant}
+          />
         </div>
       </main>
     );

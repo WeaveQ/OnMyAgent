@@ -73,6 +73,17 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("running={processRunning}");
   });
 
+  test("keeps a singleton semantic tool on its own disclosure depth", async () => {
+    const visualFixture = await Bun.file(visualFixturePath).text();
+    const messageList = await Bun.file(messageListPath).text();
+
+    expect(visualFixture).toContain('sceneParam === "semantic-singleton-tool"');
+    expect(visualFixture).toContain("semanticSingletonToolMessages");
+    expect(messageList).toContain("const semanticMeta = shouldUseSemanticProcessFold(legacyPart)");
+    expect(messageList).toContain("headlineOverride={semanticMeta?.label}");
+    expect(messageList).not.toContain("(legacyPart && shouldUseSemanticProcessFold(legacyPart))");
+  });
+
   test("keeps the five-card finance KPI strip on one compact row", async () => {
     const visualFixture = await Bun.file(visualFixturePath).text();
 
@@ -172,6 +183,10 @@ describe("session transcript layout contract", () => {
     );
     expect(messageList).toContain('data-process-variant={chip.variant}');
     expect(messageList).toContain("const renderSingletonProcess");
+    expect(messageList).toContain("const semanticMeta = shouldUseSemanticProcessFold(legacyPart)");
+    expect(messageList).toContain("headlineOverride={semanticMeta?.label}");
+    expect(messageList).toContain("categoryOverride={semanticMeta?.category}");
+    expect(messageList).not.toContain("(legacyPart && shouldUseSemanticProcessFold(legacyPart))");
     expect(messageList).toContain("props.items.length > 1");
     expect(messageList).toContain("function WorkBuddyTaskList");
     expect(messageList).toContain("const showExpandedProcess = !props.presentation.turnCollapseEligible");
@@ -254,7 +269,7 @@ describe("session transcript layout contract", () => {
 
     expect(markdown).toContain("showStreamingCursor?: boolean");
     expect(markdown).toContain("props.showStreamingCursor !== false");
-    expect(messageList.match(/showStreamingCursor=\{false\}/g)?.length).toBe(5);
+    expect(messageList.match(/showStreamingCursor=\{false\}/g)?.length).toBe(6);
     expect(messageList).toContain("const activeTurnHasAssistantBlock");
     expect(messageList).toContain("item.turnId === activeTurn.id");
     expect(messageList).toContain('block.kind !== "divider" && !block.isUser');
