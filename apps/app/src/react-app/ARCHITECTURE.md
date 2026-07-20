@@ -59,9 +59,16 @@ Domain ownership gives every feature one obvious home.
 
 - `session/` owns the **live conversation runtime** (surface, sync, composer, voice, goal
   lifecycle). It must not re-absorb agent management or messaging channels.
+  Composer attachments (including **Appshot** desktop capture) live under
+  `domains/session/surface/composer/`; Appshot is macOS-only and talks to the
+  desktop bridge (`captureComputerUseAppshot` / `computerUse.onAppshot`). Multi-skill
+  slash chips are Lexical token nodes in `composer/editor.tsx`.
 - `local-agents/` owns local/ACP agent edit, cards, messages UI,
   `agent-management/` pages, and the personal local-agent host under `host/`.
+  Public exports (`AgentBrandIcon`, recent-workspace helpers, …) go through
+  `domains/local-agents/index.ts` for other domains.
 - `messaging/` owns automation pages and messaging channel panels (Feishu, Weixin, pairing).
+  Automation session records are exported from `domains/messaging/index.ts`.
 - `agents/` owns registry-facing agent pages and selection UX.
 - `plugins/` owns skills catalog and plugins/connectors pages.
 - `workspace/` owns every workspace-modal flow and workspace files page.
