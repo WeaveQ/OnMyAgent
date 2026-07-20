@@ -72,6 +72,7 @@ import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
 import {
   ImageGenerationToolCard,
   SpecializedToolDetails,
+  VisualizerReadMeToolRow,
   specializedToolCanExpand,
   specializedToolHeadline,
 } from "./specialized-tool-details";
@@ -1813,6 +1814,17 @@ function StepRow(props: {
     );
   }
 
+  if (specializedDetails?.kind === "visualizer-read-me") {
+    return (
+      <VisualizerReadMeToolRow
+        details={specializedDetails}
+        running={isRunningStepStatus(summary.status)}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+      />
+    );
+  }
+
   if (props.part.type === "reasoning") {
     if (!props.part.text.trim()) return null;
     return (
@@ -1974,7 +1986,8 @@ function processItemToLegacyPart(item: TurnProcessItem) {
 export function shouldUseSemanticProcessFold(part: Part) {
   if (part.type !== "tool") return false;
   const tool = part.tool.toLowerCase();
-  return tool === "skill" ||
+  return isVisualizerReadMeToolName(tool) ||
+    tool === "skill" ||
     tool === "useskill" ||
     tool.includes("skill") ||
     tool === "bash" ||
@@ -1983,6 +1996,16 @@ export function shouldUseSemanticProcessFold(part: Part) {
     tool.includes("terminal") ||
     tool.includes("browser") ||
     tool.includes("playwright");
+}
+
+function isVisualizerReadMeToolName(toolName: string) {
+  return [
+    "readme",
+    "visualize:readme",
+    "visualizer:readme",
+    "visualizer:readmetool",
+    "getdesignspec",
+  ].includes(toolName.toLowerCase().replace(/[-_]/g, ""));
 }
 
 function processPlanDetails(items: TurnProcessItem[]) {
@@ -2046,6 +2069,15 @@ export function processFoldChipMeta(items: TurnProcessItem[], turnRunning = fals
           : "")
       : "";
     const skillName = skillNameRaw || summary.skillName?.trim() || "";
+
+    if (isVisualizerReadMeToolName(tool)) {
+      return {
+        label: t("session.tool_visualizer_read_me"),
+        category: "read",
+        variant: "tool-chip",
+        running,
+      };
+    }
 
     if (tool === "skill" || tool === "useskill" || tool.includes("skill")) {
       return {
