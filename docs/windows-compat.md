@@ -72,8 +72,18 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 
 - **Computer Use / HandsFree helper**: `packages/handsfree` is Swift/AppKit
   and macOS-only. `prepare-computer-use-helper.mjs` early-returns on
-  `process.platform !== "darwin"`. UI entry points check
-  `isMacPlatform()` and hide themselves.
+  `process.platform !== "darwin"`. UI entry points hide Computer Use setup
+  and the composer **capture desktop (Appshot)** action off macOS.
+- **Appshot (composer desktop capture)**:
+  - **Native**: only the macOS helper implements `appshot capture|monitor`.
+  - **Electron**: `isComputerUseAppshotSupported()` / `captureComputerUseAppshot`
+    refuse non-`darwin` hosts with an explicit “macOS only” error.
+  - **Renderer**: menu item is gated on macOS; success uses a short composer
+    **notice** (not a full-name toast). Filenames are sanitized in Electron and
+    the UI so bad native names never dump into the chip.
+  - **Windows reserved names / illegal path chars** are stripped in the shared
+    sanitizer even though Appshot itself does not run on Windows (defensive
+    for any future capture path that reuses the helper).
 - **Sandbox profiles**: `apps/orchestrator/src/runtime-sandbox.ts` returns
   an empty profile on non-macOS. Orchestrator still runs, but without
   `sandbox-exec` isolation.
@@ -147,11 +157,13 @@ Windows roadmap.
 | Orchestrator sidecar | ✓ | ✓ (`.exe`) |
 | Bundled Node + Python | ✓ | ✓ |
 | `browser-use` agent | ✓ | ✓ (Chromium via CDP) |
-| `packages/handsfree` Computer Use | ✓ | — (macOS-only; UI hidden) |
+| `packages/handsfree` Computer Use | ✓ | — (macOS-only; helper not packaged) |
+| Composer Appshot (desktop capture) | ✓ | — (menu hidden; capture API rejects) |
 | `sandbox-exec` isolation | ✓ | — (no isolation) |
 | Titlebar vibrancy | ✓ | — (system frame) |
 | Docker Desktop integration | ✓ | ✓ (auto-detect) |
 | Code signing | ✓ notarized | — (SmartScreen warning) |
+| NSIS installer packaging | — | ✓ (unsigned preview) |
 
 ## Roadmap
 
@@ -160,6 +172,7 @@ Windows roadmap.
 - [ ] NSIS installer smoke (install → launch → quit) on `windows-2022`
 - [ ] Recovery panel copy pass for Windows-specific paths
 - [ ] Investigate WSL2 fallback for `sandbox-exec` equivalent
+- [ ] Optional: Windows desktop-capture path for Appshot (not HandsFree AX)
 
 ## Fixed recently (kill tree + open terminal)
 
