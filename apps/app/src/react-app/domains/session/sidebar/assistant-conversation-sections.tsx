@@ -230,7 +230,7 @@ function SectionHeader(props: {
   /** Optional trailing control (e.g. expand-all for spaces). */
   trailing?: ReactNode;
 }) {
-  // WorkBuddy：`空间 (10) ∨` — 箭头紧贴标题；可选 trailing 贴行尾。
+  // WorkBuddy: `Spaces (10) v` — chevron next to title; optional trailing at row end.
   return (
     <div
       className={cn(LIST_ROW_CLASS, "group/section gap-0.5 text-dls-secondary")}
@@ -760,7 +760,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   }
                   onClick={(event) => {
                     event.stopPropagation();
-                    // Ensure the 空间 section itself is open.
+                    // Ensure the Spaces section itself is open.
                     if (!expandedSections.spaces) {
                       setExpandedSections((current) => ({
                         ...current,
@@ -861,7 +861,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
 
-      {/* Automations — same expand-all trailing as 空间 */}
+      {/* Automations — same expand-all trailing as Spaces */}
       <div data-assistant-section="automations" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_automation_tasks")}
@@ -891,7 +891,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   }
                   onClick={(event) => {
                     event.stopPropagation();
-                    // Ensure the 定时 section itself is open.
+                    // Ensure the Automations section itself is open.
                     if (!expandedSections.automations) {
                       setExpandedSections((current) => ({
                         ...current,
