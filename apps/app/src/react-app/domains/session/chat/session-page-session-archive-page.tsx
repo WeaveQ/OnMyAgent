@@ -235,15 +235,19 @@ export function SessionArchivePage(props: Props) {
     return humanizeArchiveTitle(session);
   }, []);
 
-  const displayMessages = useMemo(
-    () => messages.filter((message) => !isNoisyArchiveMessage(message)),
-    [messages],
-  );
+  const displayMessages = useMemo(() => {
+    return messages
+      .map((message) => ({
+        ...message,
+        content: cleanArchiveMessageContent(message.content),
+      }))
+      .filter((message) => !isNoisyArchiveMessage(message));
+  }, [messages]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-dls-background">
       {/* Toolbar */}
-      <div className="flex shrink-0 flex-col gap-2.5 border-b border-dls-border px-4 py-3">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
@@ -300,7 +304,7 @@ export function SessionArchivePage(props: Props) {
                       />
                       <span className="truncate">{agentLabel(g.agent)}</span>
                       <span className="tabular-nums text-dls-secondary">
-                        {count}
+                        {formatCompactCount(count)}
                       </span>
                     </span>
                   }
@@ -315,7 +319,7 @@ export function SessionArchivePage(props: Props) {
 
       {/* Master–detail */}
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[18.5rem] shrink-0 flex-col border-r border-dls-border bg-dls-surface/50">
+        <aside className="flex w-80 shrink-0 flex-col border-r border-dls-border/60 bg-dls-surface/40">
           <div className="min-h-0 flex-1 overflow-y-auto">
             {loadingList && flatSessions.length === 0 ? (
               <div className="flex items-center gap-2 px-4 py-8 text-xs text-dls-secondary">
@@ -344,13 +348,13 @@ export function SessionArchivePage(props: Props) {
                       onClick={() => setSelectedSessionId(session.id)}
                       aria-current={active ? "true" : undefined}
                       className={cn(
-                        "flex h-[3.75rem] w-full min-w-0 items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
+                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
                         active
-                          ? "bg-dls-list-selected text-dls-text"
-                          : "text-dls-text hover:bg-dls-list-hover/60",
+                          ? "bg-dls-list-selected text-dls-text shadow-none"
+                          : "text-dls-text hover:bg-dls-list-hover/50",
                       )}
                     >
-                      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted">
+                      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-dls-surface ring-1 ring-dls-border/50">
                         <AgentSkillIcon
                           agent={archiveAgentIconId(session.agent) as AgentManagementSkillAgent}
                         />
@@ -361,12 +365,12 @@ export function SessionArchivePage(props: Props) {
                             {title}
                           </span>
                           {timeLabel ? (
-                            <span className="shrink-0 text-[11px] tabular-nums text-dls-secondary">
+                            <span className="shrink-0 text-2xs tabular-nums text-dls-secondary">
                               {timeLabel}
                             </span>
                           ) : null}
                         </span>
-                        <span className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-dls-secondary">
+                        <span className="flex min-w-0 items-center gap-1.5 text-2xs leading-4 text-dls-secondary">
                           <span className="shrink-0">
                             {agentLabel(session.agent)}
                           </span>
@@ -399,10 +403,10 @@ export function SessionArchivePage(props: Props) {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-dls-background">
           {selectedSession ? (
             <>
-              <header className="flex shrink-0 items-start justify-between gap-4 border-b border-dls-border px-5 py-3.5">
+              <header className="flex shrink-0 items-center justify-between gap-4 border-b border-dls-border/60 px-5 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted">
+                    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-dls-surface ring-1 ring-dls-border/50">
                       <AgentSkillIcon
                         agent={archiveAgentIconId(selectedSession.agent) as AgentManagementSkillAgent}
                       />
@@ -411,7 +415,7 @@ export function SessionArchivePage(props: Props) {
                       <h2 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
                         {sessionTitle(selectedSession)}
                       </h2>
-                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-dls-secondary">
+                      <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-dls-secondary">
                         <span>{agentLabel(selectedSession.agent)}</span>
                         {shortProjectLabel(selectedSession.project) ? (
                           <>
@@ -481,7 +485,7 @@ export function SessionArchivePage(props: Props) {
                     <span>{t("session_archive.no_messages")}</span>
                   </div>
                 ) : (
-                  <ol className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-5 py-5">
+                  <ol className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-6">
                     {displayMessages.map((message) => {
                       const isUser = message.role === "user";
                       const isTool = message.role === "tool";
@@ -491,31 +495,34 @@ export function SessionArchivePage(props: Props) {
                           key={message.id}
                           className={cn(
                             "flex flex-col gap-1.5",
-                            isUser && "items-end",
+                            isUser ? "items-end" : "items-start",
                           )}
                         >
                           <div
                             className={cn(
-                              "inline-flex h-5 items-center rounded-md px-1.5 text-[11px] font-medium",
+                              "inline-flex h-5 items-center rounded-md px-1.5 text-2xs font-medium",
                               isUser
                                 ? "bg-dls-accent/10 text-dls-accent"
                                 : isTool || isSystem
                                   ? "bg-dls-surface-muted text-dls-secondary"
-                                  : "bg-dls-surface-muted text-dls-text",
+                                  : "bg-dls-surface-muted text-dls-secondary",
                             )}
                           >
                             {roleLabel(message.role)}
                           </div>
                           <div
                             className={cn(
-                              "max-w-[min(100%,40rem)] whitespace-pre-wrap break-words text-sm leading-relaxed",
+                              "max-w-[min(100%,42rem)] whitespace-pre-wrap break-words text-sm leading-relaxed",
                               isUser &&
-                                "rounded-2xl bg-dls-surface-muted px-3.5 py-2.5 text-dls-text",
+                                "rounded-2xl bg-dls-chat-user-bg px-3.5 py-2.5 text-dls-text",
                               isTool &&
-                                "rounded-lg border border-dls-border/70 bg-dls-surface/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary",
+                                "rounded-xl border border-dls-border/50 bg-dls-surface-muted/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary",
+                              isSystem &&
+                                "rounded-xl border border-dashed border-dls-border/50 bg-dls-surface/40 px-3.5 py-2.5 text-xs leading-5 text-dls-secondary",
                               !isUser &&
                                 !isTool &&
-                                "text-dls-text",
+                                !isSystem &&
+                                "rounded-2xl border border-dls-border/40 bg-dls-surface px-3.5 py-2.5 text-dls-text",
                             )}
                           >
                             {message.content}
@@ -542,6 +549,22 @@ export function SessionArchivePage(props: Props) {
   );
 }
 
+/**
+ * Prefer human payload inside harness wrappers; strip protocol tags so the
+ * transcript does not look like a raw XML dump.
+ */
+function cleanArchiveMessageContent(content: string): string {
+  const raw = String(content ?? "").trim();
+  if (!raw) return "";
+  const userRequest = raw.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i);
+  if (userRequest?.[1]?.trim()) return userRequest[1].trim();
+  const stripped = raw
+    .replace(/<\/?(?:auto-slash-command|command-instruction|user-request|INSTRUCTIONS)[^>]*>/gi, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return stripped || raw;
+}
+
 /** Drop empty / pure tool-noise lines so the transcript stays readable. */
 function isNoisyArchiveMessage(message: {
   role: string;
@@ -557,7 +580,21 @@ function isNoisyArchiveMessage(message: {
   if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) {
     return true;
   }
+  // Bare harness shells with no usable body left after cleaning.
+  if (
+    message.role === "system" &&
+    text.length > 400 &&
+    !/[一-龥A-Za-z]{12,}/.test(text.replace(/[<>/=\-_|]/g, " "))
+  ) {
+    return true;
+  }
   return false;
+}
+
+function formatCompactCount(count: number): string {
+  if (!Number.isFinite(count) || count < 1000) return String(count);
+  if (count < 10_000) return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${Math.round(count / 1000)}k`;
 }
 
 function shortProjectLabel(project: string | null | undefined): string | null {
