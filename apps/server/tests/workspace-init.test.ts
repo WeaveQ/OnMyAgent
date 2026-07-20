@@ -90,6 +90,9 @@ describe("ensureWorkspaceFiles", () => {
       expect(agent).toContain("Do not mention specific tool names");
       expect(agent).toContain("The final reply must stand on its own");
       expect(agent).toContain("Explicit requests to show, visualize, diagram, chart, draw, or graph");
+      expect(agent).toContain("Always use an inline visual for educational or teaching requests");
+      expect(agent).toContain("Data comparisons and architecture or system design requests");
+      expect(agent).toContain("A noun-phrase specification of a visual artifact");
       expect(agent).toContain("Between multiple visuals, write a short paragraph");
       expect(agent).toContain('request `modules: ["chart"]`');
       expect(agent).toContain("pass its workspace-relative path as `file_path`");

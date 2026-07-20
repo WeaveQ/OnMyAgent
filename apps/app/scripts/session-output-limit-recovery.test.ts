@@ -72,6 +72,9 @@ describe("output-limit recovery", () => {
     expect(source).toContain("Do not mention specific tool names");
     expect(source).toContain("The final reply must stand on its own");
     expect(source).toContain("Explicit requests to show, visualize, diagram, chart, draw, or graph");
+    expect(source).toContain("Always use an inline visual for educational or teaching requests");
+    expect(source).toContain("Data comparisons and architecture or system design requests");
+    expect(source).toContain("A noun-phrase specification of a visual artifact");
     expect(source).toContain("Between multiple visuals, write a short paragraph");
   });
 
