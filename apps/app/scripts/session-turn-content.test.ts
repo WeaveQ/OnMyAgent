@@ -30,6 +30,28 @@ function completedTurn(messages: UIMessage[]): TranscriptTurn {
 }
 
 describe("WorkBuddy turn content presentation", () => {
+  test("tracks only the latest assistant message as the streaming process owner", () => {
+    const historical = assistant("reasoning-complete", [
+      { type: "reasoning", text: "先分析任务。" },
+      { type: "text", text: "开始执行。" },
+    ]);
+    const current = assistant("reasoning-current", [
+      { type: "reasoning", text: "继续分析最新结果。" },
+    ]);
+    const streaming: TranscriptTurn = {
+      ...completedTurn([historical, current]),
+      state: "streaming",
+    };
+
+    expect(buildTurnContentPresentation(streaming)?.streamingMessageId).toBe(
+      "reasoning-current",
+    );
+    expect(
+      buildTurnContentPresentation(completedTurn([historical, current]))
+        ?.streamingMessageId,
+    ).toBeNull();
+  });
+
   test("accepts WorkBuddy-style Chart.js HTML only from the widget CDN allowlist", () => {
     const chart = `<div><h2 class="sr-only">趋势图</h2><div style="position:relative;height:360px"><canvas id="chart"></canvas></div><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script><script>new Chart(document.getElementById("chart"), {})</script></div>`;
 

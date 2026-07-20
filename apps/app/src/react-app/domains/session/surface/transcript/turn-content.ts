@@ -52,6 +52,7 @@ export type TurnFoldSegment =
 
 export type TurnContentPresentation = {
   anchorMessageId: string;
+  streamingMessageId: string | null;
   state: TranscriptTurnState;
   turnCollapseEligible: boolean;
   finalText: string;
@@ -471,6 +472,10 @@ export function buildTurnContentPresentation(
 
   return {
     anchorMessageId: turn.assistantMessages[0]!.id,
+    streamingMessageId:
+      turn.state === "streaming" || turn.state === "awaiting-approval"
+        ? turn.assistantMessages.at(-1)?.id ?? null
+        : null,
     state: turn.state,
     turnCollapseEligible,
     finalText,

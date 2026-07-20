@@ -2781,7 +2781,11 @@ function WorkBuddyTurnContent(props: {
     });
   };
 
-  const renderSingletonProcess = (id: string, item: TurnProcessItem) => {
+  const renderSingletonProcess = (
+    id: string,
+    item: TurnProcessItem,
+    processRunning: boolean,
+  ) => {
     const legacyPart = processItemToLegacyPart(item);
     if (
       item.part.type === "reasoning" ||
@@ -2793,7 +2797,7 @@ function WorkBuddyTurnContent(props: {
           key={id}
           id={id}
           items={[item]}
-          running={running}
+          running={processRunning}
           expandedStepIds={props.expandedStepIds}
           onExpandedStepIdsChange={props.onExpandedStepIdsChange}
           onOpenCodePath={props.onOpenCodePath}
@@ -2810,20 +2814,25 @@ function WorkBuddyTurnContent(props: {
         expanded={props.expandedStepIds.has(stepId)}
         onToggle={() => toggleStep(stepId)}
         onOpenCodePath={props.onOpenCodePath}
-        isStreamingReasoning={running}
+        isStreamingReasoning={processRunning}
       />
     );
   };
 
   const renderProcess = (id: string, items: TurnProcessItem[]) => {
+    const processRunning = running && items.some(
+      (item) => item.messageId === props.presentation.streamingMessageId,
+    );
     const item = items[0];
-    if (items.length === 1 && item) return renderSingletonProcess(id, item);
+    if (items.length === 1 && item) {
+      return renderSingletonProcess(id, item, processRunning);
+    }
     return (
       <WorkBuddyProcessFold
         key={id}
         id={id}
         items={items}
-        running={running}
+        running={processRunning}
         expandedStepIds={props.expandedStepIds}
         onExpandedStepIdsChange={props.onExpandedStepIdsChange}
         onOpenCodePath={props.onOpenCodePath}
