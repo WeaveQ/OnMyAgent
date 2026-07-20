@@ -19,15 +19,20 @@ async function source(base: URL, relativePath: string) {
 }
 
 describe("personal usage UI contract", () => {
-  test("matches the centered Codex profile hierarchy", async () => {
+  test("matches the centered Codex profile hierarchy and activity interactions", async () => {
     const page = await source(sessionRoot, "usage/personal-usage-page.tsx");
     expect(page).toContain('data-personal-usage-page="true"');
     expect(page).toContain('data-usage-profile="true"');
     expect(page).toContain('data-token-activity="true"');
-    expect(page).toContain("max-w-3xl");
+    expect(page).toContain("max-w-4xl");
+    expect(page).toContain("text-2xl");
+    expect(page).toContain("text-base text-dls-secondary");
+    expect(page).toContain('<span aria-hidden="true">·</span>');
     expect(page).toContain("usage_profile_plan");
     expect(page).toContain("StatusBadge");
-    expect(page).toContain('density="filter"');
+    expect(page).toContain('density="bare"');
+    expect(page).toContain('size="underline"');
+    expect(page).toContain('shape="underline"');
     expect(page).toContain("SegmentedTabGroup");
     expect(page).toContain("LoadingSpinner");
     expect(page).toContain("NoticeBox");
@@ -41,12 +46,24 @@ describe("personal usage UI contract", () => {
     expect(page).toContain('"daily"');
     expect(page).toContain('"weekly"');
     expect(page).toContain('"cumulative"');
-    // Trailing-year heatmap fills width (no horizontal scrollbar / trim).
+    // Codex parity keeps fixed cells and mode-specific whole-column hover.
     expect(page).toContain("buildTokenActivitySeries");
     expect(page).not.toContain("trimLeadingEmptyActivityColumns");
-    expect(page).not.toContain("overflow-x-auto");
-    expect(page).not.toContain("min-w-3xl");
-    expect(page).toContain("aspect-square");
+    expect(page).toContain("[--profile-usage-accent:#339cff]");
+    expect(page).toContain("dark:[--profile-usage-accent:#99ceff]");
+    expect(page).toContain("var(--profile-usage-accent)_22%");
+    expect(page).toContain("var(--profile-usage-accent)_42%");
+    expect(page).toContain("var(--profile-usage-accent)_68%");
+    expect(page).toContain("var(--profile-usage-accent)_78%");
+    expect(page).toContain("var(--profile-usage-accent)_55%");
+    expect(page).toContain("var(--profile-usage-accent)_14%");
+    expect(page).toContain("weeklyCellClass");
+    expect(page).toContain('cell.date > props.today');
+    expect(page).toContain("return null");
+    expect(page).toContain('props.mode === "daily"');
+    expect(page).toContain("size-3 shrink-0 rounded-xs");
+    expect(page).not.toContain("weekCellForMode");
+    expect(page).not.toContain("aspect-square");
     expect(page).toContain("rounded-xs");
     expect(page).toContain("aria-label");
     expect(page).toContain("usage_daily_tooltip");
@@ -109,6 +126,11 @@ describe("personal usage UI contract", () => {
     expect(enSettings["settings.tab_description_usage"]).toBeTruthy();
     expect(zhSettings["settings.tab_description_usage"]).toBeTruthy();
     expect(zhTWSettings["settings.tab_description_usage"]).toBeTruthy();
+
+    expect(zhSession["session.usage_total_tokens"]).toBe("累计 Token 数");
+    expect(zhSession["session.usage_peak_tokens"]).toBe("峰值 Token 数");
+    expect(zhTWSession["session.usage_total_tokens"]).toBe("累計 Token 數");
+    expect(zhTWSession["session.usage_peak_tokens"]).toBe("峰值 Token 數");
 
     const keys = [
       "session.usage_total_tokens",

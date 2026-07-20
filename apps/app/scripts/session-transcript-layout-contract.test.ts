@@ -35,6 +35,55 @@ const visualFixturePath = new URL(
 );
 
 describe("session transcript layout contract", () => {
+  test("keeps the WorkBuddy semantic tool icon registry instead of a permanent loader", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+
+    for (const category of [
+      "skill",
+      "terminal",
+      "viewed",
+      "edit",
+      "glob",
+      "search",
+      "web",
+      "delete",
+      "completion",
+      "plan",
+      "agent",
+      "image",
+      "widget",
+      "database",
+      "cloud",
+      "debug",
+    ]) {
+      expect(messageList).toContain(`case \"${category}\"`);
+    }
+    expect(messageList).not.toContain("<LoadingSpinner className={className}");
+  });
+
+  test("scopes reasoning shimmer to the latest streaming message owner", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+
+    expect(messageList).toContain(
+      "const processRunning = running && items.some",
+    );
+    expect(messageList).toContain(
+      "item.messageId === props.presentation.streamingMessageId",
+    );
+    expect(messageList).toContain("running={processRunning}");
+  });
+
+  test("keeps a singleton semantic tool on its own disclosure depth", async () => {
+    const visualFixture = await Bun.file(visualFixturePath).text();
+    const messageList = await Bun.file(messageListPath).text();
+
+    expect(visualFixture).toContain('sceneParam === "semantic-singleton-tool"');
+    expect(visualFixture).toContain("semanticSingletonToolMessages");
+    expect(messageList).toContain("const semanticMeta = shouldUseSemanticProcessFold(legacyPart)");
+    expect(messageList).toContain("headlineOverride={semanticMeta?.label}");
+    expect(messageList).not.toContain("(legacyPart && shouldUseSemanticProcessFold(legacyPart))");
+  });
+
   test("keeps the five-card finance KPI strip on one compact row", async () => {
     const visualFixture = await Bun.file(visualFixturePath).text();
 
@@ -116,10 +165,10 @@ describe("session transcript layout contract", () => {
     const appStyles = await Bun.file(appStylesPath).text();
 
     expect(messageList).toContain("function TranscriptTurnStatus");
-    expect(messageList).toContain('props.presentation.state !== "completed"');
+    expect(messageList).toContain("props.presentation.turnContent?.turnCollapseEligible !== true");
     expect(messageList).toContain("!props.presentation.hasExecutionDetails");
     expect(messageList).toContain("props.presentation.copyText.trim().length > 0");
-    expect(messageList).not.toContain('running && "session-transcript-loading-shimmer"');
+    expect(messageList).not.toContain('props.running && "session-transcript-loading-shimmer"');
     expect(messageList).toContain("function TranscriptTurnActions");
     expect(messageList).toContain("function TranscriptSpeechButton");
     expect(messageList).toContain("function TranscriptShareButton");
@@ -128,9 +177,25 @@ describe("session transcript layout contract", () => {
     expect(messageList).not.toContain("if (props.onTurnDetailsExpandedChange && !detailsExpanded) return null");
     expect(messageList).toContain("function WorkBuddyTurnContent");
     expect(messageList).toContain("function WorkBuddyProcessFold");
+    expect(messageList).toContain('t("session.process_summary_deep_thinking")');
+    expect(messageList).toContain(
+      'isThinking && chip.running && "session-transcript-loading-shimmer"',
+    );
+    expect(messageList).toContain('data-process-variant={chip.variant}');
+    expect(messageList).toContain("const renderSingletonProcess");
+    expect(messageList).toContain("const semanticMeta = shouldUseSemanticProcessFold(legacyPart)");
+    expect(messageList).toContain("headlineOverride={semanticMeta?.label}");
+    expect(messageList).toContain("categoryOverride={semanticMeta?.category}");
+    expect(messageList).not.toContain("(legacyPart && shouldUseSemanticProcessFold(legacyPart))");
+    expect(messageList).toContain("props.items.length > 1");
     expect(messageList).toContain("function WorkBuddyTaskList");
-    expect(messageList).toContain("const showExpandedProcess = running || props.detailsExpanded");
+    expect(messageList).toContain("const showExpandedProcess = !props.presentation.turnCollapseEligible");
+    expect(messageList).toContain("!props.presentation.turnCollapseEligible");
     expect(appStyles).toContain(".session-workbuddy-process-head");
+    expect(appStyles).toContain(".session-workbuddy-process-fold.is-summary > .session-workbuddy-process-body");
+    expect(appStyles).toContain(".session-workbuddy-process-fold.is-thinking > .session-workbuddy-process-body");
+    expect(messageList).not.toContain('props.running && chip.variant === "summary"');
+    expect(appStyles).toContain("border-left: 4px solid var(--dls-border)");
     expect(appStyles).toContain(".session-workbuddy-task-detail");
     expect(messageList).toContain("<MarkdownBlock");
     expect(appStyles).toContain(".session-transcript-divider-line");
@@ -175,7 +240,7 @@ describe("session transcript layout contract", () => {
     expect(assistantStatus).toContain('<span aria-hidden="true">·</span>');
     expect(assistantStatus).toContain('className="session-transcript-loading-line"');
     expect(assistantStatus).not.toContain("PaperGrainGradient");
-    expect(messageList).not.toContain('running && "session-transcript-loading-shimmer"');
+    expect(messageList).not.toContain('props.running && "session-transcript-loading-shimmer"');
     expect(messageList).toContain("const footerRenderItemId = activeRenderItemId");
     expect(messageList).toContain("item.id === footerRenderItemId");
     expect(messageList).toContain(
@@ -204,7 +269,7 @@ describe("session transcript layout contract", () => {
 
     expect(markdown).toContain("showStreamingCursor?: boolean");
     expect(markdown).toContain("props.showStreamingCursor !== false");
-    expect(messageList.match(/showStreamingCursor=\{false\}/g)?.length).toBe(4);
+    expect(messageList.match(/showStreamingCursor=\{false\}/g)?.length).toBe(6);
     expect(messageList).toContain("const activeTurnHasAssistantBlock");
     expect(messageList).toContain("item.turnId === activeTurn.id");
     expect(messageList).toContain('block.kind !== "divider" && !block.isUser');

@@ -4,8 +4,10 @@ import type { Part } from "@opencode-ai/sdk/v2/client";
 import {
   canMergeStepClusters,
   mergeLeadingAssistantStepClusters,
+  processFoldChipMeta,
   resolveDisplayedPastedText,
   shouldFoldStepGroups,
+  shouldUseSemanticProcessFold,
   summarizeStepCluster,
 } from "../src/react-app/domains/session/surface/message-list";
 import { groupMessageParts, summarizeStep } from "../src/app/utils";
@@ -70,6 +72,229 @@ function messageBlock(id: string, role: "assistant" | "user"): TimelineBlock {
 }
 
 describe("session process summary", () => {
+  test("uses WorkBuddy tool semantics when reasoning precedes a completed skill", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-reasoning",
+        partIndex: 0,
+        index: 0,
+        part: { type: "reasoning", text: "I should load the browser skill." },
+      },
+      {
+        messageId: "message-skill",
+        partIndex: 1,
+        index: 1,
+        part: {
+          type: "dynamic-tool",
+          toolName: "skill",
+          toolCallId: "call-skill",
+          input: { name: "browser-automation" },
+          output: "loaded",
+          state: "output-available",
+        },
+      },
+    ], true);
+
+    expect(meta).toEqual({
+      label: "Load skill browser-automation",
+      category: "skill",
+      variant: "tool-chip",
+      running: false,
+    });
+  });
+
+  test("translates browser navigation into WorkBuddy web semantics", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-browser",
+        partIndex: 0,
+        index: 0,
+        part: {
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "call-browser",
+          input: { code: 'await tab.goto("https://example.com/report")' },
+          output: "https://example.com",
+          state: "output-available",
+        },
+      },
+    ], true);
+
+    expect(meta).toEqual({
+      label: "Read web page example.com",
+      category: "web",
+      variant: "summary",
+      running: false,
+    });
+  });
+
+  test("keeps an opaque browser operation semantic when reasoning precedes it", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-reasoning",
+        partIndex: 0,
+        index: 0,
+        part: { type: "reasoning", text: "PRIVATE browser plan" },
+      },
+      {
+        messageId: "message-browser",
+        partIndex: 0,
+        index: 1,
+        part: {
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "call-browser",
+          input: { code: "opaque provider operation" },
+          output: "ok",
+          state: "output-available",
+        },
+      },
+    ], false);
+
+    expect(meta).toEqual({
+      label: "Browser action",
+      category: "browser",
+      variant: "summary",
+      running: false,
+    });
+  });
+
+  test("distinguishes browser inspection, interaction, snapshot, and waiting operations", () => {
+    setLocale("en");
+    const cases = [
+      {
+        code: "return await tab.playwright.evaluate(() => document.body.textContent)",
+        label: "Inspect page content",
+        category: "read",
+      },
+      {
+        code: "await tab.playwright.locator('a.cover').first().click()",
+        label: "Interact with page",
+        category: "browser",
+      },
+      {
+        code: "const shot = await tab.screenshot({ format: 'jpeg' })",
+        label: "Capture page snapshot",
+        category: "image",
+      },
+      {
+        code: "await tab.playwright.waitForTimeout(4000)",
+        label: "Wait for page response",
+        category: "browser",
+      },
+      {
+        code: "await tab.playwright.evaluate(() => window.scrollBy(0, 700))",
+        label: "Browse page",
+        category: "browser",
+      },
+      {
+        code: "const browser = await agent.browsers.getDefault(); return browser.tabs.list()",
+        label: "Prepare browser",
+        category: "browser",
+      },
+    ] as const;
+
+    for (const [index, item] of cases.entries()) {
+      const meta = processFoldChipMeta([
+        {
+          messageId: `message-browser-${index}`,
+          partIndex: 0,
+          index: 0,
+          part: {
+            type: "dynamic-tool",
+            toolName: "onmyagent_browser_node_repl",
+            toolCallId: `call-browser-${index}`,
+            input: { code: item.code },
+            output: "ok",
+            state: "output-available",
+          },
+        },
+      ], true);
+
+      expect(meta).toEqual({
+        label: item.label,
+        category: item.category,
+        variant: "summary",
+        running: false,
+      });
+    }
+  });
+
+  test("uses WorkBuddy command naming without leaking command text", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-command",
+        partIndex: 0,
+        index: 0,
+        part: {
+          type: "dynamic-tool",
+          toolName: "bash",
+          toolCallId: "call-command",
+          input: { command: "pnpm check:type" },
+          output: "ok",
+          state: "output-available",
+        },
+      },
+    ], false);
+
+    expect(meta).toEqual({
+      label: "Run command",
+      category: "terminal",
+      variant: "tool-chip",
+      running: false,
+    });
+  });
+
+  test("routes opaque browser, skill, and command singletons through semantic folds", () => {
+    expect(shouldUseSemanticProcessFold(toolPart("browser", "onmyagent_browser_node_repl"))).toBe(true);
+    expect(shouldUseSemanticProcessFold(toolPart("skill", "skill"))).toBe(true);
+    expect(shouldUseSemanticProcessFold(toolPart("command", "bash"))).toBe(true);
+    expect(shouldUseSemanticProcessFold(toolPart("read", "read"))).toBe(false);
+  });
+
+  test("uses WorkBuddy multi-stage wording and the file topic", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-command",
+        partIndex: 0,
+        index: 0,
+        part: {
+          type: "dynamic-tool",
+          toolName: "bash",
+          toolCallId: "call-command",
+          input: { command: "pnpm check:type" },
+          output: "ok",
+          state: "output-available",
+        },
+      },
+      {
+        messageId: "message-edit",
+        partIndex: 1,
+        index: 1,
+        part: {
+          type: "dynamic-tool",
+          toolName: "edit",
+          toolCallId: "call-edit",
+          input: { filePath: "/workspace/2026-07-19.md" },
+          output: "updated",
+          state: "output-available",
+        },
+      },
+    ], false);
+
+    expect(meta).toEqual({
+      label: "Run checks and edit: 2026-07-19.md",
+      category: "terminal",
+      variant: "summary",
+      running: false,
+    });
+  });
+
   test("merges contiguous foldable process clusters across tool categories", () => {
     const readA = stepBlock("read-a", "read");
     const readB = stepBlock("read-b", "read");
