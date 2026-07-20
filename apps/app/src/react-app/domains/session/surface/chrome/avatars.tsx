@@ -29,8 +29,8 @@ export function AssistantDraftHomeMark(props: { categoryId: AssistantCategoryId 
     props.categoryId === "code" ? AssistantCodeDraftHomeIcon : BookOpenCheck;
 
   return (
-    <span className="inline-flex size-6 shrink-0 items-center justify-center text-current">
-      <Icon className="size-6" strokeWidth={1.7} />
+    <span className="inline-flex size-9 shrink-0 items-center justify-center text-dls-text sm:size-10">
+      <Icon className="size-8 sm:size-9" strokeWidth={1.6} />
     </span>
   );
 }

@@ -38,6 +38,8 @@ type EditorProps = {
   scenarioTags?: Array<{ id: string; label: string }>;
   disabled: boolean;
   placeholder: string;
+  /** Shorter empty-state min height (draft home). */
+  compact?: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onPaste?: React.ClipboardEventHandler<HTMLDivElement>;
@@ -49,7 +51,10 @@ type EditorProps = {
 const composerEditorTokenClass = {
   fileMention: "inline-flex items-center rounded-md border border-dls-border bg-dls-hover px-2.5 py-1 text-xs font-medium text-dls-secondary",
   agentMention: "inline-flex items-center rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  slashCommand: "inline-flex items-center rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  slashCommand:
+    "inline-flex items-center gap-0.5 rounded-md border border-dls-accent/30 bg-dls-accent/10 py-1 pe-1 ps-2.5 text-xs font-medium text-dls-accent",
+  slashCommandButton:
+    "inline-flex size-4 shrink-0 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/15 hover:text-dls-accent",
   scenario: "inline-flex items-center gap-1 rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
   scenarioButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/10 hover:text-dls-accent",
 };
@@ -189,16 +194,34 @@ class ComposerSlashCommandNode extends TextNode {
   override createDOM(_config: EditorConfig) {
     const dom = document.createElement("span");
     dom.className = composerEditorTokenClass.slashCommand;
-    dom.textContent = `/${this.__commandName}`;
     dom.contentEditable = "false";
     dom.setAttribute("spellcheck", "false");
     dom.title = `/${this.__commandName}`;
+
+    const text = document.createElement("span");
+    text.textContent = `/${this.__commandName}`;
+
+    // Clickable × — same pattern as scenario / attachment chips.
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = composerEditorTokenClass.slashCommandButton;
+    button.title = "Remove";
+    button.setAttribute("aria-label", "Remove");
+    button.dataset.slashCommandRemove = this.__commandName;
+    button.textContent = "×";
+
+    dom.append(text, button);
     return dom;
   }
 
   override updateDOM(prevNode: ComposerSlashCommandNode, dom: HTMLElement) {
     if (prevNode.__commandName !== this.__commandName) {
-      dom.textContent = `/${this.__commandName}`;
+      const text = dom.firstElementChild;
+      if (text) text.textContent = `/${this.__commandName}`;
+      const button = dom.querySelector("button[data-slash-command-remove]");
+      if (button instanceof HTMLButtonElement) {
+        button.dataset.slashCommandRemove = this.__commandName;
+      }
       dom.title = `/${this.__commandName}`;
     }
     return false;
@@ -376,8 +399,12 @@ function setPrompt(
   root.append(paragraph);
   const scenarioLabels = new Map((scenarioTags ?? []).map((item) => [item.id, item.label]));
 
-  const slashMatch = value.match(/^\/(\S+)\s(.*)$/s);
-  if (slashMatch?.[1]) {
+  // Convert every leading `/skill ` token into a chip, not only the first.
+  // Draft after multi-select looks like: `/init /playwright /review rest…`
+  // Require a trailing space so an in-progress `/par` query stays plain text.
+  while (true) {
+    const slashMatch = value.match(/^\/([^\s/]+)\s(.*)$/s);
+    if (!slashMatch?.[1]) break;
     paragraph.append($createComposerSlashCommandNode(slashMatch[1]));
     paragraph.append($createTextNode(" "));
     value = slashMatch[2] ?? "";
@@ -515,12 +542,44 @@ function ScenarioChipRemovePlugin() {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    const removeScenario = (event: MouseEvent) => {
+    const removeChip = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const button = target.closest("button[data-scenario-remove-id]");
-      if (!(button instanceof HTMLButtonElement)) return;
-      const scenarioId = button.dataset.scenarioRemoveId;
+
+      const slashButton = target.closest("button[data-slash-command-remove]");
+      if (slashButton instanceof HTMLButtonElement) {
+        const commandName = slashButton.dataset.slashCommandRemove;
+        if (!commandName) return;
+        event.preventDefault();
+        event.stopPropagation();
+        // createDOM nests the × inside the chip span — use that to pick the
+        // exact chip when several skills share the same command name.
+        const chipDom = slashButton.parentElement;
+        editor.update(() => {
+          const nodes = $getRoot()
+            .getAllTextNodes()
+            .filter(
+              (node): node is ComposerSlashCommandNode =>
+                node instanceof ComposerSlashCommandNode && node.__commandName === commandName,
+            );
+          const targetNode =
+            (chipDom
+              ? nodes.find((node) => editor.getElementByKey(node.getKey()) === chipDom)
+              : null) ?? nodes[0];
+          if (!targetNode) return;
+          const next = targetNode.getNextSibling();
+          targetNode.remove();
+          // Drop the spacer text node right after the chip so chips stay tight.
+          if ($isTextNode(next) && next.getTextContent().trim() === "") {
+            next.remove();
+          }
+        });
+        return;
+      }
+
+      const scenarioButton = target.closest("button[data-scenario-remove-id]");
+      if (!(scenarioButton instanceof HTMLButtonElement)) return;
+      const scenarioId = scenarioButton.dataset.scenarioRemoveId;
       if (!scenarioId) return;
       event.preventDefault();
       event.stopPropagation();
@@ -536,18 +595,18 @@ function ScenarioChipRemovePlugin() {
     let currentRootElement: HTMLElement | null = null;
     const unregisterRootListener = editor.registerRootListener((rootElement, previousRootElement) => {
       if (previousRootElement) {
-        previousRootElement.removeEventListener("mousedown", removeScenario);
-        previousRootElement.removeEventListener("click", removeScenario);
+        previousRootElement.removeEventListener("mousedown", removeChip);
+        previousRootElement.removeEventListener("click", removeChip);
       }
       currentRootElement = rootElement;
       if (!rootElement) return;
-      rootElement.addEventListener("mousedown", removeScenario);
-      rootElement.addEventListener("click", removeScenario);
+      rootElement.addEventListener("mousedown", removeChip);
+      rootElement.addEventListener("click", removeChip);
     });
     return () => {
       if (currentRootElement) {
-        currentRootElement.removeEventListener("mousedown", removeScenario);
-        currentRootElement.removeEventListener("click", removeScenario);
+        currentRootElement.removeEventListener("mousedown", removeChip);
+        currentRootElement.removeEventListener("click", removeChip);
       }
       unregisterRootListener();
     };
@@ -719,12 +778,17 @@ export function LexicalPromptEditor(props: EditorProps) {
         - min-h holds the editor to a single-line look until the user starts typing.
         - max-h caps the composer — long pastes / multi-paragraph drafts scroll
           inside the editor instead of pushing the transcript out of view.
+        - compact (home): shorter empty card so less white space under one line.
       */}
       <div className="relative">
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              className="min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+              className={
+                props.compact
+                  ? "min-h-20 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+                  : "min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+              }
               aria-placeholder={props.placeholder}
               placeholder={<span />}
               onPaste={props.onPaste}

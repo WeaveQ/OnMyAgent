@@ -53,10 +53,11 @@ export function isManagedFleetMember(
 ): boolean {
   const ownership = agentOwnership(agent);
   if (ownership === "extension") return false;
-  // User-owned store agents always live in the fleet (even if offline).
-  if (ownership === "mine") return true;
-  // Product / catalog: only when installed.
+  // 未安装 never stays in 「我的智能体」— only 「可添加」.
+  // Offline (installed but unhealthy) remains managed.
   if (!isAgentInstalled(agent, health)) return false;
+  // User-owned store agents stay in the fleet while installed (incl. offline).
+  if (ownership === "mine") return true;
   // Built-in product agents: installed ⇒ managed (no extra click).
   if (ownership === "product") return true;
   // Catalog: installed + auto-manage key ⇒ treat as fleet (auto-adopt persists).
@@ -66,13 +67,15 @@ export function isManagedFleetMember(
   return false;
 }
 
-/** Catalog/product drafts not yet in the fleet (includes missing install targets). */
+/**
+ * Rows for 「可添加」: not yet in the fleet (includes missing install targets
+ * and store agents whose binary was removed).
+ */
 export function isDiscoverCandidate(
   agent: AgentManagementAgent,
   health?: AgentManagementHealthResult | null,
 ): boolean {
-  const ownership = agentOwnership(agent);
-  if (ownership === "extension" || ownership === "mine") return false;
+  if (agentOwnership(agent) === "extension") return false;
   return !isManagedFleetMember(agent, health);
 }
 

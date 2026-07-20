@@ -7,7 +7,7 @@
 
 export const RECENT_WORKSPACES_KEY = "onmyagent.local-agent.recent-workspaces";
 export const WORKSPACE_OVERRIDE_KEY = "onmyagent.local-agent.workspace-override";
-const MAX_RECENT_WORKSPACES = 5;
+const MAX_RECENT_WORKSPACES = 12;
 
 function safeStorage(): Storage | null {
   if (typeof window === "undefined") return null;

@@ -115,13 +115,8 @@ export function useSessionSurfaceComposerHandlers(
     if (!accepted.length) return;
     const next = createComposerAttachments(accepted);
     setComposerAttachments(sessionId, [...attachments, ...next]);
-    setNotice({
-      title:
-        next.length === 1
-          ? `Attached ${next[0]?.name ?? "file"}`
-          : `Attached ${next.length} files`,
-      tone: "success",
-    });
+    // Success notice is owned by the composer (`addAttachments`) so long /
+    // corrupted native filenames never land in the title.
   };
 
   const handleRemoveAttachment = (id: string) => {

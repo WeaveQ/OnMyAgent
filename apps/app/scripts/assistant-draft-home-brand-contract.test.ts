@@ -35,6 +35,10 @@ describe("assistant draft home brand contract", () => {
     expect(surface).toContain("subtitle={assistantDraftHomeSubtitle}");
     expect(surface).toContain('t("session.assistant_work_subtitle")');
     expect(surface).toContain('t("session.assistant_code_subtitle")');
+    // Title + composer share one max-w-2xl column; dense home layout.
+    expect(surface).toContain("max-w-2xl");
+    expect(surface).toContain("homeLayout={personalAssistantDraftHome}");
+    expect(composer).toContain("const homeLayout = Boolean(props.homeLayout);");
 
     // Workspace + permission full-width under composer; square joint (no top radii).
     expect(composer).toContain("bg-dls-surface-muted");

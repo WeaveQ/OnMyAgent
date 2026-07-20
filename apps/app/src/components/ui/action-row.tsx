@@ -18,8 +18,9 @@ const menuRowButtonVariants = cva(
         center: "items-center",
       },
       density: {
+        // Keep text-sm across composer flyouts (tools / access / workspace pickers).
         default: "px-3 py-2.5 text-sm",
-        compact: "px-2 py-1.5 text-xs",
+        compact: "px-2.5 py-1.5 text-sm",
       },
     },
     defaultVariants: {
@@ -186,9 +187,9 @@ const navListButtonVariants = cva(
   {
     variants: {
       active: {
-        // Soft gray wash (light reference) rather than heavy selection blue.
-        true: "bg-dls-surface-muted text-dls-text",
-        false: "text-dls-text hover:bg-dls-hover",
+        // Match assistant task-row selection (bg-dls-list-selected), not surface-muted.
+        true: "bg-dls-list-selected text-dls-text",
+        false: "text-dls-text hover:bg-dls-list-hover",
       },
       size: {
         default: "h-10 gap-2.5 rounded-xl px-2.5 text-base font-medium",
@@ -200,7 +201,8 @@ const navListButtonVariants = cva(
       {
         active: true,
         size: "sidebar",
-        className: "font-medium",
+        // Soft pill radius aligns with task cards (rounded-lg).
+        className: "rounded-lg font-medium",
       },
     ],
     defaultVariants: {

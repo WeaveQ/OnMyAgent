@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { IconTile, MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
-import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
+import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -18,7 +18,7 @@ import {
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
 import type { SkillInventoryScope } from "./skill-inventory-scope";
-import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
+import { AgentBrandIcon, agentBrandIconTileClass } from "../agent-brand-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
 
@@ -224,9 +224,8 @@ function SkillMatrixColumnHeader(props: {
                     })
               }
             >
-              <span className="flex size-4 items-center justify-center">
-                <AgentSkillIcon agent={props.agent} />
-              </span>
+              {/* Same plate as local-agent list (muted / dark white), smaller xs tile. */}
+              <AgentBrandIcon id={props.agent} provider={props.agent} size="xs" alt={label} />
               <span className="tabular-nums leading-none opacity-80">{props.count}</span>
             </MatrixButton>
           }
@@ -268,13 +267,20 @@ function getSkillCellState(
   return { state: "available", tooltip: t("skills.matrix_tooltip_available", { label }) };
 }
 
-function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
-  const enabledAgents = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.filter((agent) =>
+function SkillAgentCluster(props: {
+  skill: AgentManagementSkill;
+  /** Visible matrix columns — cluster must match these, not a hard-coded agent list. */
+  matrixAgents: ReadonlyArray<AgentManagementSkillAgent>;
+}) {
+  // Order by matrix columns so the stack mirrors the green checkmarks the user sees.
+  // (Old code filtered only STUDIO_SWITCH_SKILL_AGENT_OPTIONS and dropped grok/mimo/workbuddy/…)
+  const enabledAgents = props.matrixAgents.filter((agent) =>
     props.skill.agents.includes(agent),
   );
-  const visibleLimit = enabledAgents.length > 3 ? 2 : 3;
-  const visibleAgents = enabledAgents.slice(0, visibleLimit);
-  const overflow = enabledAgents.length - visibleAgents.length;
+  // Always at most 3 slots: 2 brand icons + optional +N plate (e.g. 5 enabled → 2 icons + "+3").
+  const showOverflow = enabledAgents.length > 2;
+  const visibleAgents = enabledAgents.slice(0, showOverflow ? 2 : enabledAgents.length);
+  const overflow = showOverflow ? enabledAgents.length - 2 : 0;
   const label =
     enabledAgents.length > 0
       ? enabledAgents.map((agent) => skillAgentLabel(agent)).join(" / ")
@@ -284,33 +290,40 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
       <TooltipTrigger
         render={
           <div
-            className="flex h-8 w-11 shrink-0 items-center justify-start"
+            // Match single-icon rows below: fixed height, left-aligned stack.
+            className="flex h-8 w-[3.75rem] shrink-0 items-center justify-start"
             aria-label={label}
           >
             {visibleAgents.length > 0 ? (
               <div className="flex items-center">
                 {visibleAgents.map((agent, index) => (
-                  <span
+                  <AgentBrandIcon
                     key={agent}
+                    id={agent}
+                    provider={agent}
+                    size="xs"
+                    alt={skillAgentLabel(agent)}
                     className={cn(
-                      "flex size-5 items-center justify-center rounded-full border border-dls-surface bg-dls-surface-muted",
+                      "relative",
                       index > 0 && "-ml-1.5",
                     )}
-                    style={{ zIndex: 10 - index }}
-                  >
-                    <span className="flex size-3.5 items-center justify-center">
-                      <AgentSkillIcon agent={agent} />
-                    </span>
-                  </span>
+                    // Stacked cluster: denser xs plate, soft overlap.
+                  />
                 ))}
                 {overflow > 0 ? (
-                  <BadgeDot className="-ml-1.5 border border-dls-surface" size="sm">
+                  <span
+                    className={cn(
+                      agentBrandIconTileClass,
+                      "relative -ml-1.5 size-6 rounded-md text-2xs font-semibold tabular-nums leading-none text-dls-secondary dark:text-neutral-700",
+                    )}
+                    aria-hidden
+                  >
                     +{overflow}
-                  </BadgeDot>
+                  </span>
                 ) : null}
               </div>
             ) : (
-              <span className="size-5 rounded-full border border-dashed border-dls-border bg-dls-surface" />
+              <span className="size-6 rounded-md border border-dashed border-dls-border bg-dls-surface-muted dark:bg-white/80" />
             )}
           </div>
         }
@@ -372,7 +385,7 @@ function SkillMatrixRow(props: {
         align="center"
         className="min-w-0 gap-2.5 self-center px-3 py-2"
       >
-        <SkillAgentCluster skill={props.skill} />
+        <SkillAgentCluster skill={props.skill} matrixAgents={props.matrixAgents} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-medium leading-5 text-dls-text">
@@ -582,7 +595,7 @@ function SkillMatrixDrawer(props: {
               );
               return (
                 <div key={agent} className="flex flex-col items-center gap-1 rounded-lg border border-dls-border bg-dls-surface-muted py-2">
-                  <div className="size-4"><AgentSkillIcon agent={agent} /></div>
+                  <AgentBrandIcon id={agent} provider={agent} size="xs" alt={skillAgentLabel(agent)} />
                   <SkillMatrixCell
                     state={state}
                     agent={agent}
@@ -604,7 +617,7 @@ function SkillMatrixDrawer(props: {
             {skill.sources.map((source, index) => (
               <li key={`${source.agent}:${source.path}:${index}`} className="rounded-lg border border-dls-border bg-dls-surface px-2.5 py-2">
                 <div className="flex items-center gap-1.5 text-xs">
-                  <span className="flex size-3.5 items-center justify-center"><AgentSkillIcon agent={source.agent} /></span>
+                  <AgentBrandIcon id={source.agent} provider={source.agent} size="xs" alt={source.label} />
                   <span className="font-medium">{source.label}</span>
                   <span className="text-dls-secondary">·</span>
                   <span className="text-dls-secondary">{source.scope}</span>

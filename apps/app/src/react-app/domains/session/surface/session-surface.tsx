@@ -2004,7 +2004,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
       <div
         className={cn(
           "flex h-full min-h-0 flex-col",
-          personalAssistantDraftHome && "items-center justify-center px-6 pb-6 pt-8",
+          // Empty home: vertical center with lower bias (title+composer a bit
+          // further down the canvas than true mid).
+          personalAssistantDraftHome &&
+            "items-center justify-center px-6 pb-[min(8vh,3.5rem)] pt-16",
         )}
       >
         {!personalAssistantDraftHome ? (
@@ -2169,6 +2172,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
             {props.headerActions}
           </div>
         ) : null}
+        {/* Home: one max-w-2xl column so brand title + composer share width. */}
+        <div
+          className={cn(
+            personalAssistantDraftHome &&
+              "flex w-full max-w-2xl flex-col items-stretch",
+          )}
+        >
         {personalAssistantDraftHome ? (
           <SessionSurfaceDraftHome
             categoryId={assistantCategoryId}
@@ -2180,7 +2190,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ref={composerShellRef}
           className={cn(
             "shrink-0 px-0 pb-2 pt-2",
-            personalAssistantDraftHome && "w-full max-w-3xl pb-0 pt-0",
+            personalAssistantDraftHome && "w-full pb-0 pt-0",
           )}
         >
           <DevProfiler id="SessionComposer">
@@ -2254,15 +2264,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
               showOuterBorder={composerOuterBorderVisible}
               compactTopSpacing={Boolean(composerAccessory)}
+              homeLayout={personalAssistantDraftHome}
               topAccessory={composerAccessory}
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
               bottomAccessory={
                 draftWorkspaceAccessoryActive ? (
                   <SessionDraftWorkspaceAccessory
                     draftWorkspaceDirectory={props.draftWorkspaceDirectory}
+                    ownerWorkspaceId={props.draftWorkspaceOwnerId}
                     assistantFeatureCategoryId={assistantFeatureCategoryId}
                     showFolderRequiredBubble={showFolderRequiredBubble}
                     onDismissFolderRequiredBubble={() => setShowFolderRequiredBubble(false)}
+                    onSelectDraftWorkspace={props.onSelectDraftWorkspace}
+                    onCreateDraftWorkspace={props.onCreateDraftWorkspace}
                     onPickDraftWorkspace={props.onPickDraftWorkspace}
                     onClearDraftWorkspace={props.onClearDraftWorkspace}
                     accessMode={effectiveAccessMode}
@@ -2272,6 +2286,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
             />
           </DevProfiler>
+        </div>
         </div>
         {/* Error display moved inline into the session conversation area */}
         {props.developerMode ? (
