@@ -1,0 +1,58 @@
+{
+  "name": "invoice-assistant",
+  "version": "1.0.0",
+  "description": "Send waybills, customer info and amounts needing invoicing - I organize billing materials, draft invoice applications and track invoicing & payment progress",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "invoice-assistant",
+  "agents": ["./agents/invoice-assistant.md"],
+  "skills": ["./skills/billing-case"],
+  "displayName": {
+    "en": "Invoice Assistant",
+    "zh": "开票助手"
+  },
+  "profession": {
+    "en": "Billing & Receivables Operations",
+    "zh": "开票与应收作业"
+  },
+  "displayDescription": {
+    "en": "Turn waybills, customer info and amounts into invoice material packs, draft invoice applications, and track invoicing & payment collection progress.",
+    "zh": "整理运单与客户开票资料，生成开票申请内容，建立开票与回款进度跟踪，并按节点提醒催办。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "本月有 30 票运单要对账开票，客户是 XX 科技有限公司，税号、地址电话、开户行账号我都有，货物都是技术服务费。帮我按批次整理开票资料清单、生成开票申请内容，并建一个开票回款进度跟踪表。",
+    "en": "30 waybills to invoice this month; customer is XX Tech Co., I have their tax ID, address/phone, bank info; goods = technical service fee. Organize billing material list by batch, draft invoice application, and build an invoicing & payment progress tracker."
+  },
+  "tags": [
+    { "zh": "开票资料", "en": "Invoice Pack" },
+    { "zh": "开票申请", "en": "Invoice Request" },
+    { "zh": "回款跟踪", "en": "Payment Track" },
+    { "zh": "催办提醒", "en": "Follow-up Reminder" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "本月有 30 票运单要对账开票，客户是 XX 科技有限公司，税号、地址电话、开户行账号我都有，货物都是技术服务费。帮我按批次整理开票资料清单、生成开票申请内容，并建一个开票回款进度跟踪表。",
+      "en": "30 waybills to invoice this month; customer is XX Tech Co., I have tax ID, address/phone, bank info; goods = technical service fee. Billing material list by batch, invoice application draft, progress tracker."
+    },
+    {
+      "zh": "客户开了票 15 天没回款，合同账期 30 天。帮我列催办节奏和分阶段话术，既不伤关系又能把款收回来。",
+      "en": "Customer hasn't paid 15 days after invoice; contract terms 30 days. Chase cadence and staged scripts that recover payment without damaging the relationship."
+    },
+    {
+      "zh": "这批运单客户说金额对不上，要核减 2000。帮我核对开票与运单对应关系，给出处理建议和给客户的回复话术。",
+      "en": "Customer says the batch amount doesn't match, wants to cut 2000. Reconcile invoice-vs-waybill mapping, suggest handling and a client reply script."
+    },
+    {
+      "zh": "客户抬头刚变更为新公司，旧票还没开完。帮我列抬头变更后的开票注意事项和资料切换清单。",
+      "en": "Customer's billing entity just changed to a new company; old invoices not done. Note points and material switch checklist after title change."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【开票助手】。\n\n把要对账开票的运单、客户信息、金额发给我--我帮你整理开票所需完整资料（客户名称、税号、地址电话、开户行账号、货物或服务名称、金额、对应运单号），生成开票申请内容，并建立开票与回款进度跟踪，按节点提醒催办。\n不替你决定开票抬头与税率的最终选择；金额与单号无来源不编造；开票与回款以你确认的实际为准。\n\n直接发运单或客户开票资料。",
+    "en": "Boss, I'm Invoice Assistant.\n\nSend waybills, customer info and amounts needing invoicing - I organize the full billing material set (customer name, tax ID, address/phone, bank account, goods or service name, amount, waybill refs), draft invoice applications, and build an invoicing & payment progress tracker with follow-up reminders.\nNo deciding the final billing entity or tax rate for you; no inventing amounts or numbers without source; invoicing & payment subject to your confirmed reality.\n\nDrop the waybills or customer billing info."
+  }
+}
