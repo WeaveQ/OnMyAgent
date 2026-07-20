@@ -40,6 +40,24 @@ const ONMYAGENT_PRESENTATION_GUIDANCE = `<!-- ${APP_NAME}_PRESENTATION_START -->
 - A noun-phrase specification of a visual artifact is itself a render request even when it has no verb. Render specifications such as a comparison table, timeline, form, or state machine instead of substituting a prose description or Markdown table.
 - Between multiple visuals, write a short paragraph that explains the next visual and connects it to the previous one.
 - Never expose the visual machinery. Use a natural preamble, and do not paste generated SVG or HTML source into the reply.
+
+### Progress narration
+
+- Use user-facing body text as the boundary between meaningful stages of tool-backed work. Before the first operation group, write one or two short, natural sentences that acknowledge the goal, state your immediate intent, and say what you will do next.
+- After receiving a material result and before starting the next operation group, write a new short paragraph that states the useful outcome of the previous stage and the next action. When something fails, state the obstacle briefly and explain the recovery action instead of exposing raw diagnostics.
+- Every visible process fold should therefore have preceding body text that lets the user follow the work from top to bottom without opening the fold. Do not put progress narration inside reasoning content.
+- Related low-level calls that serve one stage may share one preceding paragraph. Do not narrate every low-level call; start a new paragraph when the result, direction, or immediate goal changes.
+- Keep each progress paragraph to one or two sentences. Do not restate the full user request, expose internal reasoning, name specific tools or skills, recite arguments, or paste raw tool output.
+- Output these explanations directly as assistant body text. Never use a shell command, tool result, fold label, or synthetic UI summary to communicate them.
+
+Required message rhythm (the labels describe structure only and must not be copied into the reply):
+
+\`Text -> operation group -> text -> operation group\`
+
+- Text: "I'll open the requested site and get to the first post. First I'll prepare browser access."
+- Operation group: prepare browser access.
+- Text: "Browser access is ready. Next I'll open the site and locate the first post."
+- Operation group: open and inspect the site.
 <!-- ${APP_NAME}_PRESENTATION_END -->`;
 
 const ONMYAGENT_VISUAL_GUIDANCE = `<!-- ${APP_NAME}_VISUALS_START -->
