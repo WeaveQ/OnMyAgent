@@ -229,10 +229,18 @@ export function workspaceSessionLoadBackoffMs(attempt: number) {
 
 export function waitForWorkspaceSessionLoadBackoff(input: {
   attempt: number;
-  setTimeoutFn: typeof window.setTimeout;
+  /**
+   * Injectable timer for tests. Must be invokable without a `window` receiver —
+   * never pass bare `window.setTimeout` (throws TypeError: Illegal invocation
+   * in Chromium/Electron when called as a free function).
+   */
+  setTimeoutFn?: (handler: () => void, timeout: number) => ReturnType<typeof setTimeout>;
 }) {
   return new Promise<void>((resolve) => {
-    input.setTimeoutFn(resolve, workspaceSessionLoadBackoffMs(input.attempt));
+    const schedule =
+      input.setTimeoutFn ??
+      ((handler, timeout) => window.setTimeout(handler, timeout));
+    schedule(resolve, workspaceSessionLoadBackoffMs(input.attempt));
   });
 }
 

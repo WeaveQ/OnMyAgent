@@ -260,7 +260,8 @@ export function useSessionRouteSessionLoader(input: Input) {
             }
             await waitForWorkspaceSessionLoadBackoff({
               attempt,
-              setTimeoutFn: window.setTimeout,
+              // Wrapper keeps `this` bound — bare window.setTimeout Illegal invocation.
+              setTimeoutFn: (handler, timeout) => window.setTimeout(handler, timeout),
             });
             await fetchOnce(workspace, attempt + 1);
             return;
