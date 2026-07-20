@@ -22,6 +22,11 @@ export function classifyErrorInfo(error) {
   else if (/auth|login|unauthorized|forbidden|api key|认证|登录/.test(lower)) code = "auth_required";
   else if (/version|版本|update/.test(lower)) code = "version_unsupported";
   else if (/timeout|timed out|超时/.test(lower)) code = "timeout";
+  // ACP session/prompt (or session/new) failed with a generic Internal error —
+  // treat as agent-side prompt failure so UI can show a short localized tip.
+  else if (/session\/prompt|session\/new/.test(lower) || /acp.*(prompt|session).*(fail|error|internal)/.test(lower)) {
+    code = "acp_prompt_failed";
+  }
   else if (/\b5\d\d\b|bad gateway|service unavailable|upstream|rate limit/.test(lower)) code = "provider_failed";
   else if (/parse|json|解析/.test(lower)) code = "parse_failed";
   else if (/cancel|取消/.test(lower)) code = "cancelled";
@@ -39,8 +44,9 @@ export function buildErrorTip(errorInfo) {
     ownership = "agent";
     target = "agent_settings";
     kind = code === "auth_required" ? "authenticate" : "configure";
-  } else if (code === "empty_output" || code === "acp_incomplete_output") {
-    // Empty/truncated ACP replies are agent/protocol issues, not cloud provider outages.
+  } else if (code === "empty_output" || code === "acp_incomplete_output" || code === "acp_prompt_failed") {
+    // Empty/truncated ACP replies and session/prompt Internal errors are
+    // agent/protocol issues, not cloud provider outages.
     ownership = "agent";
     target = "agent_settings";
     kind = "retry";

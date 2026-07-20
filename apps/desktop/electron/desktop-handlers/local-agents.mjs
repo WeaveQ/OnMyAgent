@@ -148,13 +148,16 @@ export function createLocalAgentsDomainHandlers({
     return { path: absolute, relativePath: absolute, name: finalName, size: buffer.length };
   }
   async function personalLocalAgentHostStatusWithManagementParity(input) {
+    const fleetAgent = input?.agent ?? null;
     const [base, managed] = await Promise.all([
       personalAgentRuntime.getHostStatus(input),
       (async () => {
         const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
         if (!workspaceRoot) return [];
         try {
-          return await scanAgentManagementSkills(workspaceRoot);
+          return await scanAgentManagementSkills(workspaceRoot, {
+            fleetAgents: fleetAgent ? [fleetAgent] : [],
+          });
         } catch (error) {
           console.warn("[personalLocalAgentHostStatus] scanAgentManagementSkills failed", error);
           return [];
@@ -162,14 +165,18 @@ export function createLocalAgentsDomainHandlers({
       })(),
     ]);
     const provider = String(input?.agent?.provider ?? input?.agent?.id ?? "").toLowerCase();
+    const id = String(input?.agent?.id ?? "").toLowerCase();
     const provKey = provider.includes("codex") ? "codex"
       : provider.includes("claude") ? "claude"
       : provider.includes("opencode") ? "opencode"
       : provider.includes("openclaw") ? "openclaw"
       : provider.includes("hermes") ? "hermes"
       : provider.includes("gemini") ? "gemini"
-      : provider;
-    const forProvider = managed.filter((skill) => Array.isArray(skill.agents) && skill.agents.includes(provKey));
+      : provider === "custom" ? id : (provider || id);
+    const forProvider = managed.filter((skill) =>
+      Array.isArray(skill.agents)
+      && (skill.agents.includes(provKey) || (id && skill.agents.includes(id))),
+    );
     const rootCounts = new Map();
     const skills = forProvider.map((skill) => {
       const indexFile = skill.path ? path.join(skill.path, "SKILL.md") : `runtime:${skill.name}`;

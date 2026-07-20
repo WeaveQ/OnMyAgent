@@ -54,12 +54,15 @@ describe("local agent empty ACP error UX", () => {
     expect(acp).toContain("returned assistant text only in the prompt result");
     expect(messageUtils).toContain('code === "empty_output"');
     expect(messageUtils).toContain("failure_empty_output");
+    expect(messageUtils).toContain("failure_acp_prompt");
     expect(messageUtils).toContain("runTimelineAlreadyShowsFailure");
-    expect(timeline).toContain('message.type !== "error"');
-    expect(timeline).toContain('next?.type === "tips"');
+    expect(diagnostics).toContain('code = "acp_prompt_failed"');
+    expect(diagnostics).toContain("session/prompt");
+    expect(timeline).toContain("sanitizeAssistantTranscriptText");
     expect(bubble).toContain("runTimelineAlreadyShowsFailure");
-    expect(bubble).toContain("props.message.text.trim()");
+    expect(bubble).toContain("sanitizeAssistantTranscriptText");
     expect(zh).toContain("local_agent.failure_empty_output");
+    expect(zh).toContain("local_agent.failure_acp_prompt");
 
     const helpers = readFileSync(
       join(
@@ -78,7 +81,10 @@ describe("local agent empty ACP error UX", () => {
     // Failed runs clear body when timeline already shows the error card.
     expect(helpers).toContain("runTimelineAlreadyShowsFailure(run)");
     expect(helpers).toMatch(/status === "failed"[\s\S]{0,200}return ""/);
-    // Client re-maps empty-output tips to Agent ownership (not 服务).
-    expect(tips).toContain('isEmptyAssistantFailure(text ?? "", category) ? "agent"');
+    expect(helpers).toContain("sanitizeAssistantTranscriptText");
+    // Client re-maps empty-output / session-prompt tips to Agent ownership (not 服务).
+    expect(tips).toContain("isEmptyAssistantFailure");
+    expect(tips).toContain("isAcpPromptFailure");
+    expect(tips).toContain('? "agent"');
   });
 });

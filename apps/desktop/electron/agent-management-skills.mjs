@@ -23,6 +23,8 @@ import {
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { KNOWN_DISCOVERABLE_AGENTS } from "./personal-agent-runtime/detect-local-agents.mjs";
+
 /**
  * @param {Partial<{
  *   getRealHomeDir: () => string,
@@ -143,7 +145,77 @@ export function createAgentManagementSkills(options = {}) {
     if (raw.includes("codex")) agents.push("codex");
     if (raw.includes(".gemini") || raw.includes("gemini")) agents.push("gemini");
     if (raw.includes(".onmyagent") || raw.includes("bundled-skills")) agents.push("onmyagent");
+    // Catalog / desktop agents whose skill roots live outside the product list.
+    if (raw.includes(".workbuddy") || raw.includes(`${path.sep}workbuddy${path.sep}`)) {
+      agents.push("workbuddy");
+    }
+    if (raw.includes(".codebuddy") || raw.includes(`${path.sep}codebuddy${path.sep}`)) {
+      agents.push("codebuddy");
+    }
     return agents.length ? [...new Set(agents)] : ["unknown"];
+  }
+
+  /**
+   * Matrix / inventory identity for a managed fleet agent.
+   * Product providers keep their provider key; catalog/custom keep agent id.
+   */
+  function skillMatrixAgentKey(agent) {
+    const id = String(agent?.id ?? "").trim().toLowerCase();
+    const provider = String(agent?.provider ?? "").trim().toLowerCase();
+    const product = new Set([
+      "opencode",
+      "claude",
+      "codex",
+      "openclaw",
+      "hermes",
+      "gemini",
+      "onmyagent",
+    ]);
+    if (product.has(provider)) return provider;
+    if (product.has(id)) return id;
+    if (id && id !== "custom") return id;
+    if (provider && provider !== "custom") return provider;
+    return id || provider || "";
+  }
+
+  function nativeSkillDirsOf(agent) {
+    const raw =
+      agent?.nativeSkillsDirs
+      ?? agent?.native_skills_dirs
+      ?? [];
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((dir) => String(dir ?? "").trim())
+      .filter(Boolean);
+  }
+
+  /** Catalog defaults (e.g. WorkBuddy) so already-adopted agents pick up new roots. */
+  function catalogSkillDirsForAgentKey(agentKey) {
+    const key = String(agentKey ?? "").trim().toLowerCase();
+    if (!key) return [];
+    const def = KNOWN_DISCOVERABLE_AGENTS.find(
+      (item) => String(item?.id ?? "").toLowerCase() === key,
+    );
+    if (!def || !Array.isArray(def.skillsDirs)) return [];
+    return def.skillsDirs
+      .map((dir) => String(dir ?? "").trim())
+      .filter(Boolean);
+  }
+
+  function fleetNativeSkillDirs(agent, agentKey) {
+    const merged = [
+      ...nativeSkillDirsOf(agent),
+      ...catalogSkillDirsForAgentKey(agentKey),
+    ];
+    const seen = new Set();
+    const out = [];
+    for (const dir of merged) {
+      const resolved = path.resolve(dir);
+      if (seen.has(resolved)) continue;
+      seen.add(resolved);
+      out.push(resolved);
+    }
+    return out;
   }
 
   const STUDIO_SWITCH_SKILL_AGENT_BY_COLUMN = {
@@ -209,9 +281,28 @@ export function createAgentManagementSkills(options = {}) {
   }
 
   function uniqueAgentList(values) {
-    const order = ["opencode", "codex", "claude", "openclaw", "hermes", "onmyagent", "unknown"];
-    const set = new Set(values.filter(Boolean));
-    return order.filter((agent) => set.has(agent));
+    // Product keys first (stable column order), then any managed/catalog keys
+    // such as workbuddy — previously non-product keys were dropped entirely.
+    const order = [
+      "opencode",
+      "codex",
+      "claude",
+      "openclaw",
+      "hermes",
+      "gemini",
+      "onmyagent",
+      "unknown",
+    ];
+    const set = new Set(
+      values
+        .map((value) => String(value ?? "").trim().toLowerCase())
+        .filter((value) => value.length > 0),
+    );
+    const ordered = order.filter((agent) => set.has(agent));
+    const extras = [...set]
+      .filter((agent) => !order.includes(agent))
+      .sort((a, b) => a.localeCompare(b));
+    return [...ordered, ...extras];
   }
 
   function claudeProjectsRoot() {
@@ -419,7 +510,7 @@ export function createAgentManagementSkills(options = {}) {
     }
   }
 
-  async function collectAgentSkillRoots(projectDir) {
+  async function collectAgentSkillRoots(projectDir, fleetAgents = []) {
     const roots = [];
     const realHome = getRealHomeDir();
     const push = async (candidate) => {
@@ -465,6 +556,26 @@ export function createAgentManagementSkills(options = {}) {
       const root = standardAgentSkillDir(source.agent);
       if (root) {
         await push({ root, agent: source.agent, label: source.label, scope: "global" });
+      }
+    }
+
+    // Managed / adopted fleet agents: scan their declared native skill roots so
+    // catalog agents (WorkBuddy, CodeBuddy, …) show up in the skill matrix.
+    // Merge catalog defaults so older store records still pick up new roots.
+    const fleetList = Array.isArray(fleetAgents) ? fleetAgents : [];
+    for (const agent of fleetList) {
+      const agentKey = skillMatrixAgentKey(agent);
+      if (!agentKey || agentKey === "unknown") continue;
+      const dirs = fleetNativeSkillDirs(agent, agentKey);
+      if (!dirs.length) continue;
+      const label = String(agent?.name ?? agentKey).trim() || agentKey;
+      for (const dir of dirs) {
+        await push({
+          root: dir,
+          agent: agentKey,
+          label,
+          scope: "native",
+        });
       }
     }
 
@@ -833,13 +944,18 @@ export function createAgentManagementSkills(options = {}) {
     return found;
   }
 
-  async function scanAgentManagementSkills(projectDir) {
+  /**
+   * @param {string} projectDir
+   * @param {{ fleetAgents?: Array<{ id?: string, provider?: string, name?: string, nativeSkillsDirs?: string[], native_skills_dirs?: string[] }> }} [options]
+   */
+  async function scanAgentManagementSkills(projectDir, options = {}) {
+    const fleetAgents = Array.isArray(options?.fleetAgents) ? options.fleetAgents : [];
     const LOCALE_KEYS = ["display_name_zh", "display_name_en", "description_zh", "description_en"];
     const studioSwitchManaged = readStudioSwitchManagedSkills();
     const claudeRuntimeSkills = await collectClaudeRuntimeSkills(projectDir);
     const skills = new Map();
 
-    for (const source of await collectAgentSkillRoots(projectDir)) {
+    for (const source of await collectAgentSkillRoots(projectDir, fleetAgents)) {
       for (const skillDir of await findSkillDirsRecursive(source.root)) {
         const directory = path.basename(skillDir);
         const key = skillSourceKey(skillDir);
@@ -972,6 +1088,10 @@ export function createAgentManagementSkills(options = {}) {
   return {
     agentManagementSkillAction,
     scanAgentManagementSkills,
+    collectAgentSkillRoots,
+    skillMatrixAgentKey,
+    skillAgentsFromPath,
+    uniqueAgentList,
     copyDirectoryRecursive,
     removePathIfPresent,
   };

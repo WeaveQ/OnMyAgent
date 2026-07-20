@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { personalAgentRoot } from "./runtime-state.mjs";
 
 function storeFile(workspaceRoot) {
@@ -71,7 +72,11 @@ function normalizeCustomAgent(input = {}) {
     agent_source: textValue(input.agent_source) || "custom",
     extensionName: textValue(input.extensionName) || null,
     customAgentSourceId: textValue(input.customAgentSourceId ?? input.custom_agent_id) || null,
-    connectionMode: supportsAcp ? "Custom ACP session" : "Custom command",
+    connectionMode: personalLocalAgentConnectionMode("custom", {
+      name,
+      connectionType,
+      supportsAcp,
+    }),
     updatedAt: Date.now(),
   };
 }

@@ -10,6 +10,42 @@ function textValue(value) {
 }
 
 /**
+ * Detect Grok-style concatenated skill inventory dumps (SKILL.md JSON walls)
+ * so they never land as assistant transcript body.
+ */
+function looksLikeSkillCatalogDump(text) {
+  const s = String(text ?? "").trim();
+  if (s.length < 48 || !s.includes("{")) return false;
+  const skillMd = (s.match(/SKILL\.md/gi) || []).length;
+  const scope = (s.match(/"scope"\s*:\s*"(bundled|user|project|workspace)"/g) || []).length;
+  const meta = (s.match(/"_meta"\s*:/g) || []).length;
+  const names = (s.match(/"name"\s*:\s*"/g) || []).length;
+  if (skillMd >= 2 && (scope + meta) >= 2) return true;
+  if (skillMd >= 1 && names >= 3 && meta >= 1 && s.startsWith("{")) return true;
+  return false;
+}
+
+function stripSkillCatalogDump(text) {
+  const s = String(text ?? "");
+  if (!s.trim()) return "";
+  if (looksLikeSkillCatalogDump(s)) {
+    const prose = s
+      .replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (prose.length < 12) return "";
+    if (!/[\u4e00-\u9fff]/.test(prose) && prose.split(/\s+/).filter((w) => /[A-Za-z]{3,}/.test(w)).length < 3) {
+      return "";
+    }
+  }
+  const leading = s.match(/^(\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})+)/);
+  if (leading && looksLikeSkillCatalogDump(leading[1] ?? "")) {
+    return s.slice(leading[0].length).trimStart();
+  }
+  return s.trim();
+}
+
+/**
  * @param {Record<string, any>} [event]
  * @returns {Record<string, any> & { type: string, text: string, stopReason?: string | null, truncated?: boolean }}
  */
@@ -228,22 +264,25 @@ export function runEventsToConversationMessages(events = []) {
     } else if (normalized.type === "assistant_chunk") {
       if (!normalized.text) continue;
       assistantText += normalized.text;
+      const displayText = stripSkillCatalogDump(assistantText);
+      // Keep buffering raw chunks, but only surface non-dump text in the bubble.
+      if (!displayText) continue;
       if (liveAssistantIndex === -1) {
         liveAssistantIndex = messages.length;
         pushConversationMessage(messages, {
           type: "text",
           role: "assistant",
-          text: assistantText,
+          text: displayText,
           createdAt: at,
           sourceEventType: normalized.type,
           msgId: `assistant-${liveMsgSeq}`,
         });
       } else {
         const previous = messages[liveAssistantIndex];
-        messages[liveAssistantIndex] = { ...previous, text: assistantText, createdAt: at };
+        messages[liveAssistantIndex] = { ...previous, text: displayText, createdAt: at };
       }
     } else if (normalized.type === "assistant" || normalized.type === "finish") {
-      const text = normalized.text || assistantText.trim();
+      const text = stripSkillCatalogDump(normalized.text || assistantText.trim());
       if (text) {
         pushConversationMessage(messages, {
           type: "finish",

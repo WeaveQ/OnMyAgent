@@ -19,6 +19,7 @@ import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type 
 import { shortTime } from "../local-agent-formatters";
 import type { OpenTarget } from "../../../capabilities/artifacts/open-target";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
+import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
 import { MessageFileChanges } from "./message-file-changes";
 import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
@@ -122,6 +123,10 @@ export const ChatBubble = memo(function ChatBubble(props: {
   );
   const timelineMessages = useMemo(() => visibleRunTimelineMessages(run), [run]);
   const timelineItems = useMemo(() => groupLocalAgentTimeline(timelineMessages), [timelineMessages]);
+  const assistantBodyText = useMemo(
+    () => (isUser ? props.message.text : sanitizeAssistantTranscriptText(props.message.text).text),
+    [isUser, props.message.text],
+  );
 
   // Transient subject/description shown above
   // the timeline while the turn is streaming. Derived from run.events; cleared
@@ -158,7 +163,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
   // box below the real bubble. User bubbles always render (they carry the prompt).
   const hasContent =
     isUser ||
-    props.message.text.trim().length > 0 ||
+    assistantBodyText.trim().length > 0 ||
     timelineItems.length > 0 ||
     Boolean(throttledThought) ||
     (run && run.status === "running");
@@ -207,9 +212,9 @@ export const ChatBubble = memo(function ChatBubble(props: {
           </div>
         ) : null}
 
-        {!isUser && props.message.text.trim() ? (
+        {!isUser && assistantBodyText.trim() ? (
           <div className={cn((timelineItems.length || throttledThought) ? "mt-2" : "")}>
-            <MarkdownBlock text={props.message.text} streaming={run?.status === "running"} />
+            <MarkdownBlock text={assistantBodyText} streaming={run?.status === "running"} />
           </div>
         ) : null}
 

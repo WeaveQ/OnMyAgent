@@ -31,6 +31,9 @@ export const sessionArchiveAgentSchema = z.enum([
   "cortex",
   "hermes",
   "onmyagent",
+  // Known-format CLI agents (local fleet + disk history).
+  "grok",
+  "workbuddy",
   "forge",
   "piebald",
   "warp",
