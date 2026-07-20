@@ -106,7 +106,7 @@ export function SessionSurfaceDraftHome(props: {
   subtitle?: string;
 }) {
   return (
-    // Brand hero above composer; outer shell handles 居中偏上 placement.
+    // Brand hero above composer; outer shell handles upper-centered placement.
     // Generous title→composer gap so the card sits clear of the hero.
     <div className="mb-8 flex w-full flex-col items-center text-center">
       <div className="flex items-center gap-3 text-dls-text">
@@ -149,7 +149,7 @@ function sanitizeDraftSpaceName(raw: string): string {
  */
 export function SessionDraftWorkspaceAccessory(props: {
   draftWorkspaceDirectory?: string | null;
-  /** Active app workspace id — used to load sidebar 「空间」 directories. */
+  /** Active app workspace id — used to load sidebar Spaces directories. */
   ownerWorkspaceId?: string | null;
   assistantFeatureCategoryId?: AssistantCategoryId;
   showFolderRequiredBubble: boolean;
@@ -158,7 +158,7 @@ export function SessionDraftWorkspaceAccessory(props: {
   onSelectDraftWorkspace?: (path: string) => void;
   /**
    * Create a named subfolder under the active app workspace and return its
-   * absolute path (WorkBuddy-style “新建工作空间”).
+   * absolute path (WorkBuddy-style create-space under current workspace).
    */
   onCreateDraftWorkspace?: (name: string) => Promise<string>;
   onPickDraftWorkspace?: () => void;
@@ -177,7 +177,7 @@ export function SessionDraftWorkspaceAccessory(props: {
   const displayName = draftWorkspaceLabel(trimmedRoot);
   const ownerWorkspaceId = props.ownerWorkspaceId?.trim() ?? "";
 
-  // Refresh when sidebar 空间 bindings or automation records change.
+  // Refresh when sidebar Spaces bindings or automation records change.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onChange = () => setListTick((value) => value + 1);
@@ -190,7 +190,7 @@ export function SessionDraftWorkspaceAccessory(props: {
   }, []);
 
   /**
-   * Only sidebar 「空间」 directories — exclude automation output folders.
+   * Only sidebar Spaces directories — exclude automation output folders.
    * (Automation also writes assistantSessionWorkspaces; those must not appear here.)
    * Recent picks are included only when they are not automation dirs (covers
    * newly created spaces that do not yet have a session).
@@ -208,12 +208,13 @@ export function SessionDraftWorkspaceAccessory(props: {
         .map((record) => record.outputDirectory.trim())
         .filter(Boolean),
     );
-    // Legacy automation folders are named `自动化任务-…` (see automation-page).
+    // Legacy automation folders: same prefix as automation-page LEGACY_AUTOMATION_GROUP_PREFIX.
+    const LEGACY_AUTOMATION_DIR_PREFIX = "\u81EA\u52A8\u5316\u4EFB\u52A1-";
     const isAutomationDir = (path: string) => {
       const next = path.trim();
       if (!next || automationDirs.has(next)) return true;
       const base = workspaceDisplayName(next);
-      return base.startsWith("自动化任务-") || /^automation[-_]/i.test(base);
+      return base.startsWith(LEGACY_AUTOMATION_DIR_PREFIX) || /^automation[-_]/i.test(base);
     };
 
     const seen = new Set<string>();

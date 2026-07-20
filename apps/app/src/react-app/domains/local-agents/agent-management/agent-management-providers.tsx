@@ -353,7 +353,7 @@ function providerModelSummary(provider: AgentManagementManagedProvider) {
   return t("agent_manager.provider_models_more", { name: first, count: provider.models.length });
 }
 
-/** Same plate as 本地 Agent list (muted / dark white); default smaller than fleet cards. */
+/** Same plate as local-agent list (muted / dark white); default smaller than fleet cards. */
 function ProviderBrandIcon(props: {
   provider?: AgentManagementManagedProvider;
   appType: AgentManagementProviderApp;

@@ -224,7 +224,7 @@ function SkillMatrixColumnHeader(props: {
                     })
               }
             >
-              {/* Same plate as 本地 Agent list (muted / dark white), smaller xs tile. */}
+              {/* Same plate as local-agent list (muted / dark white), smaller xs tile. */}
               <AgentBrandIcon id={props.agent} provider={props.agent} size="xs" alt={label} />
               <span className="tabular-nums leading-none opacity-80">{props.count}</span>
             </MatrixButton>
