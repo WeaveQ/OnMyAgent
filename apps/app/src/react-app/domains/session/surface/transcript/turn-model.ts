@@ -74,6 +74,11 @@ function finalizeTurn(
       (message) => readTranscriptMessageMetadata(message.metadata).completed,
     ),
   );
+  const lastAssistantMessage = turn.assistantMessages.at(-1);
+  const lastAssistantCompleted = lastAssistantMessage
+    ? readTranscriptMessageMetadata(lastAssistantMessage.metadata).completed !== null
+    : false;
+  const live = isLastTurn && !lastAssistantCompleted;
   const hasCancellation = messageMetadata.some(
     (item) =>
       item.value.errorName === "MessageAbortedError" ||
@@ -86,8 +91,8 @@ function finalizeTurn(
 
   let state: TranscriptTurnState;
   if (hasCancellation) state = "cancelled";
-  else if (isLastTurn && options.hasPendingApproval) state = "awaiting-approval";
-  else if (isLastTurn && options.isStreaming) state = "streaming";
+  else if (live && options.hasPendingApproval) state = "awaiting-approval";
+  else if (live && options.isStreaming) state = "streaming";
   else if (hasFailure) state = "failed";
   else if (turn.assistantMessages.length === 0) state = "pending";
   else state = "completed";

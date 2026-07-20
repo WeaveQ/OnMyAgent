@@ -22,6 +22,7 @@ const EXCLUDED_PORTABLE_DIRS = new Set([".opencode/commands/", ".opencode/skills
 // imported, or removed by portable-file replacement.
 const MANAGED_PORTABLE_FILES = new Set([
   ".opencode/tools/get_design_spec.ts",
+  ".opencode/tools/read_me.ts",
   ".opencode/tools/render_visual.ts",
   ".opencode/tools/onmyagent_browser_node_repl.ts",
 ]);
