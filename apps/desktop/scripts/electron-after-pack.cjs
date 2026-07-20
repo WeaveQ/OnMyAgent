@@ -4,11 +4,11 @@ const { spawnSync } = require("node:child_process");
 
 const computerUseHelperAppName = "OnMyAgent Computer Use.app";
 
+// Real packaged sidecars only. onmyagent-server runs in-process; chrome-devtools-mcp
+// is not shipped as a sidecar binary in current builds.
 const sidecarBases = [
   "opencode",
-  "onmyagent-server",
   "onmyagent-orchestrator",
-  "chrome-devtools-mcp",
 ];
 
 function targetTriple(platformName, arch) {
@@ -81,6 +81,101 @@ function signComputerUseHelper(context) {
   }
 }
 
+function findRcedit() {
+  const cacheRoot = path.join(
+    process.env.LOCALAPPDATA || "",
+    "electron-builder",
+    "Cache",
+    "winCodeSign",
+  );
+  if (!cacheRoot || !fs.existsSync(cacheRoot)) return null;
+  const preferred = process.arch === "ia32" ? "rcedit-ia32.exe" : "rcedit-x64.exe";
+  const stack = [cacheRoot];
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.name === preferred) return full;
+    }
+  }
+  return null;
+}
+
+/**
+ * Stamp OnMyAgent icon + version metadata onto the Windows exe.
+ * Safety net when electron-builder's rcedit step is skipped or fails.
+ */
+function brandWindowsExecutable(context) {
+  if (context.electronPlatformName !== "win32") return;
+
+  const productFilename = context.packager?.appInfo?.productFilename || "OnMyAgent";
+  const version = context.packager?.appInfo?.version || "0.0.0";
+  const exePath = path.join(context.appOutDir, `${productFilename}.exe`);
+  if (!fs.existsSync(exePath)) {
+    console.warn(`[afterPack] Windows exe not found for branding: ${exePath}`);
+    return;
+  }
+
+  const projectDir = context.packager?.projectDir || path.resolve(__dirname, "..");
+  const iconPath = path.join(projectDir, "resources", "icons", "icon.ico");
+  if (!fs.existsSync(iconPath)) {
+    console.warn(`[afterPack] Windows icon missing: ${iconPath}`);
+    return;
+  }
+
+  const rcedit = findRcedit();
+  if (!rcedit) {
+    console.warn("[afterPack] rcedit not found in electron-builder cache; exe icon may stay Electron default");
+    return;
+  }
+
+  const args = [
+    exePath,
+    "--set-icon",
+    iconPath,
+    "--set-version-string",
+    "ProductName",
+    "OnMyAgent",
+    "--set-version-string",
+    "FileDescription",
+    "OnMyAgent — local control plane for your AI agents",
+    "--set-version-string",
+    "CompanyName",
+    "OnMyAgent Contributors",
+    "--set-version-string",
+    "LegalCopyright",
+    "Copyright OnMyAgent Contributors",
+    "--set-version-string",
+    "OriginalFilename",
+    `${productFilename}.exe`,
+    "--set-version-string",
+    "InternalName",
+    productFilename,
+    "--set-file-version",
+    version,
+    "--set-product-version",
+    version,
+  ];
+
+  const result = spawnSync(rcedit, args, { stdio: "inherit", windowsHide: true });
+  if (result.error) {
+    console.warn(`[afterPack] rcedit failed: ${result.error.message}`);
+    return;
+  }
+  if (result.status !== 0) {
+    console.warn(`[afterPack] rcedit exited with status ${result.status}`);
+    return;
+  }
+  console.log(`[afterPack] Branded Windows executable: ${exePath}`);
+}
+
 function copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName) {
   const targetPath = path.join(sidecarsDir, targetName);
   if (!fs.existsSync(targetPath)) {
@@ -148,6 +243,7 @@ async function afterPack(context) {
   }
 
   signComputerUseHelper(context);
+  brandWindowsExecutable(context);
 }
 
 module.exports = afterPack;
