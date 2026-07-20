@@ -152,9 +152,9 @@ describe("session transcript WorkBuddy specialized tools", () => {
       name: null,
       overview: null,
       todos: [
-        { content: "Inspect source", status: "completed" },
-        { content: "Match renderer", status: "in_progress" },
-        { content: "Verify screenshots", status: "pending" },
+        { activeForm: null, content: "Inspect source", status: "completed" },
+        { activeForm: null, content: "Match renderer", status: "in_progress" },
+        { activeForm: null, content: "Verify screenshots", status: "pending" },
       ],
     });
     expect(task.family).toBe("task");
@@ -165,5 +165,72 @@ describe("session transcript WorkBuddy specialized tools", () => {
       subagentName: "explore",
       toolItems: [{ name: "read", status: "done", summary: "message-list.tsx" }],
     });
+  });
+
+  test("normalizes WorkBuddy visualizer read-me aliases and preserves the semantic result", () => {
+    const output = JSON.stringify({
+      type: "visualizer_read_me_result",
+      content: "# Visualizer Core Design System\n\n# Charts (Chart.js)",
+    });
+
+    for (const toolName of [
+      "read_me",
+      "visualize:read_me",
+      "visualizer:read_me",
+      "visualizer:read_me_tool",
+      "get_design_spec",
+    ]) {
+      const presentation = buildTranscriptToolPresentation({
+        toolName,
+        toolInput: { modules: ["chart"] },
+        toolOutput: output,
+      });
+
+      expect(presentation.family).toBe("generic");
+      expect(presentation.details).toEqual({
+        kind: "visualizer-read-me",
+        result: JSON.stringify(JSON.parse(output), null, 2),
+      });
+    }
+  });
+
+  test("unwraps WorkBuddy MCP-like visualizer read-me results", () => {
+    const semanticResult = JSON.stringify({
+      type: "visualizer_read_me_result",
+      content: "# Visualizer Core Design System",
+    });
+    const presentation = buildTranscriptToolPresentation({
+      toolName: "read_me",
+      toolInput: { modules: "[\"diagram\"]" },
+      toolOutput: {
+        result: {
+          data: [{ type: "text", text: semanticResult }],
+        },
+      },
+    });
+
+    expect(presentation.details).toEqual({
+      kind: "visualizer-read-me",
+      result: expect.stringContaining("visualizer_read_me_result"),
+    });
+  });
+
+  test("routes visualizer read-me through its dedicated WorkBuddy transcript row", async () => {
+    const [messageList, specializedTools] = await Promise.all([
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/message-list.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/specialized-tool-details.tsx",
+        import.meta.url,
+      )).text(),
+    ]);
+
+    expect(messageList).toContain("VisualizerReadMeToolRow");
+    expect(specializedTools).toContain('data-tool-details="visualizer-read-me"');
+    expect(specializedTools).toContain("max-h-[300px]");
+    expect(specializedTools).toContain('t("session.tool_visualizer_read_me")');
+    expect(specializedTools).toContain('"session.tool_visualizer_read_me_loaded"');
   });
 });
