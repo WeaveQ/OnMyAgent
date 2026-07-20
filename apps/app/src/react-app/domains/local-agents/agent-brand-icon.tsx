@@ -20,30 +20,33 @@ import { resolveAgentIconUrl } from "./agent-icon-map";
 
 export type AgentBrandIconSize = "xs" | "sm" | "md" | "lg";
 
+// Radius aligns with skills marketplace icons (`rounded-md`).
+// Glyph fills most of the plate so dense stacks (skill matrix) do not look
+// like empty white chips with a tiny mark in the center.
 const TILE_SIZE: Record<AgentBrandIconSize, string> = {
-  xs: "size-5 rounded-md",
-  sm: "size-7 rounded-lg",
-  md: "size-11 rounded-xl",
-  lg: "size-12 rounded-xl",
+  xs: "size-6 rounded-md",
+  sm: "size-8 rounded-md", // same footprint as skill card icons
+  md: "size-10 rounded-md",
+  lg: "size-12 rounded-md",
 };
 
 const GLYPH_SIZE: Record<AgentBrandIconSize, string> = {
-  xs: "size-3",
-  sm: "size-4",
+  xs: "size-[1.125rem]", // ~18px in 24px plate
+  sm: "size-5",
   md: "size-6",
   lg: "size-7",
 };
 
 const GLYPH_PX: Record<AgentBrandIconSize, number> = {
-  xs: 12,
-  sm: 16,
+  xs: 18,
+  sm: 20,
   md: 24,
   lg: 28,
 };
 
 const FALLBACK_ICON_SIZE: Record<AgentBrandIconSize, string> = {
-  xs: "size-3",
-  sm: "size-3.5",
+  xs: "size-4",
+  sm: "size-4",
   md: "size-5",
   lg: "size-6",
 };

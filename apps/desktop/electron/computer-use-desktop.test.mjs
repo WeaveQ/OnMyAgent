@@ -244,8 +244,55 @@ test("Appshot capture returns an attachable image payload", async () => {
     readFile: () => Buffer.from("jpeg-bytes"),
     resolveComputerUseExecutable: () => "/fake/ComputerUse",
   });
-  const result = await helpers.captureComputerUseAppshot();
-  assert.equal(spawned.some((args) => args.join(" ") === "appshot capture"), true);
-  assert.equal(result.mimeType, "image/jpeg");
-  assert.equal(result.data, Buffer.from("jpeg-bytes").toString("base64"));
+  // Force macOS path for this unit test regardless of host OS.
+  const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "darwin" });
+  try {
+    const result = await helpers.captureComputerUseAppshot();
+    assert.equal(spawned.some((args) => args.join(" ") === "appshot capture"), true);
+    assert.equal(result.mimeType, "image/jpeg");
+    assert.equal(result.name, "Appshot-Safari.jpg");
+    assert.equal(result.data, Buffer.from("jpeg-bytes").toString("base64"));
+  } finally {
+    if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
+  }
+});
+
+test("sanitizeAppshotFileName strips Swift JoinedSequence dumps", async () => {
+  const { sanitizeAppshotFileName } = await import("./computer-use-desktop.mjs");
+  const garbage =
+    'Appshot-20260720-JoinedSequence<Array<ArraySlice<Character>>>(_base: [ArraySlice(["O"])], _separator: ContiguousArray(["-"])).jpg';
+  const safe = sanitizeAppshotFileName(garbage, { platform: "darwin", now: 0 });
+  assert.equal(safe.includes("JoinedSequence"), false);
+  assert.match(safe, /^Appshot-\d{8}-\d{6}\.jpg$/);
+});
+
+test("sanitizeAppshotFileName handles Windows reserved names", async () => {
+  const { sanitizeAppshotFileName } = await import("./computer-use-desktop.mjs");
+  const safe = sanitizeAppshotFileName("CON.jpg", { platform: "win32", now: 0 });
+  assert.equal(safe.toLowerCase().startsWith("con"), false);
+  assert.match(safe, /^Appshot-\d{8}-\d{6}\.jpg$/);
+});
+
+test("Appshot capture rejects non-macOS platforms", async () => {
+  const helpers = createComputerUseDesktopHelpers({
+    app: { getVersion: () => "0.1.0", isPackaged: false },
+    shell: {},
+    dialog: {},
+    systemPreferences: {},
+    dirname: "/tmp/onmyagent/electron",
+    spawnProcess: () => new FakeChildProcess(),
+    readFile: () => Buffer.from("jpeg-bytes"),
+    resolveComputerUseExecutable: () => "/fake/ComputerUse",
+  });
+  const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  try {
+    await assert.rejects(
+      () => helpers.captureComputerUseAppshot(),
+      /only available on macOS/i,
+    );
+  } finally {
+    if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
+  }
 });

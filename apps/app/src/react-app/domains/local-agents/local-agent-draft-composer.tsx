@@ -441,23 +441,26 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const canSend = (Boolean(value.trim()) || attachments.length > 0 || quotes.length > 0)
     && !props.disabled && !props.submitting;
 
-  const hasBottomAccessory = Boolean(props.bottomAccessory);
-  // Match session workbench composer: soft mist border, flush bottom accessory strip.
-  const panelRoundedClass = hasBottomAccessory
-    ? "rounded-t-xl rounded-b-none"
-    : "rounded-xl";
+  const hasFooter = Boolean(props.bottomAccessory);
 
   return (
-    <div className="w-full min-w-0 max-w-full" data-local-agent-composer-shell="true">
+    // One outer silhouette so focus never paints a blue top half + gray footer.
+    // Keep overflow visible so slash/mention menus can escape upward.
     <div
       className={cn(
-        "relative min-w-0 max-w-full overflow-x-hidden overflow-y-visible border bg-dls-surface transition-colors",
-        panelRoundedClass,
-        hasBottomAccessory ? "border-b-0" : "",
-        focused
-          ? "border-dls-accent/40"
-          : "border-dls-mist",
-        dragActive && "border-dls-accent/70",
+        "w-full min-w-0 max-w-full rounded-xl border bg-dls-surface-solid transition-[border-color,box-shadow]",
+        dragActive
+          ? "border-dls-accent/60 shadow-sm"
+          : focused
+            ? "border-dls-border shadow-sm"
+            : "border-dls-border",
+      )}
+      data-local-agent-composer-shell="true"
+    >
+    <div
+      className={cn(
+        "relative min-w-0 max-w-full overflow-x-hidden overflow-y-visible bg-dls-surface-solid",
+        hasFooter ? "rounded-t-xl" : "rounded-xl",
       )}
       data-local-agent-composer-root="true"
       onDragEnter={handleDragEnter}
@@ -695,10 +698,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     </div>
     {props.bottomAccessory ? (
       <div
-        className={cn(
-          "relative z-10 mt-0 flex min-h-9 w-full min-w-0 max-w-full items-center gap-0.5 overflow-x-hidden rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary",
-          "border border-t-0 border-dls-mist",
-        )}
+        className="relative z-10 mt-0 flex min-h-9 w-full min-w-0 max-w-full items-center gap-0.5 overflow-x-hidden rounded-b-xl border-t border-dls-border bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary"
         data-local-agent-composer-footer="true"
       >
         {props.bottomAccessory}

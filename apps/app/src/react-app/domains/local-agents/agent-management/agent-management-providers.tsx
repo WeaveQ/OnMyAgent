@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { IconTile, MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Input } from "@/components/ui/input";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
@@ -42,11 +42,7 @@ import type {
 } from "../../../../app/lib/desktop";
 import { agentManagementFetchModels, agentManagementProviderAction } from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
-import claudeIconUrl from "../../../../assets/agent-icons/claude.svg";
-import codexIconUrl from "../../../../assets/agent-icons/openai.svg";
-import hermesIconUrl from "../../../../assets/agent-icons/hermes.png";
-import openclawIconUrl from "../../../../assets/agent-icons/claw.svg";
-import opencodeIconUrl from "../../../../assets/agent-icons/opencode-logo-light.svg";
+import { AgentBrandIcon, type AgentBrandIconSize } from "../agent-brand-icon";
 
 export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   opencode: "OpenCode CLI",
@@ -357,15 +353,23 @@ function providerModelSummary(provider: AgentManagementManagedProvider) {
   return t("agent_manager.provider_models_more", { name: first, count: provider.models.length });
 }
 
-function ProviderBrandIcon(props: { provider?: AgentManagementManagedProvider; appType: AgentManagementProviderApp }) {
-  const appIcon = {
-    opencode: opencodeIconUrl,
-    claude: claudeIconUrl,
-    codex: codexIconUrl,
-    openclaw: openclawIconUrl,
-    hermes: hermesIconUrl,
-  }[props.appType];
-  return <img src={appIcon} alt="" className="size-4 object-contain" loading="lazy" />;
+/** Same plate as 本地 Agent list (muted / dark white); default smaller than fleet cards. */
+function ProviderBrandIcon(props: {
+  provider?: AgentManagementManagedProvider;
+  appType: AgentManagementProviderApp;
+  size?: AgentBrandIconSize;
+  className?: string;
+}) {
+  const id = props.provider?.id || props.appType;
+  return (
+    <AgentBrandIcon
+      id={id}
+      provider={props.appType}
+      size={props.size ?? "sm"}
+      alt={skillAgentLabel(props.appType)}
+      className={props.className}
+    />
+  );
 }
 
 function ProviderActionIconButton(props: {
@@ -522,7 +526,7 @@ export function AgentManagementProviderModal(props: {
       <DialogContent className="flex max-h-[90vh] !w-[min(920px,calc(100vw-32px))] !max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
         <DialogHeader className="shrink-0 border-b border-dls-border bg-dls-surface px-5 py-3.5">
           <div className="flex items-center gap-3">
-            <IconTile size="md" shape="lg" border><ProviderBrandIcon appType={props.appType} /></IconTile>
+            <ProviderBrandIcon appType={props.appType} size="sm" />
             <div className="min-w-0">
               <DialogTitle className="truncate text-base font-medium text-dls-text">{editing ? t("agent_manager.provider_modal.edit_provider") : t("agent_manager.provider_modal.add_provider")}</DialogTitle>
               <div className="mt-0.5 text-xs text-dls-secondary">{skillAgentLabel(props.appType)}{editing ? ` / ${props.draft.editingId}` : ""}</div>
@@ -1004,14 +1008,7 @@ export function AgentManagementProviderPanel(props: {
                           : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "flex size-7 shrink-0 items-center justify-center rounded-md",
-                          selected ? "bg-dls-surface" : "bg-dls-surface-muted",
-                        )}
-                      >
-                        <ProviderBrandIcon appType={app} />
-                      </span>
+                      <ProviderBrandIcon appType={app} size="xs" />
                       <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
                         {skillAgentLabel(app)}
                       </span>
@@ -1054,9 +1051,7 @@ export function AgentManagementProviderPanel(props: {
       <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dls-border px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted ring-1 ring-dls-border/60">
-              <ProviderBrandIcon appType={props.selectedApp} />
-            </span>
+            <ProviderBrandIcon appType={props.selectedApp} size="sm" />
             <div className="min-w-0">
               <h3 className="truncate text-sm font-medium text-dls-text">
                 {t("agent_manager.provider_suffix", { name: appLabel })}
@@ -1110,10 +1105,11 @@ export function AgentManagementProviderPanel(props: {
                       <Tooltip>
                         <TooltipTrigger
                           render={
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted ring-1 ring-dls-border">
+                            <span className="shrink-0">
                               <ProviderBrandIcon
                                 provider={provider}
                                 appType={provider.appType}
+                                size="sm"
                               />
                             </span>
                           }

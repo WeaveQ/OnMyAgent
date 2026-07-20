@@ -61,16 +61,21 @@ export const composerTextClass = {
 };
 
 export const composerMenuClass = {
-  anchor: "absolute bottom-full left-[-1px] right-[-1px] z-30",
-  panel: "overflow-hidden rounded-t-[20px] border border-dls-border bg-dls-surface-solid",
+  anchor: "absolute bottom-full left-[-1px] right-[-1px] z-30 mb-1.5",
+  // Full rounded card so the popup sits above the composer with soft corners all around.
+  panel:
+    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
   panelWithoutBottomBorder:
-    "overflow-hidden rounded-t-[20px] border border-dls-border border-b-0 bg-dls-surface-solid",
-  scrollArea: "max-h-64 overflow-y-auto p-2",
+    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
+  // Grouped 技能 / 指令 list — roomy horizontal padding, compact vertical stack.
+  scrollArea: "max-h-72 overflow-y-auto px-1.5 py-2",
+
   itemIcon: "mt-0.5 shrink-0 text-dls-secondary",
-  itemTitle: "truncate text-xs font-medium",
-  itemMeta: "truncate text-xs text-dls-secondary",
+  itemTitle: "truncate text-sm font-medium leading-5 text-dls-text",
+  itemMeta: "truncate text-sm leading-5 text-dls-secondary",
   // Neutral muted wash — not blue-tinted dls-hover.
-  toolButton: "text-dls-secondary hover:bg-dls-surface-muted",
+  // Match model chip weight (secondary + soft hover) so + / model sit as peers.
+  toolButton: "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   activeToolButton: "bg-dls-surface-muted text-dls-text",
 };
 
@@ -225,6 +230,11 @@ export type ComposerProps = {
   draftScopeKey?: string;
   compactTopSpacing?: boolean;
   showOuterBorder?: boolean;
+  /**
+   * Draft-home empty state: parent owns max width; strip outer padding so the
+   * card aligns with the brand title, and use a denser editor/toolbar.
+   */
+  homeLayout?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;

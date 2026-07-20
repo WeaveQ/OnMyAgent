@@ -9,8 +9,7 @@ import type {
   OnMyAgentSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
 import { formatRelativeTime } from "../../../../app/utils";
-import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
-import type { AgentManagementSkillAgent } from "../../../../app/lib/desktop";
+import { AgentBrandIcon } from "../../../domains/local-agents/agent-brand-icon";
 import { FilterChip } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -353,12 +352,16 @@ export function SessionArchivePage(props: Props) {
                     setAgentFilter(g.agent === agentFilter ? null : g.agent)
                   }
                   label={
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <AgentSkillIcon
-                        agent={archiveAgentIconId(g.agent) as AgentManagementSkillAgent}
+                    <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
+                      <AgentBrandIcon
+                        id={archiveAgentIconId(g.agent)}
+                        provider={archiveAgentIconId(g.agent)}
+                        size="xs"
+                        alt={agentLabel(g.agent)}
+                        className="shrink-0"
                       />
-                      <span className="truncate">{agentLabel(g.agent)}</span>
-                      <span className="tabular-nums text-dls-secondary">
+                      <span className="truncate leading-5">{agentLabel(g.agent)}</span>
+                      <span className="tabular-nums leading-5 text-dls-secondary">
                         {formatCompactCount(count)}
                       </span>
                     </span>
@@ -441,11 +444,13 @@ export function SessionArchivePage(props: Props) {
                           : "text-dls-text hover:bg-dls-list-hover/50",
                       )}
                     >
-                      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-dls-surface ring-1 ring-dls-border/50">
-                        <AgentSkillIcon
-                          agent={archiveAgentIconId(session.agent) as AgentManagementSkillAgent}
-                        />
-                      </span>
+                      <AgentBrandIcon
+                        id={archiveAgentIconId(session.agent)}
+                        provider={archiveAgentIconId(session.agent)}
+                        size="sm"
+                        alt={agentLabel(session.agent)}
+                        className="mt-0.5 shrink-0"
+                      />
                       <span className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-0.5">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">
@@ -493,11 +498,13 @@ export function SessionArchivePage(props: Props) {
               <header className="flex shrink-0 items-center justify-between gap-4 border-b border-dls-border/60 px-5 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-dls-surface ring-1 ring-dls-border/50">
-                      <AgentSkillIcon
-                        agent={archiveAgentIconId(selectedSession.agent) as AgentManagementSkillAgent}
-                      />
-                    </span>
+                    <AgentBrandIcon
+                      id={archiveAgentIconId(selectedSession.agent)}
+                      provider={archiveAgentIconId(selectedSession.agent)}
+                      size="sm"
+                      alt={agentLabel(selectedSession.agent)}
+                      className="shrink-0"
+                    />
                     <div className="min-w-0 flex-1">
                       <h2 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
                         {sessionTitle(selectedSession)}

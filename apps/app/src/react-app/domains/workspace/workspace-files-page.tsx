@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   Cloud,
@@ -12,6 +13,7 @@ import {
   Folder,
   FolderOpen,
   MoreHorizontal,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   X,
@@ -83,7 +85,8 @@ type WorkspaceFileTreeNode = {
 
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
-    return <Folder className="size-4 shrink-0 text-dls-status-warning-fg" />;
+    // Same secondary tone as file icons — no warning/orange folder hue.
+    return <Folder className="size-4 shrink-0 text-dls-secondary" />;
   }
   const target = workspaceFileOpenTarget({
     fileRoot: props.fileRoot || "/",
@@ -560,6 +563,10 @@ export function WorkspaceFilesPage(props: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  /** Brief success flash after a user-initiated refresh (not first mount). */
+  const [refreshDone, setRefreshDone] = useState(false);
+  const manualRefreshRef = useRef(false);
+  const refreshDoneTimerRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<"task" | "cloud">("task");
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
@@ -589,6 +596,7 @@ export function WorkspaceFilesPage(props: {
       setEntries([]);
       setError(null);
       setLoading(false);
+      manualRefreshRef.current = false;
       return;
     }
     let cancelled = false;
@@ -603,9 +611,22 @@ export function WorkspaceFilesPage(props: {
       .then((catalog) => {
         if (cancelled) return;
         setEntries(catalog.items);
+        if (manualRefreshRef.current) {
+          manualRefreshRef.current = false;
+          setRefreshDone(true);
+          if (refreshDoneTimerRef.current != null) {
+            window.clearTimeout(refreshDoneTimerRef.current);
+          }
+          refreshDoneTimerRef.current = window.setTimeout(() => {
+            setRefreshDone(false);
+            refreshDoneTimerRef.current = null;
+          }, 1400);
+        }
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
+        manualRefreshRef.current = false;
+        setRefreshDone(false);
         setError(
           loadError instanceof Error ? loadError.message : t("files.load_failed"),
         );
@@ -617,6 +638,14 @@ export function WorkspaceFilesPage(props: {
       cancelled = true;
     };
   }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshDoneTimerRef.current != null) {
+        window.clearTimeout(refreshDoneTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setSelectedFile(null);
@@ -807,6 +836,39 @@ export function WorkspaceFilesPage(props: {
               </p>
             </div>
             <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-md">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={
+                  loading ||
+                  refreshDone ||
+                  !props.client ||
+                  !props.workspaceId.trim() ||
+                  !fileRoot.trim()
+                }
+                onClick={() => {
+                  manualRefreshRef.current = true;
+                  setRefreshDone(false);
+                  setRefreshKey((key) => key + 1);
+                }}
+                className={cn(
+                  "size-9 shrink-0 transition-colors",
+                  refreshDone &&
+                    "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+                )}
+                title={refreshDone ? t("common.refreshed") : t("common.refresh")}
+                aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
+                aria-busy={loading || undefined}
+              >
+                {loading ? (
+                  <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+                ) : refreshDone ? (
+                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+                ) : (
+                  <RefreshCw className="size-3.5" aria-hidden />
+                )}
+              </Button>
               <div className="relative shrink-0">
                 <Button
                   type="button"

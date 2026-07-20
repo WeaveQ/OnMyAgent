@@ -75,7 +75,7 @@ describe("isManagedFleetMember", () => {
     expect(isDiscoverCandidate(claude)).toBe(true);
   });
 
-  it("always treats store-owned (mine) agents as managed", () => {
+  it("treats installed store-owned (mine) agents as managed", () => {
     const grok = agent({
       id: "grok",
       provider: "custom",
@@ -84,6 +84,32 @@ describe("isManagedFleetMember", () => {
       agent_source: "custom",
     });
     expect(isManagedFleetMember(grok)).toBe(true);
+    expect(isDiscoverCandidate(grok)).toBe(false);
+  });
+
+  it("kicks missing store-owned agents out of fleet into discover", () => {
+    const broken = agent({
+      id: "example-acp",
+      provider: "custom",
+      status: "missing",
+      error: "spawn codex ENOENT",
+      discoverable: false,
+      agent_source: "custom",
+    });
+    expect(isManagedFleetMember(broken)).toBe(false);
+    expect(isDiscoverCandidate(broken)).toBe(true);
+  });
+
+  it("keeps offline (installed) store agents in the fleet", () => {
+    const offline = agent({
+      id: "workbuddy",
+      provider: "custom",
+      status: "offline",
+      discoverable: false,
+      agent_source: "custom",
+    });
+    expect(isManagedFleetMember(offline)).toBe(true);
+    expect(isDiscoverCandidate(offline)).toBe(false);
   });
 
   it("treats installed auto-manage catalog drafts as fleet members", () => {
