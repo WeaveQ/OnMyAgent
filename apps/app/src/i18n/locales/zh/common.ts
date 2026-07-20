@@ -20,6 +20,7 @@ export default {
   "common.more": "更多",
   "common.question": "问题",
   "common.refresh": "刷新",
+  "common.refreshed": "已刷新",
   "common.remove": "移除",
   "common.reset": "重置",
   "common.save": "保存",

@@ -923,6 +923,46 @@ export function useSessionRouteSurfaceProps(
         pageMode === "assistant" || pageMode === "expert"
           ? assistantDraftWorkspaceRoot
           : null,
+      draftWorkspaceOwnerId:
+        pageMode === "assistant" || pageMode === "expert"
+          ? selectedWorkspaceId
+          : null,
+      onSelectDraftWorkspace:
+        pageMode === "assistant" || pageMode === "expert"
+          ? (path: string) => {
+              const next = path.trim();
+              if (next) setAssistantDraftWorkspaceRoot(next);
+            }
+          : undefined,
+      onCreateDraftWorkspace:
+        pageMode === "assistant" || pageMode === "expert"
+          ? async (name: string) => {
+              const folderName = name.trim();
+              if (!folderName) {
+                throw new Error(t("session.workspace_create_name_required"));
+              }
+              const parentPath = (selectedWorkspace?.path ?? sessionWorkspaceRoot ?? "").trim();
+              const workspaceClient = selectedWorkspaceEndpoint?.client ?? client;
+              const workspaceId =
+                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+              if (!parentPath || !workspaceClient || !workspaceId?.trim()) {
+                throw new Error(t("session.workspace_create_no_parent"));
+              }
+              // Create a subfolder under the active app workspace by writing an
+              // allowed text file (server mkdir via ensureDir on parent). Dotfiles
+              // like `.onmyagent-space` are rejected ("Only supported text
+              // artifact files can be edited inline").
+              const markerPath = `${folderName}/README.md`;
+              await workspaceClient.writeWorkspaceFile(workspaceId, {
+                path: markerPath,
+                content: `# ${folderName}\n`,
+                force: true,
+              });
+              const base = parentPath.replace(/[\\/]+$/, "");
+              const sep = parentPath.includes("\\") ? "\\" : "/";
+              return `${base}${sep}${folderName}`;
+            }
+          : undefined,
       onPickDraftWorkspace:
         pageMode === "assistant" || pageMode === "expert"
           ? () => {

@@ -1,5 +1,11 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   CalendarClock,
   ChevronDown,
@@ -17,6 +23,12 @@ import {
 
 import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
@@ -28,6 +40,22 @@ import {
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_ROW_ACTION_CLASS,
 } from "./assistant-task-item";
+
+/** Floating row/section icon → short hover tip (native title is too slow in Electron). */
+function IconHoverTip(props: {
+  label: string;
+  children: ReactElement;
+  side?: "left" | "top" | "right" | "bottom";
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={props.children} />
+      <TooltipContent side={props.side ?? "left"} sideOffset={6}>
+        {props.label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 type SectionId = "pinned" | "tasks" | "spaces" | "automations";
 const ASSISTANT_TASK_PREVIEW_LIMIT = 20;
@@ -351,40 +379,42 @@ function SpaceDirectoryRow(props: {
               menuOpen && "opacity-100",
             )}
           >
-            <button
-              ref={anchorRef}
-              type="button"
-              className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
-              title={t("session.task_actions")}
-              aria-label={t("session.task_actions")}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (anchorRef.current) {
-                  const rect = anchorRef.current.getBoundingClientRect();
-                  setMenuPosition({
-                    left: rect.right - 176,
-                    top: rect.bottom + 4,
-                  });
-                }
-                setMenuOpen((value) => !value);
-              }}
-            >
-              <MoreHorizontal strokeWidth={1.75} />
-            </button>
-            {props.onCreateTask ? (
+            <IconHoverTip label={t("session.task_actions")}>
               <button
+                ref={anchorRef}
                 type="button"
                 className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
-                title={t("session.new_task_in_space")}
-                aria-label={t("session.new_task_in_space")}
+                aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
-                  setMenuOpen(false);
-                  props.onCreateTask?.(props.directory);
+                  if (anchorRef.current) {
+                    const rect = anchorRef.current.getBoundingClientRect();
+                    setMenuPosition({
+                      left: rect.right - 176,
+                      top: rect.bottom + 4,
+                    });
+                  }
+                  setMenuOpen((value) => !value);
                 }}
               >
-                <MessageCirclePlus strokeWidth={1.75} />
+                <MoreHorizontal strokeWidth={1.75} />
               </button>
+            </IconHoverTip>
+            {props.onCreateTask ? (
+              <IconHoverTip label={t("session.new_task_in_space")}>
+                <button
+                  type="button"
+                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.new_task_in_space")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onCreateTask?.(props.directory);
+                  }}
+                >
+                  <MessageCirclePlus strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
             ) : null}
           </div>
         }
@@ -493,10 +523,11 @@ function FolderChildren(props: { children: ReactNode }) {
 }
 
 export function AssistantConversationSections(props: AssistantConversationSectionsProps) {
-  // Default collapsed (WorkBuddy); open the section that owns the selection.
+  // Tasks open by default so recent work is visible on enter; spaces /
+  // automations stay collapsed. Selection still forces its owning section open.
   const [expandedSections, setExpandedSections] = useState<Record<SectionId, boolean>>({
     pinned: true,
-    tasks: false,
+    tasks: true,
     spaces: false,
     automations: false,
   });
@@ -525,6 +556,12 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     (count, group) => count + group.items.length,
     0,
   );
+  const automationGroupCount = props.automationGroups.length;
+  const allAutomationGroupsExpanded =
+    automationGroupCount > 0 &&
+    props.automationGroups.every((group) =>
+      props.expandedAutomationDirectories.includes(group.id),
+    );
 
   // Keep the section that owns the selected session expanded.
   useEffect(() => {
@@ -600,6 +637,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
   const tasksOverflow = taskCount > ASSISTANT_TASK_PREVIEW_LIMIT;
 
   return (
+    <TooltipProvider delay={200}>
     <div className="mt-1 flex flex-col gap-0.5 pt-1" data-assistant-task-list="true">
       {/* Pinned tasks — WorkBuddy: pinned tasks (n) ∨ as its own section */}
       {pinnedCount > 0 ? (
@@ -701,46 +739,49 @@ export function AssistantConversationSections(props: AssistantConversationSectio
           onToggle={() => toggleSection("spaces")}
           trailing={
             spacesCount > 0 ? (
-              <button
-                type="button"
-                className={cn(
-                  TASK_ROW_ACTION_CLASS,
-                  "opacity-0 transition-opacity group-hover/section:opacity-100",
-                  expandedSections.spaces && "opacity-100",
-                )}
-                title={
+              <IconHoverTip
+                label={
                   allSpaceDirectoriesExpanded
                     ? t("session.collapse_all_spaces")
                     : t("session.expand_all_spaces")
                 }
-                aria-label={
-                  allSpaceDirectoriesExpanded
-                    ? t("session.collapse_all_spaces")
-                    : t("session.expand_all_spaces")
-                }
-                onClick={(event) => {
-                  event.stopPropagation();
-                  // Ensure the 空间 section itself is open.
-                  if (!expandedSections.spaces) {
-                    setExpandedSections((current) => ({
-                      ...current,
-                      spaces: true,
-                    }));
-                  }
-                  if (allSpaceDirectoriesExpanded) {
-                    props.onExpandedDirectoriesChange(() => []);
-                    return;
-                  }
-                  const allDirs = props.spaceGroups.map(([directory]) => directory);
-                  props.onExpandedDirectoriesChange(() => allDirs);
-                }}
               >
-                {allSpaceDirectoriesExpanded ? (
-                  <Minimize2 strokeWidth={1.75} />
-                ) : (
-                  <Maximize2 strokeWidth={1.75} />
-                )}
-              </button>
+                <button
+                  type="button"
+                  className={cn(
+                    TASK_ROW_ACTION_CLASS,
+                    "opacity-0 transition-opacity group-hover/section:opacity-100",
+                    expandedSections.spaces && "opacity-100",
+                  )}
+                  aria-label={
+                    allSpaceDirectoriesExpanded
+                      ? t("session.collapse_all_spaces")
+                      : t("session.expand_all_spaces")
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    // Ensure the 空间 section itself is open.
+                    if (!expandedSections.spaces) {
+                      setExpandedSections((current) => ({
+                        ...current,
+                        spaces: true,
+                      }));
+                    }
+                    if (allSpaceDirectoriesExpanded) {
+                      props.onExpandedDirectoriesChange(() => []);
+                      return;
+                    }
+                    const allDirs = props.spaceGroups.map(([directory]) => directory);
+                    props.onExpandedDirectoriesChange(() => allDirs);
+                  }}
+                >
+                  {allSpaceDirectoriesExpanded ? (
+                    <Minimize2 strokeWidth={1.75} />
+                  ) : (
+                    <Maximize2 strokeWidth={1.75} />
+                  )}
+                </button>
+              </IconHoverTip>
             ) : null
           }
         />
@@ -820,13 +861,60 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
 
-      {/* Automations */}
+      {/* Automations — same expand-all trailing as 空间 */}
       <div data-assistant-section="automations" className="flex flex-col gap-0.5">
         <SectionHeader
           label={t("session.task_filter_automation_tasks")}
           count={automationsCount}
           expanded={expandedSections.automations}
           onToggle={() => toggleSection("automations")}
+          trailing={
+            automationsCount > 0 ? (
+              <IconHoverTip
+                label={
+                  allAutomationGroupsExpanded
+                    ? t("session.collapse_all_automations")
+                    : t("session.expand_all_automations")
+                }
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    TASK_ROW_ACTION_CLASS,
+                    "opacity-0 transition-opacity group-hover/section:opacity-100",
+                    expandedSections.automations && "opacity-100",
+                  )}
+                  aria-label={
+                    allAutomationGroupsExpanded
+                      ? t("session.collapse_all_automations")
+                      : t("session.expand_all_automations")
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    // Ensure the 定时 section itself is open.
+                    if (!expandedSections.automations) {
+                      setExpandedSections((current) => ({
+                        ...current,
+                        automations: true,
+                      }));
+                    }
+                    if (allAutomationGroupsExpanded) {
+                      props.onExpandedAutomationDirectoriesChange(() => []);
+                      return;
+                    }
+                    const allIds = props.automationGroups.map((group) => group.id);
+                    props.onExpandedAutomationDirectoriesChange(() => allIds);
+                  }}
+                >
+                  {allAutomationGroupsExpanded ? (
+                    <Minimize2 strokeWidth={1.75} />
+                  ) : (
+                    <Maximize2 strokeWidth={1.75} />
+                  )}
+                </button>
+              </IconHoverTip>
+            ) : null
+          }
         />
         {expandedSections.automations ? (
           <div className="flex flex-col gap-0.5 pb-1">
@@ -911,5 +999,6 @@ export function AssistantConversationSections(props: AssistantConversationSectio
         ) : null}
       </div>
     </div>
+    </TooltipProvider>
   );
 }

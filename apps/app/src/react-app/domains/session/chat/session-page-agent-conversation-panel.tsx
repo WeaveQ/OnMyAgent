@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
-import { Bot, Plus, Search } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
@@ -133,8 +133,7 @@ export function AgentConversationPanel(props: {
           title={t("nav.agents")}
           aria-label={t("session.open_agent")}
         >
-          <Bot className="size-5" />
-          <Plus className="absolute right-1.5 top-1.5 size-2.5" strokeWidth={3} />
+          <UserPlus className="size-5" />
         </Button>
       </div>
 

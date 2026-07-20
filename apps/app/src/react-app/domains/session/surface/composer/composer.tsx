@@ -80,6 +80,84 @@ import {
   writePinnedSkillIds,
 } from "./pinned-skills";
 
+/** Client platform for Appshot naming / availability (Electron + browser). */
+function detectClientPlatform(): "macos" | "windows" | "linux" | "unknown" {
+  if (typeof navigator === "undefined") return "unknown";
+  const ua = navigator.userAgent ?? "";
+  const platform = navigator.platform ?? "";
+  if (/Mac|Macintosh|Darwin/i.test(platform) || /Mac OS X|Macintosh/i.test(ua)) {
+    return "macos";
+  }
+  if (/Win/i.test(platform) || /Windows/i.test(ua)) return "windows";
+  if (/Linux/i.test(platform) || /Linux/i.test(ua)) return "linux";
+  return "unknown";
+}
+
+/** Reject Swift debug dumps / control junk so notice + chips stay readable. */
+function isSafeAttachmentDisplayName(name: string): boolean {
+  const value = name.trim();
+  if (!value || value.length > 96) return false;
+  if (/JoinedSequence|ArraySlice|ContiguousArray|_base|_separator|Array</i.test(value)) {
+    return false;
+  }
+  // No control chars / newlines; allow normal unicode file names.
+  if (/[\u0000-\u001f\u007f]/.test(value)) return false;
+  return !value.includes("\n") && !value.includes("\r");
+}
+
+/**
+ * Cross-platform Appshot basename.
+ * - macOS: strips Swift JoinedSequence dumps from the native helper
+ * - Windows: strips reserved device names and illegal path characters
+ * - Linux / fallback: same safe basename rules
+ */
+function sanitizeAppshotFileName(
+  raw: string,
+  platform: "macos" | "windows" | "linux" | "unknown" = detectClientPlatform(),
+): string {
+  const value = raw.trim().replace(/\\/g, "/");
+  const base = value.includes("/") ? value.slice(value.lastIndexOf("/") + 1) : value;
+  let candidate = base
+    .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "-")
+    .replace(/\.+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const reservedWin =
+    platform === "windows" &&
+    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(candidate);
+
+  const looksBad =
+    !candidate ||
+    !isSafeAttachmentDisplayName(candidate) ||
+    reservedWin ||
+    !/^Appshot[-_\w. ()]+\.(jpe?g|png|webp)$/i.test(candidate);
+
+  if (!looksBad) {
+    return candidate.replace(/\.jpeg$/i, ".jpg");
+  }
+
+  const stamp = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stampText = [
+    stamp.getFullYear(),
+    pad(stamp.getMonth() + 1),
+    pad(stamp.getDate()),
+    "-",
+    pad(stamp.getHours()),
+    pad(stamp.getMinutes()),
+    pad(stamp.getSeconds()),
+  ].join("");
+  return `Appshot-${stampText}.jpg`;
+}
+
+/** Native Appshot helper is macOS-only today (Swift HandsFree). */
+function isAppshotCaptureSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!window.__ONMYAGENT_ELECTRON__?.computerUse) return false;
+  return detectClientPlatform() === "macos";
+}
+
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -141,7 +219,10 @@ export function ReactSessionComposer(props: ComposerProps) {
     draftRef.current = props.draft;
   }, [props.draft]);
 
-  const slashMatch = props.draft.match(/^\/(\S*)$/);
+  // Open slash menu whenever the caret-side draft ends with `/` or `/partial`.
+  // Previous regex required the *entire* draft to be a slash token, so after a
+  // skill chip (`/12306 `) a second `/` never opened the menu again.
+  const slashMatch = props.draft.match(/\/([^\s/]*)$/);
   const slashOpenNext = Boolean(slashMatch);
   const slashQuery = slashMatch?.[1] ?? "";
   const mentionMatch = props.draft.match(/@([^\s@]*)$/);
@@ -459,8 +540,17 @@ export function ReactSessionComposer(props: ComposerProps) {
 
   const slashFiltered = useMemo(() => {
     if (!slashOpen) return [];
-    if (!slashQuery) return commands.slice(0, 8);
-    return fuzzysort.go(slashQuery, commands, { keys: ["name", "description"], limit: 8 }).map((entry) => entry.obj);
+    // Stable group order for the popup: 技能 → 指令 → 连接器 (keyboard nav matches UI).
+    const orderGroups = (list: typeof commands) => [
+      ...list.filter((command) => command.source === "skill"),
+      ...list.filter((command) => !command.source || command.source === "command"),
+      ...list.filter((command) => command.source === "mcp"),
+    ];
+    if (!slashQuery) return orderGroups(commands).slice(0, 24);
+    const hits = fuzzysort
+      .go(slashQuery, commands, { keys: ["name", "description"], limit: 24 })
+      .map((entry) => entry.obj);
+    return orderGroups(hits);
   }, [commands, slashOpen, slashQuery]);
   const mentionFiltered = useMemo(() => {
     if (!mentionOpen) return [];
@@ -518,7 +608,15 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [menuIndex, activeItems.length]);
 
   const applyCommandSelection = (command: SlashCommandOption) => {
-    props.onDraftChange(`/${command.name} `);
+    const insertion = `/${command.name} `;
+    const draft = props.draft;
+    // Replace only the trailing `/` or `/partial` so an existing skill chip is kept.
+    if (/\/[^\s/]*$/.test(draft)) {
+      props.onDraftChange(draft.replace(/\/[^\s/]*$/, insertion));
+    } else {
+      const needsSpace = draft.length > 0 && !/\s$/.test(draft);
+      props.onDraftChange(`${draft}${needsSpace ? " " : ""}${insertion}`);
+    }
     setSlashOpen(false);
     setToolMenuOpen(false);
   };
@@ -718,20 +816,39 @@ export function ReactSessionComposer(props: ComposerProps) {
 
     if (accepted.length) {
       props.onAttachFiles(accepted);
-      props.onNotice({
-        title:
-          accepted.length === 1
-            ? t("composer.uploaded_single_file", { name: accepted[0]?.name ?? t("composer.file_kind") })
-            : t("composer.uploaded_multiple_files", { count: accepted.length }),
-        tone: "success",
-      });
+      // Compact composer notice — never dump long/corrupted native names into the card.
+      if (accepted.length === 1) {
+        const name = accepted[0]?.name?.trim() || "";
+        const displayName = isSafeAttachmentDisplayName(name)
+          ? name.length > 40
+            ? `${name.slice(0, 37)}…`
+            : name
+          : null;
+        props.onNotice({
+          title: t("composer.upload_success_title"),
+          description: displayName
+            ? t("composer.uploaded_single_file_short", { name: displayName })
+            : null,
+          tone: "success",
+        });
+      } else {
+        props.onNotice({
+          title: t("composer.upload_success_title"),
+          description: t("composer.uploaded_multiple_files", { count: accepted.length }),
+          tone: "success",
+        });
+      }
     }
 
     if (oversize.length) {
       props.onNotice({
         title:
           oversize.length === 1
-            ? t("composer.file_exceeds_limit", { name: oversize[0] })
+            ? t("composer.file_exceeds_limit", {
+                name: isSafeAttachmentDisplayName(oversize[0] ?? "")
+                  ? oversize[0]
+                  : t("composer.file_kind"),
+              })
             : `${oversize.length} files exceed the 8MB limit.`,
         tone: "warning",
       });
@@ -744,22 +861,28 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!("name" in payload) || typeof payload.name !== "string") return;
     if (!("mimeType" in payload) || typeof payload.mimeType !== "string") return;
     if (!("data" in payload) || typeof payload.data !== "string") return;
+    // Guard against native bugs that stringify Swift String as JoinedSequence debug text.
+    const safeName = sanitizeAppshotFileName(payload.name);
     const binary = atob(payload.data);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) {
       bytes[index] = binary.charCodeAt(index);
     }
     await addAttachments([
-      new File([bytes], payload.name, {
+      new File([bytes], safeName, {
         type: payload.mimeType,
         lastModified: Date.now(),
       }),
     ]);
+    // Dedicated short notice — no filename dump (attachment chip already shows it).
+    props.onNotice({
+      title: t("composer.appshot_success"),
+      tone: "success",
+    });
   };
 
-  const canCaptureAppshot = Boolean(
-    typeof window !== "undefined" && window.__ONMYAGENT_ELECTRON__?.computerUse,
-  );
+  // Appshot requires the macOS Computer Use helper; hide the action elsewhere.
+  const canCaptureAppshot = isAppshotCaptureSupported();
 
   const captureAppshot = async () => {
     if (!props.attachmentsEnabled || !canCaptureAppshot) return;
@@ -767,14 +890,22 @@ export function ReactSessionComposer(props: ComposerProps) {
     try {
       await attachAppshot(await desktopBridge.captureComputerUseAppshot());
     } catch (error) {
+      const platform = detectClientPlatform();
+      const fallback =
+        platform === "windows"
+          ? t("composer.appshot_unsupported_windows")
+          : platform === "linux"
+            ? t("composer.appshot_unsupported_linux")
+            : t("composer.appshot_failed");
       props.onNotice({
-        title: error instanceof Error ? error.message : t("composer.appshot_failed"),
+        title: error instanceof Error ? error.message : fallback,
         tone: "warning",
       });
     }
   };
 
   useEffect(() => {
+    if (!canCaptureAppshot) return;
     const subscribe = window.__ONMYAGENT_ELECTRON__?.computerUse?.onAppshot;
     if (!subscribe) return;
     return subscribe((payload) => {
@@ -846,10 +977,16 @@ export function ReactSessionComposer(props: ComposerProps) {
         ? "rounded-t-xl rounded-b-none"
         : "rounded-xl";
 
+  const homeLayout = Boolean(props.homeLayout);
+
   return (
     <div
       ref={rootRef}
-      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`}
+      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
+        homeLayout
+          ? "bg-transparent px-0 pb-0 pt-0"
+          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`
+      }`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
       onCompositionStart={() => {
@@ -859,10 +996,10 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      <div className="mx-auto w-full max-w-[1120px]">
+      <div className={homeLayout ? "mx-auto w-full max-w-none" : "mx-auto w-full max-w-[1120px]"}>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
-          className={`relative overflow-visible bg-dls-surface ${props.showOuterBorder ? `border border-dls-mist${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
+          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
@@ -955,7 +1092,13 @@ export function ReactSessionComposer(props: ComposerProps) {
 
           <div
             className={
-              props.attachments.length > 0 ? "px-4 pb-2 pt-2" : "px-4 pb-2 pt-3"
+              props.attachments.length > 0
+                ? homeLayout
+                  ? "px-3.5 pb-1.5 pt-2"
+                  : "px-4 pb-2 pt-2"
+                : homeLayout
+                  ? "px-3.5 pb-1.5 pt-3.5"
+                  : "px-4 pb-2 pt-3"
             }
           >
             {/* Editor */}
@@ -964,6 +1107,7 @@ export function ReactSessionComposer(props: ComposerProps) {
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}
               disabled={props.disabled}
+              compact={homeLayout}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={props.onDraftChange}
               onSubmit={props.onSend}
@@ -1046,7 +1190,13 @@ export function ReactSessionComposer(props: ComposerProps) {
             />
 
             {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div className="mt-2 flex items-end justify-between gap-1.5">
+            <div
+              className={
+                homeLayout
+                  ? "mt-1 flex items-center justify-between gap-1.5"
+                  : "mt-2 flex items-end justify-between gap-1.5"
+              }
+            >
               <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {
@@ -1103,15 +1253,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                             align="center"
                             density="compact"
                             active={toolMenuSection === "files"}
-                            className="justify-between gap-2"
+                            // Match 2nd-column skill titles: primary text, not muted gray.
+                            className="justify-between gap-2 text-dls-text hover:text-dls-text"
                             disabled={!props.attachmentsEnabled}
                             onMouseEnter={() => setToolMenuSection("files")}
                             onFocus={() => setToolMenuSection("files")}
                             onClick={openFilePicker}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <Paperclip className="size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="truncate text-sm">{t("composer.add_file")}</span>
+                              <Paperclip className="size-3.5 shrink-0 text-dls-text" />
+                              <span className="truncate text-sm leading-5 text-dls-text">{t("composer.add_file")}</span>
                             </span>
                           </MenuRowButton>
                           {canCaptureAppshot ? (
@@ -1119,12 +1270,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                               type="button"
                               align="center"
                               density="compact"
-                              className="gap-2"
+                              className="gap-2 text-dls-text hover:text-dls-text"
                               disabled={!props.attachmentsEnabled}
                               onClick={() => void captureAppshot()}
                             >
-                              <Camera className="size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="truncate text-sm">{t("composer.capture_appshot")}</span>
+                              <Camera className="size-3.5 shrink-0 text-dls-text" />
+                              <span className="truncate text-sm leading-5 text-dls-text">{t("composer.capture_appshot")}</span>
                             </MenuRowButton>
                           ) : null}
                           <div
@@ -1145,7 +1296,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                               align="center"
                               density="compact"
                               active={toolMenuSection === section}
-                              className="justify-between gap-2"
+                              className="justify-between gap-2 text-dls-text hover:text-dls-text"
                               onMouseEnter={() => {
                                 setToolMenuSection(section);
                                 // WorkBuddy-style: open first template category so the 3rd flyout appears.
@@ -1167,10 +1318,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                               }}
                             >
                               <span className="flex min-w-0 items-center gap-2">
-                                <Icon className="size-3.5 shrink-0 text-dls-secondary" />
-                                <span className="truncate text-sm">{label}</span>
+                                <Icon className="size-3.5 shrink-0 text-dls-text" />
+                                <span className="truncate text-sm leading-5 text-dls-text">{label}</span>
                               </span>
-                              <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+                              <ChevronRight className="size-3.5 shrink-0 text-dls-text/50" />
                             </MenuRowButton>
                           ))}
                         </div>
@@ -1185,9 +1336,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                               {t("composer.prompt_templates")}
                             </div>
                           ) : toolMenuSection === "skills" ? (
-                            <div className="space-y-2 border-b border-dls-border px-3 py-2">
+                            <div className="space-y-1.5 px-3 pt-2 pb-1">
                               {/* Match connectors panel: title + quiet configure, then search */}
-                              <div className="flex min-h-8 items-center justify-between gap-3">
+                              <div className="flex min-h-7 items-center justify-between gap-3">
                                 <div className="text-sm font-medium text-dls-text">
                                   {t("dashboard.skills")}
                                 </div>
@@ -1205,9 +1356,14 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   {t("composer.configure")}
                                 </Button>
                               </div>
-                              <InputGroup controlSize="sm" radius="md" tone="surface">
-                                <InputGroupAddon align="inline-start">
-                                  <Search aria-hidden="true" className="size-3.5" />
+                              <InputGroup
+                                controlSize="sm"
+                                radius="lg"
+                                tone="surfaceMuted"
+                                className="border-dls-border/50"
+                              >
+                                <InputGroupAddon align="inline-start" inset="compact">
+                                  <Search aria-hidden="true" className="size-3.5 text-dls-secondary" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={skillSearchQuery}
@@ -1219,9 +1375,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                               </InputGroup>
                             </div>
                           ) : toolMenuSection === "mcps" ? (
-                            <div className="space-y-2 border-b border-dls-border px-3 py-2">
+                            <div className="space-y-1.5 px-3 pt-2 pb-1">
                               {/* Match skills panel: title + quiet configure, then search */}
-                              <div className="flex min-h-8 items-center justify-between gap-3">
+                              <div className="flex min-h-7 items-center justify-between gap-3">
                                 <div className="text-sm font-medium text-dls-text">
                                   {t("composer.connectors_label")}
                                 </div>
@@ -1239,9 +1395,14 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   {t("composer.configure")}
                                 </Button>
                               </div>
-                              <InputGroup controlSize="sm" radius="md" tone="surface">
-                                <InputGroupAddon align="inline-start">
-                                  <Search aria-hidden="true" className="size-3.5" />
+                              <InputGroup
+                                controlSize="sm"
+                                radius="lg"
+                                tone="surfaceMuted"
+                                className="border-dls-border/50"
+                              >
+                                <InputGroupAddon align="inline-start" inset="compact">
+                                  <Search aria-hidden="true" className="size-3.5 text-dls-secondary" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={connectorSearchQuery}
@@ -1259,7 +1420,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                           ) : null}
                           <div
                             className={cn(
-                              "overflow-x-hidden overflow-y-auto p-1.5",
+                              "overflow-x-hidden overflow-y-auto px-1.5 pb-1.5",
+                              // Skills/connectors already pad under search — avoid double gap.
+                              toolMenuSection === "skills" || toolMenuSection === "mcps"
+                                ? "pt-0"
+                                : "pt-1.5",
                               // Templates list is short (≤3) — keep panel compact so the 3rd flyout fits.
                               toolMenuSection === "templates" ? "max-h-48" : "max-h-56",
                             )}
@@ -1391,12 +1556,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                                           <MenuRowButton
                                             type="button"
                                             align="center"
-                                            className="min-w-0 flex-1 gap-3 overflow-hidden bg-transparent hover:bg-transparent"
+                                            className="min-w-0 flex-1 gap-2 overflow-hidden bg-transparent hover:bg-transparent"
                                             onClick={() => applyCommandSelection(command)}
                                           >
-                                            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                              <SkillGlyphIcon className="size-3.5 text-dls-secondary" />
-                                            </div>
                                             <div className="min-w-0 flex-1 overflow-hidden text-left">
                                               <div className="truncate text-sm font-medium text-dls-text">
                                                 {command.name}
@@ -1468,12 +1630,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                                         key={`${file.configObjectId}:${file.path}`}
                                         type="button"
                                         align="center"
-                                        className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
+                                        className="w-full min-w-0 max-w-full gap-2 overflow-hidden"
                                         onClick={() => applyPluginFileSelection(file)}
                                       >
-                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                          <FileText className="size-3.5 text-dls-secondary" aria-hidden="true" />
-                                        </div>
                                         <div className="min-w-0 flex-1 overflow-hidden">
                                           <div className="flex min-w-0 items-center justify-between gap-2">
                                             <div className="min-w-0 truncate text-sm font-medium text-dls-text">
@@ -1791,7 +1950,7 @@ export function ReactSessionComposer(props: ComposerProps) {
         {props.bottomAccessory ? (
           <div
             className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
-              props.showOuterBorder ? " border border-t-0 border-dls-mist" : ""
+              props.showOuterBorder ? " border border-t-0 border-dls-border shadow-sm" : ""
             }`}
           >
             {props.bottomAccessory}

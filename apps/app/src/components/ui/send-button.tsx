@@ -16,10 +16,9 @@ type SendButtonProps = Omit<
 };
 
 /**
- * Circular send control (DESIGN.md §11): brand-blue solid disk when ready,
- * muted disk when idle/disabled. Arrow points up and is sized larger than
- * default button svg so it stays readable on the 40px disk.
- * No Tooltip — nested TooltipTrigger wrappers were producing empty white bubbles.
+ * Circular send control (DESIGN.md §11):
+ * - Ready (has draft): solid decision blue, primary CTA
+ * - Idle/empty: muted ghost disk — clearly not the active action
  */
 export function SendButton({
   className,
@@ -34,16 +33,18 @@ export function SendButton({
 
   return (
     <Button
-      variant="ghost"
+      variant={ready ? "default" : "ghost"}
       size="icon-lg"
       disabled={disabled}
       title={title ?? accessibleLabel}
       aria-label={accessibleLabel}
       className={cn(
-        "rounded-full border-0 shadow-none",
+        "rounded-full",
         ready
-          ? "bg-dls-decision text-white hover:bg-dls-decision-hover hover:text-white"
-          : "bg-dls-surface-muted text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-secondary disabled:opacity-100",
+          ? "border-0 bg-dls-decision text-white shadow-sm hover:bg-dls-decision-hover hover:text-white"
+          : "border border-dls-border/70 bg-dls-surface-muted text-dls-secondary/70 shadow-none hover:bg-dls-surface-muted hover:text-dls-secondary/70",
+        // Keep idle disk fully opaque (base Button uses disabled:opacity-50).
+        "disabled:pointer-events-none disabled:opacity-100",
         className,
       )}
       {...props}
@@ -53,7 +54,7 @@ export function SendButton({
       ) : (
         <ArrowUp
           className="size-5"
-          strokeWidth={2.5}
+          strokeWidth={ready ? 2.5 : 2}
           aria-hidden
         />
       )}

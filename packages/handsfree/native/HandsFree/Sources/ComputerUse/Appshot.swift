@@ -83,11 +83,7 @@ final class AppshotCaptureStore: @unchecked Sendable {
             backgroundActivated: false
         )
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
-        let appSlug = target.appName.map { $0.isLetter || $0.isNumber ? $0 : "-" }
-            .split(separator: "-")
-            .joined(separator: "-")
-        let timestamp = Self.filenameFormatter.string(from: Date())
-        let filename = "Appshot-\(timestamp)-\(appSlug).jpg"
+        let filename = Self.makeFileName(appName: target.appName, date: Date())
         let fileURL = rootURL.appendingPathComponent(filename)
         try snapshot.screenshotData.write(to: fileURL, options: .atomic)
         let result = AppshotResult(
@@ -155,6 +151,32 @@ final class AppshotCaptureStore: @unchecked Sendable {
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         return formatter
     }()
+
+    /// Build a portable basename. Must return a real `String` — never a
+    /// `JoinedSequence` (Swift `map`+`joined` dump) which previously leaked
+    /// into Electron toasts as `JoinedSequence<Array<ArraySlice<Character>>>…`.
+    static func makeFileName(appName: String, date: Date = Date()) -> String {
+        let safeSlug = makeAppSlug(appName)
+        let timestamp = filenameFormatter.string(from: date)
+        return "Appshot-\(timestamp)-\(safeSlug).jpg"
+    }
+
+    static func makeAppSlug(_ appName: String) -> String {
+        // Character-by-character into [Character] → String. Do NOT use
+        // String.map(...).joined(separator:) — that yields JoinedSequence.
+        var slugChars: [Character] = []
+        for ch in appName {
+            if ch.isLetter || ch.isNumber {
+                slugChars.append(ch)
+            } else if slugChars.last != Character("-") {
+                slugChars.append(Character("-"))
+            }
+        }
+        while slugChars.first == Character("-") { slugChars.removeFirst() }
+        while slugChars.last == Character("-") { slugChars.removeLast() }
+        let appSlug = String(slugChars)
+        return appSlug.isEmpty ? "App" : appSlug
+    }
 }
 
 final class AppshotShortcutMonitor: @unchecked Sendable {
