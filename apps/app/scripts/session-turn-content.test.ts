@@ -41,6 +41,11 @@ describe("WorkBuddy turn content presentation", () => {
     const sandbox = buildVisualSandboxDocument(chart);
     expect(sandbox).toContain("default-src 'none'");
     expect(sandbox).toContain("onmyagent:visual-resize");
+    expect(sandbox).toContain("--color-background-tertiary");
+    expect(sandbox).toContain("--color-border-secondary");
+    expect(sandbox).toContain("--border-radius-lg:12px");
+    expect(sandbox).toContain(".c-purple");
+    expect(sandbox).toContain(".th{font-family:var(--font-sans");
     expect(sandbox).toContain(chart);
   });
 

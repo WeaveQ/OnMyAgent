@@ -5,6 +5,10 @@ import { ensureDir, exists } from "../core/utils.js";
 import { ApiError } from "../core/errors.js";
 import { isBrowserAutomationEnabled } from "../services/browser-plugin-enablement.js";
 import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
+import {
+  visualDesignSpecToolSource,
+  visualizerReadMeToolSource,
+} from "./visualizer-tool-source.js";
 import { onmyagentConfigPath, opencodeConfigPath } from "./workspace-files.js";
 import {
   readJsoncFile,
@@ -65,57 +69,12 @@ const ONMYAGENT_VISUAL_GUIDANCE = `<!-- ${APP_NAME}_VISUALS_START -->
 
 ${APP_NAME} can render safe SVG/HTML fragments directly inside the completed assistant response.
 
-- When a chart, architecture diagram, process, comparison, timeline, or metric dashboard communicates the result more clearly than prose alone, call \`get_design_spec\` with every relevant module and then \`render_visual\`. For charts, request \`modules: ["chart"]\`.
+- When a chart, architecture diagram, process, comparison, timeline, or metric dashboard communicates the result more clearly than prose alone, call \`read_me\` with every relevant module and then \`render_visual\`. For charts, request \`modules: ["chart"]\`.
 - Pass a concise title. Use \`widget_code\` only for a small fragment; for a substantial visual, write one \`.svg\` or \`.html\` file in the workspace and pass its workspace-relative path as \`file_path\`. Do not read the file back into the tool call.
 - If writing a large visual risks an incomplete tool call, create or update the file in smaller chunks before calling \`render_visual\`. Never send a complete HTML document, iframe, form, event handler, storage access, or script outside the chart module's CDN allowlist.
 - Prefer responsive SVG for diagrams and compact static visuals. For quantitative charts, follow the chart module and use responsive Chart.js HTML instead of hand-calculating absolute SVG coordinates. Keep the explanation in normal Markdown and use the visual as supporting evidence.
 - Do not paste the SVG/HTML source into the final response after calling the tool. The client hoists the rendered visual beneath the final answer automatically.
 <!-- ${APP_NAME}_VISUALS_END -->`;
-
-function visualDesignSpecToolSource(): string {
-  return `import { tool } from "@opencode-ai/plugin"
-
-const DESIGN_SPEC = \`# ${APP_NAME} inline visual design spec
-
-- Output one SVG or safe HTML fragment, never a full document.
-- SVG root: <svg viewBox="0 0 680 H" width="100%" role="img" aria-label="...">.
-- Use a transparent background and responsive width. Keep the height proportional to content.
-- Use the host theme tokens: var(--dls-text-primary), var(--dls-text-secondary), var(--dls-surface), var(--dls-surface-muted), var(--dls-border), var(--dls-accent), var(--dls-status-success-fg), var(--dls-status-warning), var(--dls-status-danger).
-- Categorical fallbacks when more series are needed: #22A06B, #3B82F6, #E05A33, #7667E8, #C77700.
-- Typography: system-ui; sizes 12, 13, 14, or 15px; weights 400 or 500. Titles may use 20-24px / 600 only once.
-- Geometry: 8-12px corner radius; 16-24px internal spacing; 1px borders. Avoid gradients, shadows, emoji, decorative noise, and 3D effects.
-- Lines and arrows: fill="none"; stroke-width 1.5-2; define arrow markers in <defs> before use.
-- Charts must include labels, units, a compact legend, and enough contrast in light and dark themes. Do not rely on color alone.
-- Keep important text selectable. Add <title> or aria-label for accessibility.
-- SVG must never include scripts or event handlers. HTML may use inline scripts and the chart module's allowlisted CDN, but never iframe, object, embed, form, storage APIs, fixed positioning, or javascript: URLs.
-\`
-
-const CHART_SPEC = \`# Chart module (Chart.js)
-
-- Use an HTML fragment with Chart.js for quantitative charts. Do not hand-calculate a large chart as SVG; manual absolute coordinates easily overlap labels, legends, and axes.
-- Start with a visually hidden h2 summary, then a compact title/legend, a position:relative wrapper with an explicit pixel height, and a canvas. Set height on the wrapper only.
-- Load only https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js, followed by a plain inline script. The widget runs in an isolated CSP iframe.
-- Configure responsive:true and maintainAspectRatio:false. For mixed bar/line charts, give percentage series yAxisID:"y1" and amount series yAxisID:"y".
-- Disable the default legend and render a compact wrapping HTML legend above the chart. Keep labels and units explicit; do not rely on color alone.
-- Keep category count at 12 or fewer. Use ticks.autoSkip:false and maxRotation:45 when every category must remain visible.
-- Canvas cannot resolve host CSS variables, so choose accessible light/dark-safe hex colors for datasets and grid lines.
-- Metric cards below a chart use one fixed known-count strip: for N cards, write repeat(N,minmax(0,1fr)) with the actual card count in place of N; never use auto-fit or a fixed minimum card width. Use 12px gaps and min-width:0 on every card. Keep labels and values on one line with white-space:nowrap, overflow:hidden, and text-overflow:ellipsis so compact transcript widths do not create an orphan final row.
-
-Minimal structure:
-<div><h2 class="sr-only">Chart summary</h2><div aria-hidden="true">Custom legend</div><div style="position:relative;width:100%;height:360px"><canvas id="chart" role="img" aria-label="Chart description">Chart fallback.</canvas></div><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"><\\/script><script>new Chart(document.getElementById("chart"),{type:"bar",data:{labels:[],datasets:[]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})<\\/script></div>
-\`
-
-export default tool({
-  description: "Read the ${APP_NAME} design rules for inline SVG/HTML visuals before calling render_visual. Pass chart for quantitative charts.",
-  args: {
-    modules: tool.schema.array(tool.schema.enum(["diagram", "mockup", "interactive", "chart", "art"])).min(1).max(5).optional().describe("Every visual module needed for this result"),
-  },
-  async execute(args) {
-    return args.modules?.includes("chart") ? DESIGN_SPEC + "\\n\\n" + CHART_SPEC : DESIGN_SPEC
-  },
-})
-`;
-}
 
 function renderVisualToolSource(): string {
   return `import { readFile, realpath } from "node:fs/promises"
@@ -145,7 +104,7 @@ function hasUnsafeScriptSource(source) {
 }
 
 export default tool({
-  description: "Render a safe SVG or HTML fragment inline in the conversation. For substantial visuals, write a workspace file and pass file_path instead of embedding long widget_code JSON. Call get_design_spec first and keep the normal explanation in the final response.",
+  description: "Render a safe SVG or HTML fragment inline in the conversation. For substantial visuals, write a workspace file and pass file_path instead of embedding long widget_code JSON. Call read_me first and keep the normal explanation in the final response.",
   args: {
     title: tool.schema.string().min(1).max(120).describe("Concise visual title and export name"),
     widget_code: tool.schema.string().min(1).max(MAX_SOURCE_LENGTH).optional().describe("A small bare SVG/HTML fragment; omit when file_path is used"),
@@ -619,7 +578,8 @@ async function ensureVisualTools(
   const toolsDir = join(workspaceRoot, ".opencode", "tools");
   await ensureDir(toolsDir);
   const managedTools: Array<[string, string]> = [
-    ["get_design_spec.ts", visualDesignSpecToolSource()],
+    ["read_me.ts", visualizerReadMeToolSource()],
+    ["get_design_spec.ts", visualDesignSpecToolSource(APP_NAME)],
     ["render_visual.ts", renderVisualToolSource()],
   ];
   if (browserEnabled) {

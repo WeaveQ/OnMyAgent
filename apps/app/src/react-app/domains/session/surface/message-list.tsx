@@ -2306,7 +2306,13 @@ function WorkBuddyProcessFold(props: {
             <ToolActivityIcon category={chip.category} />
           </span>
         )}
-        <span>{chip.label}</span>
+        <span
+          className={cn(
+            isThinking && chip.running && "session-transcript-loading-shimmer",
+          )}
+        >
+          {chip.label}
+        </span>
         <ChevronDown aria-hidden="true" className="session-workbuddy-process-arrow" />
       </button>
       {expanded ? (

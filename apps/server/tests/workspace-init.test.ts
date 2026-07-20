@@ -71,6 +71,10 @@ describe("ensureWorkspaceFiles", () => {
         join(root, ".opencode", "tools", "get_design_spec.ts"),
         "utf8",
       );
+      const visualizerReadMeTool = await readFile(
+        join(root, ".opencode", "tools", "read_me.ts"),
+        "utf8",
+      );
       const renderVisualTool = await readFile(
         join(root, ".opencode", "tools", "render_visual.ts"),
         "utf8",
@@ -100,19 +104,26 @@ describe("ensureWorkspaceFiles", () => {
       expect(agent).toContain("Do not narrate every low-level call");
       expect(agent).toContain("Text -> operation group -> text -> operation group");
       expect(agent).toContain('request `modules: ["chart"]`');
+      expect(agent).toContain("call `read_me` with every relevant module and then `render_visual`");
       expect(agent).toContain("pass its workspace-relative path as `file_path`");
       expect(agent).toContain("use responsive Chart.js HTML");
       expect(agent).toContain("Do not read the file back into the tool call");
-      expect(designSpecTool).toContain("inline visual design spec");
-      expect(designSpecTool).toContain("var(--dls-text-primary)");
-      expect(designSpecTool).toContain("Chart module (Chart.js)");
-      expect(designSpecTool).toContain("Do not hand-calculate a large chart as SVG");
-      expect(designSpecTool).toContain("repeat(N,minmax(0,1fr))");
-      expect(designSpecTool).toContain("min-width:0");
-      expect(designSpecTool).toContain("white-space:nowrap");
-      expect(designSpecTool).toContain("text-overflow:ellipsis");
-      expect(designSpecTool).not.toContain("repeat(auto-fit,minmax(150px,1fr))");
-      expect(designSpecTool).toContain('tool.schema.enum(["diagram", "mockup", "interactive", "chart", "art"])');
+      expect(designSpecTool).toContain('from "./read_me"');
+      expect(visualizerReadMeTool).toContain("# Visualizer Core Design System");
+      expect(visualizerReadMeTool).toContain("# Color Palette (9 ramps × 7 levels)");
+      expect(visualizerReadMeTool).toContain("# SVG Setup Rules");
+      expect(visualizerReadMeTool).toContain("# Diagram Guidance");
+      expect(visualizerReadMeTool).toContain("# UI Components");
+      expect(visualizerReadMeTool).toContain("# Charts (Chart.js)");
+      expect(visualizerReadMeTool).toContain("# Geographic maps (D3 choropleth)");
+      expect(visualizerReadMeTool).toContain("# Art and illustration");
+      expect(visualizerReadMeTool).toContain('type: "visualizer_read_me_result"');
+      expect(visualizerReadMeTool).toContain("JSON.stringify(payload)");
+      expect(visualizerReadMeTool).toContain('tool.schema.enum(["diagram","mockup","interactive","chart","art"])');
+      expect(visualizerReadMeTool).toContain("Do NOT mention or narrate this call to the user");
+      expect(visualizerReadMeTool).toContain("Canvas cannot resolve CSS variables");
+      expect(visualizerReadMeTool).toContain("responsive: true");
+      expect(visualizerReadMeTool).toContain("maintainAspectRatio: false");
       expect(renderVisualTool).toContain('widget_code: tool.schema.string()');
       expect(renderVisualTool).toContain('file_path: tool.schema.string()');
       expect(renderVisualTool).toContain("Provide exactly one of widget_code or file_path");

@@ -18,6 +18,19 @@ export type AssistantActivityPhase =
   | "compacting"
   | "error";
 
+export const WORKBUDDY_ACTIVITY_PHASES: readonly AssistantActivityPhase[] = [
+  "preparing",
+  "model-requesting",
+  "model-streaming",
+  "model-done",
+  "tool-preparing",
+  "tool-executing",
+  "waiting-permission",
+  "waiting-user",
+  "retrying",
+  "compacting",
+];
+
 export type AssistantToolIntent =
   | "read"
   | "edit"
