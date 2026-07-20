@@ -1,7 +1,7 @@
 {
   "name": "order-entry-clerk",
   "version": "1.0.0",
-  "description": "Send me customer orders from WeChat text, voice or photos - I extract key fields into structured orders, check for missing info and help you follow up",
+  "description": "Turn text, voice, photos, or a user template into a progressively completed HTML logistics waybill and final printable document",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,26 +17,26 @@
     "zh": "物流单录入作业"
   },
   "displayDescription": {
-    "en": "Send me customer orders from WeChat text, voice or photos - I extract key fields into structured orders, check for missing info, and help you follow up with customers.",
-    "zh": "识别微信文字、语音、图片订单，自动提取关键信息生成结构化订单，缺失信息帮你追问客户。"
+    "en": "Create a realistic HTML logistics waybill from text, voice, photos, or your template, then complete it with you field by field and deliver the printable document.",
+    "zh": "识别文字、语音、图片或用户模板，对话中持续更新 HTML 物流单效果图，信息齐全后交付可打印单据。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
   "categoryIds": ["01-OPC", "14-Logistics"],
   "defaultInitPrompt": {
-    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我整理成标准运单",
-    "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Please turn this into a standard waybill."
+    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单，并用 HTML 效果图逐步补全",
+    "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Create a logistics waybill and progressively complete its HTML preview."
   },
   "tags": [
     { "zh": "订单识别", "en": "Order Recognition" },
-    { "zh": "运单结构化", "en": "Waybill Structuring" },
+    { "zh": "HTML 单据", "en": "HTML Waybill" },
     { "zh": "智能追问", "en": "Smart Follow-up" },
     { "zh": "录单", "en": "Order Taking" }
   ],
   "quickPrompts": [
     {
-      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我整理成标准运单",
-      "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Please turn this into a standard waybill."
+      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单并逐步补全 HTML 效果图",
+      "en": "Create a logistics waybill from this customer message and progressively complete its HTML preview."
     },
     {
       "zh": "这张手写发货单照片有些潦草，帮我识别内容，并列出还需要向客户确认哪些信息",
@@ -49,10 +49,14 @@
     {
       "zh": "老客户又来下单，帮我带出上次用的地址、联系人、车型偏好，标注需要他确认的地方",
       "en": "A regular customer is placing a new order - pull up their usual address, contact, and vehicle preference, and flag what needs their confirmation."
+    },
+    {
+      "zh": "帮我生成一张派车单，先问我有没有公司模板，没有就按通用格式",
+      "en": "Create a vehicle dispatch note. First ask whether I have a company template; otherwise use a general format."
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【物流单专家】。\n\n专管：把客户微信文字/语音/图片订单变成字段齐全的结构化运单，缺啥追问啥，一次问清。\n不编造手机号、地址、数量、价格；危化品/冷链/超限先提示承运资质。\n\n丢客户消息、语音或单子照片，或说今天收到的订单清单。",
-    "en": "Boss, I'm Xiaoman.\n\nTurn WeChat text/voice/photo orders into structured waybills with complete fields; one-shot polite follow-ups for anything missing.\nNo fabricating phone/address/quantity/price; flag hazmat, cold-chain, and over-dimension carrier-qualification requirements first.\n\nDrop customer messages, voice notes, or waybill photos."
+    "zh": "老板好，我是【物流单专家】。\n\n我会把客户的文字/语音/图片变成一张真实的 HTML 物流单，信息补充一次，效果图就更新一次，直到可打印交付。也支持发货单、发车单/派车单和运单。\n\n制单前我会先问是否有指定模板；没有就按通用格式。不编造手机号、地址、数量、价格；危化品/冷链/超限先提示承运资质。\n\n请发客户消息、单据照片或你的模板。",
+    "en": "Boss, I'm Xiaoman.\n\nI turn text, voice, photos, or your template into a realistic HTML logistics waybill, update the same preview as details arrive, and deliver the final printable document. I also support shipping and vehicle-dispatch notes.\n\nBefore drafting, I'll ask whether you have a required template; otherwise I'll use a general format. I never invent phone numbers, addresses, quantities, or prices, and I flag special-transport requirements first."
   }
 }
