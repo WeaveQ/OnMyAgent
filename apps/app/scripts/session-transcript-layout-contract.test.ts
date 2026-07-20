@@ -35,6 +35,32 @@ const visualFixturePath = new URL(
 );
 
 describe("session transcript layout contract", () => {
+  test("keeps the WorkBuddy semantic tool icon registry instead of a permanent loader", async () => {
+    const messageList = await Bun.file(messageListPath).text();
+
+    for (const category of [
+      "skill",
+      "terminal",
+      "viewed",
+      "edit",
+      "glob",
+      "search",
+      "web",
+      "delete",
+      "completion",
+      "plan",
+      "agent",
+      "image",
+      "widget",
+      "database",
+      "cloud",
+      "debug",
+    ]) {
+      expect(messageList).toContain(`case \"${category}\"`);
+    }
+    expect(messageList).not.toContain("<LoadingSpinner className={className}");
+  });
+
   test("keeps the five-card finance KPI strip on one compact row", async () => {
     const visualFixture = await Bun.file(visualFixturePath).text();
 

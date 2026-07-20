@@ -104,7 +104,7 @@ describe("session process summary", () => {
     });
   });
 
-  test("keeps completed browser operations static while the enclosing turn is streaming", () => {
+  test("translates browser navigation into WorkBuddy web semantics", () => {
     setLocale("en");
     const meta = processFoldChipMeta([
       {
@@ -115,7 +115,7 @@ describe("session process summary", () => {
           type: "dynamic-tool",
           toolName: "onmyagent_browser_node_repl",
           toolCallId: "call-browser",
-          input: { code: "return await tab.url()" },
+          input: { code: 'await tab.goto("https://example.com/report")' },
           output: "https://example.com",
           state: "output-available",
         },
@@ -123,11 +123,72 @@ describe("session process summary", () => {
     ], true);
 
     expect(meta).toEqual({
-      label: "Continue processing task",
-      category: "browser",
+      label: "Read web page example.com",
+      category: "web",
       variant: "summary",
       running: false,
     });
+  });
+
+  test("distinguishes browser inspection, interaction, snapshot, and waiting operations", () => {
+    setLocale("en");
+    const cases = [
+      {
+        code: "return await tab.playwright.evaluate(() => document.body.textContent)",
+        label: "Inspect page content",
+        category: "read",
+      },
+      {
+        code: "await tab.playwright.locator('a.cover').first().click()",
+        label: "Interact with page",
+        category: "browser",
+      },
+      {
+        code: "const shot = await tab.screenshot({ format: 'jpeg' })",
+        label: "Capture page snapshot",
+        category: "image",
+      },
+      {
+        code: "await tab.playwright.waitForTimeout(4000)",
+        label: "Wait for page response",
+        category: "browser",
+      },
+      {
+        code: "await tab.playwright.evaluate(() => window.scrollBy(0, 700))",
+        label: "Browse page",
+        category: "browser",
+      },
+      {
+        code: "const browser = await agent.browsers.getDefault(); return browser.tabs.list()",
+        label: "Prepare browser",
+        category: "browser",
+      },
+    ] as const;
+
+    for (const [index, item] of cases.entries()) {
+      const meta = processFoldChipMeta([
+        {
+          messageId: `message-browser-${index}`,
+          partIndex: 0,
+          index: 0,
+          part: {
+            type: "dynamic-tool",
+            toolName: "onmyagent_browser_node_repl",
+            toolCallId: `call-browser-${index}`,
+            input: { code: item.code },
+            output: "ok",
+            state: "output-available",
+          },
+        },
+      ], true);
+
+      expect(meta).toEqual({
+        label: item.label,
+        category: item.category,
+        variant: "summary",
+        running: false,
+      });
+    }
   });
 
   test("uses WorkBuddy command naming without leaking command text", () => {

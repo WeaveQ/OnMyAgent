@@ -5,18 +5,27 @@ import type { Part } from "@opencode-ai/sdk/v2/client";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Box,
+  Bot,
+  Bug,
   Check,
+  CheckCircle2,
   ChevronDown,
   CircleAlert,
+  ClipboardCheck,
+  Cloud,
   Copy,
+  Database,
   Eye,
   File as FileIcon,
   Folder,
   GitFork,
   Globe,
   HelpCircle,
+  Image as ImageIcon,
   MessageSquareWarning,
   MoreHorizontal,
+  PanelsTopLeft,
+  Pencil,
   RotateCcw,
   Search,
   Share2,
@@ -24,6 +33,7 @@ import {
   Terminal,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   Volume2,
 } from "lucide-react";
 
@@ -694,15 +704,37 @@ function ToolActivityIcon(props: { category?: string }) {
     case "terminal":
       return <Terminal className={className} strokeWidth={1.9} />;
     case "read":
+    case "viewed":
+      return <Eye className={className} strokeWidth={1.7} />;
     case "edit":
     case "write":
-      return <FileIcon className={className} strokeWidth={1.9} />;
+      return <Pencil className={className} strokeWidth={1.8} />;
     case "glob":
       return <Folder className={className} strokeWidth={1.9} />;
     case "search":
       return <Search className={className} strokeWidth={1.9} />;
     case "browser":
       return <Eye className={className} strokeWidth={1.7} />;
+    case "web":
+      return <Globe className={className} strokeWidth={1.8} />;
+    case "image":
+      return <ImageIcon className={className} strokeWidth={1.8} />;
+    case "delete":
+      return <Trash2 className={className} strokeWidth={1.8} />;
+    case "completion":
+      return <CheckCircle2 className={className} strokeWidth={1.8} />;
+    case "plan":
+      return <ClipboardCheck className={className} strokeWidth={1.8} />;
+    case "agent":
+      return <Bot className={className} strokeWidth={1.8} />;
+    case "widget":
+      return <PanelsTopLeft className={className} strokeWidth={1.8} />;
+    case "database":
+      return <Database className={className} strokeWidth={1.8} />;
+    case "cloud":
+      return <Cloud className={className} strokeWidth={1.8} />;
+    case "debug":
+      return <Bug className={className} strokeWidth={1.8} />;
     default:
       return <Box className={className} strokeWidth={1.9} />;
   }
@@ -2008,6 +2040,71 @@ function isVisualizerReadMeToolName(toolName: string) {
   ].includes(toolName.toLowerCase().replace(/[-_]/g, ""));
 }
 
+function browserNodeReplProcessMeta(input: Record<string, unknown> | null): {
+  label: string;
+  category: string;
+} {
+  const code = typeof input?.code === "string" ? input.code : "";
+  const normalized = code.toLowerCase();
+  if (/\.goto\s*\(|\.navigate\s*\(|\.open\s*\(/.test(normalized)) {
+    const rawUrl = code.match(/https?:\/\/[^"'`\s)]+/)?.[0];
+    let domain = "";
+    if (rawUrl) {
+      try {
+        domain = new URL(rawUrl).hostname;
+      } catch {
+        domain = "";
+      }
+    }
+    return {
+      label: domain
+        ? t("session.process_summary_browser_open_page_target", { target: domain })
+        : t("session.process_summary_browser_open_page"),
+      category: "web",
+    };
+  }
+  if (/\.click\s*\(|\.fill\s*\(|\.type\s*\(|\.press\s*\(|\.selectoption\s*\(|\.check\s*\(|\.hover\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_interact"),
+      category: "browser",
+    };
+  }
+  if (/\.screenshot\s*\(|emitimage\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_snapshot"),
+      category: "image",
+    };
+  }
+  if (/waitfortimeout\s*\(|waitforloadstate\s*\(|waitforselector\s*\(|waitforurl\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_wait"),
+      category: "browser",
+    };
+  }
+  if (/scrollby\s*\(|scrollto\s*\(|scrollintoview\s*\(|mouse\.wheel\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_browse"),
+      category: "browser",
+    };
+  }
+  if (/browsers\.getdefault\s*\(|tabs\.list\s*\(|tabs\.get\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_prepare"),
+      category: "browser",
+    };
+  }
+  if (/\.evaluate\s*\(|textcontent|innerhtml|queryselector|\.locator\s*\(|\.url\s*\(|\.title\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_inspect"),
+      category: "read",
+    };
+  }
+  return {
+    label: t("session.process_summary_continue_processing"),
+    category: "browser",
+  };
+}
+
 function processPlanDetails(items: TurnProcessItem[]) {
   for (const item of items) {
     const part = processItemToLegacyPart(item);
@@ -2106,9 +2203,9 @@ export function processFoldChipMeta(items: TurnProcessItem[], turnRunning = fals
       tool.includes("browser") ||
       tool.includes("playwright")
     ) {
+      const browserMeta = browserNodeReplProcessMeta(toolInput);
       return {
-        label: t("session.process_summary_continue_processing"),
-        category: "browser",
+        ...browserMeta,
         variant: "summary",
         running,
       };
