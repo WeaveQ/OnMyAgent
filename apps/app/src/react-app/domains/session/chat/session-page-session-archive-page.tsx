@@ -9,7 +9,7 @@ import type {
   OnMyAgentSessionArchiveSession,
 } from "../../../../app/lib/onmyagent-server";
 import { formatRelativeTime } from "../../../../app/utils";
-import { AgentBrandIcon } from "../../../domains/local-agents/agent-brand-icon";
+import { AgentBrandIcon } from "../../../domains/local-agents";
 import { FilterChip } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";

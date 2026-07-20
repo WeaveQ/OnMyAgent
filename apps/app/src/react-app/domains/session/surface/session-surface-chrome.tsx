@@ -43,7 +43,7 @@ import {
   addRecentWorkspace,
   getRecentWorkspaces,
   workspaceDisplayName,
-} from "../../local-agents/workspace-picker/recent-workspaces";
+} from "../../local-agents";
 import {
   assistantSessionWorkspacesChangedEvent,
   readAssistantSessionWorkspaces,
@@ -51,7 +51,7 @@ import {
 import {
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
-} from "../../messaging/automation-session-groups";
+} from "../../messaging";
 
 export type SessionSurfaceHeaderAgent = {
   name: string;
