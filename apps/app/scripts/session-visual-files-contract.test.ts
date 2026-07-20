@@ -76,4 +76,21 @@ describe("session visual and file contracts", () => {
       expect(source).toContain("onOpenArtifact={openTarget}");
     }
   });
+
+  test("session file tab exposes artifact actions and type-aware previews", () => {
+    const sidePanel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
+    );
+
+    expect(sidePanel).toContain('t("files.file_actions", { name: props.node.name })');
+    expect(sidePanel).toContain('t("files.open_in_folder")');
+    expect(sidePanel).toContain('t("session.open_artifact")');
+    expect(sidePanel).toContain('t("files.preview_unsupported")');
+    expect(sidePanel).toContain('target.preview === "external"');
+    expect(sidePanel).toContain('target.preview === "image" || target.preview === "pdf"');
+    expect(sidePanel).toContain("client.downloadWorkspaceFile(workspaceId, requestPath)");
+    expect(sidePanel).toContain("client.deleteWorkspaceFile(");
+    expect(sidePanel).toContain("<ConfirmModal");
+    expect(sidePanel).not.toContain("Only supported text artifact files can be read inline");
+  });
 });

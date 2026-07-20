@@ -10,9 +10,11 @@ import {
   Folder,
   FolderOpen,
   Globe,
+  MoreHorizontal,
   PanelRight,
   Plus,
   SquareTerminal,
+  Trash2,
 } from "lucide-react";
 
 import type {
@@ -26,6 +28,7 @@ import {
   listCodeWorkspaceFiles,
   readCodeWorkspaceFile,
   resizeCodeWorkspaceTerminal,
+  revealDesktopItemInDir,
   writeCodeWorkspaceTerminal,
 } from "../../../../app/lib/desktop";
 import type {
@@ -36,7 +39,7 @@ import { isElectronRuntime } from "../../../../app/utils";
 import type { OpenTarget } from "../artifacts/open-target";
 import { workspaceFileOpenTarget } from "../artifacts/workspace-file-open-target";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
-import { MenuRowButton } from "@/components/ui/action-row";
+import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -45,6 +48,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
+import {
+  HTMLPreview,
+  ImagePreview,
+  MarkdownPreview,
+  PlainText,
+  PreviewError,
+  PreviewLoading,
+} from "../artifacts/preview";
 import {
   buildWorkspaceFileTree,
   filterHiddenFromTree,
@@ -158,6 +170,44 @@ function openTargetsToCatalogEntries(
   });
 }
 
+type WorkspaceFilePreview =
+  | { kind: "empty" }
+  | { kind: "loading" }
+  | { kind: "unsupported" }
+  | { kind: "browser"; url: string }
+  | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
+  | { kind: "binary"; url: string; format: "image" | "pdf"; name: string };
+
+function absoluteWorkspaceFilePath(root: string, path: string) {
+  if (path.startsWith("/")) return path;
+  return `${root.replace(/[/\\]+$/, "")}/${path.replace(/^[/\\]+/, "")}`;
+}
+
+function workspaceFileUrl(root: string, path: string) {
+  const url = new URL("file:///");
+  url.pathname = absoluteWorkspaceFilePath(root, path);
+  return url.toString();
+}
+
+function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {
+  return rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path;
+}
+
+function isTextSheet(path: string) {
+  return /\.(csv|tsv)$/i.test(path);
+}
+
+function inferredBinaryContentType(path: string, preview: "image" | "pdf") {
+  if (preview === "pdf") return "application/pdf";
+  const extension = path.toLowerCase().split(".").pop() ?? "";
+  if (extension === "png") return "image/png";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "gif") return "image/gif";
+  if (extension === "webp") return "image/webp";
+  if (extension === "svg") return "image/svg+xml";
+  return "application/octet-stream";
+}
+
 function WorkspaceTreeRow(props: {
   node: WorkspaceFileTreeNode;
   level: number;
@@ -165,34 +215,67 @@ function WorkspaceTreeRow(props: {
   selectedPath: string | null;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
+  onReveal: (path: string) => void;
+  onDelete: (node: WorkspaceFileTreeNode) => void;
 }) {
   const isDirectory = props.node.kind === "dir";
   const isExpanded = props.expanded.has(props.node.path);
   const Icon = isDirectory ? (isExpanded ? FolderOpen : Folder) : FileText;
   return (
     <div>
-      <button
-        type="button"
-        className={cn(
-          "flex h-7 w-full items-center gap-1.5 rounded-md pr-2 text-left text-xs text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-          props.selectedPath === props.node.path && "bg-dls-hover text-dls-text",
-        )}
-        style={{ paddingLeft: 8 + props.level * 14 }}
-        onClick={() => {
-          if (isDirectory) props.onToggle(props.node.path);
-          else props.onSelect(props.node.path);
-        }}
-      >
-        <ChevronRight
+      <div className="group relative">
+        <TreeRowButton
+          type="button"
+          depth={props.level === 0 ? "root" : "child"}
           className={cn(
-            "size-3 shrink-0 transition-transform",
-            !isDirectory && "opacity-0",
-            isExpanded && "rotate-90",
+            "min-h-7 rounded-lg py-1.5 pr-8 text-xs text-dls-secondary hover:text-dls-text",
+            props.selectedPath === props.node.path && "bg-dls-hover text-dls-text",
           )}
-        />
-        <Icon className="size-3.5 shrink-0" />
-        <span className="truncate">{props.node.name}</span>
-      </button>
+          style={{ paddingLeft: 8 + props.level * 14 }}
+          onClick={() => {
+            if (isDirectory) props.onToggle(props.node.path);
+            else props.onSelect(props.node.path);
+          }}
+        >
+          <ChevronRight
+            className={cn(
+              "size-3 shrink-0 transition-transform",
+              !isDirectory && "opacity-0",
+              isExpanded && "rotate-90",
+            )}
+          />
+          <Icon className="size-3.5 shrink-0" />
+          <span className="truncate">{props.node.name}</span>
+        </TreeRowButton>
+        {!isDirectory ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 data-popup-open:opacity-100"
+                  aria-label={t("files.file_actions", { name: props.node.name })}
+                  title={t("files.file_actions", { name: props.node.name })}
+                >
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => props.onReveal(props.node.path)}>
+                <FolderOpen />
+                {t("files.open_in_folder")}
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onClick={() => props.onDelete(props.node)}>
+                <Trash2 />
+                {t("common.delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
       {isDirectory && isExpanded
         ? props.node.children.map((child) => (
             <WorkspaceTreeRow
@@ -203,6 +286,8 @@ function WorkspaceTreeRow(props: {
               selectedPath={props.selectedPath}
               onToggle={props.onToggle}
               onSelect={props.onSelect}
+              onReveal={props.onReveal}
+              onDelete={props.onDelete}
             />
           ))
         : null}
@@ -221,8 +306,8 @@ function WorkspaceFilesPanel(props: {
   const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [content, setContent] = useState("");
-  const [browserPreviewUrl, setBrowserPreviewUrl] = useState<string | null>(null);
+  const [preview, setPreview] = useState<WorkspaceFilePreview>({ kind: "empty" });
+  const [pendingDeleteNode, setPendingDeleteNode] = useState<WorkspaceFileTreeNode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
     new Set(),
@@ -249,7 +334,7 @@ function WorkspaceFilesPanel(props: {
       setLoadedDirectories(new Set([""]));
       setExpanded(new Set());
       setSelectedPath(null);
-      setContent("");
+      setPreview({ kind: "empty" });
       setError(null);
       return;
     }
@@ -320,6 +405,21 @@ function WorkspaceFilesPanel(props: {
     props.workspaceId,
   ]);
 
+  useEffect(() => {
+    if (preview.kind !== "binary") return;
+    const url = preview.url;
+    return () => URL.revokeObjectURL(url);
+  }, [preview]);
+
+  const revealFile = useCallback(
+    async (path: string) => {
+      const root = fileRoot || props.workspacePath;
+      if (!root || !isElectronRuntime()) return;
+      await revealDesktopItemInDir(absoluteWorkspaceFilePath(root, path));
+    },
+    [fileRoot, props.workspacePath],
+  );
+
   const selectFile = useCallback(
     async (path: string) => {
       const browserFileRoot = fileRoot || props.workspacePath;
@@ -330,11 +430,20 @@ function WorkspaceFilesPanel(props: {
         size: 0,
         mtimeMs: 0,
       });
-      if (isElectronRuntime() && browserFileRoot && target.kind === "url") {
+      const localBrowserPreview =
+        isElectronRuntime()
+        && Boolean(browserFileRoot)
+        && ["html", "image", "pdf"].includes(target.preview);
+      if (localBrowserPreview) {
         setSelectedPath(path);
         setError(null);
-        setContent("");
-        setBrowserPreviewUrl(target.value);
+        setPreview({ kind: "browser", url: workspaceFileUrl(browserFileRoot, path) });
+        return;
+      }
+      if (target.preview === "external" || (target.preview === "sheet" && !isTextSheet(path))) {
+        setSelectedPath(path);
+        setError(null);
+        setPreview({ kind: "unsupported" });
         return;
       }
       if (
@@ -345,31 +454,74 @@ function WorkspaceFilesPanel(props: {
       }
       setSelectedPath(path);
       setError(null);
-      setBrowserPreviewUrl(null);
+      setPreview({ kind: "loading" });
       try {
+        const requestPath = workspaceFileRequestPath(rootRelativePrefix, path);
+        if (target.preview === "image" || target.preview === "pdf") {
+          const client = props.client;
+          const workspaceId = props.workspaceId;
+          if (!client || !workspaceId) return;
+          const result = await client.downloadWorkspaceFile(workspaceId, requestPath);
+          const fallbackType = inferredBinaryContentType(path, target.preview);
+          const contentType = result.contentType && result.contentType !== "application/octet-stream"
+            ? result.contentType
+            : fallbackType;
+          const url = URL.createObjectURL(new Blob([result.data], { type: contentType }));
+          setPreview({ kind: "binary", url, format: target.preview, name: target.name });
+          return;
+        }
+
         let result;
         if (isElectronRuntime() && fileRoot) {
-          result = await readCodeWorkspaceFile({
-            workspacePath: fileRoot,
-            relativePath: path,
-          });
+          result = await readCodeWorkspaceFile({ workspacePath: fileRoot, relativePath: path });
         } else {
           const client = props.client;
           const workspaceId = props.workspaceId;
           if (!client || !workspaceId) return;
-          result = await client.readWorkspaceFile(
-            workspaceId,
-            rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path,
-          );
+          result = await client.readWorkspaceFile(workspaceId, requestPath);
         }
-        setContent(result.content);
+        const format = target.preview === "markdown"
+          ? "markdown"
+          : target.preview === "html"
+            ? "html"
+            : "text";
+        setPreview({ kind: "text", content: result.content, format });
       } catch (nextError) {
-        setContent("");
+        setPreview({ kind: "empty" });
         setError(nextError instanceof Error ? nextError.message : String(nextError));
       }
     },
     [fileRoot, rootRelativePrefix, props.client, props.workspaceId, props.workspacePath],
   );
+
+  const confirmDeleteFile = useCallback(async () => {
+    const node = pendingDeleteNode;
+    const client = props.client;
+    const workspaceId = props.workspaceId;
+    if (!node || !client || !workspaceId) return;
+
+    try {
+      const requestPath = workspaceFileRequestPath(rootRelativePrefix, node.path);
+      await client.deleteWorkspaceFile(
+        workspaceId,
+        hasScopedFileRoot ? node.path : requestPath,
+        hasScopedFileRoot ? { root: fileRoot } : undefined,
+      );
+      setTree((current) => {
+        if (!current) return current;
+        const entries = flattenWorkspaceFileTree(current).filter((item) => item.path !== node.path);
+        return filterHiddenFromTree(buildWorkspaceFileTree(entries));
+      });
+      if (selectedPath === node.path) {
+        setSelectedPath(null);
+        setPreview({ kind: "empty" });
+        setError(null);
+      }
+      setPendingDeleteNode(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  }, [fileRoot, hasScopedFileRoot, pendingDeleteNode, props.client, props.workspaceId, rootRelativePrefix, selectedPath]);
 
   const toggleDirectory = useCallback(
     async (path: string) => {
@@ -421,6 +573,8 @@ function WorkspaceFilesPanel(props: {
             selectedPath={selectedPath}
             onSelect={(path) => void selectFile(path)}
             onToggle={(path) => void toggleDirectory(path)}
+            onReveal={(path) => void revealFile(path)}
+            onDelete={setPendingDeleteNode}
           />
         )) : (
           <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
@@ -442,25 +596,63 @@ function WorkspaceFilesPanel(props: {
         )}
       </div>
       <div className="flex min-h-0 min-w-0 flex-col">
-        <div className="h-9 shrink-0 truncate border-b border-dls-border px-3 py-2 text-xs text-dls-secondary">
-          {selectedPath ?? t("session.code_side_panel_files")}
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-dls-border px-3 text-xs text-dls-secondary">
+          <span className="min-w-0 flex-1 truncate">
+            {selectedPath ?? t("session.code_side_panel_files")}
+          </span>
+          {selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath) ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="shrink-0 mac:titlebar-no-drag"
+              onClick={() => void revealFile(selectedPath)}
+            >
+              <FolderOpen />
+              {t("session.open_artifact")}
+            </Button>
+          ) : null}
         </div>
         {error ? (
-          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
-            {error}
-          </pre>
-        ) : browserPreviewUrl ? (
+          <PreviewError className="min-h-0 flex-1" message={t("files.preview_failed")} />
+        ) : preview.kind === "loading" ? (
+          <PreviewLoading className="min-h-0 flex-1" />
+        ) : preview.kind === "unsupported" ? (
+          <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
+            {t("files.preview_unsupported")}
+          </div>
+        ) : preview.kind === "browser" ? (
           <EmbeddedBrowserViewport
-            url={browserPreviewUrl}
+            url={preview.url}
             announcePanelOpen={false}
             className="min-h-0 flex-1 overflow-hidden bg-dls-surface"
           />
+        ) : preview.kind === "binary" && preview.format === "image" ? (
+          <ImagePreview className="min-h-0 flex-1" src={preview.url} alt={preview.name} />
+        ) : preview.kind === "binary" ? (
+          <HTMLPreview className="min-h-0 flex-1" type="binary" title={preview.name} url={preview.url} />
+        ) : preview.kind === "text" && preview.format === "markdown" ? (
+          <MarkdownPreview className="min-h-0 flex-1" content={preview.content} />
+        ) : preview.kind === "text" && preview.format === "html" ? (
+          <HTMLPreview className="min-h-0 flex-1" type="text" title={selectedPath ?? ""} content={preview.content} />
+        ) : preview.kind === "text" ? (
+          <PlainText className="min-h-0 flex-1" content={preview.content} />
         ) : (
-          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
-            {content}
-          </pre>
+          <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
+            {t("files.preview_empty")}
+          </div>
         )}
       </div>
+      <ConfirmModal
+        open={Boolean(pendingDeleteNode)}
+        title={t("files.delete_confirm_title")}
+        message={t("files.delete_confirm_desc", { name: pendingDeleteNode?.name ?? "" })}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void confirmDeleteFile()}
+        onCancel={() => setPendingDeleteNode(null)}
+      />
     </div>
   );
 }

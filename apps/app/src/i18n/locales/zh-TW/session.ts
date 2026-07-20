@@ -119,6 +119,7 @@ export default {
   "session.close_voice_mode_desc": "關閉語音模式右側面板。",
   "session.artifact_open_externally": "在外部打開",
   "session.artifact_preview_unavailable": "無法預覽。請在外部打開此文件查看。",
+  "session.artifact_binary_preview_unsupported": "此檔案類型暫不支援內建預覽，可在資料夾中開啟或下載查看。",
   "session.markdown_mermaid_code": "程式碼",
   "session.markdown_mermaid_diagram": "圖表",
   "session.markdown_mermaid_expand": "展開",

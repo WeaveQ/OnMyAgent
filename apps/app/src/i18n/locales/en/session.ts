@@ -123,6 +123,8 @@ export default {
   "session.artifact_open_externally": "Open externally",
   "session.artifact_preview_unavailable":
     "Preview unavailable. Open externally to view this file.",
+  "session.artifact_binary_preview_unsupported":
+    "This file type can't be previewed here. Open in folder or download to view.",
   "session.markdown_mermaid_code": "Code",
   "session.markdown_mermaid_diagram": "Diagram",
   "session.markdown_mermaid_expand": "Expand",

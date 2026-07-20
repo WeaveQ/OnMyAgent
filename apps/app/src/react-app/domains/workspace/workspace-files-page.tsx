@@ -16,11 +16,18 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -39,6 +46,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { shellChrome, typeScale } from "@/react-app/design-system/type-scale";
+import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import type {
   OnMyAgentServerClient,
@@ -47,7 +55,7 @@ import type {
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 import type { OpenTarget } from "../../capabilities/artifacts/open-target";
-import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
+import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 
 function formatWorkspaceFileSize(size: number) {
@@ -263,6 +271,7 @@ type FilePreviewState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; content: string }
+  | { status: "binary"; url: string }
   | { status: "external" }
   | { status: "browser" }
   | { status: "error"; message: string };
@@ -270,6 +279,10 @@ type FilePreviewState =
 function canPreviewWorkspaceFileInline(target: OpenTarget) {
   if (target.preview === "markdown" || target.preview === "text") return true;
   return target.preview === "sheet" && /\.(csv|tsv)$/i.test(target.value);
+}
+
+function canPreviewWorkspaceBinaryInline(target: OpenTarget) {
+  return target.preview === "image" || target.preview === "pdf";
 }
 
 function addWorkspaceFileTreeEntry(
@@ -490,6 +503,10 @@ function FilePreviewDrawer(props: {
                 <MarkdownPreview content={state.content} />
               ) : state.status === "ready" ? (
                 <PlainText content={state.content} />
+              ) : state.status === "binary" && target.preview === "image" ? (
+                <ImagePreview src={state.url} alt={file.name} />
+              ) : state.status === "binary" && target.preview === "pdf" ? (
+                <HTMLPreview type="binary" title={file.name} url={state.url} />
               ) : state.status === "browser" ? (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {t("files.preview_opened_in_browser")}
@@ -568,10 +585,10 @@ export function WorkspaceFilesPage(props: {
   const manualRefreshRef = useRef(false);
   const refreshDoneTimerRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<"task" | "cloud">("task");
-  const [menuPath, setMenuPath] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<FileNode | null>(null);
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
@@ -669,6 +686,31 @@ export function WorkspaceFilesPage(props: {
     }
 
     if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+      if (canPreviewWorkspaceBinaryInline(selectedTarget)) {
+        let cancelled = false;
+        let objectUrl: string | null = null;
+        setPreviewState({ status: "loading" });
+        void props.client
+          .downloadWorkspaceFile(props.workspaceId, selectedTarget.value)
+          .then((result) => {
+            if (cancelled) return;
+            objectUrl = URL.createObjectURL(new Blob([result.data], {
+              type: result.contentType ?? "application/octet-stream",
+            }));
+            setPreviewState({ status: "binary", url: objectUrl });
+          })
+          .catch((previewError: unknown) => {
+            if (cancelled) return;
+            setPreviewState({
+              status: "error",
+              message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
+            });
+          });
+        return () => {
+          cancelled = true;
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+      }
       setPreviewState({ status: "external" });
       return;
     }
@@ -731,18 +773,36 @@ export function WorkspaceFilesPage(props: {
       } catch (openError) {
         console.error("Failed to open directory:", openError);
       }
-      setMenuPath(null);
     },
     [fileRoot],
   );
 
-  const handleDeleteFile = useCallback(async (_filePath: string) => {
-    setMenuPath(null);
+  const handleDeleteFile = useCallback((file: FileNode) => {
+    setPendingDelete(file);
   }, []);
+
+  const confirmDelete = useCallback(async () => {
+    const file = pendingDelete;
+    if (!file || !props.client || !props.workspaceId.trim()) {
+      setPendingDelete(null);
+      return;
+    }
+    try {
+      await props.client.deleteWorkspaceFile(props.workspaceId, file.path, {
+        ...(hasScopedFileRoot ? { root: fileRoot } : {}),
+      });
+      setRefreshKey((key) => key + 1);
+      if (selectedFile?.path === file.path) {
+        setSelectedFile(null);
+      }
+    } catch (deleteError) {
+      console.error("Failed to delete file:", deleteError);
+    }
+    setPendingDelete(null);
+  }, [fileRoot, hasScopedFileRoot, pendingDelete, props.client, props.workspaceId, selectedFile?.path]);
 
   const handleSelectFile = useCallback(
     async (file: FileNode) => {
-      setSelectedFile(file);
       const target = workspaceFileOpenTarget({
         fileRoot,
         path: file.path,
@@ -752,9 +812,9 @@ export function WorkspaceFilesPage(props: {
       });
       if (target.preview === "browser") {
         await openArtifactTarget(target);
-      } else if (!canPreviewWorkspaceFileInline(target)) {
-        await openArtifactTarget(target);
+        return;
       }
+      setSelectedFile(file);
     },
     [fileRoot, openArtifactTarget],
   );
@@ -1048,38 +1108,35 @@ export function WorkspaceFilesPage(props: {
                             </TableCell>
                             <TableCell className="relative py-2">
                               {node.kind === "file" ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setMenuPath(node.path);
-                                  }}
-                                  className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                                  aria-label={t("files.file_actions", { name: node.name })}
-                                >
-                                  <MoreHorizontal className="size-4" />
-                                </Button>
-                              ) : null}
-                              {menuPath === node.path ? (
-                                <div className="absolute right-3 top-9 z-20 flex min-w-32 flex-col rounded-lg border border-dls-border bg-dls-surface py-1 shadow-md">
-                                  <MenuRowButton
-                                    align="center"
-                                    type="button"
-                                    onClick={() => handleOpenFile(node.path)}
-                                  >
-                                    {t("files.open_in_folder")}
-                                  </MenuRowButton>
-                                  <MenuRowButton
-                                    align="center"
-                                    type="button"
-                                    onClick={() => handleDeleteFile(node.path)}
-                                    className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft"
-                                  >
-                                    {t("common.remove")}
-                                  </MenuRowButton>
-                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    render={(
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        onClick={(event) => event.stopPropagation()}
+                                        className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+                                        aria-label={t("files.file_actions", { name: node.name })}
+                                      >
+                                        <MoreHorizontal className="size-4" />
+                                      </Button>
+                                    )}
+                                  />
+                                  <DropdownMenuContent align="end" className="min-w-40">
+                                    <DropdownMenuItem onClick={() => handleOpenFile(node.path)}>
+                                      <FolderOpen />
+                                      {t("files.open_in_folder")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onClick={() => handleDeleteFile(node)}
+                                    >
+                                      <Trash2 />
+                                      {t("common.delete")}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               ) : null}
                             </TableCell>
                           </TableRow>
@@ -1119,13 +1176,23 @@ export function WorkspaceFilesPage(props: {
         </div>
       </div>
 
-      {(menuPath || typeMenuOpen) && (
+      {typeMenuOpen && (
         <div
           className="fixed inset-0 z-10"
-          onClick={() => { setMenuPath(null); setTypeMenuOpen(false); }}
-          onContextMenu={() => { setMenuPath(null); setTypeMenuOpen(false); }}
+          onClick={() => setTypeMenuOpen(false)}
+          onContextMenu={() => setTypeMenuOpen(false)}
         />
       )}
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("files.delete_confirm_title")}
+        message={t("files.delete_confirm_desc", { name: pendingDelete?.name ?? "" })}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
