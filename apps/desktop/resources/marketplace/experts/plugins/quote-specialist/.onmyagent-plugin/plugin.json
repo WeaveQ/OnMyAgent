@@ -1,0 +1,58 @@
+{
+  "name": "quote-specialist",
+  "version": "1.1.0",
+  "description": "Send lane, weight/volume, vehicle, SLA, loading and POD details — structured reference quotes with fastest/cheapest/balanced options, hidden-condition checks, floor protection and scripts",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "quote-specialist",
+  "agents": ["./agents/quote-specialist.md"],
+  "skills": ["./skills/freight-quote"],
+  "displayName": {
+    "en": "Quote Specialist",
+    "zh": "报价专员"
+  },
+  "profession": {
+    "en": "Freight Quotation Desk",
+    "zh": "报价作业"
+  },
+  "displayDescription": {
+    "en": "Quote from lane, weight/volume, vehicle, SLA, loading and POD — fastest/cheapest/balanced plans, surcharges, bargain scripts; flag hidden conditions and protect margin.",
+    "zh": "按线路吨方车型时效装卸回单出参考价，给最快/最便宜/平衡方案与话术，防漏附加费并识别隐藏条件。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "客户询价：深圳宝安→成都双流，注塑配件约 1.8 吨 / 12 方，要 48 小时到、最好有提货送货，普货可叠。帮我出参考报价：最快 / 最便宜 / 平衡三版，列清附加费和给客户话术，并标底价保护提醒。",
+    "en": "Inquiry: Shenzhen Baoan→Chengdu Shuangliu, parts ~1.8t / 12 CBM, 48h SLA, pickup+delivery preferred, stackable general cargo. Draft reference quotes: fastest / cheapest / balanced, list surcharges and client scripts, with floor-price protection notes."
+  },
+  "tags": [
+    { "zh": "结构报价", "en": "Structured Quote" },
+    { "zh": "三档方案", "en": "3 Options" },
+    { "zh": "附加费", "en": "Surcharges" },
+    { "zh": "成交话术", "en": "Sales Scripts" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "客户询价：深圳宝安→成都双流，注塑配件约 1.8 吨 / 12 方，要 48 小时到、最好有提货送货，普货可叠。帮我出参考报价：最快 / 最便宜 / 平衡三版，列清附加费和给客户话术，并标底价保护提醒。",
+      "en": "Inquiry: Baoan→Shuangliu ~1.8t/12CBM, 48h, pickup+delivery. Draft fastest/cheapest/balanced quotes with surcharges, scripts and floor notes."
+    },
+    {
+      "zh": "上海嘉定到苏州园区，整车 4.2 米厢货明天提，客户嫌贵一直砍，这是我成本构成，帮我守底价并写回复话术（可减服务项不能瞎砍）。",
+      "en": "Jiading→SIP Suzhou, 4.2 box FTL tomorrow. Client keeps cutting price — here is my cost build; protect floor and write reply scripts (cut scope, not margin blindly)."
+    },
+    {
+      "zh": "只知道广州到长沙多少钱，信息很少，先按清单追问必填字段，并给一版带假设的结构空表和示例算法。",
+      "en": "Only know Guangzhou→Changsha price ask — list missing fields first, then a structured blank quote with assumptions and example math."
+    },
+    {
+      "zh": "这票有尾板、进仓预约、回单原件、等通知放货，帮我列附加费检查清单，避免漏报。",
+      "en": "This load needs tail-lift, warehouse appointment, original POD, hold-for-release — build a surcharge checklist so we don't miss fees."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【报价专员】，多年专线/零担报价手感在线。\n\n把询价（线路、重量/体积、车型、时效、装卸、回单等）丢给我：出参考价 +「最快 / 最便宜 / 平衡」方案 + 话术；扫隐藏条件（含税、回单形式、装卸责任、旺季附加），附加费防漏，砍价按运力松紧和利润空间应对。\n无成本库时数字标「示意」，不编假市价；有指导价/历史成交我帮你对齐口径好沉淀。\n\n直接发客户询价消息即可。",
+    "en": "Boss, I'm Quote Specialist — dedicated-line & LTL quoting experience.\n\nSend inquiries (lane, weight/volume, vehicle, SLA, loading, POD): reference rates + fastest/cheapest/balanced + scripts; scan hidden conditions (tax, POD form, handling, peak fees); protect floor; bargain with capacity and margin in mind.\nNo cost base → figures marked illustrative. With guide/history rates I keep pricing consistent.\n\nDrop the customer inquiry."
+  }
+}

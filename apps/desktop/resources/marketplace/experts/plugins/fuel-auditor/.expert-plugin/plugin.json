@@ -1,0 +1,58 @@
+{
+  "name": "fuel-auditor",
+  "version": "1.0.0",
+  "description": "Send fuel fills, odometer/mileage and fuel-card statements — I flag abnormal consumption, suspicious records and draft a simple fuel audit report",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "fuel-auditor",
+  "agents": ["./agents/fuel-auditor.md"],
+  "skills": ["./skills/fuel-audit"],
+  "displayName": {
+    "en": "Fuel Auditor",
+    "zh": "油费稽核员"
+  },
+  "profession": {
+    "en": "Fleet Fuel Audit",
+    "zh": "油费稽核作业"
+  },
+  "displayDescription": {
+    "en": "Compare fuel fills vs mileage by vehicle type, flag outliers and card misuse patterns, and produce a focused fuel audit report for managers.",
+    "zh": "对比加油量与行驶里程核算油耗，标记偏离与可疑流水，输出聚焦高风险车/司机的油费稽核报告。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "这是 3 台车本周加油记录、里程和油卡流水：粤B·D12345 是 9.6 高栏，其余 6.8 厢。请算单车油耗 L/100km，和正常范围比，标异常并说明可能原因，给一份稽核报告（优先高风险）。",
+    "en": "Here are this week's fills, odometer and fuel-card lines for 3 trucks (one 9.6 high-side, two 6.8 box). Compute L/100km, compare to normal bands, flag anomalies with likely causes, and draft an audit report prioritized by risk."
+  },
+  "tags": [
+    { "zh": "油耗对比", "en": "Fuel Economy" },
+    { "zh": "异常标记", "en": "Anomaly Flags" },
+    { "zh": "油卡稽核", "en": "Card Audit" },
+    { "zh": "成本管控", "en": "Cost Control" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这是 3 台车本周加油记录、里程和油卡流水：粤B·D12345 是 9.6 高栏，其余 6.8 厢。请算单车油耗 L/100km，和正常范围比，标异常并说明可能原因，给一份稽核报告（优先高风险）。",
+      "en": "3 trucks this week: fills + mileage + card lines. Compute L/100km, flag vs normal bands, draft risk-first audit report."
+    },
+    {
+      "zh": "这车两天加了三次油，第二次油站离上次轨迹很远且金额异常大，帮我交叉验证时间和地点可疑点。",
+      "en": "Same truck filled three times in two days; second station is far from last track and amount is huge — cross-check time/place red flags."
+    },
+    {
+      "zh": "给一份我们车队的油耗基准表模板：4.2/6.8/9.6 厢式高栏，高速/国道/市区，我好填自己的经验值再稽核。",
+      "en": "Give a fuel baseline template for 4.2/6.8/9.6 box and high-side on highway/national/city so we can plug our norms then audit."
+    },
+    {
+      "zh": "汇总本月油卡消费，按司机/车辆找“少加多开”或非定点油站嫌疑，列优先核查 Top5。",
+      "en": "Month fuel-card summary: find under-fill/over-claim or off-network station suspects by driver/truck; Top5 to investigate."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【油费稽核员】。\n\n把加油记录、行驶里程、油卡消费明细发给我：算单车油耗、对比正常范围、标记可疑流水（少加多开、非定点、套现嫌疑、与位置不符等），输出聚焦高风险车/司机的稽核报告。\n无你们基准时范围标「示意」；不编造流水；结论是稽核线索不是司法认定。\n\n丢 Excel 或流水截图即可。",
+    "en": "Boss, I'm Fuel Auditor.\n\nSend fills, mileage, fuel-card lines — per-truck L/100km vs normal bands, flag suspects (under-fill/over-claim, off-network, cash-out patterns, location mismatch), risk-first audit report.\nWithout your baselines, bands are illustrative; no inventing rows; findings are audit leads, not legal guilt.\n\nDrop Excel or statements."
+  }
+}

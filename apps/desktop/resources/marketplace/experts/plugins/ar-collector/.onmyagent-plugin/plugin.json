@@ -1,0 +1,58 @@
+{
+  "name": "ar-collector",
+  "version": "1.0.0",
+  "description": "Send customer payment terms, invoices, receipts and waybills — I build the AR ledger, due-date reminders and stage-based collection scripts",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "ar-collector",
+  "agents": ["./agents/ar-collector.md"],
+  "skills": ["./skills/ar-collection"],
+  "displayName": {
+    "en": "AR Collector",
+    "zh": "回款催收员"
+  },
+  "profession": {
+    "en": "Receivables Collection",
+    "zh": "应收催收作业"
+  },
+  "displayDescription": {
+    "en": "Build an AR ledger from terms, invoices and payments; remind by due nodes; draft polite-to-escalation collection scripts without wrecking key accounts.",
+    "zh": "按账期开票回款建应收台账，到期节点提醒催收，生成分阶段话术，兼顾回款力度与客户关系。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "客户「华南配件」月结，约定对账日后 60 天付款，可收承兑。已开票：3 月 12.8 万（票号…）、4 月 9.6 万；已回 3 月 5 万现金。对应运单清单如下。请建应收台账，算账龄，按到期前 7 天/到期日/逾期 3 天/逾期 15 天给提醒和催款话术。",
+    "en": "Customer South China Parts: terms settle then net 60, acceptance bills OK. Invoiced Mar 128k, Apr 96k; received Mar 50k cash. Waybills below. Build AR ledger, aging, and scripts for D-7 / due day / +3 / +15."
+  },
+  "tags": [
+    { "zh": "应收台账", "en": "AR Ledger" },
+    { "zh": "账龄提醒", "en": "Aging Alerts" },
+    { "zh": "催款话术", "en": "Collection Scripts" },
+    { "zh": "现金流", "en": "Cash Flow" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "客户「华南配件」月结，约定对账日后 60 天付款，可收承兑。已开票：3 月 12.8 万（票号…）、4 月 9.6 万；已回 3 月 5 万现金。对应运单清单如下。请建应收台账，算账龄，按到期前 7 天/到期日/逾期 3 天/逾期 15 天给提醒和催款话术。",
+      "en": "Customer net-60 after recon, bills OK. Invoices Mar/Apr + partial payment. Build AR ledger, aging, D-7/due/+3/+15 scripts."
+    },
+    {
+      "zh": "把我这份 Excel 应收表整理成标准台账：每笔标注状态、账龄、负责人、下一催收节点；标红逾期和承兑未兑付风险。",
+      "en": "Normalize this AR Excel into a standard ledger: status, aging, owner, next chase node; flag overdue and acceptance-bill risk."
+    },
+    {
+      "zh": "老客户合作 3 年回款一向稳，这票刚逾期 5 天，业务量还在走。帮我写一版有分寸的催款，不要过猛伤关系。",
+      "en": "3-year steady payer, 5 days overdue, still shipping. Write a measured chase script — firm but relationship-safe."
+    },
+    {
+      "zh": "某客户逾期 40 天，只回承兑且多次跳票意向，帮我升级催告要点、对内风险提示和下一步建议（停运/法务需我拍板）。",
+      "en": "40 days overdue, only acceptance bills and stall tactics — escalation points, internal risk notes, next steps (hold freight/legal need my call)."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【回款催收员】。\n\n把客户账期约定、已开票金额、回款记录、对应运单发给我：建/更新应收台账，按节点（如到期前 7 天、到期当天、逾期 3/15 天）出提醒和分阶段话术；承兑与长账期风险会标出来。\n催款力度会参考合作年限、历史回款、当前业务量——既不无脑硬刚伤客，也不过软养坏账。你确认后再发。\n\n丢账期说明或 Excel 即可。",
+    "en": "Boss, I'm AR Collector.\n\nSend terms, invoices, payments, waybills — AR ledger, due-node reminders and stage scripts (D-7, due, +3, +15); flag acceptance-bill and long-term risk.\nTone follows tenure, payment history, live volume — firm without torching accounts. You confirm before send.\n\nDrop terms notes or Excel."
+  }
+}
