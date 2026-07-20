@@ -291,13 +291,6 @@ function cancelledAssistantMessageIds(
   return ids;
 }
 
-export function isInternalAssistantNarration(text: string): boolean {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  return /^(?:the user(?: wants|['’]s| is| said| has| just| seems)|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will| need to)|now,? i(?:'ll| will| need to)|next,? i(?:'ll| will| need to))/i.test(
-    normalized,
-  );
-}
-
 /**
  * Stable-key used to match a block across renders. For message blocks the
  * messageId is stable. For step clusters we reuse the cluster id (which is
@@ -1236,7 +1229,7 @@ function TranscriptTurnStatus(props: {
   onDetailsExpandedChange: (expanded: boolean) => void;
 }) {
   if (
-    props.presentation.state !== "completed" ||
+    props.presentation.turnContent?.turnCollapseEligible !== true ||
     !props.presentation.hasExecutionDetails
   ) return null;
   const status = transcriptTurnStatusLabel(props.presentation.state);
@@ -1280,7 +1273,7 @@ function TranscriptAssistantHeader(props: {
 }) {
   const showStatus =
     props.presentation?.isFirstAssistantBlock === true &&
-    props.presentation.state === "completed" &&
+    props.presentation.turnContent?.turnCollapseEligible === true &&
     props.presentation.hasExecutionDetails &&
     props.presentation.copyText.trim().length > 0;
   if (!props.showAssistantAvatar && !showStatus) return null;
@@ -2268,6 +2261,19 @@ function WorkBuddyProcessFold(props: {
             const key = `${item.messageId}:${item.partIndex}`;
             if (item.part.type === "reasoning") {
               if (!item.part.text.trim()) return null;
+              if (props.items.length > 1) {
+                return (
+                  <WorkBuddyProcessFold
+                    key={key}
+                    id={`${props.id}:${key}`}
+                    items={[item]}
+                    running={props.running}
+                    expandedStepIds={props.expandedStepIds}
+                    onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+                    onOpenCodePath={props.onOpenCodePath}
+                  />
+                );
+              }
               return (
                 <MarkdownBlock
                   key={key}
@@ -2571,26 +2577,72 @@ function WorkBuddyTurnContent(props: {
 }) {
   const running = props.presentation.state === "streaming" ||
     props.presentation.state === "awaiting-approval";
-  const showExpandedProcess = running || props.detailsExpanded ||
-    props.presentation.state === "cancelled" || props.presentation.state === "failed";
+  const showExpandedProcess = !props.presentation.turnCollapseEligible ||
+    props.detailsExpanded;
   const lastBodyId = props.presentation.segments.findLast(
     (segment) => segment.kind === "body",
   )?.id;
 
-  const renderProcess = (id: string, items: TurnProcessItem[]) => (
-    <WorkBuddyProcessFold
-      key={id}
-      id={id}
-      items={items}
-      running={running}
-      expandedStepIds={props.expandedStepIds}
-      onExpandedStepIdsChange={props.onExpandedStepIdsChange}
-      onOpenCodePath={props.onOpenCodePath}
-    />
-  );
+  const toggleStep = (id: string) => {
+    props.onExpandedStepIdsChange((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderSingletonProcess = (id: string, item: TurnProcessItem) => {
+    if (item.part.type === "reasoning" || processPlanDetails([item])) {
+      return (
+        <WorkBuddyProcessFold
+          key={id}
+          id={id}
+          items={[item]}
+          running={running}
+          expandedStepIds={props.expandedStepIds}
+          onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+          onOpenCodePath={props.onOpenCodePath}
+        />
+      );
+    }
+    const legacyPart = processItemToLegacyPart(item);
+    if (!legacyPart) return null;
+    const stepId = `${item.messageId}:${item.partIndex}`;
+    return (
+      <StepRow
+        key={id}
+        id={stepId}
+        part={legacyPart}
+        expanded={props.expandedStepIds.has(stepId)}
+        onToggle={() => toggleStep(stepId)}
+        onOpenCodePath={props.onOpenCodePath}
+        isStreamingReasoning={running}
+      />
+    );
+  };
+
+  const renderProcess = (id: string, items: TurnProcessItem[]) => {
+    const item = items[0];
+    if (items.length === 1 && item) return renderSingletonProcess(id, item);
+    return (
+      <WorkBuddyProcessFold
+        key={id}
+        id={id}
+        items={items}
+        running={running}
+        expandedStepIds={props.expandedStepIds}
+        onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+        onOpenCodePath={props.onOpenCodePath}
+      />
+    );
+  };
 
   const renderExpandedSegment = (segment: TurnContentSegment) => {
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.kind === "widget") {
+      return <InlineVisual key={segment.id} visual={segment.visual} />;
+    }
     if (segment.kind === "file" && segment.item.part.type === "file") {
       return (
         <FileCard
@@ -2605,6 +2657,35 @@ function WorkBuddyTurnContent(props: {
       );
     }
     if (segment.kind !== "body") return null;
+    if (segment.item.bodySegments) {
+      return (
+        <div key={segment.id} className="session-workbuddy-turn-body">
+          {segment.item.bodySegments.map((bodySegment, index) => (
+            bodySegment.kind === "widget"
+              ? (
+                  <InlineVisual
+                    key={`${segment.id}:widget:${index}`}
+                    visual={bodySegment.visual}
+                  />
+                )
+              : bodySegment.text.trim()
+                ? (
+                    <MarkdownBlock
+                      key={`${segment.id}:text:${index}`}
+                      text={bodySegment.text}
+                      streaming={running && segment.id === lastBodyId}
+                      showStreamingCursor={false}
+                      highlightQuery={props.highlightQuery}
+                      locale={currentLocale()}
+                      onOpenCodePath={props.onOpenCodePath}
+                      verifiedCodePaths={props.verifiedCodePaths}
+                    />
+                  )
+                : null
+          ))}
+        </div>
+      );
+    }
     return (
       <div key={segment.id} className="session-workbuddy-turn-body">
         <MarkdownBlock
@@ -2623,6 +2704,33 @@ function WorkBuddyTurnContent(props: {
   const renderCollapsedSegment = (segment: TurnFoldSegment) => {
     if (segment.kind === "hidden") return null;
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.item.bodySegments) {
+      return (
+        <div key={segment.id} className="session-workbuddy-turn-body">
+          {segment.item.bodySegments.map((bodySegment, index) => (
+            bodySegment.kind === "widget"
+              ? (
+                  <InlineVisual
+                    key={`${segment.id}:widget:${index}`}
+                    visual={bodySegment.visual}
+                  />
+                )
+              : bodySegment.text.trim()
+                ? (
+                    <MarkdownBlock
+                      key={`${segment.id}:text:${index}`}
+                      text={bodySegment.text}
+                      highlightQuery={props.highlightQuery}
+                      locale={currentLocale()}
+                      onOpenCodePath={props.onOpenCodePath}
+                      verifiedCodePaths={props.verifiedCodePaths}
+                    />
+                  )
+                : null
+          ))}
+        </div>
+      );
+    }
     return (
       <div key={segment.id} className="session-workbuddy-turn-body">
         <MarkdownBlock
@@ -2641,12 +2749,14 @@ function WorkBuddyTurnContent(props: {
       {showExpandedProcess
         ? props.presentation.segments.map(renderExpandedSegment)
         : props.presentation.collapsedSegments.map(renderCollapsedSegment)}
-      {props.presentation.hoistedItems.map((visual) => (
-        <InlineVisual
-          key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
-          visual={visual}
-        />
-      ))}
+      {!showExpandedProcess
+        ? props.presentation.hoistedItems.map((visual) => (
+            <InlineVisual
+              key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
+              visual={visual}
+            />
+          ))
+        : null}
     </div>
   );
 }
@@ -3172,13 +3282,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     pushReadyDividers(0);
     transcriptMessages.forEach((message, messageIndex) => {
       const renderableParts = message.parts.filter((part) => {
-        if (
-          message.role === "assistant" &&
-          (part.type === "text" || part.type === "reasoning") &&
-          isInternalAssistantNarration(part.text)
-        ) {
-          return false;
-        }
         if (part.type === "reasoning") {
           return showThinking;
         }
@@ -3427,7 +3530,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             : firstAssistantBlockKeys.has(blockKey),
           isActionBlock: blockKey === actionBlockKey,
           hasExecutionDetails: turnContent
-            ? turnContent.processItems.length > 0
+            ? turnContent.processItems.length > 0 || turnContent.turnCollapseEligible
             : turnsWithExecutionDetails.has(turn.id),
           turnContent,
           isTurnContentAnchor: turnContentAnchorBlockKey === blockKey,

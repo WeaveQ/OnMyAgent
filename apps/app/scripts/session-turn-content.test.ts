@@ -68,10 +68,10 @@ describe("WorkBuddy turn content presentation", () => {
       "progress-2",
     ]);
     expect(presentation?.hoistedItems).toEqual([]);
+    expect(presentation?.turnCollapseEligible).toBe(true);
     expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
       "body",
       "process",
-      "body",
       "body",
     ]);
     expect(
@@ -80,7 +80,7 @@ describe("WorkBuddy turn content presentation", () => {
         .map((segment) =>
           segment.kind === "process" ? segment.items.map((item) => item.messageId) : [],
         ),
-    ).toEqual([["tool-1"]]);
+    ).toEqual([["tool-1", "progress-2"]]);
     expect(presentation?.collapsedSegments.at(-1)?.kind).toBe("anchor");
   });
 
@@ -107,6 +107,36 @@ describe("WorkBuddy turn content presentation", () => {
       loadingMessages: [],
       errorText: null,
     });
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "widget",
+      "body",
+    ]);
+  });
+
+  test("keeps a tool widget in chronological order while the turn is running", () => {
+    const turn = {
+      ...completedTurn([
+        assistant("intro", [{ type: "text", text: "先说明图表口径。" }]),
+        assistant("tool-widget", [{
+          type: "dynamic-tool",
+          toolName: "show_widget",
+          toolCallId: "widget-live",
+          state: "input-available",
+          input: {
+            title: "趋势图",
+            widget_code: '<svg viewBox="0 0 680 120"></svg>',
+          },
+        }]),
+        assistant("tail", [{ type: "reasoning", text: "继续核对数据。" }]),
+      ]),
+      state: "streaming" as const,
+    };
+
+    expect(buildTurnContentPresentation(turn)?.segments.map((segment) => segment.kind)).toEqual([
+      "body",
+      "widget",
+      "process",
+    ]);
   });
 
   test("extracts a widget from a WorkBuddy MCP-like nested result", () => {
@@ -239,12 +269,12 @@ describe("WorkBuddy turn content presentation", () => {
       "reasoning",
     ]);
     expect(buildTurnContentPresentation(streaming)?.segments.map((segment) => segment.kind)).toEqual([
-      "body",
+      "process",
       "body",
     ]);
   });
 
-  test("surfaces reasoning narration outside process folds between browser tools", () => {
+  test("keeps reasoning narration inside deep-thinking process folds between browser tools", () => {
     const streaming = {
       ...completedTurn([
         assistant("intro", [{ type: "text", text: "我来使用内置浏览器打开小红书并完成任务。" }]),
@@ -273,24 +303,36 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.segments.map((s) => s.kind)).toEqual([
       "body",
       "process",
-      "body",
       "process",
-      "body",
+      "process",
+      "process",
     ]);
     expect(
       presentation?.segments
         .filter((s) => s.kind === "process")
-        .every((s) => s.kind === "process" && s.items.every((i) => i.part.type === "dynamic-tool")),
-    ).toBe(true);
-    // Each tool is its own process segment (WorkBuddy op-chip timeline).
+        .map((s) => s.kind === "process" ? s.items[0]?.part.type : null),
+    ).toEqual([
+      "dynamic-tool",
+      "reasoning",
+      "dynamic-tool",
+      "reasoning",
+    ]);
+    expect(
+      presentation?.segments
+        .filter((s) => s.kind === "body")
+        .map((s) => s.kind === "body" ? s.text : null),
+    ).toEqual([
+      "我来使用内置浏览器打开小红书并完成任务。",
+    ]);
+    // Each tool and reasoning disclosure is its own process segment.
     expect(
       presentation?.segments
         .filter((s) => s.kind === "process")
         .map((s) => (s.kind === "process" ? s.items.length : 0)),
-    ).toEqual([1, 1]);
+    ).toEqual([1, 1, 1, 1]);
   });
 
-  test("splits consecutive tools into one process segment each for op chips", () => {
+  test("groups consecutive completed tools into one outer process fold", () => {
     const turn = completedTurn([
       assistant("skill", [{
         type: "dynamic-tool",
@@ -310,12 +352,13 @@ describe("WorkBuddy turn content presentation", () => {
       }]),
     ]);
     const presentation = buildTurnContentPresentation(turn);
-    expect(presentation?.segments.map((s) => s.kind)).toEqual(["process", "process"]);
+    expect(presentation?.turnCollapseEligible).toBe(false);
+    expect(presentation?.segments.map((s) => s.kind)).toEqual(["process"]);
     expect(
-      presentation?.segments.map((s) =>
-        s.kind === "process" && s.items[0]?.part.type === "dynamic-tool"
-          ? s.items[0].part.toolName
-          : null,
+      presentation?.segments.flatMap((s) =>
+        s.kind === "process"
+          ? s.items.flatMap((item) => item.part.type === "dynamic-tool" ? [item.part.toolName] : [])
+          : [],
       ),
     ).toEqual(["skill", "bash"]);
   });
@@ -343,10 +386,56 @@ describe("WorkBuddy turn content presentation", () => {
         anchorMessageId: "progress",
         finalText: "已获得部分数据。",
         state,
+        turnCollapseEligible: true,
       });
       expect(buildTurnContentPresentation(turn)?.processItems.map((item) => item.messageId)).toEqual([
         "tool",
       ]);
+    },
+  );
+
+  test("hides non-widget process content after the final collapsed anchor", () => {
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("longest", [{ type: "text", text: "这是最长的阶段性正文，用作第一个折叠锚点。" }]),
+      assistant("final", [{ type: "text", text: "最终答复。" }]),
+      assistant("tail", [{ type: "reasoning", text: "不应出现在折叠态尾部。" }]),
+    ]));
+
+    expect(presentation?.collapsedSegments.map((segment) => segment.kind)).toEqual([
+      "anchor",
+      "anchor",
+    ]);
+  });
+
+  test.each(["[User Cancelled]", "Interrupted by user"])(
+    "removes the exact WorkBuddy cancellation sentinel %s",
+    (sentinel) => {
+      const turn = {
+        ...completedTurn([
+          assistant("thinking", [{ type: "reasoning", text: "整理已完成的部分。" }]),
+          assistant("partial", [{ type: "text", text: `已完成部分工作。\n${sentinel}` }]),
+        ]),
+        state: "cancelled" as const,
+      };
+      expect(buildTurnContentPresentation(turn)?.finalText).toBe("已完成部分工作。");
+
+      const directSuffix = {
+        ...completedTurn([
+          assistant("thinking-direct", [{ type: "reasoning", text: "检查直接后缀。" }]),
+          assistant("partial-direct", [{ type: "text", text: `已完成部分工作。${sentinel}` }]),
+        ]),
+        state: "cancelled" as const,
+      };
+      expect(buildTurnContentPresentation(directSuffix)?.finalText).toBe("已完成部分工作。");
+
+      const natural = {
+        ...completedTurn([
+          assistant("thinking-natural", [{ type: "reasoning", text: "保留自然语言。" }]),
+          assistant("natural", [{ type: "text", text: `${sentinel} because the user requested a transcript quote.` }]),
+        ]),
+        state: "cancelled" as const,
+      };
+      expect(buildTurnContentPresentation(natural)?.finalText).toContain("because");
     },
   );
 
@@ -362,12 +451,32 @@ describe("WorkBuddy turn content presentation", () => {
     const presentation = buildTurnContentPresentation(turn);
 
     expect(presentation?.finalText).toBe("结论如下。");
-    expect(presentation?.hoistedItems).toHaveLength(1);
-    expect(presentation?.hoistedItems[0]).toMatchObject({
-      kind: "widget",
-      title: "趋势图",
-      html: "<div>chart</div>",
-    });
+    expect(presentation?.hoistedItems).toEqual([]);
+    const finalBody = presentation?.segments.findLast((segment) => segment.kind === "body");
+    expect(finalBody?.kind === "body" ? finalBody.item.bodySegments : null).toEqual([
+      { kind: "text", text: "结论如下。\n\n" },
+      {
+        kind: "widget",
+        visual: expect.objectContaining({
+          kind: "widget",
+          title: "趋势图",
+          html: "<div>chart</div>",
+        }),
+      },
+    ]);
+  });
+
+  test("keeps a fenced widget renderer active for a single assistant body", () => {
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("only", [{
+        type: "text",
+        text: "```show_widget\n{\"title\":\"单图\",\"widget_code\":\"<svg></svg>\"}\n```",
+      }]),
+    ]));
+
+    expect(presentation?.turnCollapseEligible).toBe(false);
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual(["body"]);
+    expect(presentation?.hoistedItems).toEqual([]);
   });
 
   test("keeps the first assistant anchor and existing segment keys stable across streaming growth", () => {

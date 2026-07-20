@@ -541,6 +541,16 @@ const workBuddyTurnMessages: UIMessage[] = [
     parts: [{ type: "reasoning", text: "校验收入、利润、ROE 与毛利率的量纲和年份顺序。" }],
   },
   {
+    id: "workbuddy-progress-validated",
+    role: "assistant",
+    parts: [{ type: "text", text: "历史数据已经齐备，接下来校验图表布局并绘制趋势图。" }],
+  },
+  {
+    id: "workbuddy-reasoning-single",
+    role: "assistant",
+    parts: [{ type: "reasoning", text: "检查图例、双轴单位和指标卡是否发生重叠。" }],
+  },
+  {
     id: "workbuddy-visual",
     role: "assistant",
     parts: [{
