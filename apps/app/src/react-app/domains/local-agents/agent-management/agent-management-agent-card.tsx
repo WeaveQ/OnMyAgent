@@ -19,7 +19,7 @@ import {
   formatAgentManagerDuration,
   type AgentManagementHealthResult,
 } from "./agent-management-health";
-import { agentDisplayStatus } from "./agent-card-model";
+import { agentDisplayStatus, agentVersionLabel } from "./agent-card-model";
 
 function AgentManagementMetric(props: { label: string; value: string | number }) {
   return (
@@ -57,8 +57,31 @@ export function AgentManagementAgentCard(props: {
   // and detail operations after the user clicks to expand them.
   const [expanded, setExpanded] = useState(false);
 
+  // Collapsed meta: type · version only. Paths / bare command names (codex, hermes)
+  // used to leak in as fallbacks and made cards look inconsistent.
+  const versionLabel = agentVersionLabel(props.agent);
+  const metaSecondary = versionLabel ? versionLabel.replace(/^v/i, "") : null;
+  const statusLabel =
+    displayStatus === "online"
+      ? t("agent_manager.agent_card.status_online")
+      : displayStatus === "needs_auth"
+        ? t("agent_manager.agent_card.status_needs_auth")
+        : displayStatus === "offline"
+          ? t("agent_manager.agent_card.status_offline")
+          : displayStatus === "missing"
+            ? t("agent_manager.agent_card.status_missing")
+            : t("agent_manager.agent_card.status_error");
+  const healthLabel = agentManagerHealthLabel(props.agent, props.health);
+
   return (
-    <section data-testid={`agent-card-${props.agent.id}`} className={cn("overflow-hidden rounded-xl border border-dls-border bg-dls-surface", isCustom && !enabled ? "opacity-60" : "")}>
+    <section
+      data-testid={`agent-card-${props.agent.id}`}
+      className={cn(
+        // h-full + flex so grid cells in the same row share equal card height
+        "flex h-full flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
+        isCustom && !enabled ? "opacity-60" : "",
+      )}
+    >
       <button
         type="button"
         data-testid={`agent-card-toggle-${props.agent.id}`}
@@ -67,35 +90,32 @@ export function AgentManagementAgentCard(props: {
         aria-label={expanded
           ? t("agent_manager.agent_card.collapse", { name: props.agent.name })
           : t("agent_manager.agent_card.expand", { name: props.agent.name })}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-dls-surface-muted"
+        className={cn(
+          // items-center: chevron vertically centered in the card header
+          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-dls-surface-muted",
+          // Collapsed: fill grid cell so same-row cards share equal height.
+          // Expanded: keep header natural height so metrics/actions stay compact.
+          !expanded && "min-h-full flex-1",
+        )}
       >
         <AgentBrandIcon
           id={props.agent.id}
           provider={props.agent.provider}
           size="sm"
           alt={props.agent.name}
+          className="shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-base font-medium text-dls-text">{props.agent.name}</span>
-            <StatusBadge tone={agentManagerStatusTone(displayStatus)} shape="pill" size="tiny">
-              {displayStatus === "online"
-                ? t("agent_manager.agent_card.status_online")
-                : displayStatus === "needs_auth"
-                  ? t("agent_manager.agent_card.status_needs_auth")
-                  : displayStatus === "offline"
-                    ? t("agent_manager.agent_card.status_offline")
-                    : displayStatus === "missing"
-                      ? t("agent_manager.agent_card.status_missing")
-                      : t("agent_manager.agent_card.status_error")}
-            </StatusBadge>
-            {(() => {
-              const healthLabel = agentManagerHealthLabel(
-                props.agent,
-                props.health,
-              );
-              if (!healthLabel) return null;
-              return (
+          {/* Title + status top-right */}
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1 truncate text-base font-medium leading-5 text-dls-text">
+              {props.agent.name}
+            </div>
+            <div className="flex max-w-[48%] shrink-0 flex-wrap items-center justify-end gap-1">
+              <StatusBadge tone={agentManagerStatusTone(displayStatus)} shape="pill" size="tiny">
+                {statusLabel}
+              </StatusBadge>
+              {healthLabel ? (
                 <StatusBadge
                   tone={agentManagerHealthTone(props.agent, props.health)}
                   shape="pill"
@@ -103,15 +123,28 @@ export function AgentManagementAgentCard(props: {
                 >
                   {healthLabel}
                 </StatusBadge>
-              );
-            })()}
+              ) : null}
+            </div>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dls-secondary">
-            <span className="truncate">{localAgentTypeLabel(props.agent)}</span>
-            <span className="truncate">{props.agent.version || props.agent.executablePath}</span>
+          {/* Meta: product type · version (omit path/command noise) */}
+          <div className="mt-1 truncate text-xs text-dls-secondary">
+            <span>{localAgentTypeLabel(props.agent)}</span>
+            {metaSecondary ? (
+              <>
+                <span className="mx-1.5 text-dls-border" aria-hidden>
+                  ·
+                </span>
+                <span title={String(props.agent.version ?? metaSecondary)}>{metaSecondary}</span>
+              </>
+            ) : null}
           </div>
         </div>
-        <ChevronRight className={cn("size-4 shrink-0 text-dls-secondary transition-transform duration-200", expanded && "rotate-90")} />
+        <ChevronRight
+          className={cn(
+            "size-4 shrink-0 self-center text-dls-secondary transition-transform duration-200",
+            expanded && "rotate-90",
+          )}
+        />
       </button>
 
       {expanded ? (

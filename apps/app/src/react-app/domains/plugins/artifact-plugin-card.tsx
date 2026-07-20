@@ -49,6 +49,10 @@ function localizedPluginCopy(plugin: ArtifactPluginCatalogItem) {
   };
 }
 
+/**
+ * Horizontal shell aligned with connector preview cards.
+ * Switch toggles enable; 「查看详情」 / card click opens the detail dialog.
+ */
 export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const { plugin } = props;
   const enabled = plugin.enabled;
@@ -57,52 +61,40 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   return (
     <article
       className={cn(
-        "group flex h-full min-h-[5.5rem] cursor-pointer flex-col gap-2 rounded-xl border border-dls-border/50 bg-dls-surface p-3.5 transition-colors",
+        "group flex h-full min-h-20 items-center gap-2.5 rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
         "hover:border-dls-border hover:bg-dls-hover/60",
         "focus-within:border-dls-border focus-within:bg-dls-hover/60",
-        !enabled && "opacity-70",
+        !enabled && "opacity-80",
       )}
-      onClick={props.onOpen}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          props.onOpen();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label={`${copy.name}. ${props.openLabel}`}
     >
-      <div className="flex min-w-0 flex-1 items-start gap-2.5">
-        <ArtifactPluginIcon pluginId={plugin.id} size="sm" />
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        onClick={props.onOpen}
+        aria-label={`${copy.name}. ${props.openLabel}`}
+      >
+        <ArtifactPluginIcon pluginId={plugin.id} size="sm" className="size-9 rounded-lg" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="truncate text-sm font-medium leading-5 text-dls-text">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text">
               {copy.name}
             </h3>
-            <div
-              className="shrink-0"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <Switch
-                checked={enabled}
-                aria-label={props.toggleLabel}
-                onCheckedChange={(next) => void props.onEnabledChange(next)}
-              />
-            </div>
           </div>
           <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
             {copy.description}
           </p>
+          <span className="mt-1 inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
+            {props.openLabel}
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </span>
         </div>
-      </div>
-      <div className="flex items-center justify-end">
-        <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
-          {props.openLabel}
-          <ChevronRight className="size-3.5" aria-hidden="true" />
-        </span>
+      </button>
+      <div className="shrink-0 self-start pt-0.5">
+        <Switch
+          checked={enabled}
+          aria-label={props.toggleLabel}
+          onCheckedChange={(next) => void props.onEnabledChange(next)}
+        />
       </div>
     </article>
   );

@@ -110,6 +110,8 @@ describe("session archive page helpers", () => {
 
   it("labels grok and vscode-copilot friendly names", () => {
     expect(agentLabel("grok")).toBe("Grok Build");
+    expect(agentLabel("workbuddy")).toBe("WorkBuddy");
+    expect(archiveAgentIconId("workbuddy")).toBe("workbuddy");
     expect(agentLabel("vscode-copilot")).toBe("VS Code Copilot");
   });
 });

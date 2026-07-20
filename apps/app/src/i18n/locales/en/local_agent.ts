@@ -132,6 +132,7 @@ export default {
   "local_agent.failure_sandbox_network": "The underlying agent sandbox, network, or system permission refused this operation. Raw error: {message}",
   "local_agent.failure_empty_output": "The agent finished without a readable reply. Check that this agent streams assistant text, or try again.",
   "local_agent.failure_acp_incomplete": "The agent reply did not finish cleanly and may be truncated. Retry or check the model context limit.",
+  "local_agent.failure_acp_prompt": "This turn failed while the agent handled the request. Retry or start a new session.",
   "local_agent.tips_ownership_agent": "Agent",
   "local_agent.tips_ownership_provider": "Provider",
   "local_agent.tips_ownership_platform": "Platform",

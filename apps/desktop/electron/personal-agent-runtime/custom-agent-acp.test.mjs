@@ -44,7 +44,7 @@ test("custom-agent-store persists ACP adapter fields", (t) => serial(async () =>
   assert.equal(created.supportsStreaming, true);
   assert.equal(created.supportsApproval, true);
   assert.equal(created.authRequired, true);
-  assert.equal(created.connectionMode, "Custom ACP session");
+  assert.equal(created.connectionMode, "CodeBuddy ACP session");
 
   const listed = await listCustomAgents(workspaceRoot);
   assert.equal(listed.length, 1);
@@ -103,8 +103,15 @@ test("personalAgentCapability honors custom ACP capability", () => {
 
 test("personalLocalAgentConnectionMode maps custom ACP to ACP mode label", () => {
   const acp = personalLocalAgentConnectionMode("custom", { provider: "custom", connectionType: "cli", supportsAcp: true });
+  const named = personalLocalAgentConnectionMode("custom", {
+    provider: "custom",
+    name: "Grok Build",
+    connectionType: "cli",
+    supportsAcp: true,
+  });
   const raw = personalLocalAgentConnectionMode("custom", { provider: "custom", connectionType: "raw" });
   assert.equal(acp, "Custom ACP session");
+  assert.equal(named, "Grok Build ACP session");
   assert.equal(raw, "Custom command");
 });
 

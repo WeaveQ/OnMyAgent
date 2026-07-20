@@ -80,4 +80,8 @@ test("discoverableAgentDrafts surfaces WorkBuddy draft", () => {
     Array.isArray(workbuddy.nativeSkillsDirs) &&
       workbuddy.nativeSkillsDirs.some((dir) => String(dir).includes(".codebuddy")),
   );
+  assert.ok(
+    workbuddy.nativeSkillsDirs.some((dir) => String(dir).includes(".workbuddy")),
+    "WorkBuddy also declares ~/.workbuddy/skills",
+  );
 });
