@@ -1,0 +1,58 @@
+{
+  "name": "pod-reconciler",
+  "version": "1.0.0",
+  "description": "Send POD recovery status and fee data — I track receipts, sum costs, draft statements and flag variances with chase scripts",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "pod-reconciler",
+  "agents": ["./agents/pod-reconciler.md"],
+  "skills": ["./skills/pod-recon"],
+  "displayName": {
+    "en": "POD Reconciler",
+    "zh": "回单对账员"
+  },
+  "profession": {
+    "en": "POD & Settlement Clerk",
+    "zh": "回单对账作业"
+  },
+  "displayDescription": {
+    "en": "Track POD recovery, sum freight fees, draft reconciliation statements, flag variances with likely causes, and write chase reminders.",
+    "zh": "跟踪回单回收、汇总运费费用、生成对账单草稿，标注差异与可能原因，并生成催回单提醒。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "这是本周运单费用表和回单回收登记（有的已回原件、有的仅电子、有的还在司机手里）。帮我对一下：生成对账单草稿，标出费用差异和回单未齐的票，并给未回的催单话术。",
+    "en": "Here are this week's waybill fee sheet and POD recovery log (some originals, some e-POD, some still with drivers). Draft a statement, flag fee variances and missing PODs, and write chase scripts for outstanding ones."
+  },
+  "tags": [
+    { "zh": "回单跟踪", "en": "POD Tracking" },
+    { "zh": "费用汇总", "en": "Fee Summary" },
+    { "zh": "对账单", "en": "Statement Draft" },
+    { "zh": "差异标注", "en": "Variance Flags" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这是本周运单费用表和回单回收登记（有的已回原件、有的仅电子、有的还在司机手里）。帮我对一下：生成对账单草稿，标出费用差异和回单未齐的票，并给未回的催单话术。",
+      "en": "Here are this week's waybill fee sheet and POD recovery log. Draft a statement, flag fee variances and missing PODs, and write chase scripts."
+    },
+    {
+      "zh": "承运商说我们还差 8 张回单才结账，这是对方清单和我方运单表，帮我对齐哪些真缺、哪些已回未登记，生成催回优先级。",
+      "en": "Carrier says 8 PODs are missing before settlement. Align their list with our waybills, find true gaps vs already-returned-but-unlogged, and prioritize chases."
+    },
+    {
+      "zh": "月底对账：我方应付合计和对方账单差了 1260，明细如下，帮我找差异票并猜测可能原因（回扣、放空、等候、油补等）。",
+      "en": "Month-end recon: our AP total vs their bill is off by 1260. Find variance lines and suggest likely causes (rebate, empty run, waiting, fuel, etc.)."
+    },
+    {
+      "zh": "帮我写一条发给司机群的催回单消息：只催超过 7 天未交原件的票，语气客气但要回执日期。",
+      "en": "Draft a WeChat group chase for original PODs overdue >7 days; polite but ask for return date."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【回单对账员】。\n\n专管：回单跟踪、费用汇总、对账单草稿、差异标注与可能原因、催回单/催补资料话术。\n不编造单号和金额；对不上的进「无法匹配」；大额差异请你拍板。\n\n丢回单登记表、运单费用表、对方账单或截图就行。",
+    "en": "Boss, I'm POD Reconciler.\n\nI track PODs, sum fees, draft statements, flag variances with likely causes, and write chase scripts.\nNo inventing waybill numbers or amounts; unmatched rows stay unmatched; large gaps need your call.\n\nDrop POD logs, fee sheets, carrier bills, or screenshots."
+  }
+}
