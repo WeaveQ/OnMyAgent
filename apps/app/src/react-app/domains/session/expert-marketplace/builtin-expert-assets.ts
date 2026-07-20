@@ -44,25 +44,26 @@ import asset42 from "../../../../../../desktop/resources/marketplace/experts/plu
 import asset43 from "../../../../../../desktop/resources/marketplace/experts/plugins/private-domain-marketing-expert/avatars/expert.png?url";
 import asset44 from "../../../../../../desktop/resources/marketplace/experts/plugins/private-domain-operations-expert/avatars/expert.png?url";
 import asset45 from "../../../../../../desktop/resources/marketplace/experts/plugins/proposal-strategist/avatars/expert.png?url";
-import asset46 from "../../../../../../desktop/resources/marketplace/experts/plugins/recruitment-expert/avatars/expert.png?url";
-import asset47 from "../../../../../../desktop/resources/marketplace/experts/plugins/sales-coach/avatars/expert.png?url";
-import asset48 from "../../../../../../desktop/resources/marketplace/experts/plugins/security-engineer/avatars/expert.png?url";
-import asset49 from "../../../../../../desktop/resources/marketplace/experts/plugins/senior-developer/avatars/expert.png?url";
-import asset50 from "../../../../../../desktop/resources/marketplace/experts/plugins/senior-project-manager/avatars/expert.png?url";
-import asset51 from "../../../../../../desktop/resources/marketplace/experts/plugins/seo-expert/avatars/expert.png?url";
-import asset52 from "../../../../../../desktop/resources/marketplace/experts/plugins/short-video-editing-coach/avatars/expert.png?url";
-import asset53 from "../../../../../../desktop/resources/marketplace/experts/plugins/smb-finance/avatars/expert.png?url";
-import asset54 from "../../../../../../desktop/resources/marketplace/experts/plugins/social-media-strategist/avatars/expert.png?url";
-import asset55 from "../../../../../../desktop/resources/marketplace/experts/plugins/software-architect/avatars/expert.png?url";
-import asset56 from "../../../../../../desktop/resources/marketplace/experts/plugins/supply-chain-strategist/avatars/expert.png?url";
-import asset57 from "../../../../../../desktop/resources/marketplace/experts/plugins/technical-artist/avatars/expert.png?url";
-import asset58 from "../../../../../../desktop/resources/marketplace/experts/plugins/tik-tok-strategist/avatars/expert.png?url";
-import asset59 from "../../../../../../desktop/resources/marketplace/experts/plugins/tripstar-agent/avatars/expert.png?url";
-import asset60 from "../../../../../../desktop/resources/marketplace/experts/plugins/ui-designer/avatars/expert.png?url";
-import asset61 from "../../../../../../desktop/resources/marketplace/experts/plugins/user-experience-architect/avatars/expert.png?url";
-import asset62 from "../../../../../../desktop/resources/marketplace/experts/plugins/viral-topic-master/avatars/viral-topic-master.png?url";
-import asset63 from "../../../../../../desktop/resources/marketplace/experts/plugins/wechat-official-account-expert/avatars/expert.png?url";
-import asset64 from "../../../../../../desktop/resources/marketplace/experts/plugins/xiaohongshu-operations-expert/avatars/expert.png?url";
+import asset46 from "../../../../../../desktop/resources/marketplace/experts/plugins/quote-specialist/avatars/expert.png?url";
+import asset47 from "../../../../../../desktop/resources/marketplace/experts/plugins/recruitment-expert/avatars/expert.png?url";
+import asset48 from "../../../../../../desktop/resources/marketplace/experts/plugins/sales-coach/avatars/expert.png?url";
+import asset49 from "../../../../../../desktop/resources/marketplace/experts/plugins/security-engineer/avatars/expert.png?url";
+import asset50 from "../../../../../../desktop/resources/marketplace/experts/plugins/senior-developer/avatars/expert.png?url";
+import asset51 from "../../../../../../desktop/resources/marketplace/experts/plugins/senior-project-manager/avatars/expert.png?url";
+import asset52 from "../../../../../../desktop/resources/marketplace/experts/plugins/seo-expert/avatars/expert.png?url";
+import asset53 from "../../../../../../desktop/resources/marketplace/experts/plugins/short-video-editing-coach/avatars/expert.png?url";
+import asset54 from "../../../../../../desktop/resources/marketplace/experts/plugins/smb-finance/avatars/expert.png?url";
+import asset55 from "../../../../../../desktop/resources/marketplace/experts/plugins/social-media-strategist/avatars/expert.png?url";
+import asset56 from "../../../../../../desktop/resources/marketplace/experts/plugins/software-architect/avatars/expert.png?url";
+import asset57 from "../../../../../../desktop/resources/marketplace/experts/plugins/supply-chain-strategist/avatars/expert.png?url";
+import asset58 from "../../../../../../desktop/resources/marketplace/experts/plugins/technical-artist/avatars/expert.png?url";
+import asset59 from "../../../../../../desktop/resources/marketplace/experts/plugins/tik-tok-strategist/avatars/expert.png?url";
+import asset60 from "../../../../../../desktop/resources/marketplace/experts/plugins/tripstar-agent/avatars/expert.png?url";
+import asset61 from "../../../../../../desktop/resources/marketplace/experts/plugins/ui-designer/avatars/expert.png?url";
+import asset62 from "../../../../../../desktop/resources/marketplace/experts/plugins/user-experience-architect/avatars/expert.png?url";
+import asset63 from "../../../../../../desktop/resources/marketplace/experts/plugins/viral-topic-master/avatars/viral-topic-master.png?url";
+import asset64 from "../../../../../../desktop/resources/marketplace/experts/plugins/wechat-official-account-expert/avatars/expert.png?url";
+import asset65 from "../../../../../../desktop/resources/marketplace/experts/plugins/xiaohongshu-operations-expert/avatars/expert.png?url";
 
 export const BUILTIN_EXPERT_AVATAR_URLS: Record<string, string> = {
   "ai-engineer": asset0,
@@ -111,23 +112,24 @@ export const BUILTIN_EXPERT_AVATAR_URLS: Record<string, string> = {
   "private-domain-marketing-expert": asset43,
   "private-domain-operations-expert": asset44,
   "proposal-strategist": asset45,
-  "recruitment-expert": asset46,
-  "sales-coach": asset47,
-  "security-engineer": asset48,
-  "senior-developer": asset49,
-  "senior-project-manager": asset50,
-  "seo-expert": asset51,
-  "short-video-editing-coach": asset52,
-  "smb-finance": asset53,
-  "social-media-strategist": asset54,
-  "software-architect": asset55,
-  "supply-chain-strategist": asset56,
-  "technical-artist": asset57,
-  "tik-tok-strategist": asset58,
-  "tripstar-agent": asset59,
-  "ui-designer": asset60,
-  "user-experience-architect": asset61,
-  "viral-topic-master": asset62,
-  "wechat-official-account-expert": asset63,
-  "xiaohongshu-operations-expert": asset64,
+  "quote-specialist": asset46,
+  "recruitment-expert": asset47,
+  "sales-coach": asset48,
+  "security-engineer": asset49,
+  "senior-developer": asset50,
+  "senior-project-manager": asset51,
+  "seo-expert": asset52,
+  "short-video-editing-coach": asset53,
+  "smb-finance": asset54,
+  "social-media-strategist": asset55,
+  "software-architect": asset56,
+  "supply-chain-strategist": asset57,
+  "technical-artist": asset58,
+  "tik-tok-strategist": asset59,
+  "tripstar-agent": asset60,
+  "ui-designer": asset61,
+  "user-experience-architect": asset62,
+  "viral-topic-master": asset63,
+  "wechat-official-account-expert": asset64,
+  "xiaohongshu-operations-expert": asset65,
 };
