@@ -522,6 +522,7 @@ export default {
   "session.process_summary_deep_thinking": "深度思考",
   "session.process_summary_collecting_sources": "收集資料",
   "session.process_summary_continue_processing": "繼續處理任務過程",
+  "session.process_summary_command_modify_topic": "執行校驗、修改：{topic}",
   "session.workbuddy_task_list": "任務列表",
   "session.tool_title_read_file": "已查看 {file}",
   "session.tool_title_read_file_generic": "已查看文件",

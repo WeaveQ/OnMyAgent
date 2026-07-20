@@ -138,6 +138,7 @@ describe("session transcript layout contract", () => {
     expect(appStyles).toContain(".session-workbuddy-process-head");
     expect(appStyles).toContain(".session-workbuddy-process-fold.is-summary > .session-workbuddy-process-body");
     expect(appStyles).toContain(".session-workbuddy-process-fold.is-thinking > .session-workbuddy-process-body");
+    expect(messageList).not.toContain('props.running && chip.variant === "summary"');
     expect(appStyles).toContain("border-left: 4px solid var(--dls-border)");
     expect(appStyles).toContain(".session-workbuddy-task-detail");
     expect(messageList).toContain("<MarkdownBlock");

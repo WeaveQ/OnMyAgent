@@ -9,6 +9,7 @@ import {
   ChevronDown,
   CircleAlert,
   Copy,
+  Eye,
   File as FileIcon,
   Folder,
   GitFork,
@@ -699,6 +700,8 @@ function ToolActivityIcon(props: { category?: string }) {
       return <Folder className={className} strokeWidth={1.9} />;
     case "search":
       return <Search className={className} strokeWidth={1.9} />;
+    case "browser":
+      return <Eye className={className} strokeWidth={1.7} />;
     default:
       return <Box className={className} strokeWidth={1.9} />;
   }
@@ -1968,6 +1971,20 @@ function processItemToLegacyPart(item: TurnProcessItem) {
   return toLegacyPart(item.part, `${item.messageId}:${item.partIndex}`);
 }
 
+export function shouldUseSemanticProcessFold(part: Part) {
+  if (part.type !== "tool") return false;
+  const tool = part.tool.toLowerCase();
+  return tool === "skill" ||
+    tool === "useskill" ||
+    tool.includes("skill") ||
+    tool === "bash" ||
+    tool === "shell" ||
+    tool.includes("command") ||
+    tool.includes("terminal") ||
+    tool.includes("browser") ||
+    tool.includes("playwright");
+}
+
 function processPlanDetails(items: TurnProcessItem[]) {
   for (const item of items) {
     const part = processItemToLegacyPart(item);
@@ -1984,28 +2001,39 @@ function processPlanDetails(items: TurnProcessItem[]) {
   return null;
 }
 
-function processFoldChipMeta(items: TurnProcessItem[]): {
+export function processFoldChipMeta(items: TurnProcessItem[], turnRunning = false): {
   label: string;
   category?: string;
   variant: "thinking" | "tool-chip" | "summary";
+  running: boolean;
 } {
   if (processPlanDetails(items)) {
-    return { label: t("session.workbuddy_task_list"), category: "terminal", variant: "summary" };
+    return {
+      label: t("session.workbuddy_task_list"),
+      category: "terminal",
+      variant: "summary",
+      running: turnRunning,
+    };
   }
   const legacyParts = items.flatMap((item) => {
     const part = processItemToLegacyPart(item);
     return part ? [part] : [];
   });
+  const toolParts = legacyParts.filter((part) => part.type === "tool");
+  const running = turnRunning && toolParts.some((part) => (
+    isRunningStepStatus(summarizeStep(part).status)
+  ));
   if (legacyParts.length > 0 && legacyParts.every((part) => part.type === "reasoning")) {
     return {
       label: t("session.process_summary_deep_thinking"),
       variant: "thinking",
+      running: turnRunning,
     };
   }
 
-  // Single concrete op → WorkBuddy chip label (load skill / run command / browser)
-  if (legacyParts.length === 1 && legacyParts[0]?.type === "tool") {
-    const part = legacyParts[0];
+  // WorkBuddy summaries ignore reasoning and derive intent only from tool calls.
+  if (toolParts.length === 1 && toolParts[0]) {
+    const part = toolParts[0];
     const summary = summarizeStep(part);
     const tool = part.tool.toLowerCase();
     const toolState = "state" in part && isRecordValue(part.state) ? part.state : null;
@@ -2026,6 +2054,7 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
           : t("session.tool_chip_load_skill_generic"),
         category: "skill",
         variant: "tool-chip",
+        running,
       };
     }
     if (
@@ -2038,30 +2067,53 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
         label: t("session.tool_chip_run_command"),
         category: "terminal",
         variant: "tool-chip",
+        running,
       };
     }
     if (
       tool.includes("browser") ||
-      tool.includes("playwright") ||
-      tool.includes("web") ||
-      tool.includes("fetch")
+      tool.includes("playwright")
     ) {
       return {
-        label: t("session.tool_chip_browser"),
-        category: "search",
-        variant: "tool-chip",
+        label: t("session.process_summary_continue_processing"),
+        category: "browser",
+        variant: "summary",
+        running,
       };
     }
-    return {
-      label: summary.title?.trim() || t("session.process_summary_continue_processing"),
-      category: summary.toolCategory,
-      variant: "tool-chip",
-    };
   }
 
-  const toolNames = legacyParts.flatMap((part) => (
-    part.type === "tool" ? [part.tool.toLowerCase()] : []
-  ));
+  const toolNames = toolParts.map((part) => part.tool.toLowerCase());
+  const terminalCount = toolNames.filter((name) => (
+    name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
+  )).length;
+  const editCount = toolNames.filter((name) => (
+    name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
+  )).length;
+  if (terminalCount > 0 && editCount > 0) {
+    const topic = toolParts.flatMap((part) => {
+      const state = "state" in part ? recordValue(part.state) : null;
+      const input = recordValue(state?.input);
+      const path = ["filePath", "file_path", "path"]
+        .map((key) => input?.[key])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+      if (!path) return [];
+      const normalized = path.replace(/[\\/]+$/, "");
+      return [normalized.split(/[\\/]/).at(-1) || normalized];
+    })[0];
+    if (topic) {
+      return {
+        label: t("session.process_summary_command_modify_topic", { topic }),
+        category: toolNames.findIndex((name) => (
+          name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
+        )) <= toolNames.findIndex((name) => (
+          name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
+        )) ? "terminal" : "edit",
+        variant: "summary",
+        running,
+      };
+    }
+  }
   if (toolNames.some((name) => (
     name.includes("search") || name.includes("fetch") || name.includes("browser") || name.includes("web")
   ))) {
@@ -2069,26 +2121,23 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
       label: t("session.process_summary_collecting_sources"),
       category: "search",
       variant: "summary",
+      running,
     };
   }
-  const terminalCount = toolNames.filter((name) => (
-    name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
-  )).length;
   if (terminalCount > 0) {
     return {
       label: t("session.process_summary_ran_commands", { count: terminalCount }),
       category: "terminal",
       variant: "summary",
+      running,
     };
   }
-  const editCount = toolNames.filter((name) => (
-    name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
-  )).length;
   if (editCount > 0) {
     return {
       label: t("session.process_summary_edited", { count: editCount }),
       category: "edit",
       variant: "summary",
+      running,
     };
   }
   const readCount = toolNames.filter((name) => (
@@ -2099,22 +2148,31 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
       label: t("session.process_summary_reviewed_files", { count: readCount }),
       category: "read",
       variant: "summary",
+      running,
     };
   }
-  if (legacyParts.length > 0) {
+  if (toolParts.length > 0) {
     const summary = summarizeStepCluster([{
       id: `turn-process:${items[0]?.messageId ?? "unknown"}`,
-      parts: legacyParts,
+      parts: toolParts,
       mode: "standalone",
     }]);
     if (summary.category !== "tool") {
-      return { label: summary.label, category: summary.category, variant: "summary" };
+      return {
+        label: summary.label,
+        category: summary.category,
+        variant: "summary",
+        running,
+      };
     }
   }
   return {
     label: t("session.process_summary_continue_processing"),
-    category: "tool",
+    category: toolNames.some((name) => name.includes("browser") || name.includes("playwright"))
+      ? "browser"
+      : "tool",
     variant: "summary",
+    running,
   };
 }
 
@@ -2208,7 +2266,7 @@ function WorkBuddyProcessFold(props: {
   const [expanded, setExpanded] = useState(false);
   if (plan) return <WorkBuddyTaskList todos={plan.todos} running={props.running} />;
 
-  const chip = processFoldChipMeta(props.items);
+  const chip = processFoldChipMeta(props.items, props.running);
   const isThinking = chip.variant === "thinking";
   const isToolChip = chip.variant === "tool-chip";
 
@@ -2245,11 +2303,7 @@ function WorkBuddyProcessFold(props: {
       >
         {isThinking ? null : (
           <span className="session-workbuddy-process-icon-wrap" aria-hidden="true">
-            {props.running && chip.variant === "summary" ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              <ToolActivityIcon category={chip.category} />
-            )}
+            <ToolActivityIcon category={chip.category} />
           </span>
         )}
         <span>{chip.label}</span>
@@ -2267,7 +2321,7 @@ function WorkBuddyProcessFold(props: {
                     key={key}
                     id={`${props.id}:${key}`}
                     items={[item]}
-                    running={props.running}
+                    running={chip.running}
                     expandedStepIds={props.expandedStepIds}
                     onExpandedStepIdsChange={props.onExpandedStepIdsChange}
                     onOpenCodePath={props.onOpenCodePath}
@@ -2278,7 +2332,7 @@ function WorkBuddyProcessFold(props: {
                 <MarkdownBlock
                   key={key}
                   text={item.part.text}
-                  streaming={props.running}
+                  streaming={chip.running}
                   showStreamingCursor={false}
                   locale={currentLocale()}
                 />
@@ -2294,7 +2348,7 @@ function WorkBuddyProcessFold(props: {
                 expanded={props.expandedStepIds.has(key)}
                 onToggle={() => toggleStep(key)}
                 onOpenCodePath={props.onOpenCodePath}
-                isStreamingReasoning={props.running}
+                isStreamingReasoning={chip.running}
               />
             );
           })}
@@ -2593,7 +2647,12 @@ function WorkBuddyTurnContent(props: {
   };
 
   const renderSingletonProcess = (id: string, item: TurnProcessItem) => {
-    if (item.part.type === "reasoning" || processPlanDetails([item])) {
+    const legacyPart = processItemToLegacyPart(item);
+    if (
+      item.part.type === "reasoning" ||
+      processPlanDetails([item]) ||
+      (legacyPart && shouldUseSemanticProcessFold(legacyPart))
+    ) {
       return (
         <WorkBuddyProcessFold
           key={id}
@@ -2606,7 +2665,6 @@ function WorkBuddyTurnContent(props: {
         />
       );
     }
-    const legacyPart = processItemToLegacyPart(item);
     if (!legacyPart) return null;
     const stepId = `${item.messageId}:${item.partIndex}`;
     return (

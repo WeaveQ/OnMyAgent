@@ -4,8 +4,10 @@ import type { Part } from "@opencode-ai/sdk/v2/client";
 import {
   canMergeStepClusters,
   mergeLeadingAssistantStepClusters,
+  processFoldChipMeta,
   resolveDisplayedPastedText,
   shouldFoldStepGroups,
+  shouldUseSemanticProcessFold,
   summarizeStepCluster,
 } from "../src/react-app/domains/session/surface/message-list";
 import { groupMessageParts, summarizeStep } from "../src/app/utils";
@@ -70,6 +72,136 @@ function messageBlock(id: string, role: "assistant" | "user"): TimelineBlock {
 }
 
 describe("session process summary", () => {
+  test("uses WorkBuddy tool semantics when reasoning precedes a completed skill", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-reasoning",
+        partIndex: 0,
+        index: 0,
+        part: { type: "reasoning", text: "I should load the browser skill." },
+      },
+      {
+        messageId: "message-skill",
+        partIndex: 1,
+        index: 1,
+        part: {
+          type: "dynamic-tool",
+          toolName: "skill",
+          toolCallId: "call-skill",
+          input: { name: "browser-automation" },
+          output: "loaded",
+          state: "output-available",
+        },
+      },
+    ], true);
+
+    expect(meta).toEqual({
+      label: "Load skill browser-automation",
+      category: "skill",
+      variant: "tool-chip",
+      running: false,
+    });
+  });
+
+  test("keeps completed browser operations static while the enclosing turn is streaming", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-browser",
+        partIndex: 0,
+        index: 0,
+        part: {
+          type: "dynamic-tool",
+          toolName: "onmyagent_browser_node_repl",
+          toolCallId: "call-browser",
+          input: { code: "return await tab.url()" },
+          output: "https://example.com",
+          state: "output-available",
+        },
+      },
+    ], true);
+
+    expect(meta).toEqual({
+      label: "Continue processing task",
+      category: "browser",
+      variant: "summary",
+      running: false,
+    });
+  });
+
+  test("uses WorkBuddy command naming without leaking command text", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-command",
+        partIndex: 0,
+        index: 0,
+        part: {
+          type: "dynamic-tool",
+          toolName: "bash",
+          toolCallId: "call-command",
+          input: { command: "pnpm check:type" },
+          output: "ok",
+          state: "output-available",
+        },
+      },
+    ], false);
+
+    expect(meta).toEqual({
+      label: "Run command",
+      category: "terminal",
+      variant: "tool-chip",
+      running: false,
+    });
+  });
+
+  test("routes opaque browser, skill, and command singletons through semantic folds", () => {
+    expect(shouldUseSemanticProcessFold(toolPart("browser", "onmyagent_browser_node_repl"))).toBe(true);
+    expect(shouldUseSemanticProcessFold(toolPart("skill", "skill"))).toBe(true);
+    expect(shouldUseSemanticProcessFold(toolPart("command", "bash"))).toBe(true);
+    expect(shouldUseSemanticProcessFold(toolPart("read", "read"))).toBe(false);
+  });
+
+  test("uses WorkBuddy multi-stage wording and the file topic", () => {
+    setLocale("en");
+    const meta = processFoldChipMeta([
+      {
+        messageId: "message-command",
+        partIndex: 0,
+        index: 0,
+        part: {
+          type: "dynamic-tool",
+          toolName: "bash",
+          toolCallId: "call-command",
+          input: { command: "pnpm check:type" },
+          output: "ok",
+          state: "output-available",
+        },
+      },
+      {
+        messageId: "message-edit",
+        partIndex: 1,
+        index: 1,
+        part: {
+          type: "dynamic-tool",
+          toolName: "edit",
+          toolCallId: "call-edit",
+          input: { filePath: "/workspace/2026-07-19.md" },
+          output: "updated",
+          state: "output-available",
+        },
+      },
+    ], false);
+
+    expect(meta).toEqual({
+      label: "Run checks and edit: 2026-07-19.md",
+      category: "terminal",
+      variant: "summary",
+      running: false,
+    });
+  });
+
   test("merges contiguous foldable process clusters across tool categories", () => {
     const readA = stepBlock("read-a", "read");
     const readB = stepBlock("read-b", "read");
