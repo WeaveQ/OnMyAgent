@@ -40,14 +40,10 @@ const queryClient = getReactQueryClient();
 const Router = isDesktopRuntime() ? HashRouter : BrowserRouter;
 
 function BootstrapFallback() {
-  // i18n is not ready yet; pick a simple locale-aware first paint string.
-  const bootLabel =
-    typeof navigator !== "undefined" && /^zh\b/i.test(navigator.language)
-      ? "正在启动 OnMyAgent…"
-      : "Starting OnMyAgent…";
+  // i18n is not ready yet — keep English only so check:i18n:cjk stays clean.
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-dls-surface text-xs text-dls-secondary">
-      {bootLabel}
+      Starting OnMyAgent…
     </div>
   );
 }
