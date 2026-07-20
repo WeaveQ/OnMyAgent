@@ -580,13 +580,10 @@ function isNoisyArchiveMessage(message: {
   if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) {
     return true;
   }
-  // Bare harness shells with no usable body left after cleaning.
-  if (
-    message.role === "system" &&
-    text.length > 400 &&
-    !/[一-龥A-Za-z]{12,}/.test(text.replace(/[<>/=\-_|]/g, " "))
-  ) {
-    return true;
+  // Bare harness shells: mostly tags/punctuation after cleanArchiveMessageContent.
+  if (message.role === "system" && text.length > 400) {
+    const letters = text.replace(/[^A-Za-z0-9]/g, "");
+    if (letters.length < 12) return true;
   }
   return false;
 }
