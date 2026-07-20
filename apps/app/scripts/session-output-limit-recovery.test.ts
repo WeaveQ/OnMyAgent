@@ -67,6 +67,14 @@ describe("output-limit recovery", () => {
     expect(source).toContain("edit or append in multiple calls");
   });
 
+  test("default agent follows WorkBuddy user-facing presentation contracts", async () => {
+    const source = await readFile(new URL("../../../.opencode/agents/onmyagent.md", import.meta.url), "utf8");
+    expect(source).toContain("Do not mention specific tool names");
+    expect(source).toContain("The final reply must stand on its own");
+    expect(source).toContain("Explicit requests to show, visualize, diagram, chart, draw, or graph");
+    expect(source).toContain("Between multiple visuals, write a short paragraph");
+  });
+
   test("session surface renders and sends the output-limit continuation card", async () => {
     const source = await readFile(
       new URL("../src/react-app/domains/session/surface/session-surface.tsx", import.meta.url),
