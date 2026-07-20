@@ -180,6 +180,7 @@ export type TranscriptSpecializedToolDetails =
       presentation: TranscriptMcpResourcePresentation;
     }
   | { kind: "skill"; skillName: string }
+  | { kind: "visualizer-read-me"; result: string | null }
   | { kind: "completion"; message: string; success: boolean; details: string | null }
   | { kind: "open-result"; target: string; viewType: "preview" | "changes" | "artifacts" }
   | { kind: "mcp-match"; requests: Array<{ serverName: string; toolName: string }> }
@@ -339,6 +340,43 @@ function basename(value: string) {
 
 function normalizedToolName(value: string) {
   return value.toLowerCase().replace(/[-_]/g, "");
+}
+
+function isVisualizerReadMeToolName(value: string) {
+  return [
+    "readme",
+    "visualize:readme",
+    "visualizer:readme",
+    "visualizer:readmetool",
+    "getdesignspec",
+  ].includes(normalizedToolName(value));
+}
+
+function visualizerReadMePayload(value: unknown): Record<string, unknown> | null {
+  const pending: unknown[] = [value];
+  const visited = new Set<object>();
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (typeof current === "string") {
+      const parsed = parseRecord(current);
+      if (parsed) pending.push(parsed);
+      continue;
+    }
+    if (Array.isArray(current)) {
+      pending.push(...current);
+      continue;
+    }
+    if (typeof current !== "object" || current === null) continue;
+    const record = recordValue(current);
+    if (!record || visited.has(current)) continue;
+    visited.add(current);
+    if (record.type === "visualizer_read_me_result") return record;
+    for (const key of ["result", "output", "data", "content", "text"]) {
+      const nested = record[key];
+      if (nested !== undefined && nested !== current) pending.push(nested);
+    }
+  }
+  return null;
 }
 
 function toolFamily(toolName: string): TranscriptToolFamily {
@@ -690,6 +728,14 @@ function specializedToolDetails(input: {
   const toolInput = input.toolInput ?? null;
   const payload = resultPayload(input.toolOutput);
   const normalizedName = normalizedToolName(input.toolName);
+
+  if (isVisualizerReadMeToolName(input.toolName)) {
+    const semanticPayload = visualizerReadMePayload(input.toolOutput);
+    return {
+      kind: "visualizer-read-me",
+      result: formattedValue(semanticPayload ?? input.toolOutput),
+    };
+  }
 
   if (normalizedName === "mcpcalltool") {
     const output = parseRecord(input.toolOutput);
@@ -1141,6 +1187,7 @@ export function buildTranscriptToolPresentation(input: {
     if (details.kind === "mcp") return [details.serverName, details.toolName].filter(Boolean).join(" · ");
     if (details.kind === "mcp-resource") return details.uri;
     if (details.kind === "skill") return details.skillName;
+    if (details.kind === "visualizer-read-me") return null;
     if (details.kind === "completion") return details.message;
     if (details.kind === "open-result") return details.target;
     if (details.kind === "mcp-match") return details.requests.map((request) => request.serverName).filter(Boolean).join(", ");

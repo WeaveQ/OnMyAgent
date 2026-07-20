@@ -119,7 +119,7 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("props.presentation.turnContent?.turnCollapseEligible !== true");
     expect(messageList).toContain("!props.presentation.hasExecutionDetails");
     expect(messageList).toContain("props.presentation.copyText.trim().length > 0");
-    expect(messageList).not.toContain('running && "session-transcript-loading-shimmer"');
+    expect(messageList).not.toContain('props.running && "session-transcript-loading-shimmer"');
     expect(messageList).toContain("function TranscriptTurnActions");
     expect(messageList).toContain("function TranscriptSpeechButton");
     expect(messageList).toContain("function TranscriptShareButton");
@@ -129,6 +129,9 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("function WorkBuddyTurnContent");
     expect(messageList).toContain("function WorkBuddyProcessFold");
     expect(messageList).toContain('t("session.process_summary_deep_thinking")');
+    expect(messageList).toContain(
+      'isThinking && chip.running && "session-transcript-loading-shimmer"',
+    );
     expect(messageList).toContain('data-process-variant={chip.variant}');
     expect(messageList).toContain("const renderSingletonProcess");
     expect(messageList).toContain("props.items.length > 1");
@@ -184,7 +187,7 @@ describe("session transcript layout contract", () => {
     expect(assistantStatus).toContain('<span aria-hidden="true">·</span>');
     expect(assistantStatus).toContain('className="session-transcript-loading-line"');
     expect(assistantStatus).not.toContain("PaperGrainGradient");
-    expect(messageList).not.toContain('running && "session-transcript-loading-shimmer"');
+    expect(messageList).not.toContain('props.running && "session-transcript-loading-shimmer"');
     expect(messageList).toContain("const footerRenderItemId = activeRenderItemId");
     expect(messageList).toContain("item.id === footerRenderItemId");
     expect(messageList).toContain(
