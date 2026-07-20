@@ -68,8 +68,9 @@ import asset66 from "../../../../../../desktop/resources/marketplace/experts/plu
 import asset67 from "../../../../../../desktop/resources/marketplace/experts/plugins/user-experience-architect/avatars/expert.png?url";
 import asset68 from "../../../../../../desktop/resources/marketplace/experts/plugins/viral-topic-master/avatars/viral-topic-master.png?url";
 import asset69 from "../../../../../../desktop/resources/marketplace/experts/plugins/warehouse-manager/avatars/expert.png?url";
-import asset70 from "../../../../../../desktop/resources/marketplace/experts/plugins/wechat-official-account-expert/avatars/expert.png?url";
-import asset71 from "../../../../../../desktop/resources/marketplace/experts/plugins/xiaohongshu-operations-expert/avatars/expert.png?url";
+import asset70 from "../../../../../../desktop/resources/marketplace/experts/plugins/waybill-cargo-checker/avatars/expert.png?url";
+import asset71 from "../../../../../../desktop/resources/marketplace/experts/plugins/wechat-official-account-expert/avatars/expert.png?url";
+import asset72 from "../../../../../../desktop/resources/marketplace/experts/plugins/xiaohongshu-operations-expert/avatars/expert.png?url";
 
 export const BUILTIN_EXPERT_AVATAR_URLS: Record<string, string> = {
   "affiliate-vehicle-admin": asset0,
@@ -142,6 +143,7 @@ export const BUILTIN_EXPERT_AVATAR_URLS: Record<string, string> = {
   "user-experience-architect": asset67,
   "viral-topic-master": asset68,
   "warehouse-manager": asset69,
-  "wechat-official-account-expert": asset70,
-  "xiaohongshu-operations-expert": asset71,
+  "waybill-cargo-checker": asset70,
+  "wechat-official-account-expert": asset71,
+  "xiaohongshu-operations-expert": asset72,
 };
