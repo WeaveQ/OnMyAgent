@@ -561,6 +561,7 @@ export default {
   "session.process_summary_deep_thinking": "Deep thinking",
   "session.process_summary_collecting_sources": "Collecting sources",
   "session.process_summary_continue_processing": "Continue processing task",
+  "session.process_summary_command_modify_topic": "Run checks and edit: {topic}",
   "session.workbuddy_task_list": "Task list",
   "session.tool_title_read_file": "Reviewed {file}",
   "session.tool_title_read_file_generic": "Reviewed file",
