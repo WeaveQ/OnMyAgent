@@ -33,6 +33,10 @@ export default {
   "session_archive.compact_transcript": "紧凑",
   "session_archive.hide_message_meta": "隐藏元信息",
   "session_archive.empty": "暂无归档会话",
+  "session_archive.empty_hint":
+    "这里汇总本机 Claude / Codex / OpenCode / Copilot 等 Agent 的历史记录。个人助理里的对话请到「助手」查看。点同步可重新扫描本地数据。",
+  "session_archive.empty_sync_stats":
+    "上次同步：发现 {discovered}，写入 {synced}，跳过 {skipped}，失败 {failed}",
   "session_archive.select_session": "选择一个归档会话",
   "session_archive.select_session_hint": "从左侧列表选择会话以预览 transcript",
   "session_archive.no_messages": "这个归档项没有消息",

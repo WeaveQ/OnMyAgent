@@ -580,7 +580,7 @@ export default {
   "session.cmd_settings_meta": "打開",
   "session.palette_no_matches": "沒有匹配項。",
   "session.default_model": "選擇模型",
-  "session.preparing_workspace": "正在準備工作區",
+  "session.preparing_workspace": "正在啟動 OnMyAgent…",
   "session.select_or_create_session": "選擇或創建一個會話即可開始。",
   "session.assistant_compacting": "正在壓縮",
   "session.assistant_compacted": "上下文已壓縮",

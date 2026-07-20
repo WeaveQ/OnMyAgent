@@ -20,7 +20,7 @@ export default {
   "system.reload_unavailable": "此工作區不支持重新加載。",
   "system.stop_active_runs_before_reset": "請先停止活躍的運行再重置。",
   "system.server_unhealthy": "服務器報告狀態異常。",
-  "system.boot_preparing_workspace": "正在準備工作區",
+  "system.boot_preparing_workspace": "正在啟動 OnMyAgent…",
   "system.boot_activating_workspace": "正在激活你的工作區",
   "system.boot_ready": "已就緒",
   "system.boot_error": "出現問題",

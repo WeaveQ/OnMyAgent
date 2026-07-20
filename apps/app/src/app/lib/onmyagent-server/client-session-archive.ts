@@ -503,9 +503,13 @@ export function createSessionArchiveClientMethods(ctx: OnMyAgentServerClientCont
         { token, hostToken, timeoutMs: timeouts.sessionRead },
       );
     },
-    syncSessionArchive: (workspaceId: string, options?: { limit?: number }) => {
+    syncSessionArchive: (
+      workspaceId: string,
+      options?: { limit?: number; mode?: "incremental" | "resync" },
+    ) => {
       const query = new URLSearchParams();
       if (typeof options?.limit === "number") query.set("limit", String(options.limit));
+      if (options?.mode) query.set("mode", options.mode);
       const suffix = query.size ? `?${query.toString()}` : "";
       return requestJson<SessionArchiveSyncResult>(
         baseUrl,
