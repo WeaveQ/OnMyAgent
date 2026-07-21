@@ -124,7 +124,11 @@ export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
     setLoading(true);
     setError(null);
     try {
-      const file = await readOpencodeConfig("global", props.workspaceRoot?.trim() || "");
+      // Bridge IPC return is loosely typed; assert the desktop contract shape.
+      const file = (await readOpencodeConfig(
+        "global",
+        props.workspaceRoot?.trim() || "",
+      )) as OpencodeConfigFile;
       const parsed = parseConfigObject(file.content);
       const servers = extractMcpServers(parsed);
       setConfigFile(file);
