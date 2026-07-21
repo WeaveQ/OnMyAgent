@@ -58,6 +58,8 @@ export {
   createExpertSessionKey,
   isSameDirectory,
   joinWorkspacePath,
+  materializeExpertSessionDirectory,
+  resolveExpertSessionDirectoryMarker,
   resolveSelectedSessionFileRoot,
   sanitizePathSegment,
   shouldIsolateExpertSessionDirectory,

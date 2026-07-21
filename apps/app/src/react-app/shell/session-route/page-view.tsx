@@ -73,6 +73,7 @@ import {
 import {
   buildIsolatedExpertSessionDirectory,
   dispatchAssistantSessionWorkspacesChanged,
+  materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
@@ -554,8 +555,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             let sessionDirectory = draftRoot || workspaceRoot || undefined;
             let bindDirectory = draftRoot || "";
             // Treat empty draft and "draft == workspace root" as no real folder pick.
-            // Materialize via a hidden .onmyagent-session.json (not README) so opencode
-            // realPath succeeds and the files panel stays clean.
+            // Only bind isolated path when materialize succeeds (opencode realPath).
             if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
@@ -564,22 +564,19 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
               const ensureWorkspaceId =
                 selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-              if (ensureClient && ensureWorkspaceId?.trim()) {
-                try {
-                  await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
-                    path: isolated.markerRelativePath,
-                    content: isolated.markerContent,
-                    force: true,
-                  });
-                } catch (error) {
-                  console.warn(
-                    "[expert-session] failed to create isolated session directory",
-                    error,
-                  );
-                }
+              const created = await materializeExpertSessionDirectory({
+                client: ensureClient,
+                workspaceId: ensureWorkspaceId,
+                workspaceRoot,
+                sessionDirectory: isolated.directory,
+              });
+              if (created) {
+                sessionDirectory = isolated.directory;
+                bindDirectory = isolated.directory;
+              } else {
+                sessionDirectory = workspaceRoot || undefined;
+                bindDirectory = "";
               }
-              sessionDirectory = isolated.directory;
-              bindDirectory = isolated.directory;
             }
             try {
               newSession = unwrap(
