@@ -161,7 +161,7 @@ describe("order entry clerk expert contract", () => {
     const onMyAgentManifest = readExpertFile(".onmyagent-plugin/plugin.json");
 
     expect(onMyAgentManifest).toBe(expertManifest);
-    expect(JSON.parse(expertManifest).version).toBe("1.3.0");
+    expect(JSON.parse(expertManifest).version).toBe("1.3.1");
     expect(JSON.parse(expertManifest).displayDescription.zh).toContain("白、红、黄三联");
   });
 
