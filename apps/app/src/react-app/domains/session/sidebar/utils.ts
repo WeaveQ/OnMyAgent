@@ -24,6 +24,58 @@ export const isStreamingSessionStatus = (status: string | undefined) =>
   status === "responding" ||
   status === "waiting";
 
+/**
+ * Priority for multi-session aggregate (higher wins).
+ * Expert list / chips need one status when several sessions under one expert are busy.
+ */
+const SESSION_ACTIVITY_PRIORITY: Record<string, number> = {
+  responding: 50,
+  streaming: 50,
+  thinking: 40,
+  busy: 40,
+  running: 40,
+  retry: 30,
+  waiting: 20,
+};
+
+/** Short label for expert list / session-tab busy slot (WeChat-style). */
+export function expertActivityLabel(status: string | undefined): string | null {
+  if (!status || !isStreamingSessionStatus(status)) return null;
+  if (status === "responding" || status === "streaming") {
+    return t("session.expert_status_responding");
+  }
+  if (status === "retry") {
+    return t("session.expert_status_retrying");
+  }
+  if (status === "waiting") {
+    return t("session.expert_status_waiting");
+  }
+  return t("session.expert_status_thinking");
+}
+
+/**
+ * Pick the busiest status among sessions (e.g. expert group with multi-session).
+ * Returns undefined when none are streaming.
+ */
+export function pickAggregateSessionStatus(
+  sessionIds: Iterable<string>,
+  sessionStatusById: Record<string, string> | undefined,
+): string | undefined {
+  if (!sessionStatusById) return undefined;
+  let best: string | undefined;
+  let bestScore = -1;
+  for (const id of sessionIds) {
+    const status = sessionStatusById[id];
+    if (!status || !isStreamingSessionStatus(status)) continue;
+    const score = SESSION_ACTIVITY_PRIORITY[status] ?? 10;
+    if (score > bestScore) {
+      bestScore = score;
+      best = status;
+    }
+  }
+  return best;
+}
+
 const normalizeSessionParentID = (session: SessionListItem) => {
   const parentID = session.parentID?.trim();
   return parentID || "";

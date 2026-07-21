@@ -250,4 +250,44 @@ describe("deriveOpenTargets", () => {
     expect(csv && shouldAutoOpenTarget({ ...csv, exists: false })).toBe(false);
     expect(externalUrl && shouldAutoOpenTarget(externalUrl)).toBe(false);
   });
+
+  it("collects Unicode workspace file paths from assistant mentions when enabled", () => {
+    const withMentions = deriveOpenTargets(
+      [
+        message(
+          "msg_1",
+          "assistant",
+          "已生成 agents/应收台账模板.xlsx（工作区根目录，43 KB）。",
+        ),
+      ],
+      { includeFileMentions: true },
+    );
+    expect(withMentions.map((target) => target.value)).toContain(
+      "agents/应收台账模板.xlsx",
+    );
+    expect(
+      withMentions.find((target) => target.value === "agents/应收台账模板.xlsx")
+        ?.preview,
+    ).toBe("sheet");
+
+    // Default (mentions off) must not invent file targets from prose alone.
+    const withoutMentions = deriveOpenTargets([
+      message("msg_2", "assistant", "已生成 agents/应收台账模板.xlsx"),
+    ]);
+    expect(withoutMentions.map((target) => target.value)).not.toContain(
+      "agents/应收台账模板.xlsx",
+    );
+  });
+
+  it("collects spreadsheet paths from bash/shell tool outputs", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        { command: "python gen_xlsx.py" },
+        "Wrote agents/ledger.xlsx\n",
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
+  });
 });

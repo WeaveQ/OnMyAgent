@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { ChevronRight, Clock3, MessageCirclePlus, Search, UserPlus } from "lucide-react";
+import { ChevronRight, Clock3, MessageCirclePlus, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NavListButton } from "@/components/ui/action-row";
@@ -92,7 +92,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           title={t("session.choose_expert_agent")}
           aria-label={t("session.choose_expert_agent")}
         >
-          <UserPlus className="size-4.5" />
+          <Plus className="size-4" strokeWidth={2} />
         </Button>
         {props.showAgentSelectionTip ? (
           <div className="absolute left-1/2 top-10 z-30 w-60 rounded-lg border border-dls-accent/30 bg-dls-surface p-3">
@@ -110,7 +110,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
               onClick={props.onOpenAgents}
               className="mt-2 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
             >
-              <UserPlus className="size-3" />
+              <Plus className="size-3" strokeWidth={2} />
               {t("session.choose_expert_agent_tip_action")}
               <ChevronRight className="size-3" />
             </Button>

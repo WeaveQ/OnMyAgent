@@ -54,8 +54,9 @@ const GOAL_RUNTIME_TICK_MS = 1000;
 
 const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
-  agentEmptyTitle: "mt-4 text-base font-medium text-dls-text",
-  agentEmptyDescription: "mt-1.5 max-w-md text-center text-sm leading-6 text-dls-secondary",
+  agentEmptyTitle: "mt-3 text-base font-medium text-dls-text",
+  agentEmptyDescription:
+    "mt-1.5 max-w-xl text-balance text-center text-xs leading-5 text-dls-secondary sm:text-sm sm:leading-6",
   draftHomeTitle:
     "inline-flex items-center justify-center gap-3 text-3xl font-semibold tracking-tight text-dls-text sm:text-4xl",
   draftHomeSubtitle: "mt-2.5 max-w-lg text-[15px] leading-6 text-dls-secondary/80",

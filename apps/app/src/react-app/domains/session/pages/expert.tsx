@@ -130,6 +130,11 @@ import {
   type OnMyAgentPrimaryView,
 } from "../sidebar/session-chrome";
 import {
+  readExpertPinnedAgentIds,
+  writeExpertPinnedAgentIds,
+} from "../sidebar/conversation-model";
+import { useExpertUnreadStore } from "../status/expert-unread-store";
+import {
   BillingPage,
   DevicesPage,
   ProjectsComingSoonPage,
@@ -715,6 +720,21 @@ export function ExpertPage(props: ExpertPageProps) {
   const [renameTitle, setRenameTitle] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  /**
+   * Delete confirm target:
+   * - session: single session chip / control
+   * - expert: whole expert row (all sessions under agent)
+   */
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "session"; sessionId: string }
+    | {
+        kind: "expert";
+        agentId: string;
+        name: string;
+        sessionIds: string[];
+      }
+    | null
+  >(null);
   /** Header find bar (same chrome as assistant — not a right rail). */
   const [historySearchOpen, setHistorySearchOpen] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -1255,8 +1275,11 @@ export function ExpertPage(props: ExpertPageProps) {
     props.startupPhase !== "sessionIndexReady" &&
     props.startupPhase !== "firstSessionReady" &&
     props.startupPhase !== "ready";
+  // Draft “新会话” must not be blocked by loading state of the previously
+  // selected real session (sessionLoadingById is tied to selectedSessionId).
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) &&
+    !draftSessionActive &&
     props.sessionLoadingById(props.selectedSessionId) &&
     !showWorkspaceSetupEmptyState;
   const taskStatus = useMemo(
@@ -1340,6 +1363,13 @@ export function ExpertPage(props: ExpertPageProps) {
   /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
   const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
 
+  // Workspace / files / browser side panel is session-scoped. Leaving 助理/专家
+  // chat for 市场、管理、本地、文件… must close it so secondary pages are full-width.
+  useEffect(() => {
+    if (isPrimarySessionView) return;
+    setCurrentSidePanel(null);
+  }, [isPrimarySessionView, setCurrentSidePanel]);
+
   useEffect(() => {
     if (!showSessionLoadingState) {
       setShowDelayedSessionLoadingState(false);
@@ -1354,6 +1384,7 @@ export function ExpertPage(props: ExpertPageProps) {
   useEffect(() => {
     setRenameOpen(false);
     setDeleteOpen(false);
+    setDeleteTarget(null);
     setRenameBusy(false);
     setDeleteBusy(false);
     setSessionActionId(null);
@@ -1369,6 +1400,27 @@ export function ExpertPage(props: ExpertPageProps) {
   const openDeleteModal = (sessionId: string) => {
     if (!props.onDeleteSession) return;
     setSessionActionId(sessionId);
+    setDeleteTarget({ kind: "session", sessionId });
+    setDeleteOpen(true);
+  };
+
+  const openDeleteExpertModal = (target: {
+    agentId: string;
+    name: string;
+    sessionIds: string[];
+  }) => {
+    if (!props.onDeleteSession) return;
+    const sessionIds = target.sessionIds.filter(
+      (id) => id.trim() && !id.startsWith("draft:"),
+    );
+    // Still open confirm when only local expert state remains (no sessions).
+    setSessionActionId(null);
+    setDeleteTarget({
+      kind: "expert",
+      agentId: target.agentId.trim(),
+      name: target.name.trim(),
+      sessionIds,
+    });
     setDeleteOpen(true);
   };
 
@@ -1392,12 +1444,36 @@ export function ExpertPage(props: ExpertPageProps) {
   };
 
   const confirmDelete = async () => {
-    const sessionId = sessionActionId;
-    if (!sessionId || !props.onDeleteSession) return;
+    if (!deleteTarget) return;
+    if (deleteTarget.kind === "session" && !props.onDeleteSession) return;
     setDeleteBusy(true);
     try {
-      await props.onDeleteSession(sessionId);
+      if (deleteTarget.kind === "session") {
+        await props.onDeleteSession?.(deleteTarget.sessionId);
+      } else {
+        if (props.onDeleteSession) {
+          for (const sessionId of deleteTarget.sessionIds) {
+            await props.onDeleteSession(sessionId);
+          }
+        }
+        // Drop local expert pin + unread for this agent after sessions are gone.
+        try {
+          const pinned = readExpertPinnedAgentIds(props.selectedWorkspaceId);
+          if (pinned.includes(deleteTarget.agentId)) {
+            writeExpertPinnedAgentIds(
+              props.selectedWorkspaceId,
+              pinned.filter((id) => id !== deleteTarget.agentId),
+            );
+          }
+          useExpertUnreadStore
+            .getState()
+            .markRead(props.selectedWorkspaceId, deleteTarget.agentId);
+        } catch {
+          // Local cleanup only — ignore storage failures.
+        }
+      }
       setDeleteOpen(false);
+      setDeleteTarget(null);
     } finally {
       setDeleteBusy(false);
     }
@@ -1571,6 +1647,8 @@ export function ExpertPage(props: ExpertPageProps) {
           draftSessionActive ? activeDraftSessionId : props.selectedSessionId
         }
         sessions={currentAgentSessions}
+        agentId={activeConversationAgentId}
+        sessionStatusById={props.sidebar.sessionStatusById}
         onOpenSession={handleOpenExpertSession}
         onOpenDraftSession={handleOpenDraftSession}
         onCreateSession={handleCreateCurrentAgentSession}
@@ -1640,6 +1718,8 @@ export function ExpertPage(props: ExpertPageProps) {
                 onOpenSession={handleOpenExpertSession}
                 onOpenDraftAgent={handleOpenDraftSession}
                 onPrefetchSession={props.sidebar.onPrefetchSession}
+                onDeleteSession={openDeleteModal}
+                onDeleteExpert={openDeleteExpertModal}
               />
             ) : null}
             {activeSidebarView === "chat" ? (
@@ -1680,7 +1760,9 @@ export function ExpertPage(props: ExpertPageProps) {
             <ResizablePanelGroup
               orientation="horizontal"
               onLayoutChanged={
-                sidePanelOpen ? commitBrowserPanelWidth : undefined
+                sidePanelOpen && isPrimarySessionView
+                  ? commitBrowserPanelWidth
+                  : undefined
               }
               className="min-h-0 flex-1"
             >
@@ -1689,7 +1771,9 @@ export function ExpertPage(props: ExpertPageProps) {
                   className={cn(
                     "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
                     // One separator only: handle draws the line when the right panel is open.
-                    sidePanelOpen ? "border-r-0" : "border-r border-dls-border",
+                    sidePanelOpen && isPrimarySessionView
+                      ? "border-r-0"
+                      : "border-r border-dls-border",
                   )}
                 >
                   <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -2066,10 +2150,10 @@ export function ExpertPage(props: ExpertPageProps) {
                   </div>
                 </main>
               </ResizablePanel>
-              {sidePanelOpen ? (
+              {sidePanelOpen && isPrimarySessionView ? (
                 <>
                   {/* Single 1px rule — avoid base bg-border + before: double line. */}
-                  <ResizableHandle className="hidden w-px shrink-0 bg-dls-border/70 transition-colors hover:bg-dls-border-strong focus-visible:bg-dls-accent focus-visible:outline-none focus-visible:ring-0 lg:flex after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 after:bg-transparent after:content-['']" />
+                  <ResizableHandle className="hidden lg:flex" />
                   <ResizablePanel
                     key={activeExpertFeatureCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
                     panelRef={browserPanelRef}
@@ -2168,16 +2252,26 @@ export function ExpertPage(props: ExpertPageProps) {
         />
       ) : null}
 
-      {props.onDeleteSession ? (
+      {deleteOpen ? (
         <ConfirmModal
           open={deleteOpen}
-          title={t("session.delete_session_title")}
+          title={
+            deleteTarget?.kind === "expert"
+              ? t("session.delete_expert_title")
+              : t("session.delete_session_title")
+          }
           message={
-            sessionActionTitle.trim()
-              ? t("session.delete_named_session_message", {
-                  title: sessionActionTitle.trim(),
-                })
-              : t("session.delete_session_generic")
+            deleteTarget?.kind === "expert"
+              ? deleteTarget.name
+                ? t("session.delete_named_expert_message", {
+                    name: deleteTarget.name,
+                  })
+                : t("session.delete_expert_generic")
+              : sessionActionTitle.trim()
+                ? t("session.delete_named_session_message", {
+                    title: sessionActionTitle.trim(),
+                  })
+                : t("session.delete_session_generic")
           }
           confirmLabel={
             deleteBusy ? t("session.deleting") : t("session.delete")
@@ -2186,7 +2280,10 @@ export function ExpertPage(props: ExpertPageProps) {
           variant="danger"
           onConfirm={() => void confirmDelete()}
           onCancel={() => {
-            if (!deleteBusy) setDeleteOpen(false);
+            if (!deleteBusy) {
+              setDeleteOpen(false);
+              setDeleteTarget(null);
+            }
           }}
         />
       ) : null}

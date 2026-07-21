@@ -7,7 +7,7 @@ import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { desktopBridge } from "../../../../../app/lib/desktop";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { MenuRowButton } from "@/components/ui/action-row";
+import { IconTile, MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SendButton } from "@/components/ui/send-button";
@@ -73,6 +73,7 @@ import {
   mcpServerDescription,
   COMPOSER_CONTAIN_STYLE,
   extensionIcon,
+  extensionIconTileClassName,
   pluginSlashCommandName,
 } from "./composer-helpers";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
@@ -1128,7 +1129,14 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      <div className={homeLayout ? "mx-auto w-full max-w-none" : "mx-auto w-full max-w-[1120px]"}>
+      {/* Same max-w as session transcript column (session-surface contentRef). */}
+      <div
+        className={
+          homeLayout
+            ? "mx-auto w-full max-w-none"
+            : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */
+        }
+      >
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
           className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
@@ -1229,7 +1237,8 @@ export function ReactSessionComposer(props: ComposerProps) {
                   ? "px-3.5 pb-1.5 pt-2"
                   : "px-4 pb-2 pt-2"
                 : homeLayout
-                  ? "px-3.5 pb-1.5 pt-3.5"
+                  ? // Same tight empty height as assistant in-session composer.
+                    "px-3.5 pb-1.5 pt-2.5"
                   : "px-4 pb-2 pt-3"
             }
           >
@@ -1826,9 +1835,15 @@ export function ReactSessionComposer(props: ComposerProps) {
                                                 setSelectedComposerExtension(hasPrompts ? entry : null)
                                               }
                                             >
-                                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                              <IconTile
+                                                size="sm"
+                                                shape="lg"
+                                                tone="surface"
+                                                border
+                                                className={extensionIconTileClassName}
+                                              >
                                                 {extensionIcon(entry, 16)}
-                                              </div>
+                                              </IconTile>
                                               <button
                                                 type="button"
                                                 className="min-w-0 flex-1 overflow-hidden text-left"
@@ -1899,9 +1914,19 @@ export function ReactSessionComposer(props: ComposerProps) {
                                           const ready = status === "connected";
                                           const rowBody = (
                                             <div className="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover">
-                                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                                <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
-                                              </div>
+                                              <IconTile
+                                                size="sm"
+                                                shape="lg"
+                                                tone="surface"
+                                                border
+                                                className={extensionIconTileClassName}
+                                              >
+                                                <Plug
+                                                  className="size-3.5 text-neutral-900"
+                                                  strokeWidth={2}
+                                                  aria-hidden="true"
+                                                />
+                                              </IconTile>
                                               <div className="min-w-0 flex-1 overflow-hidden">
                                                 <div className="truncate text-sm font-medium text-dls-text">
                                                   {entry.name}
@@ -2025,13 +2050,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="group max-w-40 shrink-0 bg-dls-hover px-2 text-dls-text hover:bg-dls-active"
+                    className="max-w-40 shrink-0 gap-1.5 bg-dls-hover px-2 text-dls-text hover:bg-dls-active"
                     onClick={clearCollaborationModeSelection}
                     title={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
                     aria-label={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
                   >
-                    <SelectedModeIcon size={14} className="shrink-0 group-hover:hidden" />
-                    <X size={14} className="hidden shrink-0 group-hover:block" />
+                    <SelectedModeIcon size={14} className="shrink-0" />
                     <span className="min-w-0 truncate">{selectedModeOption.label}</span>
                   </Button>
                 ) : null}
