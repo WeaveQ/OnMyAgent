@@ -991,8 +991,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const elapsed = Date.now() - activityPulseAt;
     const stallDelay = Math.max(0, ASSISTANT_STALL_NOTICE_MS - elapsed);
     const recoveryDelay = Math.max(0, ASSISTANT_RECOVERY_HINT_MS - elapsed);
-    let stallTimer: ReturnType<typeof setTimeout> | undefined;
-    let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+    let stallTimer: number | undefined;
+    let recoveryTimer: number | undefined;
     if (stallDelay === 0) {
       setShowStalledActivityNotice(true);
     } else {
