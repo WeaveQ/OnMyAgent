@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, Copy, ExternalLink, FileText, Globe, Loader2 } from "lucide-react";
+import { Bot, Copy, ExternalLink, FileText, Globe } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";

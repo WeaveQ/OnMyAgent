@@ -17,6 +17,7 @@ const WIDGET_TOOL_NAMES = new Set([
 ]);
 
 const WIDGET_FENCE_PATTERN = /```(?:show_widget|show-widget|widget|visualizer_widget)\s*\n([\s\S]*?)```/gi;
+const WIDGET_FENCE_START_PATTERN = /```(?:show_widget|show-widget|widget|visualizer_widget)\b[^\n]*\n?/i;
 
 type UIMessagePart = UIMessage["parts"][number];
 
@@ -40,6 +41,14 @@ export type TurnWidgetItem = {
   status: "running" | "completed" | "failed";
   loadingMessages: string[];
   errorText: string | null;
+  artifactCopies: TurnWidgetArtifactCopy[];
+};
+
+export type TurnWidgetArtifactCopy = {
+  key: string;
+  label: string;
+  pdf: string;
+  xlsx: string;
 };
 
 export type TurnBodySegment =
@@ -76,7 +85,29 @@ type WidgetPayload = {
   title: string | null;
   html: string;
   loadingMessages: string[];
+  artifactCopies: TurnWidgetArtifactCopy[];
 };
+
+function artifactCopies(value: unknown): TurnWidgetArtifactCopy[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = recordValue(item);
+    if (!record) return [];
+    const { key, label, pdf, xlsx } = record;
+    if (
+      typeof key !== "string" || !key.trim() ||
+      typeof label !== "string" || !label.trim() ||
+      typeof pdf !== "string" || !pdf.trim() ||
+      typeof xlsx !== "string" || !xlsx.trim()
+    ) return [];
+    return [{
+      key: key.trim(),
+      label: label.trim(),
+      pdf: pdf.trim(),
+      xlsx: xlsx.trim(),
+    }];
+  });
+}
 
 function stringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -117,10 +148,10 @@ function directWidgetPayload(value: unknown): WidgetPayload | null {
         const parsed: unknown = JSON.parse(trimmed);
         return extractWidgetPayload(parsed);
       } catch {
-        return { title: null, html: trimmed, loadingMessages: [] };
+        return { title: null, html: trimmed, loadingMessages: [], artifactCopies: [] };
       }
     }
-    return { title: null, html: trimmed, loadingMessages: [] };
+    return { title: null, html: trimmed, loadingMessages: [], artifactCopies: [] };
   }
 
   const record = recordValue(value);
@@ -132,11 +163,18 @@ function directWidgetPayload(value: unknown): WidgetPayload | null {
   const loadingMessages = stringArray(
     record.loading_messages ?? record.loadingMessages,
   );
-  if (typeof html !== "string" && !title && loadingMessages.length === 0) return null;
+  const copies = artifactCopies(record.artifactCopies ?? record.artifact_copies);
+  if (
+    typeof html !== "string" &&
+    !title &&
+    loadingMessages.length === 0 &&
+    copies.length === 0
+  ) return null;
   return {
     title,
     html: typeof html === "string" ? html.trim() : "",
     loadingMessages,
+    artifactCopies: copies,
   };
 }
 
@@ -221,10 +259,15 @@ function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
     status,
     loadingMessages: outputMessages.length > 0 ? outputMessages : inputMessages,
     errorText: part.state === "output-error" ? part.errorText : null,
+    artifactCopies: payload?.artifactCopies ?? [],
   };
 }
 
-function extractFencedWidgets(item: TurnContentItem, text: string) {
+function extractFencedWidgets(
+  item: TurnContentItem,
+  text: string,
+  incompleteStatus: "running" | "failed",
+) {
   const widgets: TurnWidgetItem[] = [];
   const segments: TurnBodySegment[] = [];
   const pattern = new RegExp(WIDGET_FENCE_PATTERN.source, WIDGET_FENCE_PATTERN.flags);
@@ -246,6 +289,7 @@ function extractFencedWidgets(item: TurnContentItem, text: string) {
         status: "completed",
         loadingMessages: widget.loadingMessages,
         errorText: null,
+        artifactCopies: widget.artifactCopies,
       };
       widgets.push(visual);
       segments.push({ kind: "widget", visual });
@@ -256,7 +300,27 @@ function extractFencedWidgets(item: TurnContentItem, text: string) {
     match = pattern.exec(text);
   }
   const trailingText = text.slice(cursor);
-  if (trailingText) segments.push({ kind: "text", text: trailingText });
+  const incompleteMatch = WIDGET_FENCE_START_PATTERN.exec(trailingText);
+  if (incompleteMatch) {
+    const precedingText = trailingText.slice(0, incompleteMatch.index);
+    if (precedingText) segments.push({ kind: "text", text: precedingText });
+    const visual: TurnWidgetItem = {
+      kind: "widget",
+      messageId: item.messageId,
+      partIndex: item.partIndex,
+      title: null,
+      html: "",
+      toolName: "show_widget",
+      status: incompleteStatus,
+      loadingMessages: [],
+      errorText: null,
+      artifactCopies: [],
+    };
+    widgets.push(visual);
+    segments.push({ kind: "widget", visual });
+  } else if (trailingText) {
+    segments.push({ kind: "text", text: trailingText });
+  }
   const withoutWidgets = segments
     .filter((segment) => segment.kind === "text")
     .map((segment) => segment.text)
@@ -459,7 +523,10 @@ export function buildTurnContentPresentation(
         ? stripCancellationSentinel(item.part.text)
         : { text: item.part.text, removed: false };
       removedCancellationSentinel ||= normalized.removed;
-      const fenced = extractFencedWidgets(item, normalized.text);
+      const incompleteWidgetStatus = turn.state === "streaming" || turn.state === "awaiting-approval"
+        ? "running"
+        : "failed";
+      const fenced = extractFencedWidgets(item, normalized.text, incompleteWidgetStatus);
       if (!fenced.text && fenced.widgets.length === 0) continue;
       renderItems.push({
         ...item,

@@ -134,6 +134,8 @@ export default {
   "session.artifact_open_externally": "Open externally",
   "session.artifact_preview_unavailable":
     "Preview unavailable. Open externally to view this file.",
+  "session.artifact_binary_preview_unsupported":
+    "This file type can't be previewed here. Open in folder or download to view.",
   "session.markdown_mermaid_code": "Code",
   "session.markdown_mermaid_diagram": "Diagram",
   "session.markdown_mermaid_expand": "Expand",
@@ -271,6 +273,8 @@ export default {
   "session.visual_actions": "Visual actions",
   "session.visual_show_source": "Show source",
   "session.visual_hide_source": "Hide source",
+  "session.visual_export_pdf": "Export {copy} PDF",
+  "session.visual_export_excel": "Export {copy} Excel",
   "session.visual_invalid": "This visual could not be displayed safely.",
   "session.visual_loading": "Preparing visual preview",
   "session.visual_failed": "The visual could not be generated.",

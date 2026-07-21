@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -48,6 +49,8 @@ export type ModelPickerModalProps = {
   onToggleProvider?: (providerId: string, enabled: boolean) => void;
   onOpenSettings: () => void;
   onClose: (options?: { restorePromptFocus?: boolean }) => void;
+  /** When true and options empty, show spinner instead of empty connect CTA. */
+  loading?: boolean;
 };
 
 type ProviderGroup = {
@@ -238,7 +241,15 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
 
           {/* Content */}
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 -mr-1">
-            {providerGroups.length === 0 ? (
+            {props.loading && providerGroups.length === 0 ? (
+              <div
+                className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-6 text-sm text-dls-secondary"
+                role="status"
+              >
+                <LoadingSpinner />
+                <span>{t("common.loading")}</span>
+              </div>
+            ) : providerGroups.length === 0 ? (
               <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-6 text-center">
                 <div className="text-sm text-dls-secondary">
                   {props.query.trim() ? t("model_picker.no_results") : t("model_picker.no_models_connect_provider")}

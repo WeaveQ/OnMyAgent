@@ -316,6 +316,60 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
       } satisfies OnMyAgentWorkspaceFileCatalog;
     },
 
+    deleteWorkspaceFile: async (
+      workspaceId: string,
+      filePath: string,
+      options?: { recursive?: boolean; root?: string },
+    ) => {
+      const id = workspaceId.trim();
+      if (!id) throw new Error("workspaceId is required");
+      const sessionResult = await requestJson<{ session: { id: string } }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(id)}/files/sessions`,
+        {
+          token,
+          hostToken,
+          method: "POST",
+          body: {
+            write: true,
+            ttlSeconds: 30,
+            ...(options?.root?.trim() ? { root: options.root.trim() } : {}),
+          },
+        },
+      );
+      const sessionId = sessionResult.session.id.trim();
+      if (!sessionId) throw new Error("file session id is required");
+
+      try {
+        const result = await requestJson<{
+          items: Array<{ ok: boolean; type: string; path: string; code?: string; message?: string }>;
+        }>(
+          baseUrl,
+          `/files/sessions/${encodeURIComponent(sessionId)}/ops`,
+          {
+            token,
+            hostToken,
+            method: "POST",
+            body: {
+              operations: [
+                { type: "delete", path: filePath, recursive: options?.recursive === true },
+              ],
+            },
+          },
+        );
+        const item = result.items?.[0];
+        if (!item?.ok) {
+          throw new Error(item?.message || item?.code || "Failed to delete file");
+        }
+      } finally {
+        await requestJson<{ ok: true }>(
+          baseUrl,
+          `/files/sessions/${encodeURIComponent(sessionId)}`,
+          { token, hostToken, method: "DELETE" },
+        ).catch(() => undefined);
+      }
+    },
+
     listArtifacts: (workspaceId: string) =>
       requestJson<OnMyAgentArtifactList>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/artifacts`, {
         token,

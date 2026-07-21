@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useState } from "react";
-import { Check, Download, Loader2, Pencil, Plus, Server, Trash2, X } from "lucide-react";
+import { Check, Download, Pencil, Plus, Server, Trash2, X } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,8 @@ function McpAppToggle(props: {
 
 export function AgentManagementMcpPanel(props: {
   snapshot: AgentManagementMcpSnapshot | null;
+  /** True while parent has no snapshot yet — never show empty inventory copy. */
+  loading?: boolean;
   busyKey: string | null;
   onMcpAction: (input: AgentManagementMcpActionInput, busyKey: string) => Promise<void>;
   /** Agent apps not in managed+installed fleet — toggles disabled. */
@@ -115,6 +117,7 @@ export function AgentManagementMcpPanel(props: {
 }) {
   const [draft, setDraft] = useState<McpDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const loading = Boolean(props.loading && !props.snapshot);
   const servers = props.snapshot?.servers ?? [];
 
   const submit = () => {
@@ -155,7 +158,16 @@ export function AgentManagementMcpPanel(props: {
           ))}
         </div>
 
-        {servers.length === 0 ? (
+        {loading ? (
+          <div
+            className="flex min-h-32 items-center justify-center gap-2 rounded-lg border border-dls-border bg-dls-surface text-sm text-dls-secondary"
+            role="status"
+            aria-label={t("common.loading")}
+          >
+            <LoadingSpinner />
+            <span>{t("common.loading")}</span>
+          </div>
+        ) : servers.length === 0 ? (
           <NoticeBox size="comfortable">{t("agent_manager.mcp.empty")}</NoticeBox>
         ) : (
           <div className="overflow-hidden rounded-lg border border-dls-border bg-dls-surface">
