@@ -255,6 +255,7 @@ export default {
   "session.openable_items": "Openable items",
   "session.open_browser": "Open browser",
   "session.open_artifact": "Open artifact",
+  "session.waybill_patch_save_failed": "Preview edits were kept, but the data file could not be updated. Save again or add a note before export.",
   "session.diff": "Diff",
   "session.copy": "Copy",
   "session.voice_read_latest": "Read the latest message in this session",

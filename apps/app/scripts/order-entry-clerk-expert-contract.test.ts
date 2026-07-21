@@ -131,12 +131,14 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain(".process/");
     expect(skill).toContain("禁止");
     expect(skill).toContain("--formats");
-    expect(skill).toContain("waybill-patch");
+    expect(skill).toContain("直接写入");
+    expect(skill).toContain("waybill-data.json");
     expect(skill).toContain("remarks");
     expect(protocol).toContain(".process/");
     expect(protocol).toContain("禁止再套一层 `output/`");
     expect(protocol).toContain("export-fingerprint");
     expect(protocol).toContain("结果产物呈现规范");
+    expect(protocol).toContain("waybill-patch");
     const fields = readExpertFile("skills/order-entry/references/waybill-fields.md");
     expect(fields).toContain("字段抽取铁律");
     expect(fields).toContain("备注精简规则");

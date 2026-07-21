@@ -525,14 +525,18 @@ const setEditing=on=>{{
     if(canEdit)node.spellcheck=false;
   }});
 }};
+const normalizeFieldValue=raw=>{{
+  let value=String(raw??'').replace(/[\\u200b\\u200c\\u200d\\ufeff]/g,'').trim();
+  // Exact placeholders only — partial edits like "待补" must be kept as-is.
+  if(value==='待补充'||value==='—'||value==='-'||value==='－')value='';
+  return value;
+}};
 const collect=()=>{{
   const patch={{}};
   root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     if(!editable.has(field))return;
-    let value=(node.innerText||'').trim();
-    if(value==='待补充'||value==='—')value='';
-    patch[field]=value;
+    patch[field]=normalizeFieldValue(node.innerText||'');
   }});
   return patch;
 }};
@@ -540,11 +544,14 @@ const applyPatchToAll=patch=>{{
   root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     if(!(field in patch))return;
-    const value=String(patch[field]??'').trim();
-    const shown=value||(node.classList.contains('missing')?'待补充':'—');
-    node.textContent=shown;
+    const value=normalizeFieldValue(patch[field]);
+    // Keep typed text (e.g. partial "待补"). Empty → visual placeholder only.
+    const isVehicle=field.indexOf('vehicle.')===0;
+    const display=value?value:(isVehicle?'—':'待补充');
+    node.textContent=display;
     if(value)node.classList.remove('missing');
-    else if(node.classList.contains('missing')||shown==='待补充')node.classList.add('missing');
+    else if(!isVehicle)node.classList.add('missing');
+    else node.classList.remove('missing');
   }});
 }};
 editBtn&&editBtn.addEventListener('click',()=>{{
@@ -554,7 +561,8 @@ editBtn&&editBtn.addEventListener('click',()=>{{
 saveBtn&&saveBtn.addEventListener('click',()=>{{
   const patch=collect();
   applyPatchToAll(patch);
-  // Stay on the visual preview. Never dump JSON / waybill-patch fences to the user.
+  // Stay on the live preview DOM. Host persists waybill-data.json; do not ask
+  // the agent to regenerate show_widget (that would wipe in-progress edits).
   setEditing(false);
   setHint('已保存到预览，可继续点「编辑字段」修改','ok');
   parent.postMessage({{type:'onmyagent:waybill-fields',patch}},'*');

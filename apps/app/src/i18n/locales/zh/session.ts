@@ -250,6 +250,7 @@ export default {
   "session.openable_items": "可打开的项目",
   "session.open_browser": "打开浏览器",
   "session.open_artifact": "打开产物",
+  "session.waybill_patch_save_failed": "预览修改已保留，但未能写入数据文件；导出前请再保存一次或补充说明。",
   "session.diff": "差异",
   "session.copy": "复制",
   "session.voice_read_latest": "朗读此会话中的最新消息",

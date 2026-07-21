@@ -21,6 +21,10 @@ import {
   isLocalhostBrowserTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
+import {
+  applyWaybillDataPatch,
+  waybillDataPathCandidates,
+} from "../artifacts/waybill-preview-patch";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -995,9 +999,9 @@ export function ExpertPage(props: ExpertPageProps) {
     ],
   );
 
-  // Preview widget “保存修改” posts a field patch. Forward it to the agent as a
-  // normal turn (agent merges + refreshes), while transcript markdown strips the
-  // waybill-patch fence so users never see raw JSON.
+  // Preview “保存修改”: persist into waybill-data.json directly.
+  // Do NOT auto-send an agent turn — regenerating show_widget would wipe the
+  // live edited preview and look like “save reverted my edit”.
   const lastWaybillPatchRef = useRef<string>("");
   useEffect(() => {
     const handler = (event: Event) => {
@@ -1007,22 +1011,69 @@ export function ExpertPage(props: ExpertPageProps) {
       const fingerprint = JSON.stringify(patch);
       if (!fingerprint || fingerprint === lastWaybillPatchRef.current) return;
       lastWaybillPatchRef.current = fingerprint;
-      const body =
-        "我已在预览中保存字段修改，请静默合并下列补丁到 waybill-data.json 并刷新三联预览（show_widget）。" +
-        "不要向我展示 JSON、代码、补丁原文或 waybill-patch 围栏。\n\n" +
-        "```waybill-patch\n" +
-        fingerprint +
-        "\n```";
-      void wrappedOnSendDraft({
-        mode: "prompt",
-        parts: [],
-        attachments: [],
-        text: body,
+
+      const client = props.onmyagentServerClient;
+      const workspaceId =
+        props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId) return;
+
+      const selectedSession =
+        rawWorkspaceSessions.find((session) => session.id === props.selectedSessionId) ??
+        currentAgentSessions.find((session) => session.id === props.selectedSessionId) ??
+        null;
+      const candidates = waybillDataPathCandidates({
+        catalogRoot: codeWorkspaceCatalogRoot,
+        sessionRoot: props.selectedWorkspaceRoot,
+        sessionDirectory: selectedSession?.directory ?? null,
       });
+
+      void (async () => {
+        let saved = false;
+        for (const path of candidates) {
+          try {
+            let parsed: unknown = {};
+            try {
+              const file = await client.readWorkspaceFile(workspaceId, path);
+              const content =
+                typeof file.content === "string" ? file.content : "";
+              parsed = content.trim() ? JSON.parse(content) : {};
+            } catch {
+              // Missing file is fine for the preferred session path — create it.
+              parsed = {};
+            }
+            const next = applyWaybillDataPatch(parsed, patch);
+            await client.writeWorkspaceFile(workspaceId, {
+              path,
+              content: `${JSON.stringify(next, null, 2)}\n`,
+              force: true,
+            });
+            saved = true;
+            break;
+          } catch {
+            // try next candidate path
+          }
+        }
+        if (!saved) {
+          showToast({
+            tone: "warning",
+            title: t("session.waybill_patch_save_failed"),
+          });
+        }
+      })();
     };
     window.addEventListener("onmyagent-waybill-fields-patch", handler);
     return () => window.removeEventListener("onmyagent-waybill-fields-patch", handler);
-  }, [wrappedOnSendDraft]);
+  }, [
+    codeWorkspaceCatalogRoot,
+    currentAgentSessions,
+    props.onmyagentServerClient,
+    props.runtimeWorkspaceId,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+    props.selectedWorkspaceRoot,
+    rawWorkspaceSessions,
+    showToast,
+  ]);
 
   useEffect(() => {
     if (props.selectedSessionId) {
