@@ -426,7 +426,9 @@ export function useSessionRouteSurfaceProps(
             const pendingForDir = usePendingAgentStore.getState().getAgent();
             const agentName =
               pendingForDir?.name?.trim() ||
-              readSessionAgentSnapshot(selectedSessionId)?.name?.trim() ||
+              (selectedSessionId
+                ? readSessionAgentSnapshot(selectedSessionId)?.name?.trim()
+                : undefined) ||
               "expert";
             const isolated = buildIsolatedExpertSessionDirectory({
               workspaceRoot,
