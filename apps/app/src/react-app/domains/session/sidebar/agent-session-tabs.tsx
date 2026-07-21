@@ -123,6 +123,45 @@ function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
     .trim();
 }
 
+/**
+ * Freeze tab order after first appearance. Selection / recency refreshes must
+ * not reshuffle chips — only pin (handled separately) and new sessions may change
+ * the list. New real sessions append; draft placeholders stay leftmost.
+ */
+export function mergeStableSessionTabOrder(
+  previousIds: readonly string[],
+  sessions: readonly { id: string }[],
+): string[] {
+  const present = new Set(sessions.map((session) => session.id));
+  const next = previousIds.filter((id) => present.has(id));
+  const seen = new Set(next);
+  for (const session of sessions) {
+    if (seen.has(session.id)) continue;
+    if (session.id.startsWith("draft:")) {
+      next.unshift(session.id);
+    } else {
+      next.push(session.id);
+    }
+    seen.add(session.id);
+  }
+  return next;
+}
+
+function scrollTabIntoViewIfNeeded(node: HTMLElement | null | undefined) {
+  if (!node) return;
+  const scroller = node.parentElement;
+  if (!scroller) {
+    node.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return;
+  }
+  const nodeRect = node.getBoundingClientRect();
+  const scrollerRect = scroller.getBoundingClientRect();
+  if (nodeRect.left >= scrollerRect.left && nodeRect.right <= scrollerRect.right) {
+    return;
+  }
+  node.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
 export function AgentSessionTabs(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
@@ -169,6 +208,11 @@ export function AgentSessionTabs(props: {
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
   );
+  // Stable left-to-right order for this expert strip; survives session list
+  // refreshes that re-sort by updatedAt (which previously made chips jump).
+  const [stableOrderIds, setStableOrderIds] = useState<string[]>(() =>
+    mergeStableSessionTabOrder([], props.sessions),
+  );
   const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
   const sessionUnreadByWorkspace = useExpertUnreadStore(
     (state) => state.sessionUnreadByWorkspace,
@@ -187,9 +231,26 @@ export function AgentSessionTabs(props: {
     [props.agentId],
   );
 
+  const orderWorkspaceIdRef = useRef(props.workspaceId);
+
   useEffect(() => {
-    setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
-  }, [props.workspaceId]);
+    const workspaceChanged = orderWorkspaceIdRef.current !== props.workspaceId;
+    if (workspaceChanged) {
+      orderWorkspaceIdRef.current = props.workspaceId;
+      setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
+    }
+    setStableOrderIds((current) => {
+      const base = workspaceChanged ? [] : current;
+      const next = mergeStableSessionTabOrder(base, props.sessions);
+      if (
+        next.length === current.length &&
+        next.every((id, index) => id === current[index])
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [props.sessions, props.workspaceId]);
 
   const pinnedSet = useMemo(
     () => new Set(pinnedSessionIds),
@@ -197,18 +258,25 @@ export function AgentSessionTabs(props: {
   );
 
   const orderedSessions = useMemo(() => {
-    const list = [...props.sessions];
-    list.sort((left, right) => {
+    const byId = new Map(props.sessions.map((session) => [session.id, session]));
+    const stable = stableOrderIds
+      .map((id) => byId.get(id))
+      .filter((session): session is (typeof props.sessions)[number] => Boolean(session));
+    // Sessions not yet in the stable ledger (race) append without reshuffling.
+    if (stable.length < props.sessions.length) {
+      const seen = new Set(stable.map((session) => session.id));
+      for (const session of props.sessions) {
+        if (!seen.has(session.id)) stable.push(session);
+      }
+    }
+    const indexById = new Map(stable.map((session, index) => [session.id, index]));
+    return [...stable].sort((left, right) => {
       const leftPinned = pinnedSet.has(left.id) ? 1 : 0;
       const rightPinned = pinnedSet.has(right.id) ? 1 : 0;
       if (leftPinned !== rightPinned) return rightPinned - leftPinned;
-      // Keep relative order among same pin tier (stable-ish via original index).
-      const leftIndex = props.sessions.findIndex((s) => s.id === left.id);
-      const rightIndex = props.sessions.findIndex((s) => s.id === right.id);
-      return leftIndex - rightIndex;
+      return (indexById.get(left.id) ?? 0) - (indexById.get(right.id) ?? 0);
     });
-    return list;
-  }, [pinnedSet, props.sessions]);
+  }, [pinnedSet, props.sessions, stableOrderIds]);
 
   const snapshotQueries = useQueries({
     queries: orderedSessions.map((session) => ({
@@ -265,10 +333,8 @@ export function AgentSessionTabs(props: {
 
   useEffect(() => {
     if (!activeSessionId || !expanded) return;
-    tabRefs.current[activeSessionId]?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
+    // Only nudge the scroller when the active chip is clipped — never reorder.
+    scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId]);
   }, [activeSessionId, expanded]);
 
   useEffect(() => {
