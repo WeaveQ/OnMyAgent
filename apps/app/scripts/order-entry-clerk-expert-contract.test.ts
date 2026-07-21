@@ -24,6 +24,8 @@ describe("order entry clerk expert contract", () => {
     expect(agent).toContain("默认交付单据本身");
     expect(skill).toContain("assets/logistics-waybill-template.html");
     expect(skill).toContain("不要每轮新建一份预览");
+    expect(skill).toContain("[查看当前效果](preview:output/实际文件名.html)");
+    expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
     expect(template).toContain("物流托运单");
     expect(template).toContain("草稿·待确认");
