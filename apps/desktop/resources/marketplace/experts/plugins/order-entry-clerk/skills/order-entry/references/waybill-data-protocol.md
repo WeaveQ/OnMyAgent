@@ -129,4 +129,4 @@ python3 <Skill根目录>/scripts/generate_waybill.py --input output/waybill-data
 python3 <Skill根目录>/scripts/generate_waybill.py --input output/waybill-data.json --output-dir output --mode export
 ```
 
-脚本以 JSON 输出实际生成的文件和状态。每轮回复用 `preview:` 提供当前效果入口。退出码非 0 或返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。
+脚本以 JSON 输出实际生成的文件、状态和 `inlineWidget`。每轮回复把完整 `inlineWidget` 原样放入 `show_widget` 围栏，使当前单据直接展示在会话中；再用 `preview:` 提供放大入口。退出码非 0 或返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。

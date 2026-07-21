@@ -29,7 +29,7 @@ skills: [order-entry]
 1. **识别单据类型**：默认为物流单；用户明确要发货单、发车单/派车单或运单时切换对应类型。
 2. **询问模板**：询问是否有指定模板；已附模板时直接解析，无模板时按通用格式。
 3. **识别与抽取**：解析文字、语音或图片，结构化已知字段，将潦草字迹、含糊语音和口语时效标记为存疑。
-4. **生成效果图**：维护 `output/waybill-data.json` 后调用 Skill 的 `scripts/generate_waybill.py --mode preview`，提供 `[查看当前效果](preview:output/实际文件名.html)` 作为侧边栏查看入口。
+4. **生成并内嵌效果图**：维护 `output/waybill-data.json` 后调用 Skill 的 `scripts/generate_waybill.py --mode preview`，把脚本返回的 `inlineWidget` 原样放入 `show_widget` 代码围栏，让当前物流单直接展示在会话正文中；同时提供 `[放大查看](preview:output/实际文件名.html)` 作为侧边栏查看入口。
 5. **合并追问**：一次询问当前会阻塞定稿的所有缺失/存疑项，优先使用选项。
 6. **原位补全**：收到新信息后更新同一份 HTML，同步展示完成度与剩余待补项。
 7. **确认与导出**：客户必填齐全后先展示摘要请用户确认。确认后调用 `scripts/generate_waybill.py --mode export`：车辆/司机未齐只能生成“待派车确认稿”；车牌、驾驶证号、司机姓名和电话齐全才生成“最终版”。两种状态均默认同时产出 PDF/XLSX。
@@ -38,10 +38,16 @@ skills: [order-entry]
 
 - **对话阶段**：简短说明已填入、待补充、存疑项和下一次追问，不用大段字段表格淹没 HTML 效果图。
 - **HTML 效果图**：每个单据只维护一份当前预览；必填缺失项显示待补样式；打印 CSS 确保 A4 上不截断主表格。
+- **会话内直接展示**：每次脚本成功后都必须输出下面格式，围栏内容使用脚本返回的完整 `inlineWidget` JSON，禁止改写或省略 `widget_code`。会话会把围栏渲染成内嵌单据，不向用户显示源码：
+  ````markdown
+  ```show_widget
+  {"title":"当前物流单","widget_code":"<脚本返回的完整 HTML 片段>"}
+  ```
+  ````
 - **单一数据源**：所有字段、来源、置信度、冲突与确认状态只维护在 `output/waybill-data.json`，按 `references/waybill-data-protocol.md` 执行。禁止分别手改 HTML、PDF、Excel。
 - **通用模板铁律**：用户无指定模板时，必须逐项对照并复制 `assets/logistics-waybill-template.html`，保持标题、字段顺序、表格合并、结算选项、签字区和三联说明完全一致；只允许替换业务值和勾选状态，禁止自由发挥或另行设计。
 - **模板路径解析**：`assets/` 相对当前 `order-entry` Skill 目录，不是会话工作区目录。执行时先读取当前 Skill 根目录下的 `assets/logistics-waybill-template.html`；若运行时未暴露 Skill 根目录，则读取 `~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html`。必须先成功读取并复制模板，再修改副本；两个位置都不可读时停止生成并明确提示“专家模板安装异常”，禁止声称工作区没有模板后自行重画。
-- **预览方式**：效果图通过 `preview:` 在侧边栏查看；禁止调用浏览器、网页搜索工具或 `file://` 打开本地 HTML。
+- **预览方式**：主要效果通过 `show_widget` 在会话内直接展示，`preview:` 只用于放大/侧边栏查看；禁止调用浏览器、网页搜索工具或 `file://` 打开本地 HTML。
 - **最终交付**：默认同时交付 PDF 与 XLSX。产物列表只显示文件名、用途和 `[打开产物](artifact:output/实际文件名.ext)`，不直接展示路径；HTML 仅使用 `preview:` 查看当前效果。
 - **导出真实性**：只有脚本退出码为 0 且返回的 PDF/XLSX 文件实际存在时，才能说“已生成”。否则原样说明失败原因，不得伪造产物链接。
 - **追问话术**：按优先级排列，每条都是可直接转发给客户的完整话术；能给选项的字段（时效档位、车型、结算方式）直接列出选项。

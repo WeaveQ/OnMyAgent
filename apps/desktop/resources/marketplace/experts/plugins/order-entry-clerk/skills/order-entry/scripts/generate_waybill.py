@@ -184,6 +184,14 @@ def fill_html(template: str, values: dict[str, str], state: str, data: dict[str,
     return rendered
 
 
+def inline_widget_fragment(rendered_html: str) -> str:
+    style = re.search(r"<style>([\s\S]*?)</style>", rendered_html, re.IGNORECASE)
+    main = re.search(r"(<main\b[\s\S]*?</main>)", rendered_html, re.IGNORECASE)
+    if not style or not main:
+        raise WaybillError("模板无法提取会话内预览片段")
+    return f"<style>{style.group(1)}</style>{main.group(1)}"
+
+
 def safe_name(value: str) -> str:
     name = re.sub(r'[\\/:*?"<>|\s]+', "-", value).strip("-.")
     return name[:80] or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -412,6 +420,10 @@ def main() -> int:
             "label": status_label(state),
             "blockers": blockers,
             "files": generated,
+            "inlineWidget": {
+                "title": "当前物流单",
+                "widget_code": inline_widget_fragment(rendered_html),
+            },
         }, ensure_ascii=False))
         return 0
     except (OSError, json.JSONDecodeError, WaybillError, subprocess.TimeoutExpired) as error:
