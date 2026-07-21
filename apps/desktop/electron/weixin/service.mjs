@@ -414,7 +414,7 @@ export function createWeixinService(options = {}) {
       const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
       const prompt = buildPrompt(event, { mode: promptMode, history, agent });
       if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-        const legacyModel = await validatedModelForAgent(session, event.chatId, agent);
+        const legacyModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
         const result = await runAgentTurn(runtime, {
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -428,7 +428,7 @@ export function createWeixinService(options = {}) {
         await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
         return result;
       }
-      const chatModel = await validatedModelForAgent(session, event.chatId, agent);
+      const chatModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
       const started = await runtime.startMessage({
         workspaceRoot: session.options.workspaceRoot,
         accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -1379,7 +1379,7 @@ async function currentModelForChat(session, chatId) {
 // model from the previous agent must not be forwarded — otherwise the runtime
 // rejects it (e.g. "Unknown model auto[medium]"). We drop the stale override
 // from memory and persisted settings so the agent falls back to its default.
-async function validatedModelForAgent(session, chatId, agent) {
+async function validatedModelForAgent(session, chatId, agent, { store, appendLog }) {
   const model = await currentModelForChat(session, chatId);
   if (!model) return "";
   const options = agentModelOptionsFor(agent);
