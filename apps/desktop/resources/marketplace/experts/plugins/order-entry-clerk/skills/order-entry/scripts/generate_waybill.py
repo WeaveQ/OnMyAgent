@@ -428,22 +428,26 @@ def apply_copy_variant(rendered_html: str, variant: dict[str, str]) -> str:
     return rendered.replace("物流运输协议（草稿）", f'物流运输协议 · {variant["label"]}')
 
 
-def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) -> str:
-    if len(rendered_copies) != len(COPY_VARIANTS):
-        raise WaybillError("会话内预览必须包含完整三联")
-    style = STYLE_PATTERN.search(rendered_copies[0][1])
+def copy_label_map() -> dict[str, str]:
+    return {variant["key"]: variant["label"] for variant in COPY_VARIANTS}
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Single-sheet preview: one filled HTML, tabs only flip data-copy + label/background.
+    ~3x smaller payload than embedding three full sheets (faster stream + render).
+    """
+    style = STYLE_PATTERN.search(preview_html)
     if not style:
         raise WaybillError("模板无法提取会话内预览样式")
+    main = MAIN_PATTERN.search(preview_html)
+    if not main:
+        raise WaybillError("模板无法提取预览主单据片段")
     # Screen preview does not need @media print rules; strip them to shrink widget payload.
     screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
     tabs: list[str] = []
-    panels: list[str] = []
-    for index, (variant, rendered_html) in enumerate(rendered_copies):
-        main = MAIN_PATTERN.search(rendered_html)
-        if not main:
-            raise WaybillError(f'模板无法提取{variant["label"]}预览片段')
+    for index, variant in enumerate(COPY_VARIANTS):
         selected = "true" if index == 0 else "false"
-        hidden = "" if index == 0 else " hidden"
         tabs.append(
             f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}" '
             f'aria-label="{variant["label"]}">'
@@ -453,11 +457,7 @@ def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) ->
             f'<span class="tab-meta">{variant["tabMeta"]}</span>'
             f"</span></button>"
         )
-        panels.append(
-            f'<div role="tabpanel" data-copy-panel="{variant["key"]}"{hidden}>{main.group(1)}</div>'
-        )
-    # Segmented control aligned with app DESIGN.md tab track (rounded-lg + muted fill).
-    # Paper swatches encode 白/红/黄 identity without rainbow chrome on the track.
+    labels_json = json.dumps(copy_label_map(), ensure_ascii=False)
     widget_style = """
 .waybill-copy-preview{width:100%;overflow:hidden;color:#0f172a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0 0 14px;padding:4px;border-radius:10px;background:#f4f4f5;border:1px solid #e5e7eb}
@@ -473,7 +473,6 @@ def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) ->
 .waybill-copy-tabs .tab-title{font:600 13px/1.2 system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .waybill-copy-tabs .tab-meta{font:500 11px/1.2 system-ui,sans-serif;color:#94a3b8;white-space:nowrap}
 .waybill-copy-tabs button[aria-selected="true"] .tab-meta{color:#64748b}
-.waybill-copy-preview [role="tabpanel"][hidden]{display:none}
 .waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f;opacity:1!important;filter:none!important}
 .waybill-edit-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
 .waybill-edit-bar button{appearance:none;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#0f172a;padding:6px 12px;font:600 12px/1.2 system-ui,sans-serif;cursor:pointer}
@@ -489,16 +488,20 @@ def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) ->
     script = f"""<script>(()=>{{
 const root=document.currentScript.closest('[data-waybill-copy-preview]');
 if(!root)return;
+const labels={labels_json};
 const editable=new Set({json.dumps(list(EDITABLE_FIELDS), ensure_ascii=False)});
 const tabs=[...root.querySelectorAll('[data-copy-tab]')];
-const panels=[...root.querySelectorAll('[data-copy-panel]')];
+const sheet=root.querySelector('.sheet');
 const editBtn=root.querySelector('[data-edit-toggle]');
 const saveBtn=root.querySelector('[data-edit-save]');
 const hint=root.querySelector('[data-edit-hint]');
 const patchBox=root.querySelector('[data-patch-box]');
 const select=key=>{{
+  if(!sheet||!labels[key])return;
   tabs.forEach(item=>item.setAttribute('aria-selected',String(item.getAttribute('data-copy-tab')===key)));
-  panels.forEach(panel=>{{panel.hidden=panel.getAttribute('data-copy-panel')!==key}});
+  sheet.setAttribute('data-copy',key);
+  const copyLabel=sheet.querySelector('[data-field="copy.label"]');
+  if(copyLabel)copyLabel.textContent=labels[key];
   parent.postMessage({{type:'onmyagent:waybill-copy',key}},'*');
 }};
 tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.getAttribute('data-copy-tab'))));
@@ -515,9 +518,8 @@ const setEditing=on=>{{
   }});
 }};
 const collect=()=>{{
-  const active=root.querySelector('[data-copy-panel]:not([hidden])')||root;
   const patch={{}};
-  active.querySelectorAll('[data-field]').forEach(node=>{{
+  root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     if(!editable.has(field))return;
     let value=(node.innerText||'').trim();
@@ -546,7 +548,7 @@ saveBtn&&saveBtn.addEventListener('click',()=>{{
   // literal ``` sequences that would early-close an outer ```show_widget fence.
   const ticks=String.fromCharCode(96).repeat(3);
   const body=ticks+'waybill-patch\\n'+JSON.stringify(patch,null,2)+'\\n'+ticks;
-  if(patchBox)patchBox.textContent='已保存到预览。请把下面这段发给专家以写入数据并刷新三联：\\n'+body;
+  if(patchBox)patchBox.textContent='已保存到预览。请把下面这段发给专家以写入数据并刷新预览：\\n'+body;
   parent.postMessage({{type:'onmyagent:waybill-fields',patch}},'*');
   try{{navigator.clipboard&&navigator.clipboard.writeText(body)}}catch(_){{}}
 }});
@@ -563,10 +565,21 @@ select('white');
         "</div>"
         '<div class="waybill-patch-box" data-patch-box></div>'
         f'<div class="waybill-copy-tabs" role="tablist" aria-label="联次切换">{"".join(tabs)}</div>'
-        f'{"".join(panels)}'
+        f'<div role="tabpanel" data-copy-panel="live">{main.group(1)}</div>'
         f"{script}"
         "</section>"
     )
+
+
+def cleanup_legacy_multi_preview_html(preview_dir: Path, number: str) -> None:
+    """Remove older per-copy preview files after switching to single-HTML preview."""
+    for variant in COPY_VARIANTS:
+        legacy = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
+        if legacy.is_file():
+            try:
+                legacy.unlink()
+            except OSError:
+                pass
 
 
 def safe_name(value: str) -> str:
@@ -921,18 +934,13 @@ def main() -> int:
             data,
             inject_print_css=need_print_css,
         )
-        rendered_copies: list[tuple[dict[str, str], str]] = []
-        generated: list[str] = []
+        # Single live preview HTML (tabs switch paper color client-side).
+        preview_html = apply_copy_variant(base_html, COPY_VARIANTS[0])
+        preview_path = preview_dir / f"物流单_{number}_当前预览.html"
+        write_text_if_changed(preview_path, preview_html)
+        cleanup_legacy_multi_preview_html(preview_dir, number)
+        generated: list[str] = [str(preview_path)]
         artifact_copies: list[dict[str, str]] = []
-        html_paths: list[tuple[dict[str, str], Path]] = []
-
-        for variant in COPY_VARIANTS:
-            rendered_html = apply_copy_variant(base_html, variant)
-            html_path = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
-            write_text_if_changed(html_path, rendered_html)
-            rendered_copies.append((variant, rendered_html))
-            html_paths.append((variant, html_path))
-            generated.append(str(html_path))
 
         if args.mode == "export":
             if state not in ("pending_dispatch", "final"):
@@ -945,7 +953,11 @@ def main() -> int:
             removed.extend(cleanup_result_exports(args.output_dir, number))
             edition = "待派车确认稿" if state == "pending_dispatch" else "最终版"
             pdf_jobs: list[tuple[Path, Path]] = []
-            for variant, html_path in html_paths:
+            # Export still materializes three colored copies for print/PDF/Excel.
+            for variant in COPY_VARIANTS:
+                rendered_html = apply_copy_variant(base_html, variant)
+                export_html_path = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_导出稿.html'
+                write_text_if_changed(export_html_path, rendered_html)
                 xlsx_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.xlsx'
                 pdf_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.pdf'
                 copy_info = {
@@ -958,9 +970,8 @@ def main() -> int:
                     write_xlsx(xlsx_path, data, state, variant)
                     generated.append(str(xlsx_path))
                 if "pdf" in formats:
-                    pdf_jobs.append((html_path, pdf_path))
+                    pdf_jobs.append((export_html_path, pdf_path))
                     generated.append(str(pdf_path))
-                # Only expose paths for formats actually generated (empty string = hide menu item).
                 if copy_info["pdf"] or copy_info["xlsx"]:
                     artifact_copies.append(copy_info)
             write_pdfs(pdf_jobs)
@@ -983,7 +994,7 @@ def main() -> int:
             "files": generated,
             "inlineWidget": {
                 "title": title,
-                "widget_code": inline_widget_fragment(rendered_copies),
+                "widget_code": inline_widget_fragment(preview_html),
                 "artifactCopies": artifact_copies,
             },
         }, ensure_ascii=False))
