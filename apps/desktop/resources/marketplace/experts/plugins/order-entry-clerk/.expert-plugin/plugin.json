@@ -1,7 +1,7 @@
 {
   "name": "order-entry-clerk",
-  "version": "1.2.0",
-  "description": "Turn customer shipping information into live white, red, and yellow waybill previews with separately exported PDF and Excel copies",
+  "version": "1.3.0",
+  "description": "Turn customer shipping information into live white, red, and yellow waybill previews under .process, with on-demand PDF/Excel export after format choice",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -18,13 +18,13 @@
   },
   "displayDescription": {
     "en": "Maintain live white, red, and yellow waybill previews, consolidate missing-field questions, and separately export each copy as PDF and Excel.",
-    "zh": "识别客户发货信息，实时展示白、红、黄三联物流单，合并追问缺失项，确认后分别导出三份 PDF 与 Excel。"
+    "zh": "识别客户发货信息，在 .process 实时展示白、红、黄三联物流单，支持预览内改字段；确认后由你选择再导出 PDF 与/或 Excel。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
   "categoryIds": ["01-OPC", "14-Logistics"],
   "defaultInitPrompt": {
-    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单",
+    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单 ",
     "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Create a logistics waybill and progressively complete its HTML preview."
   },
   "tags": [
@@ -35,7 +35,7 @@
   ],
   "quickPrompts": [
     {
-      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单",
+      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'",
       "en": "Create a logistics waybill from this customer message and progressively complete its HTML preview."
     },
     {
@@ -56,7 +56,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【物流单专家】。\n\n请把客户发货信息、语音转写、单据照片或模板发给我。我会先确认模板，在会话中用 Tab 实时展示白色存根联、红色收货单位联和黄色发货单位联；你确认后分别生成三份 PDF 和三份 Excel。\n\n车辆/司机未齐时只生成‘待派车确认稿’，派车信息齐全后才生成‘最终版’。我不编造手机号、地址、数量和价格，危化品/冷链/超限会先提示资质。",
-    "en": "Boss, I'm Xiaoman.\n\nSend me the customer's shipping details, voice transcript, document photo, or template. I will confirm the template and show live white stub, red consignee, and yellow shipper copies in tabs. After confirmation, I export three separate PDFs and three separate Excel workbooks.\n\nIf dispatch details are incomplete, the document remains a pending-dispatch confirmation draft; it becomes final only after vehicle and driver details are complete."
+    "zh": "老板好，我是【物流单专家】。\n\n请把客户发货信息、语音转写、单据照片或模板发给我。我会先确认模板，在会话中用 Tab 实时展示白色存根联、红色收货单位联和黄色发货单位联（过程稿在 .process）；你确认后我会让你选择生成 PDF/Excel 或先不生成。预览里也可以手动改字段。\n\n车辆/司机未齐时只生成‘待派车确认稿’，派车信息齐全后才生成‘最终版’。PDF 单页不分页。我不编造手机号、地址、数量和价格，危化品/冷链/超限会先提示资质。",
+    "en": "Boss, I'm Xiaoman.\n\nSend me the customer's shipping details, voice transcript, document photo, or template. I will confirm the template and show live white, red, and yellow copies in tabs (process HTML under .process). After confirmation, you choose PDF and/or Excel, or skip for now. You can also edit fields in the preview.\n\nIf dispatch details are incomplete, the document remains a pending-dispatch draft; it becomes final only after vehicle and driver details are complete. PDFs are single-page."
   }
 }

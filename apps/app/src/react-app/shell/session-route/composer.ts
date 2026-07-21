@@ -162,10 +162,11 @@ export function resolveDraftSendPlan(input: {
       ? (input.inheritAssistantWorkspaceDirectory?.trim() || "")
       : "";
   // Prefer the draft-picked folder; else keep the previous session's space.
+  // Expert force-new without a pick stays unbound so isolation path can run.
   const explicitAssistantWorkspace =
     input.pageMode === "assistant"
       ? explicitDraftWorkspace || inheritedWorkspace
-      : "";
+      : explicitDraftWorkspace;
   return {
     needsNewSession,
     initialSessionId: needsNewSession ? null : input.selectedSessionId,
