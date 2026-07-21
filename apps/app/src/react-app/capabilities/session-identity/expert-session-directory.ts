@@ -73,3 +73,42 @@ export function buildIsolatedExpertSessionDirectory(input: {
   const markerRelativePath = relativePosixPath(agentSegment, sessionKey, "README.md");
   return { sessionKey, agentSegment, directory, markerRelativePath };
 }
+
+/**
+ * True when the user did not pick a real folder (empty / same as workspace root).
+ * Picking the workspace itself must still isolate, or the files panel scans the
+ * whole project.
+ */
+export function shouldIsolateExpertSessionDirectory(
+  workspaceRoot: string,
+  draftOrBoundDirectory?: string | null,
+): boolean {
+  const workspace = workspaceRoot.trim();
+  if (!workspace) return false;
+  const draft = draftOrBoundDirectory?.trim() ?? "";
+  return !draft || isSameDirectory(draft, workspace);
+}
+
+/**
+ * Side-panel file root for a session. Bound / session directories that resolve
+ * to the workspace root are treated as unscoped so the panel falls back to
+ * transcript artifacts only (never the whole project tree).
+ */
+export function resolveSelectedSessionFileRoot(input: {
+  boundDirectory?: string | null;
+  sessionDirectory?: string | null;
+  workspaceRoot: string;
+}): string {
+  const workspace = input.workspaceRoot.trim();
+  const candidates = [
+    input.boundDirectory?.trim() ?? "",
+    input.sessionDirectory?.trim() ?? "",
+  ].filter(Boolean);
+
+  for (const directory of candidates) {
+    if (!workspace || !isSameDirectory(directory, workspace)) {
+      return directory;
+    }
+  }
+  return "";
+}
