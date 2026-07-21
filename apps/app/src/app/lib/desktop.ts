@@ -506,8 +506,48 @@ export async function openDesktopPath(target: string): Promise<void> {
   }
 }
 
-export async function revealDesktopItemInDir(target: string): Promise<void> {
-  await invokeDesktopCommand("__revealItemInDir", target);
+export type RevealDesktopItemResult = {
+  ok: boolean;
+  path?: string;
+  reason?: string;
+};
+
+export async function revealDesktopItemInDir(target: string): Promise<RevealDesktopItemResult> {
+  const trimmed = target.trim();
+  if (!trimmed) {
+    throw new Error("Path is required.");
+  }
+  const result = await invokeDesktopCommand("__revealItemInDir", trimmed);
+  if (result && typeof result === "object" && "ok" in result) {
+    if (!result.ok) {
+      const message = result.reason === "not_found" && result.path
+        ? `File not found: ${result.path}`
+        : result.reason === "empty_path"
+          ? "Path is required."
+          : "Failed to reveal item in folder.";
+      throw new Error(message);
+    }
+    return result;
+  }
+  // Older desktop bridges returned void after a fire-and-forget reveal.
+  return { ok: true, path: trimmed, reason: "legacy_void" };
+}
+
+/** Reveal the first candidate path that exists; throws when every candidate fails. */
+export async function revealDesktopItemCandidates(
+  candidates: readonly string[],
+): Promise<RevealDesktopItemResult> {
+  let lastError: Error | null = null;
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    try {
+      return await revealDesktopItemInDir(trimmed);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  throw lastError ?? new Error("Path is required.");
 }
 
 export async function relaunchDesktopApp(): Promise<void> {

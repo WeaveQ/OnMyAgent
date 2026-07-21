@@ -18,6 +18,7 @@ import { formatFileSize } from "@/lib/utils";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { ArtifactIcon } from "./artifact-icon";
 import type { BinaryData, Data, OpenTarget, TextData } from "./open-target";
+import { resolveArtifactAbsolutePath } from "./open-target";
 import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
 
 import { t } from "../../../../i18n";
@@ -47,10 +48,7 @@ type ArtifactQueryState =
 type SaveArtifactInput = Data & { baseUpdatedAt: number | null };
 
 function absoluteWorkspacePath(root: string, path: string) {
-  const cleanRoot = root.trim().replace(/[/\\]+$/, "");
-  const cleanPath = path.trim().replace(/^\.\//, "");
-  
-  return cleanRoot ? `${cleanRoot}/${cleanPath}` : cleanPath;
+  return resolveArtifactAbsolutePath(path, root) ?? path.trim();
 }
 
 function isTextContent(target: OpenTarget): boolean {

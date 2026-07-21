@@ -36,7 +36,7 @@ import type {
 } from "@onmyagent/types";
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
-import { classifyOpenTarget, type OpenTarget } from "../artifacts/open-target";
+import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -177,8 +177,7 @@ type WorkspaceFilePreview =
   | { kind: "binary"; url: string; name: string };
 
 function absoluteWorkspaceFilePath(root: string, path: string) {
-  if (path.startsWith("/")) return path;
-  return `${root.replace(/[/\\]+$/, "")}/${path.replace(/^[/\\]+/, "")}`;
+  return resolveArtifactAbsolutePath(path, root) ?? path.trim();
 }
 
 function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {

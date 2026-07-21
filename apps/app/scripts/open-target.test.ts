@@ -6,6 +6,8 @@ import {
   classifyOpenTarget,
   deriveOpenTargets,
   isCollectibleArtifactTarget,
+  resolveArtifactAbsolutePath,
+  resolveArtifactRevealCandidates,
   selectAutoOpenTarget,
   shouldAutoOpenTarget,
   type OpenTarget,
@@ -350,5 +352,50 @@ describe("deriveOpenTargets", () => {
       ),
     ]);
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
+  });
+});
+
+describe("resolveArtifactAbsolutePath", () => {
+  it("returns absolute paths unchanged", () => {
+    expect(resolveArtifactAbsolutePath("/tmp/out/a.pdf", "/ws")).toBe("/tmp/out/a.pdf");
+    expect(resolveArtifactAbsolutePath("C:\\Work\\a.pdf", "D:\\ws")).toBe("C:\\Work\\a.pdf");
+  });
+
+  it("joins session-relative paths under the session directory root", () => {
+    expect(
+      resolveArtifactAbsolutePath(
+        "output/物流单.pdf",
+        "/Users/me/ws/order-entry-clerk/abc123",
+      ),
+    ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+  });
+
+  it("joins catalog-relative paths under the workspace catalog root", () => {
+    expect(
+      resolveArtifactAbsolutePath(
+        "order-entry-clerk/abc123/output/物流单.pdf",
+        "/Users/me/ws",
+      ),
+    ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+  });
+
+  it("dedupes when session root is joined with catalog-relative values", () => {
+    // Common failure mode: surface.workspaceRoot is the isolated session dir,
+    // while resolveArtifacts returns paths relative to the workspace catalog.
+    expect(
+      resolveArtifactAbsolutePath(
+        "order-entry-clerk/abc123/output/物流单.pdf",
+        "/Users/me/ws/order-entry-clerk/abc123",
+      ),
+    ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+  });
+
+  it("builds reveal candidates preferring verified catalog-relative values", () => {
+    const candidates = resolveArtifactRevealCandidates("output/物流单.pdf", {
+      workspaceRoot: "/Users/me/ws/order-entry-clerk/abc123",
+      verifiedValue: "order-entry-clerk/abc123/output/物流单.pdf",
+    });
+    expect(candidates[0]).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+    expect(candidates).toContain("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
   });
 });
