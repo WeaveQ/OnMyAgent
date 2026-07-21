@@ -387,7 +387,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!toolMenuOpen || toolMenuSection !== "templates") {
       setSelectedPromptTemplateId(null);
     } else {
-      // WorkBuddy-style cascade: open the 3rd flyout as soon as 提示词 is active.
+      // WorkBuddy-style cascade: open the 3rd flyout as soon as prompts section is active.
       const templates = props.promptTemplates ?? [];
       setSelectedPromptTemplateId((current) => {
         if (current && templates.some((template) => template.id === current)) {
@@ -672,7 +672,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   );
   const slashFiltered = useMemo(() => {
     if (!slashOpen) return [];
-    // Slash menu is skills/commands only — connectors live under + → 连接器.
+    // Slash menu is skills/commands only — connectors live under + → connectors.
     return slashQuery.trim()
       ? filterToolMenuItems(
           skillCatalogOrdered,
@@ -686,7 +686,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const pluginSkillFiles = importedPlugins.flatMap((plugin) =>
     plugin.files.filter((file) => file.objectType === "command" || file.objectType === "skill"),
   );
-  // List all non-hidden built-ins so toggles match market「内置扩展」; hide only product-hidden.
+  // List all non-hidden built-ins so toggles match market built-in extensions; hide only product-hidden.
   const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter(
     (entry) => !builtInExtensionsDisabled && !isOnMyAgentExtensionHidden(entry),
   );
@@ -775,7 +775,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     }
   };
 
-  /** Connectors header「配置」→ market connectors tab (文件处理 + 内置扩展). */
+  /** Connectors header configure → custom MCP dialog (or market connectors). */
   const openConnectorsConfigure = () => {
     setToolMenuOpen(false);
     if (props.onOpenConnectorsMarketplace) {
@@ -1461,7 +1461,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                       {toolMenuSection === "files" ? null : (
                         <div
                           className={cn(
-                            // Shared 2nd-column width for 模式 / 提示词 / 技能 / 连接器.
+                            // Shared 2nd-column width for modes / prompts / skills / connectors.
                             "absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),17.5rem)] max-w-[17.5rem] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid",
                           )}
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}

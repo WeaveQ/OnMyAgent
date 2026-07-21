@@ -953,7 +953,7 @@ function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
       ) : (
         <div className="mt-2 min-h-10" aria-hidden />
       )}
-      {/* Reserve footer band so height matches artifact cards with “查看详情”. */}
+      {/* Reserve footer band so height matches artifact cards with View details. */}
       <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
         —
       </div>

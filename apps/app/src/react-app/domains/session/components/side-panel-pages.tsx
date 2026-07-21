@@ -340,7 +340,7 @@ export function StorePage(props: {
   onSummonMarketplaceExpert?: (expert: ExpertMarketplaceEntry) => void;
   onCreateExpert?: () => void;
   onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
-  /** Parent-owned custom MCP dialog opener (shared with Composer 配置). */
+  /** Parent-owned custom MCP dialog opener (shared with Composer configure). */
   onOpenCustomConnector?: () => void;
 }) {
   const { showToast } = useStatusToasts();
