@@ -806,20 +806,45 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: var(--session-content-border, var(--dls-hover));
   }
 
+  /*
+   * Jump-to-latest FAB: must read as a floating chip over the transcript.
+   * Dark mode previously used surface-on-background with only black shadows —
+   * nearly invisible. Use a solid face + hairline border + dual-tone elevation.
+   */
   .session-workbuddy-scroll-to-bottom {
-    width: 32px;
-    height: 32px;
-    border-color: transparent;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--dls-border);
     border-radius: 999px;
-    background: var(--dls-surface);
+    background: var(--dls-surface-solid, var(--dls-surface));
     color: var(--dls-text);
-    box-shadow: 0 4px 12px rgb(0 0 0 / 4%), 0 3px 6px rgb(0 0 0 / 4%);
-    transition: background-color 200ms ease;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 10%) inset,
+      0 4px 14px rgb(0 0 0 / 18%),
+      0 2px 6px rgb(0 0 0 / 12%);
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      color 200ms ease;
   }
 
   .session-workbuddy-scroll-to-bottom:hover {
-    background: var(--dls-surface);
-    box-shadow: 0 6px 12px -4px rgb(0 0 0 / 8%), 0 3px 6px -8px rgb(0 0 0 / 4%);
+    background: var(--dls-hover);
+    border-color: color-mix(in srgb, var(--dls-text) 18%, var(--dls-border));
+    color: var(--dls-text);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 12%) inset,
+      0 8px 18px rgb(0 0 0 / 24%),
+      0 3px 8px rgb(0 0 0 / 16%);
+  }
+
+  .session-workbuddy-scroll-to-bottom:focus-visible {
+    outline: none;
+    border-color: var(--dls-accent);
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--dls-accent) 35%, transparent),
+      0 4px 14px rgb(0 0 0 / 18%);
   }
 
   .session-transcript-turn {
