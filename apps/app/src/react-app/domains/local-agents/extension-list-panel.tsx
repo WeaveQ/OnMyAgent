@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
@@ -59,7 +60,16 @@ export function ExtensionListPanel() {
         </Button>
       </div>
       {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
-      {extensions.length === 0 ? (
+      {busy && extensions.length === 0 ? (
+        <div
+          className="flex min-h-16 items-center justify-center gap-2 text-sm text-dls-secondary"
+          role="status"
+          aria-label={t("common.loading")}
+        >
+          <LoadingSpinner size="sm" />
+          <span>{t("common.loading")}</span>
+        </div>
+      ) : extensions.length === 0 ? (
         <EmptyStateBox size="compact" className="text-xs">
           {t("local_agent.extensions_empty")}
         </EmptyStateBox>
