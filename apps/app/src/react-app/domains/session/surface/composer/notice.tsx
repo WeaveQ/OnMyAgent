@@ -36,7 +36,7 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
     >
       <div className={`flex ${hasDescription || hasAction ? "items-start" : "items-center"} gap-2`}>
         <div
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md border text-[10px] font-semibold leading-none ${toneClass} ${
+          className={`flex size-5 shrink-0 items-center justify-center rounded-md border text-2xs font-semibold leading-none ${toneClass} ${
             hasDescription || hasAction ? "mt-0.5" : ""
           }`}
         >
@@ -47,7 +47,7 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
             {props.notice.title}
           </div>
           {hasDescription ? (
-            <p className="mt-0.5 line-clamp-2 break-all text-[11px] leading-4 text-dls-secondary">
+            <p className="mt-0.5 line-clamp-2 break-all text-2xs leading-4 text-dls-secondary">
               {props.notice.description}
             </p>
           ) : null}

@@ -58,49 +58,18 @@ import {
   canPreviewOpenTargetInline,
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
-import {
-  HTMLPreview,
-  ImagePreview,
-  MarkdownPreview,
-  PlainText,
-  PreviewError,
-  PreviewLoading,
-  PreviewUnavailable,
-} from "../../capabilities/artifacts/preview";
+import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
-
-function formatWorkspaceFileSize(size: number) {
-  if (!Number.isFinite(size) || size <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  let value = size;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
-}
-
-function formatWorkspaceFileTime(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return t("common.unknown");
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return t("common.unknown");
-  return date.toLocaleString(undefined, {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-type WorkspaceFileTreeNode = {
-  name: string;
-  path: string;
-  kind: "file" | "dir";
-  size: number;
-  mtimeMs: number;
-  children: WorkspaceFileTreeNode[];
-};
+import {
+  buildWorkspaceFileTree,
+  filterHiddenFromTree,
+  findWorkspaceFileNode,
+  formatWorkspaceFileSize,
+  formatWorkspaceFileTime,
+  shouldHideEntry,
+  workspaceFileBreadcrumbs,
+  type WorkspaceFileTreeNode,
+} from "../../capabilities/artifacts/workspace-file-tree";
 
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
@@ -121,31 +90,6 @@ function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) 
       className="size-4 shrink-0"
     />
   );
-}
-
-function shouldHideEntry(path: string): boolean {
-  const parts = path.split("/").filter(Boolean);
-  for (const part of parts) {
-    if (part.startsWith(".")) return true;
-  }
-  if (path === "opencode.jsonc" || path.endsWith("/opencode.jsonc"))
-    return true;
-  return false;
-}
-
-function shouldHideNode(node: WorkspaceFileTreeNode): boolean {
-  if (node.name.startsWith(".")) return true;
-  if (node.name === "opencode.jsonc") return true;
-  return false;
-}
-
-function filterHiddenFromTree(
-  node: WorkspaceFileTreeNode,
-): WorkspaceFileTreeNode {
-  const filteredChildren = node.children
-    .filter((c) => !shouldHideNode(c))
-    .map((c) => filterHiddenFromTree(c));
-  return { ...node, children: filteredChildren };
 }
 
 type FileCategory = "all" | "document" | "spreadsheet" | "presentation" | "pdf" | "image" | "video" | "audio" | "website" | "markdown" | "code" | "other";
@@ -288,7 +232,6 @@ type FilePreviewState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; content: string }
-  | { status: "binary"; url: string }
   | { status: "external" }
   | { status: "browser" }
   | { status: "error"; message: string };
@@ -296,86 +239,6 @@ type FilePreviewState =
 function canPreviewWorkspaceFileInline(target: OpenTarget) {
   // Shared policy with side-panel file tree (no Office / binary dump).
   return canPreviewOpenTargetInline(target);
-}
-
-function canPreviewWorkspaceBinaryInline(target: OpenTarget) {
-  return target.preview === "image" || target.preview === "pdf";
-}
-
-function addWorkspaceFileTreeEntry(
-  root: WorkspaceFileTreeNode,
-  entry: OnMyAgentWorkspaceFileCatalogEntry,
-) {
-  const parts = entry.path.split("/").filter(Boolean);
-  let parent = root;
-  let currentPath = "";
-  for (const name of parts) {
-    const isLeaf =
-      currentPath + (currentPath ? "/" : "") + name === parts.join("/");
-    currentPath = currentPath ? `${currentPath}/${name}` : name;
-    let child = parent.children.find((item) => item.path === currentPath);
-    if (!child) {
-      child = {
-        name,
-        path: currentPath,
-        kind: isLeaf ? entry.kind : "dir",
-        size: isLeaf ? entry.size : 0,
-        mtimeMs: isLeaf ? entry.mtimeMs : 0,
-        children: [],
-      };
-      parent.children.push(child);
-    }
-    if (currentPath === entry.path.split("/").filter(Boolean).join("/")) {
-      child.kind = entry.kind;
-      child.size = entry.size;
-      child.mtimeMs = entry.mtimeMs;
-    }
-    parent = child;
-  }
-}
-
-function sortWorkspaceFileTree(node: WorkspaceFileTreeNode) {
-  node.children.sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
-  for (const child of node.children) sortWorkspaceFileTree(child);
-}
-
-function buildWorkspaceFileTree(
-  entries: OnMyAgentWorkspaceFileCatalogEntry[],
-): WorkspaceFileTreeNode {
-  const root: WorkspaceFileTreeNode = {
-    name: t("files.workspace"),
-    path: "",
-    kind: "dir",
-    size: 0,
-    mtimeMs: 0,
-    children: [],
-  };
-  for (const entry of entries) addWorkspaceFileTreeEntry(root, entry);
-  sortWorkspaceFileTree(root);
-  return root;
-}
-
-function findWorkspaceFileNode(
-  node: WorkspaceFileTreeNode,
-  path: string,
-): WorkspaceFileTreeNode | null {
-  if (node.path === path) return node;
-  for (const child of node.children) {
-    const match = findWorkspaceFileNode(child, path);
-    if (match) return match;
-  }
-  return null;
-}
-
-function workspaceFileBreadcrumbs(path: string) {
-  const parts = path.split("/").filter(Boolean);
-  return parts.map((name, index) => ({
-    name,
-    path: parts.slice(0, index + 1).join("/"),
-  }));
 }
 
 function filterWorkspaceFileTree(
@@ -520,10 +383,6 @@ function FilePreviewDrawer(props: {
                 <MarkdownPreview content={state.content} />
               ) : state.status === "ready" ? (
                 <PlainText content={state.content} />
-              ) : state.status === "binary" && target.preview === "image" ? (
-                <ImagePreview src={state.url} alt={file.name} />
-              ) : state.status === "binary" && target.preview === "pdf" ? (
-                <HTMLPreview type="binary" title={file.name} url={state.url} />
               ) : state.status === "browser" ? (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {t("files.preview_opened_in_browser")}
@@ -602,10 +461,10 @@ export function WorkspaceFilesPage(props: {
   const manualRefreshRef = useRef(false);
   const refreshDoneTimerRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<"task" | "cloud">("task");
+  const [pendingDelete, setPendingDelete] = useState<FileNode | null>(null);
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<FileNode | null>(null);
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
@@ -703,31 +562,6 @@ export function WorkspaceFilesPage(props: {
     }
 
     if (!canPreviewWorkspaceFileInline(selectedTarget)) {
-      if (canPreviewWorkspaceBinaryInline(selectedTarget)) {
-        let cancelled = false;
-        let objectUrl: string | null = null;
-        setPreviewState({ status: "loading" });
-        void props.client
-          .downloadWorkspaceFile(props.workspaceId, selectedTarget.value)
-          .then((result) => {
-            if (cancelled) return;
-            objectUrl = URL.createObjectURL(new Blob([result.data], {
-              type: result.contentType ?? "application/octet-stream",
-            }));
-            setPreviewState({ status: "binary", url: objectUrl });
-          })
-          .catch((previewError: unknown) => {
-            if (cancelled) return;
-            setPreviewState({
-              status: "error",
-              message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
-            });
-          });
-        return () => {
-          cancelled = true;
-          if (objectUrl) URL.revokeObjectURL(objectUrl);
-        };
-      }
       setPreviewState({ status: "external" });
       return;
     }
@@ -820,6 +654,7 @@ export function WorkspaceFilesPage(props: {
 
   const handleSelectFile = useCallback(
     async (file: FileNode) => {
+      setSelectedFile(file);
       const target = workspaceFileOpenTarget({
         fileRoot,
         path: file.path,
@@ -829,9 +664,9 @@ export function WorkspaceFilesPage(props: {
       });
       if (target.preview === "browser") {
         await openArtifactTarget(target);
-        return;
+      } else if (!canPreviewWorkspaceFileInline(target)) {
+        await openArtifactTarget(target);
       }
-      setSelectedFile(file);
     },
     [fileRoot, openArtifactTarget],
   );
@@ -1127,7 +962,7 @@ export function WorkspaceFilesPage(props: {
                               {node.kind === "file" ? (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger
-                                    render={(
+                                    render={
                                       <Button
                                         type="button"
                                         variant="ghost"
@@ -1138,7 +973,7 @@ export function WorkspaceFilesPage(props: {
                                       >
                                         <MoreHorizontal className="size-4" />
                                       </Button>
-                                    )}
+                                    }
                                   />
                                   <DropdownMenuContent align="end" className="min-w-40">
                                     <DropdownMenuItem onClick={() => handleOpenFile(node.path)}>

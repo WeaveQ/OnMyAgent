@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useCallback, useMemo } from "react";
-import { Copy, Download, FileText, FolderOpen, Loader2, Search, X } from "lucide-react";
+import { Copy, Download, FileText, FolderOpen, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { IconTile, MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";

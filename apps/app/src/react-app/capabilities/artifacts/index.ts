@@ -6,3 +6,4 @@ export * from "./open-target";
 export * from "./preview";
 export * from "./text-highlights";
 export * from "./workspace-file-open-target";
+export * from "./workspace-file-tree";
