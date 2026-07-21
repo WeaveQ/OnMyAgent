@@ -6,12 +6,45 @@ but macOS is where release engineering and daily dogfooding happen. This doc
 captures the concrete gotchas we already know about so a first-time Windows
 run has a fighting chance.
 
+## CI gate (PR required)
+
+| Job | OS | What | Why |
+|-----|-----|------|-----|
+| **Detect paths** | ubuntu | git diff path filter | Skip Windows host job when PR is docs/frontend-only |
+| **Checks** | ubuntu + macos | `pnpm check` + rename; **Linux only**: `test:windows-runtime` | Fail-fast mocked win32 contracts |
+| **Windows compat** | `windows-2022` | `test:windows-runtime` + preflight `--ci` | Real host; **skipped** if no Windows-relevant paths |
+| **Typecheck** | via Checks only | includes `@onmyagent/desktop` | TS is OS-agnostic — not re-run on Windows |
+
+**Path filter** (any match → run Windows host job):
+
+- `apps/desktop/**`, `apps/orchestrator/**`
+- `scripts/dev/windows*`, `scripts/lib/run-command.mjs`
+- `package.json`, `pnpm-lock.yaml`, `constants.json`
+- `.github/workflows/ci-tests.yml`, `docs/windows-compat.md`
+
+**Not duplicated:** desktop typecheck; macos does not run windows-runtime.  
+**Intentional double-run:** `test:windows-runtime` on Linux (fail-fast) + Windows (host), only when host job is selected.
+
+Locally:
+
+```bat
+pnpm check:windows
+:: or separately:
+pnpm test:windows-runtime
+node scripts/dev/windows-preflight.mjs --ci
+```
+
 ## Preflight
 
 ```bat
 :: from an elevated PowerShell or Developer Prompt so symlinks work
 node scripts/dev/windows-preflight.mjs
 ```
+
+Modes (`ONMYAGENT_WINDOWS_PREFLIGHT_MODE`):
+
+- **`strict`** (default): any failed check exits 1 — use for first local dogfood.
+- **`ci`**: only **required** checks fail (node/pnpm/constants/USERPROFILE/electron dist). Docker, symlink privilege, runtimes/sidecars, native rebuild artifacts are optional warnings.
 
 The preflight checks:
 

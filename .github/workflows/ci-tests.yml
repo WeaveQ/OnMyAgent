@@ -17,6 +17,46 @@ env:
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
+  # Path filter: skip expensive windows-2022 job when PR only touches unrelated areas.
+  changes:
+    name: Detect Windows-relevant paths
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.filter.outputs.windows }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Filter paths
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            # First push / force-push edge: treat as full run.
+            if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+              echo "windows=true" >> "$GITHUB_OUTPUT"
+              echo "reason=no-base-sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          mapfile -t files < <(git diff --name-only "$BASE" "${{ github.sha }}" || git diff --name-only "$BASE" HEAD)
+          pattern='^(apps/desktop/|apps/orchestrator/|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
+          if printf '%s\n' "${files[@]}" | grep -qE "$pattern"; then
+            echo "windows=true" >> "$GITHUB_OUTPUT"
+            echo "reason=matched-paths" >> "$GITHUB_OUTPUT"
+          else
+            echo "windows=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no-windows-paths" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Changed files sample:"
+          printf '%s\n' "${files[@]}" | head -40
+
   checks:
     name: Checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -76,6 +116,72 @@ jobs:
 
       - name: Run rename consistency check
         run: pnpm test:rename-consistency
+
+      # Fail-fast Windows *contracts* (platform-mocked) once on Linux only.
+      # Real Windows host gate is windows-compat (path-filtered).
+      - name: Run Windows runtime contracts
+        if: runner.os == 'Linux'
+        run: pnpm test:windows-runtime
+
+  # Real Windows host gate. Skipped when PR has no desktop/windows-related paths.
+  # Desktop typecheck lives only in Checks (pnpm check) — TS is OS-agnostic.
+  windows-compat:
+    name: Windows compat (windows-2022)
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    # Pin VS 2022 layout for node-gyp (same pin as build-electron-desktop).
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.27.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Windows runtime contracts
+        run: pnpm test:windows-runtime
+        env:
+          ONMYAGENT_WINDOWS_TEST_LOG_DIR: ${{ runner.temp }}/windows-runtime-logs
+
+      - name: Upload Windows runtime logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-runtime-test-logs
+          path: ${{ runner.temp }}/windows-runtime-logs/**
+          if-no-files-found: ignore
+
+      - name: Windows preflight (ci mode)
+        run: node scripts/dev/windows-preflight.mjs --ci
 
   tests:
     name: ${{ matrix.test.name }} (${{ matrix.os }})
@@ -229,7 +335,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [checks, tests]
+    needs: [changes, checks, windows-compat, tests]
     if: always()
 
     steps:
@@ -238,9 +344,15 @@ jobs:
         run: |
           set -euo pipefail
           checks="${{ needs.checks.result }}"
+          windows="${{ needs.windows-compat.result }}"
           tests="${{ needs.tests.result }}"
-          if [ "$checks" != "success" ] || [ "$tests" != "success" ]; then
-            echo "checks=$checks tests=$tests" >&2
+          # windows-compat may be skipped when no Windows-relevant paths changed.
+          windows_ok=0
+          if [ "$windows" = "success" ] || [ "$windows" = "skipped" ]; then
+            windows_ok=1
+          fi
+          if [ "$checks" != "success" ] || [ "$windows_ok" != "1" ] || [ "$tests" != "success" ]; then
+            echo "checks=$checks windows-compat=$windows tests=$tests" >&2
             exit 1
           fi
-          echo "checks=$checks tests=$tests"
+          echo "checks=$checks windows-compat=$windows tests=$tests"
