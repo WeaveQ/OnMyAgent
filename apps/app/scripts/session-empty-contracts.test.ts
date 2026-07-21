@@ -51,6 +51,42 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(src).toContain("matrix_loading");
   });
 
+  test("agent management fleet/discover/mcp/providers distinguish loading from empty", () => {
+    const page = read(
+      "src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
+    );
+    expect(page).toContain("const snapshotPending = loading && !snapshot");
+    expect(page).toContain("loading={snapshotPending}");
+    // Fleet/discover: spinner branch before inventory-empty copy.
+    expect(page).toMatch(
+      /\{snapshotPending \? \([\s\S]*?common\.loading[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
+    );
+    expect(page).toMatch(
+      /\{snapshotPending \? \([\s\S]*?common\.loading[\s\S]*?\) : discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
+    );
+
+    const mcp = read(
+      "src/react-app/domains/local-agents/agent-management/agent-management-mcp-panel.tsx",
+    );
+    expect(mcp).toContain("loading?: boolean");
+    expect(mcp).toMatch(
+      /loading \? \([\s\S]*?common\.loading[\s\S]*?\) : servers\.length === 0 \?[\s\S]*?agent_manager\.mcp\.empty/,
+    );
+
+    const providers = read(
+      "src/react-app/domains/local-agents/agent-management/agent-management-providers.tsx",
+    );
+    expect(providers).toContain("loading?: boolean");
+    expect(providers).toMatch(
+      /loading \? \([\s\S]*?common\.loading[\s\S]*?\) : providers\.length \?[\s\S]*?no_managed_providers/,
+    );
+
+    const extensions = read("src/react-app/domains/local-agents/extension-list-panel.tsx");
+    expect(extensions).toMatch(
+      /busy && extensions\.length === 0 \?[\s\S]*?common\.loading[\s\S]*?\) : extensions\.length === 0 \?[\s\S]*?extensions_empty/,
+    );
+  });
+
   test("session chrome has no text-[Npx] arbitrary font sizes", () => {
     const files = [
       "src/react-app/domains/session/surface/surface-styles.ts",

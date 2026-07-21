@@ -307,6 +307,9 @@ export function AgentManagementPage(props: {
   const autoAdoptInFlightRef = useRef(false);
   const autoAdoptedIdsRef = useRef<Set<string>>(new Set());
 
+  /** First paint without cache: show spinners, never inventory-empty copy. */
+  const snapshotPending = loading && !snapshot;
+
   // Managed fleet (primary) vs discover catalog (secondary).
   const fleetParts = useMemo(
     () => partitionAgentsForFleet(snapshot?.agents ?? [], healthResults),
@@ -913,6 +916,7 @@ export function AgentManagementPage(props: {
             <>
               <AgentManagementProviderPanel
                 snapshot={snapshot}
+                loading={snapshotPending}
                 busyKey={providerActionKey}
                 selectedApp={providerApp}
                 onCreateProvider={openCreateProvider}
@@ -933,6 +937,7 @@ export function AgentManagementPage(props: {
           ) : activePanel === "mcp" ? (
             <AgentManagementMcpPanel
               snapshot={snapshot?.mcp ?? null}
+              loading={snapshotPending}
               busyKey={mcpActionKey}
               onMcpAction={runMcpAction}
             />
@@ -946,8 +951,8 @@ export function AgentManagementPage(props: {
                       <Bot className="size-4 text-dls-secondary" />
                       <h3 className="text-sm font-medium">{t("agent_manager.fleet_title")}</h3>
                       <span className="text-xs tabular-nums text-dls-secondary">
-                        {filteredManagedAgents.length}
-                        {agentFilter !== "all" ? ` / ${managedAgents.length}` : ""}
+                        {snapshotPending ? "…" : filteredManagedAgents.length}
+                        {!snapshotPending && agentFilter !== "all" ? ` / ${managedAgents.length}` : ""}
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-dls-secondary">{t("agent_manager.fleet_desc")}</p>
@@ -986,7 +991,16 @@ export function AgentManagementPage(props: {
                     </Button>
                   </div>
                 </div>
-                {managedAgents.length === 0 ? (
+                {snapshotPending ? (
+                  <div
+                    className="flex min-h-32 items-center justify-center gap-2 text-sm text-dls-secondary"
+                    role="status"
+                    aria-label={t("common.loading")}
+                  >
+                    <LoadingSpinner />
+                    <span>{t("common.loading")}</span>
+                  </div>
+                ) : managedAgents.length === 0 ? (
                   <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                     {t("agent_manager.fleet_empty")}
                   </EmptyStateBox>
@@ -1033,7 +1047,7 @@ export function AgentManagementPage(props: {
                     <Cpu className="size-4 shrink-0 text-dls-secondary" />
                     <h3 className="text-sm font-medium text-dls-text">{t("agent_manager.discover_title")}</h3>
                     <span className="text-xs tabular-nums text-dls-secondary">
-                      {discoverAgents.length}
+                      {snapshotPending ? "…" : discoverAgents.length}
                     </span>
                     <span className="text-xs text-dls-secondary">
                       {discoverOpen ? t("agent_manager.discover_collapse") : t("agent_manager.discover_expand")}
@@ -1043,7 +1057,16 @@ export function AgentManagementPage(props: {
                 {discoverOpen ? (
                   <>
                     <p className="text-xs text-dls-secondary">{t("agent_manager.discover_desc")}</p>
-                    {discoverAgents.length === 0 ? (
+                    {snapshotPending ? (
+                      <div
+                        className="flex min-h-24 items-center justify-center gap-2 text-sm text-dls-secondary"
+                        role="status"
+                        aria-label={t("common.loading")}
+                      >
+                        <LoadingSpinner />
+                        <span>{t("common.loading")}</span>
+                      </div>
+                    ) : discoverAgents.length === 0 ? (
                       <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                         {t("agent_manager.discover_empty")}
                       </EmptyStateBox>
@@ -1087,7 +1110,7 @@ export function AgentManagementPage(props: {
               inventoryScope={skillInventoryScope}
               onInventoryScopeChange={setSkillInventoryScope}
               scopeCounts={skillScopeCounts}
-              loading={loading && !snapshot}
+              loading={snapshotPending}
             />
           )}
         </div>
