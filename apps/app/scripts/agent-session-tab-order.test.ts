@@ -19,23 +19,25 @@ describe("mergeStableSessionTabOrder", () => {
     expect(afterSelect).toEqual(["a", "b", "c"]);
   });
 
-  test("appends newly created sessions without reshuffling existing chips", () => {
+  test("inserts newly created sessions at the left (newest-first)", () => {
     const current = ["a", "b"];
     const next = mergeStableSessionTabOrder(current, [
       { id: "new" },
       { id: "b" },
       { id: "a" },
     ]);
-    expect(next).toEqual(["a", "b", "new"]);
+    // + 新会话 | new | a | b  — new is immediately right of the create button.
+    expect(next).toEqual(["new", "a", "b"]);
   });
 
-  test("keeps draft placeholders at the leading edge", () => {
+  test("keeps draft placeholders at the leading edge before new sessions", () => {
     const next = mergeStableSessionTabOrder(["a", "b"], [
       { id: "draft:ws" },
+      { id: "new" },
       { id: "a" },
       { id: "b" },
     ]);
-    expect(next).toEqual(["draft:ws", "a", "b"]);
+    expect(next).toEqual(["draft:ws", "new", "a", "b"]);
   });
 
   test("drops sessions that no longer exist", () => {
@@ -44,5 +46,14 @@ describe("mergeStableSessionTabOrder", () => {
       { id: "a" },
     ]);
     expect(next).toEqual(["a", "b"]);
+  });
+
+  test("initial load preserves parent newest-first order left-to-right", () => {
+    const next = mergeStableSessionTabOrder([], [
+      { id: "newest" },
+      { id: "mid" },
+      { id: "oldest" },
+    ]);
+    expect(next).toEqual(["newest", "mid", "oldest"]);
   });
 });

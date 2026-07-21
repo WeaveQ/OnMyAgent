@@ -124,27 +124,32 @@ function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
 }
 
 /**
- * Freeze tab order after first appearance. Selection / recency refreshes must
- * not reshuffle chips — only pin (handled separately) and new sessions may change
- * the list. New real sessions append; draft placeholders stay leftmost.
+ * Tab strip order (left → right, after the fixed “+ 新会话” button):
+ * - newest sessions on the left; older sessions further right
+ * - selection / parent recency reshuffles must NOT move existing chips
+ * - newly created sessions insert at the left edge (after any draft chip)
+ * - draft placeholders stay leftmost among session chips
  */
 export function mergeStableSessionTabOrder(
   previousIds: readonly string[],
   sessions: readonly { id: string }[],
 ): string[] {
   const present = new Set(sessions.map((session) => session.id));
-  const next = previousIds.filter((id) => present.has(id));
-  const seen = new Set(next);
+  const kept = previousIds.filter((id) => present.has(id));
+  const keptSet = new Set(kept);
+  // Preserve parent order for newcomers (listSessions is typically newest-first).
+  const newcomers: string[] = [];
   for (const session of sessions) {
-    if (seen.has(session.id)) continue;
-    if (session.id.startsWith("draft:")) {
-      next.unshift(session.id);
-    } else {
-      next.push(session.id);
-    }
-    seen.add(session.id);
+    if (keptSet.has(session.id) || newcomers.includes(session.id)) continue;
+    newcomers.push(session.id);
   }
-  return next;
+  const isDraft = (id: string) => id.startsWith("draft:");
+  const draftNew = newcomers.filter(isDraft);
+  const realNew = newcomers.filter((id) => !isDraft(id));
+  const keptDrafts = kept.filter(isDraft);
+  const keptReal = kept.filter((id) => !isDraft(id));
+  // Left → right: drafts, then brand-new sessions, then older stable sessions.
+  return [...draftNew, ...keptDrafts, ...realNew, ...keptReal];
 }
 
 function scrollTabIntoViewIfNeeded(node: HTMLElement | null | undefined) {
