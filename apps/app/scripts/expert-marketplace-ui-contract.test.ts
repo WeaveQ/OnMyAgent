@@ -344,16 +344,15 @@ describe("expert marketplace UI contract", () => {
     expect(panel).toContain("selectedAgentId?: string | null");
     expect(panel).toContain("selectedAgentId={props.selectedAgentId}");
     expect(list).toContain("selectedAgentId?: string | null");
-    expect(list).toContain("item.agentId === props.selectedAgentId");
+    // Draft + multi-session: highlight by agentId or any session under the group.
+    expect(list).toContain("group.agentId === props.selectedAgentId");
+    expect(list).toContain("session.id === props.selectedSessionId");
+    // Title matches local-agent list weight (always medium).
     expect(item).toContain(
-      'itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text"',
+      'itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text"',
     );
-    expect(item).toContain(
-      'props.selected ? "font-medium" : "font-normal"',
-    );
-    // Presence uses StatusDot + online fill helper (not a raw accent pill).
-    expect(item).toContain("StatusDot");
-    expect(item).toContain('return "bg-dls-online"');
+    // Streaming / activity uses ExpertStatusDots (not raw accent pill).
+    expect(item).toContain("ExpertStatusDots");
     expect(item).not.toContain(
       'props.taskStatusVariant === "available" && "bg-dls-accent"',
     );
@@ -424,10 +423,9 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx",
     );
 
-    expect(tabs).toContain(
-      '? "h-11 border-b border-dls-mist px-3"',
-    );
-    expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
+    // Expanded strip owns the bottom rule; collapsed is hang-tab host only.
+    expect(tabs).toContain('"h-11 border-b border-dls-mist px-3"');
+    expect(tabs).toContain('"h-0 overflow-visible shadow-none"');
     expect(tabs).toContain(
       'className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto"',
     );
