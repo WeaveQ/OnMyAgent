@@ -71,10 +71,12 @@ import {
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
+  buildIsolatedExpertSessionDirectory,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
+  writeAssistantSessionWorkspace,
 } from "../../domains/session";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
@@ -541,13 +543,47 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               id: string;
               title?: string;
               time?: unknown;
+              directory?: string;
             } | null = null;
+            const pendingAgentSnapshot =
+              usePendingAgentStore.getState().getAgent();
+            const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
+            const draftRoot =
+              surfaceProps?.draftWorkspaceDirectory?.trim() || "";
+            let sessionDirectory = draftRoot || workspaceRoot || undefined;
+            let bindDirectory = draftRoot || "";
+            if (!draftRoot && workspaceRoot) {
+              const isolated = buildIsolatedExpertSessionDirectory({
+                workspaceRoot,
+                agentName: pendingAgentSnapshot?.name?.trim() || "expert",
+              });
+              const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
+              const ensureWorkspaceId =
+                selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
+              if (ensureClient && ensureWorkspaceId?.trim()) {
+                try {
+                  await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
+                    path: isolated.markerRelativePath,
+                    content: `# ${pendingAgentSnapshot?.name?.trim() || "expert"}\n\nSession artifacts for this expert conversation.\n`,
+                    force: true,
+                  });
+                } catch (error) {
+                  console.warn(
+                    "[expert-session] failed to create isolated artifact directory",
+                    error,
+                  );
+                }
+              }
+              sessionDirectory = isolated.directory;
+              bindDirectory = isolated.directory;
+            }
             try {
               newSession = unwrap(
                 await opencodeClient.session.create({
-                  directory: selectedWorkspaceRoot?.trim() || undefined,
+                  directory: sessionDirectory,
                 }),
               );
+              newSession.directory = sessionDirectory;
               useSessionActivityStore
                 .getState()
                 .startRun(workspaceId, newSession.id);
@@ -558,8 +594,6 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
 
             // Bind the pending agent to this new session (so it appears with
             // the agent avatar + system prompt when user sends first message).
-            const pendingAgentSnapshot =
-              usePendingAgentStore.getState().getAgent();
             if (pendingAgentSnapshot) {
               usePendingAgentStore.getState().setAgent({
                 ...pendingAgentSnapshot,
@@ -573,6 +607,14 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               await installMarketplaceExpertAfterSessionCreated(
                 pendingAgentSnapshot,
               );
+            }
+            if (bindDirectory) {
+              writeAssistantSessionWorkspace({
+                sessionId: newSession.id,
+                ownerWorkspaceId: workspaceId,
+                directory: bindDirectory,
+              });
+              dispatchAssistantSessionWorkspacesChanged(workspaceId);
             }
 
             addExpertSession(newSession.id);

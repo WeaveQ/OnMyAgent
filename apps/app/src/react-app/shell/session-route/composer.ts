@@ -151,10 +151,9 @@ export function resolveDraftSendPlan(input: {
   const explicitDraftWorkspace = needsNewSession
     ? input.assistantDraftWorkspaceRoot.trim()
     : "";
-  const explicitAssistantWorkspace =
-    input.pageMode === "assistant"
-      ? explicitDraftWorkspace
-      : "";
+  // Bind both assistant and expert sessions to an explicit folder when the
+  // user picked one, so the side panel scans that folder only.
+  const explicitAssistantWorkspace = explicitDraftWorkspace;
   return {
     needsNewSession,
     initialSessionId: needsNewSession ? null : input.selectedSessionId,
