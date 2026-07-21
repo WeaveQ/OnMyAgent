@@ -950,11 +950,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [renderedMessages],
   );
   const [activityPulseAt, setActivityPulseAt] = useState(Date.now());
-  const [activityNow, setActivityNow] = useState(Date.now());
+  // Stall / recovery flags via one-shot timers — NOT a 1s setInterval.
+  // The old interval re-rendered SessionSurface (+ memo-busted transcript)
+  // every second while the assistant was active, which felt like "scroll is
+  // fine for a few seconds then suddenly janks" once a tick landed mid-gesture.
+  const [showStalledActivityNotice, setShowStalledActivityNotice] =
+    useState(false);
+  const [shouldInjectStallRecovery, setShouldInjectStallRecovery] =
+    useState(false);
   useEffect(() => {
-    const now = Date.now();
-    setActivityPulseAt(now);
-    setActivityNow(now);
+    setActivityPulseAt(Date.now());
+    setShowStalledActivityNotice(false);
+    setShouldInjectStallRecovery(false);
   }, [
     activityFingerprint,
     effectiveActivityStatus,
@@ -976,18 +983,37 @@ export function SessionSurface(props: SessionSurfaceProps) {
       ),
   });
   useEffect(() => {
-    if (!activityVisible) return;
-    const id = window.setInterval(() => setActivityNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [activityVisible]);
-  const showStalledActivityNotice =
-    activityVisible &&
-    effectiveActivityStatus !== "compacting" &&
-    activityNow - activityPulseAt >= ASSISTANT_STALL_NOTICE_MS;
-  const shouldInjectStallRecovery =
-    activityVisible &&
-    effectiveActivityStatus !== "compacting" &&
-    activityNow - activityPulseAt >= ASSISTANT_RECOVERY_HINT_MS;
+    if (!activityVisible || effectiveActivityStatus === "compacting") {
+      setShowStalledActivityNotice(false);
+      setShouldInjectStallRecovery(false);
+      return;
+    }
+    const elapsed = Date.now() - activityPulseAt;
+    const stallDelay = Math.max(0, ASSISTANT_STALL_NOTICE_MS - elapsed);
+    const recoveryDelay = Math.max(0, ASSISTANT_RECOVERY_HINT_MS - elapsed);
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+    if (stallDelay === 0) {
+      setShowStalledActivityNotice(true);
+    } else {
+      stallTimer = window.setTimeout(
+        () => setShowStalledActivityNotice(true),
+        stallDelay,
+      );
+    }
+    if (recoveryDelay === 0) {
+      setShouldInjectStallRecovery(true);
+    } else {
+      recoveryTimer = window.setTimeout(
+        () => setShouldInjectStallRecovery(true),
+        recoveryDelay,
+      );
+    }
+    return () => {
+      if (stallTimer !== undefined) window.clearTimeout(stallTimer);
+      if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
+    };
+  }, [activityPulseAt, activityVisible, effectiveActivityStatus]);
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
@@ -1027,25 +1053,48 @@ export function SessionSurface(props: SessionSurfaceProps) {
     awaitingAssistantBaseline !== null &&
     assistantOutputAfterAwaitStart &&
     !chatStreaming;
-  const assistantStatusFooter =
-    showInlineActivityIndicator ? (
-      <AssistantWaitingCard
-        collapseLayout
-        label={getAssistantActivityPhaseLabel(assistantActivity)}
-      />
-    ) : showNoVisibleAssistantOutput ? (
-      <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
-    ) : outputLimitedAssistantMessage && !visibleTranscriptError ? (
-      <OutputLimitContinueCard
-        key={outputLimitedAssistantMessage.id}
-        busy={sending || chatStreaming}
-        onContinue={() => {
-          void handleOutputLimitContinue();
-        }}
-      />
-    ) : reserveAssistantStatusSpace ? (
-      <AssistantStatusSpacer />
-    ) : null;
+  // Keep footer identity stable across unrelated SessionSurface renders so
+  // SessionTranscript's React.memo can skip (avoids full list re-render).
+  const assistantStatusFooter = useMemo(() => {
+    if (showInlineActivityIndicator) {
+      return (
+        <AssistantWaitingCard
+          collapseLayout
+          label={getAssistantActivityPhaseLabel(assistantActivity)}
+        />
+      );
+    }
+    if (showNoVisibleAssistantOutput) {
+      return (
+        <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
+      );
+    }
+    if (outputLimitedAssistantMessage && !visibleTranscriptError) {
+      return (
+        <OutputLimitContinueCard
+          key={outputLimitedAssistantMessage.id}
+          busy={sending || chatStreaming}
+          onContinue={() => {
+            void handleOutputLimitContinue();
+          }}
+        />
+      );
+    }
+    if (reserveAssistantStatusSpace) {
+      return <AssistantStatusSpacer />;
+    }
+    return null;
+  }, [
+    assistantActivity,
+    chatStreaming,
+    noVisibleAssistantOutputText,
+    outputLimitedAssistantMessage,
+    reserveAssistantStatusSpace,
+    sending,
+    showInlineActivityIndicator,
+    showNoVisibleAssistantOutput,
+    visibleTranscriptError,
+  ]);
   useReactRenderWatchdog("SessionSurface", {
     sessionId: props.sessionId,
     workspaceId: props.workspaceId,
@@ -1793,13 +1842,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const resolveTranscriptScrollElement = useCallback(() => scrollRef.current, []);
+  const renderedMessageIds = useMemo(
+    () => renderedMessages.map((message) => message.id),
+    [renderedMessages],
+  );
   const sessionScroll = useSessionScrollController({
     selectedSessionId: props.sessionId,
     renderedMessages,
-    renderedMessageIds: renderedMessages.map((message) => message.id),
+    renderedMessageIds,
     containerRef: scrollRef,
     contentRef,
     active: chatStreaming,
+    surfaceVisible: props.surfaceVisible !== false,
     sessionChangeScroll:
       props.personalAssistantHome && props.draftOnly ? "top" : "bottom",
   });
@@ -2050,9 +2104,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
         <SessionSurfaceBody personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}>
         <SessionSurfaceTranscriptPane
           hidden={Boolean(personalAssistantDraftHome)}
+          sessionId={props.sessionId}
           scrollRef={scrollRef}
           contentRef={contentRef}
-          isAtBottom={Boolean(sessionScroll.isAtBottom)}
           showJumpToLatest={!personalAssistantDraftHome}
           onWheel={(event) => {
             sessionScroll.markWheelGesture(event.deltaY, event.target);

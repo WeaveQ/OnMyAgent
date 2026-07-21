@@ -430,7 +430,7 @@ export function AgentSessionTabs(props: {
                 {/* Session chip unread — top-left so it never collides with ··· */}
                 {sessionUnread ? (
                   <span
-                    className="pointer-events-none absolute -left-0.5 -top-0.5 z-10 size-2 rounded-full bg-dls-status-danger ring-2 ring-dls-background"
+                    className="pointer-events-none absolute -left-0.5 -top-0.5 z-10 size-2 rounded-full bg-dls-accent ring-2 ring-dls-background"
                     aria-hidden
                     title={t("session.expert_unread")}
                   />
