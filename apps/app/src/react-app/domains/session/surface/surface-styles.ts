@@ -1,9 +1,18 @@
 /** Shared class maps for SessionSurface chrome panels. */
 
+/**
+ * Shared content column for transcript + composer so fullscreen layout stays aligned.
+ * Keep in sync with ReactSessionComposer non-home max-width.
+ */
+export const SESSION_CONTENT_MAX_WIDTH_CLASS = "max-w-[1120px]";
+export const SESSION_CONTENT_X_PADDING_CLASS = "px-4 md:px-8";
+
 export const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
-  agentEmptyTitle: "mt-4 text-base font-medium text-dls-text",
-  agentEmptyDescription: "mt-1.5 max-w-md text-center text-sm leading-6 text-dls-secondary",
+  agentEmptyTitle: "mt-3 text-base font-medium text-dls-text",
+  // Wider + multi-line so expert capability copy is fully readable above prompt cards.
+  agentEmptyDescription:
+    "mt-1.5 max-w-xl text-balance text-center text-xs leading-5 text-dls-secondary sm:text-sm sm:leading-6",
   // Home empty: brand-scale hero title; subtitle one step softer so title leads.
   draftHomeTitle:
     "inline-flex items-center justify-center gap-3 text-3xl font-semibold tracking-tight text-dls-text sm:text-4xl",

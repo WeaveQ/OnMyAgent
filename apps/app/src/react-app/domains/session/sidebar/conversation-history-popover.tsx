@@ -97,16 +97,13 @@ export function ConversationHistoryPopover(props: {
           backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
         }}
       >
-        <div className="flex items-center justify-between gap-2 border-b border-dls-border px-3.5 py-2.5">
+        <div className="border-b border-dls-border px-3.5 py-2.5">
           <div className="text-sm text-dls-secondary">
             {t("session.conversation_history_popover_heading")}
             {entries.length > 0 ? (
               <span className="ms-1">({entries.length})</span>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-lg border border-dls-border px-2 py-0.5 text-xs text-dls-text">
-            {t("session.conversation_history_popover_badge")}
-          </span>
         </div>
 
         <div className="max-h-72 overflow-y-auto py-1">

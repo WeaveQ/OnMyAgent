@@ -1087,6 +1087,7 @@ export function AgentManagementPage(props: {
               inventoryScope={skillInventoryScope}
               onInventoryScopeChange={setSkillInventoryScope}
               scopeCounts={skillScopeCounts}
+              loading={loading && !snapshot}
             />
           )}
         </div>

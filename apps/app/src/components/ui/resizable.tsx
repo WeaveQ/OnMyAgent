@@ -33,9 +33,17 @@ function ResizableHandle({
     <ResizablePrimitive.Separator
       data-slot="resizable-handle"
       className={cn(
-        // Single painted rule via bg-* only — callers should not also add before:w-px
-        // lines or adjacent panel border-r/border-l, or a double separator appears.
-        "relative flex w-px items-center justify-center bg-dls-border/70 ring-offset-background after:absolute after:inset-y-0 after:start-1/2 after:w-1 after:-translate-x-1/2 rtl:after:translate-x-1/2 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden aria-[orientation=horizontal]:h-px aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:start-0 aria-[orientation=horizontal]:after:h-1 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 rtl:aria-[orientation=horizontal]:after:-translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90",
+        // Wide transparent hit target (w-3) + 1px painted rule via before:.
+        // Do not also border-r/border-l adjacent panels or a double line appears.
+        "relative z-20 flex w-3 shrink-0 cursor-col-resize touch-none items-center justify-center",
+        "bg-transparent ring-offset-background outline-hidden",
+        "before:pointer-events-none before:absolute before:inset-y-0 before:start-1/2 before:w-px before:-translate-x-1/2 before:bg-dls-border/70 before:transition-colors before:content-['']",
+        "hover:before:bg-dls-border-strong active:before:bg-dls-accent",
+        "focus-visible:ring-1 focus-visible:ring-ring focus-visible:before:bg-dls-accent",
+        // Horizontal splitters: tall hit strip, 1px rule.
+        "aria-[orientation=horizontal]:h-3 aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:cursor-row-resize",
+        "aria-[orientation=horizontal]:before:inset-x-0 aria-[orientation=horizontal]:before:inset-y-auto aria-[orientation=horizontal]:before:start-0 aria-[orientation=horizontal]:before:top-1/2 aria-[orientation=horizontal]:before:h-px aria-[orientation=horizontal]:before:w-full aria-[orientation=horizontal]:before:translate-x-0 aria-[orientation=horizontal]:before:-translate-y-1/2",
+        "[&[aria-orientation=horizontal]>div]:rotate-90",
         className
       )}
       {...props}
