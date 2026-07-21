@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useState } from "react";
-import { CheckCircle2, Image, Loader2, PlusIcon, XCircle } from "lucide-react";
+import { CheckCircle2, Image, PlusIcon, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

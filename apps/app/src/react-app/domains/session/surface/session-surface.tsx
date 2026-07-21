@@ -55,7 +55,7 @@ import {
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { StatusBadge } from "@/components/ui/status-badge";
+
 import type { ReactComposerNotice } from "./composer/notice";
 import { SessionDebugPanel } from "./debug-panel";
 import {
@@ -146,20 +146,21 @@ import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import {
-  SESSION_CONTENT_MAX_WIDTH_CLASS,
-  SESSION_CONTENT_X_PADDING_CLASS,
-  sessionSurfaceStateClass,
-  sessionSurfaceTextClass,
-} from "./surface-styles";
-import { PendingAgentAvatar } from "./chrome/avatars";
-import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
   AssistantWaitingCard,
   OutputLimitContinueCard,
-  TranscriptHistorySkeleton,
 } from "./chrome/assistant-status";
-import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
+import {
+  SessionSurfaceBody,
+  SessionSurfaceComposerColumn,
+  SessionSurfaceTranscriptPane,
+} from "./session-surface-layout";
+import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
+import {
+  SessionSurfaceSwitchingBadge,
+  SessionSurfaceTranscriptContent,
+} from "./session-surface-transcript-content";
 import {
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
@@ -176,7 +177,6 @@ import {
 import {
   assistantScenarioDraftToken,
   isUserCancelledError,
-  SessionErrorCard,
 } from "./chrome/personal-assistant";
 
 import {
@@ -189,6 +189,7 @@ import {
 import {
   SessionDraftWorkspaceAccessory,
   SessionSurfaceDraftHome,
+  SessionSurfaceExpertEmpty,
   SessionSurfaceHeader,
 } from "./session-surface-chrome";
 import {
@@ -1831,43 +1832,25 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [assistantCategory.scenarios, typeComposerText],
   );
 
-  const personalAssistantDraftHome =
-    props.personalAssistantHome &&
-    props.draftOnly &&
-    renderedMessages.length === 0 &&
-    !visibleTranscriptError &&
-    effectiveActivityStatus === "idle";
-  const expertDraftHome =
-    !props.personalAssistantHome &&
-    props.draftOnly &&
-    Boolean(props.agentContext) &&
-    renderedMessages.length === 0 &&
-    !visibleTranscriptError &&
-    effectiveActivityStatus === "idle";
-  /** Empty expert chat (draft or zero-message session) — same compact composer as assistant home. */
-  const expertEmptyComposer =
-    !props.personalAssistantHome &&
-    Boolean(effectiveAgent || props.agentContext) &&
-    renderedMessages.length === 0 &&
-    !hasTranscriptContent &&
-    !visibleTranscriptError &&
-    effectiveActivityStatus === "idle";
-  const homeComposerLayout =
-    personalAssistantDraftHome || expertDraftHome || expertEmptyComposer;
-  const composerOuterBorderVisible =
-    personalAssistantDraftHome || expertDraftHome || expertEmptyComposer;
-  const assistantDraftHomeTitle =
-    assistantCategoryId === "code"
-      ? t("session.assistant_code_title")
-      : t("session.assistant_work_title");
-  const assistantDraftHomeSubtitle =
-    assistantCategoryId === "code"
-      ? t("session.assistant_code_subtitle")
-      : t("session.assistant_work_subtitle");
-
-  const draftWorkspaceAccessoryActive =
-    Boolean(props.personalAssistantHome || props.assistantFeatureCategoryId) &&
-    Boolean(props.draftOnly);
+  const {
+    personalAssistantDraftHome,
+    homeComposerLayout,
+    composerOuterBorderVisible,
+    draftWorkspaceAccessoryActive,
+    assistantDraftHomeTitle,
+    assistantDraftHomeSubtitle,
+  } = deriveSessionSurfaceLayoutMode({
+    personalAssistantHome: props.personalAssistantHome,
+    draftOnly: props.draftOnly,
+    hasAgentContext: Boolean(props.agentContext),
+    hasEffectiveAgent: Boolean(effectiveAgent),
+    renderedMessageCount: renderedMessages.length,
+    hasTranscriptContent,
+    hasVisibleTranscriptError: Boolean(visibleTranscriptError),
+    activityIdle: effectiveActivityStatus === "idle",
+    assistantCategoryId,
+    assistantFeatureCategoryId: props.assistantFeatureCategoryId,
+  });
 
   const [lastTodosBySessionId, setLastTodosBySessionId] =
     useState<Record<string, TodoItem[]>>({});
@@ -2058,194 +2041,119 @@ export function SessionSurface(props: SessionSurfaceProps) {
           />
         ) : null}
         {!personalAssistantDraftHome ? conversationTabsNode : null}
-        {model.transitionState === "switching" && showDelayedLoading ? (
-          <div className="flex justify-center px-6 pt-4">
-            <StatusBadge tone="surface" size="default">
-              {model.renderSource === "cache"
-                ? "Switching session from cache..."
-                : "Switching session..."}
-            </StatusBadge>
-          </div>
-        ) : null}
+        <SessionSurfaceSwitchingBadge
+          visible={model.transitionState === "switching" && showDelayedLoading}
+          fromCache={model.renderSource === "cache"}
+        />
 
         {/* Body: draft home centers title+composer; chat fills remaining height. */}
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col",
-            personalAssistantDraftHome &&
-              "items-center justify-center px-6 pb-[min(8vh,3.5rem)] pt-6",
-          )}
+        <SessionSurfaceBody personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}>
+        <SessionSurfaceTranscriptPane
+          hidden={Boolean(personalAssistantDraftHome)}
+          scrollRef={scrollRef}
+          contentRef={contentRef}
+          isAtBottom={Boolean(sessionScroll.isAtBottom)}
+          showJumpToLatest={!personalAssistantDraftHome}
+          onWheel={(event) => {
+            sessionScroll.markWheelGesture(event.deltaY, event.target);
+          }}
+          onTouchStart={(event) => {
+            sessionScroll.markScrollGesture(event.target);
+          }}
+          onTouchMove={(event) => {
+            sessionScroll.markScrollGesture(event.target);
+          }}
+          onPointerDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            sessionScroll.markScrollGesture(event.currentTarget);
+          }}
+          onScroll={sessionScroll.handleScroll}
+          onJumpToLatest={() => {
+            sessionScroll.jumpToLatest("auto");
+          }}
         >
-        <div
-          className={cn(
-            "relative min-h-0 flex-1",
-            personalAssistantDraftHome && "hidden",
-          )}
-        >
-          <div
-            ref={scrollRef}
-            onWheel={(event) => {
-              sessionScroll.markWheelGesture(event.deltaY, event.target);
-            }}
-            onTouchStart={(event) => {
-              sessionScroll.markScrollGesture(event.target);
-            }}
-            onTouchMove={(event) => {
-              sessionScroll.markScrollGesture(event.target);
-            }}
-            onPointerDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              sessionScroll.markScrollGesture(event.currentTarget);
-            }}
-            onScroll={sessionScroll.handleScroll}
-            className={cn(
-              "absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
-              // Match composer horizontal inset so content + input share one column.
-              SESSION_CONTENT_X_PADDING_CLASS,
-            )}
-          >
-            <div
-              ref={contentRef}
-              className={cn("mx-auto w-full", SESSION_CONTENT_MAX_WIDTH_CLASS)}
-            >
-              {showDelayedLoading && pendingSessionLoad ? (
-                <TranscriptHistorySkeleton pairCount={3} />
-              ) : (snapshotQuery.isError || visibleTranscriptError) &&
-                !snapshot &&
-                !hasTranscriptContent ? (
-                <div className="px-6 py-8">
-                  {visibleTranscriptError ? (
-                    <SessionErrorCard
-                      error={visibleTranscriptError}
-                      onDismiss={handleDismissError}
-                      onChangeModel={props.onChangeModel}
-                      onOpenModelPicker={props.onModelClick}
-                    />
-                  ) : (
-                    <div className={sessionSurfaceStateClass.snapshotError}>
-                      {snapshotQuery.error instanceof Error
-                        ? snapshotQuery.error.message
-                        : "Failed to load session."}
-                    </div>
-                  )}
-                </div>
-              ) : !hasTranscriptContent &&
-                effectiveActivityStatus !== "idle" &&
-                !visibleTranscriptError ? (
-                <div className="px-6 py-12">
-                  <AssistantWaitingCard
-                    label={getAssistantActivityPhaseLabel(assistantActivity)}
-                  />
-                </div>
-              ) : !hasTranscriptContent &&
-                (props.draftOnly ||
-                  (snapshot && snapshot.messages.length === 0)) ? (
-                visibleTranscriptError ? (
-                  <SessionErrorCard
-                    error={visibleTranscriptError}
-                    onDismiss={handleDismissError}
-                    onChangeModel={props.onChangeModel}
-                    onOpenModelPicker={props.onModelClick}
-                  />
-                ) : props.personalAssistantHome ? null : effectiveAgent ? (
-                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-6">
-                    <div className="flex shrink-0 flex-col items-center gap-2">
-                      <PendingAgentAvatar
-                        name={effectiveAgent.name}
-                        avatarUrl={effectiveAgent.avatar.avatarUrl}
-                        avatarBackground={
-                          effectiveAgent.avatar.avatarBackground
-                        }
-                        className="size-16 text-3xl"
-                      />
-                      <h2 className={sessionSurfaceTextClass.agentEmptyTitle}>
-                        {effectiveAgent.name}
-                      </h2>
-                      <p className={sessionSurfaceTextClass.agentEmptyDescription}>
-                        {effectiveAgent.description}
-                      </p>
-                    </div>
+          <SessionSurfaceTranscriptContent
+            showDelayedLoading={showDelayedLoading}
+            pendingSessionLoad={pendingSessionLoad}
+            snapshotQueryError={snapshotQuery.isError}
+            snapshotErrorMessage={
+              snapshotQuery.error instanceof Error
+                ? snapshotQuery.error.message
+                : "Failed to load session."
+            }
+            visibleTranscriptError={visibleTranscriptError}
+            hasSnapshot={Boolean(snapshot)}
+            hasTranscriptContent={hasTranscriptContent}
+            activityIdle={effectiveActivityStatus === "idle"}
+            draftOnly={props.draftOnly}
+            snapshotEmpty={Boolean(snapshot && snapshot.messages.length === 0)}
+            personalAssistantHome={props.personalAssistantHome}
+            expertEmpty={
+              effectiveAgent ? (
+                <SessionSurfaceExpertEmpty
+                  agent={{
+                    name: effectiveAgent.name,
+                    description: effectiveAgent.description,
+                    avatar: effectiveAgent.avatar,
+                  }}
+                  promptSuggestions={
                     <AgentPromptSuggestions
                       agentId={effectiveAgent.id}
                       quickPrompts={effectiveAgent.quickPrompts}
                       onSelect={(prompt) => void typeComposerText(prompt)}
                       className="shrink-0"
                     />
-                  </div>
-                ) : null
-              ) : (
-                <DevProfiler id="SessionTranscript">
-                  <>
-                    <SessionTranscript
-                      messages={renderedMessages}
-                      isStreaming={chatStreaming}
-                      developerMode={props.developerMode}
-                      showThinking={showThinking}
-                      dividers={interruptionDividers}
-                      scrollElement={resolveTranscriptScrollElement}
-                      onRevertToMessage={props.onRevertToMessage}
-                      onForkAtMessage={props.onForkAtMessage}
-                      openTargets={verifiedOpenTargets}
-                      onOpenTarget={props.onOpenTarget}
-                      footer={assistantStatusFooter}
-                      assistantAvatar={chatHeaderAgent}
-                      searchHighlightQuery={searchQuery || undefined}
-                      searchMatchMessageIds={
-                        searchQuery ? searchMatchIdSet : undefined
-                      }
-                      activeSearchMessageId={activeSearchMessageId}
-                      setScrollToMessageById={(handler) => {
-                        scrollToMessageByIdRef.current = handler;
-                      }}
-                    />
-                    {visibleTranscriptError ? (
-                      <SessionErrorCard
-                        error={visibleTranscriptError}
-                        onDismiss={handleDismissError}
-                        onChangeModel={props.onChangeModel}
-                        onOpenModelPicker={props.onModelClick}
-                      />
-                    ) : null}
-                  </>
-                </DevProfiler>
-              )}
-            </div>
-          </div>
-          <TranscriptScrollToLatest
-            visible={!personalAssistantDraftHome && !sessionScroll.isAtBottom}
-            label={t("session.jump_to_latest")}
-            onActivate={() => {
-              sessionScroll.jumpToLatest("auto");
-            }}
+                  }
+                />
+              ) : null
+            }
+            waitingLabel={getAssistantActivityPhaseLabel(assistantActivity)}
+            onDismissError={handleDismissError}
+            onChangeModel={props.onChangeModel}
+            onOpenModelPicker={props.onModelClick}
+            transcript={
+              <SessionTranscript
+                messages={renderedMessages}
+                isStreaming={chatStreaming}
+                developerMode={props.developerMode}
+                showThinking={showThinking}
+                dividers={interruptionDividers}
+                scrollElement={resolveTranscriptScrollElement}
+                onRevertToMessage={props.onRevertToMessage}
+                onForkAtMessage={props.onForkAtMessage}
+                openTargets={verifiedOpenTargets}
+                onOpenTarget={props.onOpenTarget}
+                footer={assistantStatusFooter}
+                assistantAvatar={chatHeaderAgent}
+                searchHighlightQuery={searchQuery || undefined}
+                searchMatchMessageIds={
+                  searchQuery ? searchMatchIdSet : undefined
+                }
+                activeSearchMessageId={activeSearchMessageId}
+                setScrollToMessageById={(handler) => {
+                  scrollToMessageByIdRef.current = handler;
+                }}
+              />
+            }
           />
-        </div>
+        </SessionSurfaceTranscriptPane>
 
-        {/* Code tools on draft home: under pinned header. */}
-        {personalAssistantDraftHome && codeSceneToolbar ? (
-          <div className="absolute right-5 top-14 z-20 flex items-center gap-1.5 mac:titlebar-no-drag">
-            {codeSceneToolbar}
-          </div>
-        ) : null}
-        {/* Home: one max-w-2xl column so brand title + composer share width. */}
-        <div
-          className={cn(
-            personalAssistantDraftHome &&
-              "flex w-full max-w-2xl shrink-0 flex-col items-stretch",
-          )}
-        >
-        {personalAssistantDraftHome ? (
-          <SessionSurfaceDraftHome
-            categoryId={assistantCategoryId}
-            title={assistantDraftHomeTitle}
-            subtitle={assistantDraftHomeSubtitle}
-          />
-        ) : null}
-        <div
-          ref={composerShellRef}
-          className={cn(
-            "shrink-0 px-0 pb-2 pt-2",
-            (personalAssistantDraftHome || homeComposerLayout) && "w-full pb-0 pt-0",
-          )}
+        <SessionSurfaceComposerColumn
+          personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}
+          homeComposerLayout={Boolean(homeComposerLayout)}
+          floatingToolbar={
+            personalAssistantDraftHome ? codeSceneToolbar : null
+          }
+          draftHome={
+            personalAssistantDraftHome ? (
+              <SessionSurfaceDraftHome
+                categoryId={assistantCategoryId}
+                title={assistantDraftHomeTitle}
+                subtitle={assistantDraftHomeSubtitle}
+              />
+            ) : null
+          }
+          composerShellRef={composerShellRef}
         >
           <DevProfiler id="SessionComposer">
             <ReactSessionComposer
@@ -2342,9 +2250,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
             />
           </DevProfiler>
-        </div>
-        </div>
-        </div>
+        </SessionSurfaceComposerColumn>
+        </SessionSurfaceBody>
         {/* Error display moved inline into the session conversation area */}
         {props.developerMode ? (
           <SessionDebugPanel model={model} snapshot={snapshot} />

@@ -24,6 +24,7 @@ Use this skill when the user asks for any of these:
 - 每个页面截图测试、截图巡检、回归报告、修改计划
 - 验证某次 UI 调整是否仍然符合 `docs/design/theme-system.md`
 - 修复 Settings、sidebar、account menu、model picker、provider auth、composer 等可见 UI
+- 用户贴 **Session / 专家 empty / files 侧栏 / 技能矩阵 / composer** 截图抱怨交互或高度（优先 session 清单，不要先扫整站 Settings）
 
 ## Inputs And Outputs
 
@@ -78,6 +79,20 @@ For broader UI work, inspect routes and common surfaces:
 rg -n "route|settings|sidebar|composer|modal|dialog" apps/app/src/react-app/shell apps/app/src/react-app/domains -g '*.tsx' --no-heading
 ```
 
+### 2b. Session surface checklist (prefer for session/files/composer PRs)
+
+| Surface | Required check |
+|---|---|
+| Assistant draft / new task | No agent top header; hero + composer only |
+| Expert empty | Prompt cards: readable spacing/height; no metallic gradient hover |
+| Composer empty height | Expert matches assistant compact empty height (`homeLayout`) |
+| Files side panel | Tree-only until a file is selected; then detail; Office → unavailable not binary dump |
+| Skill matrix | Loading shows skeleton/spinner — not “暂无匹配 Skill” |
+| Plan mode chip | Icon + label only (no hover ✕) |
+| i18n | New strings in **en + zh + zh-TW** |
+
+Boundary: mechanical token/class consolidation → `frontend-primitive-refactor`. This skill owns visual contracts, copy, and evidence.
+
 ### 3. Run Theme Token Scan
 
 Use this scan for hard-coded Tailwind color classes that may bypass the design system:
@@ -110,6 +125,7 @@ Rules:
 | Brand, model ID, provider ID, API term, file extension | Keep as literal. |
 | Settings section title | Match existing Chinese terminology and page description style. |
 | Duplicate generic page title | Remove the duplicate header; keep the page-specific title. |
+| New user-visible string | Update **en + zh + zh-TW** locales together (not en+zh only). |
 
 ### 5. Patch With Minimal Diff
 
@@ -160,7 +176,11 @@ Screenshot checklist:
 | Model picker | Current model badge, selected row, disabled state. |
 | Provider/MCP auth | Connected/disconnected method badges. |
 | Sidebar/session list | Active item, status indicator, account footer. |
-| Composer | Send/stop button, tool menu, enabled badges, notice state. |
+| Composer | Send/stop button, tool menu, enabled badges, notice state; plan chip without ✕. |
+| Assistant draft home | No top agent chrome; composer compact empty height. |
+| Expert empty | Prompt cards + composer height vs assistant. |
+| Files side panel | Tree-only default; detail after select. |
+| Skill matrix | Loading skeleton vs empty copy. |
 
 If screenshot tooling fails:
 
@@ -168,6 +188,7 @@ If screenshot tooling fails:
 |---|---|
 | UI port closed | Start only if user requested startup; otherwise report `pnpm dev`. |
 | CDP port closed | Use manual browser screenshot if available; mark CDP evidence missing. |
+| Electron-only surface | Structure assert + user screenshot is acceptable evidence; do not claim CDP pass. |
 | Page requires state/auth | Capture reachable shell and report missing state requirement. |
 | Screenshot script errors | Save DOM/text evidence and include the error. |
 
@@ -217,7 +238,7 @@ Do not do these:
 |---|---|---|
 | Mass replacing every color class | Breaks semantic status, charts, file types, and brand identity. | Classify first; edit only requested or clearly wrong UI highlights. |
 | Claiming screenshot coverage without images | Gives false confidence. | Provide screenshot paths or state why screenshots were not captured. |
-| Editing only Chinese or only English locale | Creates i18n drift. | Update both locale files when adding user-visible copy. |
+| Editing only one of en / zh / zh-TW | Creates i18n drift. | Update **en + zh + zh-TW** when adding user-visible copy. |
 | Ignoring dirty workspace | May overwrite unrelated work. | Inspect `git status --short`; only touch task files. |
 | Using npm/yarn | Violates project rules. | Use `pnpm`. |
 | Adding new UI primitives unnecessarily | Increases design drift. | Reuse existing components and `dls-*` tokens. |

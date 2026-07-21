@@ -86,15 +86,40 @@ Do not add page-specific arbitrary sizes to solve a local alignment issue. If a 
 | Buttons and icon buttons | `Button` |
 | Text inputs | `Input`, `Textarea`, `InputGroup` |
 | Tabs/action/list rows | `ActionRowButton`, `SessionRowButton`, related row primitives |
+| Prompt suggestion cards | `ActionRowButton density="prompt"` (+ `IconTile`); no decorative gradient hover washes |
 | Icon or avatar tiles | `IconTile` |
+| File / artifact type icons | `ArtifactIcon` (+ optional `name` for extension-specific glyphs) |
 | Status and count labels | `StatusBadge`, `CountBadge`, `StepMarker` |
 | Dots and live pings | `StatusDot`, `StatusPing` |
 | Loading rings | `LoadingSpinner` |
-| Inline/block command or code chips | `CodeToken` |
+| Loading placeholders (lists/matrices) | `Skeleton` (or shared skeleton rows) — never show inventory-empty copy while loading |
 | Notice/help surfaces | `NoticeBox` |
+| Inline/block command or code chips | `CodeToken` |
 | Multi-tab / segmented panel | `SegmentedTabGroup` + `NavTabButton size="tab" shape="tab"` |
+| Split panes / resizable columns | `ResizablePanelGroup` + `ResizablePanel` + `ResizableHandle` |
+| Unavailable / non-inline file preview | `PreviewUnavailable` + `canPreviewOpenTargetInline` (no Office binary dumps) |
 | Composer send affordance | `SendButton` (only `rounded-full` CTA allowed in workbench) |
 | Dialog/dropdown/select/tooltip/switch/checkbox | Existing `@/components/ui/*` wrappers |
+
+## Session / files state contracts (do not re-break)
+
+When touching session surface, composer, files panel, or skill matrix:
+
+| Contract | Rule |
+|---|---|
+| Loading ≠ empty | If `loading && !data`, show spinner/skeleton — never “暂无 / No items”. |
+| Files panel layout | Tree-first; open detail pane only after the user selects a file. |
+| Draft / new-task home | Assistant draft home hides the agent top header; hero + composer own the canvas. |
+| Composer empty height | Expert empty/draft composer uses the same compact `homeLayout` height as assistant. |
+| Preview eligibility | Text/markdown/csv ok; `.xlsx`/`.docx`/media/pdf stay external (`canPreviewOpenTargetInline`). |
+| Workspace file tree | Build/hide via `capabilities/artifacts/workspace-file-tree` only — no second copy of tree rules. |
+| Plan mode chip | Mode icon + label; no hover ✕ clear glyph on the chip. |
+
+## Boundary with ui-regression-audit
+
+- **This skill:** reuse primitives, token/size discipline, loading/empty contracts while coding.
+- **`ui-regression-audit`:** screenshots, i18n copy sweep, page-by-page visual evidence.
+- Do not claim visual regression coverage from a primitive scan alone.
 
 ## Hard Rules
 
@@ -124,6 +149,10 @@ rg -n '<button[^>]*className=\{?"[^"]*(rounded|px-|py-|h-|w-)' apps/app/src/reac
 rg -n '<input[^>]*className=\{?"[^"]*(rounded|border|px-|py-|h-)' apps/app/src/react-app apps/app/src/components -g '*.tsx' --no-heading
 rg -n '<(span|div)[^>]*className=\{?"[^"]*(rounded-full|rounded-md)[^"]*(px-|size-|text-xs)' apps/app/src/react-app apps/app/src/components -g '*.tsx' --no-heading
 rg -n 'text-\[[0-9]+px\]|animate-spin.*rounded-full|rounded-full.*animate-spin|animate-ping' apps/app/src/react-app apps/app/src/components -g '*.tsx' -g '*.ts' --no-heading
+# Always include arbitrary font-size debt (session chrome residual):
+rg -n 'text-\[[0-9]+px\]' apps/app/src/react-app apps/app/src/components -g '*.tsx' --no-heading
+# Workspace tree rules must stay single-sourced:
+rg -n 'function buildWorkspaceFileTree|function filterHiddenFromTree' apps/app/src -g '*.{ts,tsx}' --no-heading
 ```
 
 ## Validation Per Round

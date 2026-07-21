@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { Check, CircleAlert, Code2, MoreHorizontal } from "lucide-react";
+import { Check, CircleAlert, Code2, FileSpreadsheet, FileText, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { t } from "@/i18n";
@@ -132,7 +133,11 @@ ${VISUALIZER_SANDBOX_STYLE}
 </html>`;
 }
 
-function SandboxedVisual(props: { source: string; title: string }) {
+function SandboxedVisual(props: {
+  source: string;
+  title: string;
+  onArtifactCopyChange?: (key: string) => void;
+}) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(DEFAULT_SANDBOX_HEIGHT);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -145,14 +150,20 @@ function SandboxedVisual(props: { source: string; title: string }) {
     setHeight(DEFAULT_SANDBOX_HEIGHT);
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== frameRef.current?.contentWindow) return;
-      if (!event.data || event.data.type !== "onmyagent:visual-resize") return;
-      const nextHeight = Number(event.data.height);
-      if (!Number.isFinite(nextHeight)) return;
-      setHeight(Math.min(Math.max(Math.ceil(nextHeight), 20), MAX_SANDBOX_HEIGHT));
+      if (!event.data) return;
+      if (event.data.type === "onmyagent:waybill-copy") {
+        if (typeof event.data.key === "string") props.onArtifactCopyChange?.(event.data.key);
+        return;
+      }
+      if (event.data.type === "onmyagent:visual-resize") {
+        const nextHeight = Number(event.data.height);
+        if (!Number.isFinite(nextHeight)) return;
+        setHeight(Math.min(Math.max(Math.ceil(nextHeight), 20), MAX_SANDBOX_HEIGHT));
+      }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [props.source]);
+  }, [props.onArtifactCopyChange, props.source]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -178,9 +189,16 @@ function SandboxedVisual(props: { source: string; title: string }) {
   );
 }
 
-export function InlineVisual(props: { visual: TurnWidgetItem; className?: string }) {
+export function InlineVisual(props: {
+  visual: TurnWidgetItem;
+  className?: string;
+  onOpenCodePath?: (path: string, mode?: "preview" | "reveal") => void;
+}) {
   const [showSource, setShowSource] = useState(false);
   const [loadingIndex, setLoadingIndex] = useState(0);
+  const [selectedCopyKey, setSelectedCopyKey] = useState(
+    () => props.visual.artifactCopies[0]?.key ?? "white",
+  );
   const loadingMessagesKey = props.visual.loadingMessages.join("\n");
   const loadingMessages = useMemo(
     () => loadingMessagesKey
@@ -196,6 +214,13 @@ export function InlineVisual(props: { visual: TurnWidgetItem; className?: string
     () => isSandboxedHtmlVisual(props.visual.html),
     [props.visual.html],
   );
+  const selectedCopy = props.visual.artifactCopies.find(
+    (copy) => copy.key === selectedCopyKey,
+  ) ?? props.visual.artifactCopies[0];
+
+  useEffect(() => {
+    setSelectedCopyKey(props.visual.artifactCopies[0]?.key ?? "white");
+  }, [props.visual.artifactCopies]);
 
   useEffect(() => {
     setLoadingIndex(0);
@@ -259,6 +284,19 @@ export function InlineVisual(props: { visual: TurnWidgetItem; className?: string
             }
           />
           <DropdownMenuContent align="end">
+            {selectedCopy && props.onOpenCodePath ? (
+              <>
+                <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
+                  <FileText className="size-4" />
+                  {t("session.visual_export_pdf", { copy: selectedCopy.label })}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
+                  <FileSpreadsheet className="size-4" />
+                  {t("session.visual_export_excel", { copy: selectedCopy.label })}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             <DropdownMenuItem onSelect={() => setShowSource((current) => !current)}>
               <Code2 className="size-4" />
               {showSource
@@ -281,6 +319,7 @@ export function InlineVisual(props: { visual: TurnWidgetItem; className?: string
         <SandboxedVisual
           source={props.visual.html}
           title={props.visual.title ?? t("session.visual_details")}
+          onArtifactCopyChange={setSelectedCopyKey}
         />
       ) : sanitized.valid ? (
         <div

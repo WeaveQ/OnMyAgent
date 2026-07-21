@@ -841,6 +841,32 @@ describe("WorkBuddy turn content presentation", () => {
     ]);
   });
 
+  test("preserves final widget artifact mappings for copy-aware exports", () => {
+    const artifactCopies = [{
+      key: "white",
+      label: "一联存根（白）",
+      pdf: "output/物流单_一联.pdf",
+      xlsx: "output/物流单_一联.xlsx",
+    }];
+    const turn = completedTurn([
+      assistant("final-export", [{
+        type: "text",
+        text: `\`\`\`show_widget\n${JSON.stringify({
+          title: "物流单三联最终预览",
+          widget_code: "<div>waybill</div>",
+          artifactCopies,
+        })}\n\`\`\``,
+      }]),
+    ]);
+
+    const presentation = buildTurnContentPresentation(turn);
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    const visual = body?.kind === "body"
+      ? body.item.bodySegments?.find((segment) => segment.kind === "widget")?.visual
+      : undefined;
+    expect(visual?.artifactCopies).toEqual(artifactCopies);
+  });
+
   test("keeps a fenced widget renderer active for a single assistant body", () => {
     const presentation = buildTurnContentPresentation(completedTurn([
       assistant("only", [{
@@ -852,6 +878,53 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.turnCollapseEligible).toBe(false);
     expect(presentation?.segments.map((segment) => segment.kind)).toEqual(["body"]);
     expect(presentation?.hoistedItems).toEqual([]);
+  });
+
+  test("replaces an incomplete streaming widget fence with a loading visual", () => {
+    const presentation = buildTurnContentPresentation({
+      ...completedTurn([
+        assistant("streaming-widget", [{
+          type: "text",
+          text: "三联预览生成中。\n\n```show_widget\n{\"title\":\"当前物流单\",\"widget_code\":\"<style>",
+        }]),
+      ]),
+      state: "streaming",
+    });
+
+    expect(presentation?.finalText).toBe("三联预览生成中。");
+    expect(presentation?.finalText).not.toContain("show_widget");
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    expect(body?.kind === "body" ? body.item.bodySegments : null).toEqual([
+      { kind: "text", text: "三联预览生成中。\n\n" },
+      {
+        kind: "widget",
+        visual: expect.objectContaining({
+          html: "",
+          status: "running",
+          toolName: "show_widget",
+        }),
+      },
+    ]);
+  });
+
+  test("does not expose an incomplete widget payload after streaming stops", () => {
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("broken-widget", [{
+        type: "text",
+        text: "预览生成失败。\n\n```show_widget\n{\"widget_code\":",
+      }]),
+    ]));
+
+    expect(presentation?.finalText).toBe("预览生成失败。");
+    expect(presentation?.finalText).not.toContain("widget_code");
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    expect(body?.kind === "body" ? body.item.bodySegments : null).toEqual([
+      { kind: "text", text: "预览生成失败。\n\n" },
+      {
+        kind: "widget",
+        visual: expect.objectContaining({ status: "failed" }),
+      },
+    ]);
   });
 
   test("keeps the first assistant anchor and existing segment keys stable across streaming growth", () => {

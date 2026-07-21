@@ -14,7 +14,6 @@ import {
   EyeOff,
   Globe2,
   Info,
-  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -965,6 +964,8 @@ export function OpenCodeProviderConfigDialog(props: {
 
 export function AgentManagementProviderPanel(props: {
   snapshot: AgentManagementSnapshot | null;
+  /** True while parent has no snapshot yet — never show empty inventory copy. */
+  loading?: boolean;
   busyKey: string | null;
   selectedApp: AgentManagementProviderApp;
   onCreateProvider: () => void;
@@ -972,6 +973,7 @@ export function AgentManagementProviderPanel(props: {
   onSelectApp: (app: AgentManagementProviderApp) => void;
   onProviderAction: (input: AgentManagementProviderActionInput, busyKey: string) => void;
 }) {
+  const loading = Boolean(props.loading && !props.snapshot);
   const providers = props.snapshot?.providers.byAgent[props.selectedApp] ?? [];
   const activeProvider = providers.find((provider) => provider.isCurrent) ?? providers.find((provider) => provider.livePresent);
   const appLabel = skillAgentLabel(props.selectedApp);
@@ -1090,7 +1092,16 @@ export function AgentManagementProviderPanel(props: {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {providers.length ? (
+          {loading ? (
+            <div
+              className="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 py-12 text-sm text-dls-secondary"
+              role="status"
+              aria-label={t("common.loading")}
+            >
+              <LoadingSpinner />
+              <span>{t("common.loading")}</span>
+            </div>
+          ) : providers.length ? (
             <div className="divide-y divide-dls-border">
               {providers.map((provider) => {
                 const busy = props.busyKey?.startsWith(

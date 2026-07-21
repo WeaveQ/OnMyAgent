@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useId, useReducer } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import {
   Dialog,
