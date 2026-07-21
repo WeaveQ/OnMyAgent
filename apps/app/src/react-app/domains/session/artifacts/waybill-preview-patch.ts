@@ -2,7 +2,8 @@
 
 function textValue(value: unknown): string {
   if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return value ? "是" : "否";
+  // Preview patches are string field values; keep ASCII-only so renderer CJK gate stays clean.
+  if (typeof value === "boolean") return value ? "true" : "false";
   return String(value).trim();
 }
 
