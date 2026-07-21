@@ -60,6 +60,23 @@ describe("session transcript rich markdown", () => {
     expect(html).not.toContain(">./output/运单_WX-001.xlsx<");
   });
 
+  test("treats plain generated file links as reveal actions", () => {
+    const html = renderSessionMarkdownHtml(
+      "[下载](output/物流单_WX-001_一联-白色存根_最终版.pdf)",
+    );
+
+    expect(html).toContain('data-markdown-file-path="output/物流单_WX-001_一联-白色存根_最终版.pdf"');
+    expect(html).toContain('data-markdown-open-mode="reveal"');
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  test("does not open unsupported link schemes in a new app window", () => {
+    const html = renderSessionMarkdownHtml("[下载](sandbox:unknown-file.pdf)");
+
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain('target="_blank"');
+  });
+
   test("renders HTML preview links as preview actions", () => {
     const html = renderSessionMarkdownHtml(
       "[查看物流单效果图](preview:output/物流单_WX-001.html)",

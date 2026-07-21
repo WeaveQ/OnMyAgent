@@ -86,6 +86,7 @@ describe("order entry clerk expert contract", () => {
     expect(agent).toContain("```show_widget");
     expect(agent).toContain("会话内直接展示");
     expect(agent).toContain("禁止自由发挥或另行设计");
+    expect(agent).toContain("禁止写成 `[下载](output/...)`");
     expect(agent).toContain("不是会话工作区目录");
     expect(agent).toContain("~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html");
     expect(skill).toContain("assets/logistics-waybill-template.html");
@@ -98,6 +99,7 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain("[放大查看](preview:output/实际文件名.html)");
     expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
+    expect(skill).toContain("也不得使用 `[下载](output/...)`");
     expect(template).toContain("物流运输协议");
     expect(template).toContain("草稿·待确认");
     expect(template).toContain("承揽全国各地整车零担业务 · 代收货款");
