@@ -27,9 +27,30 @@ DEFAULT_TEMPLATE = SKILL_ROOT / "assets" / "logistics-waybill-template.html"
 PROCESS_DIR_NAME = ".process"
 FINGERPRINT_NAME = "export-fingerprint"
 COPY_VARIANTS = (
-    {"key": "white", "label": "一联存根（白）", "fileLabel": "一联-白色存根", "color": "FFF8F7FB"},
-    {"key": "red", "label": "二联收货单位（红）", "fileLabel": "二联-红色收货单位", "color": "FFF8E5E9"},
-    {"key": "yellow", "label": "三联发货单位（黄）", "fileLabel": "三联-黄色发货单位", "color": "FFFFF4BF"},
+    {
+        "key": "white",
+        "label": "一联存根（白）",
+        "tabTitle": "存根联",
+        "tabMeta": "一联 · 白",
+        "fileLabel": "一联-白色存根",
+        "color": "FFF8F7FB",
+    },
+    {
+        "key": "red",
+        "label": "二联收货单位（红）",
+        "tabTitle": "收货联",
+        "tabMeta": "二联 · 红",
+        "fileLabel": "二联-红色收货单位",
+        "color": "FFF8E5E9",
+    },
+    {
+        "key": "yellow",
+        "label": "三联发货单位（黄）",
+        "tabTitle": "发货联",
+        "tabMeta": "三联 · 黄",
+        "fileLabel": "三联-黄色发货单位",
+        "color": "FFFFF4BF",
+    },
 )
 CUSTOMER_REQUIRED = (
     "document.number", "document.date", "route.origin", "route.destination",
@@ -424,35 +445,45 @@ def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) ->
         selected = "true" if index == 0 else "false"
         hidden = "" if index == 0 else " hidden"
         tabs.append(
-            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}"><span class="dot" aria-hidden="true"></span>{variant["label"]}</button>'
+            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}" '
+            f'aria-label="{variant["label"]}">'
+            f'<span class="swatch" aria-hidden="true"></span>'
+            f'<span class="tab-copy">'
+            f'<span class="tab-title">{variant["tabTitle"]}</span>'
+            f'<span class="tab-meta">{variant["tabMeta"]}</span>'
+            f"</span></button>"
         )
         panels.append(
             f'<div role="tabpanel" data-copy-panel="{variant["key"]}"{hidden}>{main.group(1)}</div>'
         )
+    # Segmented control aligned with app DESIGN.md tab track (rounded-lg + muted fill).
+    # Paper swatches encode 白/红/黄 identity without rainbow chrome on the track.
     widget_style = """
-.waybill-copy-preview{width:100%;overflow:hidden;color:#28242f;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0 0 12px;padding:4px;border-radius:12px;background:linear-gradient(180deg,#f4f2f6 0%,#ebe8ef 100%);border:1px solid #ddd6e2;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
-.waybill-copy-tabs button{appearance:none;position:relative;border:0;border-radius:9px;background:transparent;color:#5c5663;padding:10px 8px;font:600 12.5px/1.25 system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease,transform .12s ease}
-.waybill-copy-tabs button:hover{color:#2f2a35;background:rgba(255,255,255,.55)}
-.waybill-copy-tabs button[aria-selected="true"]{color:#1f1b24;background:#fff;box-shadow:0 1px 2px rgba(40,36,47,.08),0 4px 12px rgba(40,36,47,.08)}
-.waybill-copy-tabs button[data-copy-tab="white"][aria-selected="true"]{box-shadow:0 1px 2px rgba(40,36,47,.08),0 0 0 1px rgba(120,110,130,.12),inset 0 -2px 0 #9b93a6}
-.waybill-copy-tabs button[data-copy-tab="red"][aria-selected="true"]{box-shadow:0 1px 2px rgba(40,36,47,.08),0 0 0 1px rgba(180,90,110,.16),inset 0 -2px 0 #c45b72}
-.waybill-copy-tabs button[data-copy-tab="yellow"][aria-selected="true"]{box-shadow:0 1px 2px rgba(40,36,47,.08),0 0 0 1px rgba(180,150,40,.18),inset 0 -2px 0 #d4a017}
-.waybill-copy-tabs button .dot{display:inline-block;width:7px;height:7px;border-radius:999px;margin-right:6px;vertical-align:1px;opacity:.85}
-.waybill-copy-tabs button[data-copy-tab="white"] .dot{background:#c9c4d0;box-shadow:inset 0 0 0 1px #8f8898}
-.waybill-copy-tabs button[data-copy-tab="red"] .dot{background:#f0b4c0;box-shadow:inset 0 0 0 1px #c45b72}
-.waybill-copy-tabs button[data-copy-tab="yellow"] .dot{background:#ffe08a;box-shadow:inset 0 0 0 1px #d4a017}
+.waybill-copy-preview{width:100%;overflow:hidden;color:#0f172a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0 0 14px;padding:4px;border-radius:10px;background:#f4f4f5;border:1px solid #e5e7eb}
+.waybill-copy-tabs button{appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;border:0;border-radius:8px;background:transparent;color:#64748b;padding:8px 10px;cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+.waybill-copy-tabs button:hover{color:#0f172a;background:rgba(255,255,255,.65)}
+.waybill-copy-tabs button:focus-visible{outline:2px solid #005dff;outline-offset:1px}
+.waybill-copy-tabs button[aria-selected="true"]{color:#0f172a;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.06),0 0 0 1px rgba(15,23,42,.04)}
+.waybill-copy-tabs .swatch{flex:0 0 auto;width:14px;height:18px;border-radius:3px;border:1px solid rgba(15,23,42,.12);box-shadow:inset 0 -1px 0 rgba(15,23,42,.06)}
+.waybill-copy-tabs button[data-copy-tab="white"] .swatch{background:linear-gradient(180deg,#fbfafc 0%,#f1eef4 100%)}
+.waybill-copy-tabs button[data-copy-tab="red"] .swatch{background:linear-gradient(180deg,#fdf0f2 0%,#f5d0d6 100%);border-color:rgba(180,80,100,.22)}
+.waybill-copy-tabs button[data-copy-tab="yellow"] .swatch{background:linear-gradient(180deg,#fff8d9 0%,#f5e4a0 100%);border-color:rgba(180,140,20,.22)}
+.waybill-copy-tabs .tab-copy{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;text-align:left}
+.waybill-copy-tabs .tab-title{font:600 13px/1.2 system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.waybill-copy-tabs .tab-meta{font:500 11px/1.2 system-ui,sans-serif;color:#94a3b8;white-space:nowrap}
+.waybill-copy-tabs button[aria-selected="true"] .tab-meta{color:#64748b}
 .waybill-copy-preview [role="tabpanel"][hidden]{display:none}
 .waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f;opacity:1!important;filter:none!important}
-.waybill-edit-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
-.waybill-edit-bar button{appearance:none;border:1px solid #d0c9d6;border-radius:999px;background:#fff;color:#4b4650;padding:6px 12px;font:600 12px/1.2 system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 1px rgba(40,36,47,.04)}
-.waybill-edit-bar button:hover{border-color:#b8b1bd;background:#faf8fb}
-.waybill-edit-bar button[data-active="true"]{border-color:#5b5160;background:#514752;color:#fff;box-shadow:none}
-.waybill-edit-bar .hint{font:12px/1.4 system-ui,sans-serif;color:#6b6570}
-.waybill-copy-preview[data-editing="true"] [data-field]{outline:1px dashed #8a5a12;cursor:text;min-width:1.5em}
+.waybill-edit-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.waybill-edit-bar button{appearance:none;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#0f172a;padding:6px 12px;font:600 12px/1.2 system-ui,sans-serif;cursor:pointer}
+.waybill-edit-bar button:hover{background:#f4f4f5;border-color:#cbd5e1}
+.waybill-edit-bar button[data-active="true"]{border-color:#005dff;background:#eaf2ff;color:#004ed6}
+.waybill-edit-bar .hint{font:12px/1.4 system-ui,sans-serif;color:#64748b}
+.waybill-copy-preview[data-editing="true"] [data-field]{outline:1px dashed #d19a2a;cursor:text;min-width:1.5em}
 .waybill-copy-preview[data-editing="true"] [data-field="document.status"],
 .waybill-copy-preview[data-editing="true"] [data-field="copy.label"]{outline:none;cursor:default}
-.waybill-patch-box{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #d7d0da;border-radius:8px;background:#faf8fb;font:12px/1.45 ui-monospace,monospace;white-space:pre-wrap;color:#3f3a44}
+.waybill-patch-box{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;font:12px/1.45 ui-monospace,monospace;white-space:pre-wrap;color:#334155}
 .waybill-copy-preview[data-show-patch="true"] .waybill-patch-box{display:block}
 """
     script = f"""<script>(()=>{{
@@ -531,7 +562,7 @@ select('white');
         '<span class="hint" data-edit-hint>可点“编辑字段”手动改值</span>'
         "</div>"
         '<div class="waybill-patch-box" data-patch-box></div>'
-        f'<div class="waybill-copy-tabs" role="tablist" aria-label="物流单三联预览">{"".join(tabs)}</div>'
+        f'<div class="waybill-copy-tabs" role="tablist" aria-label="联次切换">{"".join(tabs)}</div>'
         f'{"".join(panels)}'
         f"{script}"
         "</section>"
