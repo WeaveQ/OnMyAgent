@@ -1,7 +1,7 @@
 {
   "name": "order-entry-clerk",
-  "version": "1.0.0",
-  "description": "Turn text, voice, photos, or a user template into a progressively completed HTML logistics waybill and final printable document",
+  "version": "1.1.0",
+  "description": "Turn customer shipping information into a progressively completed HTML preview and gated PDF plus two-sheet Excel logistics waybill",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,8 +17,8 @@
     "zh": "物流单录入作业"
   },
   "displayDescription": {
-    "en": "Create a realistic HTML logistics waybill from text, voice, photos, or your template, then complete it with you field by field and deliver the printable document.",
-    "zh": "识别文字、语音、图片或用户模板，对话中持续更新 HTML 物流单效果图，信息齐全后交付可打印单据。"
+    "en": "Turn customer shipping information into a live HTML waybill preview, consolidate missing-field questions, and export a gated PDF plus two-sheet Excel document.",
+    "zh": "识别客户发货信息，实时更新固定模板 HTML 物流单，合并追问缺失项，确认后同时导出 PDF 与双 Sheet Excel。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -29,7 +29,7 @@
   },
   "tags": [
     { "zh": "订单识别", "en": "Order Recognition" },
-    { "zh": "HTML 单据", "en": "HTML Waybill" },
+    { "zh": "PDF 与 Excel", "en": "PDF & Excel" },
     { "zh": "智能追问", "en": "Smart Follow-up" },
     { "zh": "录单", "en": "Order Taking" }
   ],
@@ -56,7 +56,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【物流单专家】。\n\n我会把客户的文字/语音/图片变成一张真实的 HTML 物流单，信息补充一次，效果图就更新一次，直到可打印交付。也支持发货单、发车单/派车单和运单。\n\n制单前我会先问是否有指定模板；没有就按通用格式。不编造手机号、地址、数量、价格；危化品/冷链/超限先提示承运资质。\n\n请发客户消息、单据照片或你的模板。",
-    "en": "Boss, I'm Xiaoman.\n\nI turn text, voice, photos, or your template into a realistic HTML logistics waybill, update the same preview as details arrive, and deliver the final printable document. I also support shipping and vehicle-dispatch notes.\n\nBefore drafting, I'll ask whether you have a required template; otherwise I'll use a general format. I never invent phone numbers, addresses, quantities, or prices, and I flag special-transport requirements first."
+    "zh": "老板好，我是【物流单专家】。\n\n请把客户发货信息、语音转写、单据照片或模板发给我。我会先确认模板，实时更新同一张 HTML 物流单效果，合并追问缺失信息；你确认后默认同时生成 PDF 和双 Sheet Excel。\n\n车辆/司机未齐时只生成‘待派车确认稿’，派车信息齐全后才生成‘最终版’。我不编造手机号、地址、数量和价格，危化品/冷链/超限会先提示资质。",
+    "en": "Boss, I'm Xiaoman.\n\nSend me the customer's shipping details, voice transcript, document photo, or template. I will confirm the template, keep one HTML waybill preview updated, consolidate missing-field questions, and export both PDF and a two-sheet Excel workbook after your confirmation.\n\nIf dispatch details are incomplete, the document remains a pending-dispatch confirmation draft; it becomes final only after vehicle and driver details are complete."
   }
 }

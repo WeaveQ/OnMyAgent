@@ -1,0 +1,17 @@
+{
+  "document": { "number": "WX-20260721-002", "date": "2026-07-21" },
+  "route": { "origin": "深圳市宝安区福永街道 1 号门", "destination": "东莞市长安镇乌沙社区 2 号门" },
+  "shipper": { "name": "深圳测试机械有限公司", "contact": "张经理", "phone": "13800000000", "address": "深圳市宝安区福永街道 1 号门" },
+  "consignee": { "name": "东莞测试工厂", "contact": "刘经理", "phone": "13900000000", "address": "东莞市长安镇乌沙社区 2 号门" },
+  "cargo": [{ "name": "注塑机", "quantity": "2 台", "packaging": "木架", "weight": "4.8 吨", "volume": "" }],
+  "timeline": { "pickup": "2026-07-22 上午", "delivery": "2026-07-22 18:00 前" },
+  "vehicleRequirement": "9.6 米尾板车",
+  "vehicle": { "plate": "", "licenseNumber": "", "driverName": "", "driverPhone": "" },
+  "carrier": { "name": "深圳测试物流有限公司", "address": "深圳市宝安区机场路 8 号", "phone": "0755-88888888" },
+  "payment": { "method": "到付", "amount": "", "amountUppercase": "" },
+  "handover": "送货",
+  "remarks": "装货现场无叉车，需尾板协助",
+  "userConfirmed": true,
+  "conflicts": [],
+  "lowConfidenceFields": []
+}
