@@ -59,7 +59,7 @@ const sessionSurfaceTextClass = {
     "mt-1.5 max-w-xl text-balance text-center text-xs leading-5 text-dls-secondary sm:text-sm sm:leading-6",
   draftHomeTitle:
     "inline-flex items-center justify-center gap-3 text-3xl font-semibold tracking-tight text-dls-text sm:text-4xl",
-  draftHomeSubtitle: "mt-2.5 max-w-lg text-[15px] leading-6 text-dls-secondary/80",
+  draftHomeSubtitle: "mt-2.5 max-w-lg text-composer leading-6 text-dls-secondary/80",
   noVisibleOutput: "font-mono text-sm leading-6 text-dls-secondary whitespace-pre-wrap",
   headerAgentName: "min-w-0 truncate text-sm font-medium text-dls-text",
   openingSession: "text-sm text-dls-secondary",

@@ -149,9 +149,7 @@ import {
   SESSION_CONTENT_MAX_WIDTH_CLASS,
   SESSION_CONTENT_X_PADDING_CLASS,
   sessionSurfaceStateClass,
-  sessionSurfaceTextClass,
 } from "./surface-styles";
-import { PendingAgentAvatar } from "./chrome/avatars";
 import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
@@ -189,6 +187,7 @@ import {
 import {
   SessionDraftWorkspaceAccessory,
   SessionSurfaceDraftHome,
+  SessionSurfaceExpertEmpty,
   SessionSurfaceHeader,
 } from "./session-surface-chrome";
 import {
@@ -2148,30 +2147,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     onOpenModelPicker={props.onModelClick}
                   />
                 ) : props.personalAssistantHome ? null : effectiveAgent ? (
-                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-6">
-                    <div className="flex shrink-0 flex-col items-center gap-2">
-                      <PendingAgentAvatar
-                        name={effectiveAgent.name}
-                        avatarUrl={effectiveAgent.avatar.avatarUrl}
-                        avatarBackground={
-                          effectiveAgent.avatar.avatarBackground
-                        }
-                        className="size-16 text-3xl"
+                  <SessionSurfaceExpertEmpty
+                    agent={{
+                      name: effectiveAgent.name,
+                      description: effectiveAgent.description,
+                      avatar: effectiveAgent.avatar,
+                    }}
+                    promptSuggestions={
+                      <AgentPromptSuggestions
+                        agentId={effectiveAgent.id}
+                        quickPrompts={effectiveAgent.quickPrompts}
+                        onSelect={(prompt) => void typeComposerText(prompt)}
+                        className="shrink-0"
                       />
-                      <h2 className={sessionSurfaceTextClass.agentEmptyTitle}>
-                        {effectiveAgent.name}
-                      </h2>
-                      <p className={sessionSurfaceTextClass.agentEmptyDescription}>
-                        {effectiveAgent.description}
-                      </p>
-                    </div>
-                    <AgentPromptSuggestions
-                      agentId={effectiveAgent.id}
-                      quickPrompts={effectiveAgent.quickPrompts}
-                      onSelect={(prompt) => void typeComposerText(prompt)}
-                      className="shrink-0"
-                    />
-                  </div>
+                    }
+                  />
                 ) : null
               ) : (
                 <DevProfiler id="SessionTranscript">
