@@ -10,17 +10,41 @@ import type { ReactNode, RefObject, UIEvent, WheelEvent, TouchEvent, PointerEven
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
 import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
+import { getSessionScrollState, useSessionScrollStore } from "./scroll-store";
 import {
   SESSION_CONTENT_MAX_WIDTH_CLASS,
   SESSION_CONTENT_X_PADDING_CLASS,
 } from "./surface-styles";
 
+/**
+ * Isolated subscriber for sticky mode — only this chip re-renders when the
+ * user leaves / returns to the bottom. SessionSurface + message list stay put.
+ */
+function TranscriptJumpToLatestChip(props: {
+  sessionId: string | null | undefined;
+  enabled: boolean;
+  onActivate: () => void;
+}) {
+  const isAtBottom = useSessionScrollStore(
+    (state) =>
+      getSessionScrollState(state.sessions, props.sessionId).mode ===
+      "stickyBottom",
+  );
+  return (
+    <TranscriptScrollToLatest
+      visible={props.enabled && !isAtBottom}
+      label={t("session.jump_to_latest")}
+      onActivate={props.onActivate}
+    />
+  );
+}
+
 export function SessionSurfaceTranscriptPane(props: {
   /** When true (assistant draft home), the pane is not shown. */
   hidden?: boolean;
+  sessionId?: string | null;
   scrollRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
-  isAtBottom: boolean;
   showJumpToLatest: boolean;
   onWheel: (event: WheelEvent<HTMLDivElement>) => void;
   onTouchStart: (event: TouchEvent<HTMLDivElement>) => void;
@@ -48,6 +72,9 @@ export function SessionSurfaceTranscriptPane(props: {
           "absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
           // Match composer horizontal inset so content + input share one column.
           SESSION_CONTENT_X_PADDING_CLASS,
+          // Promote the scroll layer so compositor can scroll without
+          // re-painting the whole session chrome on every wheel tick.
+          "[transform:translateZ(0)]",
         )}
       >
         <div
@@ -57,9 +84,9 @@ export function SessionSurfaceTranscriptPane(props: {
           {props.children}
         </div>
       </div>
-      <TranscriptScrollToLatest
-        visible={props.showJumpToLatest && !props.isAtBottom}
-        label={t("session.jump_to_latest")}
+      <TranscriptJumpToLatestChip
+        sessionId={props.sessionId}
+        enabled={props.showJumpToLatest}
         onActivate={props.onJumpToLatest}
       />
     </div>

@@ -980,11 +980,10 @@ export function ExpertPage(props: ExpertPageProps) {
       if (draftSessionActive && props.onCreateSessionForAgent) {
         props.onCreateSessionForAgent();
       }
+      // Always stamp expert intent (incl. force-new / multi-session creates).
       return props.surface?.onSendDraft({
         ...draft,
-        sessionStartIntent: props.selectedSessionId
-          ? undefined
-          : { mode: "expert" },
+        sessionStartIntent: { mode: "expert" },
       });
     },
     [
@@ -1559,35 +1558,38 @@ export function ExpertPage(props: ExpertPageProps) {
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-3 mac:pointer-events-auto mac:titlebar-drag" />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
-        <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <OnMyAgentRail
-            activeView={activeSidebarView}
-            account={props.account}
-            onOpenView={(view) => {
-              if (view === "assistant") {
-                props.onNavigateToMode("assistant");
-                return;
-              }
-              // Expert rail return must not create a task.
-              writeRailView("expert", props.selectedWorkspaceId, view);
-              setActiveSidebarView(view);
-              if (view === "chat") {
-                setAgentPanelCollapsed(false);
-              }
-            }}
-            onOpenAccountSettings={props.onOpenAccountSettings}
-            onSignOut={props.onSignOut}
-            onOpenDevices={() => {
-              writeRailView("expert", props.selectedWorkspaceId, "devices");
-              setActiveSidebarView("devices");
-            }}
-            onOpenBilling={() => {
-              writeRailView("expert", props.selectedWorkspaceId, "billing");
-              setActiveSidebarView("billing");
-            }}
-          />
-          <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      {/*
+        Keep primary rail outside bg-dls-background so mac vibrancy can show
+        through the strip (WeChat). Background wash only covers list + content.
+      */}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <OnMyAgentRail
+          activeView={activeSidebarView}
+          account={props.account}
+          onOpenView={(view) => {
+            if (view === "assistant") {
+              props.onNavigateToMode("assistant");
+              return;
+            }
+            // Expert rail return must not create a task.
+            writeRailView("expert", props.selectedWorkspaceId, view);
+            setActiveSidebarView(view);
+            if (view === "chat") {
+              setAgentPanelCollapsed(false);
+            }
+          }}
+          onOpenAccountSettings={props.onOpenAccountSettings}
+          onSignOut={props.onSignOut}
+          onOpenDevices={() => {
+            writeRailView("expert", props.selectedWorkspaceId, "devices");
+            setActiveSidebarView("devices");
+          }}
+          onOpenBilling={() => {
+            writeRailView("expert", props.selectedWorkspaceId, "billing");
+            setActiveSidebarView("billing");
+          }}
+        />
+        <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
               <AgentConversationPanel
                 mode="agent"
@@ -1668,7 +1670,12 @@ export function ExpertPage(props: ExpertPageProps) {
               <ResizablePanel minSize="360px" className="min-w-0">
                 <main
                   className={cn(
-                    "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
+                    "flex h-full min-w-0 flex-col overflow-hidden",
+                    // Local agent paints its own list/content chrome; avoid stacking
+                    // extra bg-dls-background under the list (was washing out sidebar).
+                    activeSidebarView === "localAgent"
+                      ? "bg-transparent"
+                      : "bg-dls-background",
                     // One separator only: handle draws the line when the right panel is open.
                     sidePanelOpen && isPrimarySessionView
                       ? "border-r-0"
@@ -1676,7 +1683,14 @@ export function ExpertPage(props: ExpertPageProps) {
                   )}
                 >
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
+                    <div
+                      className={cn(
+                        "relative min-w-0 flex-1 overflow-hidden",
+                        activeSidebarView === "localAgent"
+                          ? "bg-transparent"
+                          : "bg-dls-background mac:bg-dls-background",
+                      )}
+                    >
                       <KeepAlivePane
                         active={activeSidebarView === "agents"}
                         mounted={visitedRailViews.has("agents")}
@@ -1890,6 +1904,9 @@ export function ExpertPage(props: ExpertPageProps) {
                             workspaceId={props.runtimeWorkspaceId!}
                             sessionId={renderedSessionId}
                             draftOnly={isDraftSession}
+                            surfaceVisible={
+                              isPrimarySessionView && !showDelayedSessionLoadingState
+                            }
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}
@@ -2112,7 +2129,6 @@ export function ExpertPage(props: ExpertPageProps) {
             </ResizablePanelGroup>
           </div>
         </div>
-      </div>
 
       {agentCreateRequestKey ? (
         props.renderAgentsPage({

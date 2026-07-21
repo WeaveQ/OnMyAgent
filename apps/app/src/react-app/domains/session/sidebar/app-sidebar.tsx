@@ -1079,7 +1079,7 @@ function SidebarAccountSubMenu(props: {
                 <StatusDot
                   size="xs"
                   tone="current"
-                  className="justify-self-center bg-dls-text"
+                  className="justify-self-center bg-dls-accent"
                 />
               ) : null}
             </DropdownMenuItem>

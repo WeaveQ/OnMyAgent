@@ -109,9 +109,12 @@ export function createDesktopWindowController(options) {
   }
 
   function macosVibrancyForCurrentTheme() {
-    // under-window: blur desktop behind the frame (WeChat-like translucent shell).
-    // sidebar: slightly denser material for light mode so light chrome stays readable.
-    return nativeTheme.shouldUseDarkColors ? "under-window" : "sidebar";
+    // under-window for both themes: blur the desktop behind the frame so the
+    // primary rail / list chrome can show WeChat-like frosted translucency.
+    // (Light used to use "sidebar", which reads too solid next to wallpaper.)
+    /** @type {"under-window"} */
+    const material = "under-window";
+    return material;
   }
 
   function applyNativeTheme(mode) {

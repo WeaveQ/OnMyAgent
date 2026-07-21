@@ -116,6 +116,30 @@ describe("session activity store", () => {
     expect(useSessionActivityStore.getState().getStopRequested("ws_1", "ses_1")).toBe(false);
   });
 
+  test("does not re-apply stale list busy after live session.idle cleared the run", () => {
+    useSessionActivityStore.getState().startRun("ws_1", "ses_live");
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_live")).toBe(
+      "thinking",
+    );
+
+    // SSE: run finished
+    useSessionActivityStore
+      .getState()
+      .setRunStatus("ws_1", "ses_live", { type: "idle" });
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_live")).toBe(
+      "idle",
+    );
+
+    // Sidebar list still carries lagging busy and re-seeds on group refresh
+    useSessionActivityStore
+      .getState()
+      .seedWorkspaceSessions("ws_1", [{ id: "ses_live", status: "busy" }]);
+
+    expect(useSessionActivityStore.getState().getStatus("ws_1", "ses_live")).toBe(
+      "idle",
+    );
+  });
+
   test("keeps a stable identity for local and backend-originated runs", () => {
     useSessionActivityStore
       .getState()

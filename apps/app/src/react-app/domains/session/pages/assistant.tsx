@@ -68,7 +68,11 @@ import type {
   SessionPageProps,
 } from "./index";
 
-import { usePendingAgentStore } from "../../agents";
+import {
+  addAssistantSession,
+  usePendingAgentStore,
+  writeAssistantSessionCategory,
+} from "../../agents";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
@@ -483,11 +487,15 @@ export function AssistantPage(props: AssistantPageProps) {
           props.onCreateSessionForAgent();
         }
       }
+      // Always stamp assistant intent so force-new / auto-new-session creates
+      // are registered as assistant sessions. Missing intent left sessions
+      // unlisted in isAssistantSession → restore jumped to first task.
       return props.surface?.onSendDraft({
         ...draft,
-        sessionStartIntent: props.selectedSessionId
-          ? undefined
-          : { mode: "assistant", assistantCategory: assistantCategoryId },
+        sessionStartIntent: {
+          mode: "assistant",
+          assistantCategory: assistantCategoryId,
+        },
       });
     },
     [assistantCategoryId, props.selectedSessionId, props.onCreateSessionForAgent, props.surface],
@@ -1021,37 +1029,40 @@ export function AssistantPage(props: AssistantPageProps) {
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-3 mac:pointer-events-auto mac:titlebar-drag" />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
-        <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <OnMyAgentRail
-            activeView={railActiveView}
-            account={props.account}
-            onOpenView={(view) => {
-              if (view === "chat") {
-                props.onNavigateToMode("expert");
-                return;
-              }
-              // Returning to assistant must NOT force a new task — restore last selection.
-              writeRailView("assistant", props.selectedWorkspaceId, view);
-              if (view === "assistant") {
-                setAgentPanelCollapsed(false);
-                openAssistantSessionView();
-                return;
-              }
-              setActiveSidebarView(view);
-            }}
-            onOpenAccountSettings={props.onOpenAccountSettings}
-            onSignOut={props.onSignOut}
-            onOpenDevices={() => {
-              writeRailView("assistant", props.selectedWorkspaceId, "devices");
-              setActiveSidebarView("devices");
-            }}
-            onOpenBilling={() => {
-              writeRailView("assistant", props.selectedWorkspaceId, "billing");
-              setActiveSidebarView("billing");
-            }}
-          />
-          <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      {/*
+        Keep primary rail outside bg-dls-background so mac vibrancy can show
+        through the strip (WeChat). Background wash only covers list + content.
+      */}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <OnMyAgentRail
+          activeView={railActiveView}
+          account={props.account}
+          onOpenView={(view) => {
+            if (view === "chat") {
+              props.onNavigateToMode("expert");
+              return;
+            }
+            // Returning to assistant must NOT force a new task — restore last selection.
+            writeRailView("assistant", props.selectedWorkspaceId, view);
+            if (view === "assistant") {
+              setAgentPanelCollapsed(false);
+              openAssistantSessionView();
+              return;
+            }
+            setActiveSidebarView(view);
+          }}
+          onOpenAccountSettings={props.onOpenAccountSettings}
+          onSignOut={props.onSignOut}
+          onOpenDevices={() => {
+            writeRailView("assistant", props.selectedWorkspaceId, "devices");
+            setActiveSidebarView("devices");
+          }}
+          onOpenBilling={() => {
+            writeRailView("assistant", props.selectedWorkspaceId, "billing");
+            setActiveSidebarView("billing");
+          }}
+        />
+        <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
               activeSidebarView === "scheduledTasks") &&
@@ -1088,6 +1099,9 @@ export function AssistantPage(props: AssistantPageProps) {
                   openScheduledTasksView();
                 }}
                 onOpenSession={(workspaceId, sessionId) => {
+                  // Heal registry so restore / page-mode checks never drop this session.
+                  addAssistantSession(sessionId);
+                  writeAssistantSessionCategory(sessionId, assistantCategoryId);
                   writeAssistantSelectionMemory(
                     workspaceId,
                     assistantCategoryId,
@@ -1150,11 +1164,23 @@ export function AssistantPage(props: AssistantPageProps) {
             >
               <ResizablePanel minSize="360px" className="min-w-0">
                 <main className={cn(
-                  "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
+                  "flex h-full min-w-0 flex-col overflow-hidden",
+                  // Local agent paints its own list/content chrome; avoid stacking
+                  // extra bg-dls-background under the list (was washing out sidebar).
+                  activeSidebarView === "localAgent"
+                    ? "bg-transparent"
+                    : "bg-dls-background",
                   sidePanelVisibleOnSession ? "border-r-0" : "border-r border-dls-border",
                 )}>
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
+                    <div
+                      className={cn(
+                        "relative min-w-0 flex-1 overflow-hidden",
+                        activeSidebarView === "localAgent"
+                          ? "bg-transparent"
+                          : "bg-dls-background mac:bg-dls-background",
+                      )}
+                    >
                       <KeepAlivePane
                         active={activeSidebarView === "store"}
                         mounted={visitedRailViews.has("store")}
@@ -1368,6 +1394,9 @@ export function AssistantPage(props: AssistantPageProps) {
                             workspaceId={props.runtimeWorkspaceId!}
                             sessionId={renderedSessionId}
                             draftOnly={isDraftSession}
+                            surfaceVisible={
+                              isPrimarySessionView && !showDelayedSessionLoadingState
+                            }
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}
@@ -1590,7 +1619,6 @@ export function AssistantPage(props: AssistantPageProps) {
             </ResizablePanelGroup>
           </div>
         </div>
-      </div>
 
       {props.providerAuthModal ? (
         <ProviderAuthModal {...props.providerAuthModal} />
