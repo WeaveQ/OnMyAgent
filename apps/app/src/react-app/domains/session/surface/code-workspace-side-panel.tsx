@@ -176,7 +176,7 @@ type WorkspaceFilePreview =
   | { kind: "unsupported" }
   | { kind: "browser"; url: string }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
-  | { kind: "binary"; url: string; format: "image" | "pdf"; name: string };
+  | { kind: "binary"; url: string; name: string };
 
 function absoluteWorkspaceFilePath(root: string, path: string) {
   if (path.startsWith("/")) return path;
@@ -197,8 +197,7 @@ function isTextSheet(path: string) {
   return /\.(csv|tsv)$/i.test(path);
 }
 
-function inferredBinaryContentType(path: string, preview: "image" | "pdf") {
-  if (preview === "pdf") return "application/pdf";
+function inferredImageContentType(path: string) {
   const extension = path.toLowerCase().split(".").pop() ?? "";
   if (extension === "png") return "image/png";
   if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
@@ -433,14 +432,18 @@ function WorkspaceFilesPanel(props: {
       const localBrowserPreview =
         isElectronRuntime()
         && Boolean(browserFileRoot)
-        && ["html", "image", "pdf"].includes(target.preview);
+        && ["html", "image"].includes(target.preview);
       if (localBrowserPreview) {
         setSelectedPath(path);
         setError(null);
         setPreview({ kind: "browser", url: workspaceFileUrl(browserFileRoot, path) });
         return;
       }
-      if (target.preview === "external" || (target.preview === "sheet" && !isTextSheet(path))) {
+      if (
+        target.preview === "external"
+        || target.preview === "pdf"
+        || (target.preview === "sheet" && !isTextSheet(path))
+      ) {
         setSelectedPath(path);
         setError(null);
         setPreview({ kind: "unsupported" });
@@ -457,17 +460,17 @@ function WorkspaceFilesPanel(props: {
       setPreview({ kind: "loading" });
       try {
         const requestPath = workspaceFileRequestPath(rootRelativePrefix, path);
-        if (target.preview === "image" || target.preview === "pdf") {
+        if (target.preview === "image") {
           const client = props.client;
           const workspaceId = props.workspaceId;
           if (!client || !workspaceId) return;
           const result = await client.downloadWorkspaceFile(workspaceId, requestPath);
-          const fallbackType = inferredBinaryContentType(path, target.preview);
+          const fallbackType = inferredImageContentType(path);
           const contentType = result.contentType && result.contentType !== "application/octet-stream"
             ? result.contentType
             : fallbackType;
           const url = URL.createObjectURL(new Blob([result.data], { type: contentType }));
-          setPreview({ kind: "binary", url, format: target.preview, name: target.name });
+          setPreview({ kind: "binary", url, name: target.name });
           return;
         }
 
@@ -627,10 +630,8 @@ function WorkspaceFilesPanel(props: {
             announcePanelOpen={false}
             className="min-h-0 flex-1 overflow-hidden bg-dls-surface"
           />
-        ) : preview.kind === "binary" && preview.format === "image" ? (
-          <ImagePreview className="min-h-0 flex-1" src={preview.url} alt={preview.name} />
         ) : preview.kind === "binary" ? (
-          <HTMLPreview className="min-h-0 flex-1" type="binary" title={preview.name} url={preview.url} />
+          <ImagePreview className="min-h-0 flex-1" src={preview.url} alt={preview.name} />
         ) : preview.kind === "text" && preview.format === "markdown" ? (
           <MarkdownPreview className="min-h-0 flex-1" content={preview.content} />
         ) : preview.kind === "text" && preview.format === "html" ? (
