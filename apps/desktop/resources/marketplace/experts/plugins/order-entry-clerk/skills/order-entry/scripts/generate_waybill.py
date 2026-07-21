@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate one HTML preview and gated PDF/XLSX logistics-waybill artifacts."""
+"""Generate three-copy HTML previews and gated PDF/XLSX logistics-waybill artifacts."""
 
 from __future__ import annotations
 
@@ -23,6 +23,11 @@ from xml.sax.saxutils import escape as xml_escape
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = SKILL_ROOT / "assets" / "logistics-waybill-template.html"
+COPY_VARIANTS = (
+    {"key": "white", "label": "一联存根（白）", "fileLabel": "一联-白色存根", "color": "FFF8F7FB"},
+    {"key": "red", "label": "二联收货单位（红）", "fileLabel": "二联-红色收货单位", "color": "FFF8E5E9"},
+    {"key": "yellow", "label": "三联发货单位（黄）", "fileLabel": "三联-黄色发货单位", "color": "FFFFF4BF"},
+)
 CUSTOMER_REQUIRED = (
     "document.number", "document.date", "route.origin", "route.destination",
     "shipper.name", "shipper.contact", "shipper.phone", "shipper.address",
@@ -184,12 +189,57 @@ def fill_html(template: str, values: dict[str, str], state: str, data: dict[str,
     return rendered
 
 
-def inline_widget_fragment(rendered_html: str) -> str:
-    style = re.search(r"<style>([\s\S]*?)</style>", rendered_html, re.IGNORECASE)
-    main = re.search(r"(<main\b[\s\S]*?</main>)", rendered_html, re.IGNORECASE)
-    if not style or not main:
-        raise WaybillError("模板无法提取会话内预览片段")
-    return f"<style>{style.group(1)}</style>{main.group(1)}"
+def apply_copy_variant(rendered_html: str, variant: dict[str, str]) -> str:
+    rendered = rendered_html.replace(
+        '<main class="sheet"',
+        f'<main class="sheet" data-copy="{variant["key"]}"',
+        1,
+    )
+    rendered = re.sub(
+        r'(<div class="copy-name" data-field="copy.label">).*?(</div>)',
+        rf'\g<1>{variant["label"]}\g<2>',
+        rendered,
+        count=1,
+    )
+    return rendered.replace("物流运输协议（草稿）", f'物流运输协议 · {variant["label"]}')
+
+
+def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) -> str:
+    if len(rendered_copies) != len(COPY_VARIANTS):
+        raise WaybillError("会话内预览必须包含完整三联")
+    style = re.search(r"<style>([\s\S]*?)</style>", rendered_copies[0][1], re.IGNORECASE)
+    if not style:
+        raise WaybillError("模板无法提取会话内预览样式")
+    tabs: list[str] = []
+    panels: list[str] = []
+    for index, (variant, rendered_html) in enumerate(rendered_copies):
+        main = re.search(r"(<main\b[\s\S]*?</main>)", rendered_html, re.IGNORECASE)
+        if not main:
+            raise WaybillError(f'模板无法提取{variant["label"]}预览片段')
+        selected = "true" if index == 0 else "false"
+        hidden = "" if index == 0 else " hidden"
+        tabs.append(
+            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}">{variant["label"]}</button>'
+        )
+        panels.append(
+            f'<div role="tabpanel" data-copy-panel="{variant["key"]}"{hidden}>{main.group(1)}</div>'
+        )
+    widget_style = """
+.waybill-copy-preview{width:100%;overflow:hidden}
+.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}
+.waybill-copy-tabs button{appearance:none;border:1px solid #b8b1bd;border-radius:8px;background:#f1eff3;color:#4b4650;padding:8px 6px;font:600 13px/1.2 system-ui,sans-serif;cursor:pointer}
+.waybill-copy-tabs button[aria-selected="true"]{border-color:#675b69;background:#514752;color:#fff}
+.waybill-copy-preview [role="tabpanel"][hidden]{display:none}
+.waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left}
+"""
+    return (
+        f"<style>{style.group(1)}{widget_style}</style>"
+        '<section class="waybill-copy-preview" data-waybill-copy-preview>'
+        f'<div class="waybill-copy-tabs" role="tablist" aria-label="物流单三联预览">{"".join(tabs)}</div>'
+        f'{"".join(panels)}'
+        """<script>(()=>{const root=document.currentScript.closest('[data-waybill-copy-preview]');if(!root)return;const tabs=[...root.querySelectorAll('[data-copy-tab]')];const panels=[...root.querySelectorAll('[data-copy-panel]')];tabs.forEach(tab=>tab.addEventListener('click',()=>{const key=tab.getAttribute('data-copy-tab');tabs.forEach(item=>item.setAttribute('aria-selected',String(item===tab)));panels.forEach(panel=>{panel.hidden=panel.getAttribute('data-copy-panel')!==key})}))})()</script>"""
+        "</section>"
+    )
 
 
 def safe_name(value: str) -> str:
@@ -222,11 +272,11 @@ def display_identifier(value: Any) -> str:
     return rendered
 
 
-def print_sheet_xml(data: dict[str, Any], state: str) -> str:
+def print_sheet_xml(data: dict[str, Any], state: str, copy_label: str) -> str:
     values = template_values(data, state)
     rows: list[str] = []
     rows.append(xml_row(1, [xml_cell("A1", "物流运输协议", 2), xml_cell("J1", f'NO. {values["document.number"] or "待补充"}', 3)], 30))
-    rows.append(xml_row(2, [xml_cell("A2", "承揽全国各地整车零担业务 · 代收货款", 4), xml_cell("J2", status_label(state), 5)], 22))
+    rows.append(xml_row(2, [xml_cell("A2", "承揽全国各地整车零担业务 · 代收货款", 4), xml_cell("J2", f"{copy_label} · {status_label(state)}", 5)], 22))
     rows.append(xml_row(3, [xml_cell("A3", f'起运地点：{values["route.origin"] or "待补充"} 至 {values["route.destination"] or "待补充"}', 6), xml_cell("J3", f'发货日期：{values["document.date"] or "待补充"}', 6)], 24))
     party_rows = [
         ("托运单位", values["shipper.name"], "收货单位", values["consignee.name"]),
@@ -295,7 +345,33 @@ def data_sheet_xml(data: dict[str, Any], state: str) -> str:
 </worksheet>'''
 
 
-def write_xlsx(path: Path, data: dict[str, Any], state: str) -> None:
+def apply_xlsx_copy_fill(styles: str, color: str) -> str:
+    styles = styles.replace('<fills count="4">', '<fills count="5">').replace(
+        "</fills>",
+        f'<fill><patternFill patternType="solid"><fgColor rgb="{color}"/><bgColor indexed="64"/></patternFill></fill></fills>',
+        1,
+    )
+    section_start = styles.index("<cellXfs")
+    section_end = styles.index("</cellXfs>")
+    section = styles[section_start:section_end]
+    style_index = -1
+
+    def recolor(match: re.Match[str]) -> str:
+        nonlocal style_index
+        style_index += 1
+        tag = match.group(0)
+        if style_index not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13}:
+            return tag
+        tag = re.sub(r'fillId="\d+"', 'fillId="4"', tag)
+        if "applyFill=" not in tag:
+            tag = tag[:-2] + ' applyFill="1"/>' if tag.endswith("/>") else tag[:-1] + ' applyFill="1">'
+        return tag
+
+    recolored = re.sub(r"<xf\b[^>]*>", recolor, section)
+    return styles[:section_start] + recolored + styles[section_end:]
+
+
+def write_xlsx(path: Path, data: dict[str, Any], state: str, variant: dict[str, str]) -> None:
     styles = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <fonts count="4"><font><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><sz val="20"/><name val="SimSun"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Microsoft YaHei"/></font><font><color rgb="FF9C405B"/><sz val="12"/><name val="Microsoft YaHei"/></font></fonts>
@@ -304,12 +380,13 @@ def write_xlsx(path: Path, data: dict[str, Any], state: str) -> None:
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
 <cellXfs count="14"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" quotePrefix="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'''
+    styles = apply_xlsx_copy_fill(styles, variant["color"])
     files = {
         "[Content_Types].xml": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>''',
         "_rels/.rels": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>''',
         "xl/workbook.xml": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="物流单" sheetId="1" r:id="rId1"/><sheet name="字段数据" sheetId="2" r:id="rId2"/></sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>''',
         "xl/_rels/workbook.xml.rels": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>''',
-        "xl/worksheets/sheet1.xml": print_sheet_xml(data, state),
+        "xl/worksheets/sheet1.xml": print_sheet_xml(data, state, variant["label"]),
         "xl/worksheets/sheet2.xml": data_sheet_xml(data, state),
         "xl/styles.xml": styles,
         "docProps/app.xml": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>OnMyAgent 物流单专家</Application></Properties>''',
@@ -401,19 +478,27 @@ def main() -> int:
         state, blockers = document_state(data)
         args.output_dir.mkdir(parents=True, exist_ok=True)
         number = safe_name(text_value(get_value(data, "document.number")))
-        html_path = args.output_dir / f"物流单_{number}_当前预览.html"
-        rendered_html = fill_html(template, template_values(data, state), state, data)
-        html_path.write_text(rendered_html, encoding="utf-8")
-        generated = [str(html_path)]
+        base_html = fill_html(template, template_values(data, state), state, data)
+        rendered_copies: list[tuple[dict[str, str], str]] = []
+        generated: list[str] = []
+        html_paths: list[tuple[dict[str, str], Path]] = []
+        for variant in COPY_VARIANTS:
+            rendered_html = apply_copy_variant(base_html, variant)
+            html_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
+            html_path.write_text(rendered_html, encoding="utf-8")
+            rendered_copies.append((variant, rendered_html))
+            html_paths.append((variant, html_path))
+            generated.append(str(html_path))
         if args.mode == "export":
             if state not in ("pending_dispatch", "final"):
                 raise WaybillError(f"当前状态 {state} 不允许导出，请先补齐并确认信息；阻塞项：{', '.join(blockers) or 'userConfirmed'}")
             edition = "待派车确认稿" if state == "pending_dispatch" else "最终版"
-            xlsx_path = args.output_dir / f"物流单_{number}_{edition}.xlsx"
-            pdf_path = args.output_dir / f"物流单_{number}_{edition}.pdf"
-            write_xlsx(xlsx_path, data, state)
-            write_pdf(html_path, pdf_path)
-            generated.extend((str(pdf_path), str(xlsx_path)))
+            for variant, html_path in html_paths:
+                xlsx_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.xlsx'
+                pdf_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.pdf'
+                write_xlsx(xlsx_path, data, state, variant)
+                write_pdf(html_path, pdf_path)
+                generated.extend((str(pdf_path), str(xlsx_path)))
         print(json.dumps({
             "ok": True,
             "state": state,
@@ -422,7 +507,7 @@ def main() -> int:
             "files": generated,
             "inlineWidget": {
                 "title": "当前物流单",
-                "widget_code": inline_widget_fragment(rendered_html),
+                "widget_code": inline_widget_fragment(rendered_copies),
             },
         }, ensure_ascii=False))
         return 0

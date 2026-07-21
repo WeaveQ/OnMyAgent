@@ -59,8 +59,9 @@ describe("order entry clerk expert contract", () => {
     const documentTypes = readExpertFile("skills/order-entry/references/document-types.md");
 
     expect(agent).toContain("制作物流单、发货单、发车单/派车单或运单前，都先询问用户是否有要求的模板");
-    expect(agent).toContain("用户补充一次就更新一次同一份 HTML");
-    expect(agent).toContain("默认同时交付 PDF 与 XLSX");
+    expect(agent).toContain("用户补充一次就同步更新白、红、黄三个独立 HTML");
+    expect(agent).toContain("三份独立 PDF 和三份独立 XLSX");
+    expect(agent).toContain("白色存根联、红色收货单位联、黄色发货单位联");
     expect(agent).toContain("待派车确认稿");
     expect(agent).toContain("最终版");
     expect(agent).toContain("waybill-data.json");
@@ -94,6 +95,9 @@ describe("order entry clerk expert contract", () => {
     expect(template).toContain('data-field="document.number"');
     expect(template).toContain('data-field="vehicle.driverPhone"');
     expect(template).toContain('data-check="payment.collect"');
+    expect(template).toContain('data-copy="white"');
+    expect(template).toContain('data-copy="red"');
+    expect(template).toContain('data-copy="yellow"');
     expect(documentTypes).toContain("GB/T 33449-2016");
     expect(documentTypes).toContain("已废止");
     expect(documentTypes).toContain("GB/T 41833-2022");
@@ -104,11 +108,11 @@ describe("order entry clerk expert contract", () => {
     const onMyAgentManifest = readExpertFile(".onmyagent-plugin/plugin.json");
 
     expect(onMyAgentManifest).toBe(expertManifest);
-    expect(JSON.parse(expertManifest).version).toBe("1.1.0");
-    expect(JSON.parse(expertManifest).displayDescription.zh).toContain("PDF 与双 Sheet Excel");
+    expect(JSON.parse(expertManifest).version).toBe("1.2.0");
+    expect(JSON.parse(expertManifest).displayDescription.zh).toContain("白、红、黄三联");
   });
 
-  test("exports a final PDF and two-sheet Excel from one confirmed data source", () => {
+  test("exports three final PDF and three two-sheet Excel copies from one confirmed data source", () => {
     const outputDir = mkdtempSync(join(tmpdir(), "order-entry-clerk-"));
     try {
       const result = runGenerator("complete-waybill.json", outputDir, "export");
@@ -117,22 +121,31 @@ describe("order entry clerk expert contract", () => {
       expect(isExportResponse(response)).toBe(true);
       if (!isExportResponse(response)) return;
       expect(response.state).toBe("final");
-      expect(response.files).toHaveLength(3);
+      expect(response.files).toHaveLength(9);
       expect(response.files.every(existsSync)).toBe(true);
-      expect(response.files.some((file) => file.endsWith("最终版.pdf"))).toBe(true);
-      expect(response.files.some((file) => file.endsWith("最终版.xlsx"))).toBe(true);
+      for (const copyLabel of ["一联-白色存根", "二联-红色收货单位", "三联-黄色发货单位"]) {
+        expect(response.files.some((file) => file.endsWith(`${copyLabel}_当前预览.html`))).toBe(true);
+        expect(response.files.some((file) => file.endsWith(`${copyLabel}_最终版.pdf`))).toBe(true);
+        expect(response.files.some((file) => file.endsWith(`${copyLabel}_最终版.xlsx`))).toBe(true);
+      }
       expect(response.inlineWidget.title).toBe("当前物流单");
       expect(response.inlineWidget.widget_code).toStartWith("<style>");
       expect(response.inlineWidget.widget_code).toContain('data-template="common-logistics-transport-agreement-v2"');
       expect(response.inlineWidget.widget_code).not.toContain("<!doctype");
+      expect(response.inlineWidget.widget_code).toContain('role="tablist"');
+      expect(response.inlineWidget.widget_code).toContain('data-copy-tab="white"');
+      expect(response.inlineWidget.widget_code).toContain('data-copy-tab="red"');
+      expect(response.inlineWidget.widget_code).toContain('data-copy-tab="yellow"');
+      expect(response.inlineWidget.widget_code).toContain('data-copy-panel="white"');
       expect(isSandboxedHtmlVisual(response.inlineWidget.widget_code)).toBe(true);
-      const xlsxPath = response.files.find((file) => file.endsWith(".xlsx"));
-      expect(xlsxPath).toBeDefined();
-      if (!xlsxPath) return;
-      const sheetNames = spawnSync("unzip", ["-p", xlsxPath, "xl/workbook.xml"], { encoding: "utf8" });
-      expect(sheetNames.status, sheetNames.stderr).toBe(0);
-      expect(sheetNames.stdout).toContain('name="物流单"');
-      expect(sheetNames.stdout).toContain('name="字段数据"');
+      const xlsxPaths = response.files.filter((file) => file.endsWith(".xlsx"));
+      expect(xlsxPaths).toHaveLength(3);
+      for (const xlsxPath of xlsxPaths) {
+        const sheetNames = spawnSync("unzip", ["-p", xlsxPath, "xl/workbook.xml"], { encoding: "utf8" });
+        expect(sheetNames.status, sheetNames.stderr).toBe(0);
+        expect(sheetNames.stdout).toContain('name="物流单"');
+        expect(sheetNames.stdout).toContain('name="字段数据"');
+      }
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }
@@ -147,8 +160,9 @@ describe("order entry clerk expert contract", () => {
       expect(isExportResponse(response)).toBe(true);
       if (!isExportResponse(response)) return;
       expect(response.state).toBe("pending_dispatch");
-      expect(response.files.some((file) => file.endsWith("待派车确认稿.pdf"))).toBe(true);
-      expect(response.files.some((file) => file.endsWith("待派车确认稿.xlsx"))).toBe(true);
+      expect(response.files.filter((file) => file.endsWith("待派车确认稿.pdf"))).toHaveLength(3);
+      expect(response.files.filter((file) => file.endsWith("待派车确认稿.xlsx"))).toHaveLength(3);
+      expect(response.files.filter((file) => file.endsWith("当前预览.html"))).toHaveLength(3);
       expect(response.files.some((file) => file.includes("最终版"))).toBe(false);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
@@ -161,7 +175,9 @@ describe("order entry clerk expert contract", () => {
       const result = runGenerator("incomplete-waybill.json", outputDir, "export");
       expect(result.status).toBe(2);
       expect(result.stderr).toContain("不允许导出");
-      expect(existsSync(join(outputDir, "物流单_WX-20260721-003_当前预览.html"))).toBe(true);
+      expect(existsSync(join(outputDir, "物流单_WX-20260721-003_一联-白色存根_当前预览.html"))).toBe(true);
+      expect(existsSync(join(outputDir, "物流单_WX-20260721-003_二联-红色收货单位_当前预览.html"))).toBe(true);
+      expect(existsSync(join(outputDir, "物流单_WX-20260721-003_三联-黄色发货单位_当前预览.html"))).toBe(true);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }
