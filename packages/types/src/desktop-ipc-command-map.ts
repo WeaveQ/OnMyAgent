@@ -353,7 +353,10 @@ type TypedDesktopCommandMap = {
   updaterEnvironment: DesktopCommandContract<[], UpdaterEnvironment>;
   setWindowDecorations: DesktopCommandContract<[{ enabled: boolean }], void>;
   __openPath: DesktopCommandContract<[string], string | null>;
-  __revealItemInDir: DesktopCommandContract<[string], void>;
+  __revealItemInDir: DesktopCommandContract<
+    [string],
+    { ok: boolean; path?: string; reason?: string }
+  >;
   __fetch: DesktopCommandContract<
     [string, { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number }?],
     DesktopFetchResult

@@ -41,6 +41,7 @@ import { SkillGlyphIcon } from "../../../design-system/skill-glyph-icon";
 
 import {
   openDesktopPath,
+  revealDesktopItemCandidates,
   revealDesktopItemInDir,
 } from "../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,7 @@ import {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
   isLocalhostBrowserTarget,
+  resolveArtifactRevealCandidates,
   type OpenTarget,
 } from "../artifacts/open-target";
 
@@ -920,8 +922,8 @@ async function openFileWithOS(path: string) {
 async function revealFileInFinder(path: string) {
   try {
     await revealDesktopItemInDir(path);
-  } catch {
-    // silently fail on web
+  } catch (error) {
+    console.error("Failed to reveal item in folder:", error);
   }
 }
 
@@ -2712,23 +2714,27 @@ function OpenTargetIcon(props: { target: OpenTarget }) {
   return <FileIcon size={12} className="shrink-0 text-dls-secondary" />;
 }
 
-function absoluteArtifactPath(workspaceRoot: string | undefined, value: string) {
-  const root = workspaceRoot?.trim().replace(/[/\\]+$/, "") ?? "";
-  const relative = value.replace(/^\.\//, "");
-  return value.startsWith("/") ? value : (root ? `${root}/${relative}` : relative);
-}
-
-function OpenableTargetsStrip(props: { targets: OpenTarget[]; onOpenTarget: (target: OpenTarget) => void; workspaceRoot?: string }) {
+function OpenableTargetsStrip(props: {
+  targets: OpenTarget[];
+  onOpenTarget: (target: OpenTarget) => void;
+  workspaceRoot?: string;
+}) {
   if (!props.targets.length) return null;
   const openInFolder = async (target: OpenTarget) => {
     if (target.kind !== "file") {
       props.onOpenTarget(target);
       return;
     }
+    const candidates = resolveArtifactRevealCandidates(target.value, {
+      workspaceRoot: props.workspaceRoot,
+      verifiedValue: target.value,
+    });
     try {
-      await revealDesktopItemInDir(absoluteArtifactPath(props.workspaceRoot, target.value));
+      await revealDesktopItemCandidates(candidates);
     } catch (error) {
-      console.error("Failed to open artifact in folder:", error);
+      console.error("Failed to open artifact in folder:", error, candidates);
+      // Always give the user a working path: open in-app artifact panel.
+      props.onOpenTarget(target);
     }
   };
   return (
@@ -3413,6 +3419,7 @@ function MessageBlockRow(props: {
           <OpenableTargetsStrip
             targets={turnOpenTargets}
             onOpenTarget={props.onOpenTarget}
+            workspaceRoot={props.workspaceRoot}
           />
         ) : null}
       </div>
@@ -3830,15 +3837,33 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       .map((target) => [target.value, target]),
   ), [props.openTargets]);
   const onOpenMarkdownCodePath = useCallback((path: string, mode: MarkdownCodePathOpenMode = "preview") => {
-    const target = verifiedOpenTargetByPath.get(path);
-    if (!target) return;
-    if (mode === "preview") {
-      props.onOpenTarget?.(target);
+    const normalized = path.replace(/[\\]+/g, "/").replace(/^\.\//, "").trim();
+    if (!normalized) return;
+    const target = verifiedOpenTargetByPath.get(path)
+      ?? verifiedOpenTargetByPath.get(normalized)
+      ?? [...verifiedOpenTargetByPath.entries()].find(([key]) => {
+        const candidate = key.replace(/[\\]+/g, "/");
+        return candidate === normalized
+          || candidate.endsWith(`/${normalized}`)
+          || normalized.endsWith(`/${candidate}`);
+      })?.[1];
+    // Reveal must work for agent-authored artifact: links even when the path is
+    // not yet in the verified openTargets set (common right after export).
+    if (mode === "reveal") {
+      const candidates = resolveArtifactRevealCandidates(normalized, {
+        workspaceRoot: props.workspaceRoot,
+        verifiedValue: target?.value ?? null,
+      });
+      void revealDesktopItemCandidates(candidates)
+        .catch((error) => {
+          console.error("Failed to open artifact in folder:", error, candidates);
+          // Fallback: open in-app when Finder reveal cannot resolve a real path.
+          if (target) props.onOpenTarget?.(target);
+        });
       return;
     }
-    void revealDesktopItemInDir(absoluteArtifactPath(props.workspaceRoot, target.value)).catch((error) => {
-      console.error("Failed to open artifact in folder:", error);
-    });
+    if (!target) return;
+    props.onOpenTarget?.(target);
   }, [props.onOpenTarget, props.workspaceRoot, verifiedOpenTargetByPath]);
 
   const blockIndexByMessageId = useMemo(() => {

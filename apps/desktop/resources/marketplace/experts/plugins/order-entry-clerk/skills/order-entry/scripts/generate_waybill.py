@@ -27,9 +27,30 @@ DEFAULT_TEMPLATE = SKILL_ROOT / "assets" / "logistics-waybill-template.html"
 PROCESS_DIR_NAME = ".process"
 FINGERPRINT_NAME = "export-fingerprint"
 COPY_VARIANTS = (
-    {"key": "white", "label": "一联存根（白）", "fileLabel": "一联-白色存根", "color": "FFF8F7FB"},
-    {"key": "red", "label": "二联收货单位（红）", "fileLabel": "二联-红色收货单位", "color": "FFF8E5E9"},
-    {"key": "yellow", "label": "三联发货单位（黄）", "fileLabel": "三联-黄色发货单位", "color": "FFFFF4BF"},
+    {
+        "key": "white",
+        "label": "一联存根（白）",
+        "tabTitle": "存根联",
+        "tabMeta": "一联 · 白",
+        "fileLabel": "一联-白色存根",
+        "color": "FFF8F7FB",
+    },
+    {
+        "key": "red",
+        "label": "二联收货单位（红）",
+        "tabTitle": "收货联",
+        "tabMeta": "二联 · 红",
+        "fileLabel": "二联-红色收货单位",
+        "color": "FFF8E5E9",
+    },
+    {
+        "key": "yellow",
+        "label": "三联发货单位（黄）",
+        "tabTitle": "发货联",
+        "tabMeta": "三联 · 黄",
+        "fileLabel": "三联-黄色发货单位",
+        "color": "FFFFF4BF",
+    },
 )
 CUSTOMER_REQUIRED = (
     "document.number", "document.date", "route.origin", "route.destination",
@@ -272,17 +293,57 @@ def business_fingerprint(data: dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
-    remarks = [text_value(data.get("remarks"))]
-    mapping = (
+def compact_schedule_token(label: str, value: str) -> str:
+    """Short display tokens for the remarks cell (template has no dedicated timeline cells)."""
+    text = text_value(value)
+    if not text:
+        return ""
+    # Prefer compact Chinese labels so the remarks cell stays readable.
+    short_label = {
+        "计划提货": "提货",
+        "要求到达": "到达",
+        "车型要求": "车型",
+    }.get(label, label)
+    compact = (
+        text.replace("计划提货", "")
+        .replace("要求到达", "")
+        .replace("车型要求", "")
+        .replace("（带尾板车辆）", "")
+        .replace("带尾板车辆", "")
+        .strip(" ：:")
+    )
+    return f"{short_label}{compact}" if compact else ""
+
+
+def compose_remarks_display(data: dict[str, Any]) -> str:
+    """
+    Build the printable remarks cell:
+    - agent `remarks` first (expected already short)
+    - then compact timeline / vehicle from dedicated fields (never re-dump long prose)
+    """
+    core = text_value(data.get("remarks"))
+    # Soft cap: keep operational notes dominant; do not re-expand long agent prose here.
+    if len(core) > 60:
+        core = core[:57].rstrip("；;，, ") + "…"
+    parts: list[str] = [core] if core else []
+    joined = core
+    for label, raw in (
         ("计划提货", get_value(data, "timeline.pickup")),
         ("要求到达", get_value(data, "timeline.delivery")),
         ("车型要求", data.get("vehicleRequirement", "")),
-    )
-    for label, value in mapping:
-        rendered = text_value(value)
-        if rendered and f"{label}：" not in remarks[0]:
-            remarks.append(f"{label}：{rendered}")
+    ):
+        token = compact_schedule_token(label, text_value(raw))
+        if not token:
+            continue
+        # Skip if agent already mentioned the same facet.
+        if any(key in joined for key in (label, token[:2], token)):
+            continue
+        parts.append(token)
+        joined = "；".join(parts)
+    return "；".join(part for part in parts if part)
+
+
+def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
     values = {path: text_value(get_value(data, path)) for path in FIELD_LABELS}
     values.update({
         "document.status": status_label(state),
@@ -293,7 +354,7 @@ def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
         "cargo.declaredValue": cargo_summary(data, "declaredValue"),
         "cargo.insuranceFee": cargo_summary(data, "insuranceFee"),
         "cargo.codAmount": cargo_summary(data, "codAmount"),
-        "remarks": "；".join(part for part in remarks if part),
+        "remarks": compose_remarks_display(data),
     })
     return values
 
@@ -367,75 +428,96 @@ def apply_copy_variant(rendered_html: str, variant: dict[str, str]) -> str:
     return rendered.replace("物流运输协议（草稿）", f'物流运输协议 · {variant["label"]}')
 
 
-def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) -> str:
-    if len(rendered_copies) != len(COPY_VARIANTS):
-        raise WaybillError("会话内预览必须包含完整三联")
-    style = STYLE_PATTERN.search(rendered_copies[0][1])
+def copy_label_map() -> dict[str, str]:
+    return {variant["key"]: variant["label"] for variant in COPY_VARIANTS}
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Single-sheet preview: one filled HTML, tabs only flip data-copy + label/background.
+    ~3x smaller payload than embedding three full sheets (faster stream + render).
+    """
+    style = STYLE_PATTERN.search(preview_html)
     if not style:
         raise WaybillError("模板无法提取会话内预览样式")
+    main = MAIN_PATTERN.search(preview_html)
+    if not main:
+        raise WaybillError("模板无法提取预览主单据片段")
     # Screen preview does not need @media print rules; strip them to shrink widget payload.
     screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
     tabs: list[str] = []
-    panels: list[str] = []
-    for index, (variant, rendered_html) in enumerate(rendered_copies):
-        main = MAIN_PATTERN.search(rendered_html)
-        if not main:
-            raise WaybillError(f'模板无法提取{variant["label"]}预览片段')
+    for index, variant in enumerate(COPY_VARIANTS):
         selected = "true" if index == 0 else "false"
-        hidden = "" if index == 0 else " hidden"
         tabs.append(
-            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}"><span class="dot" aria-hidden="true"></span>{variant["label"]}</button>'
+            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}" '
+            f'aria-label="{variant["label"]}">'
+            f'<span class="swatch" aria-hidden="true"></span>'
+            f'<span class="tab-copy">'
+            f'<span class="tab-title">{variant["tabTitle"]}</span>'
+            f'<span class="tab-meta">{variant["tabMeta"]}</span>'
+            f"</span></button>"
         )
-        panels.append(
-            f'<div role="tabpanel" data-copy-panel="{variant["key"]}"{hidden}>{main.group(1)}</div>'
-        )
+    labels_json = json.dumps(copy_label_map(), ensure_ascii=False)
     widget_style = """
-.waybill-copy-preview{width:100%;overflow:hidden;color:#28242f;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0 0 12px;padding:4px;border-radius:12px;background:linear-gradient(180deg,#f4f2f6 0%,#ebe8ef 100%);border:1px solid #ddd6e2;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
-.waybill-copy-tabs button{appearance:none;position:relative;border:0;border-radius:9px;background:transparent;color:#5c5663;padding:10px 8px;font:600 12.5px/1.25 system-ui,sans-serif;letter-spacing:.01em;cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease,transform .12s ease}
-.waybill-copy-tabs button:hover{color:#2f2a35;background:rgba(255,255,255,.55)}
-.waybill-copy-tabs button[aria-selected="true"]{color:#1f1b24;background:#fff;box-shadow:0 1px 2px rgba(40,36,47,.08),0 4px 12px rgba(40,36,47,.08)}
-.waybill-copy-tabs button[data-copy-tab="white"][aria-selected="true"]{box-shadow:0 1px 2px rgba(40,36,47,.08),0 0 0 1px rgba(120,110,130,.12),inset 0 -2px 0 #9b93a6}
-.waybill-copy-tabs button[data-copy-tab="red"][aria-selected="true"]{box-shadow:0 1px 2px rgba(40,36,47,.08),0 0 0 1px rgba(180,90,110,.16),inset 0 -2px 0 #c45b72}
-.waybill-copy-tabs button[data-copy-tab="yellow"][aria-selected="true"]{box-shadow:0 1px 2px rgba(40,36,47,.08),0 0 0 1px rgba(180,150,40,.18),inset 0 -2px 0 #d4a017}
-.waybill-copy-tabs button .dot{display:inline-block;width:7px;height:7px;border-radius:999px;margin-right:6px;vertical-align:1px;opacity:.85}
-.waybill-copy-tabs button[data-copy-tab="white"] .dot{background:#c9c4d0;box-shadow:inset 0 0 0 1px #8f8898}
-.waybill-copy-tabs button[data-copy-tab="red"] .dot{background:#f0b4c0;box-shadow:inset 0 0 0 1px #c45b72}
-.waybill-copy-tabs button[data-copy-tab="yellow"] .dot{background:#ffe08a;box-shadow:inset 0 0 0 1px #d4a017}
-.waybill-copy-preview [role="tabpanel"][hidden]{display:none}
+.waybill-copy-preview{width:100%;overflow:hidden;color:#0f172a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0 0 14px;padding:4px;border-radius:10px;background:#f4f4f5;border:1px solid #e5e7eb}
+.waybill-copy-tabs button{appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;border:0;border-radius:8px;background:transparent;color:#64748b;padding:8px 10px;cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+.waybill-copy-tabs button:hover{color:#0f172a;background:rgba(255,255,255,.65)}
+.waybill-copy-tabs button:focus-visible{outline:2px solid #005dff;outline-offset:1px}
+.waybill-copy-tabs button[aria-selected="true"]{color:#0f172a;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.06),0 0 0 1px rgba(15,23,42,.04)}
+.waybill-copy-tabs .swatch{flex:0 0 auto;width:14px;height:18px;border-radius:3px;border:1px solid rgba(15,23,42,.12);box-shadow:inset 0 -1px 0 rgba(15,23,42,.06)}
+.waybill-copy-tabs button[data-copy-tab="white"] .swatch{background:linear-gradient(180deg,#fbfafc 0%,#f1eef4 100%)}
+.waybill-copy-tabs button[data-copy-tab="red"] .swatch{background:linear-gradient(180deg,#fdf0f2 0%,#f5d0d6 100%);border-color:rgba(180,80,100,.22)}
+.waybill-copy-tabs button[data-copy-tab="yellow"] .swatch{background:linear-gradient(180deg,#fff8d9 0%,#f5e4a0 100%);border-color:rgba(180,140,20,.22)}
+.waybill-copy-tabs .tab-copy{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;text-align:left}
+.waybill-copy-tabs .tab-title{font:600 13px/1.2 system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.waybill-copy-tabs .tab-meta{font:500 11px/1.2 system-ui,sans-serif;color:#94a3b8;white-space:nowrap}
+.waybill-copy-tabs button[aria-selected="true"] .tab-meta{color:#64748b}
 .waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f;opacity:1!important;filter:none!important}
-.waybill-edit-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
-.waybill-edit-bar button{appearance:none;border:1px solid #d0c9d6;border-radius:999px;background:#fff;color:#4b4650;padding:6px 12px;font:600 12px/1.2 system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 1px rgba(40,36,47,.04)}
-.waybill-edit-bar button:hover{border-color:#b8b1bd;background:#faf8fb}
-.waybill-edit-bar button[data-active="true"]{border-color:#5b5160;background:#514752;color:#fff;box-shadow:none}
-.waybill-edit-bar .hint{font:12px/1.4 system-ui,sans-serif;color:#6b6570}
-.waybill-copy-preview[data-editing="true"] [data-field]{outline:1px dashed #8a5a12;cursor:text;min-width:1.5em}
+.waybill-edit-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.waybill-edit-bar button{appearance:none;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#0f172a;padding:6px 12px;font:600 12px/1.2 system-ui,sans-serif;cursor:pointer}
+.waybill-edit-bar button:hover{background:#f4f4f5;border-color:#cbd5e1}
+.waybill-edit-bar button[data-active="true"]{border-color:#005dff;background:#eaf2ff;color:#004ed6}
+.waybill-edit-bar .hint{font:12px/1.4 system-ui,sans-serif;color:#64748b}
+.waybill-edit-bar .hint[data-tone="ok"]{color:#0f766e}
+.waybill-copy-preview[data-editing="true"] [data-field]{outline:1px dashed #d19a2a;cursor:text;min-width:1.5em}
 .waybill-copy-preview[data-editing="true"] [data-field="document.status"],
 .waybill-copy-preview[data-editing="true"] [data-field="copy.label"]{outline:none;cursor:default}
-.waybill-patch-box{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #d7d0da;border-radius:8px;background:#faf8fb;font:12px/1.45 ui-monospace,monospace;white-space:pre-wrap;color:#3f3a44}
-.waybill-copy-preview[data-show-patch="true"] .waybill-patch-box{display:block}
 """
     script = f"""<script>(()=>{{
 const root=document.currentScript.closest('[data-waybill-copy-preview]');
 if(!root)return;
+const labels={labels_json};
 const editable=new Set({json.dumps(list(EDITABLE_FIELDS), ensure_ascii=False)});
 const tabs=[...root.querySelectorAll('[data-copy-tab]')];
-const panels=[...root.querySelectorAll('[data-copy-panel]')];
+const sheet=root.querySelector('.sheet');
 const editBtn=root.querySelector('[data-edit-toggle]');
 const saveBtn=root.querySelector('[data-edit-save]');
 const hint=root.querySelector('[data-edit-hint]');
-const patchBox=root.querySelector('[data-patch-box]');
 const select=key=>{{
+  if(!sheet||!labels[key])return;
   tabs.forEach(item=>item.setAttribute('aria-selected',String(item.getAttribute('data-copy-tab')===key)));
-  panels.forEach(panel=>{{panel.hidden=panel.getAttribute('data-copy-panel')!==key}});
+  sheet.setAttribute('data-copy',key);
+  const copyLabel=sheet.querySelector('[data-field="copy.label"]');
+  if(copyLabel)copyLabel.textContent=labels[key];
   parent.postMessage({{type:'onmyagent:waybill-copy',key}},'*');
 }};
 tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.getAttribute('data-copy-tab'))));
+const setHint=(text,tone)=>{{
+  if(!hint)return;
+  hint.textContent=text;
+  if(tone)hint.setAttribute('data-tone',tone);
+  else hint.removeAttribute('data-tone');
+}};
 const setEditing=on=>{{
   root.dataset.editing=on?'true':'false';
-  if(editBtn)editBtn.dataset.active=on?'true':'false';
+  if(editBtn){{
+    editBtn.hidden=false;
+    editBtn.dataset.active=on?'true':'false';
+    editBtn.textContent=on?'取消编辑':'编辑字段';
+  }}
   if(saveBtn)saveBtn.hidden=!on;
-  if(hint)hint.textContent=on?'点击字段直接修改，改完点保存':'可点“编辑字段”手动改值';
+  setHint(on?'点击字段直接修改，改完点「保存修改」':'可点「编辑字段」手动改值');
   root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     const canEdit=on&&editable.has(field);
@@ -443,15 +525,18 @@ const setEditing=on=>{{
     if(canEdit)node.spellcheck=false;
   }});
 }};
+const normalizeFieldValue=raw=>{{
+  let value=String(raw??'').replace(/[\\u200b\\u200c\\u200d\\ufeff]/g,'').trim();
+  // Exact placeholders only — partial edits like "待补" must be kept as-is.
+  if(value==='待补充'||value==='—'||value==='-'||value==='－')value='';
+  return value;
+}};
 const collect=()=>{{
-  const active=root.querySelector('[data-copy-panel]:not([hidden])')||root;
   const patch={{}};
-  active.querySelectorAll('[data-field]').forEach(node=>{{
+  root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     if(!editable.has(field))return;
-    let value=(node.innerText||'').trim();
-    if(value==='待补充'||value==='—')value='';
-    patch[field]=value;
+    patch[field]=normalizeFieldValue(node.innerText||'');
   }});
   return patch;
 }};
@@ -459,22 +544,28 @@ const applyPatchToAll=patch=>{{
   root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     if(!(field in patch))return;
-    const value=String(patch[field]??'').trim();
-    const shown=value||(node.classList.contains('missing')?'待补充':'—');
-    node.textContent=shown;
+    const value=normalizeFieldValue(patch[field]);
+    // Keep typed text (e.g. partial "待补"). Empty → visual placeholder only.
+    const isVehicle=field.indexOf('vehicle.')===0;
+    const display=value?value:(isVehicle?'—':'待补充');
+    node.textContent=display;
     if(value)node.classList.remove('missing');
+    else if(!isVehicle)node.classList.add('missing');
+    else node.classList.remove('missing');
   }});
 }};
-editBtn&&editBtn.addEventListener('click',()=>setEditing(root.dataset.editing!=='true'));
+editBtn&&editBtn.addEventListener('click',()=>{{
+  const next=root.dataset.editing!=='true';
+  setEditing(next);
+}});
 saveBtn&&saveBtn.addEventListener('click',()=>{{
   const patch=collect();
   applyPatchToAll(patch);
+  // Stay on the live preview DOM. Host persists waybill-data.json; do not ask
+  // the agent to regenerate show_widget (that would wipe in-progress edits).
   setEditing(false);
-  root.dataset.showPatch='true';
-  const body='```waybill-patch\\n'+JSON.stringify(patch,null,2)+'\\n```';
-  if(patchBox)patchBox.textContent='已保存到预览。请把下面这段发给专家以写入数据并刷新三联：\\n'+body;
+  setHint('已保存到预览，可继续点「编辑字段」修改','ok');
   parent.postMessage({{type:'onmyagent:waybill-fields',patch}},'*');
-  try{{navigator.clipboard&&navigator.clipboard.writeText(body)}}catch(_){{}}
 }});
 setEditing(false);
 select('white');
@@ -485,14 +576,24 @@ select('white');
         '<div class="waybill-edit-bar">'
         '<button type="button" data-edit-toggle>编辑字段</button>'
         '<button type="button" data-edit-save hidden>保存修改</button>'
-        '<span class="hint" data-edit-hint>可点“编辑字段”手动改值</span>'
+        '<span class="hint" data-edit-hint>可点「编辑字段」手动改值</span>'
         "</div>"
-        '<div class="waybill-patch-box" data-patch-box></div>'
-        f'<div class="waybill-copy-tabs" role="tablist" aria-label="物流单三联预览">{"".join(tabs)}</div>'
-        f'{"".join(panels)}'
+        f'<div class="waybill-copy-tabs" role="tablist" aria-label="联次切换">{"".join(tabs)}</div>'
+        f'<div role="tabpanel" data-copy-panel="live">{main.group(1)}</div>'
         f"{script}"
         "</section>"
     )
+
+
+def cleanup_legacy_multi_preview_html(preview_dir: Path, number: str) -> None:
+    """Remove older per-copy preview files after switching to single-HTML preview."""
+    for variant in COPY_VARIANTS:
+        legacy = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
+        if legacy.is_file():
+            try:
+                legacy.unlink()
+            except OSError:
+                pass
 
 
 def safe_name(value: str) -> str:
@@ -847,18 +948,13 @@ def main() -> int:
             data,
             inject_print_css=need_print_css,
         )
-        rendered_copies: list[tuple[dict[str, str], str]] = []
-        generated: list[str] = []
+        # Single live preview HTML (tabs switch paper color client-side).
+        preview_html = apply_copy_variant(base_html, COPY_VARIANTS[0])
+        preview_path = preview_dir / f"物流单_{number}_当前预览.html"
+        write_text_if_changed(preview_path, preview_html)
+        cleanup_legacy_multi_preview_html(preview_dir, number)
+        generated: list[str] = [str(preview_path)]
         artifact_copies: list[dict[str, str]] = []
-        html_paths: list[tuple[dict[str, str], Path]] = []
-
-        for variant in COPY_VARIANTS:
-            rendered_html = apply_copy_variant(base_html, variant)
-            html_path = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
-            write_text_if_changed(html_path, rendered_html)
-            rendered_copies.append((variant, rendered_html))
-            html_paths.append((variant, html_path))
-            generated.append(str(html_path))
 
         if args.mode == "export":
             if state not in ("pending_dispatch", "final"):
@@ -871,7 +967,11 @@ def main() -> int:
             removed.extend(cleanup_result_exports(args.output_dir, number))
             edition = "待派车确认稿" if state == "pending_dispatch" else "最终版"
             pdf_jobs: list[tuple[Path, Path]] = []
-            for variant, html_path in html_paths:
+            # Export still materializes three colored copies for print/PDF/Excel.
+            for variant in COPY_VARIANTS:
+                rendered_html = apply_copy_variant(base_html, variant)
+                export_html_path = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_导出稿.html'
+                write_text_if_changed(export_html_path, rendered_html)
                 xlsx_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.xlsx'
                 pdf_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.pdf'
                 copy_info = {
@@ -884,15 +984,9 @@ def main() -> int:
                     write_xlsx(xlsx_path, data, state, variant)
                     generated.append(str(xlsx_path))
                 if "pdf" in formats:
-                    pdf_jobs.append((html_path, pdf_path))
+                    pdf_jobs.append((export_html_path, pdf_path))
                     generated.append(str(pdf_path))
                 if copy_info["pdf"] or copy_info["xlsx"]:
-                    # Client currently requires both strings; keep expected paths for selected formats
-                    # and fill the other with the expected sibling path so menu still works after full export.
-                    if not copy_info["pdf"]:
-                        copy_info["pdf"] = str(pdf_path)
-                    if not copy_info["xlsx"]:
-                        copy_info["xlsx"] = str(xlsx_path)
                     artifact_copies.append(copy_info)
             write_pdfs(pdf_jobs)
             for _, pdf_path in pdf_jobs:
@@ -914,7 +1008,7 @@ def main() -> int:
             "files": generated,
             "inlineWidget": {
                 "title": title,
-                "widget_code": inline_widget_fragment(rendered_copies),
+                "widget_code": inline_widget_fragment(preview_html),
                 "artifactCopies": artifact_copies,
             },
         }, ensure_ascii=False))

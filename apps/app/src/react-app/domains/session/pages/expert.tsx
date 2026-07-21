@@ -21,6 +21,10 @@ import {
   isLocalhostBrowserTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
+import {
+  applyWaybillDataPatch,
+  waybillDataPathCandidates,
+} from "../artifacts/waybill-preview-patch";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -989,9 +993,86 @@ export function ExpertPage(props: ExpertPageProps) {
     [
       draftSessionActive,
       props.onCreateSessionForAgent,
+      props.selectedSessionId,
       props.surface,
     ],
   );
+
+  // Preview “保存修改”: persist into waybill-data.json directly.
+  // Do NOT auto-send an agent turn — regenerating show_widget would wipe the
+  // live edited preview and look like “save reverted my edit”.
+  const lastWaybillPatchRef = useRef<string>("");
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ patch?: Record<string, unknown> }>).detail;
+      const patch = detail?.patch;
+      if (!patch || typeof patch !== "object") return;
+      const fingerprint = JSON.stringify(patch);
+      if (!fingerprint || fingerprint === lastWaybillPatchRef.current) return;
+      lastWaybillPatchRef.current = fingerprint;
+
+      const client = props.onmyagentServerClient;
+      const workspaceId =
+        props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId) return;
+
+      const selectedSession =
+        rawWorkspaceSessions.find((session) => session.id === props.selectedSessionId) ??
+        currentAgentSessions.find((session) => session.id === props.selectedSessionId) ??
+        null;
+      const candidates = waybillDataPathCandidates({
+        catalogRoot: codeWorkspaceCatalogRoot,
+        sessionRoot: props.selectedWorkspaceRoot,
+        sessionDirectory: selectedSession?.directory ?? null,
+      });
+
+      void (async () => {
+        let saved = false;
+        for (const path of candidates) {
+          try {
+            let parsed: unknown = {};
+            try {
+              const file = await client.readWorkspaceFile(workspaceId, path);
+              const content =
+                typeof file.content === "string" ? file.content : "";
+              parsed = content.trim() ? JSON.parse(content) : {};
+            } catch {
+              // Missing file is fine for the preferred session path — create it.
+              parsed = {};
+            }
+            const next = applyWaybillDataPatch(parsed, patch);
+            await client.writeWorkspaceFile(workspaceId, {
+              path,
+              content: `${JSON.stringify(next, null, 2)}\n`,
+              force: true,
+            });
+            saved = true;
+            break;
+          } catch {
+            // try next candidate path
+          }
+        }
+        if (!saved) {
+          showToast({
+            tone: "warning",
+            title: t("session.waybill_patch_save_failed"),
+          });
+        }
+      })();
+    };
+    window.addEventListener("onmyagent-waybill-fields-patch", handler);
+    return () => window.removeEventListener("onmyagent-waybill-fields-patch", handler);
+  }, [
+    codeWorkspaceCatalogRoot,
+    currentAgentSessions,
+    props.onmyagentServerClient,
+    props.runtimeWorkspaceId,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+    props.selectedWorkspaceRoot,
+    rawWorkspaceSessions,
+    showToast,
+  ]);
 
   useEffect(() => {
     if (props.selectedSessionId) {

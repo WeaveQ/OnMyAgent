@@ -410,7 +410,8 @@ describe("expert marketplace UI contract", () => {
 
     expect(tabs).toContain("const [pendingSessionId, setPendingSessionId]");
     expect(tabs).toContain("const activeSessionId = pendingSessionId ?? props.selectedSessionId");
-    expect(tabs).toContain("tabRefs.current[activeSessionId]?.scrollIntoView");
+    expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
+    expect(tabs).toContain("mergeStableSessionTabOrder");
     expect(tabs).toContain("window.setTimeout");
     expect(tabs).toContain("setPendingSessionId(session.id)");
     expect(tabs).toContain("const active = session.id === activeSessionId");

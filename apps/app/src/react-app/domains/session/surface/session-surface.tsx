@@ -2177,6 +2177,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 onForkAtMessage={props.onForkAtMessage}
                 openTargets={verifiedOpenTargets}
                 onOpenTarget={props.onOpenTarget}
+                workspaceRoot={props.workspaceRoot}
                 footer={assistantStatusFooter}
                 assistantAvatar={chatHeaderAgent}
                 searchHighlightQuery={searchQuery || undefined}

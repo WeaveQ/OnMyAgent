@@ -73,9 +73,11 @@ import {
 import {
   buildIsolatedExpertSessionDirectory,
   dispatchAssistantSessionWorkspacesChanged,
+  materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
+  shouldIsolateExpertSessionDirectory,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
 import { CloudSessionProvider } from "../../domains/settings";
@@ -562,7 +564,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               surfaceProps?.draftWorkspaceDirectory?.trim() || "";
             let sessionDirectory = draftRoot || workspaceRoot || undefined;
             let bindDirectory = draftRoot || "";
-            if (!draftRoot && workspaceRoot) {
+            // Treat empty draft and "draft == workspace root" as no real folder pick.
+            // Only bind isolated path when materialize succeeds (opencode realPath).
+            if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
                 agentName: pendingAgentSnapshot?.name?.trim() || "expert",
@@ -570,22 +574,19 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
               const ensureWorkspaceId =
                 selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-              if (ensureClient && ensureWorkspaceId?.trim()) {
-                try {
-                  await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
-                    path: isolated.markerRelativePath,
-                    content: `# ${pendingAgentSnapshot?.name?.trim() || "expert"}\n\nSession artifacts for this expert conversation.\n`,
-                    force: true,
-                  });
-                } catch (error) {
-                  console.warn(
-                    "[expert-session] failed to create isolated artifact directory",
-                    error,
-                  );
-                }
+              const created = await materializeExpertSessionDirectory({
+                client: ensureClient,
+                workspaceId: ensureWorkspaceId,
+                workspaceRoot,
+                sessionDirectory: isolated.directory,
+              });
+              if (created) {
+                sessionDirectory = isolated.directory;
+                bindDirectory = isolated.directory;
+              } else {
+                sessionDirectory = workspaceRoot || undefined;
+                bindDirectory = "";
               }
-              sessionDirectory = isolated.directory;
-              bindDirectory = isolated.directory;
             }
             try {
               newSession = unwrap(
