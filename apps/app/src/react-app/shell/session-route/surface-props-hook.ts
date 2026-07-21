@@ -435,7 +435,25 @@ export function useSessionRouteSurfaceProps(
               workspaceRoot,
               agentName,
             });
-            // Bind path only — no placeholder README.md (confuses the files panel).
+            // Hidden marker creates the directory for opencode realPath without a
+            // user-visible README in the files panel.
+            const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
+            const ensureWorkspaceId =
+              selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+            if (ensureClient && ensureWorkspaceId?.trim()) {
+              try {
+                await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
+                  path: isolated.markerRelativePath,
+                  content: isolated.markerContent,
+                  force: true,
+                });
+              } catch (error) {
+                console.warn(
+                  "[expert-session] failed to create isolated session directory",
+                  error,
+                );
+              }
+            }
             taskWorkspaceRoot = isolated.directory;
             explicitAssistantWorkspace = isolated.directory;
           } else if (explicitFolder) {

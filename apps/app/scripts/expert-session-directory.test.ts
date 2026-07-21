@@ -23,7 +23,10 @@ describe("expert session directory isolation", () => {
     });
     expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家/abc123def456");
     expect(isolated.agentSegment).toBe("物流单专家");
-    expect("markerRelativePath" in isolated).toBe(false);
+    expect(isolated.markerRelativePath).toBe(
+      "物流单专家/abc123def456/.onmyagent-session.json",
+    );
+    expect(isolated.markerContent).toContain("expert-session");
   });
 
   test("joins windows-style roots with backslash", () => {
