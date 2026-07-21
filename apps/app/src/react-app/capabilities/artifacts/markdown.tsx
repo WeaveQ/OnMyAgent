@@ -85,6 +85,14 @@ function safeHref(href: string) {
   return "#";
 }
 
+function decodedLocalHref(href: string) {
+  try {
+    return decodeURIComponent(href);
+  } catch {
+    return href;
+  }
+}
+
 function alignAttribute(align: Tokens.TableCell["align"]) {
   return align ? ` style="text-align: ${align}"` : "";
 }
@@ -276,19 +284,29 @@ const baseMarkedOptions = {
       return `<del>${this.parser.parseInline(tokens)}</del>`;
     },
     link({ href, title, tokens }) {
-      const openMode: MarkdownCodePathOpenMode | null = href.startsWith("preview:")
+      const explicitOpenMode: MarkdownCodePathOpenMode | null = href.startsWith("preview:")
         ? "preview"
         : href.startsWith("artifact:")
           ? "reveal"
           : null;
-      const artifactPath = openMode ? href.slice(href.indexOf(":") + 1) : "";
-      const filePath = artifactPath ? parseMarkdownInlinePath(artifactPath) : null;
+      const explicitPath = explicitOpenMode
+        ? decodedLocalHref(href.slice(href.indexOf(":") + 1))
+        : "";
+      const implicitFilePath = explicitOpenMode || /^[a-z][a-z0-9+.-]*:/i.test(href)
+        ? null
+        : parseMarkdownInlinePath(decodedLocalHref(href));
+      const filePath = explicitPath ? parseMarkdownInlinePath(explicitPath) : implicitFilePath;
+      const openMode = explicitOpenMode ?? (filePath ? "reveal" : null);
       if (filePath) {
         const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
         return `<a href="#" data-markdown-file-path="${escapeAttribute(filePath.path)}" data-markdown-open-mode="${openMode}"${titleAttr} class="inline-flex h-8 items-center justify-center rounded-lg border border-dls-border bg-dls-surface px-3 text-sm font-medium text-dls-text no-underline transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus">${this.parser.parseInline(tokens)}</a>`;
       }
-      const safe = escapeAttribute(safeHref(href));
+      const safeHrefValue = safeHref(href);
       const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
+      if (safeHrefValue === "#" && href !== "#") {
+        return `<span aria-disabled="true"${titleAttr} class="text-dls-secondary">${this.parser.parseInline(tokens)}</span>`;
+      }
+      const safe = escapeAttribute(safeHrefValue);
       return `<a href="${safe}"${titleAttr} target="_blank" rel="noreferrer noopener" class="text-dls-accent underline underline-offset-2 transition-colors hover:text-dls-accent-hover">${this.parser.parseInline(tokens)}</a>`;
     },
     image({ href, title, text }) {
