@@ -58,9 +58,36 @@
       footer { margin-top: 6px; font-size: 12px; line-height: 1.55; }
       footer strong { font-size: 16px; }
       @media print {
-        @page { size: A4 landscape; margin: 8mm; }
-        body { padding: 0; background: #fff; }
-        .sheet { width: 100%; border: 0; }
+        @page { size: A4 landscape; margin: 0; }
+        html, body {
+          width: 297mm;
+          height: 210mm;
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+          background: #fff;
+        }
+        .sheet {
+          width: 297mm;
+          height: 210mm;
+          max-width: 297mm;
+          max-height: 210mm;
+          margin: 0;
+          padding: 6mm 8mm;
+          border: 0;
+          box-sizing: border-box;
+          overflow: hidden;
+          page-break-after: avoid;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        .sheet * { page-break-inside: avoid; break-inside: avoid; }
+        header { min-height: auto; }
+        h1 { font-size: 26px; }
+        th, td { height: auto; padding: 3px 5px; font-size: 12px; }
+        .signatures td { height: 64px; }
+        .sign-date { margin-top: 28px; }
+        footer { margin-top: 2px; font-size: 11px; }
       }
     </style>
   </head>
