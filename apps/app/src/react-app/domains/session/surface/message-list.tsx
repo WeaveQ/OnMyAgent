@@ -3912,7 +3912,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const scrollContainer = props.scrollElement?.();
     if (!scrollContainer) return;
 
-    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    let settleTimer: number | undefined;
     const onScroll = () => {
       if (measureWhileScrollingRef.current) {
         measureWhileScrollingRef.current = false;
