@@ -87,7 +87,10 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain('t("session.open_artifact")');
     expect(sidePanel).toContain('t("files.preview_unsupported")');
     expect(sidePanel).toContain('target.preview === "external"');
-    expect(sidePanel).toContain('target.preview === "image" || target.preview === "pdf"');
+    expect(sidePanel).toContain('target.preview === "pdf"');
+    expect(sidePanel).toContain('target.preview === "image"');
+    expect(sidePanel).not.toContain('["html", "image", "pdf"]');
+    expect(sidePanel).not.toContain('target.preview === "image" || target.preview === "pdf"');
     expect(sidePanel).toContain("client.downloadWorkspaceFile(workspaceId, requestPath)");
     expect(sidePanel).toContain("client.deleteWorkspaceFile(");
     expect(sidePanel).toContain("<ConfirmModal");
