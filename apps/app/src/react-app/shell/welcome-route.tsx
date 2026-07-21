@@ -15,7 +15,6 @@ import {
   Folder,
   Globe,
   Home,
-  Loader2,
   RefreshCw,
   Share2,
 } from "lucide-react";
