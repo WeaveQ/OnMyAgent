@@ -92,6 +92,8 @@ export type SessionSurfaceProps = {
     | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
   onOpenSkillsMarketplace?: (() => void) | undefined;
+  onOpenConnectorsMarketplace?: (() => void) | undefined;
+  onOpenCustomConnector?: (() => void) | undefined;
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;

@@ -51,10 +51,11 @@ function attachment(input: Partial<ComposerAttachment> & { name: string; kind: "
 
 describe("session route composer", () => {
   test("maps settings sections to stable route targets", () => {
+    // MCP/connectors no longer open Settings → Extensions (removed).
     expect(routeForSettingsSection("commands")).toBe("/settings/general");
-    expect(routeForSettingsSection("skills")).toBe("/settings/skills");
-    expect(routeForSettingsSection("mcps")).toBe("/settings/extensions/mcp");
-    expect(routeForSettingsSection("plugins")).toBe("/settings/extensions/plugins");
+    expect(routeForSettingsSection("skills")).toBe("/settings/general");
+    expect(routeForSettingsSection("mcps")).toBe("/settings/general");
+    expect(routeForSettingsSection("plugins")).toBe("/settings/general");
   });
 
   test("resets model variant only when default model changes", () => {

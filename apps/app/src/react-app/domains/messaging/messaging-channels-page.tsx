@@ -85,7 +85,8 @@ function ChannelIcon(props: {
   return (
     <div
       className={cn(
-        "flex size-5 shrink-0 items-center justify-center rounded",
+        // Match expert marketplace avatar / local agent brand icon scale (size-9).
+        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md",
         props.connected ? "" : "opacity-50",
       )}
     >
@@ -393,8 +394,8 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <StatusBadge tone="neutral" shape="soft" size="tiny">{t("messaging.channels_tab")} {channels.length}</StatusBadge>
-              <StatusBadge tone={connectedCount > 0 ? "accent" : "neutral"} shape="soft" size="tiny">{t("messaging.connected")} {connectedCount}</StatusBadge>
+              <StatusBadge tone="neutral" shape="soft" size="sm">{t("messaging.channels_tab")} {channels.length}</StatusBadge>
+              <StatusBadge tone={connectedCount > 0 ? "accent" : "neutral"} shape="soft" size="sm">{t("messaging.connected")} {connectedCount}</StatusBadge>
             </div>
           </div>
 

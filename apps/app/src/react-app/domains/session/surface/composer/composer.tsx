@@ -23,7 +23,13 @@ import { cn } from "@/lib/utils";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { ComposerAccessMode, ComposerAttachment, ComposerCollaborationMode, McpServerEntry, McpStatusMap, ModelRef, SkillCard, SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
-import { isOnMyAgentExtensionEnabled, isOnMyAgentExtensionHidden, ONMYAGENT_EXTENSION_STATE_CHANGED, useDesktopRestriction } from "../../../shared";
+import {
+  isOnMyAgentExtensionEnabled,
+  isOnMyAgentExtensionHidden,
+  ONMYAGENT_EXTENSION_STATE_CHANGED,
+  setOnMyAgentExtensionEnabled,
+  useDesktopRestriction,
+} from "../../../shared";
 import { ModelBehaviorSelect } from "../../../../../components/model-behavior-select";
 import { ModelSelectContainer } from "../../components/model-select";
 import { LexicalPromptEditor } from "./editor";
@@ -56,7 +62,6 @@ import {
   collaborationModeValue,
   selectedCollaborationModeKey,
   collaborationModeOptions,
-  isComposerExtensionAvailable,
   FLUSH_PROMPT_EVENT,
   FOCUS_PROMPT_EVENT,
   MAX_ATTACHMENT_BYTES,
@@ -64,9 +69,7 @@ import {
   formatBytes,
   isImageAttachment,
   compressImageFile,
-  formatMcpStatusLabel,
   toReactMcpStatus,
-  mcpStatusBadgeTone,
   mcpServerDescription,
   COMPOSER_CONTAIN_STYLE,
   extensionIcon,
@@ -76,7 +79,6 @@ import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
-  togglePinnedSkillId,
   writePinnedSkillIds,
 } from "./pinned-skills";
 
@@ -290,23 +292,67 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [props.listCommands]);
 
   const loadCommands = useCallback(() => {
-    if (commandsCacheRef.current !== null) {
+    // Never treat an empty list as a permanent cache — first paint often races
+    // the OpenCode client / skill catalog and would stick on "未找到命令".
+    if (commandsCacheRef.current !== null && commandsCacheRef.current.length > 0) {
       return Promise.resolve(commandsCacheRef.current);
     }
     if (commandsRequestRef.current) {
       return commandsRequestRef.current;
     }
     const version = commandsLoadVersionRef.current;
-    const request = listCommandsRef.current().then((next) => {
-      if (commandsLoadVersionRef.current === version) {
-        commandsCacheRef.current = next;
+    const request = (async (): Promise<SlashCommandOption[]> => {
+      // Slash menu needs both OpenCode command.list and OnMyAgent skills.
+      // Skills alone used to live only in the + tool flyout, so typing `/`
+      // looked empty even when many skills were installed.
+      const listSkills = listSkillsRef.current;
+      const [cmdResult, skillResult] = await Promise.allSettled([
+        listCommandsRef.current(),
+        listSkills ? listSkills() : Promise.resolve([] as SkillCard[]),
+      ]);
+      const cmds =
+        cmdResult.status === "fulfilled" && Array.isArray(cmdResult.value)
+          ? cmdResult.value
+          : [];
+      const skillCards =
+        skillResult.status === "fulfilled" && Array.isArray(skillResult.value)
+          ? skillResult.value
+          : [];
+
+      const byName = new Map<string, SlashCommandOption>();
+      for (const skill of skillCards) {
+        const name = String(skill.name ?? "").trim();
+        if (!name) continue;
+        byName.set(name, {
+          id: `skill:${name}`,
+          name,
+          description: skill.description ? String(skill.description) : undefined,
+          source: "skill",
+        });
       }
-      return next;
-    }).finally(() => {
-      if (commandsLoadVersionRef.current === version) {
-        commandsRequestRef.current = null;
+      for (const cmd of cmds) {
+        const name = String(cmd.name ?? "").trim();
+        if (!name) continue;
+        byName.set(name, cmd);
       }
-    });
+      // Preserve SkillCard.scope so OnMyAgent installs can sort ahead of the rest.
+      if (skillCards.length) {
+        setSkills(skillCards);
+        setSkillsLoaded(true);
+      }
+      return Array.from(byName.values());
+    })()
+      .then((next) => {
+        if (commandsLoadVersionRef.current === version && next.length > 0) {
+          commandsCacheRef.current = next;
+        }
+        return next;
+      })
+      .finally(() => {
+        if (commandsLoadVersionRef.current === version) {
+          commandsRequestRef.current = null;
+        }
+      });
     commandsRequestRef.current = request;
     return request;
   }, []);
@@ -341,7 +387,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!toolMenuOpen || toolMenuSection !== "templates") {
       setSelectedPromptTemplateId(null);
     } else {
-      // WorkBuddy-style cascade: open the 3rd flyout as soon as 提示词 is active.
+      // WorkBuddy-style cascade: open the 3rd flyout as soon as prompts section is active.
       const templates = props.promptTemplates ?? [];
       setSelectedPromptTemplateId((current) => {
         if (current && templates.some((template) => template.id === current)) {
@@ -356,39 +402,58 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [toolMenuOpen, toolMenuSection, props.promptTemplates]);
 
   useEffect(() => {
-    if (!slashOpen && !toolMenuOpen) return;
+    // Closing the menus must clear loading; otherwise a cancelled in-flight
+    // listCommands leaves commandsLoading=true and the slash panel stuck on
+    // "正在加载命令…" the next time `/` is typed (or even while still open).
+    if (!slashOpen && !toolMenuOpen) {
+      setCommandsLoading(false);
+      return;
+    }
     const openId = toolMenuLoadRef.current.openId;
     if (toolMenuOpen && toolMenuLoadRef.current.commands) return;
     if (toolMenuOpen) toolMenuLoadRef.current.commands = true;
     let cancelled = false;
     const cached = commandsCacheRef.current;
-    if (cached !== null) {
+    if (cached !== null && cached.length > 0) {
       setCommands(cached);
       setCommandsLoading(false);
-      if (toolMenuOpen && toolMenuLoadRef.current.openId === openId) setCommandsLoaded(true);
+      setCommandsLoaded(true);
       return () => {
         cancelled = true;
       };
     }
     setCommandsLoading(true);
+    // Soft deadline: stop the spinner if backends stall, but do not wipe a
+    // partial catalog or cache an empty failure forever.
+    const timeoutMs = 12_000;
+    let timeoutId: number | undefined;
+    let settled = false;
+    timeoutId = window.setTimeout(() => {
+      if (cancelled || settled) return;
+      settled = true;
+      setCommandsLoading(false);
+      setCommandsLoaded(true);
+    }, timeoutMs);
     void loadCommands()
       .then((next) => {
-        if (!cancelled) {
-          setCommands(next);
-          if (toolMenuOpen && toolMenuLoadRef.current.openId === openId) setCommandsLoaded(true);
-        }
+        if (cancelled) return;
+        settled = true;
+        setCommands(next);
+        setCommandsLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) {
-          setCommands([]);
-          if (toolMenuOpen && toolMenuLoadRef.current.openId === openId) setCommandsLoaded(true);
-        }
+        if (cancelled) return;
+        settled = true;
+        // Leave any previously shown list; only mark loaded so UI exits spinner.
+        setCommandsLoaded(true);
       })
       .finally(() => {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         if (!cancelled) setCommandsLoading(false);
       });
     return () => {
       cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
   }, [slashOpen, toolMenuOpen, loadCommands]);
 
@@ -538,35 +603,92 @@ export function ReactSessionComposer(props: ComposerProps) {
     return undefined;
   }, [toolMenuOpen, toolMenuSection]);
 
-  const slashFiltered = useMemo(() => {
-    if (!slashOpen) return [];
-    // Stable group order for the popup: 技能 → 指令 → 连接器 (keyboard nav matches UI).
-    const orderGroups = (list: typeof commands) => [
-      ...list.filter((command) => command.source === "skill"),
-      ...list.filter((command) => !command.source || command.source === "command"),
-      ...list.filter((command) => command.source === "mcp"),
-    ];
-    if (!slashQuery) return orderGroups(commands).slice(0, 24);
-    const hits = fuzzysort
-      .go(slashQuery, commands, { keys: ["name", "description"], limit: 24 })
-      .map((entry) => entry.obj);
-    return orderGroups(hits);
-  }, [commands, slashOpen, slashQuery]);
   const mentionFiltered = useMemo(() => {
     if (!mentionOpen) return [];
     if (!mentionQuery) return mentionItems.slice(0, 8);
     return fuzzysort.go(mentionQuery, mentionItems, { keys: ["label"], limit: 8 }).map((entry) => entry.obj);
   }, [mentionItems, mentionOpen, mentionQuery]);
+  // Shared skill catalog for `+` skills flyout and `/` slash menu so count + order match.
+  // Prefer OpenCode command.list rows when both sources have the same name, but keep
+  // the OnMyAgent install set so those can sort first after pins.
+  const onmyagentInstalledNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const skill of skills) {
+      if (skill.scope === "onmyagent") {
+        const name = String(skill.name ?? "").trim();
+        if (name) names.add(name);
+      }
+    }
+    return names;
+  }, [skills]);
+  const combinedSkillItems = useMemo(() => {
+    const byName = new Map<string, SlashCommandOption>();
+    for (const skill of skills) {
+      const name = String(skill.name ?? "").trim();
+      if (!name) continue;
+      byName.set(name, {
+        id: `skill:${name}`,
+        name,
+        description: skill.description,
+        source: "skill",
+      });
+    }
+    for (const command of commands) {
+      if (command.source === "mcp") continue;
+      const name = String(command.name ?? "").trim();
+      if (!name) continue;
+      // Stable pin key: skill:<name> so + menu pins still match slash rows.
+      byName.set(name, {
+        ...command,
+        id: command.source === "skill" || !command.source ? `skill:${name}` : command.id,
+        name,
+      });
+    }
+    const alpha = (left: SlashCommandOption, right: SlashCommandOption) =>
+      left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+    // OnMyAgent-installed first (alpha), then everything else (alpha).
+    const installed: SlashCommandOption[] = [];
+    const rest: SlashCommandOption[] = [];
+    for (const item of byName.values()) {
+      if (onmyagentInstalledNames.has(item.name)) installed.push(item);
+      else rest.push(item);
+    }
+    installed.sort(alpha);
+    rest.sort(alpha);
+    return [...installed, ...rest];
+  }, [commands, onmyagentInstalledNames, skills]);
+  const skillCatalogOrdered = useMemo(
+    () =>
+      sortWithPinnedFirst(combinedSkillItems, pinnedSkillIds, (item) => {
+        // Accept either skill:<name> or cmd:<name> pins from older builds.
+        if (pinnedSkillIds.includes(item.id)) return item.id;
+        const skillId = `skill:${item.name}`;
+        if (pinnedSkillIds.includes(skillId)) return skillId;
+        const cmdId = `cmd:${item.name}`;
+        if (pinnedSkillIds.includes(cmdId)) return cmdId;
+        return item.id;
+      }),
+    [combinedSkillItems, pinnedSkillIds],
+  );
+  const slashFiltered = useMemo(() => {
+    if (!slashOpen) return [];
+    // Slash menu is skills/commands only — connectors live under + → connectors.
+    return slashQuery.trim()
+      ? filterToolMenuItems(
+          skillCatalogOrdered,
+          slashQuery,
+          (item) => `${item.name} ${item.description ?? ""}`,
+        )
+      : skillCatalogOrdered;
+  }, [skillCatalogOrdered, slashOpen, slashQuery]);
   const activeMenu = slashOpen ? "slash" : mentionOpen ? "mention" : null;
   const activeItems = activeMenu === "slash" ? slashFiltered : activeMenu === "mention" ? mentionFiltered : [];
-  const toolCommandItems = commands.filter((command) => !command.source || command.source === "command");
-  const toolSkillItems = commands.filter((command) => command.source === "skill");
   const pluginSkillFiles = importedPlugins.flatMap((plugin) =>
     plugin.files.filter((file) => file.objectType === "command" || file.objectType === "skill"),
   );
-  const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter((entry) =>
-    !builtInExtensionsDisabled &&
-    !isOnMyAgentExtensionHidden(entry) && isComposerExtensionAvailable(entry)
+  // List all non-hidden built-ins so toggles match market built-in extensions; hide only product-hidden.
+  const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter(
+    (entry) => !builtInExtensionsDisabled && !isOnMyAgentExtensionHidden(entry),
   );
   const canSend = props.draft.trim().length > 0 || props.attachments.length > 0;
   const collaborationVariant = props.collaborationModeVariant ?? "legacy";
@@ -651,6 +773,26 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!props.onOpenSkillsMarketplace) {
       props.onOpenSettingsSection?.("skills");
     }
+  };
+
+  /** Connectors header configure → custom MCP dialog (or market connectors). */
+  const openConnectorsConfigure = () => {
+    setToolMenuOpen(false);
+    if (props.onOpenConnectorsMarketplace) {
+      props.onOpenConnectorsMarketplace();
+      return;
+    }
+    props.onOpenSettingsSection?.("mcps");
+  };
+
+  /** Custom MCP editor / fallback when marketplace is unavailable. */
+  const openCustomConnectorOrMarketplace = () => {
+    setToolMenuOpen(false);
+    if (props.onOpenCustomConnector) {
+      props.onOpenCustomConnector();
+      return;
+    }
+    props.onOpenConnectorsMarketplace?.();
   };
 
   const openFilePicker = () => {
@@ -918,31 +1060,21 @@ export function ReactSessionComposer(props: ComposerProps) {
     entry,
     status: toReactMcpStatus(entry.name, entry, mcpStatuses),
   }));
-  const combinedSkillItems = [
-    ...toolCommandItems,
-    ...toolSkillItems,
-    ...skills
-      .filter((skill) => !toolSkillItems.some((command) => command.name === skill.name))
-      .map((skill) => ({
-        id: `skill:${skill.name}`,
-        name: skill.name,
-        description: skill.description,
-        source: "skill" as const,
-      })),
-  ];
-  const filteredSkillItems = sortWithPinnedFirst(
-    filterToolMenuItems(
-      combinedSkillItems,
-      skillSearchQuery,
-      (item) => `${item.name} ${item.description ?? ""}`,
-    ),
-    pinnedSkillIds,
-    (item) => item.id,
+  // + menu reuses the same catalog/order as `/` (already pin-sorted).
+  const filteredSkillItems = filterToolMenuItems(
+    skillCatalogOrdered,
+    skillSearchQuery,
+    (item) => `${item.name} ${item.description ?? ""}`,
   );
 
-  const handleTogglePinnedSkill = useCallback((skillId: string) => {
+  const handleTogglePinnedSkill = useCallback((command: SlashCommandOption) => {
+    // Normalize to skill:<name> and drop legacy cmd:/skill: aliases for the same name.
+    const primaryId = `skill:${command.name}`;
+    const aliases = new Set([primaryId, command.id, `cmd:${command.name}`, `skill:${command.name}`]);
     setPinnedSkillIds((current) => {
-      const { next } = togglePinnedSkillId(current, skillId);
+      const had = current.some((id) => aliases.has(id));
+      const stripped = current.filter((id) => !aliases.has(id));
+      const next = had ? stripped : [primaryId, ...stripped].slice(0, 24);
       writePinnedSkillIds(next);
       return next;
     });
@@ -1328,7 +1460,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                       </div>
                       {toolMenuSection === "files" ? null : (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),14rem)] min-h-0 max-w-[14rem] flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className={cn(
+                            // Shared 2nd-column width for modes / prompts / skills / connectors.
+                            "absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),17.5rem)] max-w-[17.5rem] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid",
+                          )}
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           {toolMenuSection === "templates" ? (
@@ -1341,6 +1476,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                               <div className="flex min-h-7 items-center justify-between gap-3">
                                 <div className="text-sm font-medium text-dls-text">
                                   {t("dashboard.skills")}
+                                  <span className="tabular-nums font-medium text-dls-secondary">
+                                    {" "}
+                                    ({filteredSkillItems.length + filteredPluginSkillFiles.length})
+                                  </span>
                                 </div>
                                 <Button
                                   type="button"
@@ -1376,20 +1515,23 @@ export function ReactSessionComposer(props: ComposerProps) {
                             </div>
                           ) : toolMenuSection === "mcps" ? (
                             <div className="space-y-1.5 px-3 pt-2 pb-1">
-                              {/* Match skills panel: title + quiet configure, then search */}
+                              {/* WorkBuddy-like: title + count, configure, then search */}
                               <div className="flex min-h-7 items-center justify-between gap-3">
                                 <div className="text-sm font-medium text-dls-text">
                                   {t("composer.connectors_label")}
+                                  <span className="tabular-nums font-medium text-dls-secondary">
+                                    {" "}
+                                    ({filteredMcpItems.length + filteredComposerExtensions.length})
+                                  </span>
                                 </div>
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="xs"
                                   className="shrink-0 gap-1 text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
-                                  onClick={() => {
-                                    setToolMenuOpen(false);
-                                    openToolMenuSettings();
-                                  }}
+                                  onClick={openConnectorsConfigure}
+                                  title={t("composer.configure")}
+                                  aria-label={t("composer.configure")}
                                 >
                                   <Settings className="size-3.5" />
                                   {t("composer.configure")}
@@ -1460,7 +1602,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                             {toolMenuSection === "modes" ? (
                               collaborationVariant === "office" ? (
                                 <div className="space-y-3 px-1 py-1">
-                                  <p className="text-sm leading-5 text-dls-secondary">
+                                  <p className="whitespace-nowrap text-sm leading-5 text-dls-secondary">
                                     {(
                                       modeOptions.find((option) => option.key === (selectedModeKey ?? "craft")) ??
                                       modeOptions[0]
@@ -1550,7 +1692,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   <div className="grid min-w-0 gap-0.5">
                                     {filteredSkillItems.map((command) => {
                                       const description = skillMenuDescription(command.description);
-                                      const isPinned = pinnedSkillIds.includes(command.id);
+                                      const isPinned =
+                                        pinnedSkillIds.includes(command.id) ||
+                                        pinnedSkillIds.includes(`skill:${command.name}`) ||
+                                        pinnedSkillIds.includes(`cmd:${command.name}`);
                                       const rowBody = (
                                         <div className="group/skill flex min-w-0 items-stretch gap-0.5 rounded-xl hover:bg-dls-surface-muted/70">
                                           <MenuRowButton
@@ -1592,7 +1737,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();
-                                              handleTogglePinnedSkill(command.id);
+                                              handleTogglePinnedSkill(command);
                                             }}
                                           >
                                             {isPinned ? (
@@ -1659,128 +1804,152 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                             {toolMenuSection === "mcps" ? (
                               hasConnectorMatches ? (
-                                <div className="grid min-w-0 gap-0.5">
-                                  {filteredMcpItems.map(({ entry, status }) => {
-                                    const description = mcpServerDescription(entry);
-                                    return (
-                                      <MenuRowButton
-                                        key={entry.name}
-                                        type="button"
-                                        align="center"
-                                        className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                        // Display-only MCP status rows; keep soft skills-like chrome.
-                                        tabIndex={-1}
-                                        onClick={(event) => event.preventDefault()}
-                                      >
-                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                          <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                <TooltipProvider delay={280}>
+                                  <div className="grid min-w-0 gap-0.5">
+                                    {filteredComposerExtensions.length > 0 ? (
+                                      <>
+                                        <div className="px-2 pb-0.5 pt-1 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
+                                          {t("composer.connectors_group_builtin")}
                                         </div>
-                                        <div className="min-w-0 flex-1 overflow-hidden">
-                                          <div className="flex min-w-0 items-center justify-between gap-2">
-                                            <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-                                              {entry.name}
-                                            </div>
-                                            <StatusBadge
-                                              size="tiny"
-                                              shape="soft"
-                                              tone={mcpStatusBadgeTone(status)}
-                                              className="shrink-0"
+                                        {filteredComposerExtensions.map((entry) => {
+                                          const description = entry.description?.trim() ?? "";
+                                          const enabled = isOnMyAgentExtensionEnabled(entry);
+                                          const hasPrompts = Boolean(entry.suggestedPrompts?.length);
+                                          const rowKey = entry.id ?? entry.serverName ?? entry.name;
+                                          const rowBody = (
+                                            <div
+                                              className={cn(
+                                                "flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover",
+                                                selectedComposerExtension === entry && "bg-dls-hover",
+                                              )}
+                                              onMouseEnter={() =>
+                                                setSelectedComposerExtension(hasPrompts ? entry : null)
+                                              }
                                             >
-                                              {formatMcpStatusLabel(status)}
-                                            </StatusBadge>
-                                          </div>
-                                          {description ? (
-                                            <div className="truncate text-xs text-dls-secondary">
-                                              {description}
-                                            </div>
-                                          ) : null}
-                                        </div>
-                                      </MenuRowButton>
-                                    );
-                                  })}
-                                  <TooltipProvider delay={280}>
-                                    {filteredComposerExtensions.map((entry) => {
-                                      const description = entry.description?.trim() ?? "";
-                                      const row = (
-                                        <MenuRowButton
-                                          type="button"
-                                          align="center"
-                                          className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                          active={selectedComposerExtension === entry}
-                                          onMouseEnter={() => setSelectedComposerExtension(
-                                            entry.suggestedPrompts?.length ? entry : null,
-                                          )}
-                                          onFocus={() => setSelectedComposerExtension(
-                                            entry.suggestedPrompts?.length ? entry : null,
-                                          )}
-                                          onClick={() => {
-                                            if (entry.suggestedPrompts?.length) {
-                                              setSelectedComposerExtension(entry);
-                                              return;
-                                            }
-                                            applyExtensionSelection(entry);
-                                          }}
-                                        >
-                                          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                            {extensionIcon(entry, 16)}
-                                          </div>
-                                          <div className="min-w-0 flex-1 overflow-hidden">
-                                            <div className="flex min-w-0 items-center justify-between gap-2">
-                                              <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-                                                {entry.name}
+                                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                                {extensionIcon(entry, 16)}
                                               </div>
-                                              {entry.defaultEnabled ? (
-                                                <StatusBadge
-                                                  size="tiny"
-                                                  shape="soft"
-                                                  tone="accent"
-                                                  className="shrink-0"
-                                                >
-                                                  {t("plugins.enabled")}
-                                                </StatusBadge>
-                                              ) : entry.suggestedPrompts?.length ? (
-                                                <ChevronRight
-                                                  className="size-3.5 shrink-0 text-dls-secondary"
-                                                  aria-hidden="true"
-                                                />
-                                              ) : null}
+                                              <button
+                                                type="button"
+                                                className="min-w-0 flex-1 overflow-hidden text-left"
+                                                onClick={() => {
+                                                  if (hasPrompts) {
+                                                    setSelectedComposerExtension(entry);
+                                                    return;
+                                                  }
+                                                  if (!enabled) {
+                                                    setOnMyAgentExtensionEnabled(entry, true);
+                                                    setExtensionStateVersion((v) => v + 1);
+                                                  }
+                                                  applyExtensionSelection(entry);
+                                                }}
+                                              >
+                                                <div className="truncate text-sm font-medium text-dls-text">
+                                                  {entry.name}
+                                                </div>
+                                                {description ? (
+                                                  <div className="truncate text-xs text-dls-secondary">
+                                                    {description}
+                                                  </div>
+                                                ) : null}
+                                              </button>
+                                              <Switch
+                                                size="sm"
+                                                className="shrink-0"
+                                                checked={enabled}
+                                                onCheckedChange={(next) => {
+                                                  setOnMyAgentExtensionEnabled(entry, next);
+                                                  setExtensionStateVersion((v) => v + 1);
+                                                }}
+                                                aria-label={entry.name}
+                                              />
                                             </div>
-                                            {description ? (
-                                              <div className="truncate text-xs text-dls-secondary">
+                                          );
+                                          if (!description) {
+                                            return <div key={rowKey}>{rowBody}</div>;
+                                          }
+                                          return (
+                                            <Tooltip key={rowKey}>
+                                              <TooltipTrigger
+                                                render={<div className="min-w-0" />}
+                                                className="min-w-0"
+                                              >
+                                                {rowBody}
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="bottom"
+                                                align="start"
+                                                sideOffset={6}
+                                                className="max-w-[18rem] whitespace-normal text-left leading-5"
+                                              >
                                                 {description}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          );
+                                        })}
+                                      </>
+                                    ) : null}
+                                    {filteredMcpItems.length > 0 ? (
+                                      <>
+                                        <div className="px-2 pb-0.5 pt-2 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
+                                          {t("composer.connectors_group_mcp")}
+                                        </div>
+                                        {filteredMcpItems.map(({ entry, status }) => {
+                                          const description = mcpServerDescription(entry);
+                                          const ready = status === "connected";
+                                          const rowBody = (
+                                            <div className="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover">
+                                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
+                                                <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
                                               </div>
-                                            ) : null}
-                                          </div>
-                                        </MenuRowButton>
-                                      );
-                                      if (!description) {
-                                        return (
-                                          <div key={entry.id ?? entry.serverName ?? entry.name}>
-                                            {row}
-                                          </div>
-                                        );
-                                      }
-                                      return (
-                                        <Tooltip key={entry.id ?? entry.serverName ?? entry.name}>
-                                          <TooltipTrigger
-                                            render={<div className="min-w-0" />}
-                                            className="min-w-0"
-                                          >
-                                            {row}
-                                          </TooltipTrigger>
-                                          <TooltipContent
-                                            side="bottom"
-                                            align="start"
-                                            sideOffset={6}
-                                            className="max-w-[18rem] whitespace-normal text-left leading-5"
-                                          >
-                                            {description}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    })}
-                                  </TooltipProvider>
-                                </div>
+                                              <div className="min-w-0 flex-1 overflow-hidden">
+                                                <div className="truncate text-sm font-medium text-dls-text">
+                                                  {entry.name}
+                                                </div>
+                                                {description ? (
+                                                  <div className="truncate text-xs text-dls-secondary">
+                                                    {description}
+                                                  </div>
+                                                ) : null}
+                                              </div>
+                                              <Switch
+                                                size="sm"
+                                                className="shrink-0"
+                                                checked={ready}
+                                                onCheckedChange={() => {
+                                                  // MCP enable/disable lives in opencode config — open the editor.
+                                                  openCustomConnectorOrMarketplace();
+                                                }}
+                                                aria-label={entry.name}
+                                              />
+                                            </div>
+                                          );
+                                          if (!description) {
+                                            return <div key={entry.name}>{rowBody}</div>;
+                                          }
+                                          return (
+                                            <Tooltip key={entry.name}>
+                                              <TooltipTrigger
+                                                render={<div className="min-w-0" />}
+                                                className="min-w-0"
+                                              >
+                                                {rowBody}
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="bottom"
+                                                align="start"
+                                                sideOffset={6}
+                                                className="max-w-[18rem] whitespace-normal text-left leading-5"
+                                              >
+                                                {description}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          );
+                                        })}
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </TooltipProvider>
                               ) : (
                                 <div className="px-3 py-2 text-xs text-dls-secondary">
                                   {!mcpLoaded && mcpLoading
@@ -1796,7 +1965,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                       )}
                       {toolMenuSection === "templates" && selectedPromptTemplate ? (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem+14rem-2px)] flex w-[min(calc(100vw-27rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className="absolute bottom-0 left-[calc(11rem+17.5rem-2px)] flex w-[min(calc(100vw-30rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
@@ -1823,7 +1992,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                       ) : null}
                       {toolMenuSection === "mcps" && selectedComposerExtension?.suggestedPrompts?.length ? (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem+14rem-2px)] flex w-[min(calc(100vw-27rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className="absolute bottom-0 left-[calc(11rem+17.5rem-2px)] flex w-[min(calc(100vw-30rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
