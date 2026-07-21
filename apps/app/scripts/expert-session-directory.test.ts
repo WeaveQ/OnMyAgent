@@ -3,6 +3,7 @@ import {
   buildIsolatedExpertSessionDirectory,
   isSameDirectory,
   joinWorkspacePath,
+  resolveExpertSessionDirectoryMarker,
   resolveSelectedSessionFileRoot,
   sanitizePathSegment,
   shouldIsolateExpertSessionDirectory,
@@ -24,9 +25,19 @@ describe("expert session directory isolation", () => {
     expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家/abc123def456");
     expect(isolated.agentSegment).toBe("物流单专家");
     expect(isolated.markerRelativePath).toBe(
-      "物流单专家/abc123def456/.onmyagent-session.json",
+      "物流单专家/abc123def456/onmyagent-session.json",
     );
     expect(isolated.markerContent).toContain("expert-session");
+  });
+
+  test("resolves marker payload for an existing absolute session directory", () => {
+    const marker = resolveExpertSessionDirectoryMarker(
+      "/Users/me/Workspace",
+      "/Users/me/Workspace/物流单录入作业/bca2a4a7fdbd",
+    );
+    expect(marker?.markerRelativePath).toBe(
+      "物流单录入作业/bca2a4a7fdbd/onmyagent-session.json",
+    );
   });
 
   test("joins windows-style roots with backslash", () => {

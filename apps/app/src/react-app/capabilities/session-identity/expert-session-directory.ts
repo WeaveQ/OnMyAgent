@@ -53,8 +53,11 @@ export function isSameDirectory(left: string, right: string): boolean {
   return Boolean(a) && a === b;
 }
 
-/** Hidden marker so the files panel stays clean (dotfiles are filtered). */
-export const EXPERT_SESSION_MARKER_NAME = ".onmyagent-session.json";
+/**
+ * Marker file that materializes the session directory via writeWorkspaceFile.
+ * Hidden from the files panel via shouldHideEntry (name match), not a user README.
+ */
+export const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
 
 /**
  * Build an isolated session directory under the workspace when the user did
@@ -132,4 +135,84 @@ export function resolveSelectedSessionFileRoot(input: {
     }
   }
   return "";
+}
+
+/**
+ * If `sessionDirectory` is a child of `workspaceRoot`, return the hidden marker
+ * write payload used to materialize that directory. Otherwise null.
+ */
+export function resolveExpertSessionDirectoryMarker(
+  workspaceRoot: string,
+  sessionDirectory: string,
+): { markerRelativePath: string; markerContent: string } | null {
+  const root = workspaceRoot.trim().replace(/[\\/]+$/, "");
+  const directory = sessionDirectory.trim().replace(/[\\/]+$/, "");
+  if (!root || !directory || isSameDirectory(root, directory)) return null;
+
+  const rootNorm = root.replace(/\\/g, "/");
+  const dirNorm = directory.replace(/\\/g, "/");
+  const rootKey = normalizeDirectoryPathValue(root);
+  const dirKey = normalizeDirectoryPathValue(directory);
+  if (!dirKey.startsWith(`${rootKey}/`)) return null;
+
+  // Preserve original casing for the relative path when possible.
+  const prefix = rootNorm.endsWith("/") ? rootNorm : `${rootNorm}/`;
+  const relativeDir = dirNorm.toLowerCase().startsWith(prefix.toLowerCase())
+    ? dirNorm.slice(prefix.length)
+    : dirNorm.slice(rootNorm.length).replace(/^[\\/]+/, "");
+  if (!relativeDir || relativeDir.includes("..")) return null;
+
+  const parts = relativeDir.split(/[\\/]/).filter(Boolean);
+  const markerRelativePath = relativePosixPath(...parts, EXPERT_SESSION_MARKER_NAME);
+  const markerContent = `${JSON.stringify(
+    {
+      kind: "expert-session",
+      directory: relativeDir.replace(/\\/g, "/"),
+    },
+    null,
+    2,
+  )}\n`;
+  return { markerRelativePath, markerContent };
+}
+
+export type ExpertSessionDirectoryWriter = {
+  writeWorkspaceFile: (
+    workspaceId: string,
+    payload: { path: string; content: string; force?: boolean },
+  ) => Promise<unknown>;
+};
+
+/**
+ * Ensure a session directory exists on disk by writing the hidden marker.
+ * Returns true only when the write succeeds (opencode can realPath the dir).
+ */
+export async function materializeExpertSessionDirectory(input: {
+  client: ExpertSessionDirectoryWriter | null | undefined;
+  workspaceId: string | null | undefined;
+  workspaceRoot: string;
+  sessionDirectory: string;
+}): Promise<boolean> {
+  const client = input.client;
+  const workspaceId = input.workspaceId?.trim() ?? "";
+  if (!client || !workspaceId) return false;
+  const marker = resolveExpertSessionDirectoryMarker(
+    input.workspaceRoot,
+    input.sessionDirectory,
+  );
+  if (!marker) return false;
+  try {
+    await client.writeWorkspaceFile(workspaceId, {
+      path: marker.markerRelativePath,
+      content: marker.markerContent,
+      force: true,
+    });
+    return true;
+  } catch (error) {
+    console.warn(
+      "[expert-session] failed to materialize session directory",
+      input.sessionDirectory,
+      error,
+    );
+    return false;
+  }
 }
