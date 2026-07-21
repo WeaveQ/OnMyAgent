@@ -1540,8 +1540,8 @@ html.onmyagent-electron.onmyagent-platform-mac:not([data-theme="dark"]) {
 }
 
 html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] {
-  /* Rail must stay more open than sidebar — near-black #141414@high% reads solid. */
-  --dls-rail-bg: color-mix(in srgb, #1c1c1c 40%, transparent);
+  /* Rail more open than sidebar; mix base matches DESIGN.md dark rail-bg #141414. */
+  --dls-rail-bg: color-mix(in srgb, #141414 40%, transparent);
   --dls-sidebar: color-mix(in srgb, #2a2a2a 88%, transparent);
   --dls-background: color-mix(in srgb, #1f1f1f 78%, transparent);
   --dls-surface: color-mix(in srgb, #2c2c2c 86%, transparent);

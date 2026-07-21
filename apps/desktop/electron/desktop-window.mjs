@@ -112,7 +112,9 @@ export function createDesktopWindowController(options) {
     // under-window for both themes: blur the desktop behind the frame so the
     // primary rail / list chrome can show WeChat-like frosted translucency.
     // (Light used to use "sidebar", which reads too solid next to wallpaper.)
-    return "under-window";
+    /** @type {"under-window"} */
+    const material = "under-window";
+    return material;
   }
 
   function applyNativeTheme(mode) {
