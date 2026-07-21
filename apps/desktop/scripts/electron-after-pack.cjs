@@ -70,7 +70,13 @@ function signComputerUseHelper(context) {
     || process.env.CSC_NAME
     || process.env.APPLE_CODESIGN_IDENTITY
     || "-";
+  // Same entitlements as electron-builder mac.entitlements — required when
+  // Hardened Runtime is on (ad-hoc or Developer ID) so helper dylibs load.
+  const entitlements = path.join(__dirname, "..", "build", "entitlements.mac.plist");
   const args = ["--force", "--deep", "--options", "runtime", "--sign", identity];
+  if (fs.existsSync(entitlements)) {
+    args.push("--entitlements", entitlements);
+  }
   if (identity !== "-") args.push("--timestamp");
   args.push(helperPath);
 

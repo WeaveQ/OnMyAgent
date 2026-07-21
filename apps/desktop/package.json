@@ -16,6 +16,7 @@
     "build:electron": "node ./scripts/electron-build.mjs",
     "package:electron": "pnpm run build:electron && node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml",
     "package:electron:dir": "pnpm run build:electron && node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml --dir",
+    "package:electron:local": "node ./scripts/package-electron-local.mjs",
     "package:nsis": "node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml --win --x64 --publish never",
     "electron": "pnpm exec electron ./electron/main.mjs",
     "check:electron": "node ./scripts/check-electron-bridge.mjs",

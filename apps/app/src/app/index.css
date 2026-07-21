@@ -163,6 +163,32 @@ select:disabled {
   }
 }
 
+/* Expert list busy status — horizontal dots in currentColor (reads on dark). */
+@keyframes expert-status-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0) scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-0.5px) scale(1);
+  }
+}
+
+.expert-status-dot {
+  animation: expert-status-dot 1.05s ease-in-out infinite;
+  background-color: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expert-status-dot {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
 .dark,
 [data-theme="dark"] {
   /* Bridge shadcn aliases to DLS so dual classnames stay color-consistent */
@@ -739,13 +765,29 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: var(--session-content-cell, var(--dls-surface));
   }
 
-  .session-markdown-table-header {
+  /* Internal grid only — outer frame is the wrapper border (no double edge). */
+  .session-markdown-table th,
+  .session-markdown-table td {
     border-color: var(--session-content-border, var(--dls-border));
+    border-style: solid;
+    border-width: 0 1px 1px 0;
+  }
+
+  .session-markdown-table th:last-child,
+  .session-markdown-table td:last-child {
+    border-right-width: 0;
+  }
+
+  .session-markdown-table tbody tr:last-child th,
+  .session-markdown-table tbody tr:last-child td {
+    border-bottom-width: 0;
+  }
+
+  .session-markdown-table-header {
     background: var(--session-content-table-header, var(--dls-surface-muted));
   }
 
   .session-markdown-table-cell {
-    border-color: var(--session-content-border, var(--dls-border));
     background: var(--session-content-cell, var(--dls-surface));
   }
 

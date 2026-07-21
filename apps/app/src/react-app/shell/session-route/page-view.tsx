@@ -513,7 +513,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           settingsSlot={
             <SettingsSurface
               embedded
-              initialPath="extensions"
+              initialPath="general"
               workspaceId={selectedWorkspaceId}
               onClose={() => {
                 try {

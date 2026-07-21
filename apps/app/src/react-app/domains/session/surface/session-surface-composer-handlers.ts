@@ -237,15 +237,27 @@ export function useSessionSurfaceComposerHandlers(
     const response = await client.listSkills(workspaceId, {
       includeGlobal: true,
     });
-    const next = (response.items ?? []).map(
-      (skill) =>
-        ({
-          name: skill.name,
-          path: skill.path,
-          description: skill.description,
-          trigger: skill.trigger,
-        }) satisfies SkillCard,
-    );
+    const next = (response.items ?? []).map((skill) => {
+      // Map server scopes onto SkillCard; "onmyagent" marks marketplace/global installs.
+      const rawScope = skill.scope;
+      const scope: SkillCard["scope"] =
+        rawScope === "onmyagent"
+          ? "onmyagent"
+          : rawScope === "built-in"
+            ? "builtin"
+            : rawScope === "local" || rawScope === "project"
+              ? "local"
+              : rawScope === "global"
+                ? "onmyagent"
+                : undefined;
+      return {
+        name: skill.name,
+        path: skill.path,
+        description: skill.description,
+        trigger: skill.trigger,
+        scope,
+      } satisfies SkillCard;
+    });
     setToolSkills(next);
     return next;
   };

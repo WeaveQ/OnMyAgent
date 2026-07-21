@@ -48,9 +48,16 @@ publish:
 mac:
   icon: resources/icons/icon.icns
   category: public.app-category.developer-tools
+  # Hardened Runtime stays on for both Developer ID and ad-hoc local builds.
+  # Ad-hoc: set identity to "-" (see package:electron:local) and keep the
+  # entitlements below so Electron/Chromium JIT + native modules do not crash.
+  # Release: leave identity unset (or CSC_NAME=Developer ID Application: …)
+  # and enable MACOS_NOTARIZE=true after signing.
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSMicrophoneUsageDescription: OnMyAgent uses the microphone when you start Voice Mode so you can speak commands to your agent.
   extraResources:

@@ -239,36 +239,47 @@ export function AgentPromptSuggestions(props: {
     promptsFromExpertQuickPrompts(props.quickPrompts) ??
     resolvePrompts(props.agentId).slice(0, 4);
   return (
-    <div className={cn("w-full max-w-[720px] pt-12", props.className)}>
-      <div className="grid grid-cols-2 gap-2.5">
+    <div className={cn("w-full max-w-2xl", props.className)}>
+      <div className="grid grid-cols-2 gap-3">
         {prompts.map((p) => {
           const Icon = p.icon;
           return (
             <ActionRowButton
               key={p.title}
-              density="card"
+              density="prompt"
               type="button"
               onClick={() => props.onSelect(p.prompt)}
-              className="group relative overflow-hidden rounded-xl border-dls-mist transition-colors duration-200 hover:bg-dls-hover"
+              className={cn(
+                // Taller cards so multi-line expert prompts are less truncated.
+                "min-h-[5.75rem] items-start gap-3 rounded-xl border border-dls-border/60 bg-dls-surface-muted/40 px-3.5 py-3.5 text-left shadow-none",
+                "transition-colors duration-150",
+                "hover:border-dls-border hover:bg-dls-hover",
+                "active:bg-dls-surface-muted",
+                "focus-visible:ring-2 focus-visible:ring-dls-accent/40",
+              )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-dls-brand-faint-blue via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative flex items-start gap-3">
-                <IconTile className="mt-0.5 transition-colors group-hover:bg-dls-hover group-hover:text-dls-accent" shape="xl" tone="accent">
-                  <Icon className="size-3.5" />
-                </IconTile>
-                <div className="min-w-0 flex-1">
-                  <div className={cn(
-                    "text-sm font-medium text-dls-text",
-                    p.description ? "truncate" : "line-clamp-2 leading-5",
-                  )}>
-                    {p.title}
-                  </div>
-                  {p.description ? (
-                    <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-dls-secondary">
-                      {p.description}
-                    </div>
-                  ) : null}
+              <IconTile
+                size="sm"
+                shape="lg"
+                tone="accent"
+                className="mt-0.5 shrink-0"
+              >
+                <Icon className="size-3.5" />
+              </IconTile>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div
+                  className={cn(
+                    "text-sm font-medium leading-5 text-dls-text",
+                    p.description ? "truncate" : "line-clamp-3",
+                  )}
+                >
+                  {p.title}
                 </div>
+                {p.description ? (
+                  <div className="line-clamp-2 text-xs leading-4 text-dls-secondary">
+                    {p.description}
+                  </div>
+                ) : null}
               </div>
             </ActionRowButton>
           );

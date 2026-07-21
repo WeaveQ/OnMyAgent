@@ -32,18 +32,36 @@ export type OpenTarget = {
 const WORKSPACES_PREFIX_PATTERN = /^workspaces\/[^/]+\//i;
 const WORKSPACE_ID_PREFIX_PATTERN = /^workspace\/(?:ws_[^/]+|\d+|[0-9a-f-]{6,})\//i;
 
-const FILE_PATTERN = /(?:^|[\s"'`([{])((?:\.{1,2}[/\\]|~[/\\]|[/\\])?[\w.\-\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+(?:[/\\][\w.\-\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+)+\.[a-z][a-z0-9]{0,9}|[\w.\-\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+\.[a-z][a-z0-9]{0,9})/gi;
+// Path segments allow Unicode letters/numbers (e.g. agents/应收台账模板.xlsx).
+// \w alone is ASCII-only and dropped Chinese filenames from the files panel.
+const FILE_PATH_SEGMENT = String.raw`[\p{L}\p{N}._\-]+`;
+const FILE_PATTERN = new RegExp(
+  String.raw`(?:^|[\s"'` +
+    "`" +
+    String.raw`([{])((?:\.{1,2}[/\\]|~[/\\]|[/\\])?(?:` +
+    FILE_PATH_SEGMENT +
+    String.raw`[/\\])+` +
+    FILE_PATH_SEGMENT +
+    String.raw`\.[a-z][a-z0-9]{0,9}|` +
+    FILE_PATH_SEGMENT +
+    String.raw`\.[a-z][a-z0-9]{0,9})`,
+  "giu",
+);
 const URL_PATTERN = /https?:\/\/[^\s)\]}>"'`]+/gi;
 const SOCKET_PATTERN = /(?:ws|wss):\/\/[^\s)\]}>"'`]+/gi;
 const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>(["markdown", "sheet", "image", "pdf", "html"]);
 const DISCOVERY_TOOL_NAMES = new Set(["glob", "grep", "search", "find"]);
 const WRITE_TOOL_NAMES = new Set([
   "apply_patch",
+  "bash",
   "edit",
   "edit_file",
+  "execute",
   "multi_edit",
   "multiedit",
   "patch",
+  "run_terminal_cmd",
+  "shell",
   "str_replace_editor",
   "write",
   "write_file",
@@ -81,11 +99,75 @@ export function classifyOpenTarget(value: string, kind: OpenTargetKind): OpenTar
   const ext = extname(value);
   if ([".md", ".markdown", ".mdx"].includes(ext)) return "markdown";
   if ([".csv", ".tsv", ".xlsx", ".xls", ".ods"].includes(ext)) return "sheet";
-  if ([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"].includes(ext)) return "image";
+  if ([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif"].includes(ext)) return "image";
   if (ext === ".pdf") return "pdf";
   if ([".html", ".htm"].includes(ext)) return "html";
-  if ([".txt", ".log", ".json", ".jsonc", ".yaml", ".yml", ".toml", ".xml", ".ts", ".tsx", ".js", ".jsx", ".css", ".scss"].includes(ext)) return "text";
+  // Source / config that the text pane can open safely (not Office binaries).
+  if (
+    [
+      ".txt",
+      ".log",
+      ".json",
+      ".jsonc",
+      ".yaml",
+      ".yml",
+      ".toml",
+      ".xml",
+      ".ts",
+      ".tsx",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs",
+      ".css",
+      ".scss",
+      ".less",
+      ".py",
+      ".rs",
+      ".go",
+      ".java",
+      ".kt",
+      ".swift",
+      ".rb",
+      ".php",
+      ".c",
+      ".h",
+      ".cpp",
+      ".hpp",
+      ".cs",
+      ".sh",
+      ".bash",
+      ".zsh",
+      ".sql",
+      ".r",
+      ".env",
+      ".ini",
+      ".cfg",
+      ".conf",
+      ".vue",
+      ".svelte",
+      ".graphql",
+      ".gql",
+    ].includes(ext)
+  ) {
+    return "text";
+  }
   return "external";
+}
+
+/**
+ * Whether the files / side-panel surface can render this target inline
+ * without a binary decoder (Office docs, media, archives stay external).
+ */
+export function canPreviewOpenTargetInline(target: OpenTarget): boolean {
+  if (target.kind === "url" || target.preview === "browser") return true;
+  if (target.preview === "markdown" || target.preview === "text") return true;
+  if (target.preview === "html") return true;
+  // Spreadsheet previews only for plain-text tabular files (not xlsx/xls/ods).
+  if (target.preview === "sheet") {
+    return /\.(csv|tsv)$/i.test(target.name || target.value);
+  }
+  return false;
 }
 
 function targetFromFile(path: string, confidence: number, reason: string): OpenTarget | null {

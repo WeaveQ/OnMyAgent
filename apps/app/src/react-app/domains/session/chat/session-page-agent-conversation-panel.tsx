@@ -12,7 +12,6 @@ import type { WorkspaceSessionGroup } from "../../../../app/types";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SessionRowButton } from "@/components/ui/action-row";
-import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 
@@ -30,7 +29,6 @@ const agentConversationPanelClass = {
   row: "gap-2.5 rounded-xl px-2.5 data-[active=true]:bg-dls-list-selected",
   avatarWrap: "relative shrink-0",
   avatar: "flex size-11 items-center justify-center overflow-hidden rounded-full border border-dls-sidebar bg-dls-decision-soft text-base font-medium text-dls-accent",
-  statusDot: "absolute bottom-0.5 right-0.5 border-2 border-dls-sidebar",
   rowBody: "min-w-0 flex-1 py-3",
   rowHeader: "flex min-w-0 items-center gap-2",
   rowTitle: "min-w-0 flex-1 truncate text-sm font-medium",
@@ -181,7 +179,18 @@ function AgentConversationItem(props: {
     props.snapshot,
     props.session.time?.updated ?? props.session.time?.created,
   );
-  const badge = isStreamingSessionStatus(props.status);
+  const activityLabel = (() => {
+    const status = props.status;
+    if (!status || !isStreamingSessionStatus(status)) return null;
+    if (status === "responding" || status === "streaming") {
+      return t("session.expert_status_responding");
+    }
+    if (status === "retry") {
+      return t("session.expert_status_retrying");
+    }
+    if (status === "waiting") return t("session.expert_status_waiting");
+    return t("session.expert_status_thinking");
+  })();
 
   return (
     <SessionRowButton
@@ -216,23 +225,6 @@ function AgentConversationItem(props: {
             name.charAt(0).toUpperCase() || t("session.agent_initial")
           )}
         </div>
-        <StatusDot
-          size="sm"
-          tone={
-            props.taskStatusVariant === "loading" ||
-            props.taskStatusVariant === "limited"
-              ? "warning"
-              : props.taskStatusVariant === "offline"
-                ? "danger"
-                : props.taskStatusVariant === "available"
-                  ? "active"
-                  : "muted"
-          }
-          className={cn(
-            agentConversationPanelClass.statusDot,
-            "border-dls-surface",
-          )}
-        />
       </div>
       <div
         className={cn(
@@ -241,18 +233,35 @@ function AgentConversationItem(props: {
         )}
       >
         <div className={agentConversationPanelClass.rowHeader}>
-          <div className={agentConversationPanelClass.rowTitle}>
+          <div className={cn(agentConversationPanelClass.rowTitle, "min-w-0 flex-1")}>
             {name}
           </div>
-          <div className={agentConversationPanelClass.rowTime}>
-            {summary.time}
-          </div>
+          {activityLabel ? (
+            <span
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-dls-accent"
+              aria-live="polite"
+            >
+              <span>{activityLabel}</span>
+              <span className="inline-flex items-center gap-[3px]" aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="expert-status-dot size-[3.5px] rounded-full"
+                    style={{ animationDelay: `${i * 0.16}s` }}
+                  />
+                ))}
+              </span>
+            </span>
+          ) : (
+            <div className={agentConversationPanelClass.rowTime}>
+              {summary.time}
+            </div>
+          )}
         </div>
         <div className={agentConversationPanelClass.rowPreview}>
           <div className={agentConversationPanelClass.previewText}>
             {summary.preview}
           </div>
-          {badge ? <StatusDot size="md" tone="warning" className="shrink-0" /> : null}
         </div>
       </div>
     </SessionRowButton>
