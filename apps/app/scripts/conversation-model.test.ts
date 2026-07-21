@@ -11,6 +11,11 @@ import {
   buildAssistantConversationGroups,
   readAssistantPinnedSessionIds,
   writeAssistantPinnedSessionIds,
+  readAssistantGlobalPins,
+  writeAssistantGlobalPins,
+  readAssistantSpaceLocalPins,
+  writeAssistantSpaceLocalPins,
+  sortGroupsByPinnedSessionIds,
   writeCustomAgentIdForSession,
 } from "../src/react-app/domains/session/sidebar/conversation-model";
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
@@ -113,6 +118,69 @@ describe("conversation model assistant pinned sessions", () => {
     expect(readAssistantPinnedSessionIds("ws_1")).toEqual([]);
     expect(readAssistantPinnedSessionIds("ws_2")).toEqual(["other"]);
   });
+
+  test("global pins support sessions + folders with order", () => {
+    writeAssistantGlobalPins("ws_a", [
+      { kind: "folder", id: "/tmp/test1" },
+      { kind: "session", id: "ses_a" },
+      { kind: "session", id: "ses_a" },
+      { kind: "folder", id: "/tmp/test1" },
+    ]);
+    expect(readAssistantGlobalPins("ws_a")).toEqual([
+      { kind: "folder", id: "/tmp/test1" },
+      { kind: "session", id: "ses_a" },
+    ]);
+  });
+
+  test("space-local pins stay scoped to a directory", () => {
+    writeAssistantSpaceLocalPins("ws_a", "/tmp/test1", ["ses_1", "ses_2", "ses_1"]);
+    expect(readAssistantSpaceLocalPins("ws_a", "/tmp/test1")).toEqual([
+      "ses_1",
+      "ses_2",
+    ]);
+    expect(readAssistantSpaceLocalPins("ws_a", "/tmp/other")).toEqual([]);
+  });
+
+  test("sortGroupsByPinnedSessionIds puts local pins first in pin order", () => {
+    const groups = [
+      {
+        key: "a",
+        agentId: null,
+        name: "A",
+        description: "late",
+        avatarUrl: null,
+        avatarBackground: "#000",
+        sessions: [{ id: "ses_late", title: "late", time: { created: 3, updated: 3 } }],
+        latestSession: { id: "ses_late", title: "late", time: { created: 3, updated: 3 } },
+      },
+      {
+        key: "b",
+        agentId: null,
+        name: "B",
+        description: "pinned-second",
+        avatarUrl: null,
+        avatarBackground: "#000",
+        sessions: [{ id: "ses_b", title: "b", time: { created: 2, updated: 2 } }],
+        latestSession: { id: "ses_b", title: "b", time: { created: 2, updated: 2 } },
+      },
+      {
+        key: "c",
+        agentId: null,
+        name: "C",
+        description: "pinned-first",
+        avatarUrl: null,
+        avatarBackground: "#000",
+        sessions: [{ id: "ses_c", title: "c", time: { created: 1, updated: 1 } }],
+        latestSession: { id: "ses_c", title: "c", time: { created: 1, updated: 1 } },
+      },
+    ] as any;
+    const sorted = sortGroupsByPinnedSessionIds(groups, ["ses_c", "ses_b"]);
+    expect(sorted.map((g: { latestSession: { id: string } }) => g.latestSession.id)).toEqual([
+      "ses_c",
+      "ses_b",
+      "ses_late",
+    ]);
+  });
 });
 
 describe("conversation model assistant groups", () => {
@@ -149,7 +217,11 @@ describe("conversation model agent groups", () => {
     expect(groups[0].latestSession.id).toBe("expert_a_new");
     expect(groups[0].sessions.map((session) => session.id)).toEqual(["expert_a_old", "expert_a_new"]);
     expect(groups[1].name).toBe("Missing Agent");
-    expect(groups[1].description).toBe("该智能体的配置尚未加载或已被删除");
+    // Description comes from i18n; locale under bun tests may be en or zh.
+    expect([
+      "This agent configuration has not loaded or was deleted",
+      "该智能体的配置尚未加载或已被删除",
+    ]).toContain(groups[1].description);
   });
 
   test("builds default starter items without requiring persisted expert sessions", () => {

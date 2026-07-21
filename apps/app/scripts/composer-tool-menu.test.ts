@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   collaborationModeOptionKeys,
   filterToolMenuItems,
+  matchComposerSlashQuery,
   pluginSkillFileSearchText,
 } from "../src/react-app/domains/session/surface/composer/tool-menu-model";
 
@@ -34,6 +35,14 @@ describe("composer tool menu model", () => {
   });
 
   test("matches marketplace search styling for skills and connectors", () => {
+    // Search chrome lives in the extracted tool-menu panel.
+    const menu = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer-tool-menu.tsx",
+      ),
+      "utf8",
+    );
     const source = readFileSync(
       join(
         import.meta.dir,
@@ -43,23 +52,25 @@ describe("composer tool menu model", () => {
     );
 
     expect(
-      source.match(
+      menu.match(
         /controlSize="sm"\s*\n\s*radius="lg"\s*\n\s*tone="surfaceMuted"/g,
       ) ?? [],
     ).toHaveLength(2);
     expect(
-      source.match(
+      menu.match(
         /<Search aria-hidden="true" className="size-3\.5 text-dls-secondary" \/>/g,
       ) ?? [],
     ).toHaveLength(2);
     expect(
-      source.match(
+      menu.match(
         /className="text-sm text-dls-text placeholder:text-dls-secondary\/70"/g,
       ) ?? [],
     ).toHaveLength(2);
-    // 配置 opens custom MCP dialog (never /settings/extensions).
+    // Configure prefers connectors marketplace; falls back to settings mcps.
     expect(source).toContain("openCustomConnectorOrMarketplace");
-    expect(source).not.toContain('onOpenSettingsSection?.("mcps")');
+    expect(source).toContain("openConnectorsConfigure");
+    expect(source).toContain("onOpenConnectorsMarketplace");
+    expect(menu).toContain("onClick={openConnectorsConfigure}");
   });
 
   test("keeps pursue goal out of office collaboration modes", () => {
@@ -68,6 +79,13 @@ describe("composer tool menu model", () => {
   });
 
   test("nests assistant prompt templates in the add menu", () => {
+    const menu = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer-tool-menu.tsx",
+      ),
+      "utf8",
+    );
     const source = readFileSync(
       join(
         import.meta.dir,
@@ -86,27 +104,28 @@ describe("composer tool menu model", () => {
     expect(helpers).toContain(
       'export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";',
     );
-    expect(source).toContain('t("composer.prompt_templates")');
-    expect(source).toContain("selectedPromptTemplate.prompts.map");
-    expect(source).toContain(
+    expect(menu).toContain('t("composer.prompt_templates")');
+    expect(menu).toContain("selectedPromptTemplate.prompts.map");
+    expect(menu).toContain(
       "onMouseEnter={() => setSelectedPromptTemplateId(template.id)}",
     );
     // Primary (11rem) + secondary (17.5rem) → third flyout for selected template prompts.
-    expect(source).toContain("left-[calc(11rem+17.5rem-2px)]");
-    expect(source).toContain("max-w-[17.5rem]");
-    expect(source).toContain('toolMenuSection === "templates" ? "max-h-48" : "max-h-56"');
-    // WorkBuddy cascade: open 3rd panel when 提示词 section becomes active.
+    expect(menu).toContain("left-[calc(11rem+17.5rem-2px)]");
+    expect(menu).toContain("max-w-[17.5rem]");
+    expect(menu).toContain('toolMenuSection === "templates" ? "max-h-48" : "max-h-56"');
+    // WorkBuddy cascade: open 3rd panel when the prompts section becomes active.
     expect(source).toContain("WorkBuddy-style cascade");
-    expect(source).toContain(
+    expect(menu).toContain(
       "applyPromptTemplate(selectedPromptTemplate.id, prompt)",
     );
   });
 
-  test("filters skills by name or description while preserving source order", () => {
+  test("filters skills by name or description and ranks hits", () => {
     const items = [
       { name: "review", description: "Review code changes" },
       { name: "xlsx", description: "Analyze spreadsheet data" },
       { name: "init", description: "Guided project setup" },
+      { name: "obsidian", description: "Manage Obsidian vault notes" },
     ];
 
     expect(
@@ -115,6 +134,41 @@ describe("composer tool menu model", () => {
       ),
     ).toEqual([items[1]]);
     expect(filterToolMenuItems(items, "", (item) => item.name)).toEqual(items);
+    // `/obsidian` style query should isolate the skill, not leave the full catalog.
+    expect(
+      filterToolMenuItems(items, "obsidian", (item) =>
+        `${item.name} ${item.name} ${item.description}`,
+      ).map((item) => item.name),
+    ).toEqual(["obsidian"]);
+  });
+
+  test("matchComposerSlashQuery tolerates trailing newlines and invisible chars", () => {
+    expect(matchComposerSlashQuery("/obsidian")).toEqual({
+      open: true,
+      query: "obsidian",
+    });
+    expect(matchComposerSlashQuery("/obsidian\n")).toEqual({
+      open: true,
+      query: "obsidian",
+    });
+    expect(matchComposerSlashQuery("/obsidian\n\n")).toEqual({
+      open: true,
+      query: "obsidian",
+    });
+    expect(matchComposerSlashQuery("/obsidian ")).toEqual({
+      open: false,
+      query: "",
+    });
+    expect(matchComposerSlashQuery("/")).toEqual({ open: true, query: "" });
+    expect(matchComposerSlashQuery("hello /obs")).toEqual({
+      open: true,
+      query: "obs",
+    });
+    // Zero-width space after the token should not poison the query.
+    expect(matchComposerSlashQuery("/obsidian\u200b")).toEqual({
+      open: true,
+      query: "obsidian",
+    });
   });
 
   test("filters connectors across names and descriptions", () => {
