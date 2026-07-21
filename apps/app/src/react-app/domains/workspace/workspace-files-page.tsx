@@ -46,7 +46,10 @@ import type {
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
-import type { OpenTarget } from "../../capabilities/artifacts/open-target";
+import {
+  canPreviewOpenTargetInline,
+  type OpenTarget,
+} from "../../capabilities/artifacts/open-target";
 import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 
@@ -95,7 +98,13 @@ function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) 
     size: props.node.size,
     mtimeMs: props.node.mtimeMs,
   });
-  return <ArtifactIcon type={target.preview} className="size-4 shrink-0" />;
+  return (
+    <ArtifactIcon
+      type={target.preview}
+      name={props.node.name}
+      className="size-4 shrink-0"
+    />
+  );
 }
 
 function shouldHideEntry(path: string): boolean {
@@ -268,8 +277,8 @@ type FilePreviewState =
   | { status: "error"; message: string };
 
 function canPreviewWorkspaceFileInline(target: OpenTarget) {
-  if (target.preview === "markdown" || target.preview === "text") return true;
-  return target.preview === "sheet" && /\.(csv|tsv)$/i.test(target.value);
+  // Shared policy with side-panel file tree (no Office / binary dump).
+  return canPreviewOpenTargetInline(target);
 }
 
 function addWorkspaceFileTreeEntry(

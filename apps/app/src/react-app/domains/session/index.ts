@@ -38,6 +38,11 @@ export {
 } from "./status/session-activity-store";
 export type { SessionActivityStatus } from "./status/session-activity-store";
 export {
+  resolveAgentIdForSession,
+  useExpertUnreadStore,
+} from "./status/expert-unread-store";
+export type { ExpertUnreadRecord } from "./status/expert-unread-store";
+export {
   assistantSessionWorkspacesChangedEvent,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,

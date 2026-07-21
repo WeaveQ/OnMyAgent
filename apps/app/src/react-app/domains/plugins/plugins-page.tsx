@@ -51,7 +51,7 @@ import {
   ONMYAGENT_EXTENSION_STATE_CHANGED,
   setOnMyAgentExtensionEnabled,
 } from "@/react-app/domains/shared";
-import { extensionIcon } from "./extension-icon";
+import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
@@ -925,9 +925,15 @@ function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
       )}
     >
       <div className="flex min-w-0 items-start gap-2.5">
-        <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+        <IconTile
+          size="default"
+          shape="xl"
+          tone="surface"
+          border
+          className={cn("overflow-hidden", extensionIconTileClassName)}
+        >
           {extensionIcon(props.entry, 18)}
-        </div>
+        </IconTile>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">

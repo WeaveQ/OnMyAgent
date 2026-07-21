@@ -392,7 +392,7 @@ export const COMPOSER_CONTAIN_STYLE = { contain: "layout style" };
 
 // Re-export from plugins domain so session composer shares one icon helper
 // without plugins depending on session.
-export { extensionIcon } from "@/react-app/domains/plugins";
+export { extensionIcon, extensionIconTileClassName } from "@/react-app/domains/plugins";
 
 export function pluginSlashCommandName(file: CloudImportedPluginFile) {
   const path = file.path.trim();

@@ -1,6 +1,14 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
@@ -138,6 +146,8 @@ import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import {
+  SESSION_CONTENT_MAX_WIDTH_CLASS,
+  SESSION_CONTENT_X_PADDING_CLASS,
   sessionSurfaceStateClass,
   sessionSurfaceTextClass,
 } from "./surface-styles";
@@ -869,7 +879,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
     [snapshot],
   );
   const openTargets = useMemo(
-    () => deriveOpenTargets(renderedMessages),
+    // Include file paths mentioned in assistant/user text so workspace-relative
+    // deliverables (incl. CJK names) surface in the side-panel Files tab.
+    () => deriveOpenTargets(renderedMessages, { includeFileMentions: true }),
     [renderedMessages],
   );
   const openTargetsFingerprint = useMemo(
@@ -1832,8 +1844,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
     renderedMessages.length === 0 &&
     !visibleTranscriptError &&
     effectiveActivityStatus === "idle";
+  /** Empty expert chat (draft or zero-message session) — same compact composer as assistant home. */
+  const expertEmptyComposer =
+    !props.personalAssistantHome &&
+    Boolean(effectiveAgent || props.agentContext) &&
+    renderedMessages.length === 0 &&
+    !hasTranscriptContent &&
+    !visibleTranscriptError &&
+    effectiveActivityStatus === "idle";
+  const homeComposerLayout =
+    personalAssistantDraftHome || expertDraftHome || expertEmptyComposer;
   const composerOuterBorderVisible =
-    personalAssistantDraftHome || expertDraftHome;
+    personalAssistantDraftHome || expertDraftHome || expertEmptyComposer;
   const assistantDraftHomeTitle =
     assistantCategoryId === "code"
       ? t("session.assistant_code_title")
@@ -1999,17 +2021,32 @@ export function SessionSurface(props: SessionSurfaceProps) {
         }
       />
     ) : null;
+
+  // When the multi-session tab strip is expanded it owns the bottom rule;
+  // hide the header border so expert chrome does not draw two lines.
+  const [sessionTabsExpanded, setSessionTabsExpanded] = useState(
+    () => Boolean(props.conversationTabs),
+  );
+  useEffect(() => {
+    if (!props.conversationTabs) setSessionTabsExpanded(false);
+  }, [props.conversationTabs]);
+  const conversationTabsNode = useMemo(() => {
+    if (!props.conversationTabs || !isValidElement(props.conversationTabs)) {
+      return props.conversationTabs ?? null;
+    }
+    return cloneElement(
+      props.conversationTabs as ReactElement<{
+        onExpandedChange?: (expanded: boolean) => void;
+      }>,
+      { onExpandedChange: setSessionTabsExpanded },
+    );
+  }, [props.conversationTabs]);
+
   return (
     <DevProfiler id="SessionSurface">
-      <div
-        className={cn(
-          "flex h-full min-h-0 flex-col",
-          // Empty home: vertical center with lower bias (title+composer a bit
-          // further down the canvas than true mid).
-          personalAssistantDraftHome &&
-            "items-center justify-center px-6 pb-[min(8vh,3.5rem)] pt-16",
-        )}
-      >
+      <div className="flex h-full min-h-0 flex-col">
+        {/* New-task / draft home: no top agent chrome — hero + composer own the canvas.
+            Once a session has messages (or is loading), pin the header at the top. */}
         {!personalAssistantDraftHome ? (
           <SessionSurfaceHeader
             agent={chatHeaderAgent}
@@ -2017,9 +2054,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
             personalAssistantHome={props.personalAssistantHome}
             onOpenAgentSettings={props.onOpenAgentSettings}
             headerActions={props.headerActions}
+            showBottomBorder={!sessionTabsExpanded}
           />
         ) : null}
-        {props.conversationTabs}
+        {!personalAssistantDraftHome ? conversationTabsNode : null}
         {model.transitionState === "switching" && showDelayedLoading ? (
           <div className="flex justify-center px-6 pt-4">
             <StatusBadge tone="surface" size="default">
@@ -2030,6 +2068,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
           </div>
         ) : null}
 
+        {/* Body: draft home centers title+composer; chat fills remaining height. */}
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col",
+            personalAssistantDraftHome &&
+              "items-center justify-center px-6 pb-[min(8vh,3.5rem)] pt-6",
+          )}
+        >
         <div
           className={cn(
             "relative min-h-0 flex-1",
@@ -2052,9 +2098,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
               sessionScroll.markScrollGesture(event.currentTarget);
             }}
             onScroll={sessionScroll.handleScroll}
-            className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-6 py-5 sm:px-8"
+            className={cn(
+              "absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
+              // Match composer horizontal inset so content + input share one column.
+              SESSION_CONTENT_X_PADDING_CLASS,
+            )}
           >
-            <div ref={contentRef} className="w-full">
+            <div
+              ref={contentRef}
+              className={cn("mx-auto w-full", SESSION_CONTENT_MAX_WIDTH_CLASS)}
+            >
               {showDelayedLoading && pendingSessionLoad ? (
                 <TranscriptHistorySkeleton pairCount={3} />
               ) : (snapshotQuery.isError || visibleTranscriptError) &&
@@ -2095,15 +2148,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     onOpenModelPicker={props.onModelClick}
                   />
                 ) : props.personalAssistantHome ? null : effectiveAgent ? (
-                  <div className="flex flex-1 flex-col items-center px-6 py-8">
-                    <div className="flex flex-1 flex-col items-center justify-center">
+                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-6">
+                    <div className="flex shrink-0 flex-col items-center gap-2">
                       <PendingAgentAvatar
                         name={effectiveAgent.name}
                         avatarUrl={effectiveAgent.avatar.avatarUrl}
                         avatarBackground={
                           effectiveAgent.avatar.avatarBackground
                         }
-                        className="size-20 text-4xl"
+                        className="size-16 text-3xl"
                       />
                       <h2 className={sessionSurfaceTextClass.agentEmptyTitle}>
                         {effectiveAgent.name}
@@ -2116,6 +2169,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       agentId={effectiveAgent.id}
                       quickPrompts={effectiveAgent.quickPrompts}
                       onSelect={(prompt) => void typeComposerText(prompt)}
+                      className="shrink-0"
                     />
                   </div>
                 ) : null
@@ -2166,17 +2220,17 @@ export function SessionSurface(props: SessionSurfaceProps) {
           />
         </div>
 
+        {/* Code tools on draft home: under pinned header. */}
         {personalAssistantDraftHome && codeSceneToolbar ? (
-          <div className="absolute right-5 top-4 z-20 flex items-center gap-1.5 mac:titlebar-no-drag">
+          <div className="absolute right-5 top-14 z-20 flex items-center gap-1.5 mac:titlebar-no-drag">
             {codeSceneToolbar}
-            {props.headerActions}
           </div>
         ) : null}
         {/* Home: one max-w-2xl column so brand title + composer share width. */}
         <div
           className={cn(
             personalAssistantDraftHome &&
-              "flex w-full max-w-2xl flex-col items-stretch",
+              "flex w-full max-w-2xl shrink-0 flex-col items-stretch",
           )}
         >
         {personalAssistantDraftHome ? (
@@ -2190,7 +2244,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ref={composerShellRef}
           className={cn(
             "shrink-0 px-0 pb-2 pt-2",
-            personalAssistantDraftHome && "w-full pb-0 pt-0",
+            (personalAssistantDraftHome || homeComposerLayout) && "w-full pb-0 pt-0",
           )}
         >
           <DevProfiler id="SessionComposer">
@@ -2266,7 +2320,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
               showOuterBorder={composerOuterBorderVisible}
               compactTopSpacing={Boolean(composerAccessory)}
-              homeLayout={personalAssistantDraftHome}
+              homeLayout={homeComposerLayout}
               topAccessory={composerAccessory}
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
               bottomAccessory={
@@ -2288,6 +2342,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
             />
           </DevProfiler>
+        </div>
         </div>
         </div>
         {/* Error display moved inline into the session conversation area */}
