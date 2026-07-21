@@ -37,8 +37,8 @@ export function skillAgentLabel(agent: string) {
 export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "onmyagent"];
 
 // Prefer brand-step /10 soft fills over Radix step-3 solids: in dark mode
-// step 3 becomes a heavy navy/green slab (e.g. blue-3 ≈ #0d2847) that fights
-// the skill-matrix green checkmarks. Opacity tints read lightly on both themes.
+// step 3 becomes a heavy navy slab (e.g. blue-3 ≈ #0d2847) that fights
+// the skill-matrix accent checkmarks. Opacity tints read lightly on both themes.
 //   step 9  = solid brand (dots / MCP badges)
 //   step 11 = accessible fg when needed
 // Semantic hue mapping: emerald→jade, rose→ruby; blue/orange/sky exist as-is.
