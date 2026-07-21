@@ -1,6 +1,6 @@
 /**
- * Host-side apply of expert automation proposal JSON files.
- * User must confirm in chat; host then calls createAutomation for each proposal.
+ * Host-side load/create for expert automation proposal JSON files.
+ * Expert UI offers a dialog (ask → configure), then createAutomationsFromPayloads.
  */
 
 import type { AutomationTaskInput } from "@onmyagent/types";
@@ -166,29 +166,31 @@ export type AutomationProposalClient = {
   ) => Promise<{ item: { id: string; title: string; nextRunAt?: number | null } }>;
 };
 
+export type LoadedAutomationProposal = {
+  path: string;
+  payload: AutomationTaskInput;
+};
+
 export type ApplyAutomationProposalsResult = {
   created: Array<{ id: string; title: string; path: string }>;
   skipped: Array<{ title: string; reason: string; path?: string }>;
   errors: Array<{ path: string; message: string }>;
 };
 
-export async function applyAutomationProposals(input: {
-  client: AutomationProposalClient;
+export async function loadAutomationProposals(input: {
+  client: Pick<AutomationProposalClient, "listWorkspaceFiles" | "readWorkspaceFile">;
   workspaceId: string;
   catalogRoot: string;
   sessionRoot?: string | null;
   sessionDirectory?: string | null;
-}): Promise<ApplyAutomationProposalsResult> {
+}): Promise<{
+  proposals: LoadedAutomationProposal[];
+  errors: Array<{ path: string; message: string }>;
+}> {
   const workspaceId = input.workspaceId.trim();
-  const result: ApplyAutomationProposalsResult = {
-    created: [],
-    skipped: [],
-    errors: [],
-  };
-  if (!workspaceId) {
-    result.errors.push({ path: "", message: "workspaceId is required" });
-    return result;
-  }
+  const proposals: LoadedAutomationProposal[] = [];
+  const errors: Array<{ path: string; message: string }> = [];
+  if (!workspaceId) return { proposals, errors };
 
   const roots = automationProposalSearchRoots({
     catalogRoot: input.catalogRoot,
@@ -211,8 +213,84 @@ export async function applyAutomationProposals(input: {
         pathSet.add(path);
       }
     } catch {
-      // prefix may not exist; continue with known basenames
+      // prefix may not exist
     }
+  }
+
+  for (const path of [...pathSet].sort()) {
+    let content = "";
+    try {
+      const file = await input.client.readWorkspaceFile(workspaceId, path);
+      content = typeof file.content === "string" ? file.content : "";
+    } catch {
+      continue;
+    }
+    if (!content.trim()) continue;
+    try {
+      const payload = parseAutomationProposalPayload(JSON.parse(content));
+      if (!payload) {
+        errors.push({ path, message: "invalid automation proposal payload" });
+        continue;
+      }
+      proposals.push({ path, payload });
+    } catch (error) {
+      errors.push({
+        path,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return { proposals, errors };
+}
+
+/** Fingerprint for a proposal set so we do not re-offer the same files. */
+export function automationProposalsFingerprint(
+  proposals: readonly LoadedAutomationProposal[],
+): string {
+  return proposals
+    .map((item) => `${item.path}:${item.payload.title}:${item.payload.schedule.time}`)
+    .sort()
+    .join("|");
+}
+
+export function buildAutomationPayloadFromDraft(input: {
+  base: AutomationTaskInput;
+  title: string;
+  prompt: string;
+  time: string;
+  enabled: boolean;
+}): AutomationTaskInput | null {
+  const title = input.title.trim();
+  const prompt = input.prompt.trim();
+  const time = input.time.trim();
+  if (!title || !prompt || !/^\d{2}:\d{2}$/.test(time)) return null;
+  return {
+    ...input.base,
+    title,
+    prompt,
+    enabled: input.enabled,
+    schedule: {
+      ...input.base.schedule,
+      time,
+    },
+  };
+}
+
+export async function createAutomationsFromPayloads(input: {
+  client: Pick<AutomationProposalClient, "listAutomations" | "createAutomation">;
+  workspaceId: string;
+  items: Array<{ path: string; payload: AutomationTaskInput }>;
+}): Promise<ApplyAutomationProposalsResult> {
+  const result: ApplyAutomationProposalsResult = {
+    created: [],
+    skipped: [],
+    errors: [],
+  };
+  const workspaceId = input.workspaceId.trim();
+  if (!workspaceId) {
+    result.errors.push({ path: "", message: "workspaceId is required" });
+    return result;
   }
 
   let existingTitles = new Set<string>();
@@ -225,57 +303,57 @@ export async function applyAutomationProposals(input: {
     existingTitles = new Set();
   }
 
-  for (const path of [...pathSet].sort()) {
-    let content = "";
-    try {
-      const file = await input.client.readWorkspaceFile(workspaceId, path);
-      content = typeof file.content === "string" ? file.content : "";
-    } catch {
-      continue;
-    }
-    if (!content.trim()) continue;
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch (error) {
-      result.errors.push({
-        path,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      continue;
-    }
-
-    const payload = parseAutomationProposalPayload(parsed);
-    if (!payload) {
-      result.errors.push({ path, message: "invalid automation proposal payload" });
-      continue;
-    }
-
+  for (const item of input.items) {
+    const payload = item.payload;
     if (existingTitles.has(payload.title)) {
       result.skipped.push({
         title: payload.title,
         reason: "already_exists",
-        path,
+        path: item.path,
       });
       continue;
     }
-
     try {
       const created = await input.client.createAutomation(workspaceId, payload);
       existingTitles.add(payload.title);
       result.created.push({
         id: created.item.id,
         title: created.item.title,
-        path,
+        path: item.path,
       });
     } catch (error) {
       result.errors.push({
-        path,
+        path: item.path,
         message: error instanceof Error ? error.message : String(error),
       });
     }
   }
-
   return result;
+}
+
+/** @deprecated Prefer load + dialog + createAutomationsFromPayloads */
+export async function applyAutomationProposals(input: {
+  client: AutomationProposalClient;
+  workspaceId: string;
+  catalogRoot: string;
+  sessionRoot?: string | null;
+  sessionDirectory?: string | null;
+}): Promise<ApplyAutomationProposalsResult> {
+  const loaded = await loadAutomationProposals(input);
+  const result: ApplyAutomationProposalsResult = {
+    created: [],
+    skipped: [],
+    errors: [...loaded.errors],
+  };
+  if (loaded.proposals.length === 0) return result;
+  const created = await createAutomationsFromPayloads({
+    client: input.client,
+    workspaceId: input.workspaceId,
+    items: loaded.proposals,
+  });
+  return {
+    created: created.created,
+    skipped: created.skipped,
+    errors: [...result.errors, ...created.errors],
+  };
 }
