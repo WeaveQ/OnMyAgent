@@ -252,6 +252,8 @@ export default {
   "session.visual_actions": "圖表操作",
   "session.visual_show_source": "查看原始碼",
   "session.visual_hide_source": "隱藏原始碼",
+  "session.visual_export_pdf": "匯出{copy} PDF",
+  "session.visual_export_excel": "匯出{copy} Excel",
   "session.visual_invalid": "此圖表無法安全顯示。",
   "session.visual_loading": "正在準備圖表預覽",
   "session.visual_failed": "圖表生成失敗。",

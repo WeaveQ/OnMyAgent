@@ -841,6 +841,32 @@ describe("WorkBuddy turn content presentation", () => {
     ]);
   });
 
+  test("preserves final widget artifact mappings for copy-aware exports", () => {
+    const artifactCopies = [{
+      key: "white",
+      label: "一联存根（白）",
+      pdf: "output/物流单_一联.pdf",
+      xlsx: "output/物流单_一联.xlsx",
+    }];
+    const turn = completedTurn([
+      assistant("final-export", [{
+        type: "text",
+        text: `\`\`\`show_widget\n${JSON.stringify({
+          title: "物流单三联最终预览",
+          widget_code: "<div>waybill</div>",
+          artifactCopies,
+        })}\n\`\`\``,
+      }]),
+    ]);
+
+    const presentation = buildTurnContentPresentation(turn);
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    const visual = body?.kind === "body"
+      ? body.item.bodySegments?.find((segment) => segment.kind === "widget")?.visual
+      : undefined;
+    expect(visual?.artifactCopies).toEqual(artifactCopies);
+  });
+
   test("keeps a fenced widget renderer active for a single assistant body", () => {
     const presentation = buildTurnContentPresentation(completedTurn([
       assistant("only", [{

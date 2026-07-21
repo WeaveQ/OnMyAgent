@@ -2880,7 +2880,13 @@ function WorkBuddyTurnContent(props: {
       );
     }
     if (segment.kind === "widget") {
-      return <InlineVisual key={segment.id} visual={segment.visual} />;
+      return (
+        <InlineVisual
+          key={segment.id}
+          visual={segment.visual}
+          onOpenCodePath={props.onOpenCodePath}
+        />
+      );
     }
     if (segment.kind === "file" && segment.item.part.type === "file") {
       return (
@@ -2905,6 +2911,7 @@ function WorkBuddyTurnContent(props: {
                   <InlineVisual
                     key={`${segment.id}:widget:${index}`}
                     visual={bodySegment.visual}
+                    onOpenCodePath={props.onOpenCodePath}
                   />
                 )
               : bodySegment.text.trim()
@@ -2952,6 +2959,7 @@ function WorkBuddyTurnContent(props: {
                   <InlineVisual
                     key={`${segment.id}:widget:${index}`}
                     visual={bodySegment.visual}
+                    onOpenCodePath={props.onOpenCodePath}
                   />
                 )
               : bodySegment.text.trim()
@@ -2993,6 +3001,7 @@ function WorkBuddyTurnContent(props: {
             <InlineVisual
               key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
               visual={visual}
+              onOpenCodePath={props.onOpenCodePath}
             />
           ))
         : null}
@@ -3017,7 +3026,7 @@ function MessageBlockRow(props: {
   onForkAtMessage?: (messageId: string) => void;
   turnOpenTargets?: OpenTarget[];
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
-  onOpenCodePath?: (path: string) => void;
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
   onOpenTarget?: (target: OpenTarget) => void;
   workspaceRoot?: string;
   assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
