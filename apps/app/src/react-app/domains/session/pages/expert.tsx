@@ -83,6 +83,7 @@ import {
 import {
   isPrimarySessionRailView,
   readRailView,
+  writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
 
@@ -162,6 +163,26 @@ import {
   isTrackableAccessibleTarget,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import {
+  automationProposalsFingerprint,
+  createAutomationsFromPayloads,
+  loadAutomationProposals,
+} from "../artifacts/apply-automation-proposals";
+import { AutomationCreateResultCard } from "../artifacts/automation-create-result-card";
+import { writeAutomationFocus } from "../artifacts/automation-focus-memory";
+import {
+  applyAutomationOfferAnswer,
+  buildAutomationOfferQuestion,
+  buildCreatePayloadsFromDrafts,
+  createIdleAutomationOfferFlow,
+  finalizeAutomationCreateResult,
+  isHostAutomationQuestionId,
+  startAutomationOfferFlow,
+  toHostPendingQuestion,
+  type AutomationOfferFlowState,
+  type AutomationOfferLabels,
+} from "../artifacts/expert-automation-offer-flow";
+import { isStreamingSessionStatus } from "../sidebar/utils";
 
 const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
@@ -979,11 +1000,312 @@ export function ExpertPage(props: ExpertPageProps) {
     registry,
   ]);
 
+  const [automationOfferFlow, setAutomationOfferFlow] =
+    useState<AutomationOfferFlowState>(() => createIdleAutomationOfferFlow());
+  const offeredAutomationFingerprintRef = useRef("");
+  const wasExpertSessionBusyRef = useRef(false);
+  const automationOfferFlowRef = useRef(automationOfferFlow);
+  automationOfferFlowRef.current = automationOfferFlow;
+
+  const automationOfferLabels = useMemo<AutomationOfferLabels>(
+    () => ({
+      offerHeader: t("session.automation_offer_header"),
+      offerQuestion: (count, titles) =>
+        t("session.automation_offer_question", { count, titles }),
+      optAutoCreate: t("session.automation_opt_auto_create"),
+      optAutoCreateDesc: t("session.automation_opt_auto_create_desc"),
+      optSkip: t("session.automation_opt_skip"),
+      optSkipDesc: t("session.automation_opt_skip_desc"),
+      requiredHeader: t("session.automation_required_header"),
+      requiredTitleQuestion: (task) =>
+        t("session.automation_required_title_q", { task }),
+      requiredPromptQuestion: (task) =>
+        t("session.automation_required_prompt_q", { task }),
+      requiredTimeQuestion: (task) =>
+        t("session.automation_required_time_q", { task }),
+      optionalHeader: t("session.automation_optional_header"),
+      optionalQuestion: t("session.automation_optional_question"),
+      optOptionalYes: t("session.automation_opt_optional_yes"),
+      optOptionalYesDesc: t("session.automation_opt_optional_yes_desc"),
+      optOptionalNo: t("session.automation_opt_optional_no"),
+      optOptionalNoDesc: t("session.automation_opt_optional_no_desc"),
+      optionalTimezoneQuestion: t("session.automation_optional_timezone_q"),
+      confirmHeader: t("session.automation_confirm_header"),
+      confirmQuestion: (count, summary) =>
+        t("session.automation_confirm_question", { count, summary }),
+      optConfirm: t("session.automation_opt_confirm"),
+      optConfirmDesc: t("session.automation_opt_confirm_desc"),
+      optCancel: t("session.automation_opt_cancel"),
+      optCancelDesc: t("session.automation_opt_cancel_desc"),
+      customAnswerLabel: t("question_modal.custom_answer_label"),
+    }),
+    [],
+  );
+
+  const resolveAutomationSessionDirectory = useCallback(() => {
+    const selectedSession =
+      rawWorkspaceSessions.find(
+        (session) => session.id === props.selectedSessionId,
+      ) ??
+      currentAgentSessions.find(
+        (session) => session.id === props.selectedSessionId,
+      ) ??
+      null;
+    return {
+      sessionDirectory: selectedSession?.directory ?? null,
+      workspaceId:
+        props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim(),
+    };
+  }, [
+    currentAgentSessions,
+    props.runtimeWorkspaceId,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+    rawWorkspaceSessions,
+  ]);
+
+  const scanAutomationProposals = useCallback(async () => {
+    const client = props.onmyagentServerClient;
+    const { workspaceId, sessionDirectory } = resolveAutomationSessionDirectory();
+    if (!client || !workspaceId) return;
+    if (props.activeQuestion) return;
+    const currentPhase = automationOfferFlowRef.current.phase;
+    if (
+      currentPhase !== "idle" &&
+      currentPhase !== "dismissed" &&
+      currentPhase !== "result"
+    ) {
+      return;
+    }
+    try {
+      const loaded = await loadAutomationProposals({
+        client,
+        workspaceId,
+        catalogRoot: codeWorkspaceCatalogRoot,
+        sessionRoot: props.selectedWorkspaceRoot,
+        sessionDirectory,
+      });
+      if (loaded.proposals.length === 0) return;
+      const fingerprint = automationProposalsFingerprint(loaded.proposals);
+      if (fingerprint === offeredAutomationFingerprintRef.current) return;
+      offeredAutomationFingerprintRef.current = fingerprint;
+      setAutomationOfferFlow(
+        startAutomationOfferFlow({
+          proposals: loaded.proposals,
+          fingerprint,
+        }),
+      );
+    } catch {
+      // Silent: proposal scan is best-effort after a turn.
+    }
+  }, [
+    codeWorkspaceCatalogRoot,
+    props.activeQuestion,
+    props.onmyagentServerClient,
+    props.selectedWorkspaceRoot,
+    resolveAutomationSessionDirectory,
+  ]);
+
+  const activeExpertSessionId =
+    draftSessionActive
+      ? activeDraftSessionId
+      : props.selectedSessionId;
+  const expertSessionBusy = isStreamingSessionStatus(
+    activeExpertSessionId
+      ? props.sidebar.sessionStatusById?.[activeExpertSessionId]
+      : undefined,
+  );
+
+  useEffect(() => {
+    if (expertSessionBusy) {
+      wasExpertSessionBusyRef.current = true;
+      return;
+    }
+    if (!wasExpertSessionBusyRef.current) return;
+    wasExpertSessionBusyRef.current = false;
+    void scanAutomationProposals();
+  }, [expertSessionBusy, scanAutomationProposals]);
+
+  // Also offer when files panel discovers proposal paths (export may finish after idle).
+  useEffect(() => {
+    const hasProposalTarget = openTargets.some((target) =>
+      target.value.replace(/\\/g, "/").includes("automations/proposals/"),
+    );
+    if (!hasProposalTarget || expertSessionBusy) return;
+    void scanAutomationProposals();
+  }, [expertSessionBusy, openTargets, scanAutomationProposals]);
+
+  const runAutomationCreate = useCallback(
+    async (flow: AutomationOfferFlowState) => {
+      const client = props.onmyagentServerClient;
+      const { workspaceId } = resolveAutomationSessionDirectory();
+      if (!client || !workspaceId) {
+        setAutomationOfferFlow((current) => ({
+          ...current,
+          busy: false,
+          phase: "dismissed",
+        }));
+        return;
+      }
+      const items = buildCreatePayloadsFromDrafts(flow.drafts);
+      if (items.length === 0) {
+        showToast({
+          tone: "warning",
+          title: t("session.automation_configure_empty"),
+        });
+        setAutomationOfferFlow((current) => ({
+          ...current,
+          busy: false,
+          phase: "dismissed",
+        }));
+        return;
+      }
+      try {
+        const result = await createAutomationsFromPayloads({
+          client,
+          workspaceId,
+          items,
+        });
+        if (result.created.length > 0) {
+          showToast({
+            tone: "success",
+            title: t("session.automation_proposals_created", {
+              count: result.created.length,
+              titles: result.created.map((item) => item.title).join(", "),
+            }),
+          });
+        } else if (result.errors.length > 0) {
+          showToast({
+            tone: "error",
+            title: t("session.automation_proposals_create_failed", {
+              message: result.errors[0]?.message ?? "unknown",
+            }),
+          });
+        } else if (result.skipped.length > 0) {
+          showToast({
+            tone: "info",
+            title: t("session.automation_proposals_all_skipped", {
+              count: result.skipped.length,
+            }),
+          });
+        }
+        setAutomationOfferFlow(
+          finalizeAutomationCreateResult({
+            state: flow,
+            result,
+            drafts: flow.drafts,
+          }),
+        );
+      } catch (error) {
+        showToast({
+          tone: "error",
+          title: t("session.automation_proposals_create_failed", {
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        });
+        setAutomationOfferFlow((current) => ({
+          ...current,
+          busy: false,
+          phase: "confirm",
+        }));
+      }
+    },
+    [props.onmyagentServerClient, resolveAutomationSessionDirectory, showToast],
+  );
+
+  const handleHostAutomationAnswer = useCallback(
+    (answers: string[][]) => {
+      const decided = applyAutomationOfferAnswer({
+        state: automationOfferFlowRef.current,
+        answers,
+        labels: automationOfferLabels,
+      });
+      if (decided.kind === "create") {
+        setAutomationOfferFlow(decided.state);
+        void runAutomationCreate(decided.state);
+        return;
+      }
+      setAutomationOfferFlow(decided.state);
+    },
+    [automationOfferLabels, runAutomationCreate],
+  );
+
+  const hostAutomationQuestion = useMemo(() => {
+    const question = buildAutomationOfferQuestion(
+      automationOfferFlow,
+      automationOfferLabels,
+    );
+    if (!question) return null;
+    const sessionId =
+      (draftSessionActive ? activeDraftSessionId : props.selectedSessionId) ??
+      `expert-draft:${props.selectedWorkspaceId}`;
+    return toHostPendingQuestion({ sessionId, question });
+  }, [
+    activeDraftSessionId,
+    automationOfferFlow,
+    automationOfferLabels,
+    draftSessionActive,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+  ]);
+
+  const effectiveActiveQuestion =
+    !props.activeQuestion && hostAutomationQuestion
+      ? hostAutomationQuestion
+      : props.activeQuestion;
+
+  const effectiveRespondQuestion = useCallback(
+    (requestID: string, answers: string[][]) => {
+      if (isHostAutomationQuestionId(requestID)) {
+        handleHostAutomationAnswer(answers);
+        return;
+      }
+      props.respondQuestion?.(requestID, answers);
+    },
+    [handleHostAutomationAnswer, props.respondQuestion],
+  );
+
+  const openCreatedAutomation = useCallback(
+    (row: { id: string; scene: "office" | "code" }) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!workspaceId) return;
+      writeAutomationFocus({
+        workspaceId,
+        automationId: row.id,
+        scene: row.scene,
+      });
+      writeAssistantCategoryMemory(workspaceId, row.scene);
+      writeAssistantSelectionMemory(workspaceId, row.scene, {
+        kind: "automation",
+      });
+      writeRailView("assistant", workspaceId, "scheduledTasks");
+      props.onNavigateToMode("assistant");
+    },
+    [props.onNavigateToMode, props.selectedWorkspaceId],
+  );
+
+  const automationResultAccessory =
+    automationOfferFlow.phase === "result" &&
+    automationOfferFlow.resultRows.length > 0 ? (
+      <AutomationCreateResultCard
+        rows={automationOfferFlow.resultRows}
+        onView={(row) => openCreatedAutomation(row)}
+        onDismiss={() =>
+          setAutomationOfferFlow((current) => ({
+            ...current,
+            phase: "dismissed",
+            resultRows: [],
+          }))
+        }
+      />
+    ) : null;
+
   const wrappedOnSendDraft = useCallback(
     async (draft: ComposerDraft) => {
       if (draftSessionActive && props.onCreateSessionForAgent) {
         props.onCreateSessionForAgent();
       }
+
       // Always stamp expert intent (incl. force-new / multi-session creates).
       return props.surface?.onSendDraft({
         ...draft,
@@ -993,7 +1315,6 @@ export function ExpertPage(props: ExpertPageProps) {
     [
       draftSessionActive,
       props.onCreateSessionForAgent,
-      props.selectedSessionId,
       props.surface,
     ],
   );
@@ -1997,9 +2318,12 @@ export function ExpertPage(props: ExpertPageProps) {
                             autoApprovedPermissionNoticeId={
                               props.autoApprovedPermissionNoticeId
                             }
-                            activeQuestion={props.activeQuestion}
-                            questionReplyBusy={props.questionReplyBusy}
-                            respondQuestion={props.respondQuestion}
+                            activeQuestion={effectiveActiveQuestion}
+                            questionReplyBusy={
+                              props.questionReplyBusy || automationOfferFlow.busy
+                            }
+                            respondQuestion={effectiveRespondQuestion}
+                            extraComposerAccessory={automationResultAccessory}
                             safeStringify={props.safeStringify}
                             userIdentity={{
                               name:
