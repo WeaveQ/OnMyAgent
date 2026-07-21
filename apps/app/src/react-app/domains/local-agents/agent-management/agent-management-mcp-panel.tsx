@@ -12,8 +12,7 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { AgentManagementMcpActionInput, AgentManagementMcpApp, AgentManagementMcpServer, AgentManagementMcpSnapshot } from "../../../../app/lib/desktop";
-import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
-import { SKILL_AGENT_TONES } from "./agent-management-skill-model";
+import { AgentBrandIcon } from "../agent-brand-icon";
 
 const MCP_APPS: AgentManagementMcpApp[] = ["claude", "codex", "gemini", "opencode", "hermes"];
 const MCP_APP_LABELS: Record<AgentManagementMcpApp, string> = { claude: "Claude Code", codex: "Codex", gemini: "Gemini", opencode: "OpenCode", hermes: "Hermes" };
@@ -63,7 +62,6 @@ function McpAppToggle(props: {
   unavailable?: boolean;
   onToggle: () => void;
 }) {
-  const tone = SKILL_AGENT_TONES[props.app] ?? SKILL_AGENT_TONES.unknown;
   const label = MCP_APP_LABELS[props.app];
   const unavailable = Boolean(props.unavailable);
   return (
@@ -73,12 +71,13 @@ function McpAppToggle(props: {
           <button
             type="button"
             className={cn(
-              "group/mcp-app relative flex size-8 items-center justify-center rounded-lg transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dls-surface disabled:cursor-not-allowed disabled:opacity-60",
+              // Match provider/agent list brand tiles (white plate in dark); selection via ring + accent check.
+              "group/mcp-app relative flex size-8 items-center justify-center rounded-md transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dls-surface disabled:cursor-not-allowed disabled:opacity-60",
               unavailable
-                ? "border border-dashed border-dls-border/60 bg-dls-surface-muted text-dls-secondary opacity-40 grayscale"
+                ? "opacity-40 grayscale"
                 : props.enabled
-                  ? cn("border-2 ring-2 ring-offset-1 ring-offset-dls-surface", tone.active)
-                  : "border border-dashed border-dls-border bg-dls-surface-muted text-dls-secondary opacity-70 grayscale hover:bg-dls-hover hover:opacity-100 hover:grayscale-0 hover:text-dls-text",
+                  ? "ring-2 ring-dls-accent/70 ring-offset-1 ring-offset-dls-surface"
+                  : "opacity-70 grayscale hover:opacity-100 hover:grayscale-0",
             )}
             aria-label={label}
             aria-pressed={props.enabled}
@@ -86,9 +85,19 @@ function McpAppToggle(props: {
             onClick={unavailable ? undefined : props.onToggle}
             disabled={props.busy || unavailable}
           >
-            {props.busy ? <LoadingSpinner size="sm" /> : <AgentSkillIcon agent={props.app} />}
+            {props.busy ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <AgentBrandIcon
+                id={props.app}
+                provider={props.app}
+                size="sm"
+                alt={label}
+                className="pointer-events-none"
+              />
+            )}
             {props.enabled && !props.busy && !unavailable ? (
-              <span className={cn("absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border-2 border-dls-surface", tone.dot)}>
+              <span className="absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-accent">
                 <Check className="size-2 text-white" strokeWidth={3} />
               </span>
             ) : null}
