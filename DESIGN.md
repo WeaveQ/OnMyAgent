@@ -91,16 +91,16 @@ colors:
     warning: "#FBBF24"
     success-fg: "#6EE7B7"
     online: "#28B276"
-    # Artifact hue palette — Radix shade 4 in dark for perceptually
-    # even chroma against dark surfaces without over-saturation.
-    artifact-hue-image: "var(--violet-4)"
-    artifact-hue-code: "var(--blue-4)"
-    artifact-hue-document: "var(--slate-4)"
-    artifact-hue-data: "var(--teal-4)"
-    artifact-hue-plot: "var(--grass-4)"
-    artifact-hue-3d: "var(--plum-4)"
-    artifact-hue-audio: "var(--pink-4)"
-    artifact-hue-video: "var(--crimson-4)"
+    # Artifact hue palette — Radix dark step 11 (icon/text), not step 4
+    # (surface). Step 4 is near-background and washes out tree/file icons.
+    artifact-hue-image: "var(--violet-11)"
+    artifact-hue-code: "var(--blue-11)"
+    artifact-hue-document: "var(--slate-11)"
+    artifact-hue-data: "var(--teal-11)"
+    artifact-hue-plot: "var(--grass-11)"
+    artifact-hue-3d: "var(--plum-11)"
+    artifact-hue-audio: "var(--pink-11)"
+    artifact-hue-video: "var(--crimson-11)"
 
 typography:
   font-body: "Geist Variable"
