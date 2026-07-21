@@ -272,17 +272,57 @@ def business_fingerprint(data: dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
-    remarks = [text_value(data.get("remarks"))]
-    mapping = (
+def compact_schedule_token(label: str, value: str) -> str:
+    """Short display tokens for the remarks cell (template has no dedicated timeline cells)."""
+    text = text_value(value)
+    if not text:
+        return ""
+    # Prefer compact Chinese labels so the remarks cell stays readable.
+    short_label = {
+        "计划提货": "提货",
+        "要求到达": "到达",
+        "车型要求": "车型",
+    }.get(label, label)
+    compact = (
+        text.replace("计划提货", "")
+        .replace("要求到达", "")
+        .replace("车型要求", "")
+        .replace("（带尾板车辆）", "")
+        .replace("带尾板车辆", "")
+        .strip(" ：:")
+    )
+    return f"{short_label}{compact}" if compact else ""
+
+
+def compose_remarks_display(data: dict[str, Any]) -> str:
+    """
+    Build the printable remarks cell:
+    - agent `remarks` first (expected already short)
+    - then compact timeline / vehicle from dedicated fields (never re-dump long prose)
+    """
+    core = text_value(data.get("remarks"))
+    # Soft cap: keep operational notes dominant; do not re-expand long agent prose here.
+    if len(core) > 60:
+        core = core[:57].rstrip("；;，, ") + "…"
+    parts: list[str] = [core] if core else []
+    joined = core
+    for label, raw in (
         ("计划提货", get_value(data, "timeline.pickup")),
         ("要求到达", get_value(data, "timeline.delivery")),
         ("车型要求", data.get("vehicleRequirement", "")),
-    )
-    for label, value in mapping:
-        rendered = text_value(value)
-        if rendered and f"{label}：" not in remarks[0]:
-            remarks.append(f"{label}：{rendered}")
+    ):
+        token = compact_schedule_token(label, text_value(raw))
+        if not token:
+            continue
+        # Skip if agent already mentioned the same facet.
+        if any(key in joined for key in (label, token[:2], token)):
+            continue
+        parts.append(token)
+        joined = "；".join(parts)
+    return "；".join(part for part in parts if part)
+
+
+def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
     values = {path: text_value(get_value(data, path)) for path in FIELD_LABELS}
     values.update({
         "document.status": status_label(state),
@@ -293,7 +333,7 @@ def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
         "cargo.declaredValue": cargo_summary(data, "declaredValue"),
         "cargo.insuranceFee": cargo_summary(data, "insuranceFee"),
         "cargo.codAmount": cargo_summary(data, "codAmount"),
-        "remarks": "；".join(part for part in remarks if part),
+        "remarks": compose_remarks_display(data),
     })
     return values
 

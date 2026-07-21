@@ -131,7 +131,8 @@ describe("order entry clerk expert contract", () => {
     const fields = readExpertFile("skills/order-entry/references/waybill-fields.md");
     expect(fields).toContain("字段抽取铁律");
     expect(fields).toContain("备注精简规则");
-    expect(fields).toContain("≤ 80 字");
+    expect(fields).toContain("≤ 40 字");
+    expect(fields).toContain("备注二次精简");
     expect(template).toContain("物流运输协议");
     expect(template).toContain("草稿·待确认");
     expect(template).toContain("承揽全国各地整车零担业务 · 代收货款");
