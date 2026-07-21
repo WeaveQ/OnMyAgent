@@ -114,11 +114,11 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain("assets/logistics-waybill-template.html");
     expect(skill).toContain("禁止增删区块、重排字段、改变合并单元格");
     expect(skill).toContain("专家模板安装异常");
-    expect(skill).toContain("不要每轮新建预览");
+    expect(skill).toContain("只写一份");
     expect(skill).toContain("scripts/generate_waybill.py");
     expect(skill).toContain("物流单` 与 `字段数据");
     expect(skill).toContain("只有导出脚本成功且返回的 PDF/XLSX 文件存在");
-    expect(skill).toContain("[放大查看](preview:output/.process/实际文件名.html)");
+    expect(skill).toContain("preview:output/.process/");
     expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
     expect(skill).toContain("在文件夹中显示");
@@ -178,11 +178,13 @@ describe("order entry clerk expert contract", () => {
       expect(isExportResponse(response)).toBe(true);
       if (!isExportResponse(response)) return;
       expect(response.state).toBe("final");
-      expect(response.files).toHaveLength(9);
+      // 1 live preview HTML + 3 PDF + 3 XLSX (export drafts are under .process but not listed as primary files)
+      expect(response.files.filter((file) => file.endsWith("当前预览.html"))).toHaveLength(1);
+      expect(response.files.filter((file) => file.endsWith(".pdf"))).toHaveLength(3);
+      expect(response.files.filter((file) => file.endsWith(".xlsx"))).toHaveLength(3);
       expect(response.files.every(existsSync)).toBe(true);
       expect(response.processDir).toContain(".process");
       for (const copyLabel of ["一联-白色存根", "二联-红色收货单位", "三联-黄色发货单位"]) {
-        expect(response.files.some((file) => file.includes(".process") && file.endsWith(`${copyLabel}_当前预览.html`))).toBe(true);
         expect(response.files.some((file) => file.endsWith(`${copyLabel}_最终版.pdf`))).toBe(true);
         expect(response.files.some((file) => file.endsWith(`${copyLabel}_最终版.xlsx`))).toBe(true);
       }
@@ -206,14 +208,14 @@ describe("order entry clerk expert contract", () => {
       expect(response.inlineWidget.widget_code).toContain('data-copy-tab="white"');
       expect(response.inlineWidget.widget_code).toContain('data-copy-tab="red"');
       expect(response.inlineWidget.widget_code).toContain('data-copy-tab="yellow"');
-      expect(response.inlineWidget.widget_code).toContain('data-copy-panel="white"');
+      expect(response.inlineWidget.widget_code).toContain('data-copy-panel="live"');
       expect(response.inlineWidget.widget_code).toContain("onmyagent:waybill-copy");
       expect(response.inlineWidget.widget_code).toContain("编辑字段");
       expect(response.inlineWidget.widget_code).toContain("onmyagent:waybill-fields");
       expect(response.inlineWidget.widget_code).toContain("color:#28242f");
       expect(response.inlineWidget.widget_code).toContain("waybill-copy-tabs");
-      expect(response.inlineWidget.widget_code).toContain('class="dot"');
-      expect(response.inlineWidget.widget_code).toContain("inset 0 -2px 0 #c45b72");
+      expect(response.inlineWidget.widget_code).toContain('class="swatch"');
+      expect(response.inlineWidget.widget_code).toContain("setAttribute('data-copy'");
       expect(isSandboxedHtmlVisual(response.inlineWidget.widget_code)).toBe(true);
       const xlsxPaths = response.files.filter((file) => file.endsWith(".xlsx"));
       expect(xlsxPaths).toHaveLength(3);
@@ -240,8 +242,8 @@ describe("order entry clerk expert contract", () => {
       expect(response.inlineWidget.artifactCopies).toEqual([]);
       expect(response.inlineWidget.widget_code).toContain("color:#28242f");
       expect(response.inlineWidget.widget_code).not.toContain("opacity:.35");
-      expect(response.files).toHaveLength(3);
-      expect(response.files.every((file) => file.includes(".process") && file.endsWith(".html"))).toBe(true);
+      expect(response.files).toHaveLength(1);
+      expect(response.files.every((file) => file.includes(".process") && file.endsWith("当前预览.html"))).toBe(true);
       expect(existsSync(join(outputDir, ".process"))).toBe(true);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
@@ -259,7 +261,7 @@ describe("order entry clerk expert contract", () => {
       expect(response.state).toBe("pending_dispatch");
       expect(response.files.filter((file) => file.endsWith("待派车确认稿.pdf"))).toHaveLength(3);
       expect(response.files.filter((file) => file.endsWith("待派车确认稿.xlsx"))).toHaveLength(3);
-      expect(response.files.filter((file) => file.includes(".process") && file.endsWith("当前预览.html"))).toHaveLength(3);
+      expect(response.files.filter((file) => file.includes(".process") && file.endsWith("当前预览.html"))).toHaveLength(1);
       expect(response.files.some((file) => file.includes("最终版"))).toBe(false);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
@@ -272,9 +274,7 @@ describe("order entry clerk expert contract", () => {
       const result = runGenerator("incomplete-waybill.json", outputDir, "export");
       expect(result.status).toBe(2);
       expect(result.stderr).toContain("不允许导出");
-      expect(existsSync(join(outputDir, ".process", "物流单_WX-20260721-003_一联-白色存根_当前预览.html"))).toBe(true);
-      expect(existsSync(join(outputDir, ".process", "物流单_WX-20260721-003_二联-红色收货单位_当前预览.html"))).toBe(true);
-      expect(existsSync(join(outputDir, ".process", "物流单_WX-20260721-003_三联-黄色发货单位_当前预览.html"))).toBe(true);
+      expect(existsSync(join(outputDir, ".process", "物流单_WX-20260721-003_当前预览.html"))).toBe(true);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }
