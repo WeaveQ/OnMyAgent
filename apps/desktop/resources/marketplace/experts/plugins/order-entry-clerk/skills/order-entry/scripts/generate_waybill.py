@@ -230,7 +230,7 @@ def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) ->
 .waybill-copy-tabs button{appearance:none;border:1px solid #b8b1bd;border-radius:8px;background:#f1eff3;color:#4b4650;padding:8px 6px;font:600 13px/1.2 system-ui,sans-serif;cursor:pointer}
 .waybill-copy-tabs button[aria-selected="true"]{border-color:#675b69;background:#514752;color:#fff}
 .waybill-copy-preview [role="tabpanel"][hidden]{display:none}
-.waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f}
+.waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f;opacity:1!important;filter:none!important}
 """
     return (
         f"<style>{style.group(1)}{widget_style}</style>"
