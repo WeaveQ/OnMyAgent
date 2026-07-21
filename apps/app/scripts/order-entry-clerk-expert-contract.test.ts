@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { isSandboxedHtmlVisual } from "../src/react-app/domains/session/surface/transcript/inline-visual";
 
 const repoRoot = join(import.meta.dir, "../../..");
 const expertRoot = join(
@@ -17,6 +18,10 @@ function readExpertFile(path: string): string {
 interface ExportResponse {
   state: string;
   files: string[];
+  inlineWidget: {
+    title: string;
+    widget_code: string;
+  };
 }
 
 function isExportResponse(value: unknown): value is ExportResponse {
@@ -24,11 +29,18 @@ function isExportResponse(value: unknown): value is ExportResponse {
     typeof value !== "object" ||
     value === null ||
     !("state" in value) ||
-    !("files" in value)
+    !("files" in value) ||
+    !("inlineWidget" in value) ||
+    typeof value.inlineWidget !== "object" ||
+    value.inlineWidget === null ||
+    !("title" in value.inlineWidget) ||
+    !("widget_code" in value.inlineWidget)
   ) return false;
   return typeof value.state === "string" &&
     Array.isArray(value.files) &&
-    value.files.every((file) => typeof file === "string");
+    value.files.every((file) => typeof file === "string") &&
+    typeof value.inlineWidget.title === "string" &&
+    typeof value.inlineWidget.widget_code === "string";
 }
 
 function runGenerator(fixtureName: string, outputDir: string, mode: "preview" | "export") {
@@ -52,6 +64,8 @@ describe("order entry clerk expert contract", () => {
     expect(agent).toContain("待派车确认稿");
     expect(agent).toContain("最终版");
     expect(agent).toContain("waybill-data.json");
+    expect(agent).toContain("```show_widget");
+    expect(agent).toContain("会话内直接展示");
     expect(agent).toContain("禁止自由发挥或另行设计");
     expect(agent).toContain("不是会话工作区目录");
     expect(agent).toContain("~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html");
@@ -62,7 +76,7 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain("scripts/generate_waybill.py");
     expect(skill).toContain("物流单` 与 `字段数据");
     expect(skill).toContain("只有导出脚本成功且 PDF/XLSX 文件存在");
-    expect(skill).toContain("preview:output/实际文件名.html");
+    expect(skill).toContain("[放大查看](preview:output/实际文件名.html)");
     expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
     expect(template).toContain("物流运输协议");
@@ -107,6 +121,11 @@ describe("order entry clerk expert contract", () => {
       expect(response.files.every(existsSync)).toBe(true);
       expect(response.files.some((file) => file.endsWith("最终版.pdf"))).toBe(true);
       expect(response.files.some((file) => file.endsWith("最终版.xlsx"))).toBe(true);
+      expect(response.inlineWidget.title).toBe("当前物流单");
+      expect(response.inlineWidget.widget_code).toStartWith("<style>");
+      expect(response.inlineWidget.widget_code).toContain('data-template="common-logistics-transport-agreement-v2"');
+      expect(response.inlineWidget.widget_code).not.toContain("<!doctype");
+      expect(isSandboxedHtmlVisual(response.inlineWidget.widget_code)).toBe(true);
       const xlsxPath = response.files.find((file) => file.endsWith(".xlsx"));
       expect(xlsxPath).toBeDefined();
       if (!xlsxPath) return;
