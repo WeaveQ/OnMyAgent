@@ -77,6 +77,7 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
 import { AutomationPage, MessagingChannelsPage } from "../../messaging";
+import { consumeAutomationFocus } from "../artifacts/automation-focus-memory";
 import { WorkspaceFilesPage } from "../../workspace";
 import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
@@ -331,10 +332,27 @@ export function AssistantPage(props: AssistantPageProps) {
     setActiveSidebarView("assistant");
   }, [props.selectedWorkspaceId]);
 
+  const [focusAutomationId, setFocusAutomationId] = useState<string | null>(null);
+
   const openScheduledTasksView = useCallback(() => {
     writeRailView("assistant", props.selectedWorkspaceId, "scheduledTasks");
     setActiveSidebarView("scheduledTasks");
   }, [props.selectedWorkspaceId]);
+
+  useEffect(() => {
+    if (activeSidebarView !== "scheduledTasks") return;
+    const focus = consumeAutomationFocus(props.selectedWorkspaceId);
+    if (!focus) return;
+    if (focus.scene !== assistantCategoryId) {
+      setAssistantCategoryAndRemember(focus.scene);
+    }
+    setFocusAutomationId(focus.automationId);
+  }, [
+    activeSidebarView,
+    assistantCategoryId,
+    props.selectedWorkspaceId,
+    setAssistantCategoryAndRemember,
+  ]);
 
   const assistantWorkspaceSessions = useMemo(
     () =>
@@ -1300,6 +1318,8 @@ export function AssistantPage(props: AssistantPageProps) {
                           scene={assistantCategoryId}
                           client={props.onmyagentServerClient}
                           workspaceId={props.selectedWorkspaceId}
+                          focusAutomationId={focusAutomationId}
+                          onFocusAutomationConsumed={() => setFocusAutomationId(null)}
                           onOpenSession={(workspaceId, sessionId) => {
                             writeAssistantSelectionMemory(
                               workspaceId,
