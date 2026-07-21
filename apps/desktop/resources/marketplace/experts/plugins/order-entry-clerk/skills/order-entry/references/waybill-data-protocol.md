@@ -183,3 +183,21 @@ python3 <Skill根目录>/scripts/generate_waybill.py --input output/waybill-data
 - **export**：在用户选定 `--formats` 后，才为三联生成 PDF 与/或 XLSX 到 `output/`。PDF 单页横向、不分页。
 
 每轮回复把完整 `inlineWidget` 原样放入 `show_widget` 围栏；再用三个 `preview:output/.process/...` 提供各联放大入口。退出码非 0 或任一返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。
+
+## 结果产物呈现规范（防自由发挥）
+
+export 成功后，用户可见交付区必须是 Markdown 表格（两列）：
+
+| 文件 | 操作 |
+| --- | --- |
+| `物流单_…_一联-白色存根_待派车确认稿.pdf` | `[在文件夹中显示](artifact:output/物流单_…_一联-白色存根_待派车确认稿.pdf)` |
+
+| 规则 | 要求 |
+| --- | --- |
+| 文件列 | 脚本返回的真实 basename，可带联次/用途后缀 |
+| 操作列 | 固定文案「在文件夹中显示」+ `artifact:output/<basename>` |
+| 点击效果 | 系统文件管理器定位该文件（reveal），不是下载/内嵌预览 |
+| 范围 | 只列本次生成的 PDF/XLSX；HTML 过程稿不进此表 |
+| 禁止 | 「打开 PDF」「打开 Excel」「下载」、白/红/黄自定义按钮行、假路径、`file://` |
+
+预览组件右上角菜单对当前联显示「在文件夹中显示 PDF/Excel」，路径来自 `artifactCopies`，仅包含本次真实导出的格式。

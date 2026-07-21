@@ -286,15 +286,21 @@ export function InlineVisual(props: {
           <DropdownMenuContent align="end">
             {selectedCopy && props.onOpenCodePath ? (
               <>
-                <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
-                  <FileText className="size-4" />
-                  {t("session.visual_export_pdf", { copy: selectedCopy.label })}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
-                  <FileSpreadsheet className="size-4" />
-                  {t("session.visual_export_excel", { copy: selectedCopy.label })}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {selectedCopy.pdf.trim() ? (
+                  <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
+                    <FileText className="size-4" />
+                    {t("session.visual_reveal_pdf")}
+                  </DropdownMenuItem>
+                ) : null}
+                {selectedCopy.xlsx.trim() ? (
+                  <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
+                    <FileSpreadsheet className="size-4" />
+                    {t("session.visual_reveal_excel")}
+                  </DropdownMenuItem>
+                ) : null}
+                {(selectedCopy.pdf.trim() || selectedCopy.xlsx.trim()) ? (
+                  <DropdownMenuSeparator />
+                ) : null}
               </>
             ) : null}
             <DropdownMenuItem onSelect={() => setShowSource((current) => !current)}>

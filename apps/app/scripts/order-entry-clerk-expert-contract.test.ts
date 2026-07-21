@@ -104,7 +104,8 @@ describe("order entry clerk expert contract", () => {
     expect(agent).toContain("```show_widget");
     expect(agent).toContain("会话内直接展示");
     expect(agent).toContain("禁止自由发挥或另行设计");
-    expect(agent).toContain("禁止写成 `[下载](output/...)`");
+    expect(agent).toContain("在文件夹中显示");
+    expect(agent).toContain("artifact:output/");
     expect(agent).toContain("不是会话工作区目录");
     expect(agent).toContain("~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html");
     expect(agent).toContain("生成 PDF 和 Excel");
@@ -120,7 +121,8 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain("[放大查看](preview:output/.process/实际文件名.html)");
     expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
-    expect(skill).toContain("也不得使用 `[下载](output/...)`");
+    expect(skill).toContain("在文件夹中显示");
+    expect(skill).toContain("artifact:output/");
     expect(skill).toContain("output/.process/");
     expect(skill).toContain("--formats");
     expect(skill).toContain("waybill-patch");
@@ -128,6 +130,7 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain("remarks");
     expect(protocol).toContain("output/.process/");
     expect(protocol).toContain("export-fingerprint");
+    expect(protocol).toContain("结果产物呈现规范");
     const fields = readExpertFile("skills/order-entry/references/waybill-fields.md");
     expect(fields).toContain("字段抽取铁律");
     expect(fields).toContain("备注精简规则");
