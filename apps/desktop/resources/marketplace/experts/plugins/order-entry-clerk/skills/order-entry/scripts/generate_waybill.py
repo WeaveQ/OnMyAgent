@@ -471,7 +471,10 @@ saveBtn&&saveBtn.addEventListener('click',()=>{{
   applyPatchToAll(patch);
   setEditing(false);
   root.dataset.showPatch='true';
-  const body='```waybill-patch\\n'+JSON.stringify(patch,null,2)+'\\n```';
+  // Build markdown fences at runtime (fromCharCode) so this HTML never contains
+  // literal ``` sequences that would early-close an outer ```show_widget fence.
+  const ticks=String.fromCharCode(96).repeat(3);
+  const body=ticks+'waybill-patch\\n'+JSON.stringify(patch,null,2)+'\\n'+ticks;
   if(patchBox)patchBox.textContent='已保存到预览。请把下面这段发给专家以写入数据并刷新三联：\\n'+body;
   parent.postMessage({{type:'onmyagent:waybill-fields',patch}},'*');
   try{{navigator.clipboard&&navigator.clipboard.writeText(body)}}catch(_){{}}

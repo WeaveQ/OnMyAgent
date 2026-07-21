@@ -927,6 +927,55 @@ describe("WorkBuddy turn content presentation", () => {
     ]);
   });
 
+  test("parses show_widget when widget_code contains triple backticks", () => {
+    const widgetCode = "<section><script>const t='```waybill-patch\\n{}\\n```';</script></section>";
+    const payload = JSON.stringify({
+      title: "当前物流单",
+      widget_code: widgetCode,
+    });
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("waybill", [{
+        type: "text",
+        text: `草稿已就绪。\n\n\`\`\`show_widget\n${payload}\n\`\`\`\n\n请确认缺失字段。`,
+      }]),
+    ]));
+
+    expect(presentation?.finalText).toContain("草稿已就绪");
+    expect(presentation?.finalText).toContain("请确认缺失字段");
+    expect(presentation?.finalText).not.toContain("widget_code");
+    expect(presentation?.finalText).not.toContain("waybill-patch");
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    const visual = body?.kind === "body"
+      ? body.item.bodySegments?.find((segment) => segment.kind === "widget")?.visual
+      : undefined;
+    expect(visual).toEqual(expect.objectContaining({
+      title: "当前物流单",
+      html: widgetCode,
+      status: "completed",
+    }));
+  });
+
+  test("hides truncated show_widget JSON instead of dumping source text", () => {
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("truncated", [{
+        type: "text",
+        text: "预览如下。\n\n```show_widget\n{\"title\":\"当前物流单三联预览\",\"widget_code\":\"<style>\\n\\n物流运输协议",
+      }]),
+    ]));
+
+    expect(presentation?.finalText).toBe("预览如下。");
+    expect(presentation?.finalText).not.toContain("物流运输协议");
+    expect(presentation?.finalText).not.toContain("widget_code");
+    const body = presentation?.segments.find((segment) => segment.kind === "body");
+    expect(body?.kind === "body" ? body.item.bodySegments : null).toEqual([
+      { kind: "text", text: "预览如下。\n\n" },
+      {
+        kind: "widget",
+        visual: expect.objectContaining({ status: "failed", html: "" }),
+      },
+    ]);
+  });
+
   test("keeps the first assistant anchor and existing segment keys stable across streaming growth", () => {
     const firstMessages = [
       assistant("thinking", [{ type: "reasoning", text: "分析数据" }]),
