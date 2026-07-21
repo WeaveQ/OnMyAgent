@@ -36,8 +36,7 @@ import type {
 } from "@onmyagent/types";
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
-import type { OpenTarget } from "../artifacts/open-target";
-import { workspaceFileOpenTarget } from "../artifacts/workspace-file-open-target";
+import { classifyOpenTarget, type OpenTarget } from "../artifacts/open-target";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -62,7 +61,7 @@ import {
   filterHiddenFromTree,
   type WorkspaceFileTreeNode,
 } from "../chat/session-page-files-model";
-import { BrowserPanel, EmbeddedBrowserViewport } from "../browser/browser-panel";
+import { BrowserPanel } from "../browser/browser-panel";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
 
@@ -174,19 +173,12 @@ type WorkspaceFilePreview =
   | { kind: "empty" }
   | { kind: "loading" }
   | { kind: "unsupported" }
-  | { kind: "browser"; url: string }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
   | { kind: "binary"; url: string; name: string };
 
 function absoluteWorkspaceFilePath(root: string, path: string) {
   if (path.startsWith("/")) return path;
   return `${root.replace(/[/\\]+$/, "")}/${path.replace(/^[/\\]+/, "")}`;
-}
-
-function workspaceFileUrl(root: string, path: string) {
-  const url = new URL("file:///");
-  url.pathname = absoluteWorkspaceFilePath(root, path);
-  return url.toString();
 }
 
 function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {
@@ -421,28 +413,12 @@ function WorkspaceFilesPanel(props: {
 
   const selectFile = useCallback(
     async (path: string) => {
-      const browserFileRoot = fileRoot || props.workspacePath;
-      const target = workspaceFileOpenTarget({
-        fileRoot: browserFileRoot,
-        path,
-        name: path.split("/").filter(Boolean).at(-1) ?? path,
-        size: 0,
-        mtimeMs: 0,
-      });
-      const localBrowserPreview =
-        isElectronRuntime()
-        && Boolean(browserFileRoot)
-        && ["html", "image"].includes(target.preview);
-      if (localBrowserPreview) {
-        setSelectedPath(path);
-        setError(null);
-        setPreview({ kind: "browser", url: workspaceFileUrl(browserFileRoot, path) });
-        return;
-      }
+      const targetPreview = classifyOpenTarget(path, "file");
+      const targetName = path.split("/").filter(Boolean).at(-1) ?? path;
       if (
-        target.preview === "external"
-        || target.preview === "pdf"
-        || (target.preview === "sheet" && !isTextSheet(path))
+        targetPreview === "external"
+        || targetPreview === "pdf"
+        || (targetPreview === "sheet" && !isTextSheet(path))
       ) {
         setSelectedPath(path);
         setError(null);
@@ -460,7 +436,7 @@ function WorkspaceFilesPanel(props: {
       setPreview({ kind: "loading" });
       try {
         const requestPath = workspaceFileRequestPath(rootRelativePrefix, path);
-        if (target.preview === "image") {
+        if (targetPreview === "image") {
           const client = props.client;
           const workspaceId = props.workspaceId;
           if (!client || !workspaceId) return;
@@ -470,7 +446,7 @@ function WorkspaceFilesPanel(props: {
             ? result.contentType
             : fallbackType;
           const url = URL.createObjectURL(new Blob([result.data], { type: contentType }));
-          setPreview({ kind: "binary", url, name: target.name });
+          setPreview({ kind: "binary", url, name: targetName });
           return;
         }
 
@@ -483,9 +459,9 @@ function WorkspaceFilesPanel(props: {
           if (!client || !workspaceId) return;
           result = await client.readWorkspaceFile(workspaceId, requestPath);
         }
-        const format = target.preview === "markdown"
+        const format = targetPreview === "markdown"
           ? "markdown"
-          : target.preview === "html"
+          : targetPreview === "html"
             ? "html"
             : "text";
         setPreview({ kind: "text", content: result.content, format });
@@ -624,12 +600,6 @@ function WorkspaceFilesPanel(props: {
           <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
             {t("files.preview_unsupported")}
           </div>
-        ) : preview.kind === "browser" ? (
-          <EmbeddedBrowserViewport
-            url={preview.url}
-            announcePanelOpen={false}
-            className="min-h-0 flex-1 overflow-hidden bg-dls-surface"
-          />
         ) : preview.kind === "binary" ? (
           <ImagePreview className="min-h-0 flex-1" src={preview.url} alt={preview.name} />
         ) : preview.kind === "text" && preview.format === "markdown" ? (
