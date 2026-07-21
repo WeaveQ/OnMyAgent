@@ -372,7 +372,7 @@ export function useSessionRouteSurfaceProps(
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
         // 1) Pin model for the current session/draft (existing sessions stay put).
-        // 2) Remember as global default so 新建任务 / 新会话 homes pick it next.
+        // 2) Remember as global default so new-task / new-session homes pick it next.
         setSessionModelOverrideById((current) => ({
           ...current,
           [composerModeSessionId]: model,
@@ -416,7 +416,7 @@ export function useSessionRouteSurfaceProps(
           sessionBusy: selectedSessionBusy,
         });
         // Force-new / first send from a space-bound chat must keep the folder
-        // binding, or the new session lands in 任务 and steals selection.
+        // binding, or the new session lands in Tasks and steals selection.
         const inheritAssistantWorkspaceDirectory =
           pageMode === "assistant" && selectedSessionId
             ? readAssistantSessionWorkspace(selectedSessionId)?.directory ??

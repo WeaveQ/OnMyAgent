@@ -420,7 +420,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           agentManagementIntent={agentManagementIntent}
           onAgentManagementIntentConsumed={clearAgentManagementIntent}
           onNavigateToMode={(targetMode) => {
-            // Returning to 助理 must restore the last session/task selection —
+            // Returning to assistant must restore the last session/task selection —
             // do not suppress restore (WorkBuddy-style sidebar memory).
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
@@ -542,7 +542,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             forceNewSessionOnNextSendRef.current = true;
           }}
           onCreateFreshSessionForAgent={async (workspaceId) => {
-            // Called when the user clicks "+对话" on an agent that is NOT yet
+            // Called when the user clicks "+ conversation" on an agent that is NOT yet
             // present in the left-side agent list. We must create a real
             // session right now (so the new agent is visible on the left as
             // soon as we navigate to that session).
@@ -605,7 +605,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             // Bind the pending agent to this new session (so it appears with
             // the agent avatar + system prompt when user sends first message).
             // If the store is empty (e.g. race after navigation), inherit from
-            // the session the user was viewing so we never land on 默认智能体.
+            // the session the user was viewing so we never land on the default agent.
             const { pendingAgentSnapshot: agentToBind } =
               resolvePendingAgentForPrompt({
                 currentAgent:

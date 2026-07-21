@@ -148,8 +148,8 @@ export function resolveDraftSendPlan(input: {
   sessionWorkspaceRoot: string;
   /**
    * When force-new / idle-new from a space-bound session, pass that session's
-   * project directory so the new chat stays under 空间 instead of dropping
-   * into the unscoped 任务 list (and becoming "first task").
+   * project directory so the new chat stays under Spaces instead of dropping
+   * into the unscoped Tasks list (and becoming "first task").
    */
   inheritAssistantWorkspaceDirectory?: string | null;
 }) {
