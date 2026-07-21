@@ -55,6 +55,13 @@ export {
 } from "./sync/assistant-session-workspaces";
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";
 export {
+  buildIsolatedExpertSessionDirectory,
+  createExpertSessionKey,
+  isSameDirectory,
+  joinWorkspacePath,
+  sanitizePathSegment,
+} from "./sync/expert-session-directory";
+export {
   clearSessionDraft,
   getSessionDraft,
   saveSessionDraft,

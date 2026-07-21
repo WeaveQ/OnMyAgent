@@ -44,7 +44,9 @@ import {
 } from "../../domains/agents";
 import { usePendingAgentStore } from "../../domains/agents";
 import {
+  buildIsolatedExpertSessionDirectory,
   dispatchAssistantSessionWorkspacesChanged,
+  isSameDirectory,
   readAssistantSessionWorkspace,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
@@ -430,7 +432,59 @@ export function useSessionRouteSurfaceProps(
           inheritAssistantWorkspaceDirectory,
         });
         forceNewSessionOnNextSendRef.current = false;
-        const { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
+        let { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
+
+        // Expert sessions without a user-picked folder get an isolated artifact
+        // directory: {workspace}/{agentName}/{sessionKey}/ so sessions never mix outputs.
+        if (pageMode === "expert" && sendPlan.needsNewSession) {
+          const workspaceRoot = (
+            selectedWorkspace?.path?.trim() ||
+            sessionWorkspaceRoot ||
+            ""
+          ).trim();
+          const hasExplicitFolder = Boolean(explicitAssistantWorkspace.trim());
+          const taskIsWorkspaceRoot =
+            !taskWorkspaceRoot.trim() ||
+            (workspaceRoot
+              ? isSameDirectory(taskWorkspaceRoot, workspaceRoot)
+              : false);
+          if (!hasExplicitFolder && taskIsWorkspaceRoot && workspaceRoot) {
+            const pendingForDir = usePendingAgentStore.getState().getAgent();
+            const agentName =
+              pendingForDir?.name?.trim() ||
+              (selectedSessionId
+                ? readSessionAgentSnapshot(selectedSessionId)?.name?.trim()
+                : undefined) ||
+              "expert";
+            const isolated = buildIsolatedExpertSessionDirectory({
+              workspaceRoot,
+              agentName,
+            });
+            const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
+            const ensureWorkspaceId =
+              selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+            if (ensureClient && ensureWorkspaceId?.trim()) {
+              try {
+                await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
+                  path: isolated.markerRelativePath,
+                  content: `# ${agentName}\n\nSession artifacts for this expert conversation.\n`,
+                  force: true,
+                });
+              } catch (error) {
+                console.warn(
+                  "[expert-session] failed to create isolated artifact directory",
+                  error,
+                );
+              }
+            }
+            taskWorkspaceRoot = isolated.directory;
+            explicitAssistantWorkspace = isolated.directory;
+          } else if (hasExplicitFolder) {
+            // User-picked folder: bind so the side panel scans only that path.
+            explicitAssistantWorkspace = explicitAssistantWorkspace.trim();
+            taskWorkspaceRoot = explicitAssistantWorkspace;
+          }
+        }
 
         let skillCommandPrompt: {
           systemPrompt: string;
