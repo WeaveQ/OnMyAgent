@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { ReactElement, ReactNode } from "react";
 import type { UIMessage } from "ai";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import {
@@ -204,6 +204,7 @@ import type { SessionSurfaceProps } from "./session-surface-types";
 
 export function SessionSurface(props: SessionSurfaceProps) {
   const local = useLocal();
+  const queryClient = useQueryClient();
   const showThinking = local.prefs.showThinking;
   const storedSessionActivityStatus = useSessionActivityStore(
     (state) =>
@@ -616,8 +617,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
     cachedRendered: rendered,
   });
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
+  // User stop must clear the red stop button immediately. Backend may keep
+  // reporting busy/retry briefly after abort (especially failed skill runs),
+  // so respect stopRequested and don't keep the composer locked.
+  const remoteBusy =
+    liveStatus.type === "busy" || liveStatus.type === "retry";
+  const stopHidesRemoteBusy =
+    !props.draftOnly && storedSessionStopRequested;
   const chatStreaming =
-    sending || liveStatus.type === "busy" || liveStatus.type === "retry";
+    sending || (remoteBusy && !stopHidesRemoteBusy);
   const rawRenderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
@@ -1688,6 +1696,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
       useSessionActivityStore
         .getState()
         .markRunStopped(props.workspaceId, props.sessionId);
+      // Optimistic idle so the send button restores even if the worker lags
+      // on session.status after abort (common on stuck skill retries).
+      queryClient.setQueryData(statusQueryKey, IDLE_STATUS);
+      queryClient.setQueryData(
+        snapshotQueryKey,
+        (current: OnMyAgentSessionSnapshot | undefined) =>
+          current && current.session.id === props.sessionId
+            ? { ...current, status: IDLE_STATUS }
+            : current,
+      );
     }
     await abortSessionSafe(opencodeClient, props.sessionId);
     await snapshotQuery.refetch();
@@ -1696,7 +1714,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.draftOnly,
     props.sessionId,
     props.workspaceId,
+    queryClient,
     snapshotQuery.refetch,
+    snapshotQueryKey,
+    statusQueryKey,
   ]);
 
   useEffect(() => {

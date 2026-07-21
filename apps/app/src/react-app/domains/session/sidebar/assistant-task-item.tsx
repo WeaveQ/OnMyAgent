@@ -156,8 +156,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             "h-8 min-h-8 max-h-8 shrink-0 items-center overflow-hidden py-0"
           : "items-start py-1.5",
         props.selected
-          ? "bg-dls-list-selected text-dls-text"
-          : "text-dls-text hover:bg-dls-list-hover",
+          ? "bg-dls-list-selected/75 text-dls-text"
+          : "text-dls-text hover:bg-dls-list-hover/80",
       )}
       onPointerEnter={() =>
         props.onPrefetchSession?.(props.workspaceId, latestSession.id)

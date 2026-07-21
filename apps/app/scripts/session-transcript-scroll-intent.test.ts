@@ -111,7 +111,10 @@ describe("session transcript scroll intent", () => {
     expect(surface).toContain("onTouchMove={(event) =>");
     expect(surface).toContain("onPointerDown={(event) =>");
     expect(surface).toContain("event.target !== event.currentTarget");
-    expect(surface).toContain('liveStatus.type === "retry"');
+    // Stop button must not stay red after cancel while backend lags on idle.
+    expect(surface).toContain("stopHidesRemoteBusy");
+    expect(surface).toContain("storedSessionStopRequested");
+    expect(surface).toContain("remoteBusy && !stopHidesRemoteBusy");
     expect(controller).toContain("observer.observe(content)");
     expect(controller).toContain("mutationObserver.observe(content");
     expect(controller).toContain("const stickToMutatedGrowth");

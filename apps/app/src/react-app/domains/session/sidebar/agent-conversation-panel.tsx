@@ -25,12 +25,21 @@ import {
   buildAgentConversationGroups,
   buildAgentStarterItems,
   buildAssistantConversationGroups,
-  readAssistantPinnedSessionIds,
+  readAssistantGlobalPins,
+  writeAssistantGlobalPins,
+  readAssistantSpaceLocalPins,
+  writeAssistantSpaceLocalPins,
+  readAssistantSpaceFolderOrder,
+  writeAssistantSpaceFolderOrder,
   snapshotConversationSummary,
   type AgentConversationGroup,
+  type AssistantGlobalPin,
   type TaskStatusIndicator,
-  writeAssistantPinnedSessionIds,
 } from "./conversation-model";
+import {
+  buildAssistantListModel,
+  reorderList,
+} from "./assistant-list-model";
 import { queueAssistantNewTaskDirectory } from "../../../capabilities/session-identity/assistant-new-task-directory";
 import {
   assistantSessionWorkspacesChangedEvent,
@@ -448,9 +457,23 @@ export function AgentConversationPanel(props: {
   const regularAssistantGroups = assistantCategoryGroups.filter(
     (item) => !automationSessionRecordById.has(item.latestSession.id),
   );
-  const [assistantPinnedSessionIds, setAssistantPinnedSessionIds] = useState(() =>
-    readAssistantPinnedSessionIds(props.selectedWorkspaceId),
-  );
+  const [assistantGlobalPins, setAssistantGlobalPins] = useState<
+    AssistantGlobalPin[]
+  >(() => readAssistantGlobalPins(props.selectedWorkspaceId));
+  /** directory → local pin order (sessions pinned inside a space folder). */
+  const [spaceLocalPinsByDirectory, setSpaceLocalPinsByDirectory] = useState<
+    Record<string, string[]>
+  >(() => {
+    const map: Record<string, string[]> = {};
+    for (const record of readAssistantSessionWorkspaces(
+      props.selectedWorkspaceId,
+    )) {
+      const dir = record.directory?.trim();
+      if (!dir || map[dir]) continue;
+      map[dir] = readAssistantSpaceLocalPins(props.selectedWorkspaceId, dir);
+    }
+    return map;
+  });
   const [archivedRevision, setArchivedRevision] = useState(0);
   const assistantArchivedTasks = useMemo(
     () => readAssistantArchivedTasks(props.selectedWorkspaceId),
@@ -481,52 +504,54 @@ export function AgentConversationPanel(props: {
         .filter((group) => group.items.length > 0),
     [automationGroupsRaw, assistantArchivedIdSet],
   );
-  const assistantPinnedSessionIdSet = new Set(assistantPinnedSessionIds);
-  const assistantPinnedGroups = visibleRegularAssistantGroups.filter((item) =>
-    assistantPinnedSessionIdSet.has(item.latestSession.id),
+  const [spaceFolderOrder, setSpaceFolderOrder] = useState<string[]>(() =>
+    readAssistantSpaceFolderOrder(props.selectedWorkspaceId),
   );
-  const unpinnedAgentGroups = visibleRegularAssistantGroups.filter(
-    (item) => !assistantPinnedSessionIdSet.has(item.latestSession.id),
+
+  const assistantListModel = useMemo(
+    () =>
+      buildAssistantListModel({
+        groups: visibleRegularAssistantGroups,
+        globalPins: assistantGlobalPins,
+        spaceLocalPinsByDirectory,
+        spaceFolderOrder,
+        workspaceBySessionId: assistantWorkspaceBySessionId,
+      }),
+    [
+      assistantGlobalPins,
+      assistantWorkspaceBySessionId,
+      spaceFolderOrder,
+      spaceLocalPinsByDirectory,
+      visibleRegularAssistantGroups,
+    ],
   );
-  const assistantTaskGroups = unpinnedAgentGroups.filter(
-    (item) => !assistantWorkspaceBySessionId.has(item.latestSession.id),
-  );
-  const assistantSpaceGroups = Array.from(
-    unpinnedAgentGroups.reduce((groups, item) => {
-      const record = assistantWorkspaceBySessionId.get(item.latestSession.id);
-      if (!record) return groups;
-      const current = groups.get(record.directory) ?? [];
-      current.push(item);
-      groups.set(record.directory, current);
-      return groups;
-    }, new Map<string, AgentConversationGroup[]>()),
-  ).sort(([, left], [, right]) => {
-    const leftTime =
-      left[0]?.latestSession.time?.updated ??
-      left[0]?.latestSession.time?.created ??
-      0;
-    const rightTime =
-      right[0]?.latestSession.time?.updated ??
-      right[0]?.latestSession.time?.created ??
-      0;
-    return rightTime - leftTime;
-  });
+
   const [expandedAssistantDirectories, setExpandedAssistantDirectories] =
     useState<string[]>([]);
   const [expandedAutomationDirectories, setExpandedAutomationDirectories] =
     useState<string[]>([]);
-  const assistantSpaceDirectoryKey = assistantSpaceGroups
-    .map(([directory]) => directory)
-    .join("\n");
+  const assistantSpaceDirectoryKey = Array.from(
+    assistantListModel.spaceItemsByDirectory.keys(),
+  ).join("\n");
   const automationDirectoryKey = automationGroups
     .map((group) => group.id)
     .join("\n");
 
   useEffect(() => {
-    setAssistantPinnedSessionIds(
-      readAssistantPinnedSessionIds(props.selectedWorkspaceId),
+    setAssistantGlobalPins(readAssistantGlobalPins(props.selectedWorkspaceId));
+    setSpaceFolderOrder(
+      readAssistantSpaceFolderOrder(props.selectedWorkspaceId),
     );
-  }, [props.selectedWorkspaceId]);
+    const map: Record<string, string[]> = {};
+    for (const record of readAssistantSessionWorkspaces(
+      props.selectedWorkspaceId,
+    )) {
+      const dir = record.directory?.trim();
+      if (!dir || map[dir]) continue;
+      map[dir] = readAssistantSpaceLocalPins(props.selectedWorkspaceId, dir);
+    }
+    setSpaceLocalPinsByDirectory(map);
+  }, [props.selectedWorkspaceId, workspaceBindRevision]);
 
   useEffect(() => {
     if (mode !== "assistant") return;
@@ -542,37 +567,108 @@ export function AgentConversationPanel(props: {
 
   useEffect(() => {
     if (mode !== "assistant" || agentGroups.length === 0) return;
-    const availableSessionIds = new Set(agentGroups.map((item) => item.latestSession.id));
-    setAssistantPinnedSessionIds((current) => {
-      const next = current.filter((sessionId) => availableSessionIds.has(sessionId));
+    const availableSessionIds = new Set(
+      agentGroups.map((item) => item.latestSession.id),
+    );
+    const availableFolders = new Set(
+      assistantWorkspaceRecords
+        .map((item) => item.directory?.trim())
+        .filter((item): item is string => Boolean(item)),
+    );
+    setAssistantGlobalPins((current) => {
+      const next = current.filter((pin) =>
+        pin.kind === "session"
+          ? availableSessionIds.has(pin.id)
+          : availableFolders.has(pin.id),
+      );
       if (next.length === current.length) return current;
-      writeAssistantPinnedSessionIds(props.selectedWorkspaceId, next);
+      writeAssistantGlobalPins(props.selectedWorkspaceId, next);
       return next;
     });
-  }, [agentGroups, mode, props.selectedWorkspaceId]);
+  }, [
+    agentGroups,
+    assistantWorkspaceRecords,
+    mode,
+    props.selectedWorkspaceId,
+  ]);
 
+  const folderPathBySessionId = assistantListModel.folderPathBySessionId;
+
+  /** Task sessions → global pin; space sessions → pin inside that folder only. */
   const toggleAssistantPinnedSession = useCallback(
     (sessionId: string) => {
-      setAssistantPinnedSessionIds((current) => {
-        const next = current.includes(sessionId)
-          ? current.filter((item) => item !== sessionId)
-          : [sessionId, ...current];
-        writeAssistantPinnedSessionIds(props.selectedWorkspaceId, next);
+      const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
+      if (spaceDir) {
+        setSpaceLocalPinsByDirectory((current) => {
+          const prev = current[spaceDir] ?? [];
+          const nextIds = prev.includes(sessionId)
+            ? prev.filter((id) => id !== sessionId)
+            : [sessionId, ...prev];
+          writeAssistantSpaceLocalPins(
+            props.selectedWorkspaceId,
+            spaceDir,
+            nextIds,
+          );
+          return { ...current, [spaceDir]: nextIds };
+        });
+        return;
+      }
+      setAssistantGlobalPins((current) => {
+        const exists = current.some(
+          (pin) => pin.kind === "session" && pin.id === sessionId,
+        );
+        const next = exists
+          ? current.filter(
+              (pin) => !(pin.kind === "session" && pin.id === sessionId),
+            )
+          : [{ kind: "session" as const, id: sessionId }, ...current];
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+        return next;
+      });
+    },
+    [folderPathBySessionId, props.selectedWorkspaceId],
+  );
+
+  const toggleAssistantPinnedFolder = useCallback(
+    (directory: string) => {
+      const dir = directory.trim();
+      if (!dir) return;
+      setAssistantGlobalPins((current) => {
+        const exists = current.some(
+          (pin) => pin.kind === "folder" && pin.id === dir,
+        );
+        const next = exists
+          ? current.filter((pin) => !(pin.kind === "folder" && pin.id === dir))
+          : [{ kind: "folder" as const, id: dir }, ...current];
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
         return next;
       });
     },
     [props.selectedWorkspaceId],
   );
 
-  const folderPathBySessionId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const record of assistantWorkspaceRecords) {
-      if (record.directory?.trim()) {
-        map.set(record.sessionId, record.directory.trim());
-      }
-    }
-    return map;
-  }, [assistantWorkspaceRecords]);
+  const reorderAssistantGlobalPins = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      setAssistantGlobalPins((current) => {
+        const next = reorderList(current, fromIndex, toIndex);
+        if (next === current) return current;
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+        return next;
+      });
+    },
+    [props.selectedWorkspaceId],
+  );
+
+  const reorderAssistantSpaceFolders = useCallback(
+    (orderedDirectories: string[]) => {
+      const unique = Array.from(
+        new Set(orderedDirectories.map((d) => d.trim()).filter(Boolean)),
+      );
+      setSpaceFolderOrder(unique);
+      writeAssistantSpaceFolderOrder(props.selectedWorkspaceId, unique);
+    },
+    [props.selectedWorkspaceId],
+  );
 
   const handleArchiveAssistantSession = useCallback(
     (sessionId: string, title: string) => {
@@ -585,12 +681,29 @@ export function AgentConversationPanel(props: {
       });
       setArchivedRevision((value) => value + 1);
       // Drop pin membership when archiving so restore lands in the main list.
-      setAssistantPinnedSessionIds((current) => {
-        if (!current.includes(sessionId)) return current;
-        const next = current.filter((item) => item !== sessionId);
-        writeAssistantPinnedSessionIds(props.selectedWorkspaceId, next);
-        return next;
-      });
+      const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
+      if (spaceDir) {
+        setSpaceLocalPinsByDirectory((current) => {
+          const prev = current[spaceDir] ?? [];
+          if (!prev.includes(sessionId)) return current;
+          const nextIds = prev.filter((id) => id !== sessionId);
+          writeAssistantSpaceLocalPins(
+            props.selectedWorkspaceId,
+            spaceDir,
+            nextIds,
+          );
+          return { ...current, [spaceDir]: nextIds };
+        });
+      } else {
+        setAssistantGlobalPins((current) => {
+          const next = current.filter(
+            (pin) => !(pin.kind === "session" && pin.id === sessionId),
+          );
+          if (next.length === current.length) return current;
+          writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+          return next;
+        });
+      }
     },
     [
       folderPathBySessionId,
@@ -667,6 +780,22 @@ export function AgentConversationPanel(props: {
         directory,
       );
       if (removed <= 0) return;
+      // Drop folder pin + local session pins for this directory.
+      setAssistantGlobalPins((current) => {
+        const next = current.filter(
+          (pin) => !(pin.kind === "folder" && pin.id === directory),
+        );
+        if (next.length === current.length) return current;
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+        return next;
+      });
+      setSpaceLocalPinsByDirectory((current) => {
+        if (!current[directory]) return current;
+        const next = { ...current };
+        delete next[directory];
+        writeAssistantSpaceLocalPins(props.selectedWorkspaceId, directory, []);
+        return next;
+      });
       dispatchAssistantSessionWorkspacesChanged(props.selectedWorkspaceId);
       setWorkspaceBindRevision((value) => value + 1);
       setExpandedAssistantDirectories((current) =>
@@ -678,6 +807,77 @@ export function AgentConversationPanel(props: {
       });
     },
     [props.selectedWorkspaceId, showToast],
+  );
+
+  /** Soft-archive every session under a space folder, then unbind the folder. */
+  const handleArchiveSpaceDirectory = useCallback(
+    (directory: string) => {
+      const dir = directory.trim();
+      if (!dir) return;
+      const sessionsInSpace = assistantWorkspaceRecords.filter(
+        (record) => record.directory?.trim() === dir,
+      );
+      const now = Date.now();
+      const titleBySessionId = new Map(
+        visibleRegularAssistantGroups.map((group) => [
+          group.latestSession.id,
+          group.description,
+        ]),
+      );
+      for (const record of sessionsInSpace) {
+        archiveAssistantTask(props.selectedWorkspaceId, {
+          sessionId: record.sessionId,
+          title:
+            titleBySessionId.get(record.sessionId) ??
+            record.sessionId,
+          directory: dir,
+          archivedAt: now,
+          category: props.assistantCategoryId ?? null,
+        });
+      }
+      removeAssistantSessionWorkspacesByDirectory(
+        props.selectedWorkspaceId,
+        dir,
+      );
+      setAssistantGlobalPins((current) => {
+        const next = current.filter(
+          (pin) => !(pin.kind === "folder" && pin.id === dir),
+        );
+        if (next.length === current.length) return current;
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+        return next;
+      });
+      setSpaceLocalPinsByDirectory((current) => {
+        if (!current[dir]) return current;
+        const next = { ...current };
+        delete next[dir];
+        writeAssistantSpaceLocalPins(props.selectedWorkspaceId, dir, []);
+        return next;
+      });
+      setSpaceFolderOrder((current) => {
+        const next = current.filter((item) => item !== dir);
+        if (next.length === current.length) return current;
+        writeAssistantSpaceFolderOrder(props.selectedWorkspaceId, next);
+        return next;
+      });
+      dispatchAssistantSessionWorkspacesChanged(props.selectedWorkspaceId);
+      setWorkspaceBindRevision((value) => value + 1);
+      setArchivedRevision((value) => value + 1);
+      setExpandedAssistantDirectories((current) =>
+        current.filter((item) => item !== dir),
+      );
+      showToast({
+        tone: "success",
+        title: t("session.archive_space_done"),
+      });
+    },
+    [
+      assistantWorkspaceRecords,
+      props.assistantCategoryId,
+      props.selectedWorkspaceId,
+      showToast,
+      visibleRegularAssistantGroups,
+    ],
   );
 
   const handleCreateTaskInDirectory = useCallback(
@@ -695,9 +895,13 @@ export function AgentConversationPanel(props: {
   useEffect(() => {
     setExpandedAssistantDirectories((current) => {
       const next = new Set(current);
-      for (const [directory] of assistantSpaceGroups) next.add(directory);
+      for (const directory of assistantListModel.spaceItemsByDirectory.keys()) {
+        next.add(directory);
+      }
       return next.size === current.length ? current : Array.from(next);
     });
+    // assistantSpaceDirectoryKey fingerprints the directory set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key is the stable signal
   }, [assistantSpaceDirectoryKey]);
 
   useEffect(() => {
@@ -740,9 +944,7 @@ export function AgentConversationPanel(props: {
             selectedSessionId={props.selectedSessionId}
             sessionStatusById={props.sessionStatusById}
             automationGroups={automationGroups}
-            pinnedGroups={assistantPinnedGroups}
-            taskGroups={assistantTaskGroups}
-            spaceGroups={assistantSpaceGroups}
+            listModel={assistantListModel}
             expandedDirectories={expandedAssistantDirectories}
             expandedAutomationDirectories={expandedAutomationDirectories}
             onExpandedDirectoriesChange={setExpandedAssistantDirectories}
@@ -750,14 +952,17 @@ export function AgentConversationPanel(props: {
             onOpenSession={props.onOpenSession}
             onPrefetchSession={props.onPrefetchSession}
             onTogglePinned={toggleAssistantPinnedSession}
+            onToggleFolderPinned={toggleAssistantPinnedFolder}
+            onReorderGlobalPins={reorderAssistantGlobalPins}
+            onReorderSpaceFolders={reorderAssistantSpaceFolders}
             onRenameSession={props.onRenameSession}
             onArchiveSession={handleArchiveAssistantSession}
             onDeleteSession={props.onDeleteSession}
             onOpenFolder={handleOpenFolder}
             onSaveToSpace={handleSaveToSpace}
             onRemoveSpaceDirectory={handleRemoveSpaceDirectory}
+            onArchiveSpaceDirectory={handleArchiveSpaceDirectory}
             onCreateTaskInDirectory={handleCreateTaskInDirectory}
-            folderPathBySessionId={folderPathBySessionId}
           />
         ) : (
           <AgentConversationList

@@ -234,45 +234,309 @@ export function snapshotConversationSummary(
   };
 }
 
+/**
+ * Global pin strip (WorkBuddy-style): ordered mix of sessions + folders.
+ * Space-folder sessions are pinned *inside* the folder (see space-local pins),
+ * not here — unless the user pins the folder itself.
+ */
+export type AssistantGlobalPin =
+  | { kind: "session"; id: string }
+  | { kind: "folder"; id: string };
+
 const ASSISTANT_PINNED_SESSIONS_STORAGE_KEY =
   "onmyagent.assistantPinnedSessions.v1";
+const ASSISTANT_GLOBAL_PINS_STORAGE_KEY = "onmyagent.assistantPins.v2";
+/** workspaceId → directory → ordered sessionIds pinned within that space. */
+const ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY =
+  "onmyagent.assistantSpaceLocalPins.v1";
 
+function parseGlobalPin(value: unknown): AssistantGlobalPin | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const kind = "kind" in value ? value.kind : null;
+  const id =
+    "id" in value && typeof value.id === "string" ? value.id.trim() : "";
+  if (!id) return null;
+  if (kind === "session" || kind === "folder") return { kind, id };
+  return null;
+}
+
+function readGlobalPinsRecord(): Record<string, AssistantGlobalPin[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const v2raw = window.localStorage.getItem(ASSISTANT_GLOBAL_PINS_STORAGE_KEY);
+    if (v2raw) {
+      const parsed: unknown = JSON.parse(v2raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const out: Record<string, AssistantGlobalPin[]> = {};
+        for (const [workspaceId, pins] of Object.entries(parsed)) {
+          if (!Array.isArray(pins)) continue;
+          const list: AssistantGlobalPin[] = [];
+          const seen = new Set<string>();
+          for (const item of pins) {
+            const pin = parseGlobalPin(item);
+            if (!pin) continue;
+            const key = `${pin.kind}:${pin.id}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            list.push(pin);
+          }
+          if (list.length > 0) out[workspaceId] = list;
+        }
+        return out;
+      }
+    }
+    // Migrate v1 session-only pins → v2 global session pins.
+    const legacy = window.localStorage.getItem(
+      ASSISTANT_PINNED_SESSIONS_STORAGE_KEY,
+    );
+    if (!legacy) return {};
+    const parsed: unknown = JSON.parse(legacy);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: Record<string, AssistantGlobalPin[]> = {};
+    for (const [workspaceId, value] of Object.entries(parsed)) {
+      if (!Array.isArray(value)) continue;
+      const pins = value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((id) => ({ kind: "session" as const, id: id.trim() }));
+      if (pins.length > 0) out[workspaceId] = pins;
+    }
+    if (Object.keys(out).length > 0) {
+      window.localStorage.setItem(
+        ASSISTANT_GLOBAL_PINS_STORAGE_KEY,
+        JSON.stringify(out),
+      );
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeGlobalPinsRecord(record: Record<string, AssistantGlobalPin[]>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      ASSISTANT_GLOBAL_PINS_STORAGE_KEY,
+      JSON.stringify(record),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+export function readAssistantGlobalPins(
+  workspaceId: string,
+): AssistantGlobalPin[] {
+  return readGlobalPinsRecord()[workspaceId.trim()] ?? [];
+}
+
+export function writeAssistantGlobalPins(
+  workspaceId: string,
+  pins: AssistantGlobalPin[],
+) {
+  const id = workspaceId.trim();
+  if (!id) return;
+  const record = readGlobalPinsRecord();
+  const seen = new Set<string>();
+  const next: AssistantGlobalPin[] = [];
+  for (const pin of pins) {
+    const pinId = pin.id.trim();
+    if (!pinId || (pin.kind !== "session" && pin.kind !== "folder")) continue;
+    const key = `${pin.kind}:${pinId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push({ kind: pin.kind, id: pinId });
+  }
+  if (next.length > 0) record[id] = next;
+  else delete record[id];
+  writeGlobalPinsRecord(record);
+}
+
+/** @deprecated Prefer readAssistantGlobalPins — session ids from global pins only. */
 export function readAssistantPinnedSessionIds(workspaceId: string) {
+  return readAssistantGlobalPins(workspaceId)
+    .filter((pin) => pin.kind === "session")
+    .map((pin) => pin.id);
+}
+
+/** @deprecated Prefer writeAssistantGlobalPins. */
+export function writeAssistantPinnedSessionIds(
+  workspaceId: string,
+  sessionIds: string[],
+) {
+  const existingFolders = readAssistantGlobalPins(workspaceId).filter(
+    (pin) => pin.kind === "folder",
+  );
+  const sessions = Array.from(new Set(sessionIds)).map((id) => ({
+    kind: "session" as const,
+    id,
+  }));
+  writeAssistantGlobalPins(workspaceId, [...sessions, ...existingFolders]);
+}
+
+function readSpaceLocalPinsRecord(): Record<
+  string,
+  Record<string, string[]>
+> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(
+      ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY,
+    );
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: Record<string, Record<string, string[]>> = {};
+    for (const [workspaceId, dirs] of Object.entries(parsed)) {
+      if (!dirs || typeof dirs !== "object" || Array.isArray(dirs)) continue;
+      const map: Record<string, string[]> = {};
+      for (const [directory, ids] of Object.entries(dirs)) {
+        if (!Array.isArray(ids)) continue;
+        const list = ids.filter(
+          (item): item is string => typeof item === "string" && Boolean(item.trim()),
+        );
+        if (list.length > 0) map[directory] = Array.from(new Set(list));
+      }
+      if (Object.keys(map).length > 0) out[workspaceId] = map;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function readAssistantSpaceLocalPins(
+  workspaceId: string,
+  directory: string,
+): string[] {
+  const dir = directory.trim();
+  if (!dir) return [];
+  return readSpaceLocalPinsRecord()[workspaceId.trim()]?.[dir] ?? [];
+}
+
+export function writeAssistantSpaceLocalPins(
+  workspaceId: string,
+  directory: string,
+  sessionIds: string[],
+) {
+  const ws = workspaceId.trim();
+  const dir = directory.trim();
+  if (!ws || !dir) return;
+  const record = readSpaceLocalPinsRecord();
+  const workspaceMap = { ...(record[ws] ?? {}) };
+  const unique = Array.from(new Set(sessionIds.map((id) => id.trim()).filter(Boolean)));
+  if (unique.length > 0) workspaceMap[dir] = unique;
+  else delete workspaceMap[dir];
+  if (Object.keys(workspaceMap).length > 0) record[ws] = workspaceMap;
+  else delete record[ws];
+  try {
+    window.localStorage.setItem(
+      ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY,
+      JSON.stringify(record),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+/** Ordered space folders in the Spaces section (drag reorder), per workspace. */
+const ASSISTANT_SPACE_FOLDER_ORDER_KEY =
+  "onmyagent.assistantSpaceFolderOrder.v1";
+
+export function readAssistantSpaceFolderOrder(workspaceId: string): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed: unknown = JSON.parse(
-      window.localStorage.getItem(ASSISTANT_PINNED_SESSIONS_STORAGE_KEY) ?? "{}",
-    );
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
-    const value = (parsed as Record<string, unknown>)[workspaceId];
+    const raw = window.localStorage.getItem(ASSISTANT_SPACE_FOLDER_ORDER_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return [];
+    }
+    const value = (parsed as Record<string, unknown>)[workspaceId.trim()];
     return Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === "string")
+      ? value.filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0,
+        )
       : [];
   } catch {
     return [];
   }
 }
 
-export function writeAssistantPinnedSessionIds(workspaceId: string, sessionIds: string[]) {
-  if (typeof window === "undefined") return;
+export function writeAssistantSpaceFolderOrder(
+  workspaceId: string,
+  directories: string[],
+) {
+  const ws = workspaceId.trim();
+  if (!ws || typeof window === "undefined") return;
   try {
-    const parsed: unknown = JSON.parse(
-      window.localStorage.getItem(ASSISTANT_PINNED_SESSIONS_STORAGE_KEY) ?? "{}",
-    );
+    const raw = window.localStorage.getItem(ASSISTANT_SPACE_FOLDER_ORDER_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
     const record =
       parsed && typeof parsed === "object" && !Array.isArray(parsed)
         ? { ...(parsed as Record<string, unknown>) }
         : {};
-    const uniqueSessionIds = Array.from(new Set(sessionIds));
-    if (uniqueSessionIds.length > 0) record[workspaceId] = uniqueSessionIds;
-    else delete record[workspaceId];
+    const unique = Array.from(
+      new Set(directories.map((d) => d.trim()).filter(Boolean)),
+    );
+    if (unique.length > 0) record[ws] = unique;
+    else delete record[ws];
     window.localStorage.setItem(
-      ASSISTANT_PINNED_SESSIONS_STORAGE_KEY,
+      ASSISTANT_SPACE_FOLDER_ORDER_KEY,
       JSON.stringify(record),
     );
   } catch {
-    return;
+    // ignore
   }
+}
+
+/** Apply saved folder order; unknown dirs append by original relative order. */
+export function applySpaceFolderOrder<T>(
+  entries: [string, T][],
+  order: string[],
+): [string, T][] {
+  if (order.length === 0 || entries.length <= 1) return entries;
+  const byDir = new Map(entries);
+  const out: [string, T][] = [];
+  const seen = new Set<string>();
+  for (const dir of order) {
+    const items = byDir.get(dir);
+    if (!items) continue;
+    out.push([dir, items]);
+    seen.add(dir);
+  }
+  for (const entry of entries) {
+    if (seen.has(entry[0])) continue;
+    out.push(entry);
+  }
+  return out;
+}
+
+export function sortGroupsByPinnedSessionIds(
+  groups: AgentConversationGroup[],
+  pinnedSessionIds: string[],
+): AgentConversationGroup[] {
+  if (pinnedSessionIds.length === 0) return groups;
+  const order = new Map(pinnedSessionIds.map((id, index) => [id, index]));
+  return [...groups].sort((left, right) => {
+    const leftPin = order.get(left.latestSession.id);
+    const rightPin = order.get(right.latestSession.id);
+    const leftPinned = leftPin !== undefined;
+    const rightPinned = rightPin !== undefined;
+    if (leftPinned !== rightPinned) return leftPinned ? -1 : 1;
+    if (leftPinned && rightPinned) return (leftPin ?? 0) - (rightPin ?? 0);
+    const leftTime =
+      left.latestSession.time?.updated ?? left.latestSession.time?.created ?? 0;
+    const rightTime =
+      right.latestSession.time?.updated ??
+      right.latestSession.time?.created ??
+      0;
+    return rightTime - leftTime;
+  });
 }
 
 /** Expert list pin — by agentId (one row = one expert), local only. */
