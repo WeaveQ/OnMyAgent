@@ -13,6 +13,7 @@ import {
   composerMenuClass,
   type MentionItem,
 } from "./composer-helpers";
+import { skillMenuDescription } from "./tool-menu-model";
 
 /** ~5 rows visible (py-2 + line + gap ≈ 2.25rem each). */
 const SLASH_LIST_MAX_HEIGHT = "max-h-[11.25rem]";
@@ -20,13 +21,13 @@ const SLASH_LIST_MAX_HEIGHT = "max-h-[11.25rem]";
 function partitionSlashCommands(commands: SlashCommandOption[]) {
   const skills: SlashCommandOption[] = [];
   const cmds: SlashCommandOption[] = [];
-  const mcps: SlashCommandOption[] = [];
   for (const command of commands) {
+    // Connectors (source "mcp") are excluded from slash — use + → 连接器.
+    if (command.source === "mcp") continue;
     if (command.source === "skill") skills.push(command);
-    else if (command.source === "mcp") mcps.push(command);
     else cmds.push(command);
   }
-  return { skills, cmds, mcps };
+  return { skills, cmds };
 }
 
 function SlashSectionHeader(props: { label: string; count: number }) {
@@ -50,7 +51,8 @@ function SlashCommandRow(props: {
   onSelect: (command: SlashCommandOption) => void;
 }) {
   const { command } = props;
-  const description = command.description?.trim() ?? "";
+  // Match + skills flyout: strip noisy "(opencode - Skill)" prefixes.
+  const description = skillMenuDescription(command.description);
   return (
     <MenuRowButton
       ref={(element) => {
@@ -139,51 +141,30 @@ export function ComposerSlashMenu(props: {
 }) {
   if (!props.open) return null;
 
-  const { skills, cmds, mcps } = partitionSlashCommands(props.filtered);
-  // Merge skills + commands under 「技能」; keep connectors separate.
+  const { skills, cmds } = partitionSlashCommands(props.filtered);
+  // Merge skills + commands under 「技能」 only (no connector section).
   // (Many backends tag skills as source "command" — still show under 技能.)
   const skillItems = [...skills, ...cmds];
 
   return (
     <div className={composerMenuClass.anchor}>
       <div className={composerMenuClass.panel}>
-        {props.filtered.length > 0 ? (
+        {skillItems.length > 0 ? (
           <div className="flex min-h-0 flex-col">
-            {skillItems.length > 0 ? (
-              <>
-                {/* Fixed title — does not scroll with the list. */}
-                <SlashSectionHeader
-                  label={t("composer.slash_section_skills")}
-                  count={skillItems.length}
-                />
-                <SlashScrollList
-                  items={skillItems}
-                  filtered={props.filtered}
-                  activeMenu={props.activeMenu}
-                  menuIndex={props.menuIndex}
-                  menuItemRefs={props.menuItemRefs}
-                  setMenuIndex={props.setMenuIndex}
-                  onSelect={props.onSelect}
-                />
-              </>
-            ) : null}
-            {mcps.length > 0 ? (
-              <>
-                <SlashSectionHeader
-                  label={t("composer.slash_section_mcps")}
-                  count={mcps.length}
-                />
-                <SlashScrollList
-                  items={mcps}
-                  filtered={props.filtered}
-                  activeMenu={props.activeMenu}
-                  menuIndex={props.menuIndex}
-                  menuItemRefs={props.menuItemRefs}
-                  setMenuIndex={props.setMenuIndex}
-                  onSelect={props.onSelect}
-                />
-              </>
-            ) : null}
+            {/* Fixed title — does not scroll with the list. */}
+            <SlashSectionHeader
+              label={t("composer.slash_section_skills")}
+              count={skillItems.length}
+            />
+            <SlashScrollList
+              items={skillItems}
+              filtered={skillItems}
+              activeMenu={props.activeMenu}
+              menuIndex={props.menuIndex}
+              menuItemRefs={props.menuItemRefs}
+              setMenuIndex={props.setMenuIndex}
+              onSelect={props.onSelect}
+            />
           </div>
         ) : (
           <div
@@ -191,7 +172,7 @@ export function ComposerSlashMenu(props: {
             className="px-3 py-3 text-sm leading-5 text-dls-secondary"
             onMouseDown={(event) => event.preventDefault()}
           >
-            {!props.commandsLoaded && props.commandsLoading
+            {props.commandsLoading
               ? t("composer.loading_commands")
               : t("composer.no_commands")}
           </div>

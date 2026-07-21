@@ -25,6 +25,5 @@ export const loadCloudProvidersView = () =>
   import("./pages/cloud-providers-view");
 export const loadCloudMarketplacesView = () =>
   import("./pages/cloud-marketplaces-view");
-export const loadExtensionsView = () => import("./pages/extensions-view");
-export const loadMcpView = () => import("./pages/mcp-view");
+
 export const loadMessagingView = () => import("./pages/messaging-view");

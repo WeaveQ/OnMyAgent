@@ -1,7 +1,12 @@
 /** @jsxImportSource react */
-import { FileText, FileType2, Globe2, Sheet } from "lucide-react";
+import type { ComponentType } from "react";
+import {
+  AppWindow,
+  FileSpreadsheet,
+  FileText,
+  FileType,
+} from "lucide-react";
 
-import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
@@ -38,12 +43,43 @@ export type ArtifactStarterPromptsProps = {
   disabled?: boolean;
 };
 
-function pluginIcon(pluginId: string) {
-  if (pluginId === "browser") return Globe2;
-  if (pluginId === "pdf") return FileType2;
-  if (pluginId === "spreadsheets") return Sheet;
-  return FileText;
-}
+/**
+ * Solid brand-color tiles (white glyph) so they sit with connector logos below
+ * instead of washed monochrome accent chips.
+ */
+const PLUGIN_ICON_META: Record<
+  string,
+  {
+    Icon: ComponentType<{ className?: string; "aria-hidden"?: boolean | "true"; strokeWidth?: number }>;
+    tile: string;
+  }
+> = {
+  browser: {
+    Icon: AppWindow,
+    // Chromium-ish sky
+    tile: "bg-[#4285F4] text-white shadow-sm shadow-sky-500/25",
+  },
+  documents: {
+    Icon: FileText,
+    // Word blue
+    tile: "bg-[#2B579A] text-white shadow-sm shadow-blue-900/20",
+  },
+  pdf: {
+    Icon: FileType,
+    // Adobe-ish red
+    tile: "bg-[#E5252A] text-white shadow-sm shadow-red-600/25",
+  },
+  spreadsheets: {
+    Icon: FileSpreadsheet,
+    // Excel green
+    tile: "bg-[#217346] text-white shadow-sm shadow-emerald-900/20",
+  },
+};
+
+const DEFAULT_PLUGIN_ICON = {
+  Icon: FileText,
+  tile: "bg-dls-text text-dls-background",
+};
 
 export function ArtifactPluginIcon({
   pluginId,
@@ -54,16 +90,23 @@ export function ArtifactPluginIcon({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const Icon = pluginIcon(pluginId);
+  const meta = PLUGIN_ICON_META[pluginId] ?? DEFAULT_PLUGIN_ICON;
+  const { Icon } = meta;
+  const box = size === "sm" ? "size-9 rounded-xl" : "size-11 rounded-2xl";
+  const iconSize = size === "sm" ? "size-4" : "size-5";
+
   return (
-    <IconTile
-      size={size === "sm" ? "sm" : "md"}
-      tone="accent"
-      shape={size === "sm" ? "lg" : "xl"}
-      className={cn("shrink-0", className)}
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center",
+        box,
+        meta.tile,
+        className,
+      )}
+      aria-hidden="true"
     >
-      <Icon className={size === "sm" ? "size-4" : "size-5"} aria-hidden="true" />
-    </IconTile>
+      <Icon className={cn(iconSize, "text-white")} strokeWidth={2} />
+    </span>
   );
 }
 

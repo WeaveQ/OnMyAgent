@@ -118,6 +118,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { CustomConnectorDialog } from "@/react-app/domains/plugins/custom-connector-dialog";
+import { useStatusToasts } from "../../shell-feedback";
 
 export type AssistantPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -137,6 +139,7 @@ const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 
 export function AssistantPage(props: AssistantPageProps) {
+  const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const sidePanelSessionKey =
     props.selectedSessionId ?? `assistant-draft:${props.selectedWorkspaceId}`;
@@ -170,6 +173,14 @@ export function AssistantPage(props: AssistantPageProps) {
   );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
+  const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
+  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
+    "list" | "config"
+  >("list");
+  const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
+    setCustomConnectorInitialView(view);
+    setCustomConnectorOpen(true);
+  }, []);
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -1247,6 +1258,7 @@ export function AssistantPage(props: AssistantPageProps) {
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
+                          onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       </KeepAlivePane>
 
@@ -1481,6 +1493,11 @@ export function AssistantPage(props: AssistantPageProps) {
                               setStoreActiveTab("skills");
                               setActiveSidebarView("store");
                             }}
+                            onOpenConnectorsMarketplace={() => {
+                              setStoreActiveTab("plugins");
+                              setActiveSidebarView("store");
+                            }}
+                            onOpenCustomConnector={() => openCustomConnector("config")}
                           />
                         </KeepAlivePane>
                       ) : null}
@@ -1602,7 +1619,8 @@ export function AssistantPage(props: AssistantPageProps) {
               </ResizablePanel>
               {sidePanelVisible ? (
                 <>
-                  <ResizableHandle className="hidden bg-transparent before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-dls-border/70 before:transition-colors after:w-3 hover:before:bg-dls-border-strong focus-visible:before:bg-dls-accent lg:flex" />
+                  {/* Single 1px rule — base handle also paints bg-border; avoid before: double line. */}
+                  <ResizableHandle className="hidden w-px shrink-0 bg-dls-border/70 transition-colors hover:bg-dls-border-strong focus-visible:bg-dls-accent focus-visible:outline-none focus-visible:ring-0 lg:flex after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 after:bg-transparent after:content-['']" />
                   <ResizablePanel
                     key={assistantCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
                     panelRef={browserPanelRef}
@@ -1711,6 +1729,19 @@ export function AssistantPage(props: AssistantPageProps) {
       {props.shareWorkspaceModal ? (
         <ShareWorkspaceModal {...props.shareWorkspaceModal} />
       ) : null}
+
+      <CustomConnectorDialog
+        open={customConnectorOpen}
+        onOpenChange={setCustomConnectorOpen}
+        workspaceRoot={props.selectedWorkspaceRoot}
+        initialView={customConnectorInitialView}
+        onSaved={() => {
+          showToast({
+            title: t("plugins.custom_connector_saved"),
+            tone: "success",
+          });
+        }}
+      />
     </div>
   );
 }

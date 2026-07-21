@@ -17,20 +17,29 @@ export type ProviderReloadRequiredModalProps = {
   open: boolean;
   busy?: boolean;
   onReload: () => void;
+  /** Optional copy overrides (e.g. MCP / custom connector save). */
+  title?: string;
+  description?: string;
+  reloadLabel?: string;
+  /** When set, show a secondary dismiss action (non-forced flow). */
+  onDismiss?: () => void;
+  dismissLabel?: string;
 };
 
 /**
- * 强制刷新弹窗：新增/修改/删除自定义模型服务商后，引擎配置已变更，
- * 需要重新加载引擎（非重启 App）才能使修改生效。弹窗不可通过 ESC、
- * 点击遮罩或关闭按钮关闭，只有点击「立刻刷新」并完成重载后才会关闭。
+ * 刷新引擎弹窗：配置变更后需重载本地引擎（非重启 App）。
+ * 默认强制：忽略 ESC / 遮罩 / 关闭钮；传入 onDismiss 时可稍后处理。
  */
 export function ProviderReloadRequiredModal(props: ProviderReloadRequiredModalProps) {
+  const allowDismiss = Boolean(props.onDismiss);
+
   return (
     <Dialog
       open={props.open}
-      // 强制弹窗：忽略 ESC / 外部点击 / 关闭按钮，仅由 onReload 完成后受控关闭。
-      onOpenChange={() => {}}
-      disablePointerDismissal
+      onOpenChange={(next) => {
+        if (!next && allowDismiss) props.onDismiss?.();
+      }}
+      disablePointerDismissal={!allowDismiss}
     >
       <DialogContent showCloseButton={false} className="sm:max-w-md">
         <DialogHeader>
@@ -38,20 +47,31 @@ export function ProviderReloadRequiredModal(props: ProviderReloadRequiredModalPr
             <RefreshCcw className={props.busy ? "size-8 animate-spin" : "size-8"} />
           </div>
           <DialogTitle className="text-center sm:text-left">
-            {t("settings.provider_reload_required_title")}
+            {props.title ?? t("settings.provider_reload_required_title")}
           </DialogTitle>
           <DialogDescription>
-            {t("settings.provider_reload_required_desc")}
+            {props.description ?? t("settings.provider_reload_required_desc")}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className={allowDismiss ? "gap-2 sm:justify-end" : undefined}>
+          {allowDismiss ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={props.onDismiss}
+              disabled={props.busy}
+            >
+              {props.dismissLabel ?? t("app.reload_later")}
+            </Button>
+          ) : null}
           <Button size="lg" onClick={props.onReload} disabled={props.busy}>
             {props.busy ? (
               <LoadingSpinner size="sm" className="mr-1.5" />
             ) : (
               <RefreshCcw className="mr-1.5 size-3.5" />
             )}
-            {t("settings.provider_reload_now")}
+            {props.reloadLabel ?? t("settings.provider_reload_now")}
           </Button>
         </DialogFooter>
       </DialogContent>
