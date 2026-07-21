@@ -77,6 +77,8 @@ export default {
   "skills.matrix_count": "显示 {visible} / 共 {total}",
   "skills.matrix_description": "描述",
   "skills.matrix_empty": "暂无匹配 Skill",
+  "skills.matrix_empty_inventory": "暂无 Skill",
+  "skills.matrix_loading": "正在加载 Skill…",
   "skills.matrix_filtered_suffix": "（已筛选）",
   "skills.matrix_import_managed": "导入托管",
   "skills.matrix_import_to_studio_switch": "导入到 Studio Switch",

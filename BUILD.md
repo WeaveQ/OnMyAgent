@@ -78,6 +78,24 @@ pnpm --dir apps/desktop package:electron -- --mac --arm64 --publish never
 pnpm --dir apps/desktop package:electron -- --mac --x64 --publish never
 ```
 
+### macOS local ad-hoc package (no Apple Developer ID)
+
+For smoke-testing a DMG/`.app` on the **build Mac** without a Developer ID
+certificate, use ad-hoc signing (`identity: "-"`) plus Hardened Runtime
+entitlements (`build/entitlements.mac.plist`: `allow-jit`,
+`disable-library-validation`, …):
+
+```bash
+pnpm --dir apps/desktop package:electron:local
+# .app only (faster):
+pnpm --dir apps/desktop package:electron:local -- --dir
+```
+
+This is **not** a substitute for release signing + notarization. Ad-hoc builds
+still fail Gatekeeper when copied via WeChat/browser quarantine; clear with
+`xattr -cr /path/to/OnMyAgent.app` on the same machine, or open from
+`dist-electron/mac-arm64/` without re-downloading.
+
 If a sidecar target must be prepared explicitly, run the desktop helper first:
 
 ```bash

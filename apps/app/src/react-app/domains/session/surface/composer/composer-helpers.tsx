@@ -2,9 +2,8 @@
 /** Pure helpers, types, and styles for the session composer (mechanical extract). */
 import type { ComponentType, ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { ClipboardList, MessageCircle, Plug, Rocket, Target } from "lucide-react";
+import { ClipboardList, MessageCircle, Rocket, Target } from "lucide-react";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import type { StatusBadgeTone } from "@/components/ui/status-badge";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type {
@@ -67,7 +66,7 @@ export const composerMenuClass = {
     "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
   panelWithoutBottomBorder:
     "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
-  // Grouped 技能 / 指令 list — roomy horizontal padding, compact vertical stack.
+  // Grouped skills / commands list — roomy horizontal padding, compact vertical stack.
   scrollArea: "max-h-72 overflow-y-auto px-1.5 py-2",
 
   itemIcon: "mt-0.5 shrink-0 text-dls-secondary",
@@ -213,6 +212,10 @@ export type ComposerProps = {
   importedPlugins?: CloudImportedPlugin[];
   onOpenSettingsSection?: (section: ToolMenuSettingsSection) => void;
   onOpenSkillsMarketplace?: () => void;
+  /** Open market → connectors (plugins) tab — connectors flyout configure. */
+  onOpenConnectorsMarketplace?: () => void;
+  /** Open custom MCP config dialog (e.g. MCP row toggle / advanced). */
+  onOpenCustomConnector?: () => void;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<string[]>;
   onInsertMention: (kind: "agent" | "file", value: string) => void;
@@ -387,15 +390,9 @@ export function mcpServerDescription(entry: McpServerEntry) {
 
 export const COMPOSER_CONTAIN_STYLE = { contain: "layout style" };
 
-export function extensionIcon(entry: McpDirectoryInfo, size = 16) {
-  if (entry.iconSrc) {
-    return <img src={resolvePublicAssetUrl(entry.iconSrc)} alt="" width={size} height={size} loading="lazy" className="block" />;
-  }
-  if (entry.iconSlug) {
-    return <img src={`https://cdn.simpleicons.org/${entry.iconSlug}`} alt="" width={size} height={size} loading="lazy" className="block" />;
-  }
-  return <Plug size={size} className="text-dls-secondary" />;
-}
+// Re-export from plugins domain so session composer shares one icon helper
+// without plugins depending on session.
+export { extensionIcon, extensionIconTileClassName } from "@/react-app/domains/plugins";
 
 export function pluginSlashCommandName(file: CloudImportedPluginFile) {
   const path = file.path.trim();

@@ -206,7 +206,10 @@ describe("expert marketplace UI contract", () => {
     expect(storePage).toContain('t("store.skills_tab")');
     expect(storePage).toContain('t("plugins.artifact_tab")');
     expect(storePage).toContain('t("store.all_experts")');
-    expect(storePage).toContain('t("store.add_skill")');
+    // Skills market uses "my installed" entry (with count), not a bare add_skill CTA.
+    expect(storePage).toContain('t("store.my_installed")');
+    expect(storePage).toContain('t("store.skills_marketplace")');
+    expect(storePage).toContain("CustomConnectorEntryButton");
     expect(expertPage).toContain("const openExpertMarket = useCallback");
     expect(expertPage).toContain("onOpenAgents={openExpertMarket}");
     expect(expertPage).toContain("activeTab={storeActiveTab}");
@@ -341,16 +344,15 @@ describe("expert marketplace UI contract", () => {
     expect(panel).toContain("selectedAgentId?: string | null");
     expect(panel).toContain("selectedAgentId={props.selectedAgentId}");
     expect(list).toContain("selectedAgentId?: string | null");
-    expect(list).toContain("item.agentId === props.selectedAgentId");
+    // Draft + multi-session: highlight by agentId or any session under the group.
+    expect(list).toContain("group.agentId === props.selectedAgentId");
+    expect(list).toContain("session.id === props.selectedSessionId");
+    // Title matches local-agent list weight (always medium).
     expect(item).toContain(
-      'itemTitle: "min-w-0 flex-1 truncate text-sm leading-5 text-dls-text"',
+      'itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text"',
     );
-    expect(item).toContain(
-      'props.selected ? "font-medium" : "font-normal"',
-    );
-    // Presence uses StatusDot + online fill helper (not a raw accent pill).
-    expect(item).toContain("StatusDot");
-    expect(item).toContain('return "bg-dls-online"');
+    // Streaming / activity uses ExpertStatusDots (not raw accent pill).
+    expect(item).toContain("ExpertStatusDots");
     expect(item).not.toContain(
       'props.taskStatusVariant === "available" && "bg-dls-accent"',
     );
@@ -421,10 +423,9 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx",
     );
 
-    expect(tabs).toContain(
-      '? "h-11 border-b border-dls-mist px-3"',
-    );
-    expect(tabs).toContain(': "h-0 overflow-visible shadow-none"');
+    // Expanded strip owns the bottom rule; collapsed is hang-tab host only.
+    expect(tabs).toContain('"h-11 border-b border-dls-mist px-3"');
+    expect(tabs).toContain('"h-0 overflow-visible shadow-none"');
     expect(tabs).toContain(
       'className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto"',
     );

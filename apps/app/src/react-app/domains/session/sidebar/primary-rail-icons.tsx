@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { Bot } from "lucide-react";
 
 type PrimaryRailIconProps = {
   className?: string;
@@ -45,25 +46,25 @@ export function ExpertRailIcon(props: PrimaryRailIconProps) {
   );
 }
 
-/** Local agent / desktop — monitor, same fill language as assistant/expert. */
+/**
+ * Local agent — Lucide Bot outline (same stroke language as account menu
+ * 语言 / 主题 / 设置: Globe2, Palette, Settings).
+ */
 export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
+    <Bot
       className={props.className}
-    >
-      <path
-        fillRule="evenodd"
-        d="M1.75 2C1.336 2 1 2.336 1 2.75v7c0 .414.336.75.75.75H6.5v1.25H5.25a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5H9.5V10.5h4.75c.414 0 .75-.336.75-.75v-7C15 2.336 14.664 2 14.25 2H1.75ZM2.5 3.5h11v5.5h-11V3.5Z"
-      />
-    </svg>
+      strokeWidth={1.75}
+      absoluteStrokeWidth
+      aria-hidden="true"
+    />
   );
 }
 
-/** Files / workspace — folder. */
+/**
+ * Files / workspace — solid filled folder (not a thin outline).
+ * Matches weight of local monitor / store bag at 20px rail size.
+ */
 export function FilesRailIcon(props: PrimaryRailIconProps) {
   return (
     <svg
@@ -73,10 +74,9 @@ export function FilesRailIcon(props: PrimaryRailIconProps) {
       aria-hidden="true"
       className={props.className}
     >
-      <path
-        fillRule="evenodd"
-        d="M1.5 3.25C1.5 2.56 2.06 2 2.75 2h3.19c.35 0 .68.15.9.41L7.7 3.5h5.55c.69 0 1.25.56 1.25 1.25v7.5c0 .69-.56 1.25-1.25 1.25H2.75c-.69 0-1.25-.56-1.25-1.25v-9Zm1.5.75v8.5h10V5H7.35a1.25 1.25 0 0 1-.9-.41L5.6 3.5H3Z"
-      />
+      <path d="M1.5 4.1C1.5 3.22 2.22 2.5 3.1 2.5h2.55c.32 0 .62.12.85.35l.85.85H12.9c.88 0 1.6.72 1.6 1.6v6.5c0 .88-.72 1.6-1.6 1.6H3.1c-.88 0-1.6-.72-1.6-1.6V4.1Zm1.5.4v7.7c0 .06.04.1.1.1h9.8c.06 0 .1-.04.1-.1V5.3c0-.06-.04-.1-.1-.1H7.55a1.1 1.1 0 0 1-.78-.32L5.85 4H3.1c-.06 0-.1.04-.1.1Z" />
+      {/* Inner paper stack — adds mass so the glyph doesn’t read as a wire outline */}
+      <path d="M4.2 7.15c0-.3.24-.55.55-.55h6.5a.55.55 0 1 1 0 1.1h-6.5a.55.55 0 0 1-.55-.55Zm0 2.25c0-.3.24-.55.55-.55h4.4a.55.55 0 1 1 0 1.1h-4.4a.55.55 0 0 1-.55-.55Z" />
     </svg>
   );
 }

@@ -9,7 +9,6 @@ import {
   CloudCog,
   Cog,
   FolderLock,
-  Puzzle,
   RefreshCcw,
   SlidersHorizontal,
   Store,
@@ -64,8 +63,6 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return Store;
     case "cloud-providers":
       return CloudCog;
-    case "extensions":
-      return Puzzle;
     case "environment":
       return Terminal;
     case "updates":
@@ -97,8 +94,6 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.tab_cloud_marketplaces");
     case "cloud-providers":
       return t("settings.tab_cloud_providers");
-    case "extensions":
-      return t("settings.tab_extensions");
     case "environment":
       return t("settings.tab_environment");
     case "updates":
@@ -132,8 +127,6 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.tab_description_cloud_marketplaces");
     case "cloud-providers":
       return t("settings.tab_description_cloud_providers");
-    case "extensions":
-      return t("settings.tab_description_extensions");
     case "environment":
       return t("settings.tab_description_environment");
     case "updates":

@@ -111,6 +111,8 @@ import {
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
+import { CustomConnectorDialog } from "@/react-app/domains/plugins";
+import { useStatusToasts } from "../../shell-feedback";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -371,11 +373,20 @@ export type SessionPageProps = {
 };
 
 export function SessionPage(props: SessionPageProps) {
+  const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeAssistantCategoryId, setActiveAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("skills");
+  const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
+  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
+    "list" | "config"
+  >("list");
+  const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
+    setCustomConnectorInitialView(view);
+    setCustomConnectorOpen(true);
+  }, []);
   const agentRegistry = useAgentRegistryStore((state) => state.registry);
   const agentPanel = useSessionPageAgentPanel(props.selectedSessionId);
   const sidePanelScopeId =
@@ -801,6 +812,7 @@ export function SessionPage(props: SessionPageProps) {
                           client={props.onmyagentServerClient}
                           activeTab={storeActiveTab}
                           onActiveTabChange={setStoreActiveTab}
+                          onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ) : null}
 
@@ -942,6 +954,11 @@ export function SessionPage(props: SessionPageProps) {
                             setStoreActiveTab("skills");
                             agentPanel.openSidebarView("store");
                           }}
+                          onOpenConnectorsMarketplace={() => {
+                            setStoreActiveTab("plugins");
+                            agentPanel.openSidebarView("store");
+                          }}
+                          onOpenCustomConnector={() => openCustomConnector("config")}
                         />
                       ) : null}
 
@@ -1300,6 +1317,19 @@ export function SessionPage(props: SessionPageProps) {
       {props.shareWorkspaceModal ? (
         <ShareWorkspaceModal {...props.shareWorkspaceModal} />
       ) : null}
+
+      <CustomConnectorDialog
+        open={customConnectorOpen}
+        onOpenChange={setCustomConnectorOpen}
+        workspaceRoot={props.selectedWorkspaceRoot}
+        initialView={customConnectorInitialView}
+        onSaved={() => {
+          showToast({
+            title: t("plugins.custom_connector_saved"),
+            tone: "success",
+          });
+        }}
+      />
 
       {/* Cloud provider notifications are now handled globally by CloudProvidersToast in app-root.tsx */}
     </div>

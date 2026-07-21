@@ -13,8 +13,6 @@ export type { CloudMarketplacesViewProps } from "./pages/cloud-marketplaces-view
 export type { CloudProvidersViewProps } from "./pages/cloud-providers-view";
 export type { DebugViewProps } from "./pages/debug-view";
 export type { EnvironmentViewProps } from "./pages/environment-view";
-export type { ExtensionsSection, ExtensionsViewProps } from "./pages/extensions-view";
-export type { McpViewProps, ReactMcpStatus, SkillItem } from "./pages/mcp-view";
 export type { ArchivedTasksViewProps } from "./pages/archived-tasks-view";
 export type {
   MessagingChannel,
@@ -35,9 +33,7 @@ export {
   loadConversationMemoryView,
   loadDebugView,
   loadEnvironmentView,
-  loadExtensionsView,
   loadGeneralSettingsView,
-  loadMcpView,
   loadMemoryView,
   loadMessagingView,
   loadPreferencesView,

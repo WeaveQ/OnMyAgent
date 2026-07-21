@@ -44,17 +44,22 @@ describe("composer tool menu model", () => {
 
     expect(
       source.match(
-        /<InputGroup controlSize="sm" radius="md" tone="surface">/g,
+        /controlSize="sm"\s*\n\s*radius="lg"\s*\n\s*tone="surfaceMuted"/g,
       ) ?? [],
     ).toHaveLength(2);
     expect(
-      source.match(/<Search aria-hidden="true" className="size-3\.5" \/>/g) ?? [],
+      source.match(
+        /<Search aria-hidden="true" className="size-3\.5 text-dls-secondary" \/>/g,
+      ) ?? [],
     ).toHaveLength(2);
     expect(
       source.match(
         /className="text-sm text-dls-text placeholder:text-dls-secondary\/70"/g,
       ) ?? [],
     ).toHaveLength(2);
+    // 配置 opens custom MCP dialog (never /settings/extensions).
+    expect(source).toContain("openCustomConnectorOrMarketplace");
+    expect(source).not.toContain('onOpenSettingsSection?.("mcps")');
   });
 
   test("keeps pursue goal out of office collaboration modes", () => {
@@ -86,9 +91,9 @@ describe("composer tool menu model", () => {
     expect(source).toContain(
       "onMouseEnter={() => setSelectedPromptTemplateId(template.id)}",
     );
-    // Primary (11rem) + compact secondary (14rem) → third flyout for selected template prompts.
-    expect(source).toContain("left-[calc(11rem+14rem-2px)]");
-    expect(source).toContain("max-w-[14rem]");
+    // Primary (11rem) + secondary (17.5rem) → third flyout for selected template prompts.
+    expect(source).toContain("left-[calc(11rem+17.5rem-2px)]");
+    expect(source).toContain("max-w-[17.5rem]");
     expect(source).toContain('toolMenuSection === "templates" ? "max-h-48" : "max-h-56"');
     // WorkBuddy cascade: open 3rd panel when 提示词 section becomes active.
     expect(source).toContain("WorkBuddy-style cascade");

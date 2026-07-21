@@ -13,6 +13,9 @@ describe("right side panel toggle contract", () => {
     const surfaceChrome = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/session-surface-chrome.tsx",
     );
+    const surface = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
+    );
     const sessionPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/chat/session-page.tsx",
     );
@@ -20,9 +23,16 @@ describe("right side panel toggle contract", () => {
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
     );
 
+    // Header base chrome; bottom rule is optional so expanded session tabs
+    // can own the single divider (avoid double lines).
     expect(surfaceChrome).toContain(
-      'className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
+      '"flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
     );
+    expect(surfaceChrome).toContain("showBottomBorder?: boolean");
+    expect(surfaceChrome).toContain(
+      'showBottomBorder && "border-b border-dls-mist"',
+    );
+    expect(surface).toContain("showBottomBorder={!sessionTabsExpanded}");
     expect(surfaceChrome).not.toContain(
       'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
     );

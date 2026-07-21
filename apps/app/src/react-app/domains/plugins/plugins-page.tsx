@@ -24,10 +24,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { EmptyStateBox } from "@/components/ui/notice-box";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { NoticeBox } from "@/components/ui/notice-box";
 import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +44,14 @@ import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
+import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "@/app/constants";
+import {
+  isOnMyAgentExtensionEnabled,
+  isOnMyAgentExtensionHidden,
+  ONMYAGENT_EXTENSION_STATE_CHANGED,
+  setOnMyAgentExtensionEnabled,
+} from "@/react-app/domains/shared";
+import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
@@ -126,29 +134,55 @@ const pluginsTextClass = {
   categoryTitle: "mb-2 text-xs font-medium uppercase tracking-wide text-dls-secondary",
 };
 
-/**
- * Shared store grids: 1 → 2 → 3 (daily) → 5 (large).
- * md≈日常桌面 3 列；2xl 宽屏 5 列。
- */
+/** Align with expert / skill marketplace grid (full-bleed content + px-6). */
 const PLUGIN_CARD_GRID =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5";
+  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+
+/**
+ * Connector cards: denser adaptive grid (3–5 cols) so tiles don’t stretch too wide.
+ */
+const CONNECTOR_CARD_GRID =
+  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+
+/** File-processing plugins: browser + Office suite in product order. */
+const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
+  "browser",
+  "documents",
+  "spreadsheets",
+  "pdf",
+] as const;
+
+/** Built-in extensions: product priority when enablement is equal. */
+const BUILTIN_EXTENSION_DISPLAY_ORDER = [
+  "computer-use",
+  "onmyagent-voice",
+  "openai-image-gen",
+  "ollama",
+] as const;
+
+function rankById(order: readonly string[], id: string): number {
+  const index = order.indexOf(id);
+  return index === -1 ? order.length : index;
+}
 
 const pluginsLayoutClass = {
   page: "flex h-full min-h-0 flex-col bg-dls-background",
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
-  pageContainer: "mx-auto w-full max-w-6xl px-6 pb-10 pt-5 2xl:max-w-7xl",
-  pluginPageContainer: "mx-auto w-full max-w-6xl space-y-7 px-6 pb-10 pt-5 2xl:max-w-7xl",
-  card: "rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
+  // Match expert/skills: no max-w-6xl so side gutters match px-6 only.
+  pageContainer: "w-full px-6 pb-10 pt-5",
+  pluginPageContainer: "w-full space-y-7 px-6 pb-10 pt-5",
+  card: "rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
   cardDisabled: "opacity-80",
-  cardInteractive: "hover:border-dls-border hover:bg-dls-hover/60",
-  cardMd: "min-h-[4.5rem]",
-  cardLg: "min-h-20",
+  cardInteractive: "hover:border-dls-border hover:bg-dls-hover",
+  cardMd: "min-h-36",
+  cardLg: "min-h-36",
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
   disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
   cardGrid: PLUGIN_CARD_GRID,
-  artifactCardGrid: PLUGIN_CARD_GRID,
+  artifactCardGrid: CONNECTOR_CARD_GRID,
+  connectorCardGrid: CONNECTOR_CARD_GRID,
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
   originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
@@ -548,28 +582,34 @@ function PluginStoreCard(props: {
 }
 
 function PluginCard(props: { item: PluginItem }) {
-  // Preview-only: not installable. Same horizontal shell as ArtifactPluginCard.
+  // Preview-only: not installable. Expert-style vertical tile (dashed = coming soon).
   return (
-    <PluginStoreCard
-      minHeight="sm"
-      disabled
-      className="h-full min-h-20 cursor-default gap-2.5 border border-dashed border-dls-border/70 bg-dls-surface/50 opacity-100 hover:border-dls-border/70 hover:bg-dls-surface/50"
+    <div
+      className={cn(
+        "flex h-full min-h-36 cursor-default flex-col rounded-2xl border border-dashed border-dls-border/60 bg-dls-surface/50 px-4 py-3.5 text-left",
+        "opacity-100",
+        "mac:titlebar-no-drag",
+      )}
     >
-      <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-lg" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <div className={cn(pluginsTextClass.featuredTitle, "min-w-0 flex-1")}>
-            {props.item.name}
+      <div className="flex min-w-0 items-start gap-2.5">
+        <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className={cn(pluginsTextClass.featuredTitle, "min-w-0 font-semibold")}>
+              {props.item.name}
+            </div>
+            <StatusBadge tone="neutral" size="tiny" className="shrink-0">
+              {t("common.coming_soon_short")}
+            </StatusBadge>
           </div>
-          <StatusBadge tone="neutral" size="tiny" className="shrink-0">
-            {t("common.coming_soon_short")}
-          </StatusBadge>
-        </div>
-        <div className={pluginsTextClass.cardDescription}>
-          {props.item.description}
         </div>
       </div>
-    </PluginStoreCard>
+      <p className="mt-3 line-clamp-2 text-xs leading-5 text-dls-secondary">
+        {props.item.description}
+      </p>
+      {/* Spacer so coming-soon cards share the same bottom baseline as artifact cards. */}
+      <div className="mt-auto min-h-5 pt-3" aria-hidden />
+    </div>
   );
 }
 
@@ -587,7 +627,7 @@ function artifactPluginLabels(): ArtifactPluginDetailLabels {
 
 function ArtifactPluginsCatalog(props: PluginsPageProps) {
   const [pluginState] = useState(() => createArtifactPluginState([]));
-  const [, setRevision] = useState(0);
+  const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [mutationError, setMutationError] = useState(false);
@@ -627,7 +667,19 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
     };
   }, [pluginState, props.client, props.workspaceId]);
 
-  const plugins = pluginState.list();
+  const plugins = useMemo(() => {
+    // Product order: 浏览器 → 文档 → 表格 → PDF (suite together; avoids PDF before 表格).
+    void revision;
+    const items = pluginState.list();
+    return [...items].sort((left, right) => {
+      const byOrder =
+        rankById(ARTIFACT_PLUGIN_DISPLAY_ORDER, left.id) -
+        rankById(ARTIFACT_PLUGIN_DISPLAY_ORDER, right.id);
+      if (byOrder !== 0) return byOrder;
+      if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
+      return left.id.localeCompare(right.id);
+    });
+  }, [pluginState, revision]);
   const selectedPlugin = selectedPluginId ? pluginState.get(selectedPluginId) : undefined;
   const labels = artifactPluginLabels();
 
@@ -696,7 +748,10 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
     ?? t("plugins.artifact_detail_loading");
 
   return (
-    <section className="space-y-5" aria-labelledby="artifact-plugins-heading">
+    <section
+      className="space-y-5 border-t border-dls-border/50 pt-6"
+      aria-labelledby="artifact-plugins-heading"
+    >
       <div className="space-y-1">
         <h2
           id="artifact-plugins-heading"
@@ -796,6 +851,122 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   );
 }
 
+function BuiltinExtensionsSection() {
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
+    return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
+  }, []);
+
+  const entries = useMemo(() => {
+    void revision;
+    const visible = ONMYAGENT_EXTENSION_CATALOG.filter(
+      (entry) => !isOnMyAgentExtensionHidden(entry),
+    );
+    // Enabled first, then product order (Computer Use → Voice → Image → Ollama).
+    return [...visible].sort((left, right) => {
+      const leftOn = isOnMyAgentExtensionEnabled(left);
+      const rightOn = isOnMyAgentExtensionEnabled(right);
+      if (leftOn !== rightOn) return leftOn ? -1 : 1;
+      const leftId = left.id ?? left.serverName ?? left.name;
+      const rightId = right.id ?? right.serverName ?? right.name;
+      const byOrder =
+        rankById(BUILTIN_EXTENSION_DISPLAY_ORDER, leftId) -
+        rankById(BUILTIN_EXTENSION_DISPLAY_ORDER, rightId);
+      if (byOrder !== 0) return byOrder;
+      return left.name.localeCompare(right.name);
+    });
+  }, [revision]);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <section className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-base font-medium leading-6 text-dls-text">
+          {t("plugins.builtin_section_title")}
+        </h2>
+        <p className={pluginsTextClass.sectionLead}>
+          {t("plugins.builtin_section_hint")}
+        </p>
+      </div>
+      <div className={pluginsLayoutClass.connectorCardGrid}>
+        {entries.map((entry) => (
+          <BuiltinExtensionCard key={entry.id ?? entry.serverName ?? entry.name} entry={entry} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Match ArtifactPluginCard chrome: vertical tile, same min-height / hover border,
+ * icon + title + switch, description. No detail link (extensions are toggle-only).
+ */
+function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
+  const [, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
+    return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
+  }, []);
+  const enabled = isOnMyAgentExtensionEnabled(props.entry);
+  const description = props.entry.description?.trim() ?? "";
+
+  return (
+    <article
+      className={cn(
+        "group flex h-full min-h-[7.25rem] flex-col rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 text-left transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover",
+        "focus-within:border-dls-border focus-within:bg-dls-hover",
+        !enabled && "opacity-80",
+        "mac:titlebar-no-drag",
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <IconTile
+          size="default"
+          shape="xl"
+          tone="surface"
+          border
+          className={cn("overflow-hidden", extensionIconTileClassName)}
+        >
+          {extensionIcon(props.entry, 18)}
+        </IconTile>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
+              {props.entry.name}
+            </h3>
+            <div className="shrink-0 pt-0.5">
+              <Switch
+                checked={enabled}
+                onCheckedChange={(next) => {
+                  setOnMyAgentExtensionEnabled(props.entry, next);
+                  setRevision((value) => value + 1);
+                }}
+                aria-label={props.entry.name}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      {description ? (
+        <p className="mt-2 line-clamp-2 text-xs leading-5 text-dls-secondary">
+          {description}
+        </p>
+      ) : (
+        <div className="mt-2 min-h-10" aria-hidden />
+      )}
+      {/* Reserve footer band so height matches artifact cards with View details. */}
+      <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
+        —
+      </div>
+    </article>
+  );
+}
+
 export function PluginsPage(props: PluginsPageProps) {
   const categories = useMemo(() => getPluginCategories(), []);
   const samplePlugins = useMemo(() => getSamplePlugins(), []);
@@ -817,6 +988,7 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
+          <BuiltinExtensionsSection />
           <ArtifactPluginsCatalog {...props} />
           <section className="space-y-5 border-t border-dls-border/50 pt-6">
             <div className="space-y-1">
