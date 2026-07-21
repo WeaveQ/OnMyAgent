@@ -2246,6 +2246,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
               importedPlugins={toolImportedPlugins}
               onOpenSettingsSection={props.onOpenSettingsSection}
               onOpenSkillsMarketplace={props.onOpenSkillsMarketplace}
+              onOpenConnectorsMarketplace={props.onOpenConnectorsMarketplace}
+              onOpenCustomConnector={props.onOpenCustomConnector}
               recentFiles={props.recentFiles}
               searchFiles={props.searchFiles}
               onInsertMention={handleInsertMention}

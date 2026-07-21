@@ -811,7 +811,7 @@ export default {
   "session.workspace_create_no_parent": "Current workspace is unavailable for creating a folder",
   "session.workspace_create_confirm": "Confirm",
   "session.workspace_open_local": "Open local folder",
-  "session.workspace_recent_empty": "No spaces yet. Create one or open a local folder.",
+  "session.workspace_recent_empty": "No spaces yet — create or open local",
   "session.workspace_recent_no_match": "No matching spaces",
   "session.clear_workspace_selection": "Clear workspace selection",
   "session.configure_current_agent": "Configure current agent",

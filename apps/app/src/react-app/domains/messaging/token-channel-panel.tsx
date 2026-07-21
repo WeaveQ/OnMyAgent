@@ -196,26 +196,30 @@ function PanelSection(props: {
   return (
     <section
       className={cn(
-        "space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4",
+        // h-full: equal-height cards in the 3-column channel layout.
+        "flex h-full min-w-0 flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-4",
         props.className,
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      {/* Stack title + actions: side-by-side squeezes CJK to 1-char lines in 3-col cards. */}
+      <div className="min-w-0 space-y-2">
         <div className="min-w-0">
-          <div className="text-sm font-medium text-dls-text">{props.title}</div>
+          <div className="text-sm font-medium leading-5 text-dls-text break-words">
+            {props.title}
+          </div>
           {props.description ? (
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-dls-secondary">
+            <p className="mt-1 text-xs leading-5 text-dls-secondary break-words">
               {props.description}
             </p>
           ) : null}
         </div>
         {props.actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {props.actions}
           </div>
         ) : null}
       </div>
-      {props.children}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">{props.children}</div>
     </section>
   );
 }
@@ -584,217 +588,220 @@ export function TokenChannelPanel(props: {
         </NoticeBox>
       ) : null}
 
-      <PanelSection title={t(cfg.tokenLabelKey)} description={t(cfg.descKey)}>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Input
-            value={accountId}
-            onChange={(event) => setAccountId(event.currentTarget.value)}
-            placeholder="account_id"
-          />
-          <Input
-            value={token}
-            onChange={(event) => setToken(event.currentTarget.value)}
-            placeholder={t(cfg.tokenPlaceholderKey)}
-            type="password"
-          />
-        </div>
-        {cfg.needsAllowedUsers ? (
-          <FieldLabel label={t(cfg.allowedUsersLabelKey ?? "")}>
-            <Textarea
-              className="font-mono text-xs"
-              value={allowedUsers}
-              onChange={(event) => setAllowedUsers(event.currentTarget.value)}
-              placeholder={t(cfg.allowedUsersPlaceholderKey ?? "")}
-              rows={2}
-              disabled={running || Boolean(busy)}
+      {/* Token | Workspace | Routing — one row on wide screens. */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <PanelSection title={t(cfg.tokenLabelKey)} description={t(cfg.descKey)}>
+          <div className="flex flex-col gap-2">
+            <Input
+              value={accountId}
+              onChange={(event) => setAccountId(event.currentTarget.value)}
+              placeholder="account_id"
             />
-          </FieldLabel>
-        ) : null}
-        <div className="flex flex-wrap gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={saveManualAccount}
-            disabled={!canSave}
-          >
-            {busy === "save" ? busyIcon : <Save className="size-3.5" />}
-            {t(cfg.saveKey)}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={testConnection}
-            disabled={!effectiveAccountId || Boolean(busy)}
-            title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
-          >
-            {busy === "test" ? busyIcon : <Plug className="size-3.5" />}
-            {t("messaging.weixin_test_connection")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={simulateInbound}
-            disabled={Boolean(busy)}
-          >
-            {busy === "simulate" ? busyIcon : <Send className="size-3.5" />}
-            {t(cfg.simulateKey)}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => void openDesktopUrl(cfg.helpLinkUrl)}
-          >
-            <ExternalLink className="size-3.5" />
-            {t(cfg.helpLinkKey)}
-          </Button>
-        </div>
-        {probeResult ? (
-          probeResult.ok ? (
-            <NoticeBox tone="info" className="break-words leading-5">
-              {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
-            </NoticeBox>
-          ) : (
-            <NoticeBox tone="error" className="break-words leading-5">
-              {probeResult.error ?? t("messaging.weixin_test_failed")}
-            </NoticeBox>
-          )
-        ) : null}
-      </PanelSection>
-
-      <PanelSection
-        title={t("messaging.weixin_access_workspace_title")}
-        description={t("messaging.weixin_access_workspace_desc")}
-        actions={
-          <>
+            <Input
+              value={token}
+              onChange={(event) => setToken(event.currentTarget.value)}
+              placeholder={t(cfg.tokenPlaceholderKey)}
+              type="password"
+            />
+          </div>
+          {cfg.needsAllowedUsers ? (
+            <FieldLabel label={t(cfg.allowedUsersLabelKey ?? "")}>
+              <Textarea
+                className="font-mono text-xs"
+                value={allowedUsers}
+                onChange={(event) => setAllowedUsers(event.currentTarget.value)}
+                placeholder={t(cfg.allowedUsersPlaceholderKey ?? "")}
+                rows={2}
+                disabled={running || Boolean(busy)}
+              />
+            </FieldLabel>
+          ) : null}
+          <div className="flex flex-wrap gap-1.5">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void chooseAccessWorkspace()}
-              disabled={running || Boolean(busy)}
+              onClick={saveManualAccount}
+              disabled={!canSave}
             >
-              <FolderOpen className="size-3.5" />
-              {t("messaging.weixin_access_workspace_pick")}
+              {busy === "save" ? busyIcon : <Save className="size-3.5" />}
+              {t(cfg.saveKey)}
             </Button>
-            {props.workspaceRoot ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setAccessWorkspaceRoot(props.workspaceRoot ?? "")}
-                disabled={running || Boolean(busy)}
-              >
-                {t("messaging.weixin_access_workspace_use_current")}
-              </Button>
-            ) : null}
-          </>
-        }
-      >
-        <Input
-          className="font-mono text-xs"
-          value={effectiveWorkspaceRoot}
-          onChange={(event) => setAccessWorkspaceRoot(event.currentTarget.value)}
-          placeholder={t("messaging.weixin_access_workspace_placeholder")}
-          disabled={running || Boolean(busy)}
-        />
-        <div className="rounded-lg border border-dls-border/70 bg-dls-background/60 px-3 py-2.5">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-medium text-dls-secondary">
-              {t("messaging.weixin_access_workspace_extra_title")}
-            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={testConnection}
+              disabled={!effectiveAccountId || Boolean(busy)}
+              title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
+            >
+              {busy === "test" ? busyIcon : <Plug className="size-3.5" />}
+              {t("messaging.weixin_test_connection")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={simulateInbound}
+              disabled={Boolean(busy)}
+            >
+              {busy === "simulate" ? busyIcon : <Send className="size-3.5" />}
+              {t(cfg.simulateKey)}
+            </Button>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => void addAccessibleWorkspaceRoot()}
-              disabled={running || Boolean(busy)}
+              onClick={() => void openDesktopUrl(cfg.helpLinkUrl)}
             >
-              <FolderOpen className="size-3.5" />
-              {t("messaging.weixin_access_workspace_extra_add")}
+              <ExternalLink className="size-3.5" />
+              {t(cfg.helpLinkKey)}
             </Button>
           </div>
-          {effectiveAccessibleRoots.length ? (
-            <div className="flex flex-col gap-1.5">
-              {effectiveAccessibleRoots.map((root) => (
-                <AccessibleRootRow
-                  key={root}
-                  root={root}
-                  onRemove={(target) =>
-                    setAccessibleWorkspaceRoots((current) =>
-                      current.filter((item) => item !== target),
-                    )
-                  }
-                  disabled={running || Boolean(busy)}
-                  removeLabel={t("messaging.weixin_access_workspace_extra_remove")}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-dls-secondary">
-              {t("messaging.weixin_access_workspace_extra_empty")}
-            </p>
-          )}
-        </div>
-      </PanelSection>
+          {probeResult ? (
+            probeResult.ok ? (
+              <NoticeBox tone="info" className="break-words leading-5">
+                {t("messaging.weixin_test_ok", { username: probeResult.botUsername ?? "" })}
+              </NoticeBox>
+            ) : (
+              <NoticeBox tone="error" className="break-words leading-5">
+                {probeResult.error ?? t("messaging.weixin_test_failed")}
+              </NoticeBox>
+            )
+          ) : null}
+        </PanelSection>
 
-      <PanelSection
-        title={t("identities.message_routing_title")}
-        actions={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => void refreshAgents()}
+        <PanelSection
+          title={t("messaging.weixin_access_workspace_title")}
+          description={t("messaging.weixin_access_workspace_desc")}
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void chooseAccessWorkspace()}
+                disabled={running || Boolean(busy)}
+              >
+                <FolderOpen className="size-3.5" />
+                {t("messaging.weixin_access_workspace_pick")}
+              </Button>
+              {props.workspaceRoot ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAccessWorkspaceRoot(props.workspaceRoot ?? "")}
+                  disabled={running || Boolean(busy)}
+                >
+                  {t("messaging.weixin_access_workspace_use_current")}
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          <Input
+            className="font-mono text-xs"
+            value={effectiveWorkspaceRoot}
+            onChange={(event) => setAccessWorkspaceRoot(event.currentTarget.value)}
+            placeholder={t("messaging.weixin_access_workspace_placeholder")}
             disabled={running || Boolean(busy)}
-          >
-            <RefreshCw className="size-3.5" />
-            {t("common.refresh")}
-          </Button>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <FieldLabel label={t("messaging.weixin_reply_agent")}>
-            <SelectMenu
-              size="compact"
-              value={selectedAgent.id}
-              onChange={setSelectedAgentId}
-              ariaLabel={t("messaging.weixin_reply_agent")}
+          />
+          <div className="rounded-lg border border-dls-border/70 bg-dls-background/60 px-3 py-2.5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-dls-secondary">
+                {t("messaging.weixin_access_workspace_extra_title")}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void addAccessibleWorkspaceRoot()}
+                disabled={running || Boolean(busy)}
+              >
+                <FolderOpen className="size-3.5" />
+                {t("messaging.weixin_access_workspace_extra_add")}
+              </Button>
+            </div>
+            {effectiveAccessibleRoots.length ? (
+              <div className="flex flex-col gap-1.5">
+                {effectiveAccessibleRoots.map((root) => (
+                  <AccessibleRootRow
+                    key={root}
+                    root={root}
+                    onRemove={(target) =>
+                      setAccessibleWorkspaceRoots((current) =>
+                        current.filter((item) => item !== target),
+                      )
+                    }
+                    disabled={running || Boolean(busy)}
+                    removeLabel={t("messaging.weixin_access_workspace_extra_remove")}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-dls-secondary">
+                {t("messaging.weixin_access_workspace_extra_empty")}
+              </p>
+            )}
+          </div>
+        </PanelSection>
+
+        <PanelSection
+          title={t("identities.message_routing_title")}
+          actions={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void refreshAgents()}
               disabled={running || Boolean(busy)}
-              options={agents.map((agent) => ({
-                value: agent.id,
-                label: `${agent.name} (${agent.provider}${agent.status ? `/${agent.status}` : ""})`,
-              }))}
-            />
-          </FieldLabel>
-          <FieldLabel label={t("messaging.weixin_approval_mode")}>
-            <SelectMenu
-              size="compact"
-              value={approvalMode}
-              onChange={(value) => void applyApprovalMode(value as PersonalLocalAgentApprovalMode)}
-              ariaLabel={t("messaging.weixin_approval_mode")}
-              disabled={Boolean(busy) || !selectedAgentSupportsApproval}
-              options={APPROVAL_MODE_OPTIONS}
-            />
-          </FieldLabel>
-          <FieldLabel label={t("messaging.weixin_prompt_mode")}>
-            <SelectMenu
-              size="compact"
-              value={promptMode}
-              onChange={(value) => setPromptMode(value === "debug" ? "debug" : "raw")}
-              ariaLabel={t("messaging.weixin_prompt_mode")}
-              disabled={running || Boolean(busy)}
-              options={PROMPT_MODE_OPTIONS}
-            />
-          </FieldLabel>
-        </div>
-        <p className="rounded-lg bg-dls-background/70 px-3 py-2 text-xs leading-5 text-dls-secondary">
-          {t(cfg.agentHelpKey)}
-        </p>
-      </PanelSection>
+            >
+              <RefreshCw className="size-3.5" />
+              {t("common.refresh")}
+            </Button>
+          }
+        >
+          <div className="flex flex-col gap-2.5">
+            <FieldLabel label={t("messaging.weixin_reply_agent")}>
+              <SelectMenu
+                size="compact"
+                value={selectedAgent.id}
+                onChange={setSelectedAgentId}
+                ariaLabel={t("messaging.weixin_reply_agent")}
+                disabled={running || Boolean(busy)}
+                options={agents.map((agent) => ({
+                  value: agent.id,
+                  label: `${agent.name} (${agent.provider}${agent.status ? `/${agent.status}` : ""})`,
+                }))}
+              />
+            </FieldLabel>
+            <FieldLabel label={t("messaging.weixin_approval_mode")}>
+              <SelectMenu
+                size="compact"
+                value={approvalMode}
+                onChange={(value) => void applyApprovalMode(value as PersonalLocalAgentApprovalMode)}
+                ariaLabel={t("messaging.weixin_approval_mode")}
+                disabled={Boolean(busy) || !selectedAgentSupportsApproval}
+                options={APPROVAL_MODE_OPTIONS}
+              />
+            </FieldLabel>
+            <FieldLabel label={t("messaging.weixin_prompt_mode")}>
+              <SelectMenu
+                size="compact"
+                value={promptMode}
+                onChange={(value) => setPromptMode(value === "debug" ? "debug" : "raw")}
+                ariaLabel={t("messaging.weixin_prompt_mode")}
+                disabled={running || Boolean(busy)}
+                options={PROMPT_MODE_OPTIONS}
+              />
+            </FieldLabel>
+          </div>
+          <p className="rounded-lg bg-dls-background/70 px-3 py-2 text-xs leading-5 text-dls-secondary">
+            {t(cfg.agentHelpKey)}
+          </p>
+        </PanelSection>
+      </div>
     </div>
   );
 }

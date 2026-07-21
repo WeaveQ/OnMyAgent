@@ -1,11 +1,19 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FolderOpen, Plus, Upload } from "lucide-react";
+import {
+  Check,
+  FolderOpen,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import {
   installBuiltinSkillPackage,
   listLocalSkills,
   openDesktopPath,
+  uninstallSkill,
 } from "@/app/lib/desktop";
 import type { LocalSkillCard } from "@/app/lib/desktop";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
@@ -19,28 +27,110 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { SKILL_MARKETPLACE_CATEGORIES } from "./categories";
+import {
+  SKILL_MARKETPLACE_CATEGORIES,
+} from "./categories";
 import { BUILTIN_MARKETPLACE_SKILLS } from "./data";
 import type { SkillMarketplaceEntry } from "./types";
 
-/** Align with plugins store: 1 → 2 → 3 (daily) → 5 (large). */
+/** Align with expert marketplace grid density. */
 const SKILL_CARD_GRID =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-5";
+  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
 
 const OPC_AGGREGATED_CATEGORY_IDS = new Set([
   "developer",
-  "deploy",
+  "deploy", // legacy id still present on some inferred skill records
   "productivity",
   "office",
 ]);
 
+/** "developer" tab absorbs legacy "deploy" category id after the merge. */
+function skillMatchesCategory(skill: SkillMarketplaceEntry, categoryId: string): boolean {
+  if (categoryId === "all") return true;
+  if (skill.categoryId === categoryId || skill.categoryIds.includes(categoryId)) return true;
+  if (categoryId === "developer") {
+    return skill.categoryId === "deploy" || skill.categoryIds.includes("deploy");
+  }
+  if (
+    categoryId === "opc" &&
+    (
+      OPC_AGGREGATED_CATEGORY_IDS.has(skill.categoryId) ||
+      skill.categoryIds.some((id) => OPC_AGGREGATED_CATEGORY_IDS.has(id))
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Max visible chips on outer card; each label truncated for single-line row. */
+const SKILL_CARD_CHIP_MAX = 3;
+const SKILL_CARD_CHIP_MAX_CHARS = 8;
+
 function skillFallbackInitial(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "S";
+}
+
+/** Localized short category name (not bilingual searchLabel). */
+function skillCategoryDisplayLabel(categoryId: string): string {
+  // Legacy "deploy" skills show under merged "开发部署".
+  const resolvedId = categoryId === "deploy" ? "developer" : categoryId;
+  const category = SKILL_MARKETPLACE_CATEGORIES.find((item) => item.id === resolvedId);
+  if (!category || category.id === "all") return "";
+  return t(category.labelKey);
+}
+
+function truncateSkillChip(label: string): string {
+  const value = label.trim();
+  if (!value) return "";
+  if (value.length <= SKILL_CARD_CHIP_MAX_CHARS) return value;
+  return `${value.slice(0, SKILL_CARD_CHIP_MAX_CHARS)}…`;
+}
+
+/**
+ * Outer-card chips: localized categories + tags, max 3, short labels.
+ * Avoid searchLabel bilingual strings like "内容创作 content creation".
+ */
+function skillCardChips(skill: SkillMarketplaceEntry): string[] {
+  const categoryChips = skill.categoryIds
+    .map(skillCategoryDisplayLabel)
+    .filter(Boolean);
+  return Array.from(new Set([...categoryChips, ...skill.tags].filter(Boolean)))
+    .slice(0, SKILL_CARD_CHIP_MAX)
+    .map(truncateSkillChip)
+    .filter(Boolean);
+}
+
+/** Bottom-aligned chip row so all cards share one baseline (mt-auto + fixed min height). */
+function SkillCardChipRow(props: { chips: string[] }) {
+  return (
+    <div className="mt-auto flex min-h-5 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pt-3">
+      {props.chips.map((chip) => (
+        <StatusBadge
+          key={chip}
+          tone="surface"
+          shape="soft"
+          size="tiny"
+          className="max-w-[5.5rem] shrink-0 truncate"
+          title={chip}
+        >
+          {chip}
+        </StatusBadge>
+      ))}
+    </div>
+  );
 }
 
 function SkillIcon(props: { skill: SkillMarketplaceEntry }) {
@@ -49,12 +139,12 @@ function SkillIcon(props: { skill: SkillMarketplaceEntry }) {
       <img
         src={props.skill.iconUrl}
         alt=""
-        className="size-8 shrink-0 rounded-md object-cover ring-1 ring-dls-border"
+        className="size-9 shrink-0 rounded-md object-cover"
       />
     );
   }
   return (
-    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
+    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
       {skillFallbackInitial(props.skill.displayName)}
     </span>
   );
@@ -243,14 +333,17 @@ function SkillCard(props: {
   onInstall: (skill: SkillMarketplaceEntry) => void;
   onOpen: (skill: SkillMarketplaceEntry) => void;
 }) {
+  const chips = skillCardChips(props.skill);
   return (
     <div
       role="button"
       tabIndex={0}
       className={cn(
-        "group flex h-full min-h-[5.5rem] cursor-pointer items-center gap-2.5 rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover/60",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+        // Match ExpertCard: taller tile, soft surface, no permanent border.
+        "group flex h-full min-h-36 cursor-pointer flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover",
+        "focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+        "mac:titlebar-no-drag",
       )}
       onClick={() => props.onOpen(props.skill)}
       onKeyDown={(event) => {
@@ -262,136 +355,213 @@ function SkillCard(props: {
       }}
       aria-label={t("skills_marketplace.view_detail", { name: props.skill.displayName })}
     >
-      <SkillIcon skill={props.skill} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium leading-5 text-dls-text">
-          {props.skill.displayName}
-        </div>
-        <div className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
-          {props.skill.description}
+      <div className="flex min-w-0 items-start gap-2.5">
+        <SkillIcon skill={props.skill} />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold leading-5 text-dls-text">
+                {props.skill.displayName}
+              </div>
+              {props.skill.skillName &&
+              props.skill.skillName !== props.skill.displayName ? (
+                <div className="mt-0.5 truncate text-xs leading-5 text-dls-secondary">
+                  {props.skill.skillName}
+                </div>
+              ) : null}
+            </div>
+            {props.installed ? (
+              <span
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary"
+                aria-label={t("skills_marketplace.installed")}
+                title={t("skills_marketplace.installed")}
+              >
+                <Check className="size-3.5" />
+              </span>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={props.installing}
+                      className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                      aria-label={t("skills_marketplace.install_skill", {
+                        name: props.skill.displayName,
+                      })}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onInstall(props.skill);
+                      }}
+                    >
+                      {props.installing ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Plus className="size-4" />
+                      )}
+                    </Button>
+                  }
+                />
+                <TooltipContent side="top">
+                  <span>{t("skills_marketplace.install")}</span>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </div>
-      {props.installed ? (
-        <span
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary"
-          aria-label={t("skills_marketplace.installed")}
-          title={t("skills_marketplace.installed")}
-        >
-          <Check className="size-3.5" />
-        </span>
-      ) : (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                disabled={props.installing}
-                className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                aria-label={t("skills_marketplace.install_skill", {
-                  name: props.skill.displayName,
-                })}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  props.onInstall(props.skill);
-                }}
-              >
-                {props.installing ? (
-                  <LoadingSpinner size="sm" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-              </Button>
-            }
-          />
-          <TooltipContent side="top">
-            <span>{t("skills_marketplace.install")}</span>
-          </TooltipContent>
-        </Tooltip>
-      )}
+      <p className="mt-3 line-clamp-2 text-xs leading-5 text-dls-secondary">
+        {props.skill.description}
+      </p>
+      <SkillCardChipRow chips={chips} />
     </div>
   );
 }
 
+const SKILL_ENABLED_STORAGE_KEY = "onmyagent.installed-skills.enabled";
+
+function readSkillEnabledMap(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SKILL_ENABLED_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, boolean>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSkillEnabledMap(map: Record<string, boolean>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SKILL_ENABLED_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+/**
+ * Installed skill tile — reference “我安装的” interaction:
+ * icon + title, description, overflow menu, enable switch.
+ */
 function InstalledSkillCard(props: {
   skill: LocalSkillCard;
   marketplaceSkill: SkillMarketplaceEntry | null;
+  enabled: boolean;
   opening: boolean;
+  uninstalling: boolean;
+  onEnabledChange: (skill: LocalSkillCard, enabled: boolean) => void;
   onOpenFolder: (skill: LocalSkillCard) => void;
   onOpen?: (skill: LocalSkillCard) => void;
+  onUninstall: (skill: LocalSkillCard) => void;
 }) {
   const description = skillDescription(props.skill);
   const name = skillDisplayName(props.skill);
+  const chips = props.marketplaceSkill ? skillCardChips(props.marketplaceSkill) : [];
+  const readonly = Boolean(props.skill.readonly);
+
   return (
     <div
-      role={props.onOpen ? "button" : undefined}
-      tabIndex={props.onOpen ? 0 : undefined}
       className={cn(
-        "group flex h-full min-h-[5.5rem] items-start gap-2.5 rounded-xl border border-dls-border/50 bg-dls-surface px-3.5 py-3 transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover/60",
-        props.onOpen && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+        "group flex h-full min-h-36 flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors",
+        "hover:border-dls-border hover:bg-dls-hover",
+        !props.enabled && "opacity-70",
+        "mac:titlebar-no-drag",
       )}
-      onClick={props.onOpen ? () => props.onOpen?.(props.skill) : undefined}
-      onKeyDown={
-        props.onOpen
-          ? (event) => {
-              if (event.target !== event.currentTarget) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                props.onOpen?.(props.skill);
-              }
-            }
-          : undefined
-      }
-      aria-label={
-        props.onOpen ? t("skills_marketplace.view_detail", { name }) : undefined
-      }
     >
-      {props.marketplaceSkill ? (
-        <SkillIcon skill={props.marketplaceSkill} />
-      ) : (
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary ring-1 ring-dls-border">
-          {skillFallbackInitial(name)}
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium leading-5 text-dls-text">{name}</div>
-        {description ? (
-          <div className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
-            {description}
-          </div>
-        ) : null}
-      </div>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
+      <div className="flex min-w-0 items-start gap-2.5">
+        {props.marketplaceSkill ? (
+          <SkillIcon skill={props.marketplaceSkill} />
+        ) : (
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
+            {skillFallbackInitial(name)}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-1.5">
+            <button
               type="button"
-              variant="ghost"
-              size="icon-xs"
-              disabled={props.opening || !isDesktopRuntime()}
-              className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-              aria-label={t("skills_marketplace.open_skill_folder", {
-                name,
-              })}
-              onClick={(event) => {
-                event.stopPropagation();
-                props.onOpenFolder(props.skill);
-              }}
-            >
-              {props.opening ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <FolderOpen className="size-4" />
+              className={cn(
+                "min-w-0 flex-1 text-left",
+                props.onOpen && "cursor-pointer",
               )}
-            </Button>
-          }
-        />
-        <TooltipContent side="top">
-          <span>{t("skills_marketplace.open_folder")}</span>
-        </TooltipContent>
-      </Tooltip>
+              onClick={() => props.onOpen?.(props.skill)}
+              disabled={!props.onOpen}
+            >
+              <div className="truncate text-sm font-semibold leading-5 text-dls-text">
+                {name}
+              </div>
+            </button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                      aria-label={t("skills_marketplace.more_actions", { name })}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={6}
+                  className="min-w-36 border border-dls-border bg-dls-surface p-1.5 text-dls-text"
+                >
+                  {props.onOpen ? (
+                    <DropdownMenuItem
+                      onClick={() => props.onOpen?.(props.skill)}
+                      className="text-dls-text focus:bg-dls-hover"
+                    >
+                      {t("skills_marketplace.view_detail_short")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem
+                    disabled={props.opening || !isDesktopRuntime() || !props.skill.path}
+                    onClick={() => props.onOpenFolder(props.skill)}
+                    className="text-dls-text focus:bg-dls-hover"
+                  >
+                    <FolderOpen className="size-4" />
+                    {t("skills_marketplace.open_folder")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={readonly || props.uninstalling}
+                    onClick={() => props.onUninstall(props.skill)}
+                  >
+                    <Trash2 className="size-4" />
+                    {readonly
+                      ? t("skills.builtin_readonly_uninstall")
+                      : t("skills.uninstall")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Switch
+                checked={props.enabled}
+                disabled={readonly}
+                aria-label={t("skills_marketplace.toggle_enabled", { name })}
+                onCheckedChange={(next) => props.onEnabledChange(props.skill, next)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      {description ? (
+        <p className="mt-3 line-clamp-2 text-xs leading-5 text-dls-secondary">
+          {description}
+        </p>
+      ) : null}
+      <SkillCardChipRow chips={chips} />
     </div>
   );
 }
@@ -405,8 +575,11 @@ function MarketplaceSkillDetailDialog(props: {
 }) {
   const skill = props.skill;
   const open = Boolean(skill);
+  // Prefer i18n category labels over bilingual searchLabel used for filter haystacks.
   const categories = skill
-    ? Array.from(new Set([skill.categoryLabel, ...skill.categoryLabels].filter(Boolean)))
+    ? Array.from(
+        new Set(skill.categoryIds.map(skillCategoryDisplayLabel).filter(Boolean)),
+      )
     : [];
   const tags = skill?.tags ?? [];
 
@@ -589,6 +762,10 @@ export function SkillsMarketplacePage(props: {
   );
   const [installingSkillName, setInstallingSkillName] = useState<string | null>(null);
   const [openingSkillPath, setOpeningSkillPath] = useState<string | null>(null);
+  const [uninstallingSkillName, setUninstallingSkillName] = useState<string | null>(null);
+  const [skillEnabledMap, setSkillEnabledMap] = useState<Record<string, boolean>>(() =>
+    readSkillEnabledMap(),
+  );
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [detailSkill, setDetailSkill] = useState<SkillMarketplaceEntry | null>(null);
@@ -622,22 +799,7 @@ export function SkillsMarketplacePage(props: {
   const filteredSkills = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
     return BUILTIN_MARKETPLACE_SKILLS.filter((skill) => {
-      const categoryMatches =
-        skill.categoryId === categoryId ||
-        skill.categoryIds.includes(categoryId) ||
-        (
-          categoryId === "opc" &&
-          (
-            OPC_AGGREGATED_CATEGORY_IDS.has(skill.categoryId) ||
-            skill.categoryIds.some((id) => OPC_AGGREGATED_CATEGORY_IDS.has(id))
-          )
-        );
-      if (
-        categoryId !== "all" &&
-        !categoryMatches
-      ) {
-        return false;
-      }
+      if (!skillMatchesCategory(skill, categoryId)) return false;
       if (!normalizedQuery) return true;
       const text = [
         skill.skillName,
@@ -739,6 +901,63 @@ export function SkillsMarketplacePage(props: {
     }
   };
 
+  const handleSkillEnabledChange = (skill: LocalSkillCard, enabled: boolean) => {
+    setSkillEnabledMap((current) => {
+      const next = { ...current, [skill.name]: enabled };
+      writeSkillEnabledMap(next);
+      return next;
+    });
+  };
+
+  const handleUninstallSkill = async (skill: LocalSkillCard) => {
+    if (skill.readonly || uninstallingSkillName) return;
+    setUninstallingSkillName(skill.name);
+    try {
+      if (props.client) {
+        await props.client.deleteSkill(props.workspaceId, skill.name);
+      } else if (props.workspaceRoot?.trim()) {
+        const result = (await uninstallSkill(
+          props.workspaceRoot.trim(),
+          skill.name,
+        )) as { ok?: boolean; stderr?: string; stdout?: string };
+        if (result && result.ok === false) {
+          throw new Error(result.stderr || result.stdout || t("skills.uninstall_failed"));
+        }
+      } else {
+        throw new Error(t("skills.pick_workspace_first"));
+      }
+      setInstalledSkills((current) => {
+        const next = current.filter((item) => item.name !== skill.name);
+        props.onInstalledCountChange?.(next.length);
+        return next;
+      });
+      setInstalledSkillNames((current) => {
+        const next = new Set(current);
+        next.delete(skill.name);
+        return next;
+      });
+    } catch (error) {
+      console.warn("[skills-marketplace] failed to uninstall skill", error);
+    } finally {
+      setUninstallingSkillName(null);
+    }
+  };
+
+  const filteredInstalledSkills = useMemo(() => {
+    const normalizedQuery = (props.query ?? "").trim().toLowerCase();
+    if (!normalizedQuery) return installedSkills;
+    return installedSkills.filter((skill) => {
+      const text = [
+        skillDisplayName(skill),
+        skill.name,
+        skillDescription(skill),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return text.includes(normalizedQuery);
+    });
+  }, [installedSkills, props.query]);
+
   if (props.view === "installed") {
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
@@ -755,18 +974,31 @@ export function SkillsMarketplacePage(props: {
           }}
           onInstall={handleInstallSkill}
         />
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-          {installedSkills.length > 0 ? (
+        <div className="flex shrink-0 items-center justify-between gap-3 px-6 pb-1 pt-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-base font-semibold leading-6 text-dls-text">
+              {t("store.my_installed")}
+            </h2>
+            <CountBadge size="dot">{installedSkills.length}</CountBadge>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
+          {filteredInstalledSkills.length > 0 ? (
             <div className={SKILL_CARD_GRID}>
-              {installedSkills.map((skill) => {
+              {filteredInstalledSkills.map((skill) => {
                 const market = marketplaceSkillForLocalSkill(skill);
+                const enabled = skillEnabledMap[skill.name] !== false;
                 return (
                   <InstalledSkillCard
                     key={skill.name}
                     skill={skill}
                     marketplaceSkill={market}
+                    enabled={enabled}
                     opening={openingSkillPath === skill.path}
+                    uninstalling={uninstallingSkillName === skill.name}
+                    onEnabledChange={handleSkillEnabledChange}
                     onOpenFolder={handleOpenSkillFolder}
+                    onUninstall={handleUninstallSkill}
                     onOpen={
                       market
                         ? () => setDetailSkill(market)
@@ -778,7 +1010,9 @@ export function SkillsMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full min-h-0 items-center justify-center px-6 text-center text-sm text-dls-secondary">
-              {t("store.no_skills_installed")}
+              {installedSkills.length === 0
+                ? t("store.no_skills_installed")
+                : t("skills_marketplace.installed_no_match")}
             </div>
           )}
         </div>
@@ -812,7 +1046,7 @@ export function SkillsMarketplacePage(props: {
         }}
         onInstall={handleInstallSkill}
       />
-      <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-0.5 gap-y-1.5 px-6 py-2.5">
         {SKILL_MARKETPLACE_CATEGORIES.map((category) => {
           const active = categoryId === category.id;
           return (

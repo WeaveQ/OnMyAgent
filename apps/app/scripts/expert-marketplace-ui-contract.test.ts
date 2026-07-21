@@ -206,7 +206,10 @@ describe("expert marketplace UI contract", () => {
     expect(storePage).toContain('t("store.skills_tab")');
     expect(storePage).toContain('t("plugins.artifact_tab")');
     expect(storePage).toContain('t("store.all_experts")');
-    expect(storePage).toContain('t("store.add_skill")');
+    // Skills market uses "my installed" entry (with count), not a bare add_skill CTA.
+    expect(storePage).toContain('t("store.my_installed")');
+    expect(storePage).toContain('t("store.skills_marketplace")');
+    expect(storePage).toContain("CustomConnectorEntryButton");
     expect(expertPage).toContain("const openExpertMarket = useCallback");
     expect(expertPage).toContain("onOpenAgents={openExpertMarket}");
     expect(expertPage).toContain("activeTab={storeActiveTab}");

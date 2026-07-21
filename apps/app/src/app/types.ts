@@ -243,7 +243,6 @@ export type SettingsTab =
   | "permissions"
   | "cloud-marketplaces"
   | "cloud-providers"
-  | "extensions"
   | "environment"
   | "updates"
   | "usage"

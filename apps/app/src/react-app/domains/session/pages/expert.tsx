@@ -143,6 +143,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { CustomConnectorDialog } from "@/react-app/domains/plugins";
+import { useStatusToasts } from "../../shell-feedback";
 
 import {
   isVisibleExpertPackageEntry,
@@ -206,6 +208,7 @@ export type ExpertPageProps = SessionPageProps & {
 };
 
 export function ExpertPage(props: ExpertPageProps) {
+  const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeSidebarView, setActiveSidebarView] =
     useState<OnMyAgentPrimaryView>(() =>
@@ -223,6 +226,14 @@ export function ExpertPage(props: ExpertPageProps) {
   );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
+  const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
+  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
+    "list" | "config"
+  >("list");
+  const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
+    setCustomConnectorInitialView(view);
+    setCustomConnectorOpen(true);
+  }, []);
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -1674,7 +1685,13 @@ export function ExpertPage(props: ExpertPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-background">
+                <main
+                  className={cn(
+                    "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
+                    // One separator only: handle draws the line when the right panel is open.
+                    sidePanelOpen ? "border-r-0" : "border-r border-dls-border",
+                  )}
+                >
                   <div className="flex min-h-0 flex-1 overflow-hidden">
                     <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
                       <KeepAlivePane
@@ -1704,6 +1721,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
+                          onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       </KeepAlivePane>
 
@@ -1923,6 +1941,11 @@ export function ExpertPage(props: ExpertPageProps) {
                               setStoreActiveTab("skills");
                               setActiveSidebarView("store");
                             }}
+                            onOpenConnectorsMarketplace={() => {
+                              setStoreActiveTab("plugins");
+                              setActiveSidebarView("store");
+                            }}
+                            onOpenCustomConnector={() => openCustomConnector("config")}
                           />
                         </KeepAlivePane>
                       ) : null}
@@ -2045,7 +2068,8 @@ export function ExpertPage(props: ExpertPageProps) {
               </ResizablePanel>
               {sidePanelOpen ? (
                 <>
-                  <ResizableHandle className="hidden bg-transparent before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-dls-border/70 before:transition-colors after:w-3 hover:before:bg-dls-border-strong focus-visible:before:bg-dls-accent lg:flex" />
+                  {/* Single 1px rule — avoid base bg-border + before: double line. */}
+                  <ResizableHandle className="hidden w-px shrink-0 bg-dls-border/70 transition-colors hover:bg-dls-border-strong focus-visible:bg-dls-accent focus-visible:outline-none focus-visible:ring-0 lg:flex after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 after:bg-transparent after:content-['']" />
                   <ResizablePanel
                     key={activeExpertFeatureCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
                     panelRef={browserPanelRef}
@@ -2170,6 +2194,19 @@ export function ExpertPage(props: ExpertPageProps) {
       {props.shareWorkspaceModal ? (
         <ShareWorkspaceModal {...props.shareWorkspaceModal} />
       ) : null}
+
+      <CustomConnectorDialog
+        open={customConnectorOpen}
+        onOpenChange={setCustomConnectorOpen}
+        workspaceRoot={props.selectedWorkspaceRoot}
+        initialView={customConnectorInitialView}
+        onSaved={() => {
+          showToast({
+            title: t("plugins.custom_connector_saved"),
+            tone: "success",
+          });
+        }}
+      />
     </div>
   );
 }

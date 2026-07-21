@@ -172,15 +172,18 @@ describe("settings route workspace model", () => {
 
   test("parses canonical, legacy, and extension settings paths", () => {
     expect(parseSettingsPath("/settings")).toEqual({ tab: "general", redirectPath: "general" });
+    // Settings → Extensions removed; deep links redirect to general.
     expect(parseSettingsPath("/workspace/ws_1/settings/extensions/plugins")).toEqual({
-      tab: "extensions",
-      redirectPath: null,
-      extensionsSection: "plugins",
+      tab: "general",
+      redirectPath: "general",
     });
     expect(parseSettingsPath("/settings/extensions/skills")).toEqual({
-      tab: "extensions",
-      redirectPath: null,
-      extensionsSection: "all",
+      tab: "general",
+      redirectPath: "general",
+    });
+    expect(parseSettingsPath("/settings/extensions")).toEqual({
+      tab: "general",
+      redirectPath: "general",
     });
     expect(parseSettingsPath("/settings/den")).toEqual({ tab: "general", redirectPath: "general" });
     expect(parseSettingsPath("/settings/recovery")).toEqual({ tab: "general", redirectPath: "general" });
@@ -192,9 +195,7 @@ describe("settings route workspace model", () => {
       redirectPath: null,
     });
     expect(parseSettingsPath("/settings/nope")).toEqual({ tab: "general", redirectPath: "general" });
-    expect(settingsPathForRoute({ tab: "extensions", redirectPath: null, extensionsSection: "mcp" })).toBe(
-      "extensions/mcp",
-    );
+    expect(settingsPathForRoute({ tab: "general", redirectPath: null })).toBe("general");
   });
 
   test("resolves preferred settings workspace from route, session, navigation, current, and persisted ids", () => {
