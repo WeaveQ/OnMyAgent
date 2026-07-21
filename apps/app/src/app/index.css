@@ -576,17 +576,18 @@ select:disabled {
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
 
-  /* Artifact hue tokens (dark). Radix shade 4 for consistent perceived
-     chroma on dark surfaces without over-saturation. See DESIGN.md § 4h
-     and § 11 Intentional Exceptions. */
-  --dls-artifact-hue-image: var(--violet-4);
-  --dls-artifact-hue-code: var(--blue-4);
-  --dls-artifact-hue-document: var(--slate-4);
-  --dls-artifact-hue-data: var(--teal-4);
-  --dls-artifact-hue-plot: var(--grass-4);
-  --dls-artifact-hue-3d: var(--plum-4);
-  --dls-artifact-hue-audio: var(--pink-4);
-  --dls-artifact-hue-video: var(--crimson-4);
+  /* Artifact hue tokens (dark). Radix dark step 4 is a *surface* shade
+     (#272a2d etc.) — nearly invisible as icon strokes on #2C2C2C panels.
+     Use step 11 (low-contrast text) so file-tree / ArtifactIcon glyphs stay
+     readable without oversaturating. See DESIGN.md § 4h / § 11. */
+  --dls-artifact-hue-image: var(--violet-11);
+  --dls-artifact-hue-code: var(--blue-11);
+  --dls-artifact-hue-document: var(--slate-11);
+  --dls-artifact-hue-data: var(--teal-11);
+  --dls-artifact-hue-plot: var(--grass-11);
+  --dls-artifact-hue-3d: var(--plum-11);
+  --dls-artifact-hue-audio: var(--pink-11);
+  --dls-artifact-hue-video: var(--crimson-11);
 
   --background: var(--dls-background);
   --foreground: var(--dls-text-primary);
