@@ -69,10 +69,7 @@ import type {
   WorkspaceConnectionState,
   WorkspaceDisplay,
 } from "../../../app/types";
-import {
-  isDesktopRuntime,
-  normalizeDirectoryPath,
-} from "../../../app/utils";
+import { isDesktopRuntime } from "../../../app/utils";
 import { usePlatform } from "../../kernel/platform";
 import {
   useRemoteWorkspaceConnectionEditor,
@@ -100,6 +97,7 @@ import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagen
 import { useStatusToasts } from "../../domains/shell-feedback";
 import {
   readAssistantSessionWorkspace,
+  resolveSelectedSessionFileRoot,
   seedPermissionState,
   seedQuestionState,
   useSessionActivityStore,
@@ -677,17 +675,11 @@ export function SessionRouteRender() {
     errorsByWorkspaceId,
     sessionsByWorkspaceId,
   });
-  const normalizedSelectedWorkspaceRoot =
-    normalizeDirectoryPath(selectedWorkspaceRoot);
-  const normalizedSessionDirectory = normalizeDirectoryPath(
-    selectedSessionDirectory ?? "",
-  );
-  const selectedSessionFileRoot =
-    selectedSessionWorkspace?.directory?.trim() ||
-    (normalizedSessionDirectory &&
-    normalizedSessionDirectory !== normalizedSelectedWorkspaceRoot
-      ? (selectedSessionDirectory?.trim() ?? "")
-      : "");
+  const selectedSessionFileRoot = resolveSelectedSessionFileRoot({
+    boundDirectory: selectedSessionWorkspace?.directory,
+    sessionDirectory: selectedSessionDirectory,
+    workspaceRoot: selectedWorkspaceRoot,
+  });
   // Single source of truth for the selected workspace's server URL/token/id.
   // For remote workspaces this is the worker that owns the workspace; for
   // local workspaces it's the user's local OnMyAgent server.

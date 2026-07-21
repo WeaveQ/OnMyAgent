@@ -16,8 +16,19 @@ const WIDGET_TOOL_NAMES = new Set([
   "visualizer:show_widget",
 ]);
 
-const WIDGET_FENCE_PATTERN = /```(?:show_widget|show-widget|widget|visualizer_widget)\s*\n([\s\S]*?)```/gi;
-const WIDGET_FENCE_START_PATTERN = /```(?:show_widget|show-widget|widget|visualizer_widget)\b[^\n]*\n?/i;
+const WIDGET_FENCE_LANG = "show_widget|show-widget|widget|visualizer_widget";
+const WIDGET_FENCE_PATTERN = new RegExp(
+  "```(?:" + WIDGET_FENCE_LANG + ")\\s*\\n([\\s\\S]*?)```",
+  "gi",
+);
+const WIDGET_FENCE_START_PATTERN = new RegExp(
+  "```(?:" + WIDGET_FENCE_LANG + ")\\b[^\\n]*\\n?",
+  "i",
+);
+const WIDGET_FENCE_OPEN_PATTERN = new RegExp(
+  "```(?:" + WIDGET_FENCE_LANG + ")\\s*\\n",
+  "gi",
+);
 
 type UIMessagePart = UIMessage["parts"][number];
 
@@ -263,6 +274,89 @@ function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
   };
 }
 
+/**
+ * Extract a JSON object starting at `from`, respecting strings so inner ```
+ * cannot terminate an outer show_widget fence early.
+ */
+function extractBalancedJsonObject(
+  source: string,
+  from: number,
+): { json: string; end: number } | null {
+  let index = from;
+  while (index < source.length && /\s/.test(source[index] ?? "")) index += 1;
+  if (source[index] !== "{") return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let cursor = index; cursor < source.length; cursor += 1) {
+    const char = source[cursor] ?? "";
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === "\"") inString = false;
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return { json: source.slice(index, cursor + 1), end: cursor + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+function skipOptionalFenceClose(source: string, from: number): number {
+  let index = from;
+  while (index < source.length && /\s/.test(source[index] ?? "")) index += 1;
+  if (source.startsWith("```", index)) {
+    index += 3;
+    while (index < source.length && source[index] !== "\n") index += 1;
+    if (source[index] === "\n") index += 1;
+  }
+  return index;
+}
+
+function looksLikeWidgetPayloadText(payload: string): boolean {
+  const trimmed = payload.trim();
+  if (!trimmed.startsWith("{")) return false;
+  return (
+    trimmed.includes("widget_code") ||
+    trimmed.includes("widgetCode") ||
+    /"title"\s*:/.test(trimmed)
+  );
+}
+
+function makeWidgetVisual(
+  item: TurnContentItem,
+  status: TurnWidgetItem["status"],
+  payload: WidgetPayload | null,
+): TurnWidgetItem {
+  return {
+    kind: "widget",
+    messageId: item.messageId,
+    partIndex: item.partIndex,
+    title: payload?.title ?? null,
+    html: payload?.html ?? "",
+    toolName: "show_widget",
+    status,
+    loadingMessages: payload?.loadingMessages ?? [],
+    errorText: null,
+    artifactCopies: payload?.artifactCopies ?? [],
+  };
+}
+
 function extractFencedWidgets(
   item: TurnContentItem,
   text: string,
@@ -270,57 +364,75 @@ function extractFencedWidgets(
 ) {
   const widgets: TurnWidgetItem[] = [];
   const segments: TurnBodySegment[] = [];
-  const pattern = new RegExp(WIDGET_FENCE_PATTERN.source, WIDGET_FENCE_PATTERN.flags);
+  const openPattern = new RegExp(
+    WIDGET_FENCE_OPEN_PATTERN.source,
+    WIDGET_FENCE_OPEN_PATTERN.flags,
+  );
   let cursor = 0;
-  let match = pattern.exec(text);
-  while (match) {
-    const precedingText = text.slice(cursor, match.index);
-    if (precedingText) segments.push({ kind: "text", text: precedingText });
-    const payload = match[1] ?? "";
-    const widget = parseWidgetPayload(payload);
-    if (widget) {
-      const visual: TurnWidgetItem = {
-        kind: "widget",
-        messageId: item.messageId,
-        partIndex: item.partIndex,
-        title: widget.title,
-        html: widget.html,
-        toolName: "show_widget",
-        status: "completed",
-        loadingMessages: widget.loadingMessages,
-        errorText: null,
-        artifactCopies: widget.artifactCopies,
-      };
+  let openMatch = openPattern.exec(text);
+  while (openMatch) {
+    const fenceStart = openMatch.index;
+    const payloadStart = openMatch.index + openMatch[0].length;
+    if (fenceStart > cursor) {
+      segments.push({ kind: "text", text: text.slice(cursor, fenceStart) });
+    }
+
+    const balanced = extractBalancedJsonObject(text, payloadStart);
+    if (balanced) {
+      const widget = parseWidgetPayload(balanced.json);
+      if (widget && widget.html.trim()) {
+        const visual = makeWidgetVisual(item, "completed", widget);
+        widgets.push(visual);
+        segments.push({ kind: "widget", visual });
+        cursor = skipOptionalFenceClose(text, balanced.end);
+      } else if (widget || looksLikeWidgetPayloadText(balanced.json)) {
+        // Parsed shell but empty/broken html — hide source, show loading/failed.
+        const visual = makeWidgetVisual(item, incompleteStatus, widget);
+        widgets.push(visual);
+        segments.push({ kind: "widget", visual });
+        cursor = skipOptionalFenceClose(text, balanced.end);
+      } else {
+        // Non-widget JSON after fence label — keep legacy non-greedy close if any.
+        const legacy = new RegExp(WIDGET_FENCE_PATTERN.source, "i").exec(
+          text.slice(fenceStart),
+        );
+        if (legacy) {
+          segments.push({ kind: "text", text: legacy[0] });
+          cursor = fenceStart + legacy[0].length;
+        } else {
+          const visual = makeWidgetVisual(item, incompleteStatus, null);
+          widgets.push(visual);
+          segments.push({ kind: "widget", visual });
+          cursor = text.length;
+          break;
+        }
+      }
+    } else {
+      // Incomplete JSON (still streaming or truncated) — never dump source.
+      const visual = makeWidgetVisual(item, incompleteStatus, null);
+      widgets.push(visual);
+      segments.push({ kind: "widget", visual });
+      cursor = text.length;
+      break;
+    }
+    openPattern.lastIndex = cursor;
+    openMatch = openPattern.exec(text);
+  }
+
+  const trailingText = text.slice(cursor);
+  if (trailingText) {
+    const incompleteMatch = WIDGET_FENCE_START_PATTERN.exec(trailingText);
+    if (incompleteMatch) {
+      const precedingText = trailingText.slice(0, incompleteMatch.index);
+      if (precedingText) segments.push({ kind: "text", text: precedingText });
+      const visual = makeWidgetVisual(item, incompleteStatus, null);
       widgets.push(visual);
       segments.push({ kind: "widget", visual });
     } else {
-      segments.push({ kind: "text", text: match[0] });
+      segments.push({ kind: "text", text: trailingText });
     }
-    cursor = match.index + match[0].length;
-    match = pattern.exec(text);
   }
-  const trailingText = text.slice(cursor);
-  const incompleteMatch = WIDGET_FENCE_START_PATTERN.exec(trailingText);
-  if (incompleteMatch) {
-    const precedingText = trailingText.slice(0, incompleteMatch.index);
-    if (precedingText) segments.push({ kind: "text", text: precedingText });
-    const visual: TurnWidgetItem = {
-      kind: "widget",
-      messageId: item.messageId,
-      partIndex: item.partIndex,
-      title: null,
-      html: "",
-      toolName: "show_widget",
-      status: incompleteStatus,
-      loadingMessages: [],
-      errorText: null,
-      artifactCopies: [],
-    };
-    widgets.push(visual);
-    segments.push({ kind: "widget", visual });
-  } else if (trailingText) {
-    segments.push({ kind: "text", text: trailingText });
-  }
+
   const withoutWidgets = segments
     .filter((segment) => segment.kind === "text")
     .map((segment) => segment.text)

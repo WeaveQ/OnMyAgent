@@ -1,13 +1,19 @@
 {
   "name": "order-entry-clerk",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Turn customer shipping information into live white, red, and yellow waybill previews under .process, with on-demand PDF/Excel export after format choice",
-  "author": { "name": "Expert Marketplace" },
+  "author": {
+    "name": "Expert Marketplace"
+  },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "order-entry-clerk",
-  "agents": ["./agents/order-entry-clerk.md"],
-  "skills": ["./skills/order-entry"],
+  "agents": [
+    "./agents/order-entry-clerk.md"
+  ],
+  "skills": [
+    "./skills/order-entry"
+  ],
   "displayName": {
     "en": "Xiaoman",
     "zh": "物流单专家"
@@ -22,16 +28,31 @@
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
-  "categoryIds": ["01-OPC", "14-Logistics"],
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
   "defaultInitPrompt": {
     "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单 ",
     "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Create a logistics waybill and progressively complete its HTML preview."
   },
   "tags": [
-    { "zh": "订单识别", "en": "Order Recognition" },
-    { "zh": "PDF 与 Excel", "en": "PDF & Excel" },
-    { "zh": "智能追问", "en": "Smart Follow-up" },
-    { "zh": "录单", "en": "Order Taking" }
+    {
+      "zh": "订单识别",
+      "en": "Order Recognition"
+    },
+    {
+      "zh": "PDF 与 Excel",
+      "en": "PDF & Excel"
+    },
+    {
+      "zh": "智能追问",
+      "en": "Smart Follow-up"
+    },
+    {
+      "zh": "录单",
+      "en": "Order Taking"
+    }
   ],
   "quickPrompts": [
     {

@@ -59,7 +59,11 @@ export {
   createExpertSessionKey,
   isSameDirectory,
   joinWorkspacePath,
+  materializeExpertSessionDirectory,
+  resolveExpertSessionDirectoryMarker,
+  resolveSelectedSessionFileRoot,
   sanitizePathSegment,
+  shouldIsolateExpertSessionDirectory,
 } from "./sync/expert-session-directory";
 export {
   clearSessionDraft,

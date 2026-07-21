@@ -155,6 +155,18 @@ function SandboxedVisual(props: {
         if (typeof event.data.key === "string") props.onArtifactCopyChange?.(event.data.key);
         return;
       }
+      if (event.data.type === "onmyagent:waybill-fields") {
+        const patch = event.data.patch;
+        if (!patch || typeof patch !== "object" || Array.isArray(patch)) return;
+        // Bubble out of the sandbox so the host can merge data without dumping
+        // JSON into the transcript UI.
+        window.dispatchEvent(
+          new CustomEvent("onmyagent-waybill-fields-patch", {
+            detail: { patch },
+          }),
+        );
+        return;
+      }
       if (event.data.type === "onmyagent:visual-resize") {
         const nextHeight = Number(event.data.height);
         if (!Number.isFinite(nextHeight)) return;
@@ -286,15 +298,21 @@ export function InlineVisual(props: {
           <DropdownMenuContent align="end">
             {selectedCopy && props.onOpenCodePath ? (
               <>
-                <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
-                  <FileText className="size-4" />
-                  {t("session.visual_export_pdf", { copy: selectedCopy.label })}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
-                  <FileSpreadsheet className="size-4" />
-                  {t("session.visual_export_excel", { copy: selectedCopy.label })}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {selectedCopy.pdf.trim() ? (
+                  <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
+                    <FileText className="size-4" />
+                    {t("session.visual_reveal_pdf")}
+                  </DropdownMenuItem>
+                ) : null}
+                {selectedCopy.xlsx.trim() ? (
+                  <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
+                    <FileSpreadsheet className="size-4" />
+                    {t("session.visual_reveal_excel")}
+                  </DropdownMenuItem>
+                ) : null}
+                {(selectedCopy.pdf.trim() || selectedCopy.xlsx.trim()) ? (
+                  <DropdownMenuSeparator />
+                ) : null}
               </>
             ) : null}
             <DropdownMenuItem onSelect={() => setShowSource((current) => !current)}>
