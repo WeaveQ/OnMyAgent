@@ -134,3 +134,17 @@ export function resolveEffectiveArtifactSkills(
   }
   return effective;
 }
+
+export function resolveEffectiveArtifactPlugins(
+  catalog: ArtifactPluginCatalog,
+  enablement: ArtifactPluginEnablement,
+): ArtifactPluginCatalog["items"] {
+  return catalog.items.filter((plugin) => {
+    const pluginState = enablement.plugins[plugin.manifest.name];
+    if (pluginState?.enabled === false) return false;
+    return plugin.runtime.skills.some(
+      (skill) =>
+        (pluginState?.skills[skill.id] ?? skill.defaultEnabled) === true,
+    );
+  });
+}

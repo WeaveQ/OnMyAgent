@@ -402,7 +402,12 @@ export function createRuntimeManager({
   ].filter(Boolean).find((candidate) => existsSync(candidate)) ?? null;
   const runtimeBinDirs = runtimeRoot
     ? process.platform === "win32"
-      ? [path.join(runtimeRoot, "bin"), path.join(runtimeRoot, "node"), path.join(runtimeRoot, "python")]
+      ? [
+          path.join(runtimeRoot, "bin"),
+          path.join(runtimeRoot, "node"),
+          path.join(runtimeRoot, "python"),
+          path.join(runtimeRoot, "libreoffice", "LibreOffice", "program"),
+        ]
       : [
           path.join(runtimeRoot, "bin"),
           path.join(runtimeRoot, "node", "bin"),
