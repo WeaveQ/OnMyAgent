@@ -146,12 +146,8 @@ import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import {
-  SESSION_CONTENT_MAX_WIDTH_CLASS,
-  SESSION_CONTENT_X_PADDING_CLASS,
   sessionSurfaceStateClass,
-  sessionSurfaceTextClass,
 } from "./surface-styles";
-import { PendingAgentAvatar } from "./chrome/avatars";
 import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
@@ -159,7 +155,11 @@ import {
   OutputLimitContinueCard,
   TranscriptHistorySkeleton,
 } from "./chrome/assistant-status";
-import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
+import {
+  SessionSurfaceBody,
+  SessionSurfaceComposerColumn,
+  SessionSurfaceTranscriptPane,
+} from "./session-surface-layout";
 import {
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
@@ -189,6 +189,7 @@ import {
 import {
   SessionDraftWorkspaceAccessory,
   SessionSurfaceDraftHome,
+  SessionSurfaceExpertEmpty,
   SessionSurfaceHeader,
 } from "./session-surface-chrome";
 import {
@@ -2069,45 +2070,31 @@ export function SessionSurface(props: SessionSurfaceProps) {
         ) : null}
 
         {/* Body: draft home centers title+composer; chat fills remaining height. */}
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col",
-            personalAssistantDraftHome &&
-              "items-center justify-center px-6 pb-[min(8vh,3.5rem)] pt-6",
-          )}
+        <SessionSurfaceBody personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}>
+        <SessionSurfaceTranscriptPane
+          hidden={Boolean(personalAssistantDraftHome)}
+          scrollRef={scrollRef}
+          contentRef={contentRef}
+          isAtBottom={Boolean(sessionScroll.isAtBottom)}
+          showJumpToLatest={!personalAssistantDraftHome}
+          onWheel={(event) => {
+            sessionScroll.markWheelGesture(event.deltaY, event.target);
+          }}
+          onTouchStart={(event) => {
+            sessionScroll.markScrollGesture(event.target);
+          }}
+          onTouchMove={(event) => {
+            sessionScroll.markScrollGesture(event.target);
+          }}
+          onPointerDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            sessionScroll.markScrollGesture(event.currentTarget);
+          }}
+          onScroll={sessionScroll.handleScroll}
+          onJumpToLatest={() => {
+            sessionScroll.jumpToLatest("auto");
+          }}
         >
-        <div
-          className={cn(
-            "relative min-h-0 flex-1",
-            personalAssistantDraftHome && "hidden",
-          )}
-        >
-          <div
-            ref={scrollRef}
-            onWheel={(event) => {
-              sessionScroll.markWheelGesture(event.deltaY, event.target);
-            }}
-            onTouchStart={(event) => {
-              sessionScroll.markScrollGesture(event.target);
-            }}
-            onTouchMove={(event) => {
-              sessionScroll.markScrollGesture(event.target);
-            }}
-            onPointerDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              sessionScroll.markScrollGesture(event.currentTarget);
-            }}
-            onScroll={sessionScroll.handleScroll}
-            className={cn(
-              "absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
-              // Match composer horizontal inset so content + input share one column.
-              SESSION_CONTENT_X_PADDING_CLASS,
-            )}
-          >
-            <div
-              ref={contentRef}
-              className={cn("mx-auto w-full", SESSION_CONTENT_MAX_WIDTH_CLASS)}
-            >
               {showDelayedLoading && pendingSessionLoad ? (
                 <TranscriptHistorySkeleton pairCount={3} />
               ) : (snapshotQuery.isError || visibleTranscriptError) &&
@@ -2148,30 +2135,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     onOpenModelPicker={props.onModelClick}
                   />
                 ) : props.personalAssistantHome ? null : effectiveAgent ? (
-                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-6">
-                    <div className="flex shrink-0 flex-col items-center gap-2">
-                      <PendingAgentAvatar
-                        name={effectiveAgent.name}
-                        avatarUrl={effectiveAgent.avatar.avatarUrl}
-                        avatarBackground={
-                          effectiveAgent.avatar.avatarBackground
-                        }
-                        className="size-16 text-3xl"
+                  <SessionSurfaceExpertEmpty
+                    agent={{
+                      name: effectiveAgent.name,
+                      description: effectiveAgent.description,
+                      avatar: effectiveAgent.avatar,
+                    }}
+                    promptSuggestions={
+                      <AgentPromptSuggestions
+                        agentId={effectiveAgent.id}
+                        quickPrompts={effectiveAgent.quickPrompts}
+                        onSelect={(prompt) => void typeComposerText(prompt)}
+                        className="shrink-0"
                       />
-                      <h2 className={sessionSurfaceTextClass.agentEmptyTitle}>
-                        {effectiveAgent.name}
-                      </h2>
-                      <p className={sessionSurfaceTextClass.agentEmptyDescription}>
-                        {effectiveAgent.description}
-                      </p>
-                    </div>
-                    <AgentPromptSuggestions
-                      agentId={effectiveAgent.id}
-                      quickPrompts={effectiveAgent.quickPrompts}
-                      onSelect={(prompt) => void typeComposerText(prompt)}
-                      className="shrink-0"
-                    />
-                  </div>
+                    }
+                  />
                 ) : null
               ) : (
                 <DevProfiler id="SessionTranscript">
@@ -2209,43 +2187,24 @@ export function SessionSurface(props: SessionSurfaceProps) {
                   </>
                 </DevProfiler>
               )}
-            </div>
-          </div>
-          <TranscriptScrollToLatest
-            visible={!personalAssistantDraftHome && !sessionScroll.isAtBottom}
-            label={t("session.jump_to_latest")}
-            onActivate={() => {
-              sessionScroll.jumpToLatest("auto");
-            }}
-          />
-        </div>
+        </SessionSurfaceTranscriptPane>
 
-        {/* Code tools on draft home: under pinned header. */}
-        {personalAssistantDraftHome && codeSceneToolbar ? (
-          <div className="absolute right-5 top-14 z-20 flex items-center gap-1.5 mac:titlebar-no-drag">
-            {codeSceneToolbar}
-          </div>
-        ) : null}
-        {/* Home: one max-w-2xl column so brand title + composer share width. */}
-        <div
-          className={cn(
-            personalAssistantDraftHome &&
-              "flex w-full max-w-2xl shrink-0 flex-col items-stretch",
-          )}
-        >
-        {personalAssistantDraftHome ? (
-          <SessionSurfaceDraftHome
-            categoryId={assistantCategoryId}
-            title={assistantDraftHomeTitle}
-            subtitle={assistantDraftHomeSubtitle}
-          />
-        ) : null}
-        <div
-          ref={composerShellRef}
-          className={cn(
-            "shrink-0 px-0 pb-2 pt-2",
-            (personalAssistantDraftHome || homeComposerLayout) && "w-full pb-0 pt-0",
-          )}
+        <SessionSurfaceComposerColumn
+          personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}
+          homeComposerLayout={Boolean(homeComposerLayout)}
+          floatingToolbar={
+            personalAssistantDraftHome ? codeSceneToolbar : null
+          }
+          draftHome={
+            personalAssistantDraftHome ? (
+              <SessionSurfaceDraftHome
+                categoryId={assistantCategoryId}
+                title={assistantDraftHomeTitle}
+                subtitle={assistantDraftHomeSubtitle}
+              />
+            ) : null
+          }
+          composerShellRef={composerShellRef}
         >
           <DevProfiler id="SessionComposer">
             <ReactSessionComposer
@@ -2342,9 +2301,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
               }
             />
           </DevProfiler>
-        </div>
-        </div>
-        </div>
+        </SessionSurfaceComposerColumn>
+        </SessionSurfaceBody>
         {/* Error display moved inline into the session conversation area */}
         {props.developerMode ? (
           <SessionDebugPanel model={model} snapshot={snapshot} />

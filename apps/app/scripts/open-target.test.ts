@@ -2,13 +2,20 @@ import { describe, expect, it } from "bun:test";
 import type { UIMessage } from "ai";
 
 import {
+  canPreviewOpenTargetInline,
   classifyOpenTarget,
   deriveOpenTargets,
   isCollectibleArtifactTarget,
   selectAutoOpenTarget,
   shouldAutoOpenTarget,
+  type OpenTarget,
 } from "../src/react-app/domains/session/artifacts/open-target";
 import { selectTurnOpenTargets } from "../src/react-app/domains/session/surface/message-list";
+import {
+  buildWorkspaceFileTree,
+  filterHiddenFromTree,
+  shouldHideEntry,
+} from "../src/react-app/capabilities/artifacts/workspace-file-tree";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {
   return { id, role, parts: [{ type: "text", text, state: "done" }] };
@@ -34,6 +41,18 @@ function toolMessage(
   };
 }
 
+function fileTarget(path: string, preview?: OpenTarget["preview"]): OpenTarget {
+  return {
+    id: `file:${path}`,
+    kind: "file",
+    value: path,
+    name: path.split("/").pop() ?? path,
+    preview: preview ?? classifyOpenTarget(path, "file"),
+    confidence: 100,
+    reason: "test",
+  };
+}
+
 describe("open target classification", () => {
   it("routes common artifact formats to deterministic previews", () => {
     expect(classifyOpenTarget("report.md", "file")).toBe("markdown");
@@ -42,6 +61,48 @@ describe("open target classification", () => {
     expect(classifyOpenTarget("diagram.svg", "file")).toBe("image");
     expect(classifyOpenTarget("dist/index.html", "file")).toBe("html");
     expect(classifyOpenTarget("http://localhost:5173", "url")).toBe("browser");
+  });
+});
+
+describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
+  it("allows text, markdown, html, browser, and tabular csv/tsv only", () => {
+    expect(canPreviewOpenTargetInline(fileTarget("notes.md"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("app.ts"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("data.csv"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("rows.tsv"))).toBe(true);
+    expect(
+      canPreviewOpenTargetInline({
+        ...fileTarget("https://example.com", "browser"),
+        kind: "url",
+        value: "https://example.com",
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses Office binaries, media, and generic external dumps", () => {
+    expect(canPreviewOpenTargetInline(fileTarget("ledger.xlsx"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("deck.pptx"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("doc.docx"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("manual.pdf"))).toBe(false);
+  });
+});
+
+describe("canonical workspace file tree helpers", () => {
+  it("builds trees and filters hidden paths through the shared module", () => {
+    expect(shouldHideEntry(".env")).toBe(true);
+    expect(shouldHideEntry("src/main.ts")).toBe(false);
+
+    const tree = buildWorkspaceFileTree([
+      { path: "src/main.ts", kind: "file", size: 10, mtimeMs: 1, revision: "" },
+      { path: ".git/config", kind: "file", size: 1, mtimeMs: 1, revision: "" },
+      { path: "opencode.jsonc", kind: "file", size: 1, mtimeMs: 1, revision: "" },
+      { path: "docs/readme.md", kind: "file", size: 20, mtimeMs: 1, revision: "" },
+    ]);
+    const visible = filterHiddenFromTree(tree);
+    const names = visible.children.map((c) => c.name).sort();
+    expect(names).toEqual(["docs", "src"]);
+    expect(visible.children.find((c) => c.name === ".git")).toBeUndefined();
   });
 });
 
