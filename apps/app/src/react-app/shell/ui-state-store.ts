@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
 export const PERSISTED_UI_STATE_KEY = "onmyagent:ui-state:v1";
+/**
+ * One-shot migration for the Windows native menu bar default.
+ * v2 forced show; v3 hides the File/Edit/View strip on Windows again.
+ */
+const APPLICATION_MENU_DEFAULT_MIGRATION_KEY = "onmyagent:ui-menu-default-v3";
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const LEGACY_WORKSPACE_LEFT_SIDEBAR_WIDTH_KEY = "onmyagent.workspace-shell.left-width.v1";
 const LEGACY_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_KEY = "onmyagent.workspace-shell.right-expanded.v3";
@@ -49,6 +54,8 @@ export type UiState = {
 const initialState: UiState = {
   sidebarOpen: true,
   sidePanelState: {},
+  // Windows/Linux: hide native File/Edit/View bar (app UI is enough). macOS
+  // system menu bar is unaffected by this flag in Electron.
   applicationMenuVisible: false,
   workspaceLeftSidebarWidth: DEFAULT_WORKSPACE_LEFT_SIDEBAR_WIDTH,
   workspaceLeftSidebarResizing: false,
@@ -152,6 +159,7 @@ function readPersistedUiState(): UiState {
       return {
         ...initialState,
         sidebarOpen,
+        applicationMenuVisible: resolveApplicationMenuVisibleDefault(undefined),
         workspaceLeftSidebarWidth:
           legacyLayoutState.workspaceLeftSidebarWidth ?? initialState.workspaceLeftSidebarWidth,
         workspaceRightSidebarExpanded:
@@ -168,7 +176,7 @@ function readPersistedUiState(): UiState {
       ...initialState,
       sidebarOpen,
       sidePanelState,
-      applicationMenuVisible: parsed.applicationMenuVisible ?? initialState.applicationMenuVisible,
+      applicationMenuVisible: resolveApplicationMenuVisibleDefault(parsed.applicationMenuVisible),
       workspaceLeftSidebarWidth: normalizeNumber(
         parsed.workspaceLeftSidebarWidth,
         MIN_WORKSPACE_LEFT_SIDEBAR_WIDTH,
@@ -187,6 +195,39 @@ function readPersistedUiState(): UiState {
   } catch {
     return initialState;
   }
+}
+
+function isWindowsRenderer(): boolean {
+  if (globalThis.window === undefined || typeof navigator === "undefined") {
+    return false;
+  }
+  return /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
+}
+
+/**
+ * Windows: hide the native File/Edit/View menu bar by default.
+ * One-shot v3 migration overrides older v2 "force show" so existing installs
+ * also get the clean chrome unless the user later toggles it back on.
+ */
+function resolveApplicationMenuVisibleDefault(persisted: boolean | undefined): boolean {
+  if (globalThis.window === undefined) {
+    return persisted ?? initialState.applicationMenuVisible;
+  }
+
+  const migrated = window.localStorage.getItem(APPLICATION_MENU_DEFAULT_MIGRATION_KEY) === "1";
+  if (!migrated) {
+    try {
+      window.localStorage.setItem(APPLICATION_MENU_DEFAULT_MIGRATION_KEY, "1");
+    } catch {
+      // ignore quota / private mode
+    }
+    if (isWindowsRenderer()) {
+      return false;
+    }
+    return persisted ?? initialState.applicationMenuVisible;
+  }
+
+  return persisted ?? initialState.applicationMenuVisible;
 }
 
 export function persistUiState(state: UiState): void {

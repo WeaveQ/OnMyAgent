@@ -3,14 +3,15 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Activity,
-  Bot,
   CircleStop,
   Clock3,
   Loader2,
   MessageSquare,
   Plus,
+  RefreshCw,
   Search,
   Settings2,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../../design-system/select-menu";
+import { useStatusToasts } from "../../shell-feedback";
 import {
   personalLocalAgentAcpCancel,
   personalLocalAgentAcpAgentsList,
@@ -84,6 +86,7 @@ import {
   compactMessagesByAgent,
   isUnsupportedNativeTranscriptError,
   localAgentChatKey,
+  mergeLocalAgentSidebarOrder,
   mergeSlashCommands,
   modelSelectorLabel,
   nativeSessionResumeOnlyMessage,
@@ -95,8 +98,11 @@ import {
   recoverActiveRunIds,
   safeReadApprovalMode,
   safeReadCachedAgents,
+  safeReadLocalAgentSidebarOrder,
   safeReadPersistedChatState,
   safeWriteCachedAgents,
+  safeWriteLocalAgentSidebarOrder,
+  sortLocalAgentsBySidebarOrder,
   transcriptMessagesForAgent,
   welcomeMessageForAgent,
   type PersistedLocalAgentChatState,
@@ -160,6 +166,7 @@ type PersonalLocalAgentPageProps = {
   runtimeWorkspaceId?: string | null;
 };
 export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
+  const { showToast } = useStatusToasts();
   const initialPersistedStateRef = useRef<PersistedLocalAgentChatState | null>(null);
   if (initialPersistedStateRef.current === null) {
     initialPersistedStateRef.current = safeReadPersistedChatState(props.workspaceRoot) ?? { version: 1 };
@@ -195,7 +202,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [draftsByAgent, setDraftsByAgent] = useState<Record<string, string>>(persistedState.draftsByAgent ?? {});
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
   const [startingByAgent, setStartingByAgent] = useState<Record<string, boolean>>({});
-  const [showAddForm, setShowAddForm] = useState(false);
+
   const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(sanitizedErrorsByAgent);
   const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>(
     recoverActiveRunIds(sanitizedMessagesByAgent, persistedState.activeRunIdByAgent),
@@ -339,6 +346,23 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       .catch(() => undefined);
   }, [effectiveWorkspaceRoot, props.workspaceRoot, selectedAgent, selectedConversationId]);
   useAcpInitialMessage({ workspaceRoot: effectiveWorkspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, disabled: isChannelView, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: effectiveWorkspaceRoot, agent: isChannelView ? null : selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
+  // Stable sidebar order: status (online / ENOENT) only updates row chrome.
+  // Relative order is persisted per workspace so re-entering the page does not reshuffle.
+  const sidebarOrder = useMemo(() => {
+    const realIds = allAgents
+      .filter((agent) => agent.id !== CHANNEL_AGENT_ID)
+      .map((agent) => agent.id);
+    const saved = safeReadLocalAgentSidebarOrder(props.workspaceRoot);
+    return mergeLocalAgentSidebarOrder(saved.length ? saved : realIds, realIds);
+  }, [allAgents, props.workspaceRoot]);
+
+  useEffect(() => {
+    const saved = safeReadLocalAgentSidebarOrder(props.workspaceRoot);
+    if (sidebarOrder.join("\0") !== saved.join("\0")) {
+      safeWriteLocalAgentSidebarOrder(props.workspaceRoot, sidebarOrder);
+    }
+  }, [props.workspaceRoot, sidebarOrder]);
+
   const filteredAgents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     // The synthetic channel agent is rendered in its own section below, not as
@@ -351,15 +375,8 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
           .includes(normalized),
       );
     }
-    // Online / healthy first; broken install rows (ENOENT) sink so the list
-    // doesn't lead with error chrome.
-    return [...realAgents].sort((a, b) => {
-      const rank = (agent: typeof a) => (agent.status === "online" ? 0 : 1);
-      const delta = rank(a) - rank(b);
-      if (delta !== 0) return delta;
-      return a.name.localeCompare(b.name, "zh");
-    });
-  }, [allAgents, query]);
+    return sortLocalAgentsBySidebarOrder(realAgents, sidebarOrder);
+  }, [allAgents, query, sidebarOrder]);
   const startAgentListResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -682,7 +699,8 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     const targets = collectRunOpenTargets(lastRunForSelected, props.workspaceRoot);
     onOpenTargetsChange(targets);
   }, [lastRunForSelected, onOpenTargetsChange, props.workspaceRoot, selectedAgent]);
-  const refreshAgents = useCallback(async () => {
+  const refreshAgents = useCallback(async (options?: { notify?: boolean }) => {
+    const notify = options?.notify === true;
     setRefreshing(true);
     if (selectedAgentId) {
       setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: null }));
@@ -695,15 +713,29 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       if (nextAgents.length && selectedAgentId !== CHANNEL_AGENT_ID && !nextAgents.some((agent) => agent.id === selectedAgentId)) {
         setSelectedAgentId(nextAgents[0].id);
       }
+      if (notify) {
+        showToast({
+          tone: "success",
+          title: t("local_agent.redetect_success"),
+          description: t("local_agent.redetect_success_count", { count: nextAgents.length }),
+        });
+      }
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : String(nextError);
       if (selectedAgentId) {
         setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: message }));
       }
+      if (notify) {
+        showToast({
+          tone: "error",
+          title: t("local_agent.redetect_failed"),
+          description: message,
+        });
+      }
     } finally {
       setRefreshing(false);
     }
-  }, [props.workspaceRoot, selectedAgentId]);
+  }, [effectiveWorkspaceRoot, props.workspaceRoot, selectedAgentId, showToast]);
   useEffect(() => {
     void refreshAgents();
   }, [refreshAgents]);
@@ -1041,8 +1073,26 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setWorkspaceOverrideState,
     setRecentWorkspaces,
   });
+  const creatingConversation = Boolean(
+    selectedAgent && !isChannelView && loadingConversationsByAgent[selectedAgent.id],
+  );
+  const canCreateConversation = Boolean(selectedAgent && !running && !isChannelView && !creatingConversation);
+
   const createNewConversation = useCallback(async () => {
-    if (!selectedAgent || running) return;
+    if (!selectedAgent || isChannelView) {
+      showToast({
+        tone: "info",
+        title: t("local_agent.new_conversation_unavailable"),
+      });
+      return;
+    }
+    if (running) {
+      showToast({
+        tone: "info",
+        title: t("local_agent.new_conversation_busy"),
+      });
+      return;
+    }
     const agent = selectedAgent;
     setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: true }));
     setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
@@ -1065,15 +1115,25 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       setMessagesByAgent((current) => ({ ...current, [key]: [welcomeMessageForAgent(agent)] }));
       setDraftsByAgent((current) => ({ ...current, [key]: "" }));
       setActiveRunIdByAgent((current) => ({ ...current, [key]: null }));
+      showToast({
+        tone: "success",
+        title: t("local_agent.new_conversation_success"),
+      });
     } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : String(nextError);
       setErrorsByAgent((current) => ({
         ...current,
-        [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
+        [agent.id]: message,
       }));
+      showToast({
+        tone: "error",
+        title: t("local_agent.new_conversation_failed"),
+        description: message,
+      });
     } finally {
       setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
     }
-  }, [effectiveWorkspaceRoot, props.workspaceRoot, running, selectedAgent]);
+  }, [effectiveWorkspaceRoot, isChannelView, running, selectedAgent, showToast]);
   const createHeartbeat = useCallback(async () => {
     if (!selectedAgent || selectedAgent.status !== "online") return;
     const prompt = heartbeatDraft.prompt.trim();
@@ -1328,12 +1388,16 @@ return (
     >
       {agentListCollapsed ? null : (
         <>
-          <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4">
+          {/*
+            mac:titlebar-no-drag + z-10: top 28px is a global Electron drag strip
+            on macOS; interactive chrome must opt out or clicks are swallowed.
+          */}
+          <div className="relative z-10 flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4 mac:titlebar-no-drag">
             <InputGroup
               controlSize="sm"
               radius="md"
               tone="surfaceMuted"
-              className="flex-1"
+              className="min-w-0 flex-1 mac:titlebar-no-drag"
             >
               <InputGroupAddon align="inline-start" inset="tight">
                 <Search className="size-4.5" />
@@ -1351,7 +1415,7 @@ return (
               type="button"
               size="icon-sm"
               onClick={() => setShowActiveRunsPanel(true)}
-              className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
               title={t("local_agent.active_runs_title")}
               aria-label={t("local_agent.active_runs_title")}
               aria-expanded={showActiveRunsPanel}
@@ -1370,36 +1434,55 @@ return (
             <Button
               type="button"
               size="icon-sm"
+              disabled={!canCreateConversation}
               onClick={() => void createNewConversation()}
-              className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
               title={t("local_agent.new_conversation")}
               aria-label={t("local_agent.new_conversation")}
+              aria-busy={creatingConversation || undefined}
             >
-              <Plus className="size-4.5" />
+              {creatingConversation ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <Plus className="size-4.5" />
+              )}
             </Button>
 
             <Button
               type="button"
               size="icon-sm"
-              onClick={() => setShowAddForm((value) => !value)}
-              className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-              title={t("local_agent.add")}
-              aria-label={t("local_agent.add")}
+              disabled={refreshing}
+              onClick={() => void refreshAgents({ notify: true })}
+              className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
+              title={t("local_agent.redetect")}
+              aria-label={t("local_agent.redetect")}
             >
-              <Bot className="size-4.5" />
-              <Plus
-                className="absolute right-1.5 top-1.5 size-2.5"
-                strokeWidth={3}
-              />
+              {refreshing ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <RefreshCw className="size-4.5" />
+              )}
             </Button>
 
-            {/* WorkBuddy-style: gear in chrome, not a blue text link above the list. */}
             {props.onOpenAgentManagement ? (
               <Button
                 type="button"
                 size="icon-sm"
                 onClick={() => props.onOpenAgentManagement?.("agents")}
-                className="relative shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                title={t("local_agent.add")}
+                aria-label={t("local_agent.add")}
+              >
+                <UserPlus className="size-4.5" />
+              </Button>
+            ) : null}
+
+            {props.onOpenAgentManagement ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                onClick={() => props.onOpenAgentManagement?.("agents")}
+                className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
                 title={t("local_agent.manage_agents")}
                 aria-label={t("local_agent.manage_agents")}
               >
@@ -1407,27 +1490,6 @@ return (
               </Button>
             ) : null}
           </div>
-
-          {showAddForm ? (
-            <div className="mx-4 mt-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3">
-              <div className={localAgentTextClass.panelTitle}>
-                {t("local_agent.add")}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 w-full"
-                onClick={() => void refreshAgents()}
-                disabled={refreshing}
-              >
-                {refreshing ? (
-                  <LoadingSpinner size="sm" className="mr-1.5" />
-                ) : null}
-                {t("local_agent.redetect")}
-              </Button>
-            </div>
-          ) : null}
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {filteredAgents.length > 0 ? (
@@ -1650,11 +1712,12 @@ return (
       variant="ghost"
       size="icon-sm"
       onClick={() => void createNewConversation()}
-      disabled={!selectedAgent || running || isChannelView || Boolean(selectedAgent && loadingConversationsByAgent[selectedAgent.id])}
+      disabled={!canCreateConversation}
       title={t("local_agent.new_conversation")}
       aria-label={t("local_agent.new_conversation")}
+      aria-busy={creatingConversation || undefined}
     >
-      {selectedAgent && loadingConversationsByAgent[selectedAgent.id] ? <LoadingSpinner size="default" /> : <Plus className="size-4" />}
+      {creatingConversation ? <LoadingSpinner size="default" /> : <Plus className="size-4" />}
     </Button>
     {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
       <PersonalLocalAgentModelSelector

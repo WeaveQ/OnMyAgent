@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 import { runCommand } from '../lib/run-command.mjs'
 
+const isWin = process.platform === 'win32'
+const appDev = isWin ? 'dev:windows' : 'dev'
+const desktopDev = isWin ? 'dev:windows' : 'dev'
+
 const targets = new Map([
-  ['desktop', { command: 'pnpm', args: ['--filter', '@onmyagent/desktop', 'dev'] }],
-  ['electron', { command: 'pnpm', args: ['--filter', '@onmyagent/desktop', 'dev'] }],
-  ['app', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'dev'] }],
-  ['web', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'dev'] }],
-  ['ui', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'dev'] }],
+  ['desktop', { command: 'pnpm', args: ['--filter', '@onmyagent/desktop', desktopDev] }],
+  ['electron', { command: 'pnpm', args: ['--filter', '@onmyagent/desktop', desktopDev] }],
+  ['app', { command: 'pnpm', args: ['--filter', '@onmyagent/app', appDev] }],
+  ['web', { command: 'pnpm', args: ['--filter', '@onmyagent/app', appDev] }],
+  ['ui', { command: 'pnpm', args: ['--filter', '@onmyagent/app', appDev] }],
   ['server', { command: 'pnpm', args: ['--filter', 'onmyagent-server', 'dev'] }],
   ['api', { command: 'pnpm', args: ['--filter', 'onmyagent-server', 'dev'] }],
   ['orchestrator', { command: 'pnpm', args: ['--filter', 'onmyagent-orchestrator', 'dev'] }],

@@ -43,13 +43,14 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
+// Order: 助理 → 专家 → 文件 → 市场 → 管理 → 本地
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
-  { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: LocalAgentRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
   { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
+  { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: LocalAgentRailIcon },
 ];
 
 function DevicesRailIcon(props: { active?: boolean; className?: string }) {
@@ -122,8 +123,9 @@ export function OnMyAgentRail(props: {
   onSignOut?: () => void;
   onOpenBilling?: () => void;
 }) {
+  // pt-14 only on macOS (traffic lights / hidden titlebar). Windows keeps compact top padding.
   return (
-    <aside className="flex w-16 shrink-0 flex-col items-center bg-dls-rail pb-4 pt-14 text-dls-text">
+    <aside className="flex w-16 shrink-0 flex-col items-center bg-dls-rail pb-4 pt-3 mac:pt-14 text-dls-text">
       <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5">
         <nav className="flex min-h-0 w-full -translate-y-0.5 flex-1 flex-col items-center gap-2 overflow-y-auto pb-2">
           {TOP_RAIL_ITEMS.map((item) => (

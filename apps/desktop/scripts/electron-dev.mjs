@@ -2,6 +2,15 @@ import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  clearElectronDevHttpCaches,
+  clearViteDepsCache,
+  inspectViteDeps,
+  resolveAppViteCacheDir,
+  resolveAppViteDepsDir,
+  resolveOnMyAgentUserDataDir,
+  shouldForceViteOptimize,
+} from "./vite-deps-integrity.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -14,6 +23,8 @@ const defaultDevDataDir = resolve(
   ".onmyagent",
   "onmyagent-orchestrator-dev",
 );
+const viteDepsDir = resolveAppViteDepsDir(repoRoot);
+const viteCacheDir = resolveAppViteCacheDir(repoRoot);
 
 const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const nodeCmd = process.execPath;
@@ -222,9 +233,46 @@ runSync(nodeCmd, [resolve(__dirname, "patch-electron-name.mjs")], {
   },
 });
 
+// Shared packages must be built before Electron loads workspace deps from dist/.
+console.log("[electron-dev] Building @onmyagent/types...");
+runSync(pnpmCmd, ["--filter", "@onmyagent/types", "build"], { cwd: repoRoot });
 // Build the server TS → JS so Electron can import it in-process
 console.log("[electron-dev] Building onmyagent-server (tsc)...");
 runSync(pnpmCmd, ["--filter", "onmyagent-server", "build"], { cwd: repoRoot });
+
+// Stale Vite optimize-deps (missing chunk-*.js) blanks the Electron renderer.
+// Detect and force a clean re-optimize before we attach the main window.
+let depsInspection = inspectViteDeps(viteDepsDir);
+let forceViteOptimize = shouldForceViteOptimize({
+  inspection: depsInspection,
+  forceEnv: process.env.ONMYAGENT_FORCE_VITE_OPTIMIZE,
+});
+if (!depsInspection.ok) {
+  console.warn(
+    `[electron-dev] Vite optimize-deps not ready (${depsInspection.reason ?? "unknown"}` +
+      `; brokenImports=${depsInspection.brokenImports.length}` +
+      `, optimizedMissing=${depsInspection.optimizedMissing.length}). Forcing re-optimize.`,
+  );
+}
+if (forceViteOptimize) {
+  const cleared = clearViteDepsCache(viteCacheDir);
+  if (cleared.cleared) {
+    console.log(`[electron-dev] Cleared Vite cache at ${cleared.path}`);
+  }
+}
+
+// Drop Chromium HTTP/Code caches so the renderer cannot keep requesting deleted
+// chunk files under the same ?v=<browserHash>.
+const electronUserDataDir = resolveOnMyAgentUserDataDir({
+  isDevMode: true,
+  override: process.env.ONMYAGENT_ELECTRON_USERDATA,
+});
+const electronCacheClear = clearElectronDevHttpCaches(electronUserDataDir);
+if (electronCacheClear.cleared.length > 0) {
+  console.log(
+    `[electron-dev] Cleared Electron cache dirs (${electronCacheClear.cleared.join(", ")}) under ${electronCacheClear.path}`,
+  );
+}
 
 const initialProbeUrls = [startUrl, ...viteProbeUrls].filter(Boolean);
 let viteReady = false;
@@ -251,9 +299,36 @@ if (!viteReady && portBlockedByOtherApp) {
   process.exit(1);
 }
 
+// If a Vite server is already up but its on-disk optimize-deps graph is broken,
+// we cannot safely load Electron against it — force the operator to restart after
+// we wiped the cache above. Prefer starting our own Vite with --force.
+if (viteReady && forceViteOptimize) {
+  console.warn(
+    `[electron-dev] An OnMyAgent Vite server is already running on port ${devPort}, but optimize-deps needed a rebuild. ` +
+      `Stop the existing Vite process and re-run desktop dev so it can start with a clean --force optimize.`,
+  );
+  // Re-inspect: if we cleared the cache under a live server, requests will 404 until restart.
+  depsInspection = inspectViteDeps(viteDepsDir);
+  if (!depsInspection.ok) {
+    console.error(
+      "[electron-dev] Refusing to launch Electron against a broken/missing optimize-deps graph. " +
+        "Stop the process on the Vite port and run `pnpm dev -- desktop` again.",
+    );
+    process.exit(1);
+  }
+}
+
 if (!viteReady) {
-  uiChild = run(pnpmCmd, ["--filter", "@onmyagent/app", "dev"], {
-    cwd: repoRoot,
+  // Run from apps/app so Vite cacheDir resolves to apps/app/node_modules/.vite
+  // (same path inspectViteDeps / clearViteDepsCache use).
+  // package.json "dev" uses Unix env assignment (FOO=1 cmd); Windows needs dev:windows.
+  const appRoot = resolve(repoRoot, "apps/app");
+  const appDevScript = process.platform === "win32" ? "dev:windows" : "dev";
+  const viteArgs = forceViteOptimize
+    ? ["exec", "vite", "--force"]
+    : ["run", appDevScript];
+  uiChild = run(pnpmCmd, viteArgs, {
+    cwd: appRoot,
     env: {
       ...process.env,
       PORT: String(devPort),
@@ -265,6 +340,65 @@ if (!viteReady) {
 
 const resolvedStartUrl = await waitForVite(startUrl);
 
+// Cold optimize-deps is async: HTML can be ready before .vite/deps exists.
+// Poll until the graph is healthy, or until we only see "not ready yet" states.
+async function waitForDepsIntegrity(timeoutMs = 60_000) {
+  const startedAt = Date.now();
+  let last = inspectViteDeps(viteDepsDir);
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      await fetchWithTimeout(resolvedStartUrl, 4000);
+      await fetchWithTimeout(
+        `${resolvedStartUrl.replace(/\/$/, "")}/src/index.react.tsx`,
+        8000,
+      );
+    } catch {
+      // best-effort warm-up while optimizer runs
+    }
+    last = inspectViteDeps(viteDepsDir);
+    if (last.ok) return last;
+    // Hard-broken graphs (missing chunk imports) should fail closed once stable.
+    const hardBroken =
+      last.reason === "broken_chunk_import" || last.reason === "optimized_entry_missing";
+    if (hardBroken && Date.now() - startedAt > 8_000) {
+      return last;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return last;
+}
+
+depsInspection = await waitForDepsIntegrity(forceViteOptimize ? 60_000 : 20_000);
+if (depsInspection.ok) {
+  console.log(
+    `[electron-dev] Vite optimize-deps ok (optimized=${depsInspection.optimizedCount}, browserHash=${depsInspection.browserHash ?? "n/a"})`,
+  );
+} else if (
+  depsInspection.reason === "broken_chunk_import" ||
+  depsInspection.reason === "optimized_entry_missing"
+) {
+  console.error(
+    `[electron-dev] Vite optimize-deps still broken after startup (${depsInspection.reason}). ` +
+      `brokenImports=${depsInspection.brokenImports.length} optimizedMissing=${depsInspection.optimizedMissing.length}`,
+  );
+  process.exit(1);
+} else {
+  // deps_dir_missing / optimized_empty / metadata_missing: first Electron paint
+  // will finish discovery. Do not block launch — that was over-strict and aborted
+  // healthy cold starts mid-optimize.
+  console.warn(
+    `[electron-dev] Vite optimize-deps still warming (${depsInspection.reason ?? "unknown"}); launching Electron anyway.`,
+  );
+}
+
+const extraLaunchArgs = [
+  process.env.ELECTRON_EXTRA_LAUNCH_ARGS?.trim() ?? "",
+  // Prevent Chromium from reusing deleted Vite chunk modules across restarts.
+  "--disable-http-cache",
+]
+  .filter(Boolean)
+  .join(" ");
+
 electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
   cwd: desktopRoot,
   env: {
@@ -272,6 +406,7 @@ electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
     ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE ?? "1",
     ONMYAGENT_DATA_DIR: process.env.ONMYAGENT_DATA_DIR ?? defaultDevDataDir,
     ONMYAGENT_ELECTRON_START_URL: resolvedStartUrl,
+    ELECTRON_EXTRA_LAUNCH_ARGS: extraLaunchArgs,
   },
 });
 

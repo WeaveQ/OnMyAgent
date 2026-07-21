@@ -21,6 +21,7 @@ export default {
   "common.more": "More",
   "common.question": "Question",
   "common.refresh": "Refresh",
+  "common.refreshed": "Refreshed",
   "common.remove": "Remove",
   "common.reset": "Reset",
   "common.save": "Save",

@@ -143,6 +143,27 @@ export default defineConfig({
         });
       },
     },
+    // Prevent Electron/Chromium from caching optimize-deps chunks across
+    // re-optimizes (stale chunk-*.js imports → permanent blank renderer).
+    {
+      name: "onmyagent-dev-no-store-optimize-deps",
+      configureServer(server) {
+        if (process.env.ONMYAGENT_DEV_MODE !== "1") return;
+        server.middlewares.use((req, res, next) => {
+          const url = req.url ?? "";
+          if (
+            url.includes("/node_modules/.vite/deps/") ||
+            url.startsWith("/@vite/") ||
+            url.startsWith("/@fs/") ||
+            url.startsWith("/@id/")
+          ) {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+          }
+          next();
+        });
+      },
+    },
     tailwindcss(),
     react({
       babel: {

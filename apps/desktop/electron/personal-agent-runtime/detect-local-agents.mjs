@@ -174,11 +174,18 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   },
   {
     // Desktop app (not a standalone CLI product). Embeds CodeBuddy CLI binary.
+    // Skills live under both the CodeBuddy-family root and WorkBuddy's own tree.
     id: "workbuddy",
     displayName: "WorkBuddy",
     commands: [],
     wellKnownPaths: workbuddyEmbeddedCodebuddyPaths(),
-    skillsDirs: [join(HOME, ".codebuddy", "skills")],
+    skillsDirs: [
+      // CodeBuddy-family shared root (WorkBuddy embeds CodeBuddy CLI).
+      join(HOME, ".codebuddy", "skills"),
+      // WorkBuddy product skill tree (most user-installed skills land here).
+      join(HOME, ".workbuddy", "skills"),
+      join(HOME, ".workbuddy", "skills-marketplace", "skills"),
+    ],
     acpArgs: ["--acp"],
   },
   {
@@ -292,6 +299,45 @@ export function discoverableAgentDrafts() {
   }));
   // Prefer WorkBuddy card when both would point at the same embedded binary.
   return dedupeCodebuddyWorkbuddyAgents(drafts, "executablePath");
+}
+
+/**
+ * Merge catalog default skill roots into a (possibly stale) custom/fleet agent.
+ * Older store records often only kept the first path (e.g. WorkBuddy → only
+ * `~/.codebuddy/skills`), which makes the management card show Skill 0 while
+ * `~/.workbuddy/skills` is full of SKILL.md trees.
+ *
+ * @param {{ id?: string, provider?: string, nativeSkillsDirs?: string[], native_skills_dirs?: string[] }} agent
+ * @returns {string[]}
+ */
+export function mergeCatalogNativeSkillDirs(agent) {
+  const id = String(agent?.id ?? "").trim().toLowerCase();
+  const provider = String(agent?.provider ?? "").trim().toLowerCase();
+  const keys = [id, provider].filter((key) => key && key !== "custom");
+  const fromStore = [
+    ...(Array.isArray(agent?.nativeSkillsDirs) ? agent.nativeSkillsDirs : []),
+    ...(Array.isArray(agent?.native_skills_dirs) ? agent.native_skills_dirs : []),
+  ]
+    .map((dir) => String(dir ?? "").trim())
+    .filter(Boolean);
+  const fromCatalog = [];
+  for (const key of keys) {
+    const def = KNOWN_DISCOVERABLE_AGENTS.find(
+      (item) => String(item?.id ?? "").toLowerCase() === key,
+    );
+    if (!def?.skillsDirs) continue;
+    for (const dir of def.skillsDirs) {
+      if (typeof dir === "string" && dir.trim()) fromCatalog.push(dir.trim());
+    }
+  }
+  const seen = new Set();
+  const merged = [];
+  for (const dir of [...fromStore, ...fromCatalog]) {
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+    merged.push(dir);
+  }
+  return merged;
 }
 
 // Resolve an executable name against PATH without spawning a shell. `command`

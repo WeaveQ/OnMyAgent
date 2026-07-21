@@ -96,6 +96,22 @@ test("desktop packaging copies bundled plugin packages into application resource
   assert.match(builderConfig, /to:\s*bundled-skills/);
 });
 
+test("windows electron-builder target is configured for local test packaging", async () => {
+  const builderConfig = await readFile(
+    path.resolve(scriptDir, "..", "electron-builder.yml"),
+    "utf8",
+  );
+  // Real win product target + sidecars filter for msvc binaries.
+  assert.match(builderConfig, /^win:\s*$/m);
+  assert.match(builderConfig, /target:\s*\n\s*-\s*nsis/);
+  assert.match(builderConfig, /opencode-x86_64-pc-windows-msvc\.exe/);
+  assert.match(builderConfig, /onmyagent-orchestrator-x86_64-pc-windows-msvc\.exe/);
+  // rcedit must stamp OnMyAgent icon/metadata (signing still optional via CSC_*).
+  assert.match(builderConfig, /signAndEditExecutable:\s*true/);
+  assert.match(builderConfig, /oneClick:\s*false/);
+  assert.match(builderConfig, /output:\s*dist-electron/);
+});
+
 test("package runtimes truthfully remain Task 8 placeholders", async () => {
   const catalog = await scanBundledArtifactPlugins(bundledPluginsRoot);
   for (const plugin of catalog.items) {

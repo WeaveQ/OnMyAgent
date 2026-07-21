@@ -11,7 +11,6 @@ import {
   Puzzle,
   Search,
   Sparkles,
-  Plus,
   UserRound,
   Zap,
 } from "lucide-react";
@@ -39,6 +38,10 @@ import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 import {
   PluginsPage,
   type ArtifactPluginPromptSelection,
+} from "@/react-app/domains/plugins";
+import {
+  CustomConnectorDialog,
+  CustomConnectorEntryButton,
 } from "@/react-app/domains/plugins";
 
 const sidePanelTextClass = {
@@ -337,6 +340,8 @@ export function StorePage(props: {
   onSummonMarketplaceExpert?: (expert: ExpertMarketplaceEntry) => void;
   onCreateExpert?: () => void;
   onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
+  /** Parent-owned custom MCP dialog opener (shared with Composer configure). */
+  onOpenCustomConnector?: () => void;
 }) {
   const { showToast } = useStatusToasts();
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
@@ -346,7 +351,11 @@ export function StorePage(props: {
   const [installedSkillCount, setInstalledSkillCount] = useState(0);
   const [query, setQuery] = useState("");
   const [skillImportOpen, setSkillImportOpen] = useState(false);
+  const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
   const activeTab = props.activeTab ?? uncontrolledActiveTab;
+  const openCustomConnector =
+    props.onOpenCustomConnector ?? (() => setLocalCustomConnectorOpen(true));
+  const customConnectorControlled = Boolean(props.onOpenCustomConnector);
 
   useEffect(() => {
     if (props.activeTab) setUncontrolledActiveTab(props.activeTab);
@@ -401,7 +410,9 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
-          {activeTab !== "plugins" && expertView === "market" && skillView === "market" ? (
+          {/* Search on expert market + skill market/installed (not plugins, not my-experts). */}
+          {activeTab !== "plugins" &&
+          !(activeTab === "experts" && expertView === "mine") ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
               <InputGroupAddon align="inline-start">
                 <Search className="size-3.5" />
@@ -424,16 +435,6 @@ export function StorePage(props: {
             >
               {t("session.my_experts")}
             </Button>
-          ) : activeTab === "skills" ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setSkillImportOpen(true)}
-              className="mac:titlebar-no-drag"
-            >
-              <Plus data-icon="inline-start" className="size-4" />
-              {t("store.add_skill")}
-            </Button>
           ) : null}
           {activeTab === "skills" && skillView === "market" ? (
             <Button
@@ -446,11 +447,14 @@ export function StorePage(props: {
               }}
               className="rounded-md mac:titlebar-no-drag"
             >
-              {t("skills_marketplace.installed")}
+              {t("store.my_installed")}
               <CountBadge size="dot" className="ml-1.5">
                 {installedSkillCount}
               </CountBadge>
             </Button>
+          ) : null}
+          {activeTab === "plugins" ? (
+            <CustomConnectorEntryButton onClick={openCustomConnector} />
           ) : null}
         </div>
       </div>
@@ -485,6 +489,20 @@ export function StorePage(props: {
           />
         ) : null}
       </div>
+      {/* Local dialog only when parent does not own a shared instance. */}
+      {customConnectorControlled ? null : (
+        <CustomConnectorDialog
+          open={localCustomConnectorOpen}
+          onOpenChange={setLocalCustomConnectorOpen}
+          workspaceRoot={props.workspaceRoot}
+          onSaved={() => {
+            showToast({
+              title: t("plugins.custom_connector_saved"),
+              tone: "success",
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

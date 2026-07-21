@@ -21,6 +21,7 @@ import nanobotIconUrl from "@/assets/agent-icons/nanobot.svg";
 import traeIconUrl from "@/assets/agent-icons/trae.svg";
 import snowIconUrl from "@/assets/agent-icons/snow.svg";
 import augmentIconUrl from "@/assets/agent-icons/augment.svg";
+import { cn } from "@/lib/utils";
 
 /** Skill matrix keys + archive/scanner aliases (mimocode, vscode-copilot, grok…). */
 type AgentIconId = AgentManagementSkillAgent | AgentManagementMcpApp | string;
@@ -57,11 +58,20 @@ const ICONS: Record<string, string> = {
   augment: augmentIconUrl,
 };
 
-export function AgentSkillIcon(props: { agent: AgentIconId }) {
+export function AgentSkillIcon(props: { agent: AgentIconId; className?: string }) {
   const key = String(props.agent ?? "").trim().toLowerCase();
   const src = ICONS[key] ?? ICONS[String(props.agent)];
   if (src) {
-    return <img src={src} alt="" className="size-3.5 object-contain" loading="lazy" />;
+    return (
+      <img
+        src={src}
+        alt=""
+        className={cn("size-3.5 object-contain", props.className)}
+        loading="lazy"
+      />
+    );
   }
-  return <span className="text-xs font-medium leading-none">?</span>;
+  return (
+    <span className={cn("text-xs font-medium leading-none", props.className)}>?</span>
+  );
 }

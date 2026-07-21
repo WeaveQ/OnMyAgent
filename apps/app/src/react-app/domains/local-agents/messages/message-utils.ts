@@ -165,9 +165,13 @@ export function classifiedRunFailureMessage(run: PersonalLocalAgentRunResult) {
   if (code === "sandbox_or_network_refusal") return t("local_agent.failure_sandbox_network", { message });
   if (code === "empty_output") return t("local_agent.failure_empty_output", { message });
   if (code === "acp_incomplete_output") return t("local_agent.failure_acp_incomplete", { message });
+  if (code === "acp_prompt_failed") return t("local_agent.failure_acp_prompt", { message });
   // Legacy raw English still seen in older runs / misclassified codes.
   if (/without assistant text|completed without assistant|no assistant text/i.test(message)) {
     return t("local_agent.failure_empty_output", { message });
+  }
+  if (/session\/prompt|session\/new/i.test(message) && /internal error/i.test(message)) {
+    return t("local_agent.failure_acp_prompt", { message });
   }
   if (message) return message;
   return t("local_agent.failed");

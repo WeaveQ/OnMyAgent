@@ -9,6 +9,23 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
   codex: "Codex",
   gemini: "Gemini",
   onmyagent: "OnMyAgent",
+  // Discoverable / fleet agents that appear as skill-matrix columns
+  grok: "Grok Build",
+  mimo: "MiMo Code",
+  mimocode: "MiMo Code",
+  workbuddy: "WorkBuddy",
+  codebuddy: "CodeBuddy",
+  kimi: "Kimi",
+  kiro: "Kiro",
+  qwen: "Qwen",
+  copilot: "Copilot",
+  "cursor-agent": "Cursor Agent",
+  goose: "Goose",
+  qoder: "Qoder",
+  trae: "Trae",
+  nanobot: "Nano Bot",
+  snow: "Snow",
+  augment: "Augment",
   unknown: t("agent_manager.skill_agent_unknown"),
 };
 

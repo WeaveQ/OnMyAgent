@@ -18,8 +18,9 @@ const menuRowButtonVariants = cva(
         center: "items-center",
       },
       density: {
+        // Keep text-sm across composer flyouts (tools / access / workspace pickers).
         default: "px-3 py-2.5 text-sm",
-        compact: "px-2 py-1.5 text-xs",
+        compact: "px-2.5 py-1.5 text-sm",
       },
     },
     defaultVariants: {
@@ -42,13 +43,14 @@ const navTabButtonVariants = cva(
           "bg-transparent text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text [&_svg]:opacity-90",
       },
       size: {
-        default: "h-8 gap-1.5 px-3 text-xs",
+        // ~+2px horizontal padding vs prior px-* for a less tight pill.
+        default: "h-8 gap-1.5 px-3.5 text-xs",
         // Compact filter chip (store/assistant/management primary filters)
-        filter: "h-7 shrink-0 gap-1.5 px-2.5 text-xs font-medium",
+        filter: "h-7 shrink-0 gap-1.5 px-3 text-xs font-medium",
         // Default page/header tab height (store / files / management).
-        tab: "h-8 gap-1.5 px-3 text-sm",
-        messaging: "h-10 gap-2 px-4 text-base font-semibold",
-        underline: "h-auto gap-1.5 px-3 pb-2 pt-0 text-sm font-semibold",
+        tab: "h-8 gap-1.5 px-3.5 text-sm",
+        messaging: "h-10 gap-2 px-4.5 text-base font-semibold",
+        underline: "h-auto gap-1.5 px-3.5 pb-2 pt-0 text-sm font-semibold",
       },
       shape: {
         // Nested inside SegmentedTabGroup track (rounded-xl + p-0.5).
@@ -93,11 +95,12 @@ const segmentedTabButtonVariants = cva(
         chip: "rounded-full",
       },
       size: {
-        default: "px-3 py-2 text-xs",
-        compact: "px-3 py-1.5 text-xs",
-        comfortable: "px-3.5 py-1.5 text-sm font-medium",
+        // Align with NavTab ~+2px horizontal padding.
+        default: "px-3.5 py-2 text-xs",
+        compact: "px-3.5 py-1.5 text-xs",
+        comfortable: "px-4 py-1.5 text-sm font-medium",
         // Compact hug pill for category filters / memory multi-select.
-        chip: "h-7 min-h-7 gap-1.5 px-2.5 text-xs font-medium",
+        chip: "h-7 min-h-7 gap-1.5 px-3 text-xs font-medium",
       },
       width: {
         fill: "flex-1",
@@ -186,9 +189,9 @@ const navListButtonVariants = cva(
   {
     variants: {
       active: {
-        // Soft gray wash (light reference) rather than heavy selection blue.
-        true: "bg-dls-surface-muted text-dls-text",
-        false: "text-dls-text hover:bg-dls-hover",
+        // Match assistant task-row selection (bg-dls-list-selected), not surface-muted.
+        true: "bg-dls-list-selected text-dls-text",
+        false: "text-dls-text hover:bg-dls-list-hover",
       },
       size: {
         default: "h-10 gap-2.5 rounded-xl px-2.5 text-base font-medium",
@@ -200,7 +203,8 @@ const navListButtonVariants = cva(
       {
         active: true,
         size: "sidebar",
-        className: "font-medium",
+        // Soft pill radius aligns with task cards (rounded-lg).
+        className: "rounded-lg font-medium",
       },
     ],
     defaultVariants: {
@@ -255,8 +259,8 @@ const sessionRowButtonVariants = cva(
       },
       size: {
         conversation: "flex h-[68px] items-center gap-3 px-4",
-        // Agent session strip: soft chip look (like archive filters), tighter radius.
-        tab: "flex h-7 w-[116px] items-center gap-1 rounded border-0 px-3 pr-7 text-xs",
+        // Agent session strip: solid chip (contrast vs outline "+ 新会话"); radius matches search.
+        tab: "flex h-7 w-[116px] items-center gap-1 rounded-md border-0 px-3 pr-7 text-xs",
       },
       muted: {
         true: "bg-transparent text-dls-secondary",
@@ -273,8 +277,9 @@ const sessionRowButtonVariants = cva(
         size: "tab",
         active: false,
         muted: false,
+        // Soft solid chip when idle — still distinct from outline "new session" action.
         className:
-          "bg-transparent text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
+          "bg-dls-surface-muted/70 text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
       },
     ],
     defaultVariants: {

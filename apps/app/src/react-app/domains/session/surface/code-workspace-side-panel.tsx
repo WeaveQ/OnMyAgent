@@ -4,11 +4,8 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import {
-  ChevronRight,
   ClipboardCheck,
-  FileText,
   Folder,
-  FolderOpen,
   Globe,
   PanelRight,
   Plus,
@@ -17,14 +14,11 @@ import {
 
 import type {
   OnMyAgentServerClient,
-  OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../../app/lib/onmyagent-server";
 import {
   closeCodeWorkspaceTerminal,
   createCodeWorkspaceTerminal,
   getCodeWorkspaceTerminalSnapshot,
-  listCodeWorkspaceFiles,
-  readCodeWorkspaceFile,
   resizeCodeWorkspaceTerminal,
   writeCodeWorkspaceTerminal,
 } from "../../../../app/lib/desktop";
@@ -34,7 +28,6 @@ import type {
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import type { OpenTarget } from "../artifacts/open-target";
-import { workspaceFileOpenTarget } from "../artifacts/workspace-file-open-target";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -45,14 +38,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import {
-  buildWorkspaceFileTree,
-  filterHiddenFromTree,
-  type WorkspaceFileTreeNode,
-} from "../chat/session-page-files-model";
-import { BrowserPanel, EmbeddedBrowserViewport } from "../browser/browser-panel";
+import { BrowserPanel } from "../browser/browser-panel";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
+import { WorkspaceFilesPanel } from "./workspace-files-panel";
 
 type ToolKind = "review" | "terminal" | "browser" | "files";
 
@@ -125,344 +114,7 @@ const toolItems: Array<{
 ];
 
 function toolIcon(kind: ToolKind) {
-  return toolItems.find((item) => item.kind === kind)?.icon ?? FileText;
-}
-
-function flattenWorkspaceFileTree(
-  node: WorkspaceFileTreeNode,
-): OnMyAgentWorkspaceFileCatalogEntry[] {
-  return node.children.flatMap((child) => [
-    {
-      path: child.path,
-      kind: child.kind,
-      size: child.size,
-      mtimeMs: child.mtimeMs,
-      revision: "",
-    },
-    ...flattenWorkspaceFileTree(child),
-  ]);
-}
-
-function openTargetsToCatalogEntries(
-  targets: OpenTarget[] | undefined,
-): OnMyAgentWorkspaceFileCatalogEntry[] {
-  return (targets ?? []).flatMap((target) => {
-    if (target.kind !== "file" || !target.value.trim()) return [];
-    return [{
-      path: target.value.trim().replace(/\\/g, "/").replace(/^\.\//, ""),
-      kind: "file" as const,
-      size: target.size ?? 0,
-      mtimeMs: target.updatedAt ?? 0,
-      revision: "",
-    }];
-  });
-}
-
-function WorkspaceTreeRow(props: {
-  node: WorkspaceFileTreeNode;
-  level: number;
-  expanded: Set<string>;
-  selectedPath: string | null;
-  onToggle: (path: string) => void;
-  onSelect: (path: string) => void;
-}) {
-  const isDirectory = props.node.kind === "dir";
-  const isExpanded = props.expanded.has(props.node.path);
-  const Icon = isDirectory ? (isExpanded ? FolderOpen : Folder) : FileText;
-  return (
-    <div>
-      <button
-        type="button"
-        className={cn(
-          "flex h-7 w-full items-center gap-1.5 rounded-md pr-2 text-left text-xs text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-          props.selectedPath === props.node.path && "bg-dls-hover text-dls-text",
-        )}
-        style={{ paddingLeft: 8 + props.level * 14 }}
-        onClick={() => {
-          if (isDirectory) props.onToggle(props.node.path);
-          else props.onSelect(props.node.path);
-        }}
-      >
-        <ChevronRight
-          className={cn(
-            "size-3 shrink-0 transition-transform",
-            !isDirectory && "opacity-0",
-            isExpanded && "rotate-90",
-          )}
-        />
-        <Icon className="size-3.5 shrink-0" />
-        <span className="truncate">{props.node.name}</span>
-      </button>
-      {isDirectory && isExpanded
-        ? props.node.children.map((child) => (
-            <WorkspaceTreeRow
-              key={child.path}
-              node={child}
-              level={props.level + 1}
-              expanded={props.expanded}
-              selectedPath={props.selectedPath}
-              onToggle={props.onToggle}
-              onSelect={props.onSelect}
-            />
-          ))
-        : null}
-    </div>
-  );
-}
-
-function WorkspaceFilesPanel(props: {
-  client: OnMyAgentServerClient | null;
-  workspaceId: string | null;
-  workspaceCatalogRoot: string;
-  workspacePath: string;
-  fileRoot?: string | null;
-  fileTargets?: OpenTarget[];
-}) {
-  const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [content, setContent] = useState("");
-  const [browserPreviewUrl, setBrowserPreviewUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
-    new Set(),
-  );
-  const fileRoot =
-    props.fileRoot === undefined ? props.workspacePath : props.fileRoot?.trim() ?? "";
-  const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
-  const requiresSessionFileRoot = props.fileRoot !== undefined;
-  const rootRelativePrefix = useMemo(() => {
-    const root = props.workspaceCatalogRoot.replaceAll("\\", "/").replace(/\/+$/, "");
-    const selected = fileRoot.replaceAll("\\", "/").replace(/\/+$/, "");
-    if (!root || !selected || selected === root) return "";
-    return selected.startsWith(`${root}/`) ? selected.slice(root.length + 1) : "";
-  }, [fileRoot, props.workspaceCatalogRoot]);
-  const catalogPrefix = hasScopedFileRoot ? "" : rootRelativePrefix;
-
-  useEffect(() => {
-    if (!fileRoot.trim()) {
-      setTree(
-        filterHiddenFromTree(
-          buildWorkspaceFileTree(openTargetsToCatalogEntries(props.fileTargets)),
-        ),
-      );
-      setLoadedDirectories(new Set([""]));
-      setExpanded(new Set());
-      setSelectedPath(null);
-      setContent("");
-      setError(null);
-      return;
-    }
-    if (isElectronRuntime() && fileRoot) {
-      let disposed = false;
-      setError(null);
-      void listCodeWorkspaceFiles({ workspacePath: fileRoot })
-        .then((result) => {
-          if (disposed) return;
-          setTree(
-            filterHiddenFromTree(
-              buildWorkspaceFileTree(
-                result.items.map((item) => ({ ...item, revision: "" })),
-              ),
-            ),
-          );
-          setLoadedDirectories(new Set([""]));
-          setExpanded(new Set());
-        })
-        .catch((nextError) => {
-          if (!disposed) {
-            setError(
-              nextError instanceof Error ? nextError.message : String(nextError),
-            );
-          }
-        });
-      return () => {
-        disposed = true;
-      };
-    }
-    if (!props.client || !props.workspaceId) return;
-    let disposed = false;
-    setError(null);
-    void props.client
-      .listWorkspaceFiles(props.workspaceId, {
-        includeDirs: true,
-        limit: 10_000,
-        ...(hasScopedFileRoot ? { root: fileRoot } : {}),
-        prefix: catalogPrefix || undefined,
-      })
-      .then((result) => {
-        if (disposed) return;
-        const prefixWithSlash = catalogPrefix ? `${catalogPrefix}/` : "";
-        const items = result.items.flatMap((item) => {
-          if (catalogPrefix && item.path === catalogPrefix) return [];
-          if (catalogPrefix && !item.path.startsWith(prefixWithSlash)) return [];
-          return [{
-            ...item,
-            path: catalogPrefix ? item.path.slice(prefixWithSlash.length) : item.path,
-          }];
-        });
-        const nextTree = filterHiddenFromTree(buildWorkspaceFileTree(items));
-        setTree(nextTree);
-        setExpanded(new Set(nextTree.children.filter((node) => node.kind === "dir").map((node) => node.path)));
-      })
-      .catch((nextError) => {
-        if (!disposed) setError(nextError instanceof Error ? nextError.message : String(nextError));
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [
-    catalogPrefix,
-    fileRoot,
-    hasScopedFileRoot,
-    props.client,
-    props.fileTargets,
-    props.workspaceId,
-  ]);
-
-  const selectFile = useCallback(
-    async (path: string) => {
-      const browserFileRoot = fileRoot || props.workspacePath;
-      const target = workspaceFileOpenTarget({
-        fileRoot: browserFileRoot,
-        path,
-        name: path.split("/").filter(Boolean).at(-1) ?? path,
-        size: 0,
-        mtimeMs: 0,
-      });
-      if (isElectronRuntime() && browserFileRoot && target.kind === "url") {
-        setSelectedPath(path);
-        setError(null);
-        setContent("");
-        setBrowserPreviewUrl(target.value);
-        return;
-      }
-      if (
-        (!isElectronRuntime() || !fileRoot) &&
-        (!props.client || !props.workspaceId)
-      ) {
-        return;
-      }
-      setSelectedPath(path);
-      setError(null);
-      setBrowserPreviewUrl(null);
-      try {
-        let result;
-        if (isElectronRuntime() && fileRoot) {
-          result = await readCodeWorkspaceFile({
-            workspacePath: fileRoot,
-            relativePath: path,
-          });
-        } else {
-          const client = props.client;
-          const workspaceId = props.workspaceId;
-          if (!client || !workspaceId) return;
-          result = await client.readWorkspaceFile(
-            workspaceId,
-            rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path,
-          );
-        }
-        setContent(result.content);
-      } catch (nextError) {
-        setContent("");
-        setError(nextError instanceof Error ? nextError.message : String(nextError));
-      }
-    },
-    [fileRoot, rootRelativePrefix, props.client, props.workspaceId, props.workspacePath],
-  );
-
-  const toggleDirectory = useCallback(
-    async (path: string) => {
-      setExpanded((current) => {
-        const next = new Set(current);
-        if (next.has(path)) next.delete(path);
-        else next.add(path);
-        return next;
-      });
-      if (
-        !isElectronRuntime() ||
-        !fileRoot ||
-        loadedDirectories.has(path)
-      ) {
-        return;
-      }
-      try {
-        const result = await listCodeWorkspaceFiles({
-          workspacePath: fileRoot,
-          relativePath: path,
-        });
-        setTree((current) => {
-          if (!current) return current;
-          const entries = [
-            ...flattenWorkspaceFileTree(current),
-            ...result.items.map((item) => ({ ...item, revision: "" })),
-          ];
-          return filterHiddenFromTree(buildWorkspaceFileTree(entries));
-        });
-        setLoadedDirectories((current) => new Set(current).add(path));
-      } catch (nextError) {
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
-      }
-    },
-    [fileRoot, loadedDirectories],
-  );
-
-  return (
-    <div className="grid h-full min-h-0 grid-cols-[220px_minmax(0,1fr)] bg-dls-background">
-      <div className="min-h-0 overflow-auto border-r border-dls-border p-2">
-        {tree?.children.length ? tree.children.map((node) => (
-          <WorkspaceTreeRow
-            key={node.path}
-            node={node}
-            level={0}
-            expanded={expanded}
-            selectedPath={selectedPath}
-            onSelect={(path) => void selectFile(path)}
-            onToggle={(path) => void toggleDirectory(path)}
-          />
-        )) : (
-          <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-            <div
-              className="flex size-10 items-center justify-center rounded-xl bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60"
-              aria-hidden="true"
-            >
-              <FolderOpen className="size-5" strokeWidth={1.5} />
-            </div>
-            <p className="text-xs font-medium text-dls-text">
-              {requiresSessionFileRoot ? t("files.no_session_files") : t("files.no_files")}
-            </p>
-            <p className="text-xs leading-4 text-dls-secondary">
-              {requiresSessionFileRoot
-                ? t("files.no_session_files_hint")
-                : t("files.no_files_hint")}
-            </p>
-          </div>
-        )}
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <div className="h-9 shrink-0 truncate border-b border-dls-border px-3 py-2 text-xs text-dls-secondary">
-          {selectedPath ?? t("session.code_side_panel_files")}
-        </div>
-        {error ? (
-          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
-            {error}
-          </pre>
-        ) : browserPreviewUrl ? (
-          <EmbeddedBrowserViewport
-            url={browserPreviewUrl}
-            announcePanelOpen={false}
-            className="min-h-0 flex-1 overflow-hidden bg-dls-surface"
-          />
-        ) : (
-          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre p-4 font-mono text-xs leading-5 text-dls-text">
-            {content}
-          </pre>
-        )}
-      </div>
-    </div>
-  );
+  return toolItems.find((item) => item.kind === kind)?.icon ?? Folder;
 }
 
 function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {

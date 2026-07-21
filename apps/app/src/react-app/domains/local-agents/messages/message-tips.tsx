@@ -12,9 +12,17 @@ function isEmptyAssistantFailure(text: string, category?: string | null) {
   return category === "error" && EMPTY_ASSISTANT_RE.test(text);
 }
 
+function isAcpPromptFailure(text: string, category?: string | null) {
+  if (category !== "error") return false;
+  return /session\/prompt|session\/new/i.test(text) || /acp.*(prompt|session).*(fail|error|internal)/i.test(text);
+}
+
 function localizeTipText(text: string, category?: string | null) {
   if (isEmptyAssistantFailure(text, category)) {
     return t("local_agent.failure_empty_output", { message: text });
+  }
+  if (isAcpPromptFailure(text, category)) {
+    return t("local_agent.failure_acp_prompt", { message: text });
   }
   return text;
 }
@@ -24,10 +32,12 @@ function ownershipLabel(
   text?: string,
   category?: string | null,
 ) {
-  // Re-classify empty ACP replies on the client so stale tips stored with
-  // ownership=provider (pre-fix runs) still show Agent, not 服务.
+  // Re-classify empty ACP / session-prompt failures on the client so stale tips
+  // stored with ownership=provider still show Agent, not 服务.
   const resolved =
-    isEmptyAssistantFailure(text ?? "", category) ? "agent" : ownership;
+    isEmptyAssistantFailure(text ?? "", category) || isAcpPromptFailure(text ?? "", category)
+      ? "agent"
+      : ownership;
   if (!resolved) return null;
   if (resolved === "agent") return t("local_agent.tips_ownership_agent");
   if (resolved === "provider") return t("local_agent.tips_ownership_provider");
@@ -55,23 +65,33 @@ export function MessageTips(props: {
     && !isEmptyAssistantFailure(resolution.message, "error")
       ? resolution.message
       : null;
+  const primary = localizeTipText(props.message.text, props.message.category);
+  const showRawDetail =
+    resolutionExtra
+    || (
+      isAcpPromptFailure(props.message.text, props.message.category)
+      && primary !== props.message.text.trim()
+    );
+  const detailText = resolutionExtra
+    ?? (showRawDetail ? props.message.text.trim() : null);
+
   return (
-    <NoticeBox tone={tone}>
-      <span>{localizeTipText(props.message.text, props.message.category)}</span>
+    <NoticeBox tone={tone} className="flex flex-wrap items-center gap-2">
+      <span className="min-w-0 flex-1 text-sm leading-5">{primary}</span>
       {ownership ? (
-        <StatusBadge size="tiny" tone="surface" className="ml-2">
+        <StatusBadge size="tiny" tone="surface">
           {ownership}
         </StatusBadge>
       ) : null}
-      {resolutionExtra ? (
-        <span className="ml-2 text-dls-secondary">{resolutionExtra}</span>
+      {detailText && detailText !== primary ? (
+        <span className="basis-full text-xs leading-4 text-dls-secondary">{detailText}</span>
       ) : null}
       {resolution ? (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="ml-2"
+          className="ml-auto shrink-0"
           onClick={() => props.onResolve?.(props.message)}
           data-testid="local-agent-tips-resolution"
         >

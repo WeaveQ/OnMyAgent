@@ -11,6 +11,7 @@ protocols:
       - onmyagent
 directories:
   output: dist-electron
+  buildResources: build
 files:
   - electron/**/*
   - server/**/*
@@ -28,6 +29,12 @@ extraResources:
     to: browser
   - from: resources/runtimes
     to: runtimes
+  # Window / tray icon fallback in packaged app (desktop-paths resolveAppIconPath).
+  - from: resources/icons
+    to: icons
+    filter:
+      - icon.png
+      - icon.ico
 asar: true
 npmRebuild: false
 afterPack: scripts/electron-after-pack.cjs
@@ -41,9 +48,16 @@ publish:
 mac:
   icon: resources/icons/icon.icns
   category: public.app-category.developer-tools
+  # Hardened Runtime stays on for both Developer ID and ad-hoc local builds.
+  # Ad-hoc: set identity to "-" (see package:electron:local) and keep the
+  # entitlements below so Electron/Chromium JIT + native modules do not crash.
+  # Release: leave identity unset (or CSC_NAME=Developer ID Application: …)
+  # and enable MACOS_NOTARIZE=true after signing.
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSMicrophoneUsageDescription: OnMyAgent uses the microphone when you start Voice Mode so you can speak commands to your agent.
   extraResources:
@@ -86,6 +100,11 @@ linux:
     - tar.gz
 win:
   icon: resources/icons/icon.ico
+  # Must be true so rcedit stamps OnMyAgent icon + FileDescription into the exe.
+  # Without this, Explorer/shortcuts keep the stock Electron icon/metadata.
+  # Authenticode signing still only runs when CSC_* secrets are configured.
+  signAndEditExecutable: true
+  executableName: OnMyAgent
   extraResources:
     - from: resources/sidecars
       to: sidecars
@@ -101,4 +120,23 @@ win:
         - versions.json-x86_64-pc-windows-msvc.exe
   target:
     - nsis
+# Assisted installer wizard (Next → choose folder → Install → Finish).
+# Default electron-builder NSIS is oneClick=true (single-button install).
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: OnMyAgent
+  deleteAppDataOnUninstall: false
+  # Paths relative to buildResources (directories.buildResources = build).
+  # Icons are copied into build/ during packaging prep; keep repo copies in resources/icons.
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  installerHeaderIcon: icon.ico
+  include: installer.nsh
+  runAfterFinish: true
+  menuCategory: false
 artifactName: onmyagent-${os}-${arch}-${version}.${ext}

@@ -808,7 +808,13 @@ export function AgentManagementPage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Store-style top chrome: segmented switch only (no page title). */}
-      <header className={cn(shellChrome.pageHeaderSimple, "justify-between gap-3 border-b-0")}>
+      <header
+        className={cn(
+          shellChrome.pageHeaderSimple,
+          // Keep the whole header interactive; metrics + refresh sit under the macOS drag strip.
+          "justify-between gap-3 border-b-0 mac:titlebar-no-drag",
+        )}
+      >
         <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
           {PANEL_TABS.filter((tab) => !tab.archiveOnly || props.sessionArchiveSlot).map(
             (tab) => {
@@ -831,7 +837,11 @@ export function AgentManagementPage(props: {
             },
           )}
         </SegmentedTabGroup>
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {/*
+          mac:titlebar-no-drag: top 28px is a global Electron drag strip on macOS;
+          interactive chrome here must opt out or clicks (esp. far-right refresh) are swallowed.
+        */}
+        <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 mac:titlebar-no-drag">
           {activePanel === "agents" ? (
             <>
               <AgentManagementMetric
@@ -850,14 +860,21 @@ export function AgentManagementPage(props: {
             </>
           ) : null}
           <Button
+            type="button"
             variant="ghost"
             size="icon-sm"
+            disabled={loading || refreshing}
             onClick={() => void refresh({ force: true })}
             title={t("common.refresh")}
             aria-label={t("common.refresh")}
-            className="text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+            aria-busy={loading || refreshing || undefined}
+            className="relative z-10 text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text mac:titlebar-no-drag"
           >
-            {loading ? <LoadingSpinner size="sm" /> : <RefreshCw className="size-4" />}
+            {loading || refreshing ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
           </Button>
         </div>
       </header>
@@ -1070,6 +1087,7 @@ export function AgentManagementPage(props: {
               inventoryScope={skillInventoryScope}
               onInventoryScopeChange={setSkillInventoryScope}
               scopeCounts={skillScopeCounts}
+              loading={loading && !snapshot}
             />
           )}
         </div>

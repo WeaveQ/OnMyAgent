@@ -196,8 +196,24 @@ export function createDesktopWindowController(options) {
       flushPendingDeepLinks();
     });
 
+    // Detach BrowserViews while the window is still alive. Doing this only on
+    // "closed" races Electron teardown and throws "Object has been destroyed".
+    mainWindow.on("close", () => {
+      try {
+        browserController.destroyBrowserView();
+      } catch (error) {
+        console.warn(
+          "[main] destroyBrowserView on close failed:",
+          error?.message ?? error,
+        );
+      }
+    });
     mainWindow.on("closed", () => {
-      browserController.destroyBrowserView();
+      try {
+        browserController.destroyBrowserView();
+      } catch {
+        // Already cleaned up in "close", or window is fully gone.
+      }
       browserController.setMainWindow(null);
       setMainWindow(null);
     });
@@ -218,8 +234,26 @@ export function createDesktopWindowController(options) {
       process.env.ONMYAGENT_ELECTRON_START_URL?.trim() ||
       process.env.ELECTRON_START_URL?.trim();
     try {
+      // Drop residual Chromium caches before the first paint so a previous
+      // optimize-deps graph cannot blank the window after a Vite rebuild.
+      if (isDevMode) {
+        try {
+          await session.defaultSession.clearCache();
+        } catch (cacheError) {
+          console.warn(
+            "[main-window] clearCache failed:",
+            cacheError?.message ?? cacheError,
+          );
+        }
+      }
       if (startUrl) {
-        await mainWindow.loadURL(startUrl);
+        if (isDevMode) {
+          await mainWindow.loadURL(startUrl, {
+            extraHeaders: "Cache-Control: no-cache\nPragma: no-cache\n",
+          });
+        } else {
+          await mainWindow.loadURL(startUrl);
+        }
       } else {
         const packagedIndexPath = path.join(
           process.resourcesPath,

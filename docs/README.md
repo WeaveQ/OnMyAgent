@@ -16,7 +16,7 @@ docs/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
     preview.html / preview-dark.html / preview.css
-  windows-compat.md         ← platform-specific quirks and preflight for Windows
+  windows-compat.md         ← Windows preflight, NSIS, macOS-only gaps (Computer Use / Appshot)
 ```
 
 Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, …

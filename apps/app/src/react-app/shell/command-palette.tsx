@@ -204,16 +204,6 @@ export function CommandPalette(props: CommandPaletteProps) {
         },
       },
       {
-        id: "settings-extensions",
-        title: t("settings.tab_extensions"),
-        detail: t("settings.tab_description_extensions"),
-        meta: t("session.cmd_settings_meta"),
-        action: () => {
-          props.onClose();
-          props.onOpenSettings("/settings/extensions");
-        },
-      },
-      {
         id: "settings-updates",
         title: t("settings.tab_updates"),
         detail: t("settings.tab_description_updates"),

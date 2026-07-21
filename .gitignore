@@ -33,6 +33,12 @@ apps/desktop/resources/runtime-downloads/*
 apps/desktop/resources/helpers/
 apps/desktop/server/
 
+# Local icon export / debug previews (do not commit)
+apps/desktop/resources/icons/_ico-preview/
+apps/desktop/resources/icons/_rebuild_ico.py
+apps/desktop/resources/icons/*.bak
+apps/desktop/resources/icons/*.bak-*
+
 # Env
 .env
 .env.*
