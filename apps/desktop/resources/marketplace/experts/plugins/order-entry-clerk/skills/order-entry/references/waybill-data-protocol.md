@@ -6,12 +6,12 @@
 
 | 路径 | 用途 |
 | --- | --- |
-| `output/waybill-data.json` | 单一业务数据源 |
-| `output/.process/*.html` | 过程产物：三联 HTML 预览（可覆盖更新） |
-| `output/.process/export-fingerprint` | 最近一次成功导出时的数据指纹（内部） |
-| `output/*.pdf` / `output/*.xlsx` | 结果产物：用户确认并选择格式后才生成 |
+| `waybill-data.json` | 单一业务数据源（写在会话工作区根目录） |
+| `.process/*.html` | 过程产物：三联 HTML 预览（可覆盖更新） |
+| `.process/export-fingerprint` | 最近一次成功导出时的数据指纹（内部） |
+| `*.pdf` / `*.xlsx` | 结果产物：用户确认并选择格式后直接写在会话根目录 |
 
-过程产物与结果产物不得混放。预览链接使用 `preview:output/.process/实际文件名.html`；结果产物使用 `artifact:output/实际文件名.ext`。
+会话工作区本身已按专家/会话隔离，**禁止再套一层 `output/` 目录**。过程产物与结果产物不得混放。预览链接使用 `preview:.process/实际文件名.html`；结果产物使用 `artifact:实际文件名.ext`。
 
 ## 状态机
 
@@ -143,8 +143,8 @@
 
 ```bash
 python3 <Skill根目录>/scripts/generate_waybill.py \
-  --input output/waybill-data.json \
-  --output-dir output \
+  --input waybill-data.json \
+  --output-dir . \
   --mode preview \
   --patch /tmp/waybill-patch.json \
   --write-input
@@ -168,21 +168,21 @@ python3 <Skill根目录>/scripts/generate_waybill.py \
 过程预览（**只生成 HTML，不生成 PDF/Excel**）：
 
 ```bash
-python3 <Skill根目录>/scripts/generate_waybill.py --input output/waybill-data.json --output-dir output --mode preview
+python3 <Skill根目录>/scripts/generate_waybill.py --input waybill-data.json --output-dir . --mode preview
 ```
 
 用户确认并选定格式后导出（才涉及 PDF/Excel）：
 
 ```bash
-python3 <Skill根目录>/scripts/generate_waybill.py --input output/waybill-data.json --output-dir output --mode export --formats pdf,xlsx
+python3 <Skill根目录>/scripts/generate_waybill.py --input waybill-data.json --output-dir . --mode export --formats pdf,xlsx
 ```
 
 脚本以 JSON 输出实际生成的文件、状态、`processDir` 和 `inlineWidget`。
 
-- **preview**：只写白/红/黄三个 HTML 到 `output/.process/`，不启动浏览器，不写 PDF/XLSX；`artifactCopies` 为空。
-- **export**：在用户选定 `--formats` 后，才为三联生成 PDF 与/或 XLSX 到 `output/`。PDF 单页横向、不分页。
+- **preview**：只写白/红/黄三个 HTML 到 `.process/`，不启动浏览器，不写 PDF/XLSX；`artifactCopies` 为空。
+- **export**：在用户选定 `--formats` 后，才为三联生成 PDF 与/或 XLSX 到会话根目录（与 `waybill-data.json` 同级，不进 `output/`）。PDF 单页横向、不分页。
 
-每轮回复把完整 `inlineWidget` 原样放入 `show_widget` 围栏；再用三个 `preview:output/.process/...` 提供各联放大入口。退出码非 0 或任一返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。
+每轮回复把完整 `inlineWidget` 原样放入 `show_widget` 围栏；再用三个 `preview:.process/...` 提供各联放大入口。退出码非 0 或任一返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。
 
 ## 结果产物呈现规范（防自由发挥）
 
@@ -190,12 +190,12 @@ export 成功后，用户可见交付区必须是 Markdown 表格（两列）：
 
 | 文件 | 操作 |
 | --- | --- |
-| `物流单_…_一联-白色存根_待派车确认稿.pdf` | `[在文件夹中显示](artifact:output/物流单_…_一联-白色存根_待派车确认稿.pdf)` |
+| `物流单_…_一联-白色存根_待派车确认稿.pdf` | `[在文件夹中显示](artifact:物流单_…_一联-白色存根_待派车确认稿.pdf)` |
 
 | 规则 | 要求 |
 | --- | --- |
 | 文件列 | 脚本返回的真实 basename，可带联次/用途后缀 |
-| 操作列 | 固定文案「在文件夹中显示」+ `artifact:output/<basename>` |
+| 操作列 | 固定文案「在文件夹中显示」+ `artifact:<basename>` |
 | 点击效果 | 系统文件管理器定位该文件（reveal），不是下载/内嵌预览 |
 | 范围 | 只列本次生成的 PDF/XLSX；HTML 过程稿不进此表 |
 | 禁止 | 「打开 PDF」「打开 Excel」「下载」、白/红/黄自定义按钮行、假路径、`file://` |
