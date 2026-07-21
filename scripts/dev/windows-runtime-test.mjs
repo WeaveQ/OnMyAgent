@@ -13,12 +13,17 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..");
 const desktopRoot = resolve(repoRoot, "apps", "desktop");
+
+/** Windows ESM requires file:// URLs for absolute path dynamic imports. */
+function importFromPath(absPath) {
+  return import(pathToFileURL(absPath).href);
+}
 
 const testFiles = [
   resolve(desktopRoot, "electron/personal-agent-runtime/utils.test.mjs"),
@@ -44,11 +49,11 @@ function printSummary() {
 
 // --- static imports / pure helpers (no real win32 spawn required) ---
 async function runStaticChecks() {
-  const { resolveProcessTreeKillPlan } = await import(
-    resolve(desktopRoot, "electron/personal-agent-runtime/utils.mjs")
+  const { resolveProcessTreeKillPlan } = await importFromPath(
+    resolve(desktopRoot, "electron/personal-agent-runtime/utils.mjs"),
   );
-  const { resolveWindowsTerminalLaunch } = await import(
-    resolve(desktopRoot, "electron/code-workspace-actions.mjs")
+  const { resolveWindowsTerminalLaunch } = await importFromPath(
+    resolve(desktopRoot, "electron/code-workspace-actions.mjs"),
   );
 
   const killPlan = resolveProcessTreeKillPlan({ platform: "win32", pid: 1234, force: true });
@@ -127,6 +132,23 @@ async function runStaticChecks() {
         : "missing terminateProcessTree import/use",
     );
   }
+
+  // Path contracts: Windows launch helpers must stay drive-letter / backslash safe.
+  const { join: winJoin, normalize: winNormalize, isAbsolute: winAbs } = await import(
+    "node:path"
+  ).then((m) => m.win32);
+  const joined = winJoin("C:\\Users\\demo", "ws", "file.txt");
+  record(
+    "path.win32 join keeps drive + separators",
+    winAbs(joined) && joined.includes("C:") && joined.includes("file.txt"),
+    joined,
+  );
+  const mixed = winNormalize("C:/Users/demo/../demo\\ws");
+  record(
+    "path.win32 normalize collapses mixed slashes",
+    mixed.toLowerCase() === "c:\\users\\demo\\ws",
+    mixed,
+  );
 }
 
 function runUnitTests() {

@@ -7,6 +7,7 @@
     "dev:windows": ".\\scripts\\dev\\windows.cmd",
     "dev:windows:x64": ".\\scripts\\dev\\windows.cmd x64",
     "test:windows-runtime": "node scripts/dev/windows-runtime-test.mjs",
+    "check:windows": "node scripts/dev/windows-runtime-test.mjs && node scripts/dev/windows-preflight.mjs --ci",
     "build": "node scripts/cli/build.mjs",
     "task": "node scripts/cli/task.mjs",
     "test": "pnpm test:unit && pnpm test:api && pnpm test:runtime && pnpm test:ui",
