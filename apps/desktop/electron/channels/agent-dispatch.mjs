@@ -306,8 +306,11 @@ export function createChannelAgentDispatcher(options = {}) {
   async function processEvent(session, event) {
     if (!event.senderId || event.senderId === session.account.accountId) return null;
     if (event.messageId && dedup.hasOrAdd(`id:${event.messageId}`)) return null;
-    const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
-    if (dedup.hasOrAdd(contentKey)) return null;
+    const isControlCommand = parseApprovalCommand(event.text) || parseRunCommand(event.text) || parseModeCommand(event.text) || parseModelSwitchCommand(event.text) || parseAgentSwitchCommand(event.text);
+    if (!isControlCommand) {
+      const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
+      if (dedup.hasOrAdd(contentKey)) return null;
+    }
     if (!isAllowed(session.options, event, event.senderId)) {
       const policyMessage = `${platformType} 消息被策略拦截（sender=${event.senderId}, chatType=${event.chatType}）`;
       appendLog({ type: "warn", text: `${platformType} inbound dropped (policy): sender=${event.senderId} chatType=${event.chatType}` });
@@ -831,10 +834,14 @@ export function createChannelAgentDispatcher(options = {}) {
     const modelCommand = parseModelSwitchCommand(event.text);
     if (modelCommand) {
       const boundAgent = await currentAgentForChat(platformType, session, event.chatId);
+      // If the bound agent snapshot was persisted without modelOptions (older
+      // service configs, or a UI that didn't forward them), refresh live from
+      // the runtime so `#model` sees the same choices the local chat UI does.
+      const enrichedAgent = await enrichAgentModelOptions(runtime, session, boundAgent).catch(() => boundAgent);
       const currentModel = await currentModelForChat(session, event.chatId);
       const rawTarget = modelCommand.target;
       if (!rawTarget) {
-        await deliverReply(session, event.chatId, event.senderId, renderModelHelp(platformName, boundAgent, currentModel)).catch((error) => {
+        await deliverReply(session, event.chatId, event.senderId, renderModelHelp(platformName, enrichedAgent, currentModel)).catch((error) => {
           appendLog({ type: "error", text: `${platformType} model-switch help send failed: ${error?.message ?? error}` });
         });
         return true;
@@ -845,12 +852,12 @@ export function createChannelAgentDispatcher(options = {}) {
         await store.writeChatSetting(session.account.accountId, event.chatId, { model: "" }).catch((error) => {
           appendLog({ type: "error", text: `${platformType} model-switch: writeChatSetting failed: ${error?.message ?? error}` });
         });
-        await deliverReply(session, event.chatId, event.senderId, `已恢复当前${platformName}会话的默认模型（${agentLabel(boundAgent)}）。`).catch(() => undefined);
+        await deliverReply(session, event.chatId, event.senderId, `已恢复当前${platformName}会话的默认模型（${agentLabel(enrichedAgent)}）。`).catch(() => undefined);
         return true;
       }
-      const resolved = resolveAgentModelId(boundAgent, rawTarget);
+      const resolved = resolveAgentModelId(enrichedAgent, rawTarget);
       if (!resolved) {
-        await deliverReply(session, event.chatId, event.senderId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(platformName, boundAgent, currentModel)}`).catch(() => undefined);
+        await deliverReply(session, event.chatId, event.senderId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(platformName, enrichedAgent, currentModel)}`).catch(() => undefined);
         return true;
       }
       session.options.modelByChat.set(event.chatId, resolved);
@@ -1165,6 +1172,26 @@ async function currentModelForChat(session, chatId) {
   return stored;
 }
 
+async function enrichAgentModelOptions(runtime, session, agent) {
+  if (!agent) return agent;
+  const existing = agentModelOptionsFor(agent);
+  if (existing.length > 0) return agent;
+  if (!runtime || typeof runtime.listAgents !== "function") return agent;
+  try {
+    const workspaceRoot = session?.options?.workspaceRoot ?? "";
+    const listed = await runtime.listAgents({ workspaceRoot, includeModels: true });
+    const list = Array.isArray(listed?.agents) ? listed.agents : [];
+    const match = list.find((item) => item?.id === agent.id)
+      || list.find((item) => item?.provider === agent.provider);
+    if (!match) return agent;
+    const options = Array.isArray(match.modelOptions) ? match.modelOptions : [];
+    const defaultModel = typeof match.defaultModel === "string" ? match.defaultModel : agent.defaultModel;
+    return { ...agent, modelOptions: options, defaultModel };
+  } catch {
+    return agent;
+  }
+}
+
 function agentModelOptionsFor(agent) {
   if (!agent) return [];
   const options = Array.isArray(agent.modelOptions) ? agent.modelOptions : [];
@@ -1191,10 +1218,14 @@ function resolveAgentModelId(agent, target) {
   const lower = raw.toLowerCase();
   const ci = options.find((option) => option.id.toLowerCase() === lower || option.label.toLowerCase() === lower);
   if (ci) return ci.id;
-  // If the agent didn't advertise modelOptions we still accept the raw id so
-  // users can pass arbitrary provider-specific model names (mirrors codex-acp
-  // which validates the model on the runtime side).
-  return options.length === 0 ? raw : null;
+  // Refuse arbitrary model ids when the advertised list is empty. Accepting
+  // any string here (the old behavior) let an unverifiable value get persisted
+  // as the chat's current model during the window when a custom ACP agent's
+  // handshake hadn't been hydrated yet (e.g. WeChat before the global handshake
+  // cache landed), leaving a permanently invalid "使用模型: <garbage>" label.
+  // When the list is genuinely empty the caller should surface "model list not
+  // loaded yet" instead of silently storing an unverifiable id.
+  return null;
 }
 
 function renderModelHelp(platformName, agent, currentModel) {
@@ -1210,8 +1241,13 @@ function renderModelHelp(platformName, agent, currentModel) {
       "该 Agent 未提供可选模型列表。可尝试发送 #model <模型名> 手动切换；发送 #model default 恢复默认。",
     ].join("\n");
   }
+  const currentInvalid = current && !options.some((option) => option.id === current);
+  const warn = currentInvalid
+    ? [`⚠️ 当前模型「${current}」不在上方可选列表中（可能是历史残留值），发送 #model <id> 切换到下列有效模型之一。`, ""]
+    : [];
   return [
     header,
+    ...warn,
     "可用模型：",
     ...options.map((option) => `- ${option.id}${option.label && option.label !== option.id ? ` (${option.label})` : ""}`),
     "",
