@@ -56,6 +56,10 @@ export function isSameDirectory(left: string, right: string): boolean {
 /**
  * Build an isolated session directory under the workspace when the user did
  * not pick an explicit folder.
+ *
+ * Does not create placeholder files (no README.md). The directory appears when
+ * the agent first writes real artifacts — avoids empty confusing markers in
+ * the files panel.
  */
 export function buildIsolatedExpertSessionDirectory(input: {
   workspaceRoot: string;
@@ -65,13 +69,11 @@ export function buildIsolatedExpertSessionDirectory(input: {
   sessionKey: string;
   agentSegment: string;
   directory: string;
-  markerRelativePath: string;
 } {
   const sessionKey = input.sessionKey?.trim() || createExpertSessionKey();
   const agentSegment = sanitizePathSegment(input.agentName, "expert");
   const directory = joinWorkspacePath(input.workspaceRoot, agentSegment, sessionKey);
-  const markerRelativePath = relativePosixPath(agentSegment, sessionKey, "README.md");
-  return { sessionKey, agentSegment, directory, markerRelativePath };
+  return { sessionKey, agentSegment, directory };
 }
 
 /**

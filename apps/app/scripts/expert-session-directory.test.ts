@@ -22,8 +22,8 @@ describe("expert session directory isolation", () => {
       sessionKey: "abc123def456",
     });
     expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家/abc123def456");
-    expect(isolated.markerRelativePath).toBe("物流单专家/abc123def456/README.md");
     expect(isolated.agentSegment).toBe("物流单专家");
+    expect("markerRelativePath" in isolated).toBe(false);
   });
 
   test("joins windows-style roots with backslash", () => {
