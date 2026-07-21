@@ -72,4 +72,15 @@ describe("session empty / draft / files / composer contracts", () => {
     // Host stays under the pre-extract bulk (was ~2155 lines).
     expect(host.split("\n").length).toBeLessThan(1800);
   });
+
+  test("session-surface transcript and composer columns use layout shells", () => {
+    const host = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
+    expect(layout).toContain("export function SessionSurfaceTranscriptPane");
+    expect(layout).toContain("export function SessionSurfaceComposerColumn");
+    expect(layout).toContain("export function SessionSurfaceBody");
+    expect(host).toContain("SessionSurfaceTranscriptPane");
+    expect(host).toContain("SessionSurfaceComposerColumn");
+    expect(host).toContain("SessionSurfaceBody");
+  });
 });
