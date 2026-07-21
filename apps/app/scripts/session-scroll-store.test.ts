@@ -41,7 +41,7 @@ describe("session scroll store", () => {
     expect(getSessionScrollState({}, "missing")).toBe(INITIAL_SESSION_SCROLL_STATE);
   });
 
-  test("normalizes manual scroll positions and persists by session", () => {
+  test("normalizes manual scroll positions and persists by session", async () => {
     useSessionScrollStore.getState().setManualScroll("session-a", 42.6, " msg-1 ");
 
     expect(useSessionScrollStore.getState().sessions["session-a"]).toEqual({
@@ -49,6 +49,8 @@ describe("session scroll store", () => {
       scrollTop: 43,
       topClippedMessageId: " msg-1 ",
     });
+    // Persist is debounced (~280ms) so scrolling does not hit localStorage every frame.
+    await Bun.sleep(350);
     expect(JSON.parse(window.localStorage.getItem(SESSION_SCROLL_STORAGE_KEY) ?? "{}"))
       .toEqual({
         "session-a": {
@@ -101,6 +103,7 @@ describe("session scroll store", () => {
     useSessionScrollStore.getState().setManualScroll(undefined, 10, "msg-2");
     useSessionScrollStore.getState().setTopClippedMessageId(null, "msg-3");
     expect(useSessionScrollStore.getState().sessions).toBe(sessions);
-    expect(window.localStorage.getItem(SESSION_SCROLL_STORAGE_KEY)).toBe("{}");
+    // No store mutation → debounced persist never writes.
+    expect(window.localStorage.getItem(SESSION_SCROLL_STORAGE_KEY)).toBeNull();
   });
 });

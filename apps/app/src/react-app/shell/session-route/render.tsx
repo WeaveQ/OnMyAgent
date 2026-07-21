@@ -407,6 +407,28 @@ export function SessionRouteRender() {
     [selectedWorkspaceId, sessionsByWorkspaceIdRef],
   );
 
+  /** Keep list-row `status` in sync with SSE so seed + activeSessionIds don't lag. */
+  const handleRuntimeSessionStatus = useCallback(
+    (update: { sessionId: string; status: unknown }) => {
+      if (!selectedWorkspaceId) return;
+      const sessionId = update.sessionId?.trim() ?? "";
+      if (!sessionId) return;
+      setSessionsByWorkspaceId((current) => {
+        const list = current[selectedWorkspaceId] ?? [];
+        const index = list.findIndex((session) => session.id === sessionId);
+        if (index < 0) return current;
+        const prev = list[index];
+        if (prev.status === update.status) return current;
+        const nextList = [...list];
+        nextList[index] = { ...prev, status: update.status };
+        const next = { ...current, [selectedWorkspaceId]: nextList };
+        sessionsByWorkspaceIdRef.current = next;
+        return next;
+      });
+    },
+    [selectedWorkspaceId, sessionsByWorkspaceIdRef],
+  );
+
   useEffect(() => {
     const activeWorkspaceIds = new Set(
       workspaces.map((workspace) => workspace.id),
@@ -1021,6 +1043,7 @@ export function SessionRouteRender() {
     forceNewSessionOnNextSendRef,
     handleOpenSettings,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     listSlashCommands,
     local,
     localeSnapshot,
@@ -1227,6 +1250,7 @@ export function SessionRouteRender() {
       handleReorderWorkspaces={handleReorderWorkspaces}
       handleRevealWorkspace={handleRevealWorkspace}
       handleRuntimeSessionUpdated={handleRuntimeSessionUpdated}
+      handleRuntimeSessionStatus={handleRuntimeSessionStatus}
       handleSaveRenameWorkspace={handleSaveRenameWorkspace}
       handleSaveShareRemoteAccess={handleSaveShareRemoteAccess}
       handleShareWorkspace={handleShareWorkspace}

@@ -169,4 +169,14 @@ export const useSessionScrollStore = create<SessionScrollStore>((set) => ({
   }),
 }));
 
-useSessionScrollStore.subscribe((state) => persistSessionScrollState(state.sessions));
+// Debounce disk writes — never write localStorage on the scroll frame itself.
+// Store updates can still land every rAF (scrollTop), but disk is ≥300ms later.
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+useSessionScrollStore.subscribe((state) => {
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  const sessions = state.sessions;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistSessionScrollState(sessions);
+  }, 300);
+});

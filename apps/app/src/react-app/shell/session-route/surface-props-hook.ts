@@ -47,6 +47,7 @@ import {
   buildIsolatedExpertSessionDirectory,
   dispatchAssistantSessionWorkspacesChanged,
   isSameDirectory,
+  readAssistantSessionWorkspace,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
@@ -127,6 +128,10 @@ export type SessionRouteSurfacePropsInput = {
     sessionId: string;
     info: Record<string, unknown>;
   }) => void;
+  handleRuntimeSessionStatus?: (update: {
+    sessionId: string;
+    status: unknown;
+  }) => void;
   listSlashCommands: SessionPageSurfaceProps["listCommands"];
   local: {
     prefs: LocalPreferences;
@@ -201,6 +206,7 @@ export function useSessionRouteSurfaceProps(
     forceNewSessionOnNextSendRef,
     handleOpenSettings,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     listSlashCommands,
     local,
     localeSnapshot,
@@ -366,7 +372,7 @@ export function useSessionRouteSurfaceProps(
       onModelPickerOpenChange: setCompactModelPickerOpen,
       onModelChange: (model: ModelRef) => {
         // 1) Pin model for the current session/draft (existing sessions stay put).
-        // 2) Remember as global default so 新建任务 / 新会话 homes pick it next.
+        // 2) Remember as global default so new-task / new-session homes pick it next.
         setSessionModelOverrideById((current) => ({
           ...current,
           [composerModeSessionId]: model,
@@ -391,12 +397,31 @@ export function useSessionRouteSurfaceProps(
         // draft mode in `SessionPage`, `forceNewSessionOnNextSendRef` is
         // true — always create a new session even when a real session is
         // currently selected. Also auto-new when idle past the prefs threshold.
+        const selectedActivityStatus = selectedSessionId
+          ? useSessionActivityStore
+              .getState()
+              .getStatus(selectedWorkspaceId, selectedSessionId)
+          : "idle";
+        const selectedSessionBusy =
+          selectedActivityStatus === "thinking" ||
+          selectedActivityStatus === "responding" ||
+          selectedActivityStatus === "retrying" ||
+          selectedActivityStatus === "waiting" ||
+          selectedActivityStatus === "compacting";
         const idleForceNew = shouldForceNewSessionOnIdle({
           enabled: local.prefs.autoNewSessionOnIdle === true,
           idleHours: local.prefs.autoNewSessionIdleHours,
           selectedSessionId,
           sessions: sessionsByWorkspaceId[selectedWorkspaceId] ?? [],
+          sessionBusy: selectedSessionBusy,
         });
+        // Force-new / first send from a space-bound chat must keep the folder
+        // binding, or the new session lands in Tasks and steals selection.
+        const inheritAssistantWorkspaceDirectory =
+          pageMode === "assistant" && selectedSessionId
+            ? readAssistantSessionWorkspace(selectedSessionId)?.directory ??
+              null
+            : null;
         const sendPlan = resolveDraftSendPlan({
           selectedSessionId,
           forceNewSession:
@@ -404,6 +429,7 @@ export function useSessionRouteSurfaceProps(
           pageMode,
           assistantDraftWorkspaceRoot,
           sessionWorkspaceRoot,
+          inheritAssistantWorkspaceDirectory,
         });
         forceNewSessionOnNextSendRef.current = false;
         let { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
@@ -529,6 +555,7 @@ export function useSessionRouteSurfaceProps(
             registerCreatedSessionStartIntent({
               sessionId,
               intent: draft.sessionStartIntent,
+              pageMode,
               addAssistantSession,
               addExpertSession,
               writeAssistantSessionCategory,
@@ -672,6 +699,7 @@ export function useSessionRouteSurfaceProps(
                     directory: taskWorkspaceRoot,
                     onmyagentToken: selectedWorkspaceEndpoint.token,
                     onSessionUpdated: handleRuntimeSessionUpdated,
+                    onSessionStatus: handleRuntimeSessionStatus,
                   },
                   sessionId,
                 )
@@ -773,11 +801,17 @@ export function useSessionRouteSurfaceProps(
         // `system` field. Only applied on the first prompt for a new session
         // — the store is kept intact for subsequent turns so the transcript
         // still renders the agent avatar next to assistant messages.
+        // When force-new / idle auto-new, selectedSessionId is still the
+        // previous chat — inherit its expert binding if pending store is empty.
+        const inheritFromSessionId = createdSession
+          ? selectedSessionId
+          : null;
         const { pendingAgentSnapshot, agentToolAccess } =
           resolvePendingAgentForPrompt({
             currentAgent: usePendingAgentStore.getState().getAgent(),
             createdSession: Boolean(createdSession),
             sessionId,
+            inheritFromSessionId,
           });
         const runtimeToolAccess = resolveComposerRuntimeTools(
           agentToolAccess,
@@ -1038,6 +1072,7 @@ export function useSessionRouteSurfaceProps(
     compactModelPickerOpen,
     effectiveModelRef,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     handleOpenSettings,
     local,
     listSlashCommands,

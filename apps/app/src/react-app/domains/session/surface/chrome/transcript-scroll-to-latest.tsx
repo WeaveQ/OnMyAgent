@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { ChevronDown } from "lucide-react";
+import { ChevronsDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -21,7 +21,8 @@ export function TranscriptScrollToLatest(props: {
         aria-label={props.label}
         onClick={props.onActivate}
       >
-        <ChevronDown className="size-4" />
+        {/* Double chevron matches the floating “jump to latest” chip (clearer in dark). */}
+        <ChevronsDown className="size-4" strokeWidth={2.25} aria-hidden="true" />
       </Button>
     </div>
   );

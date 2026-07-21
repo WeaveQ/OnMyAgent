@@ -3901,6 +3901,36 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     ? renderItems.slice(0, detachedTailRenderItemIndex)
     : renderItems;
 
+  // While the user is actively scrolling, skip measureElement (ResizeObserver +
+  // getBoundingClientRect on every entering row). After ~3–4s of continuous
+  // scrolling that measurement work piles up and the list suddenly stutters.
+  // Estimates are good enough mid-gesture; remeasure once scrolling settles.
+  const [measureWhileScrolling, setMeasureWhileScrolling] = useState(true);
+  const measureWhileScrollingRef = useRef(true);
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    const scrollContainer = props.scrollElement?.();
+    if (!scrollContainer) return;
+
+    let settleTimer: number | undefined;
+    const onScroll = () => {
+      if (measureWhileScrollingRef.current) {
+        measureWhileScrollingRef.current = false;
+        setMeasureWhileScrolling(false);
+      }
+      if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => {
+        measureWhileScrollingRef.current = true;
+        setMeasureWhileScrolling(true);
+      }, 140);
+    };
+    scrollContainer.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      scrollContainer.removeEventListener("scroll", onScroll);
+      if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+    };
+  }, [props.scrollElement, shouldVirtualize]);
+
   const estimateVirtualItemSize = useCallback(
     (index: number) => {
       const item = virtualRenderItems[index];
@@ -3928,6 +3958,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   });
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
   const firstVirtualRow = virtualRows[0];
+
+  // After scroll settles, force one measurement pass so estimates converge.
+  useEffect(() => {
+    if (!shouldVirtualize || !measureWhileScrolling) return;
+    virtualizer.measure();
+  }, [measureWhileScrolling, shouldVirtualize, virtualizer]);
 
   useEffect(() => {
     const register = props.setScrollToMessageById;
@@ -4115,7 +4151,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                   <div
                     key={virtualRow.key}
                     data-index={virtualRow.index}
-                    ref={virtualizer.measureElement}
+                    // Skip live measure mid-scroll — see measureWhileScrolling.
+                    ref={
+                      measureWhileScrolling
+                        ? virtualizer.measureElement
+                        : undefined
+                    }
                     className="w-full"
                   >
                     {renderTranscriptItem(item)}
