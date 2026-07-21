@@ -97,7 +97,6 @@ describe("artifact plugin enablement", () => {
       new Set([
         "browser-automation",
         "documents",
-        "excel-live-control",
         "pdf",
         "spreadsheets",
       ]),
@@ -145,7 +144,6 @@ describe("artifact plugin enablement", () => {
     ]);
     expect(listed.body.items[3].skills).toEqual([
       { id: "spreadsheets", enabled: true, defaultEnabled: true },
-      { id: "excel-live-control", enabled: true, defaultEnabled: true },
     ]);
     expect(listed.body.diagnostics).toEqual([]);
 
@@ -154,10 +152,10 @@ describe("artifact plugin enablement", () => {
     expect(detail.body.item.id).toBe("spreadsheets");
 
     body = { enabled: false };
-    const updated = await callRoute(routes, "PUT", "/workspace/workspace-1/artifact-plugins/spreadsheets/skills/excel-live-control/enabled", config, workspace);
+    const updated = await callRoute(routes, "PUT", "/workspace/workspace-1/artifact-plugins/spreadsheets/skills/spreadsheets/enabled", config, workspace);
     expect(updated.status).toBe(200);
     expect(updated.body.item).toEqual({
-      id: "excel-live-control",
+      id: "spreadsheets",
       enabled: false,
       defaultEnabled: true,
     });
@@ -171,7 +169,7 @@ describe("artifact plugin enablement", () => {
     });
 
     const enablement = JSON.parse(await readFile(join(tempRoot, "config", "artifact-plugins.json"), "utf8"));
-    expect(enablement.plugins.spreadsheets.skills["excel-live-control"]).toBe(false);
+    expect(enablement.plugins.spreadsheets.skills.spreadsheets).toBe(false);
     const audit = await readFile(join(tempRoot, "data", "audit", "workspace-1.jsonl"), "utf8");
     expect(audit).toContain("artifact_plugins.skill_enablement.update");
     expect(audit).toContain(join(tempRoot, "config", "artifact-plugins.json"));

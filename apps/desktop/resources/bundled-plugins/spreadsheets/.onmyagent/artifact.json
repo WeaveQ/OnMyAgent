@@ -3,10 +3,6 @@
     {
       "id": "spreadsheets",
       "defaultEnabled": true
-    },
-    {
-      "id": "excel-live-control",
-      "defaultEnabled": true
     }
   ],
   "routing": {
@@ -19,7 +15,7 @@
     ]
   },
   "runtime": {
-    "entry": "runtime/artifact_runtime.py",
+    "entry": "skills/spreadsheets/runtime/artifact_runtime.py",
     "requiredTools": ["python", "libreoffice"]
   }
 }

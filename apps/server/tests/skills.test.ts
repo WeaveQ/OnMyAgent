@@ -80,7 +80,19 @@ describe("skills", () => {
       "../../desktop/resources/bundled-skills",
     );
 
-    const items = await listSkills(workspace, true);
+    const pluginRoot = resolve(
+      import.meta.dir,
+      "../../desktop/resources/bundled-plugins",
+    );
+    const names = ["documents", "pdf", "spreadsheets"];
+    const items = await listSkills(workspace, true, {
+      artifactSkillIds: new Set([...names, "excel-live-control"]),
+      effectiveArtifactSkillIds: new Set(names),
+      artifactSkills: names.map((name) => ({
+        name,
+        path: join(pluginRoot, name, "skills", name, "SKILL.md"),
+      })),
+    });
     const artifactSkills = new Map(
       items
         .filter((item) =>
@@ -91,7 +103,6 @@ describe("skills", () => {
 
     expect([...artifactSkills.keys()].sort()).toEqual([
       "documents",
-      "excel-live-control",
       "pdf",
       "spreadsheets",
     ]);
@@ -113,10 +124,13 @@ describe("skills", () => {
     await writeSkill(bundled, "pdf", "Bundled PDF skill");
     await writeSkill(bundled, "weather", "Unrelated bundled skill");
     await writeSkill(project, "documents", "Local documents policy");
+    const pluginPdf = join(tempRoot, "plugins", "pdf", "SKILL.md");
+    await writeSkill(join(tempRoot, "plugins"), "pdf", "Plugin PDF skill");
 
     const items = await listSkills(workspace, false, {
       artifactSkillIds: new Set(["documents", "pdf"]),
       effectiveArtifactSkillIds: new Set(["pdf"]),
+      artifactSkills: [{ name: "pdf", path: pluginPdf }],
     });
 
     expect(items.some((item) => item.scope === "built-in" && item.name === "documents")).toBe(false);
