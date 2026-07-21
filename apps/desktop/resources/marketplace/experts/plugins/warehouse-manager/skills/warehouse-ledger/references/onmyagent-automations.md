@@ -14,6 +14,8 @@
 
 `scene`: `"office"`。
 
+export 后提案写入 `automations/proposals/`。用户回复「确认创建」时，专家宿主自动调用 `createAutomation` 落库；同标题已存在则跳过。
+
 ## 载荷示例
 
 ```json

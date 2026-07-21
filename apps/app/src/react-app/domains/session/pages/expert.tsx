@@ -162,6 +162,10 @@ import {
   isTrackableAccessibleTarget,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import {
+  applyAutomationProposals,
+  isAutomationCreateConfirmText,
+} from "../artifacts/apply-automation-proposals";
 
 const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
@@ -984,6 +988,70 @@ export function ExpertPage(props: ExpertPageProps) {
       if (draftSessionActive && props.onCreateSessionForAgent) {
         props.onCreateSessionForAgent();
       }
+
+      // User confirmed automation proposals from expert export → create real tasks.
+      const confirmText = (draft.resolvedText ?? draft.text ?? "").trim();
+      if (isAutomationCreateConfirmText(confirmText)) {
+        const client = props.onmyagentServerClient;
+        const workspaceId =
+          props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
+        if (client && workspaceId) {
+          const selectedSession =
+            rawWorkspaceSessions.find(
+              (session) => session.id === props.selectedSessionId,
+            ) ??
+            currentAgentSessions.find(
+              (session) => session.id === props.selectedSessionId,
+            ) ??
+            null;
+          try {
+            const result = await applyAutomationProposals({
+              client,
+              workspaceId,
+              catalogRoot: codeWorkspaceCatalogRoot,
+              sessionRoot: props.selectedWorkspaceRoot,
+              sessionDirectory: selectedSession?.directory ?? null,
+            });
+            if (result.created.length > 0) {
+              showToast({
+                tone: "success",
+                title: t("session.automation_proposals_created", {
+                  count: result.created.length,
+                  titles: result.created.map((item) => item.title).join("、"),
+                }),
+              });
+            } else if (result.errors.length > 0) {
+              showToast({
+                tone: "error",
+                title: t("session.automation_proposals_create_failed", {
+                  message: result.errors[0]?.message ?? "unknown",
+                }),
+              });
+            } else if (result.skipped.length > 0) {
+              showToast({
+                tone: "info",
+                title: t("session.automation_proposals_all_skipped", {
+                  count: result.skipped.length,
+                }),
+              });
+            } else {
+              showToast({
+                tone: "warning",
+                title: t("session.automation_proposals_none_found"),
+              });
+            }
+          } catch (error) {
+            showToast({
+              tone: "error",
+              title: t("session.automation_proposals_create_failed", {
+                message:
+                  error instanceof Error ? error.message : String(error),
+              }),
+            });
+          }
+        }
+      }
+
       // Always stamp expert intent (incl. force-new / multi-session creates).
       return props.surface?.onSendDraft({
         ...draft,
@@ -991,10 +1059,18 @@ export function ExpertPage(props: ExpertPageProps) {
       });
     },
     [
+      codeWorkspaceCatalogRoot,
+      currentAgentSessions,
       draftSessionActive,
       props.onCreateSessionForAgent,
+      props.onmyagentServerClient,
+      props.runtimeWorkspaceId,
       props.selectedSessionId,
+      props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
       props.surface,
+      rawWorkspaceSessions,
+      showToast,
     ],
   );
 
