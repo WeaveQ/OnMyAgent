@@ -217,10 +217,10 @@ export function AgentSessionTabs(props: {
         <div className="flex h-full min-w-0 items-center gap-1.5 overflow-x-auto">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="xs"
             onClick={props.onCreateSession}
-            className="h-7 shrink-0 rounded bg-dls-list-selected px-2.5 text-xs font-medium text-dls-text hover:bg-dls-list-selected hover:text-dls-text"
+            className="h-7 shrink-0 rounded-md border-dls-border bg-transparent px-2.5 text-xs font-medium text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
             title={t("session.agent_tab_new_session_title")}
             aria-label={t("session.agent_tab_new_session_title")}
           >

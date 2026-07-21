@@ -2,8 +2,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { SUGGESTED_PLUGINS } from "../../../app/constants";
-import type { EnablementContext } from "../../../app/enablement";
 import { createClient } from "../../../app/lib/opencode";
 import {
   createOnMyAgentServerClient,
@@ -31,8 +29,6 @@ import { ProviderAuthModal } from "../../domains/connections";
 import { ConnectionsModals } from "../../domains/connections";
 import type { AiSettingsConnectedProvider } from "../../domains/settings";
 import { OpenCodeProviderConfigDialog } from "../../domains/session";
-import { getExtensionConfigSlot, getExtensionConnected, type ExtensionConfigContext } from "../../domains/settings";
-import { isOnMyAgentExtensionEnabled } from "../../domains/shared";
 import {
   CloudSessionProvider,
   SettingsStack,
@@ -55,9 +51,7 @@ import {
   LazyConversationMemoryView,
   LazyDebugView,
   LazyEnvironmentView,
-  LazyExtensionsView,
   LazyGeneralSettingsView,
-  LazyMcpView,
   LazyMemoryView,
   LazyPreferencesView,
   LazySystemAuthorizationsView,
@@ -172,22 +166,10 @@ import {
   SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY,
   writeStoredBoolean,
 } from "./storage";
-import { useSettingsExtensionActions } from "./extension-actions";
 import { workspaceSessionRoute, workspaceSettingsRoute } from "../workspace-routes";
 import { getReactQueryClient } from "../../infra/query-client";
 import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../../domains/connections";
 import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "../new-providers-toast";
-import {
-  OPENAI_API_KEY_ENV_KEY,
-  OPENAI_IMAGE_EXTENSION_ID,
-  OPENAI_IMAGE_MODEL,
-  installOpenAiImageExtensionFiles,
-  openAiImageResponseToArrayBuffer,
-  requestOpenAiImage,
-  slugifyImageArtifactName,
-  OLLAMA_PROVIDER_CONFIG,
-  type LocalProviderInstallInput,
-} from "../../domains/settings";
 
 const ROUTE_ONMYAGENT_CAPABILITIES: OnMyAgentServerCapabilities = {
   skills: { read: true, write: true, source: "onmyagent" },
@@ -290,20 +272,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   // initialTab removed — model picker no longer has tabs
   const [modelPickerQuery, setModelPickerQuery] = useState("");
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
-  const [localProviderBusy, setLocalProviderBusy] = useState(false);
-  const [localProviderStatus, setLocalProviderStatus] = useState<string | null>(null);
-  const [localProviderError, setLocalProviderError] = useState<string | null>(null);
-  const [imageExtensionInstalled, setImageExtensionInstalled] = useState(false);
-  const [imageExtensionBusy, setImageExtensionBusy] = useState(false);
-  const [imageExtensionStatus, setImageExtensionStatus] = useState<string | null>(null);
-  const [imageExtensionError, setImageExtensionError] = useState<string | null>(null);
-  const [imageGenerationBusy, setImageGenerationBusy] = useState(false);
-  const [imageGenerationStatus, setImageGenerationStatus] = useState<string | null>(null);
-  const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
-  const [voiceBusy, setVoiceBusy] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [userEnvKeys, setUserEnvKeys] = useState<string[]>([]);
   const [memoryDraft, setMemoryDraft] = useState<OnboardingProfile | null>(() =>
     local.prefs.onboardingProfile,
   );
@@ -718,74 +686,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   useEffect(() => {
     setActiveClient(opencodeClient);
   }, [opencodeClient]);
-
-  useEffect(() => {
-    const client = selectedWorkspaceEndpoint?.client ?? onmyagentClient;
-    const workspaceId = runtimeWorkspaceId?.trim() ?? "";
-    if (!client || !workspaceId) {
-      setImageExtensionInstalled(false);
-      return;
-    }
-
-    let cancelled = false;
-    void client.listPlugins(workspaceId, { includeGlobal: false })
-      .then((result) => {
-        if (cancelled) return;
-        setImageExtensionInstalled(
-          result.items.some((item) =>
-            item.spec.includes(OPENAI_IMAGE_EXTENSION_ID) ||
-            item.path?.includes(OPENAI_IMAGE_EXTENSION_ID) === true,
-          ),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setImageExtensionInstalled(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [onmyagentClient, runtimeWorkspaceId, selectedWorkspaceEndpoint]);
-
-  useEffect(() => {
-    if (!onmyagentClient) {
-      setUserEnvKeys([]);
-      return;
-    }
-    let cancelled = false;
-    void onmyagentClient.listUserEnvKeys()
-      .then((response) => { if (!cancelled) setUserEnvKeys(response.keys); })
-      .catch(() => { if (!cancelled) setUserEnvKeys([]); });
-    return () => { cancelled = true; };
-  }, [onmyagentClient]);
-
-  const {
-    installOpenAiImageExtension,
-    generateOpenAiTestImage,
-    saveVoiceApiKey,
-    testVoiceSession,
-    installLocalProvider,
-  } = useSettingsExtensionActions({
-    onmyagentClient,
-    selectedWorkspaceEndpoint,
-    runtimeWorkspaceId,
-    reloadCoordinator,
-    local,
-    setImageExtensionBusy,
-    setImageExtensionStatus,
-    setImageExtensionError,
-    setImageExtensionInstalled,
-    setImageGenerationBusy,
-    setImageGenerationStatus,
-    setImageGenerationError,
-    setVoiceBusy,
-    setVoiceStatus,
-    setVoiceError,
-    setLocalProviderBusy,
-    setLocalProviderStatus,
-    setLocalProviderError,
-    setUserEnvKeys,
-  });
 
   useEffect(() => {
     const openFromPending = (raw: string | null) => {
@@ -1264,10 +1164,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const selectedWorkspaceColor = workspaceSwatchColor(selectedWorkspaceId);
   const workspaceType = selectedWorkspace?.workspaceType ?? "local";
   const isRemoteWorkspace = workspaceType === "remote";
-  const canWriteWorkspacePlugins =
-    !isRemoteWorkspace || onmyagentServerSnapshot.onmyagentServerCanWritePlugins;
-  const pluginsAccessHint =
-    isRemoteWorkspace && !canWriteWorkspacePlugins ? t("app.plugins_hint_readonly") : null;
   const defaultModelLabel = local.prefs.defaultModel
     ? (() => {
         const provider = providers.find((item) => item.id === local.prefs.defaultModel?.providerID);
@@ -1308,30 +1204,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const providerSummary = connectedProviders.length > 0
     ? t("status.providers_connected", { count: connectedProviders.length })
     : t("settings.no_providers_connected");
-  const mcpConnectedAppsCount = connectionsSnapshot.mcpServers.length;
-
-  // Build enablement context from all available runtime state.
-  const enablementContext = useMemo<EnablementContext>(() => {
-    const mcpConfigured = new Set(connectionsSnapshot.mcpServers.map((s) => s.name));
-    const connectedProviders = new Set(providerConnectedIds);
-    const configuredEnvKeys = new Set(userEnvKeys);
-    const loadedPlugins = new Set<string>();
-    // imageExtensionInstalled is derived from listPlugins — add it to the set.
-    if (imageExtensionInstalled) loadedPlugins.add(OPENAI_IMAGE_EXTENSION_ID);
-    return {
-      mcpStatuses: connectionsSnapshot.mcpStatuses,
-      mcpConfigured,
-      loadedPlugins,
-      connectedProviders,
-      configuredEnvKeys,
-      // Toggle state reader for extensions with defaultEnabled / explicit toggle.
-      isToggleEnabled: (ref: string) => {
-        const catalog = connectionsStore.quickConnect;
-        const match = catalog.find((e: { id?: string; serverName?: string }) => (e.id ?? e.serverName) === ref);
-        return match ? isOnMyAgentExtensionEnabled(match) : false;
-      },
-    };
-  }, [connectionsSnapshot, providerConnectedIds, userEnvKeys, imageExtensionInstalled]);
   const routeOnMyAgentStatus = onmyagentClient ? "connected" : "disconnected";
   const notFoundRouteError = !loading && routeWorkspaceId && !selectedWorkspace
     ? t("workspace_list.not_found_route_error")
@@ -1675,123 +1547,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                   autoNewSessionIdleHours: hours,
                 }));
               }}
-            />
-          </SettingsTabSuspense>
-        );
-      case "extensions":
-        return (
-          <SettingsTabSuspense>
-            <LazyExtensionsView
-              busy={busy}
-              selectedWorkspaceRoot={selectedWorkspaceRoot}
-              isRemoteWorkspace={isRemoteWorkspace}
-              canEditPlugins={canWriteWorkspacePlugins}
-              canUseGlobalScope={!isRemoteWorkspace}
-              accessHint={pluginsAccessHint}
-              suggestedPlugins={SUGGESTED_PLUGINS}
-              extensions={extensionsStore}
-              mcpConnectedAppsCount={mcpConnectedAppsCount}
-              initialSection={route.extensionsSection}
-              setSectionRoute={(section) => {
-                const path = `extensions/${section}`;
-                navigateSettingsPath(path);
-              }}
-              onRefresh={() => {
-                void connectionsStore.refreshMcpServers();
-                void extensionsStore.refreshPlugins();
-                void extensionsStore.refreshCloudOrgMarketplaces({ force: true });
-              }}
-              mcpView={
-                <LazyMcpView
-                  busy={busy}
-                  selectedWorkspaceRoot={selectedWorkspaceRoot}
-                  isRemoteWorkspace={isRemoteWorkspace}
-                  mcpServers={connectionsSnapshot.mcpServers}
-                  mcpStatus={connectionsSnapshot.mcpStatus}
-                  mcpLastUpdatedAt={connectionsSnapshot.mcpLastUpdatedAt}
-                  mcpStatuses={connectionsSnapshot.mcpStatuses}
-                  mcpConnectingName={connectionsSnapshot.mcpConnectingName}
-                  selectedMcp={connectionsSnapshot.selectedMcp}
-                  setSelectedMcp={(name) => connectionsStore.setSelectedMcp(name)}
-                  quickConnect={connectionsStore.quickConnect}
-                  enablementContext={enablementContext}
-                  builtInExtensionsDisabled={checkDesktopRestriction({ restriction: "allowBuiltInExtensions" })}
-                  connectMcp={(entry) => {
-                    void connectionsStore.connectMcp(entry);
-                  }}
-                  configSlotForEntry={(entry) => getExtensionConfigSlot(entry, {
-                    onmyagentServerClient: selectedWorkspaceEndpoint?.client ?? onmyagentClient,
-                    computerUse: {
-                      connected: connectionsSnapshot.mcpServers.some((server) => server.name === "computer-use"),
-                      connecting: connectionsSnapshot.mcpConnectingName === entry.name,
-                      onConnect: () => connectionsStore.connectMcp(entry),
-                      onRefresh: () => connectionsStore.refreshMcpServers(),
-                    },
-                    imageExtension: {
-                      busy: imageExtensionBusy || imageGenerationBusy,
-                      status: imageExtensionStatus ?? imageGenerationStatus,
-                      error: imageExtensionError ?? imageGenerationError,
-                      envKeyDetected: providers.some((p) => p.id === "openai" && p.source === "env") || providerConnectedIds.includes("openai"),
-                      onInstall: installOpenAiImageExtension,
-                      onTestGenerate: generateOpenAiTestImage,
-                    },
-                    voiceExtension: {
-                      busy: voiceBusy,
-                      status: voiceStatus,
-                      error: voiceError,
-                      envKeyDetected:
-                        userEnvKeys.includes("OPENAI_REALTIME_API_KEY") ||
-                        userEnvKeys.includes(OPENAI_API_KEY_ENV_KEY) ||
-                        providers.some((p) => p.id === "openai" && p.source === "env") ||
-                        providerConnectedIds.includes("openai"),
-                      onSaveApiKey: saveVoiceApiKey,
-                      onTestSession: testVoiceSession,
-                    },
-                    localProvider: {
-                      busy: localProviderBusy,
-                      status: localProviderStatus,
-                      error: localProviderError,
-                      onInstall: installLocalProvider,
-                    },
-                  })}
-                  isExtensionConnected={(entry) => {
-                    const runtimeConnected = getExtensionConnected(entry, {
-                      onmyagentServerClient: selectedWorkspaceEndpoint?.client ?? onmyagentClient,
-                    });
-                    if (runtimeConnected !== null) return runtimeConnected;
-                    const id = entry.serverName ?? entry.name;
-                    if (id === "openai-image-gen") return imageExtensionInstalled;
-                    if (id === "ollama") return providerConnectedIds.includes("ollama");
-                    return false;
-                  }}
-                  authorizeMcp={(entry) => {
-                    void connectionsStore.authorizeMcp(entry);
-                  }}
-                  logoutMcpAuth={(name) => connectionsStore.logoutMcpAuth(name)}
-                  removeMcp={(name) => {
-                    void connectionsStore.removeMcp(name);
-                  }}
-                  setMcpEnabled={
-                    routeOnMyAgentStatus === "connected" && routeOnMyAgentCapabilities?.mcp?.write
-                      ? (name, enabled) => connectionsStore.setMcpEnabled(name, enabled)
-                      : undefined
-                  }
-                  readConfigFile={(scope) => connectionsStore.readMcpConfigFile(scope)}
-                  installedSkills={extensionsStore.skills()}
-                  installedPlugins={Object.values(extensionsStore.importedCloudPlugins())}
-                  uninstallSkill={(name) => { void extensionsStore.uninstallSkill(name); }}
-                  removeCloudPlugin={(pluginId) => { void extensionsStore.removeCloudOrgPlugin(pluginId); }}
-                  readSkill={(name) => extensionsStore.readSkill(name)}
-                  showHeader={false}
-                />
-              }
-              cloudMarketplaceView={
-                <LazyCloudMarketplacesView
-                  embedded
-                  extensions={extensionsStore}
-                  session={denSession}
-                />
-              }
             />
           </SettingsTabSuspense>
         );

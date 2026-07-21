@@ -9,8 +9,16 @@ export const SKILL_MARKETPLACE_CATEGORIES: SkillMarketplaceCategory[] = [
   { id: "all", labelKey: "skills_marketplace.category_all", searchLabel: "全部 all", keywords: [] },
   { id: "opc", labelKey: "skills_marketplace.category_opc", searchLabel: "OPC-一人公司 opc", keywords: ["opc", "solo", "startup", "agent-team"] },
   { id: "life", labelKey: "skills_marketplace.category_life", searchLabel: "生活服务 life service", keywords: ["travel", "trip", "ticket", "food", "hotel", "health", "notes", "reminders", "生活", "出行", "旅行", "机票", "火车"] },
-  { id: "developer", labelKey: "skills_marketplace.category_developer", searchLabel: "开发工具 developer tools", keywords: ["dev", "code", "github", "browser", "frontend", "backend", "fullstack", "ios", "android", "cli", "api", "mcp", "test", "开发", "代码"] },
-  { id: "deploy", labelKey: "skills_marketplace.category_deploy", searchLabel: "网站部署 website deploy", keywords: ["deploy", "cloudflare", "vercel", "netlify", "cloudbase", "website", "wordpress", "dns", "部署", "网站"] },
+  // Merged former “开发工具” + “网站部署” so the filter strip fits without horizontal scroll.
+  {
+    id: "developer",
+    labelKey: "skills_marketplace.category_developer",
+    searchLabel: "开发部署 developer deploy",
+    keywords: [
+      "dev", "code", "github", "browser", "frontend", "backend", "fullstack", "ios", "android", "cli", "api", "mcp", "test", "开发", "代码",
+      "deploy", "cloudflare", "vercel", "netlify", "cloudbase", "website", "wordpress", "dns", "部署", "网站",
+    ],
+  },
   { id: "education", labelKey: "skills_marketplace.category_education", searchLabel: "教育学习 education", keywords: ["education", "learning", "course", "exam", "teacher", "pbl", "school", "学习", "教育", "课程", "高考"] },
   { id: "finance", labelKey: "skills_marketplace.category_finance", searchLabel: "投资理财 finance investment", keywords: ["finance", "stock", "trading", "investment", "crypto", "bayes", "财", "投资", "股票", "理财"] },
   { id: "content", labelKey: "skills_marketplace.category_content", searchLabel: "内容创作 content creation", keywords: ["content", "writer", "writing", "video", "image", "canvas", "xiaohongshu", "bilibili", "公众号", "写作", "内容", "创作", "视频"] },
@@ -23,8 +31,9 @@ export const SKILL_MARKETPLACE_CATEGORIES: SkillMarketplaceCategory[] = [
 ];
 
 export function skillMarketplaceCategoryLabel(categoryId: string): string {
+  const resolvedId = categoryId === "deploy" ? "developer" : categoryId;
   return (
-    SKILL_MARKETPLACE_CATEGORIES.find((category) => category.id === categoryId)
+    SKILL_MARKETPLACE_CATEGORIES.find((category) => category.id === resolvedId)
       ?.searchLabel ?? SKILL_MARKETPLACE_CATEGORIES[0].searchLabel
   );
 }

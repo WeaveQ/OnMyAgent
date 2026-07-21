@@ -213,6 +213,10 @@ export type ComposerProps = {
   importedPlugins?: CloudImportedPlugin[];
   onOpenSettingsSection?: (section: ToolMenuSettingsSection) => void;
   onOpenSkillsMarketplace?: () => void;
+  /** Open market → connectors (plugins) tab — 连接器 flyout「配置」. */
+  onOpenConnectorsMarketplace?: () => void;
+  /** Open custom MCP config dialog (e.g. MCP row toggle / advanced). */
+  onOpenCustomConnector?: () => void;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<string[]>;
   onInsertMention: (kind: "agent" | "file", value: string) => void;

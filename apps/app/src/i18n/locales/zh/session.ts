@@ -784,7 +784,7 @@ export default {
   "session.workspace_create_no_parent": "当前工作区不可用，无法创建子文件夹",
   "session.workspace_create_confirm": "确认",
   "session.workspace_open_local": "打开本地文件夹",
-  "session.workspace_recent_empty": "暂无空间，可新建或打开本地文件夹",
+  "session.workspace_recent_empty": "暂无空间，可新建或打开本地",
   "session.workspace_recent_no_match": "没有匹配的空间",
   "session.clear_workspace_selection": "取消选择工作空间",
   "session.configure_current_agent": "设置当前智能体",
