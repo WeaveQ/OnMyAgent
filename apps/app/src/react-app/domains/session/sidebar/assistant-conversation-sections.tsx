@@ -82,7 +82,7 @@ type AssistantConversationSectionsProps = {
   categoryId: AssistantCategoryId;
   workspaceId: string;
   selectedSessionId: string | null;
-  /** Live run status by session — busy rows show 思考中 / 回复中 like WorkBuddy. */
+  /** Live run status by session — busy rows show thinking/replying labels. */
   sessionStatusById?: Record<string, string>;
   automationGroups: AssistantAutomationGroup<AgentConversationGroup>[];
   pinnedGroups: AgentConversationGroup[];
