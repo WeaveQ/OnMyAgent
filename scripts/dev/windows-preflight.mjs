@@ -52,8 +52,9 @@ if (!isWin) {
 record("preflight-mode", true, mode, true);
 record("node", true, process.version, true);
 
-const pnpm = spawnSync("pnpm.cmd", ["--version"], { encoding: "utf8" });
-record("pnpm", pnpm.status === 0, (pnpm.stdout || pnpm.stderr).trim(), true);
+const pnpm = spawnSync("pnpm.cmd", ["--version"], { encoding: "utf8", shell: true });
+const pnpmOut = String(pnpm.stdout ?? pnpm.stderr ?? "").trim();
+record("pnpm", pnpm.status === 0 && Boolean(pnpmOut), pnpmOut || `exit=${pnpm.status}`, true);
 
 const constants = JSON.parse(readFileSync(resolve(repoRoot, "constants.json"), "utf8"));
 record("constants.nodeVersion", Boolean(constants.nodeVersion), constants.nodeVersion ?? "missing", true);
