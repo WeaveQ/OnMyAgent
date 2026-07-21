@@ -10,8 +10,12 @@ function readWorkspaceFile(path: string): string {
 
 describe("right side panel toggle contract", () => {
   test("chat header stays borderless while right panel titlebars keep their divider", () => {
-    const surfaceChrome = readWorkspaceFile(
+    // Header implementation lives under chrome/session-surface-header; barrel re-exports it.
+    const surfaceChromeBarrel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/session-surface-chrome.tsx",
+    );
+    const surfaceHeader = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/chrome/session-surface-header.tsx",
     );
     const surface = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
@@ -25,15 +29,16 @@ describe("right side panel toggle contract", () => {
 
     // Header base chrome; bottom rule is optional so expanded session tabs
     // can own the single divider (avoid double lines).
-    expect(surfaceChrome).toContain(
+    expect(surfaceChromeBarrel).toContain("./chrome/session-surface-header");
+    expect(surfaceHeader).toContain(
       '"flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
     );
-    expect(surfaceChrome).toContain("showBottomBorder?: boolean");
-    expect(surfaceChrome).toContain(
+    expect(surfaceHeader).toContain("showBottomBorder?: boolean");
+    expect(surfaceHeader).toContain(
       'showBottomBorder && "border-b border-dls-mist"',
     );
     expect(surface).toContain("showBottomBorder={!sessionTabsExpanded}");
-    expect(surfaceChrome).not.toContain(
+    expect(surfaceHeader).not.toContain(
       'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
     );
     expect(sessionPage).toContain(
@@ -95,13 +100,25 @@ describe("right side panel toggle contract", () => {
   test("assistant and expert pages hide the header toggle while the right panel is expanded", () => {
     const assistant = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const expert = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const sharedChrome = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/session-history-search-chrome.tsx",
+    );
+
+    // Shared chrome owns the toggle; hide when sidePanelOpen (no toggle in header).
+    expect(sharedChrome).toContain("export function SessionHistorySearchChrome");
+    expect(sharedChrome).toContain("sidePanelOpen: boolean");
+    expect(sharedChrome).toContain("{!props.sidePanelOpen ? (");
+    expect(sharedChrome).toContain('data-code-side-panel-toggle="true"');
+    expect(sharedChrome).toContain('size="icon-xs"');
+    expect(sharedChrome).toContain(
+      'className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"',
+    );
+    expect(sharedChrome).toContain('<PanelRight className="size-3.5" />');
 
     for (const source of [assistant, expert]) {
-      expect(source).toContain("const headerPanelControls = !sidePanelOpen ?");
-      expect(source).toContain('data-code-side-panel-toggle="true"');
-      expect(source).toContain('size="icon-xs"');
-      expect(source).toContain('className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"');
-      expect(source).toContain('<PanelRight className="size-3.5" />');
+      expect(source).toContain("SessionHistorySearchChrome");
+      expect(source).toContain("sidePanelOpen={sidePanelOpen}");
+      expect(source).toContain("headerActions={headerPanelControls}");
     }
   });
 

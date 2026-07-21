@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   FolderOpen,
-  Loader2,
   Plus,
   Search,
   Sparkles,

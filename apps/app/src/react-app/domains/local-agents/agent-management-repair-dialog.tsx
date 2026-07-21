@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
