@@ -554,28 +554,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             let sessionDirectory = draftRoot || workspaceRoot || undefined;
             let bindDirectory = draftRoot || "";
             // Treat empty draft and "draft == workspace root" as no real folder pick.
+            // Bind path only — do not write placeholder README.md into the panel.
             if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
                 agentName: pendingAgentSnapshot?.name?.trim() || "expert",
               });
-              const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
-              const ensureWorkspaceId =
-                selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-              if (ensureClient && ensureWorkspaceId?.trim()) {
-                try {
-                  await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
-                    path: isolated.markerRelativePath,
-                    content: `# ${pendingAgentSnapshot?.name?.trim() || "expert"}\n\nSession artifacts for this expert conversation.\n`,
-                    force: true,
-                  });
-                } catch (error) {
-                  console.warn(
-                    "[expert-session] failed to create isolated artifact directory",
-                    error,
-                  );
-                }
-              }
               sessionDirectory = isolated.directory;
               bindDirectory = isolated.directory;
             }

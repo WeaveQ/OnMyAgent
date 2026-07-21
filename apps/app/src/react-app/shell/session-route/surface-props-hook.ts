@@ -435,23 +435,7 @@ export function useSessionRouteSurfaceProps(
               workspaceRoot,
               agentName,
             });
-            const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
-            const ensureWorkspaceId =
-              selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
-            if (ensureClient && ensureWorkspaceId?.trim()) {
-              try {
-                await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
-                  path: isolated.markerRelativePath,
-                  content: `# ${agentName}\n\nSession artifacts for this expert conversation.\n`,
-                  force: true,
-                });
-              } catch (error) {
-                console.warn(
-                  "[expert-session] failed to create isolated artifact directory",
-                  error,
-                );
-              }
-            }
+            // Bind path only — no placeholder README.md (confuses the files panel).
             taskWorkspaceRoot = isolated.directory;
             explicitAssistantWorkspace = isolated.directory;
           } else if (explicitFolder) {
