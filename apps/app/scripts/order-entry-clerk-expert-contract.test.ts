@@ -217,7 +217,12 @@ describe("order entry clerk expert contract", () => {
       expect(response.inlineWidget.widget_code).toContain('data-copy-panel="live"');
       expect(response.inlineWidget.widget_code).toContain("onmyagent:waybill-copy");
       expect(response.inlineWidget.widget_code).toContain("编辑字段");
+      expect(response.inlineWidget.widget_code).toContain("保存修改");
       expect(response.inlineWidget.widget_code).toContain("onmyagent:waybill-fields");
+      expect(response.inlineWidget.widget_code).toContain("已保存到预览，可继续点");
+      expect(response.inlineWidget.widget_code).not.toContain("请把下面这段发给专家");
+      expect(response.inlineWidget.widget_code).not.toContain("waybill-patch-box");
+      expect(response.inlineWidget.widget_code).not.toContain("data-show-patch");
       expect(response.inlineWidget.widget_code).toContain("color:#28242f");
       expect(response.inlineWidget.widget_code).toContain("waybill-copy-tabs");
       expect(response.inlineWidget.widget_code).toContain('class="swatch"');

@@ -155,6 +155,18 @@ function SandboxedVisual(props: {
         if (typeof event.data.key === "string") props.onArtifactCopyChange?.(event.data.key);
         return;
       }
+      if (event.data.type === "onmyagent:waybill-fields") {
+        const patch = event.data.patch;
+        if (!patch || typeof patch !== "object" || Array.isArray(patch)) return;
+        // Bubble out of the sandbox so the host can merge data without dumping
+        // JSON into the transcript UI.
+        window.dispatchEvent(
+          new CustomEvent("onmyagent-waybill-fields-patch", {
+            detail: { patch },
+          }),
+        );
+        return;
+      }
       if (event.data.type === "onmyagent:visual-resize") {
         const nextHeight = Number(event.data.height);
         if (!Number.isFinite(nextHeight)) return;

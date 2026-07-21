@@ -36,6 +36,19 @@ describe("session transcript rich markdown", () => {
     expect(truncated).toContain(`${"x".repeat(200)}…[7 chars omitted]`);
   });
 
+  test("hides internal waybill-patch fences from user-visible markdown", () => {
+    const text = preprocessSessionMarkdown([
+      "我已在预览中保存字段修改。",
+      "",
+      "```waybill-patch",
+      "{\"shipper.phone\":\"138\"}",
+      "```",
+    ].join("\n"));
+    expect(text).toContain("我已在预览中保存字段修改。");
+    expect(text).not.toContain("waybill-patch");
+    expect(text).not.toContain("shipper.phone");
+  });
+
   test("uses WorkBuddy table surface hierarchy", () => {
     const html = renderSessionMarkdownHtml([
       "| Dimension | Score |",
