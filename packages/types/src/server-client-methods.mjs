@@ -16,7 +16,7 @@ const methodGroups = /** @type {const} */ ({
     "previewWorkspaceImport", "materializeBlueprintSessions",
     "readOpencodeConfigFile", "writeOpencodeConfigFile", "readWorkspaceFile",
     "statWorkspaceFile", "writeWorkspaceFile", "writeWorkspaceBinaryFile",
-    "downloadWorkspaceFile", "listWorkspaceFiles",
+    "downloadWorkspaceFile", "listWorkspaceFiles", "deleteWorkspaceFile",
   ],
   sessions: [
     "deleteSession", "listSessions", "getSession", "getSessionMessages",
