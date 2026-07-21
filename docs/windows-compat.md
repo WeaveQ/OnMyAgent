@@ -10,12 +10,20 @@ run has a fighting chance.
 
 | Job | OS | What | Why |
 |-----|-----|------|-----|
-| **Checks** | ubuntu (+ macos for `pnpm check` only) | On **Linux only**: `pnpm test:windows-runtime` | Fail-fast mocked win32 contracts without waiting for a Windows runner |
-| **Windows compat** | `windows-2022` | `test:windows-runtime` + preflight `--ci` | Real Windows host; optional Docker/symlink/sidecars are warnings |
-| **Checks → typecheck** | ubuntu + macos | `pnpm check` includes `@onmyagent/desktop` typecheck | TS is OS-agnostic — **not** re-run on Windows job (avoids duplicate) |
+| **Detect paths** | ubuntu | git diff path filter | Skip Windows host job when PR is docs/frontend-only |
+| **Checks** | ubuntu + macos | `pnpm check` + rename; **Linux only**: `test:windows-runtime` | Fail-fast mocked win32 contracts |
+| **Windows compat** | `windows-2022` | `test:windows-runtime` + preflight `--ci` | Real host; **skipped** if no Windows-relevant paths |
+| **Typecheck** | via Checks only | includes `@onmyagent/desktop` | TS is OS-agnostic — not re-run on Windows |
 
-**Not duplicated:** desktop typecheck (only in Checks).  
-**Run twice on purpose:** `test:windows-runtime` on Linux (fast) + Windows (host truth). Not on macos Checks.
+**Path filter** (any match → run Windows host job):
+
+- `apps/desktop/**`, `apps/orchestrator/**`
+- `scripts/dev/windows*`, `scripts/lib/run-command.mjs`
+- `package.json`, `pnpm-lock.yaml`, `constants.json`
+- `.github/workflows/ci-tests.yml`, `docs/windows-compat.md`
+
+**Not duplicated:** desktop typecheck; macos does not run windows-runtime.  
+**Intentional double-run:** `test:windows-runtime` on Linux (fail-fast) + Windows (host), only when host job is selected.
 
 Locally:
 
