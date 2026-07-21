@@ -4,7 +4,7 @@
  * skeleton | load error | waiting | expert empty | transcript.
  */
 import type { ReactNode } from "react";
-import { DevProfiler } from "../../../shell/dev-profiler";
+import { DevProfiler } from "../../../shell";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   AssistantWaitingCard,
