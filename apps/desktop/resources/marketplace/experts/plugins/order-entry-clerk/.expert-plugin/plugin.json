@@ -24,7 +24,7 @@
   "categoryId": "14-Logistics",
   "categoryIds": ["01-OPC", "14-Logistics"],
   "defaultInitPrompt": {
-    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单，并用 HTML 效果图逐步补全",
+    "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单",
     "en": "A customer messaged: 'Ship two injection molding machines from Shenzhen to Dongguan tomorrow morning, consignee Manager Liu, needs a tail-lift truck, ASAP.' Create a logistics waybill and progressively complete its HTML preview."
   },
   "tags": [
@@ -35,7 +35,7 @@
   ],
   "quickPrompts": [
     {
-      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单并逐步补全 HTML 效果图",
+      "zh": "客户微信发来：'明天上午从深圳发两台注塑机到东莞，收货人刘经理，要尾板车，越快越好'，帮我生成物流单",
       "en": "Create a logistics waybill from this customer message and progressively complete its HTML preview."
     },
     {
