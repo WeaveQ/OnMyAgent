@@ -225,19 +225,19 @@ def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) ->
             f'<div role="tabpanel" data-copy-panel="{variant["key"]}"{hidden}>{main.group(1)}</div>'
         )
     widget_style = """
-.waybill-copy-preview{width:100%;overflow:hidden}
+.waybill-copy-preview{width:100%;overflow:hidden;color:#28242f}
 .waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}
 .waybill-copy-tabs button{appearance:none;border:1px solid #b8b1bd;border-radius:8px;background:#f1eff3;color:#4b4650;padding:8px 6px;font:600 13px/1.2 system-ui,sans-serif;cursor:pointer}
 .waybill-copy-tabs button[aria-selected="true"]{border-color:#675b69;background:#514752;color:#fff}
 .waybill-copy-preview [role="tabpanel"][hidden]{display:none}
-.waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left}
+.waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f}
 """
     return (
         f"<style>{style.group(1)}{widget_style}</style>"
         '<section class="waybill-copy-preview" data-waybill-copy-preview>'
         f'<div class="waybill-copy-tabs" role="tablist" aria-label="物流单三联预览">{"".join(tabs)}</div>'
         f'{"".join(panels)}'
-        """<script>(()=>{const root=document.currentScript.closest('[data-waybill-copy-preview]');if(!root)return;const tabs=[...root.querySelectorAll('[data-copy-tab]')];const panels=[...root.querySelectorAll('[data-copy-panel]')];tabs.forEach(tab=>tab.addEventListener('click',()=>{const key=tab.getAttribute('data-copy-tab');tabs.forEach(item=>item.setAttribute('aria-selected',String(item===tab)));panels.forEach(panel=>{panel.hidden=panel.getAttribute('data-copy-panel')!==key})}))})()</script>"""
+        """<script>(()=>{const root=document.currentScript.closest('[data-waybill-copy-preview]');if(!root)return;const tabs=[...root.querySelectorAll('[data-copy-tab]')];const panels=[...root.querySelectorAll('[data-copy-panel]')];const select=key=>{tabs.forEach(item=>item.setAttribute('aria-selected',String(item.getAttribute('data-copy-tab')===key)));panels.forEach(panel=>{panel.hidden=panel.getAttribute('data-copy-panel')!==key});parent.postMessage({type:'onmyagent:waybill-copy',key},'*')};tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.getAttribute('data-copy-tab'))));select('white')})()</script>"""
         "</section>"
     )
 
@@ -481,6 +481,7 @@ def main() -> int:
         base_html = fill_html(template, template_values(data, state), state, data)
         rendered_copies: list[tuple[dict[str, str], str]] = []
         generated: list[str] = []
+        artifact_copies: list[dict[str, str]] = []
         html_paths: list[tuple[dict[str, str], Path]] = []
         for variant in COPY_VARIANTS:
             rendered_html = apply_copy_variant(base_html, variant)
@@ -499,6 +500,12 @@ def main() -> int:
                 write_xlsx(xlsx_path, data, state, variant)
                 write_pdf(html_path, pdf_path)
                 generated.extend((str(pdf_path), str(xlsx_path)))
+                artifact_copies.append({
+                    "key": variant["key"],
+                    "label": variant["label"],
+                    "pdf": str(pdf_path),
+                    "xlsx": str(xlsx_path),
+                })
         print(json.dumps({
             "ok": True,
             "state": state,
@@ -506,8 +513,9 @@ def main() -> int:
             "blockers": blockers,
             "files": generated,
             "inlineWidget": {
-                "title": "当前物流单",
+                "title": "物流单三联最终预览" if state == "final" and args.mode == "export" else "当前物流单三联预览",
                 "widget_code": inline_widget_fragment(rendered_copies),
+                "artifactCopies": artifact_copies,
             },
         }, ensure_ascii=False))
         return 0

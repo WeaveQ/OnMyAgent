@@ -21,7 +21,22 @@ interface ExportResponse {
   inlineWidget: {
     title: string;
     widget_code: string;
+    artifactCopies: Array<{
+      key: string;
+      label: string;
+      pdf: string;
+      xlsx: string;
+    }>;
   };
+}
+
+function isArtifactCopy(value: unknown): boolean {
+  return typeof value === "object" &&
+    value !== null &&
+    "key" in value && typeof value.key === "string" &&
+    "label" in value && typeof value.label === "string" &&
+    "pdf" in value && typeof value.pdf === "string" &&
+    "xlsx" in value && typeof value.xlsx === "string";
 }
 
 function isExportResponse(value: unknown): value is ExportResponse {
@@ -34,13 +49,16 @@ function isExportResponse(value: unknown): value is ExportResponse {
     typeof value.inlineWidget !== "object" ||
     value.inlineWidget === null ||
     !("title" in value.inlineWidget) ||
-    !("widget_code" in value.inlineWidget)
+    !("widget_code" in value.inlineWidget) ||
+    !("artifactCopies" in value.inlineWidget)
   ) return false;
   return typeof value.state === "string" &&
     Array.isArray(value.files) &&
     value.files.every((file) => typeof file === "string") &&
     typeof value.inlineWidget.title === "string" &&
-    typeof value.inlineWidget.widget_code === "string";
+    typeof value.inlineWidget.widget_code === "string" &&
+    Array.isArray(value.inlineWidget.artifactCopies) &&
+    value.inlineWidget.artifactCopies.every(isArtifactCopy);
 }
 
 function runGenerator(fixtureName: string, outputDir: string, mode: "preview" | "export") {
@@ -128,7 +146,19 @@ describe("order entry clerk expert contract", () => {
         expect(response.files.some((file) => file.endsWith(`${copyLabel}_最终版.pdf`))).toBe(true);
         expect(response.files.some((file) => file.endsWith(`${copyLabel}_最终版.xlsx`))).toBe(true);
       }
-      expect(response.inlineWidget.title).toBe("当前物流单");
+      expect(response.inlineWidget.title).toBe("物流单三联最终预览");
+      expect(response.inlineWidget.artifactCopies).toHaveLength(3);
+      expect(response.inlineWidget.artifactCopies.map((copy) => copy.key)).toEqual([
+        "white",
+        "red",
+        "yellow",
+      ]);
+      for (const copy of response.inlineWidget.artifactCopies) {
+        expect(response.files).toContain(copy.pdf);
+        expect(response.files).toContain(copy.xlsx);
+        expect(existsSync(copy.pdf)).toBe(true);
+        expect(existsSync(copy.xlsx)).toBe(true);
+      }
       expect(response.inlineWidget.widget_code).toStartWith("<style>");
       expect(response.inlineWidget.widget_code).toContain('data-template="common-logistics-transport-agreement-v2"');
       expect(response.inlineWidget.widget_code).not.toContain("<!doctype");
@@ -137,6 +167,8 @@ describe("order entry clerk expert contract", () => {
       expect(response.inlineWidget.widget_code).toContain('data-copy-tab="red"');
       expect(response.inlineWidget.widget_code).toContain('data-copy-tab="yellow"');
       expect(response.inlineWidget.widget_code).toContain('data-copy-panel="white"');
+      expect(response.inlineWidget.widget_code).toContain("onmyagent:waybill-copy");
+      expect(response.inlineWidget.widget_code).toContain("color:#28242f");
       expect(isSandboxedHtmlVisual(response.inlineWidget.widget_code)).toBe(true);
       const xlsxPaths = response.files.filter((file) => file.endsWith(".xlsx"));
       expect(xlsxPaths).toHaveLength(3);
@@ -150,6 +182,23 @@ describe("order entry clerk expert contract", () => {
       rmSync(outputDir, { recursive: true, force: true });
     }
   }, 30_000);
+
+  test("keeps the pending preview readable without exposing export actions", () => {
+    const outputDir = mkdtempSync(join(tmpdir(), "order-entry-clerk-preview-"));
+    try {
+      const result = runGenerator("incomplete-waybill.json", outputDir, "preview");
+      expect(result.status, result.stderr).toBe(0);
+      const response: unknown = JSON.parse(result.stdout);
+      expect(isExportResponse(response)).toBe(true);
+      if (!isExportResponse(response)) return;
+      expect(response.inlineWidget.title).toBe("当前物流单三联预览");
+      expect(response.inlineWidget.artifactCopies).toEqual([]);
+      expect(response.inlineWidget.widget_code).toContain("color:#28242f");
+      expect(response.inlineWidget.widget_code).not.toContain("opacity:.35");
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
 
   test("labels an export without vehicle and driver details as a pending-dispatch confirmation draft", () => {
     const outputDir = mkdtempSync(join(tmpdir(), "order-entry-clerk-pending-"));

@@ -262,6 +262,8 @@ export default {
   "session.visual_actions": "Visual actions",
   "session.visual_show_source": "Show source",
   "session.visual_hide_source": "Hide source",
+  "session.visual_export_pdf": "Export {copy} PDF",
+  "session.visual_export_excel": "Export {copy} Excel",
   "session.visual_invalid": "This visual could not be displayed safely.",
   "session.visual_loading": "Preparing visual preview",
   "session.visual_failed": "The visual could not be generated.",
