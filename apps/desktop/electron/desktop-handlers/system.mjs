@@ -284,9 +284,27 @@ export function createSystemDomainHandlers({
 
   __revealItemInDir: async (event, args) => {
     const target = String(args[0] ?? "").trim();
-    if (!target) return undefined;
-    shell.showItemInFolder(target);
-    return undefined;
+    if (!target) return { ok: false, reason: "empty_path" };
+    const absolute = path.resolve(target);
+    const pathExists = async (candidate) => {
+      try {
+        await stat(candidate);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (await pathExists(absolute)) {
+      shell.showItemInFolder(absolute);
+      return { ok: true, path: absolute };
+    }
+    // Relative / mistyped paths often point at a missing leaf; reveal parent when present.
+    const parent = path.dirname(absolute);
+    if (parent && parent !== absolute && (await pathExists(parent))) {
+      shell.showItemInFolder(parent);
+      return { ok: true, path: parent, reason: "revealed_parent" };
+    }
+    return { ok: false, reason: "not_found", path: absolute };
   },
 
   __fetch: async (event, args) => {

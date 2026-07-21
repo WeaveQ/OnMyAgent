@@ -83,6 +83,79 @@ function normalizePath(path: string) {
     .replace(WORKSPACE_ID_PREFIX_PATTERN, "");
 }
 
+function isAbsoluteFilesystemPath(value: string): boolean {
+  return value.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith("\\\\");
+}
+
+/**
+ * Resolve a workspace-relative or session-relative artifact path to an absolute
+ * filesystem path for desktop reveal/open.
+ *
+ * Handles the expert isolation case where `workspaceRoot` may be either the
+ * catalog workspace root or the per-session directory, while `value` may be
+ * relative to either — avoiding double-joined paths like:
+ *   /ws/agent/sid + agent/sid/output/x.pdf → /ws/agent/sid/agent/sid/output/x.pdf
+ */
+export function resolveArtifactAbsolutePath(
+  value: string,
+  workspaceRoot?: string | null,
+): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (isAbsoluteFilesystemPath(raw)) return raw;
+
+  const relative = raw.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
+  if (!relative) return null;
+
+  const root = (workspaceRoot ?? "").trim().replace(/[/\\]+$/, "");
+  if (!root) return relative;
+
+  const rootPosix = root.replace(/\\/g, "/");
+  const sep = root.includes("\\") ? "\\" : "/";
+  const rootParts = rootPosix.split("/").filter(Boolean);
+  const relParts = relative.split("/").filter(Boolean);
+
+  for (let overlap = Math.min(rootParts.length, relParts.length); overlap > 0; overlap -= 1) {
+    const rootSuffix = rootParts.slice(-overlap).join("/");
+    const relPrefix = relParts.slice(0, overlap).join("/");
+    if (rootSuffix.toLowerCase() === relPrefix.toLowerCase()) {
+      const rest = relParts.slice(overlap);
+      return rest.length ? `${root}${sep}${rest.join(sep)}` : root;
+    }
+  }
+
+  return `${root}${sep}${relParts.join(sep)}`;
+}
+
+/** Prefer verified target path, then raw path; build absolute candidates for reveal. */
+export function resolveArtifactRevealCandidates(
+  pathOrValue: string,
+  options: {
+    workspaceRoot?: string | null;
+    verifiedValue?: string | null;
+  } = {},
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (candidate: string | null | undefined) => {
+    const next = candidate?.trim();
+    if (!next || seen.has(next)) return;
+    seen.add(next);
+    out.push(next);
+  };
+
+  const verified = options.verifiedValue?.trim();
+  if (verified) {
+    push(resolveArtifactAbsolutePath(verified, options.workspaceRoot));
+    if (isAbsoluteFilesystemPath(verified)) push(verified);
+  }
+
+  push(resolveArtifactAbsolutePath(pathOrValue, options.workspaceRoot));
+  if (isAbsoluteFilesystemPath(pathOrValue.trim())) push(pathOrValue.trim());
+
+  return out;
+}
+
 function basename(value: string) {
   const clean = value.split(/[?#]/)[0] ?? value;
   return clean.split("/").filter(Boolean).pop() ?? value;
