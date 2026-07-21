@@ -76,6 +76,7 @@ import {
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
+  shouldIsolateExpertSessionDirectory,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
 import { CloudSessionProvider } from "../../domains/settings";
@@ -552,7 +553,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               surfaceProps?.draftWorkspaceDirectory?.trim() || "";
             let sessionDirectory = draftRoot || workspaceRoot || undefined;
             let bindDirectory = draftRoot || "";
-            if (!draftRoot && workspaceRoot) {
+            // Treat empty draft and "draft == workspace root" as no real folder pick.
+            if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
                 agentName: pendingAgentSnapshot?.name?.trim() || "expert",
